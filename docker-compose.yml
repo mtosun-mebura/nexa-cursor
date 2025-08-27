@@ -1,0 +1,83 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: nexa_db
+    environment:
+      POSTGRES_USER: nexa
+      POSTGRES_PASSWORD: nexa
+      POSTGRES_DB: nexa
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: nexa_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: nexa_n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=n8n.local
+      - N8N_PORT=5678
+      - GENERIC_TIMEZONE=Europe/Amsterdam
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexa_backend
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: nexa
+      DB_USERNAME: nexa
+      DB_PASSWORD: nexa
+    volumes:
+      - ./backend:/var/www/html
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  frontend:
+    image: node:20
+    container_name: nexa_frontend
+    working_dir: /workspace/frontend
+    command: bash -lc "npm install && npx ng serve --host 0.0.0.0 --port 4200 --disable-host-check"
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/workspace/frontend
+    environment:
+      - NPM_CONFIG_CACHE=/tmp/npmcache
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  n8n_data:
+  ollama_data:
+
+
