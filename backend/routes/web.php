@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminLayoutController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminPermissionController;
+use App\Http\Controllers\PublicVacancyController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,7 +22,9 @@ use App\Http\Controllers\Admin\AdminPermissionController;
 |--------------------------------------------------------------------------
 */
 
-
+// Publieke vacatures routes
+Route::get('/vacatures', [PublicVacancyController::class, 'index'])->name('vacancies.index');
+Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacancies.show');
 
 // Admin Authentication Routes
 Route::middleware(['web'])->group(function () {
@@ -75,7 +78,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     });
 });
 
-// Redirect root to admin login
+// Redirect root to vacatures pagina
 Route::get('/', function () {
-    return redirect()->route('admin.login');
+    return redirect()->route('vacancies.index');
 });

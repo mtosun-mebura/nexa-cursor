@@ -25,12 +25,8 @@ trait TenantFilter
                     $query->where('company_id', session('selected_tenant'));
                 }
             } else {
-                // Als geen tenant geselecteerd, toon alleen eigen bedrijfsdata
-                if ($tableName === 'companies') {
-                    $query->where('id', $user->company_id);
-                } else {
-                    $query->where('company_id', $user->company_id);
-                }
+                // Als geen tenant geselecteerd, toon alle data (geen filtering)
+                return $query;
             }
         } else {
             // Company admin en staff kunnen alleen hun eigen bedrijfsdata zien
@@ -48,8 +44,8 @@ trait TenantFilter
     {
         $user = auth()->user();
         
-        if ($user->hasRole('super-admin') && session('selected_tenant')) {
-            return session('selected_tenant');
+        if ($user->hasRole('super-admin')) {
+            return session('selected_tenant') ?? null;
         }
         
         return $user->company_id;
