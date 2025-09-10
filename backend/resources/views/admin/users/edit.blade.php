@@ -24,7 +24,7 @@
                         <i class="fas fa-user-edit"></i> Gebruiker Bewerken
                     </h5>
                     <div>
-                        <a href="{{ route('admin.users.show', $user) }}" class="btn btn-info me-2">
+                        <a href="{{ route('admin.users.show', $user) }}" class="material-btn material-btn-info me-2">
                             <i class="fas fa-eye"></i> Bekijken
                         </a>
                         <a href="{{ route('admin.users.index') }}" class="material-btn material-btn-secondary">
@@ -152,9 +152,11 @@
                                             id="role" name="role" required>
                                         <option value="">Selecteer rol</option>
                                         @foreach($roles as $role)
+                                            @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
                                             <option value="{{ $role->name }}" {{ old('role', $user->roles->first()->name ?? '') == $role->name ? 'selected' : '' }}>
                                                 {{ ucfirst(str_replace('-', ' ', $role->name)) }}
                                             </option>
+                                            @endif
                                         @endforeach
                                     </select>
                                     @error('role')
@@ -165,7 +167,7 @@
                         </div>
 
                         <div class="material-form-actions">
-                            <a href="{{ route('admin.users.index') }}" class="btn btn-secondary me-2">Annuleren</a>
+                            <a href="{{ route('admin.users.index') }}" class="material-btn material-btn-secondary">Annuleren</a>
                             <button type="submit" class="material-btn material-btn-primary">
                                 <i class="fas fa-save"></i> Wijzigingen Opslaan
                             </button>

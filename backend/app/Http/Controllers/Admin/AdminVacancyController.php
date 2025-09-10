@@ -15,6 +15,10 @@ class AdminVacancyController extends Controller
     
     public function index(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures te bekijken.');
+        }
+        
         $query = Vacancy::with(['company', 'category']);
         $this->applyTenantFilter($query);
         
@@ -40,7 +44,8 @@ class AdminVacancyController extends Controller
             $query->latest('publication_date');
         }
         
-        $vacancies = $query->paginate(20);
+        $perPage = $request->get('per_page', 5);
+        $vacancies = $query->paginate($perPage);
         
         // Status statistieken
         $statusStatsQuery = Vacancy::query();
@@ -61,6 +66,10 @@ class AdminVacancyController extends Controller
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures aan te maken.');
+        }
+        
         $companies = Company::all();
         $categories = Category::all();
         return view('admin.vacancies.create', compact('companies', 'categories'));
@@ -68,6 +77,10 @@ class AdminVacancyController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures aan te maken.');
+        }
+        
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
@@ -110,6 +123,10 @@ class AdminVacancyController extends Controller
 
     public function show(Vacancy $vacancy)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures te bekijken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($vacancy)) {
             abort(403, 'Je hebt geen toegang tot deze vacature.');
@@ -122,6 +139,10 @@ class AdminVacancyController extends Controller
 
     public function edit(Vacancy $vacancy)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($vacancy)) {
             abort(403, 'Je hebt geen toegang tot deze vacature.');
@@ -134,6 +155,10 @@ class AdminVacancyController extends Controller
 
     public function update(Request $request, Vacancy $vacancy)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($vacancy)) {
             abort(403, 'Je hebt geen toegang tot deze vacature.');
@@ -187,6 +212,10 @@ class AdminVacancyController extends Controller
 
     public function destroy(Vacancy $vacancy)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures te verwijderen.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($vacancy)) {
             abort(403, 'Je hebt geen toegang tot deze vacature.');

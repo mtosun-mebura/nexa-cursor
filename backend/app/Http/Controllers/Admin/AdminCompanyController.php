@@ -13,6 +13,10 @@ class AdminCompanyController extends Controller
     
     public function index()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
+        }
+        
         $query = Company::withCount(['users', 'vacancies']);
         $this->applyTenantFilter($query);
         $companies = $query->orderBy('created_at', 'desc')->paginate(15);
@@ -22,11 +26,19 @@ class AdminCompanyController extends Controller
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
+        }
+        
         return view('admin.companies.create');
     }
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'kvk_number' => 'nullable|string|max:20',
@@ -51,6 +63,10 @@ class AdminCompanyController extends Controller
 
     public function show(Company $company)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
@@ -63,6 +79,10 @@ class AdminCompanyController extends Controller
 
     public function edit(Company $company)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
@@ -73,6 +93,10 @@ class AdminCompanyController extends Controller
 
     public function update(Request $request, Company $company)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
@@ -101,6 +125,10 @@ class AdminCompanyController extends Controller
 
     public function destroy(Company $company)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven te verwijderen.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') - Nexa Skillmatching</title>
     
     <!-- Bootstrap 5 -->
@@ -13,6 +14,9 @@
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
         :root {
@@ -91,7 +95,7 @@
         /* Sidebar */
         .admin-sidebar {
             width: 280px;
-            background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            background: #2C3E50;
             color: white;
             position: fixed;
             height: 100vh;
@@ -256,8 +260,9 @@
 
         .sidebar-header {
             padding: var(--spacing-lg);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
             text-align: center;
+            background: rgba(0, 0, 0, 0.1);
         }
 
         .sidebar-header h5 {
@@ -294,15 +299,17 @@
         }
 
         .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.15);
             color: white;
             transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .nav-link.active {
-            background-color: rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.25);
             color: white;
-            box-shadow: var(--elevation-1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-left: 4px solid #3498db;
         }
 
         .nav-link.active::before {
@@ -904,6 +911,10 @@
             box-shadow: var(--elevation-2);
         }
 
+        .material-card .card-body {
+            padding: 0;
+        }
+
         .material-btn {
             border-radius: var(--radius-md);
             text-transform: uppercase;
@@ -1297,60 +1308,70 @@
                         <span>Dashboard</span>
                     </a>
                 </div>
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-companies'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.companies.*') ? 'active' : '' }}" href="{{ route('admin.companies.index') }}">
                         <i class="fas fa-building"></i>
                         <span>Bedrijven</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-users'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}" href="{{ route('admin.users.index') }}">
                         <i class="fas fa-users"></i>
                         <span>Gebruikers</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-categories'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}" href="{{ route('admin.categories.index') }}">
                         <i class="fas fa-tags"></i>
                         <span>Categorieën</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-vacancies'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.vacancies.*') ? 'active' : '' }}" href="{{ route('admin.vacancies.index') }}">
                         <i class="fas fa-briefcase"></i>
                         <span>Vacatures</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-matches'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.matches.*') ? 'active' : '' }}" href="{{ route('admin.matches.index') }}">
                         <i class="fas fa-handshake"></i>
                         <span>Matches</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-interviews'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.interviews.*') ? 'active' : '' }}" href="{{ route('admin.interviews.index') }}">
                         <i class="fas fa-calendar-alt"></i>
                         <span>Interviews</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-notifications'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}" href="{{ route('admin.notifications.index') }}">
                         <i class="fas fa-bell"></i>
                         <span>Notificaties</span>
                     </a>
                 </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-email-templates'))
                 <div class="nav-item">
                     <a class="nav-link {{ request()->routeIs('admin.email-templates.*') ? 'active' : '' }}" href="{{ route('admin.email-templates.index') }}">
                         <i class="fas fa-envelope"></i>
                         <span>E-mail Templates</span>
                     </a>
                 </div>
-                <div class="nav-item">
-                    <a class="nav-link {{ request()->routeIs('admin.layouts.*') ? 'active' : '' }}" href="{{ route('admin.layouts.index') }}">
-                        <i class="fas fa-palette"></i>
-                        <span>Layouts</span>
-                    </a>
-                </div>
+                @endif
                 
                 <!-- Roles & Permissions (Super Admin only) -->
                 @if(auth()->user()->hasRole('super-admin'))
@@ -1364,6 +1385,12 @@
                         <a class="nav-link {{ request()->routeIs('admin.permissions.*') ? 'active' : '' }}" href="{{ route('admin.permissions.index') }}">
                             <i class="fas fa-key"></i>
                             <span>Rechten</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('admin.payment-providers.*') ? 'active' : '' }}" href="{{ route('admin.payment-providers.index') }}">
+                            <i class="fas fa-credit-card"></i>
+                            <span>Betalingsproviders</span>
                         </a>
                     </div>
                 @endif

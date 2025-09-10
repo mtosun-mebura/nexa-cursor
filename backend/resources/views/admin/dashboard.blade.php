@@ -16,7 +16,7 @@
     .dashboard-header h1 {
         margin: 0;
         font-weight: 300;
-        font-size: 2.5rem;
+        font-size: 1.5rem;
     }
     
     .dashboard-header p {
@@ -92,7 +92,7 @@
     }
     
     .stat-number {
-        font-size: 2.5rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #333;
         margin: 0;
@@ -202,7 +202,7 @@
     
     @media (max-width: 768px) {
         .dashboard-header h1 {
-            font-size: 2rem;
+            font-size: 1.5rem;
         }
         
         .stat-content {

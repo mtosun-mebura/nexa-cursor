@@ -13,16 +13,44 @@ class AdminRoleController extends Controller
 
     public function index()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen te bekijken.');
+        }
+        
         $roles = Role::with('permissions')
             ->where('guard_name', 'web')
             ->orderBy('name')
             ->get();
 
-        return view('admin.roles.index', compact('roles'));
+        // Statistieken voor dashboard
+        $stats = [
+            'total_roles' => Role::where('guard_name', 'web')->count(),
+            'system_roles' => Role::where('guard_name', 'web')
+                ->whereIn('name', ['super-admin', 'company-admin', 'staff', 'candidate'])
+                ->count(),
+            'custom_roles' => Role::where('guard_name', 'web')
+                ->whereNotIn('name', ['super-admin', 'company-admin', 'staff', 'candidate'])
+                ->count(),
+            'roles_with_permissions' => Role::where('guard_name', 'web')
+                ->whereHas('permissions')
+                ->count(),
+            'total_users_with_roles' => \App\Models\User::whereHas('roles')->count(),
+            'roles_by_usage' => Role::where('guard_name', 'web')
+                ->withCount('users')
+                ->orderBy('users_count', 'desc')
+                ->take(5)
+                ->get()
+        ];
+
+        return view('admin.roles.index', compact('roles', 'stats'));
     }
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen aan te maken.');
+        }
+        
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
             ->get()
@@ -37,6 +65,10 @@ class AdminRoleController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen aan te maken.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
             'description' => 'nullable|string|max:500',
@@ -58,6 +90,10 @@ class AdminRoleController extends Controller
 
     public function show(Role $role)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen te bekijken.');
+        }
+        
         $role->load(['permissions', 'users.company']);
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
@@ -72,6 +108,10 @@ class AdminRoleController extends Controller
 
     public function edit(Role $role)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen te bewerken.');
+        }
+        
         $role->load('permissions');
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
@@ -86,6 +126,10 @@ class AdminRoleController extends Controller
 
     public function update(Request $request, Role $role)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen te bewerken.');
+        }
+        
         // Check if this is a system role
         $isSystemRole = in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']);
         
@@ -122,6 +166,10 @@ class AdminRoleController extends Controller
 
     public function destroy(Role $role)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen te verwijderen.');
+        }
+        
         // Prevent deletion of system roles
         if (in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate'])) {
             return back()->with('error', 'Systeem rollen kunnen niet worden verwijderd.');

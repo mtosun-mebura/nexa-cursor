@@ -5,10 +5,10 @@
 @section('content')
 <style>
     :root {
-        --primary-color: #795548;
-        --primary-light: #a1887f;
-        --primary-dark: #5d4037;
-        --primary-hover: #8d6e63;
+        --primary-color: #ff6b6b;
+        --primary-light: #ee5a24;
+        --primary-dark: #e74c3c;
+        --primary-hover: #ff5252;
     }
 </style>
 
@@ -24,7 +24,7 @@
                         <i class="fas fa-bell"></i> Notificatie Bewerken
                     </h5>
                     <div>
-                        <a href="{{ route('admin.notifications.show', $notification) }}" class="btn btn-info me-2">
+                        <a href="{{ route('admin.notifications.show', $notification) }}" class="material-btn material-btn-info me-2">
                             <i class="fas fa-eye"></i> Bekijken
                         </a>
                         <a href="{{ route('admin.notifications.index') }}" class="material-btn material-btn-secondary">
@@ -54,11 +54,25 @@
                                     <select class="material-form-select @error('user_id') is-invalid @enderror" 
                                             id="user_id" name="user_id" required>
                                         <option value="">Selecteer gebruiker</option>
-                                        @foreach(\App\Models\User::all() as $user)
-                                            <option value="{{ $user->id }}" {{ old('user_id', $notification->user_id) == $user->id ? 'selected' : '' }}>
-                                                {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
-                                            </option>
-                                        @endforeach
+                                        @if(auth()->user()->hasRole('super-admin'))
+                                            @php
+                                                $selectedTenant = session('selected_tenant');
+                                                $users = $selectedTenant 
+                                                    ? \App\Models\User::where('company_id', $selectedTenant)->where('id', '!=', auth()->id())->get()
+                                                    : \App\Models\User::where('id', '!=', auth()->id())->get();
+                                            @endphp
+                                            @foreach($users as $user)
+                                                <option value="{{ $user->id }}" {{ old('user_id', $notification->user_id) == $user->id ? 'selected' : '' }}>
+                                                    {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
+                                                </option>
+                                            @endforeach
+                                        @else
+                                            @foreach(\App\Models\User::where('company_id', auth()->user()->company_id)->where('id', '!=', auth()->id())->get() as $user)
+                                                <option value="{{ $user->id }}" {{ old('user_id', $notification->user_id) == $user->id ? 'selected' : '' }}>
+                                                    {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
+                                                </option>
+                                            @endforeach
+                                        @endif
                                     </select>
                                     @error('user_id')
                                         <div class="material-invalid-feedback">{{ $message }}</div>
@@ -185,7 +199,7 @@
                         </div>
 
                         <div class="material-form-actions">
-                            <a href="{{ route('admin.notifications.index') }}" class="btn btn-secondary me-2">Annuleren</a>
+                            <a href="{{ route('admin.notifications.index') }}" class="material-btn material-btn-secondary">Annuleren</a>
                             <button type="submit" class="material-btn material-btn-primary">
                                 <i class="fas fa-save"></i> Wijzigingen Opslaan
                             </button>

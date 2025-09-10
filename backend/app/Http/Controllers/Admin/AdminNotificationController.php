@@ -13,6 +13,10 @@ class AdminNotificationController extends Controller
     
     public function index()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties te bekijken.');
+        }
+        
         $query = Notification::with('user');
         $this->applyTenantFilter($query);
         $notifications = $query->paginate(10);
@@ -21,12 +25,20 @@ class AdminNotificationController extends Controller
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties aan te maken.');
+        }
+        
         $users = \App\Models\User::where('company_id', $this->getTenantId())->get();
         return view('admin.notifications.create', compact('users'));
     }
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties aan te maken.');
+        }
+        
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'type' => 'required|in:match,interview,application,system,email,reminder',
@@ -54,6 +66,10 @@ class AdminNotificationController extends Controller
 
     public function show(Notification $notification)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties te bekijken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
             abort(403, 'Je hebt geen toegang tot deze notificatie.');
@@ -64,6 +80,10 @@ class AdminNotificationController extends Controller
 
     public function edit(Notification $notification)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
             abort(403, 'Je hebt geen toegang tot deze notificatie.');
@@ -75,6 +95,10 @@ class AdminNotificationController extends Controller
 
     public function update(Request $request, Notification $notification)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
             abort(403, 'Je hebt geen toegang tot deze notificatie.');
@@ -104,6 +128,10 @@ class AdminNotificationController extends Controller
 
     public function destroy(Notification $notification)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-notifications')) {
+            abort(403, 'Je hebt geen rechten om notificaties te verwijderen.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
             abort(403, 'Je hebt geen toegang tot deze notificatie.');

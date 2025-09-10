@@ -27,7 +27,7 @@ class UserRoleSeeder extends Seeder
             [
                 'first_name' => 'Mehmet',
                 'last_name' => 'Tosun',
-                'password' => bcrypt('password123'),
+                'password' => bcrypt('!'),
                 'email_verified_at' => now(),
             ]
         );
@@ -37,7 +37,7 @@ class UserRoleSeeder extends Seeder
             [
                 'first_name' => 'Mali',
                 'last_name' => 'Tosun',
-                'password' => bcrypt('password123'),
+                'password' => bcrypt('Mali12345'),
                 'email_verified_at' => now(),
             ]
         );
@@ -53,7 +53,7 @@ class UserRoleSeeder extends Seeder
         }
 
         $this->command->info('Users and roles assigned successfully!');
-        $this->command->info('Super Admin: m.tosun@mebura.nl (password: password123)');
-        $this->command->info('Company Admin: mali@tosun.nl (password: password123)');
+        $this->command->info('Super Admin: m.tosun@mebura.nl (password: !)');
+        $this->command->info('Company Admin: mali@tosun.nl (password: Mali12345)');
     }
 }

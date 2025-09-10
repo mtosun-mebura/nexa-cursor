@@ -170,7 +170,7 @@
                         </div>
 
                         <div class="material-form-actions">
-                            <a href="{{ route('admin.matches.index') }}" class="btn btn-secondary me-2">Annuleren</a>
+                            <a href="{{ route('admin.matches.index') }}" class="material-btn material-btn-secondary">Annuleren</a>
                             <button type="submit" class="material-btn material-btn-primary">
                                 <i class="fas fa-save"></i> Match Opslaan
                             </button>

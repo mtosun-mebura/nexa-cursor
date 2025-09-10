@@ -11,12 +11,20 @@ class AdminEmailTemplateController extends Controller
 {
     public function index()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
+        }
+        
         $emailTemplates = EmailTemplate::with('company')->paginate(10);
         return view('admin.email-templates.index', compact('emailTemplates'));
     }
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+        }
+        
         $companies = Company::all();
         
         // Template variabelen voor de view
@@ -36,6 +44,10 @@ class AdminEmailTemplateController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
@@ -62,6 +74,10 @@ class AdminEmailTemplateController extends Controller
 
     public function show(EmailTemplate $emailTemplate)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
+        }
+        
         // Template variabelen voor de view
         $templateVariables = [
             'name' => 'Gebruikersnaam',
@@ -79,6 +95,10 @@ class AdminEmailTemplateController extends Controller
 
     public function edit(EmailTemplate $emailTemplate)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+        }
+        
         $companies = Company::all();
         
         // Template variabelen voor de view
@@ -98,6 +118,10 @@ class AdminEmailTemplateController extends Controller
 
     public function update(Request $request, EmailTemplate $emailTemplate)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
@@ -124,6 +148,10 @@ class AdminEmailTemplateController extends Controller
 
     public function destroy(EmailTemplate $emailTemplate)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates te verwijderen.');
+        }
+        
         $emailTemplate->delete();
         return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol verwijderd.');
     }

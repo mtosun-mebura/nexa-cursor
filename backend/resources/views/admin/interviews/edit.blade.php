@@ -24,7 +24,7 @@
                         <i class="fas fa-calendar-alt"></i> Interview Bewerken
                     </h5>
                     <div>
-                        <a href="{{ route('admin.interviews.show', $interview) }}" class="btn btn-info me-2">
+                        <a href="{{ route('admin.interviews.show', $interview) }}" class="material-btn material-btn-info me-2">
                             <i class="fas fa-eye"></i> Bekijken
                         </a>
                         <a href="{{ route('admin.interviews.index') }}" class="material-btn material-btn-secondary">
@@ -195,7 +195,7 @@
                         </div>
 
                         <div class="material-form-actions">
-                            <a href="{{ route('admin.interviews.index') }}" class="btn btn-secondary me-2">Annuleren</a>
+                            <a href="{{ route('admin.interviews.index') }}" class="material-btn material-btn-secondary">Annuleren</a>
                             <button type="submit" class="material-btn material-btn-primary">
                                 <i class="fas fa-save"></i> Wijzigingen Opslaan
                             </button>

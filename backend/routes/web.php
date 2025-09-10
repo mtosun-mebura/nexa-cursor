@@ -11,9 +11,11 @@ use App\Http\Controllers\Admin\AdminMatchController;
 use App\Http\Controllers\Admin\AdminInterviewController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
-use App\Http\Controllers\Admin\AdminLayoutController;
+use App\Http\Controllers\Admin\AdminCandidateController;
+
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminPermissionController;
+use App\Http\Controllers\Admin\AdminPaymentProviderController;
 use App\Http\Controllers\PublicVacancyController;
 
 /*
@@ -65,8 +67,14 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Email Templates
     Route::resource('email-templates', AdminEmailTemplateController::class);
     
-    // Layouts
-    Route::resource('layouts', AdminLayoutController::class);
+    // Candidates (Super Admin only)
+    Route::middleware('role:super-admin')->group(function () {
+        Route::resource('candidates', AdminCandidateController::class);
+        Route::post('candidates/{candidate}/toggle-status', [AdminCandidateController::class, 'toggleStatus'])->name('candidates.toggle-status');
+        Route::get('candidates/{candidate}/download-cv', [AdminCandidateController::class, 'downloadCV'])->name('candidates.download-cv');
+    });
+    
+
     
     // Roles & Permissions (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {
@@ -75,6 +83,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('permissions/{permission}/assign-to-role', [AdminPermissionController::class, 'assignToRole'])->name('permissions.assign-to-role');
         Route::get('permissions/bulk/create', [AdminPermissionController::class, 'bulkCreate'])->name('permissions.bulk-create');
         Route::post('permissions/bulk/store', [AdminPermissionController::class, 'bulkStore'])->name('permissions.bulk-store');
+        
+        // Payment Providers (Super Admin only)
+        Route::resource('payment-providers', AdminPaymentProviderController::class);
+        Route::post('payment-providers/{paymentProvider}/toggle-status', [AdminPaymentProviderController::class, 'toggleStatus'])->name('payment-providers.toggle-status');
+        Route::post('payment-providers/{paymentProvider}/test-connection', [AdminPaymentProviderController::class, 'testConnection'])->name('payment-providers.test-connection');
     });
 });
 

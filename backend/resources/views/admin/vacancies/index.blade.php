@@ -42,7 +42,7 @@
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
         color: white;
         border-radius: 0;
-        padding: 24px 32px;
+        padding: 10px 24px;
         border: none;
         position: relative;
         overflow: hidden;
@@ -65,7 +65,7 @@
     }
     
     .material-card .card-body {
-        padding: 32px;
+        padding: 0px;
     }
     
     .material-btn {
@@ -73,14 +73,14 @@
         text-transform: uppercase;
         font-weight: 500;
         letter-spacing: 0.5px;
-        padding: 12px 24px;
+        padding: 6px 12px;
         border: none;
         transition: var(--transition);
         box-shadow: var(--shadow-light);
         position: relative;
         overflow: hidden;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
     }
     
     .material-btn::before {
@@ -128,13 +128,18 @@
         border: none;
         font-weight: 600;
         color: var(--dark-text);
-        padding: 20px 16px;
+        padding: 12px 16px;
         text-transform: uppercase;
         font-size: 12px;
         letter-spacing: 1px;
         cursor: pointer;
         transition: var(--transition);
         position: relative;
+    }
+
+    .material-table thead th.highlight {
+        background: var(--secondary-color);
+        color: var(--primary-color);
     }
     
     .material-table thead th:hover {
@@ -162,7 +167,7 @@
     }
     
     .material-table tbody td {
-        padding: 20px 16px;
+        padding: 12px 16px;
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
         transition: var(--transition);
@@ -182,7 +187,7 @@
     .material-table.table-hover tbody tr:hover {
         background-color: #e3f2fd !important;
         background: #e3f2fd !important;
-        transform: scale(1.01);
+        transform: scale(1.005);
         transition: background-color 0.3s ease;
     }
     
@@ -212,7 +217,7 @@
     }
     
     .status-badge {
-        padding: 8px 16px;
+        padding: 6px 12px;
         border-radius: 20px;
         font-size: 11px;
         font-weight: 600;
@@ -250,7 +255,7 @@
     
     .action-buttons {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         flex-wrap: wrap;
     }
     
@@ -338,7 +343,7 @@
     }
     
     .vacancy-location {
-        font-size: 14px;
+        font-size: 12px;
         color: var(--medium-text);
         display: flex;
         align-items: center;
@@ -376,64 +381,57 @@
     }
     
     .date-info {
-        font-size: 14px;
+        font-size: 12px;
         color: var(--medium-text);
     }
     
+
+    /* Filters Section */
     .filters-section {
         background: var(--light-bg);
-        border-radius: var(--border-radius);
-        padding: 24px;
-        margin-bottom: 24px;
-        box-shadow: var(--shadow-light);
+        padding: 10px 24px;
+        border-bottom: 1px solid var(--border-color);
     }
-    
+
     .filter-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
         margin-bottom: 16px;
     }
-    
+
     .filter-label {
+        display: block;
+        font-size: 12px;
         font-weight: 600;
-        color: var(--dark-text);
-        min-width: 100px;
-        font-size: 14px;
+        color: var(--medium-text);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0px;
     }
-    
+
     .filter-select {
-        border: 2px solid var(--border-color);
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
         border-radius: var(--border-radius);
-        padding: 10px 14px;
-        background: white;
-        min-width: 160px;
-        font-size: 14px;
+        background-color: white;
+        font-size: 12px;
+        color: var(--dark-text);
         transition: var(--transition);
-        cursor: pointer;
         appearance: none;
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
         background-repeat: no-repeat;
-        background-position: right 10px center;
-        background-size: 14px;
-        padding-right: 35px;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 40px;
     }
-    
+
     .filter-select:focus {
         outline: none;
         border-color: var(--primary-color);
         box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1);
     }
-    
-    .filter-select:hover {
-        border-color: var(--primary-light);
-    }
-    
-    .filter-select option {
-        padding: 10px 16px;
-        background-color: white;
-        color: var(--dark-text);
-    }
+
     
     .stats-cards {
         display: grid;
@@ -445,7 +443,7 @@
     .stat-card {
         background: white;
         border-radius: var(--border-radius);
-        padding: 24px;
+        padding: 10px;
         box-shadow: var(--shadow-light);
         text-align: center;
         transition: var(--transition);
@@ -469,9 +467,9 @@
     }
     
     .stat-number {
-        font-size: 2.5rem;
+        font-size: 1.5rem;
         font-weight: 700;
-        margin-bottom: 8px;
+        margin-bottom: 0px;
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -507,36 +505,89 @@
         background: linear-gradient(135deg, var(--danger-color) 0%, #ef5350 100%);
     }
     
+    /* Results Info */
+    .results-info-wrapper {
+        padding: 12px 24px;
+        background: var(--light-bg);
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .results-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .results-text {
+        font-size: 0.875rem;
+        color: var(--medium-text);
+        display: flex;
+        align-items: center;
+    }
+    
+    .results-text i {
+        color: var(--primary-color);
+        font-size: 0.875rem;
+    }
+
+    /* Pagination */
     .pagination-wrapper {
+        padding: 16px 24px;
+        background: var(--light-bg);
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .pagination {
         display: flex;
         justify-content: center;
-        margin-top: 32px;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    
+    .page-item {
+        list-style: none;
     }
     
     .page-link {
-        color: var(--primary-color);
-        border: 1px solid var(--border-color);
-        padding: 12px 16px;
-        margin: 0 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
         border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--dark-text);
         text-decoration: none;
         transition: var(--transition);
         font-weight: 500;
     }
     
     .page-link:hover {
-        background: var(--primary-color);
-        color: white;
+        background: var(--secondary-color);
         border-color: var(--primary-color);
+        color: var(--primary-color);
         transform: translateY(-2px);
-        box-shadow: var(--shadow-light);
+        box-shadow: var(--shadow-medium);
+        text-decoration: none;
     }
     
     .page-item.active .page-link {
-        background: var(--primary-color);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
         border-color: var(--primary-color);
         color: white;
         box-shadow: var(--shadow-medium);
+    }
+    
+    .page-item.disabled .page-link {
+        background: #f5f5f5;
+        color: #ccc;
+        cursor: not-allowed;
+        border-color: #e0e0e0;
     }
     
     .alert {
@@ -558,18 +609,6 @@
             grid-template-columns: repeat(2, 1fr);
         }
         
-        .filter-group {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        
-        .filter-label {
-            min-width: auto;
-        }
-        
-        .filter-select {
-            min-width: auto;
-        }
         
         .action-buttons {
             justify-content: center;
@@ -607,87 +646,153 @@
             </div>
 
             <div class="material-card">
+                <!-- Header -->
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-briefcase me-2"></i> Vacatures Overzicht
+                        <i class="fas fa-briefcase me-2"></i> Vacatures Beheer
                     </h5>
-                    <a href="{{ route('admin.vacancies.create') }}" class="material-btn material-btn-primary">
-                        <i class="fas fa-plus me-2"></i> Nieuwe Vacature
-                    </a>
+                    <div class="d-flex gap-2">
+                        @can('create-vacancies')
+                            <a href="{{ route('admin.vacancies.create') }}" class="material-btn material-btn-primary">
+                                <i class="fas fa-plus me-2"></i> Nieuwe Vacature
+                            </a>
+                        @endcan
+                    </div>
                 </div>
-                <div class="card-body">
-                    @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
 
-                    <!-- Filters -->
-                    <div class="filters-section">
+                <!-- Success Message -->
+                @if(session('success'))
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        {{ session('success') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                @endif
+
+                <!-- Filters -->
+                <div class="filters-section">
                         <form method="GET" action="{{ route('admin.vacancies.index') }}" id="filters-form">
                             <div class="row">
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Status</label>
-                                        <select name="status" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle statussen</option>
-                                            <option value="Open" {{ request('status') == 'Open' ? 'selected' : '' }}>Open</option>
-                                            <option value="Gesloten" {{ request('status') == 'Gesloten' ? 'selected' : '' }}>Gesloten</option>
-                                            <option value="In behandeling" {{ request('status') == 'In behandeling' ? 'selected' : '' }}>In behandeling</option>
-                                        </select>
+                                @if(auth()->user()->hasRole('super-admin'))
+                                    <!-- Super-admin: 5 kolommen over gehele breedte -->
+                                    <div class="col-md-2">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Status</label>
+                                            <select name="status" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle statussen</option>
+                                                <option value="Open" {{ request('status') == 'Open' ? 'selected' : '' }}>Open</option>
+                                                <option value="Gesloten" {{ request('status') == 'Gesloten' ? 'selected' : '' }}>Gesloten</option>
+                                                <option value="In behandeling" {{ request('status') == 'In behandeling' ? 'selected' : '' }}>In behandeling</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Categorie</label>
-                                        <select name="category_id" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle categorieën</option>
-                                            @foreach($categories ?? [] as $category)
-                                                <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
-                                                    {{ $category->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                    <div class="col-md-2">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Categorie</label>
+                                            <select name="category_id" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle categorieën</option>
+                                                @foreach($categories ?? [] as $category)
+                                                    <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
+                                                        {{ $category->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Bedrijf</label>
-                                        <select name="company_id" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle bedrijven</option>
-                                            @foreach($companies ?? [] as $company)
-                                                <option value="{{ $company->id }}" {{ request('company_id') == $company->id ? 'selected' : '' }}>
-                                                    {{ $company->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                    <div class="col-md-2">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Bedrijf</label>
+                                            <select name="company_id" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle bedrijven</option>
+                                                @foreach($companies ?? [] as $company)
+                                                    <option value="{{ $company->id }}" {{ request('company_id') == $company->id ? 'selected' : '' }}>
+                                                        {{ $company->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Sortering</label>
-                                        <select name="sort_by" class="filter-select" onchange="this.form.submit()">
-                                            <option value="publication_date" {{ request('sort_by') == 'publication_date' ? 'selected' : '' }}>Publicatiedatum</option>
-                                            <option value="title" {{ request('sort_by') == 'title' ? 'selected' : '' }}>Titel</option>
-                                            <option value="location" {{ request('sort_by') == 'location' ? 'selected' : '' }}>Locatie</option>
-                                            <option value="company_id" {{ request('sort_by') == 'company_id' ? 'selected' : '' }}>Bedrijf</option>
-                                            <option value="category_id" {{ request('sort_by') == 'category_id' ? 'selected' : '' }}>Categorie</option>
-                                            <option value="status" {{ request('sort_by') == 'status' ? 'selected' : '' }}>Status</option>
-                                        </select>
+                                    <div class="col-md-2">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Items per pagina</label>
+                                            <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                                <option value="5" {{ request('per_page', 5) == 5 ? 'selected' : '' }}>5</option>
+                                                <option value="15" {{ request('per_page', 5) == 15 ? 'selected' : '' }}>15</option>
+                                                <option value="25" {{ request('per_page', 5) == 25 ? 'selected' : '' }}>25</option>
+                                                <option value="50" {{ request('per_page', 5) == 50 ? 'selected' : '' }}>50</option>
+                                                <option value="100" {{ request('per_page', 5) == 100 ? 'selected' : '' }}>100</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
+                                    <div class="col-md-2">
+                                        <div class="filter-group">
+                                            <label class="filter-label">&nbsp;</label>
+                                            <a href="{{ route('admin.vacancies.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
+                                                <i class="fas fa-times"></i>
+                                                Filter wissen
+                                            </a>
+                                        </div>
+                                    </div>
+                                @else
+                                    <!-- Non-super-admin: 4 kolommen over gehele breedte -->
+                                    <div class="col-md-3">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Status</label>
+                                            <select name="status" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle statussen</option>
+                                                <option value="Open" {{ request('status') == 'Open' ? 'selected' : '' }}>Open</option>
+                                                <option value="Gesloten" {{ request('status') == 'Gesloten' ? 'selected' : '' }}>Gesloten</option>
+                                                <option value="In behandeling" {{ request('status') == 'In behandeling' ? 'selected' : '' }}>In behandeling</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Categorie</label>
+                                            <select name="category_id" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle categorieën</option>
+                                                @foreach($categories ?? [] as $category)
+                                                    <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
+                                                        {{ $category->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="filter-group">
+                                            <label class="filter-label">Items per pagina</label>
+                                            <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                                <option value="5" {{ request('per_page', 5) == 5 ? 'selected' : '' }}>5</option>
+                                                <option value="15" {{ request('per_page', 5) == 15 ? 'selected' : '' }}>15</option>
+                                                <option value="25" {{ request('per_page', 5) == 25 ? 'selected' : '' }}>25</option>
+                                                <option value="50" {{ request('per_page', 5) == 50 ? 'selected' : '' }}>50</option>
+                                                <option value="100" {{ request('per_page', 5) == 100 ? 'selected' : '' }}>100</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="filter-group">
+                                            <label class="filter-label">&nbsp;</label>
+                                            <a href="{{ route('admin.vacancies.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
+                                                <i class="fas fa-times"></i>
+                                                Filter wissen
+                                            </a>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         </form>
                     </div>
 
-                    <div class="table-responsive">
-                        <table class="table material-table table-hover">
+                <!-- Table -->
+                <div class="card-body">
+                    <div class="table-responsive" style="width: 100%;">
+                        <table class="material-table" style="width: 100%;">
                             <thead>
                                 <tr>
                                     <th class="sortable" data-sort="id">ID</th>
-                                    <th class="sortable" data-sort="title">Titel & Locatie</th>
+                                    <th class="sortable highlight" data-sort="title">Titel & Locatie</th>
                                     <th class="sortable" data-sort="company_id">Bedrijf</th>
                                     <th class="sortable" data-sort="category_id">Categorie</th>
                                     <th class="sortable" data-sort="status">Status</th>
@@ -768,9 +873,11 @@
                                                 <a href="{{ route('admin.vacancies.show', $vacancy) }}" class="action-btn action-btn-info" title="Bekijken">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="action-btn action-btn-warning" title="Bewerken">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
+                                                @can('edit-vacancies')
+                                                    <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="action-btn action-btn-warning" title="Bewerken">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                @endcan
                                                 @if($vacancy->status !== 'Open' && $vacancy->status !== 'In behandeling')
                                                     <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
                                                         @csrf
@@ -830,13 +937,15 @@
                                                         </button>
                                                     </form>
                                                 @endif
-                                                <form action="{{ route('admin.vacancies.destroy', $vacancy) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je deze vacature wilt verwijderen?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="action-btn action-btn-danger" title="Verwijderen">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
+                                                @can('delete-vacancies')
+                                                    <form action="{{ route('admin.vacancies.destroy', $vacancy) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je deze vacature wilt verwijderen?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="action-btn action-btn-danger" title="Verwijderen">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                @endcan
                                             </div>
                                         </td>
                                     </tr>
@@ -847,9 +956,11 @@
                                                 <i class="fas fa-briefcase"></i>
                                                 <h5>Nog geen vacatures</h5>
                                                 <p>Er zijn nog geen vacatures aangemaakt.</p>
-                                                <a href="{{ route('admin.vacancies.create') }}" class="material-btn material-btn-primary">
-                                                    <i class="fas fa-plus me-2"></i> Eerste Vacature Aanmaken
-                                                </a>
+                                                @can('create-vacancies')
+                                                    <a href="{{ route('admin.vacancies.create') }}" class="material-btn material-btn-primary">
+                                                        <i class="fas fa-plus me-2"></i> Eerste Vacature Aanmaken
+                                                    </a>
+                                                @endcan
                                             </div>
                                         </td>
                                     </tr>
@@ -858,9 +969,105 @@
                         </table>
                     </div>
 
+                    <!-- Results Info -->
+                    <div class="results-info-wrapper">
+                        <div class="results-info">
+                            <span class="results-text">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Toon {{ $vacancies->firstItem() ?? 0 }} tot {{ $vacancies->lastItem() ?? 0 }} van {{ $vacancies->total() }} resultaten
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
                     @if($vacancies->hasPages())
                         <div class="pagination-wrapper">
-                            {{ $vacancies->links() }}
+                            <nav aria-label="Paginering">
+                                <ul class="pagination">
+                                    {{-- Previous Page Link --}}
+                                    @if ($vacancies->onFirstPage())
+                                        <li class="page-item disabled">
+                                            <span class="page-link">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </span>
+                                        </li>
+                                    @else
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ $vacancies->previousPageUrl() }}">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </a>
+                                        </li>
+                                    @endif
+
+                                    {{-- Pagination Elements --}}
+                                    @php
+                                        $currentPage = $vacancies->currentPage();
+                                        $lastPage = $vacancies->lastPage();
+                                        $startPage = max(1, $currentPage - 2);
+                                        $endPage = min($lastPage, $currentPage + 2);
+                                        
+                                        if ($endPage - $startPage < 4) {
+                                            if ($startPage == 1) {
+                                                $endPage = min($lastPage, $startPage + 4);
+                                            } else {
+                                                $startPage = max(1, $endPage - 4);
+                                            }
+                                        }
+                                    @endphp
+                                    
+                                    {{-- First page if not in range --}}
+                                    @if($startPage > 1)
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ $vacancies->url(1) }}">1</a>
+                                        </li>
+                                        @if($startPage > 2)
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        @endif
+                                    @endif
+                                    
+                                    {{-- Page range --}}
+                                    @for($page = $startPage; $page <= $endPage; $page++)
+                                        @if ($page == $currentPage)
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ $page }}</span>
+                                            </li>
+                                        @else
+                                            <li class="page-item">
+                                                <a class="page-link" href="{{ $vacancies->url($page) }}">{{ $page }}</a>
+                                            </li>
+                                        @endif
+                                    @endfor
+                                    
+                                    {{-- Last page if not in range --}}
+                                    @if($endPage < $lastPage)
+                                        @if($endPage < $lastPage - 1)
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        @endif
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ $vacancies->url($lastPage) }}">{{ $lastPage }}</a>
+                                        </li>
+                                    @endif
+
+                                    {{-- Next Page Link --}}
+                                    @if ($vacancies->hasMorePages())
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ $vacancies->nextPageUrl() }}">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                    @else
+                                        <li class="page-item disabled">
+                                            <span class="page-link">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </span>
+                                        </li>
+                                    @endif
+                                </ul>
+                            </nav>
                         </div>
                     @endif
                 </div>

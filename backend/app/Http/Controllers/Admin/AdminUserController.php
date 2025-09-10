@@ -14,16 +14,66 @@ class AdminUserController extends Controller
 {
     use TenantFilter;
     
-    public function index()
+    public function index(Request $request)
     {
-        $query = User::with('company');
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
+        }
+        
+        $query = User::with(['company', 'roles']);
         $this->applyTenantFilter($query);
-        $users = $query->paginate(10);
+        
+        // Filter op rol
+        if ($request->filled('role')) {
+            $query->whereHas('roles', function($q) use ($request) {
+                $q->where('name', $request->role);
+            });
+        }
+        
+        // Filter op bedrijf
+        if ($request->filled('company')) {
+            $query->where('company_id', $request->company);
+        }
+        
+        // Filter op status (actief/inactief)
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->whereNotNull('email_verified_at');
+            } elseif ($request->status === 'inactive') {
+                $query->whereNull('email_verified_at');
+            }
+        }
+        
+        // Sortering
+        $sortField = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('order', 'desc');
+        
+        if ($sortField === 'roles') {
+            // Speciale sortering voor rollen - sorteren op de eerste rol naam
+            $query->leftJoin('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+                  ->leftJoin('roles', 'model_has_roles.role_id', '=', 'roles.id')
+                  ->orderBy('roles.name', $sortDirection)
+                  ->select('users.*'); // Zorg ervoor dat we alleen user kolommen selecteren
+        } else {
+            $query->orderBy($sortField, $sortDirection);
+        }
+        
+        // Paginering
+        $perPage = $request->get('per_page', 5);
+        $users = $query->paginate($perPage);
+        
+        // Voeg query parameters toe aan pagination links
+        $users->appends($request->query());
+        
         return view('admin.users.index', compact('users'));
     }
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers aan te maken.');
+        }
+        
         $user = auth()->user();
         
         // Filter bedrijven op basis van gebruiker rechten
@@ -45,6 +95,10 @@ class AdminUserController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers aan te maken.');
+        }
+        
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -81,6 +135,10 @@ class AdminUserController extends Controller
 
     public function show(User $user)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
@@ -91,6 +149,10 @@ class AdminUserController extends Controller
 
     public function edit(User $user)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
@@ -117,6 +179,10 @@ class AdminUserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te bewerken.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
@@ -160,6 +226,10 @@ class AdminUserController extends Controller
 
     public function destroy(User $user)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te verwijderen.');
+        }
+        
         // Check if user can access this resource
         if (!$this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');

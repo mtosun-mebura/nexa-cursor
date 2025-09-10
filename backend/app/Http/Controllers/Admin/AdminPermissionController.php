@@ -13,6 +13,10 @@ class AdminPermissionController extends Controller
 
     public function index()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-permissions')) {
+            abort(403, 'Je hebt geen rechten om rechten te bekijken.');
+        }
+        
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
             ->get()
@@ -24,7 +28,42 @@ class AdminPermissionController extends Controller
 
         $roles = Role::where('guard_name', 'web')->get();
 
-        return view('admin.permissions.index', compact('permissions', 'roles'));
+        // Statistieken voor dashboard
+        $viewCount = Permission::where('guard_name', 'web')->where('name', 'like', 'view-%')->count();
+        $createCount = Permission::where('guard_name', 'web')->where('name', 'like', 'create-%')->count();
+        $editCount = Permission::where('guard_name', 'web')->where('name', 'like', 'edit-%')->count();
+        $deleteCount = Permission::where('guard_name', 'web')->where('name', 'like', 'delete-%')->count();
+        $totalCount = Permission::where('guard_name', 'web')->count();
+        $otherCount = $totalCount - $viewCount - $createCount - $editCount - $deleteCount;
+
+        $stats = [
+            'total_permissions' => $totalCount,
+            'permissions_by_group' => Permission::where('guard_name', 'web')
+                ->selectRaw('"group", count(*) as count')
+                ->groupBy('group')
+                ->orderBy('count', 'desc')
+                ->get(),
+            'permissions_by_type' => [
+                'view' => $viewCount,
+                'create' => $createCount,
+                'edit' => $editCount,
+                'delete' => $deleteCount,
+                'other' => $otherCount
+            ],
+            'assigned_permissions' => Permission::where('guard_name', 'web')
+                ->whereHas('roles')
+                ->count(),
+            'unassigned_permissions' => Permission::where('guard_name', 'web')
+                ->whereDoesntHave('roles')
+                ->count(),
+            'most_used_permissions' => Permission::where('guard_name', 'web')
+                ->withCount('roles')
+                ->orderBy('roles_count', 'desc')
+                ->take(5)
+                ->get()
+        ];
+
+        return view('admin.permissions.index', compact('permissions', 'roles', 'stats'));
     }
 
     public function create()

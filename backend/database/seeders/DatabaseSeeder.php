@@ -16,6 +16,10 @@ class DatabaseSeeder extends Seeder
             UserRoleSeeder::class,
             CategorySeeder::class,
             VacancySeeder::class,
+            PaymentProviderSeeder::class,
+            CandidateSeeder::class,
+            InterviewMatchSeeder::class,
+            NotificationSeeder::class,
         ]);
     }
 }

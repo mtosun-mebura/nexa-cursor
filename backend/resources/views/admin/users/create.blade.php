@@ -157,9 +157,11 @@
                                             id="role" name="role" required>
                                         <option value="">Selecteer rol</option>
                                         @foreach($roles as $role)
+                                            @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
                                             <option value="{{ $role->name }}" {{ old('role') == $role->name ? 'selected' : '' }}>
                                                 {{ ucfirst(str_replace('-', ' ', $role->name)) }}
                                             </option>
+                                            @endif
                                         @endforeach
                                     </select>
                                     @error('role')

@@ -44,8 +44,8 @@ trait TenantFilter
     {
         $user = auth()->user();
         
-        if ($user->hasRole('super-admin')) {
-            return session('selected_tenant') ?? null;
+        if ($user->hasRole('super-admin') && session('selected_tenant')) {
+            return session('selected_tenant');
         }
         
         return $user->company_id;

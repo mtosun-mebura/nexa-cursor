@@ -24,7 +24,7 @@
                         <i class="fas fa-handshake"></i> Match Bewerken
                     </h5>
                     <div>
-                        <a href="{{ route('admin.matches.show', $match) }}" class="btn btn-info me-2">
+                        <a href="{{ route('admin.matches.show', $match) }}" class="material-btn material-btn-info me-2">
                             <i class="fas fa-eye"></i> Bekijken
                         </a>
                         <a href="{{ route('admin.matches.index') }}" class="material-btn material-btn-secondary">
@@ -176,7 +176,7 @@
                         </div>
 
                         <div class="material-form-actions">
-                            <a href="{{ route('admin.matches.index') }}" class="btn btn-secondary me-2">Annuleren</a>
+                            <a href="{{ route('admin.matches.index') }}" class="material-btn material-btn-secondary">Annuleren</a>
                             <button type="submit" class="material-btn material-btn-primary">
                                 <i class="fas fa-save"></i> Wijzigingen Opslaan
                             </button>

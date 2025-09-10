@@ -17,6 +17,14 @@ class Category extends Model
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];
+
+    /**
+     * Get the vacancies for this category.
+     */
+    public function vacancies()
+    {
+        return $this->hasMany(Vacancy::class);
+    }
 }
 
 

@@ -81,6 +81,8 @@ class Vacancy extends Model
         return $this->belongsTo(Category::class);
     }
 
+
+
     /**
      * Scope voor actieve vacatures
      */

@@ -14,6 +14,10 @@ class AdminCategoryController extends Controller
     
     public function index(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën te bekijken.');
+        }
+        
         $query = Category::query();
         $this->applyTenantFilter($query);
         
@@ -58,16 +62,29 @@ class AdminCategoryController extends Controller
         $categories = $query->paginate($perPage);
         $categories->appends($request->query());
         
+        // Check if this is an AJAX request
+        if ($request->ajax()) {
+            return view('admin.categories.index', compact('categories'))->render();
+        }
+        
         return view('admin.categories.index', compact('categories'));
     }
 
     public function create()
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën aan te maken.');
+        }
+        
         return view('admin.categories.create');
     }
 
     public function store(Request $request)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën aan te maken.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255|unique:categories',
             'slug' => 'nullable|string|max:255|unique:categories',
@@ -91,16 +108,28 @@ class AdminCategoryController extends Controller
 
     public function show(Category $category)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën te bekijken.');
+        }
+        
         return view('admin.categories.show', compact('category'));
     }
 
     public function edit(Category $category)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën te bewerken.');
+        }
+        
         return view('admin.categories.edit', compact('category'));
     }
 
     public function update(Request $request, Category $category)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën te bewerken.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255|unique:categories,name,' . $category->id,
             'slug' => 'nullable|string|max:255|unique:categories,slug,' . $category->id,
@@ -124,6 +153,10 @@ class AdminCategoryController extends Controller
 
     public function destroy(Category $category)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-categories')) {
+            abort(403, 'Je hebt geen rechten om categorieën te verwijderen.');
+        }
+        
         if ($category->vacancies()->count() > 0) {
             return back()->with('error', 'Kan categorie niet verwijderen omdat er vacatures aan gekoppeld zijn.');
         }
