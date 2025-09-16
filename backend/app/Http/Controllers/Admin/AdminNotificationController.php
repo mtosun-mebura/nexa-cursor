@@ -11,7 +11,7 @@ class AdminNotificationController extends Controller
 {
     use TenantFilter;
     
-    public function index()
+    public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-notifications')) {
             abort(403, 'Je hebt geen rechten om notificaties te bekijken.');
@@ -19,7 +19,52 @@ class AdminNotificationController extends Controller
         
         $query = Notification::with('user');
         $this->applyTenantFilter($query);
-        $notifications = $query->paginate(10);
+        
+        // Filter op status
+        if ($request->filled('status')) {
+            if ($request->status === 'read') {
+                $query->whereNotNull('read_at');
+            } elseif ($request->status === 'unread') {
+                $query->whereNull('read_at');
+            }
+        }
+        
+        // Filter op type
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+        
+        // Filter op prioriteit
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+        
+        // Sortering
+        $sortField = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('order', 'desc');
+        
+        // Valideer sorteer veld
+        $allowedSortFields = ['id', 'user_id', 'type', 'status', 'created_at'];
+        if (!in_array($sortField, $allowedSortFields)) {
+            $sortField = 'created_at';
+        }
+        
+        // Speciale behandeling voor status sortering
+        if ($sortField === 'status') {
+            // Sorteer op status met logische volgorde: Ongelezen, Gelezen
+            $query->orderByRaw("
+                CASE 
+                    WHEN read_at IS NULL THEN 1
+                    WHEN read_at IS NOT NULL THEN 2
+                END " . $sortDirection
+            );
+        } else {
+            $query->orderBy($sortField, $sortDirection);
+        }
+        
+        $perPage = $request->get('per_page', 15);
+        $notifications = $query->paginate($perPage)->withQueryString();
+        
         return view('admin.notifications.index', compact('notifications'));
     }
 

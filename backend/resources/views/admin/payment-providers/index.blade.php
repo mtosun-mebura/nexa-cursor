@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'E-mail Templates Beheer')
+@section('title', 'Betalingsproviders')
 
 @section('content')
 <style>
     :root {
-        --primary-color: #009688;
+        --primary-color: #00897b;
         --primary-light: #4db6ac;
-        --primary-dark: #00796b;
+        --primary-dark: #00695c;
         --secondary-color: #e0f2f1;
         --success-color: #4caf50;
         --warning-color: #ff9800;
@@ -68,69 +68,6 @@
         padding: 0px;
     }
     
-    /* Filters Section */
-    .filters-section {
-        background: var(--light-bg);
-        padding: 10px 24px;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .filter-group {
-        margin-bottom: 16px;
-    }
-
-    .filter-label {
-        display: block;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--medium-text);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0px;
-    }
-
-    .filter-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background-color: white;
-        font-size: 12px;
-        color: var(--dark-text);
-        transition: var(--transition);
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 16px;
-        padding-right: 40px;
-    }
-
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-    }
-
-    .filter-select option {
-        padding: 8px;
-        background-color: white;
-        color: var(--dark-text);
-    }
-
-    .filter-select option:checked {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    /* Custom 16.66%-kolom voor 6 kolommen */
-    .col-md-2 {
-        flex: 0 0 16.666667%;
-        max-width: 16.666667%;
-    }
-    
     .material-btn {
         border-radius: var(--border-radius);
         text-transform: uppercase;
@@ -144,50 +81,6 @@
         overflow: hidden;
         cursor: pointer;
         font-size: 12px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-    }
-
-    .material-btn i {
-        color: white !important;
-        font-size: 16px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        line-height: 1;
-        vertical-align: middle;
-        margin-top: -1px;
-        position: relative;
-        top: 0.5px;
-    }
-
-    .material-btn-primary i {
-        color: white !important;
-        font-size: 18px;
-        font-weight: bold;
-    }
-
-    .card-header .material-btn i {
-        color: white !important;
-        font-size: 18px;
-        font-weight: bold;
-    }
-
-    .card-header .material-btn-primary i.fa-plus {
-        color: white !important;
-        font-size: 20px;
-        font-weight: bold;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        line-height: 1;
-        vertical-align: middle;
-        margin-top: -2px;
-        position: relative;
-        top: 1px;
     }
     
     .material-btn::before {
@@ -211,7 +104,6 @@
     .material-btn:hover {
         transform: translateY(-2px);
         box-shadow: var(--shadow-medium);
-        text-decoration: none;
     }
     
     .material-btn:active {
@@ -244,6 +136,7 @@
         overflow: hidden;
         box-shadow: var(--shadow-light);
         background: white;
+        table-layout: fixed;
     }
     
     .material-table thead th {
@@ -261,8 +154,45 @@
         text-align: left;
     }
     
+    .material-table thead th:nth-child(1) { width: 80px; min-width: 80px; text-align: center; }   /* ID */
+    .material-table thead th:nth-child(2) { width: 25%; }  /* Naam & Beschrijving */
+    .material-table thead th:nth-child(3) { width: 15%; }  /* Provider Type */
+    .material-table thead th:nth-child(4) { width: 12%; }  /* Status */
+    .material-table thead th:nth-child(5) { width: 12%; }  /* Modus */
+    .material-table thead th:nth-child(6) { width: 12%; }  /* Aangemaakt */
+    .material-table thead th:nth-child(7) { width: 12%; }   /* Acties */
+    
     .material-table thead th:hover {
         background: var(--secondary-color);
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sortable {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .material-table thead th.sortable::after {
+        content: '↕';
+        margin-left: 8px;
+        opacity: 0.5;
+        transition: var(--transition);
+    }
+    
+    .material-table thead th.sort-asc::after {
+        content: '↑';
+        opacity: 1;
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sort-desc::after {
+        content: '↓';
+        opacity: 1;
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sortable:hover::after {
+        opacity: 1;
         color: var(--primary-color);
     }
     
@@ -271,7 +201,17 @@
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
         transition: var(--transition);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
+    
+    .material-table tbody td:nth-child(1) { width: 80px; min-width: 80px; text-align: center; }   /* ID */
+    .material-table tbody td:nth-child(2) { width: 25%; }  /* Naam & Beschrijving */
+    .material-table tbody td:nth-child(3) { width: 15%; }  /* Provider Type */
+    .material-table tbody td:nth-child(4) { width: 12%; }  /* Status */
+    .material-table tbody td:nth-child(5) { width: 12%; }  /* Modus */
+    .material-table tbody td:nth-child(6) { width: 12%; }  /* Aangemaakt */
+    .material-table tbody td:nth-child(7) { width: 12%; }   /* Acties */
     
     .material-table tbody tr {
         transition: var(--transition);
@@ -279,7 +219,7 @@
     }
     
     .material-table tbody tr:hover {
-        background-color: #e0f2f1 !important;
+        background-color: #f3f4f6 !important;
         transition: background-color 0.3s ease;
     }
     
@@ -309,22 +249,22 @@
     }
     
     .status-inactive {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffb74d 100%);
-        color: #f57c00;
-        border: 2px solid #ffb74d;
+        background: linear-gradient(135deg, #ffcdd2 0%, #e57373 100%);
+        color: #d32f2f;
+        border: 2px solid #e57373;
     }
     
     .action-buttons {
         display: flex;
         gap: 6px;
         flex-wrap: wrap;
-        justify-content: flex-start;
-        min-width: 120px;
+        align-items: center;
+        min-height: 40px;
     }
     
     .action-btn {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         border: none;
         display: flex;
@@ -336,6 +276,7 @@
         position: relative;
         overflow: hidden;
         text-decoration: none;
+        font-size: 14px;
     }
     
     .action-btn::before {
@@ -377,27 +318,34 @@
         color: white;
     }
     
-    .template-info {
+    .action-btn-success {
+        background: linear-gradient(135deg, var(--success-color) 0%, #66bb6a 100%);
+        color: white;
+    }
+    
+    .provider-info {
         display: flex;
         flex-direction: column;
     }
     
-    .template-name {
+    .provider-name {
         font-weight: 600;
         color: var(--dark-text);
         margin-bottom: 4px;
         font-size: 16px;
     }
     
-    .template-description {
+    .provider-description {
         font-size: 12px;
         color: var(--medium-text);
-        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
     
-    .template-type {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        color: #1976d2;
+    .provider-type {
+        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+        color: #00695c;
         padding: 6px 12px;
         border-radius: 16px;
         font-size: 12px;
@@ -405,9 +353,9 @@
         display: inline-block;
     }
     
-    .template-company {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-        color: #2e7d32;
+    .provider-mode {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        color: #f57c00;
         padding: 6px 12px;
         border-radius: 16px;
         font-size: 12px;
@@ -420,27 +368,53 @@
         color: var(--medium-text);
     }
     
-    .form-control, .form-select {
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        padding: 8px 12px;
-        transition: var(--transition);
-        background-color: white;
+    .filters-section {
+        background: var(--light-bg);
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border-color);
     }
     
-    .form-control:focus, .form-select:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 0.2rem rgba(0, 150, 136, 0.25);
-        outline: none;
+    .filter-group {
+        margin-bottom: 0;
     }
     
-    .form-label {
+    .filter-label {
+        display: block;
+        font-size: 0.75rem;
         font-weight: 600;
         color: var(--dark-text);
-        margin-bottom: 0px;
-        font-size: 12px;
+        margin-bottom: 4px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+    
+    .filter-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background-color: white;
+        font-size: 12px;
+        color: var(--dark-text);
+        transition: var(--transition);
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 40px;
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    }
+    
+    .filter-select:hover {
+        border-color: var(--primary-light);
     }
     
     .stats-cards {
@@ -521,66 +495,65 @@
         border-left: 4px solid var(--success-color);
     }
     
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin-top: 24px;
-        padding: 20px;
-        background: var(--light-bg);
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
+    .auto-dismiss {
+        animation: slideDown 0.3s ease-out;
     }
     
-    .page-item {
-        list-style: none;
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
-    .page-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: var(--border-radius);
-        border: none;
-        background: white;
-        color: var(--dark-text);
-        text-decoration: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        font-weight: 500;
+    .auto-dismiss.fade-out {
+        animation: slideUp 0.3s ease-in forwards;
     }
     
-    .page-link:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
+    @keyframes slideUp {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
     }
     
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
+    @media (max-width: 768px) {
+        .stats-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filter-group {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .filter-label {
+            min-width: auto;
+        }
+        
+        .filter-select {
+            min-width: auto;
+        }
+        
+        .action-buttons {
+            justify-content: center;
+        }
+        
+        .material-table thead th,
+        .material-table tbody td {
+            padding: 12px 8px;
+            font-size: 12px;
+        }
     }
     
-    .page-item.disabled .page-link {
-        background: var(--light-bg);
-        color: var(--medium-text);
-        cursor: not-allowed;
-        opacity: 0.5;
-    }
-    
-    .page-item.disabled .page-link:hover {
-        transform: none;
-        box-shadow: var(--shadow-light);
-    }
-    
-    /* Results Info */
     .results-info-wrapper {
         padding: 12px 24px;
         background: var(--light-bg);
@@ -612,217 +585,175 @@
         border-top: 1px solid var(--border-color);
     }
     
-    /* Sortable Headers */
-    .material-table thead th.sortable {
-        cursor: pointer;
-        user-select: none;
-        position: relative;
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        background: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    
+    .page-item {
+        list-style: none;
+    }
+    
+    .page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--dark-text);
+        text-decoration: none;
         transition: var(--transition);
+        font-weight: 500;
     }
     
-    .material-table thead th.sortable:hover {
-        background-color: rgba(0, 150, 136, 0.1);
+    .page-link:hover {
+        background: var(--secondary-color);
+        color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+        text-decoration: none;
+        border-color: var(--primary-color);
     }
     
-    .material-table thead th.sortable::after {
-        content: '↕';
-        position: absolute;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 12px;
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+        border-color: var(--primary-color);
+    }
+    
+    .page-item.disabled .page-link {
+        background: var(--light-bg);
         color: var(--medium-text);
+        cursor: not-allowed;
         opacity: 0.5;
     }
     
-    .material-table thead th.sort-asc::after {
-        content: '↑';
-        color: var(--primary-color);
-        opacity: 1;
-    }
-    
-    .material-table thead th.sort-desc::after {
-        content: '↓';
-        color: var(--primary-color);
-        opacity: 1;
-    }
-    
-    @media (max-width: 768px) {
-        .stats-cards {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
-        .action-buttons {
-            justify-content: center;
-        }
-        
-        .material-table thead th,
-        .material-table tbody td {
-            padding: 12px 8px;
-            font-size: 12px;
-        }
+    .page-item.disabled .page-link:hover {
+        transform: none;
+        box-shadow: var(--shadow-light);
+        border-color: var(--border-color);
     }
 </style>
 
 <div class="container-fluid">
+    <!-- Success Alert -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show auto-dismiss" role="alert" id="success-alert">
+            <i class="fas fa-check-circle me-2"></i>
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    
     <div class="row">
         <div class="col-12">
             <!-- Status Statistieken -->
             <div class="stats-cards">
                 <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #81c784 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $emailTemplates->where('is_active', true)->count() }}</div>
+                    <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->where('is_active', true)->count() }}</div>
                     <div class="stat-label">Actief</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $emailTemplates->where('is_active', false)->count() }}</div>
+                    <div class="stat-number" style="background: linear-gradient(135deg, #f44336 0%, #ef5350 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->where('is_active', false)->count() }}</div>
                     <div class="stat-label">Inactief</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #009688 0%, #4db6ac 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $emailTemplates->count() }}</div>
-                    <div class="stat-label">Totaal</div>
+                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->where('config.test_mode', true)->count() }}</div>
+                    <div class="stat-label">Test Modus</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $emailTemplates->unique('type')->count() }}</div>
-                    <div class="stat-label">Types</div>
+                    <div class="stat-number" style="background: linear-gradient(135deg, #00897b 0%, #4db6ac 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->count() }}</div>
+                    <div class="stat-label">Totaal</div>
                 </div>
             </div>
 
             <div class="material-card">
-                <!-- Header -->
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-envelope me-2"></i> E-mail Templates Beheer
+                        <i class="fas fa-credit-card me-2"></i> Betalingsproviders Overzicht
                     </h5>
                     <div class="d-flex gap-2">
-                        @can('create-email-templates')
-                        <a href="{{ route('admin.email-templates.create') }}" class="material-btn material-btn-primary">
-                            <i class="fas fa-plus me-2"></i> Nieuw Template
+                        <a href="{{ route('admin.payment-providers.create') }}" class="material-btn material-btn-primary">
+                            <i class="fas fa-plus me-2"></i> Nieuwe Provider
                         </a>
-                        @endcan
                     </div>
                 </div>
-
-                <!-- Success Message -->
-                @if(session('success'))
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle me-2"></i>
-                        {{ session('success') }}
-                    </div>
-                @endif
-
-                <!-- Filters -->
-                <div class="filters-section">
-                    <form method="GET" action="{{ route('admin.email-templates.index') }}" id="filters-form">
-                        <div class="row">
-                            @if(auth()->user()->hasRole('super-admin'))
-                                <!-- Super-admin: 5 kolommen over gehele breedte -->
-                                <div class="col-md-2">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Type</label>
-                                        <select name="type" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle types</option>
-                                            <option value="welcome" {{ request('type') == 'welcome' ? 'selected' : '' }}>Welkom</option>
-                                            <option value="notification" {{ request('type') == 'notification' ? 'selected' : '' }}>Notificatie</option>
-                                            <option value="reminder" {{ request('type') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                            <option value="confirmation" {{ request('type') == 'confirmation' ? 'selected' : '' }}>Bevestiging</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Bedrijf</label>
-                                        <select name="company" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle bedrijven</option>
-                                            @foreach(\App\Models\Company::all() as $company)
-                                                <option value="{{ $company->id }}" {{ request('company') == $company->id ? 'selected' : '' }}>
-                                                    {{ $company->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Status</label>
-                                        <select name="status" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle statussen</option>
-                                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                            <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Items per pagina</label>
-                                        <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                            <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                            <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                            <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="filter-group">
-                                        <label class="filter-label">&nbsp;</label>
-                                        <a href="{{ route('admin.email-templates.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
-                                            <i class="fas fa-times"></i>
-                                            Filter wissen
-                                        </a>
-                                    </div>
-                                </div>
-                            @else
-                                <!-- Non-super-admin: 4 kolommen over gehele breedte -->
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Type</label>
-                                        <select name="type" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle types</option>
-                                            <option value="welcome" {{ request('type') == 'welcome' ? 'selected' : '' }}>Welkom</option>
-                                            <option value="notification" {{ request('type') == 'notification' ? 'selected' : '' }}>Notificatie</option>
-                                            <option value="reminder" {{ request('type') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                            <option value="confirmation" {{ request('type') == 'confirmation' ? 'selected' : '' }}>Bevestiging</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Status</label>
-                                        <select name="status" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle statussen</option>
-                                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                            <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Items per pagina</label>
-                                        <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                            <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                            <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                            <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                            <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">&nbsp;</label>
-                                        <a href="{{ route('admin.email-templates.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
-                                            <i class="fas fa-times"></i>
-                                            Filter wissen
-                                        </a>
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Table -->
                 <div class="card-body">
-                    @if($emailTemplates->count() > 0)
+
+                    <!-- Filters -->
+                    <div class="filters-section">
+                        <form method="GET" action="{{ route('admin.payment-providers.index') }}" id="filters-form">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="filter-group">
+                                        <label class="filter-label">Status</label>
+                                        <select name="status" class="filter-select" onchange="this.form.submit()">
+                                            <option value="">Alle statussen</option>
+                                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
+                                            <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="filter-group">
+                                        <label class="filter-label">Provider Type</label>
+                                        <select name="provider_type" class="filter-select" onchange="this.form.submit()">
+                                            <option value="">Alle types</option>
+                                            <option value="mollie" {{ request('provider_type') == 'mollie' ? 'selected' : '' }}>Mollie</option>
+                                            <option value="stripe" {{ request('provider_type') == 'stripe' ? 'selected' : '' }}>Stripe</option>
+                                            <option value="paypal" {{ request('provider_type') == 'paypal' ? 'selected' : '' }}>PayPal</option>
+                                            <option value="adyen" {{ request('provider_type') == 'adyen' ? 'selected' : '' }}>Adyen</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="filter-group">
+                                        <label class="filter-label">Modus</label>
+                                        <select name="mode" class="filter-select" onchange="this.form.submit()">
+                                            <option value="">Alle modi</option>
+                                            <option value="test" {{ request('mode') == 'test' ? 'selected' : '' }}>Test</option>
+                                            <option value="live" {{ request('mode') == 'live' ? 'selected' : '' }}>Live</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="filter-group">
+                                        <label class="filter-label">Items per pagina</label>
+                                        <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                            <option value="5" {{ request('per_page', 5) == 5 ? 'selected' : '' }}>5</option>
+                                            <option value="15" {{ request('per_page', 5) == 15 ? 'selected' : '' }}>15</option>
+                                            <option value="25" {{ request('per_page', 5) == 25 ? 'selected' : '' }}>25</option>
+                                            <option value="50" {{ request('per_page', 5) == 50 ? 'selected' : '' }}>50</option>
+                                            <option value="100" {{ request('per_page', 5) == 100 ? 'selected' : '' }}>100</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <div class="filter-group">
+                                        <label class="filter-label">&nbsp;</label>
+                                        <a href="{{ route('admin.payment-providers.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
+                                            <i class="fas fa-times"></i>
+                                            Filter wissen
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    @if($providers->count() > 0)
                         <div class="table-responsive">
                             <table class="material-table">
                                 <thead>
@@ -834,87 +765,97 @@
                                         </th>
                                         <th class="sortable {{ request('sort') == 'name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="name">
                                             <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'order' => request('sort') == 'name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Template & Details
+                                                Naam & Beschrijving
                                             </a>
                                         </th>
-                                        <th class="sortable {{ request('sort') == 'type' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="type">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'type', 'order' => request('sort') == 'type' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Type
+                                        <th class="sortable {{ request('sort') == 'provider_type' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="provider_type">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'provider_type', 'order' => request('sort') == 'provider_type' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Provider Type
                                             </a>
                                         </th>
-                                        <th class="sortable {{ request('sort') == 'company_id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="company_id">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'company_id', 'order' => request('sort') == 'company_id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Bedrijf
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'is_active' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="is_active">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'is_active', 'order' => request('sort') == 'is_active' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                        <th class="sortable {{ request('sort') == 'status' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="status">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => request('sort') == 'status' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
                                                 Status
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'mode' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="mode">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'mode', 'order' => request('sort') == 'mode' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Modus
                                             </a>
                                         </th>
                                         <th class="sortable {{ request('sort') == 'created_at' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="created_at">
                                             <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'order' => request('sort') == 'created_at' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Gemaakt op
+                                                Aangemaakt
                                             </a>
                                         </th>
                                         <th>Acties</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($emailTemplates as $template)
+                                    @foreach($providers as $provider)
                                         <tr>
+                                            <td>{{ $provider->id }}</td>
                                             <td>
-                                                <strong>{{ $template->id }}</strong>
-                                            </td>
-                                            <td>
-                                                <div class="template-info">
-                                                    <div class="template-name">{{ $template->name }}</div>
-                                                    @if($template->description)
-                                                        <div class="template-description">{{ Str::limit($template->description, 50) }}</div>
+                                                <div class="provider-info">
+                                                    <div class="provider-name">{{ $provider->name }}</div>
+                                                    @if($provider->getConfigValue('description'))
+                                                        <div class="provider-description">
+                                                            <i class="fas fa-info-circle"></i>{{ $provider->getConfigValue('description') }}
+                                                        </div>
                                                     @endif
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="template-type">{{ ucfirst($template->type) }}</span>
+                                                <span class="provider-type">{{ ucfirst($provider->provider_type) }}</span>
                                             </td>
                                             <td>
-                                                @if($template->company)
-                                                    <span class="template-company">{{ $template->company->name }}</span>
+                                                @if($provider->is_active)
+                                                    <span class="status-badge status-active">Actief</span>
                                                 @else
-                                                    <span class="text-muted">Algemeen</span>
+                                                    <span class="status-badge status-inactive">Inactief</span>
                                                 @endif
                                             </td>
                                             <td>
-                                                <span class="status-badge {{ $template->is_active ? 'status-active' : 'status-inactive' }}">
-                                                    {{ $template->is_active ? 'Actief' : 'Inactief' }}
-                                                </span>
+                                                @if($provider->getConfigValue('test_mode'))
+                                                    <span class="provider-mode">Test</span>
+                                                @else
+                                                    <span class="provider-mode">Live</span>
+                                                @endif
                                             </td>
                                             <td>
                                                 <div class="date-info">
-                                                    {{ $template->created_at->format('d-m-Y H:i') }}
+                                                    <div>{{ $provider->created_at->format('d-m-Y') }}</div>
+                                                    <small>{{ $provider->created_at->format('H:i') }}</small>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    @can('view-email-templates')
-                                                    <a href="{{ route('admin.email-templates.show', $template) }}" 
-                                                       class="action-btn action-btn-info" 
-                                                       title="Bekijken">
+                                                    <a href="{{ route('admin.payment-providers.show', $provider) }}" class="action-btn action-btn-info" title="Bekijken">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    @endcan
-                                                    @can('edit-email-templates')
-                                                    <a href="{{ route('admin.email-templates.edit', $template) }}" 
-                                                       class="action-btn action-btn-warning" 
-                                                       title="Bewerken">
+                                                    <a href="{{ route('admin.payment-providers.edit', $provider) }}" class="action-btn action-btn-warning" title="Bewerken">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
-                                                    @endcan
-                                                    @can('delete-email-templates')
-                                                    <form action="{{ route('admin.email-templates.destroy', $template) }}" 
+                                                    <button type="button" 
+                                                            class="action-btn action-btn-info test-connection-btn" 
+                                                            data-provider-id="{{ $provider->id }}"
+                                                            title="Test Verbinding">
+                                                        <i class="fas fa-plug"></i>
+                                                    </button>
+                                                    <form action="{{ route('admin.payment-providers.toggle-status', $provider) }}" 
+                                                          method="POST" 
+                                                          style="display: inline;">
+                                                        @csrf
+                                                        <button type="submit" 
+                                                                class="action-btn {{ $provider->is_active ? 'action-btn-danger' : 'action-btn-success' }}" 
+                                                                title="{{ $provider->is_active ? 'Deactiveren' : 'Activeren' }}">
+                                                            <i class="fas {{ $provider->is_active ? 'fa-pause' : 'fa-play' }}"></i>
+                                                        </button>
+                                                    </form>
+                                                    <form action="{{ route('admin.payment-providers.destroy', $provider) }}" 
                                                           method="POST" 
                                                           style="display: inline;"
-                                                          onsubmit="return confirm('Weet je zeker dat je dit template wilt verwijderen?')">
+                                                          onsubmit="return confirm('Weet je zeker dat je deze betalingsprovider wilt verwijderen?')">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" 
@@ -923,7 +864,6 @@
                                                             <i class="fas fa-trash"></i>
                                                         </button>
                                                     </form>
-                                                    @endcan
                                                 </div>
                                             </td>
                                         </tr>
@@ -931,25 +871,24 @@
                                 </tbody>
                             </table>
                         </div>
-
-                        <!-- Pagination -->
+                        
                         <!-- Results Info -->
                         <div class="results-info-wrapper">
                             <div class="results-info">
                                 <span class="results-text">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    Toon {{ $emailTemplates->firstItem() ?? 0 }} tot {{ $emailTemplates->lastItem() ?? 0 }} van {{ $emailTemplates->total() }} resultaten
+                                    Toon {{ $providers->firstItem() ?? 0 }} tot {{ $providers->lastItem() ?? 0 }} van {{ $providers->total() }} resultaten
                                 </span>
                             </div>
                         </div>
 
                         <!-- Pagination -->
-                        @if($emailTemplates->hasPages())
+                        @if($providers->hasPages())
                             <div class="pagination-wrapper">
                                 <nav aria-label="Paginering">
                                     <ul class="pagination">
                                         {{-- Previous Page Link --}}
-                                        @if ($emailTemplates->onFirstPage())
+                                        @if ($providers->onFirstPage())
                                             <li class="page-item disabled">
                                                 <span class="page-link">
                                                     <i class="fas fa-chevron-left"></i>
@@ -957,15 +896,15 @@
                                             </li>
                                         @else
                                             <li class="page-item">
-                                                <a class="page-link" href="{{ $emailTemplates->previousPageUrl() }}">
+                                                <a class="page-link" href="{{ $providers->previousPageUrl() }}">
                                                     <i class="fas fa-chevron-left"></i>
                                                 </a>
                                             </li>
                                         @endif
 
                                         {{-- Pagination Elements --}}
-                                        @foreach ($emailTemplates->getUrlRange(1, $emailTemplates->lastPage()) as $page => $url)
-                                            @if ($page == $emailTemplates->currentPage())
+                                        @foreach ($providers->getUrlRange(1, $providers->lastPage()) as $page => $url)
+                                            @if ($page == $providers->currentPage())
                                                 <li class="page-item active">
                                                     <span class="page-link">{{ $page }}</span>
                                                 </li>
@@ -977,9 +916,9 @@
                                         @endforeach
 
                                         {{-- Next Page Link --}}
-                                        @if ($emailTemplates->hasMorePages())
+                                        @if ($providers->hasMorePages())
                                             <li class="page-item">
-                                                <a class="page-link" href="{{ $emailTemplates->nextPageUrl() }}">
+                                                <a class="page-link" href="{{ $providers->nextPageUrl() }}">
                                                     <i class="fas fa-chevron-right"></i>
                                                 </a>
                                             </li>
@@ -996,14 +935,13 @@
                         @endif
                     @else
                         <div class="empty-state">
-                            <i class="fas fa-envelope"></i>
-                            <h4>Geen e-mail templates gevonden</h4>
-                            <p>Er zijn nog geen e-mail templates aangemaakt. Maak je eerste template aan om te beginnen.</p>
-                            @can('create-email-templates')
-                            <a href="{{ route('admin.email-templates.create') }}" class="material-btn material-btn-primary">
-                                <i class="fas fa-plus me-2"></i> Nieuw Template
+                            <i class="fas fa-credit-card"></i>
+                            <h5>Geen betalingsproviders gevonden</h5>
+                            <p class="text-muted">Maak je eerste betalingsprovider aan om te beginnen.</p>
+                            <a href="{{ route('admin.payment-providers.create') }}" class="material-btn material-btn-primary">
+                                <i class="fas fa-plus"></i>
+                                Eerste Provider Aanmaken
                             </a>
-                            @endcan
                         </div>
                     @endif
                 </div>
@@ -1011,4 +949,70 @@
         </div>
     </div>
 </div>
+
+<!-- Test Connection Modal -->
+<div class="modal fade" id="testConnectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plug me-2"></i>Test Verbinding</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="testResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Test connection functionality
+    document.querySelectorAll('.test-connection-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const providerId = this.dataset.providerId;
+            const modal = new bootstrap.Modal(document.getElementById('testConnectionModal'));
+            const resultDiv = document.getElementById('testResult');
+            
+            resultDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Verbinding testen...</div>';
+            modal.show();
+            
+            fetch(`/admin/payment-providers/${providerId}/test-connection`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Fout bij testen van verbinding: ${error.message}</div>`;
+            });
+        });
+    });
+    });
+    
+    // Auto-dismiss success alert after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const successAlert = document.getElementById('success-alert');
+        if (successAlert) {
+            setTimeout(function() {
+                successAlert.classList.add('fade-out');
+                setTimeout(function() {
+                    successAlert.remove();
+                }, 300); // Match the CSS animation duration
+            }, 5000); // 5 seconds
+        }
+    });
+</script>
 @endsection

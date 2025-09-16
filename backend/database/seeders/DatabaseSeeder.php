@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             CandidateSeeder::class,
             InterviewMatchSeeder::class,
             NotificationSeeder::class,
+            EmailTemplateSeeder::class,
         ]);
     }
 }

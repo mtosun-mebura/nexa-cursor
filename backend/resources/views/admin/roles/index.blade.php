@@ -5,48 +5,41 @@
 @section('content')
 <style>
     :root {
-        --primary-color: #2196F3;
-        --primary-dark: #1976D2;
-        --primary-light: #BBDEFB;
-        --accent-color: #FF4081;
-        --success-color: #4CAF50;
-        --warning-color: #FF9800;
-        --danger-color: #F44336;
-        --info-color: #00BCD4;
-        --secondary-color: #757575;
-        --light-color: #f8f9fa;
-        --dark-color: #212121;
-        --border-color: #e9ecef;
-        --shadow-light: 0 2px 10px rgba(0, 0, 0, 0.1);
-        --shadow-medium: 0 4px 20px rgba(0, 0, 0, 0.15);
-        --shadow-heavy: 0 8px 30px rgba(0, 0, 0, 0.2);
-        --border-radius: 12px;
-        --border-radius-small: 8px;
-        --transition: all 0.3s ease;
+        --primary-color: #2196f3;
+        --primary-light: #64b5f6;
+        --primary-dark: #1976d2;
+        --secondary-color: #e3f2fd;
+        --success-color: #4caf50;
+        --warning-color: #ff9800;
+        --danger-color: #f44336;
+        --info-color: #2196f3;
+        --light-bg: #fafafa;
+        --dark-text: #212121;
+        --medium-text: #757575;
+        --border-color: #e0e0e0;
+        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
+        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
+        --border-radius: 8px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Dashboard Stats Cards */
-    .stats-grid {
+    .stats-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
         margin-bottom: 32px;
     }
 
     .stat-card {
         background: white;
         border-radius: var(--border-radius);
+        padding: 10px;
         box-shadow: var(--shadow-light);
-        padding: 0px;
+        text-align: center;
         transition: var(--transition);
-        border: none;
         position: relative;
         overflow: hidden;
-    }
-
-    .stat-card:hover {
-        box-shadow: var(--shadow-medium);
-        transform: translateY(-2px);
     }
 
     .stat-card::before {
@@ -56,7 +49,12 @@
         left: 0;
         right: 0;
         height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-medium);
     }
 
     .stat-card.blue::before {
@@ -126,20 +124,22 @@
         background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
     }
 
-    .stat-value {
-        font-size: 2.5rem;
+    .stat-number {
+        font-size: 1.5rem;
         font-weight: 700;
-        color: var(--dark-color);
-        margin-bottom: 8px;
-        line-height: 1;
+        margin-bottom: 0px;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
     .stat-label {
-        font-size: 0.9rem;
-        color: var(--secondary-color);
-        font-weight: 500;
+        font-size: 12px;
+        color: var(--medium-text);
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
+        font-weight: 600;
     }
 
     .stat-change {
@@ -157,55 +157,70 @@
         margin-bottom: 24px;
         transition: var(--transition);
     }
-    
+
     .material-card:hover {
         box-shadow: var(--shadow-medium);
     }
-    
+
     .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
         color: white;
         border-radius: var(--border-radius) var(--border-radius) 0 0;
         padding: 10px 24px;
         border: none;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        position: relative;
+        overflow: hidden;
     }
-    
+
+    .material-card .card-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+        transform: translateX(-100%);
+        transition: var(--transition);
+    }
+
+    .material-card .card-header:hover::before {
+        transform: translateX(100%);
+    }
+
     .material-card .card-body {
         padding: 0px;
     }
-    
+
     /* Filters Section */
     .filters-section {
-        background: var(--light-color);
-        padding: 10px 24px;
+        background: var(--light-bg);
+        padding: 16px 24px;
         border-bottom: 1px solid var(--border-color);
     }
 
     .filter-group {
-        margin-bottom: 16px;
+        margin-bottom: 0;
     }
 
     .filter-label {
         display: block;
-        font-size: 12px;
+        font-size: 0.75rem;
         font-weight: 600;
-        color: var(--secondary-color);
+        color: var(--dark-text);
+        margin-bottom: 4px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 8px;
     }
 
     .filter-select {
         width: 100%;
         padding: 8px 12px;
         border: 1px solid var(--border-color);
-        border-radius: var(--border-radius-small);
+        border-radius: var(--border-radius);
         background-color: white;
         font-size: 12px;
-        color: var(--dark-color);
+        color: var(--dark-text);
         transition: var(--transition);
         appearance: none;
         -webkit-appearance: none;
@@ -226,7 +241,7 @@
     .filter-select option {
         padding: 8px;
         background-color: white;
-        color: var(--dark-color);
+        color: var(--dark-text);
     }
 
     .filter-select option:checked {
@@ -239,70 +254,117 @@
         flex: 0 0 16.666667%;
         max-width: 16.666667%;
     }
-    
+
     .material-btn {
-        border-radius: var(--border-radius-small);
+        border-radius: var(--border-radius);
         text-transform: uppercase;
         font-weight: 500;
         letter-spacing: 0.5px;
         padding: 6px 12px;
         border: none;
         transition: var(--transition);
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--shadow-light);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        font-size: 12px;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
     }
-    
+
+    .material-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255,255,255,0.3);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: var(--transition);
+    }
+
+    .material-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
     .material-btn:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        box-shadow: var(--shadow-medium);
         text-decoration: none;
     }
-    
+
+    .material-btn:active {
+        transform: translateY(0);
+        box-shadow: var(--shadow-light);
+    }
+
     .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
         color: white;
     }
-    
+
     .material-btn-warning {
         background: linear-gradient(135deg, var(--warning-color) 0%, #F57C00 100%);
         color: white;
     }
-    
+
     .material-btn-danger {
         background: linear-gradient(135deg, var(--danger-color) 0%, #D32F2F 100%);
         color: white;
     }
-    
+
     .material-table {
-        border-radius: var(--border-radius-small);
+        width: 100%;
+        border-collapse: collapse;
+        border-radius: var(--border-radius);
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow-light);
+        background: white;
     }
-    
+
     .material-table thead th {
-        background: var(--light-color);
+        background: var(--light-bg);
         border: none;
         font-weight: 600;
-        color: #495057;
+        color: var(--dark-text);
         padding: 12px 16px;
         text-transform: uppercase;
-        font-size: 0.85rem;
-        letter-spacing: 0.5px;
+        font-size: 12px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: var(--transition);
+        position: relative;
+        text-align: left;
     }
-    
+
+    .material-table thead th:hover {
+        background: var(--secondary-color);
+        color: var(--primary-color);
+    }
+
     .material-table tbody td {
         padding: 12px 16px;
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
+        transition: var(--transition);
     }
-    
+
+    .material-table tbody tr {
+        transition: var(--transition);
+        background-color: white;
+    }
+
     .material-table tbody tr:hover {
-        background: var(--light-color);
+        background-color: var(--secondary-color) !important;
+        transition: background-color 0.3s ease;
     }
-    
+
     .material-badge {
         padding: 6px 12px;
         border-radius: 20px;
@@ -311,7 +373,7 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
+
     .material-badge-info {
         background: linear-gradient(135deg, var(--info-color) 0%, #0097A7 100%);
         color: white;
@@ -341,11 +403,13 @@
         display: flex;
         gap: 6px;
         flex-wrap: wrap;
+        align-items: center;
+        min-height: 40px;
     }
-    
+
     .action-btn {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         border: none;
         display: flex;
@@ -356,8 +420,10 @@
         cursor: pointer;
         position: relative;
         overflow: hidden;
+        text-decoration: none;
+        font-size: 14px;
     }
-    
+
     .action-btn::before {
         content: '';
         position: absolute;
@@ -370,32 +436,33 @@
         transform: translate(-50%, -50%);
         transition: var(--transition);
     }
-    
+
     .action-btn:hover::before {
         width: 100px;
         height: 100px;
     }
-    
+
     .action-btn:hover {
-        transform: scale(1.1);
+        transform: translateY(-2px);
         box-shadow: var(--shadow-medium);
+        text-decoration: none;
     }
-    
+
     .action-btn-info {
         background: linear-gradient(135deg, var(--info-color) 0%, #42a5f5 100%);
         color: white;
     }
-    
+
     .action-btn-warning {
         background: linear-gradient(135deg, var(--warning-color) 0%, #ffb74d 100%);
         color: white;
     }
-    
+
     .action-btn-danger {
         background: linear-gradient(135deg, var(--danger-color) 0%, #ef5350 100%);
         color: white;
     }
-    
+
     .action-btn-success {
         background: linear-gradient(135deg, var(--success-color) 0%, #66bb6a 100%);
         color: white;
@@ -405,14 +472,14 @@
         display: flex;
         flex-direction: column;
     }
-    
+
     .role-name {
         font-weight: 600;
         color: var(--dark-color);
         margin-bottom: 4px;
         font-size: 16px;
     }
-    
+
     .role-description {
         font-size: 12px;
         color: var(--secondary-color);
@@ -431,7 +498,7 @@
     }
 
     .page-link {
-        border-radius: var(--border-radius-small);
+        border-radius: var(--border-radius);
         border: 1px solid var(--border-color);
         padding: 6px 12px;
         color: var(--dark-color);
@@ -441,9 +508,9 @@
     }
 
     .page-link:hover {
-        background: var(--primary-color);
-        color: white;
+        background: var(--secondary-color);
         border-color: var(--primary-color);
+        color: var(--primary-color);
         text-decoration: none;
     }
 
@@ -466,90 +533,151 @@
         margin-bottom: 20px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
-    
+
     .material-alert-success {
         background: linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%);
         color: #2E7D32;
         border-left: 4px solid #4CAF50;
     }
-    
+
     .material-alert-danger {
         background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
         color: #C62828;
         border-left: 4px solid #F44336;
     }
-    
+
     .material-icon {
         font-size: 1.2rem;
         margin-right: 8px;
     }
-    
+
     .empty-state {
         text-align: center;
         padding: 60px 20px;
         color: #757575;
     }
-    
+
     .empty-state i {
         font-size: 4rem;
         margin-bottom: 20px;
         opacity: 0.5;
     }
-    
+
     .empty-state p {
         font-size: 1.1rem;
         margin: 0;
     }
+
+    .results-info-wrapper {
+        padding: 12px 24px;
+        background: var(--light-bg);
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .results-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .results-text {
+        font-size: 0.875rem;
+        color: var(--medium-text);
+        display: flex;
+        align-items: center;
+    }
+
+    .results-text i {
+        color: var(--primary-color);
+        font-size: 0.875rem;
+    }
+
+    .pagination-wrapper {
+        padding: 12px 24px;
+        background: var(--light-bg);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        background: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .page-item {
+        list-style: none;
+    }
+
+    .page-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--dark-text);
+        text-decoration: none;
+        transition: var(--transition);
+        font-weight: 500;
+    }
+
+    .page-link:hover {
+        background: var(--secondary-color);
+        color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+        text-decoration: none;
+        border-color: var(--primary-color);
+    }
+
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+        border-color: var(--primary-color);
+    }
+
+    .page-item.disabled .page-link {
+        background: var(--light-bg);
+        color: var(--medium-text);
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    .page-item.disabled .page-link:hover {
+        transform: none;
+        box-shadow: var(--shadow-light);
+        border-color: var(--border-color);
+    }
 </style>
 
-<!-- Dashboard Stats -->
-<div class="stats-grid">
-    <div class="stat-card blue">
-        <div class="stat-header">
-            <div>
-                <div class="stat-value">{{ $stats['total_roles'] }}</div>
-                <div class="stat-label">Totaal Rollen</div>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-user-shield"></i>
-            </div>
-        </div>
+<!-- Status Statistieken -->
+<div class="stats-cards">
+    <div class="stat-card">
+        <div class="stat-number" style="background: linear-gradient(135deg, #2196f3 0%, #64b5f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['total_roles'] }}</div>
+        <div class="stat-label">Totaal Rollen</div>
     </div>
-
-    <div class="stat-card green">
-        <div class="stat-header">
-            <div>
-                <div class="stat-value">{{ $stats['system_roles'] }}</div>
-                <div class="stat-label">Systeem Rollen</div>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-cogs"></i>
-            </div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #81c784 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['system_roles'] }}</div>
+        <div class="stat-label">Systeem Rollen</div>
     </div>
-
-    <div class="stat-card orange">
-        <div class="stat-header">
-            <div>
-                <div class="stat-value">{{ $stats['custom_roles'] }}</div>
-                <div class="stat-label">Aangepaste Rollen</div>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-user-edit"></i>
-            </div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['custom_roles'] }}</div>
+        <div class="stat-label">Aangepaste Rollen</div>
     </div>
-
-    <div class="stat-card purple">
-        <div class="stat-header">
-            <div>
-                <div class="stat-value">{{ $stats['total_users_with_roles'] }}</div>
-                <div class="stat-label">Gebruikers met Rollen</div>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-users"></i>
-            </div>
-        </div>
+    <div class="stat-card">
+        <div class="stat-number" style="background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['total_users_with_roles'] }}</div>
+        <div class="stat-label">Gebruikers met Rollen</div>
     </div>
 </div>
 
@@ -557,24 +685,24 @@
 @if($stats['roles_by_usage']->count() > 0)
 <div class="material-card">
     <div class="card-header">
-        <h4 class="mb-0">
-            <i class="fas fa-chart-bar me-2"></i> Top Rollen per Gebruik
-        </h4>
+        <h5 class="mb-0">
+            <i class="fas fa-chart-bar me-2"></i> Top Rollen per gebruik
+        </h5>
     </div>
     <div class="card-body">
         <div class="row">
             @foreach($stats['roles_by_usage'] as $role)
                 @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
                 <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="d-flex align-items-center p-3 bg-light rounded">
+                    <div class="d-flex align-items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light);">
                         <div class="flex-shrink-0">
                             <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
                                 <i class="fas fa-user-shield"></i>
                             </div>
                         </div>
                         <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1">{{ ucfirst($role->name) }}</h6>
-                            <small class="text-muted">{{ $role->users_count }} gebruikers</small>
+                            <h6 class="mb-1" style="font-size: 14px;">{{ ucfirst($role->name) }}</h6>
+                            <small class="text-muted" style="font-size: 11px;">{{ $role->users_count }} gebruikers</small>
                         </div>
                     </div>
                 </div>
@@ -656,6 +784,7 @@
                                         <div class="filter-group">
                                             <label class="filter-label">Items per pagina</label>
                                             <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                                <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
                                                 <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
                                                 <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
                                                 <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
@@ -666,7 +795,7 @@
                                     <div class="col-md-2">
                                         <div class="filter-group">
                                             <label class="filter-label">&nbsp;</label>
-                                            <a href="{{ route('admin.roles.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
+                                            <a href="{{ route('admin.roles.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: var(--border-radius);">
                                                 <i class="fas fa-times"></i>
                                                 Filter wissen
                                             </a>
@@ -698,6 +827,7 @@
                                         <div class="filter-group">
                                             <label class="filter-label">Items per pagina</label>
                                             <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                                <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
                                                 <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
                                                 <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
                                                 <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
@@ -708,7 +838,7 @@
                                     <div class="col-md-3">
                                         <div class="filter-group">
                                             <label class="filter-label">&nbsp;</label>
-                                            <a href="{{ route('admin.roles.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
+                                            <a href="{{ route('admin.roles.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: var(--border-radius);">
                                                 <i class="fas fa-times"></i>
                                                 Filter wissen
                                             </a>
@@ -721,14 +851,30 @@
 
                     @if($roles->count() > 0)
                         <div class="table-responsive">
-                            <table class="table material-table table-hover">
+                            <table class="material-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Rol & Details</th>
+                                        <th class="sortable {{ request('sort') == 'id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="id">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'order' => request('sort') == 'id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                ID
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="name">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'order' => request('sort') == 'name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Rol & Details
+                                            </a>
+                                        </th>
                                         <th>Rechten</th>
-                                        <th>Gebruikers</th>
-                                        <th>Type</th>
+                                        <th class="sortable {{ request('sort') == 'users_count' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="users_count">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'users_count', 'order' => request('sort') == 'users_count' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Gebruikers
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'guard_name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="guard_name">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'guard_name', 'order' => request('sort') == 'guard_name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Type
+                                            </a>
+                                        </th>
                                         <th>Acties</th>
                                     </tr>
                                 </thead>
@@ -762,25 +908,25 @@
                                             </td>
                                             <td>
                                                 <div class="action-buttons">
-                                                    <a href="{{ route('admin.roles.show', $role) }}" 
-                                                       class="action-btn action-btn-info" 
+                                                    <a href="{{ route('admin.roles.show', $role) }}"
+                                                       class="action-btn action-btn-info"
                                                        title="Bekijken">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <a href="{{ route('admin.roles.edit', $role) }}" 
-                                                       class="action-btn action-btn-warning" 
+                                                    <a href="{{ route('admin.roles.edit', $role) }}"
+                                                       class="action-btn action-btn-warning"
                                                        title="Bewerken">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
                                                     @if(!in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                                        <form action="{{ route('admin.roles.destroy', $role) }}" 
-                                                              method="POST" 
+                                                        <form action="{{ route('admin.roles.destroy', $role) }}"
+                                                              method="POST"
                                                               style="display: inline;"
                                                               onsubmit="return confirm('Weet je zeker dat je deze rol wilt verwijderen?')">
                                                             @csrf
                                                             @method('DELETE')
-                                                            <button type="submit" 
-                                                                    class="action-btn action-btn-danger" 
+                                                            <button type="submit"
+                                                                    class="action-btn action-btn-danger"
                                                                     title="Verwijderen">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
@@ -794,6 +940,68 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Results Info -->
+                        <div class="results-info-wrapper">
+                            <div class="results-info">
+                                <span class="results-text">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Toon {{ $roles->firstItem() ?? 0 }} tot {{ $roles->lastItem() ?? 0 }} van {{ $roles->total() }} resultaten
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Pagination -->
+                        @if($roles->hasPages())
+                            <div class="pagination-wrapper">
+                                <nav aria-label="Paginering">
+                                    <ul class="pagination">
+                                        {{-- Previous Page Link --}}
+                                        @if ($roles->onFirstPage())
+                                            <li class="page-item disabled">
+                                                <span class="page-link">
+                                                    <i class="fas fa-chevron-left"></i>
+                                                </span>
+                                            </li>
+                                        @else
+                                            <li class="page-item">
+                                                <a class="page-link" href="{{ $roles->previousPageUrl() }}">
+                                                    <i class="fas fa-chevron-left"></i>
+                                                </a>
+                                            </li>
+                                        @endif
+
+                                        {{-- Pagination Elements --}}
+                                        @foreach ($roles->getUrlRange(1, $roles->lastPage()) as $page => $url)
+                                            @if ($page == $roles->currentPage())
+                                                <li class="page-item active">
+                                                    <span class="page-link">{{ $page }}</span>
+                                                </li>
+                                            @else
+                                                <li class="page-item">
+                                                    <a class="page-link" href="{{ $url }}">{{ $page }}</a>
+                                                </li>
+                                            @endif
+                                        @endforeach
+
+                                        {{-- Next Page Link --}}
+                                        @if ($roles->hasMorePages())
+                                            <li class="page-item">
+                                                <a class="page-link" href="{{ $roles->nextPageUrl() }}">
+                                                    <i class="fas fa-chevron-right"></i>
+                                                </a>
+                                            </li>
+                                        @else
+                                            <li class="page-item disabled">
+                                                <span class="page-link">
+                                                    <i class="fas fa-chevron-right"></i>
+                                                </span>
+                                            </li>
+                                        @endif
+                                    </ul>
+                                </nav>
+                            </div>
+                        @endif
                     @else
                         <div class="empty-state">
                             <i class="fas fa-inbox"></i>

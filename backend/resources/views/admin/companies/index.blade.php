@@ -581,9 +581,48 @@
         font-size: 0.85rem;
         color: #6c757d;
     }
+    
+    .auto-dismiss {
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .auto-dismiss.fade-out {
+        animation: slideUp 0.3s ease-in forwards;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
 </style>
 
 <div class="container-fluid">
+    <!-- Success Alert -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show auto-dismiss" role="alert" id="success-alert">
+            <i class="fas fa-check-circle me-2"></i>
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    
     <div class="row">
         <div class="col-12">
             <!-- Status Statistieken -->
@@ -681,13 +720,6 @@
                 </div>
                 
                 <div class="card-body">
-                    @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
 
                     <div class="table-responsive" style="width: 100%;">
                         <table class="material-table" style="width: 100%;">
@@ -841,4 +873,18 @@
         </div>
     </div>
 </div>
+<script>
+    // Auto-dismiss success alert after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const successAlert = document.getElementById('success-alert');
+        if (successAlert) {
+            setTimeout(function() {
+                successAlert.classList.add('fade-out');
+                setTimeout(function() {
+                    successAlert.remove();
+                }, 300); // Match the CSS animation duration
+            }, 5000); // 5 seconds
+        }
+    });
+</script>
 @endsection

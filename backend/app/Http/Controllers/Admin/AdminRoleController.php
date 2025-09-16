@@ -11,16 +11,44 @@ class AdminRoleController extends Controller
 {
 
 
-    public function index()
+    public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-roles')) {
             abort(403, 'Je hebt geen rechten om rollen te bekijken.');
         }
         
-        $roles = Role::with('permissions')
-            ->where('guard_name', 'web')
-            ->orderBy('name')
-            ->get();
+        $query = Role::with('permissions')
+            ->where('guard_name', 'web');
+        
+        // Apply filters
+        if ($request->filled('type')) {
+            if ($request->type === 'system') {
+                $query->whereIn('name', ['super-admin', 'company-admin', 'staff', 'candidate']);
+            } elseif ($request->type === 'custom') {
+                $query->whereNotIn('name', ['super-admin', 'company-admin', 'staff', 'candidate']);
+            }
+        }
+        
+        if ($request->filled('users')) {
+            if ($request->users === 'with_users') {
+                $query->whereHas('users');
+            } elseif ($request->users === 'without_users') {
+                $query->whereDoesntHave('users');
+            }
+        }
+        
+        if ($request->filled('permissions')) {
+            if ($request->permissions === 'with_permissions') {
+                $query->whereHas('permissions');
+            } elseif ($request->permissions === 'without_permissions') {
+                $query->whereDoesntHave('permissions');
+            }
+        }
+        
+        // Get per_page from request, default to 15
+        $perPage = $request->get('per_page', 15);
+        
+        $roles = $query->orderBy('name')->paginate($perPage);
 
         // Statistieken voor dashboard
         $stats = [

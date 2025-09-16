@@ -16,6 +16,14 @@ class EmailTemplate extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Get the company that owns the email template.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 }
 
 

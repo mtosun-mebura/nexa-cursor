@@ -121,6 +121,8 @@
         overflow: hidden;
         box-shadow: var(--shadow-light);
         background: white;
+        table-layout: fixed;
+        width: 100%;
     }
     
     .material-table thead th {
@@ -136,6 +138,16 @@
         transition: var(--transition);
         position: relative;
     }
+    
+    .material-table thead th:nth-child(1) { width: 60px; min-width: 60px; text-align: center; }   /* ID */
+    .material-table thead th:nth-child(2) { width: 25%; }  /* Titel & Locatie */
+    .material-table thead th:nth-child(3) { width: 15%; }  /* Bedrijf */
+    .material-table thead th:nth-child(4) { width: 12%; }  /* Categorie */
+    .material-table thead th:nth-child(5) { width: 10%; }  /* Status */
+    .material-table thead th:nth-child(6) { width: 8%; }   /* Type */
+    .material-table thead th:nth-child(7) { width: 12%; }  /* Publicatiedatum */
+    .material-table thead th:nth-child(8) { width: 8%; }   /* SEO */
+    .material-table thead th:nth-child(9) { width: 8%; }   /* Acties */
 
     .material-table thead th.highlight {
         background: var(--secondary-color);
@@ -171,7 +183,19 @@
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
         transition: var(--transition);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
+    
+    .material-table tbody td:nth-child(1) { width: 60px; min-width: 60px; text-align: center; }   /* ID */
+    .material-table tbody td:nth-child(2) { width: 25%; }  /* Titel & Locatie */
+    .material-table tbody td:nth-child(3) { width: 15%; }  /* Bedrijf */
+    .material-table tbody td:nth-child(4) { width: 12%; }  /* Categorie */
+    .material-table tbody td:nth-child(5) { width: 10%; }  /* Status */
+    .material-table tbody td:nth-child(6) { width: 8%; }   /* Type */
+    .material-table tbody td:nth-child(7) { width: 12%; }  /* Publicatiedatum */
+    .material-table tbody td:nth-child(8) { width: 8%; }   /* SEO */
+    .material-table tbody td:nth-child(9) { width: 8%; }   /* Acties */
     
     .material-table tbody tr {
         transition: var(--transition);

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Interview;
 use App\Models\Company;
 use Illuminate\Http\Request;
 
 class AdminInterviewController extends Controller
 {
+    use TenantFilter;
     public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-interviews')) {
@@ -17,10 +19,8 @@ class AdminInterviewController extends Controller
         
         $query = Interview::with(['match.vacancy.company', 'company']);
         
-        // Filter op bedrijf voor non-super-admin gebruikers
-        if (!auth()->user()->hasRole('super-admin')) {
-            $query->where('company_id', auth()->user()->company_id);
-        }
+        // Apply tenant filtering
+        $query = $this->applyTenantFilter($query);
         
         // Filter op status
         if ($request->filled('status')) {
@@ -37,8 +37,36 @@ class AdminInterviewController extends Controller
             $query->where('type', $request->type);
         }
         
+        // Sortering
+        $sortField = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('order', 'desc');
+        
+        // Valideer sorteer veld
+        $allowedSortFields = ['id', 'match_id', 'company_id', 'scheduled_at', 'location', 'status', 'created_at'];
+        if (!in_array($sortField, $allowedSortFields)) {
+            $sortField = 'created_at';
+        }
+        
+        // Speciale behandeling voor verschillende sorteervelden
+        if ($sortField === 'vacancy_id') {
+            $query->join('matches', 'interviews.match_id', '=', 'matches.id')
+                  ->orderBy('matches.vacancy_id', $sortDirection)
+                  ->select('interviews.*'); // Zorg ervoor dat alleen interview kolommen worden geselecteerd
+        } elseif ($sortField === 'status') {
+            // Sorteer op status met logische volgorde: Niet gepland, Gepland, Afgelopen
+            $query->orderByRaw("
+                CASE 
+                    WHEN scheduled_at IS NULL THEN 1
+                    WHEN scheduled_at > NOW() THEN 2
+                    WHEN scheduled_at <= NOW() THEN 3
+                END " . $sortDirection
+            );
+        } else {
+            $query->orderBy($sortField, $sortDirection);
+        }
+        
         $perPage = $request->get('per_page', 15);
-        $interviews = $query->paginate($perPage);
+        $interviews = $query->paginate($perPage)->withQueryString();
         
         return view('admin.interviews.index', compact('interviews'));
     }
@@ -49,17 +77,19 @@ class AdminInterviewController extends Controller
             abort(403, 'Je hebt geen rechten om interviews aan te maken.');
         }
         
-        // Haal alleen bedrijven en matches van het eigen bedrijf op (tenzij super-admin)
-        if (auth()->user()->hasRole('super-admin')) {
-            $companies = Company::all();
-            $matches = \App\Models\JobMatch::with(['user', 'vacancy.company'])->get();
-        } else {
-            $companies = Company::where('id', auth()->user()->company_id)->get();
-            $matches = \App\Models\JobMatch::with(['user', 'vacancy.company'])
-                ->whereHas('vacancy', function($q) {
-                    $q->where('company_id', auth()->user()->company_id);
-                })->get();
+        // Haal bedrijven en matches op basis van tenant filtering
+        $companyQuery = Company::query();
+        $companyQuery = $this->applyTenantFilter($companyQuery);
+        $companies = $companyQuery->get();
+        
+        $matchQuery = \App\Models\JobMatch::with(['user', 'vacancy.company']);
+        if (!auth()->user()->hasRole('super-admin') || session('selected_tenant')) {
+            $tenantId = $this->getTenantId();
+            $matchQuery->whereHas('vacancy', function($q) use ($tenantId) {
+                $q->where('company_id', $tenantId);
+            });
         }
+        $matches = $matchQuery->get();
         
         return view('admin.interviews.create', compact('companies', 'matches'));
     }
@@ -106,11 +136,9 @@ class AdminInterviewController extends Controller
             abort(403, 'Je hebt geen rechten om interviews te bekijken.');
         }
         
-        // Check of het interview bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($interview->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om dit interview te bekijken.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessResource($interview)) {
+            abort(403, 'Je hebt geen toegang tot dit interview.');
         }
         
         $interview->load(['match.vacancy.company', 'company']);
@@ -123,14 +151,14 @@ class AdminInterviewController extends Controller
             abort(403, 'Je hebt geen rechten om interviews te bewerken.');
         }
         
-        // Check of het interview bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($interview->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om dit interview te bewerken.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessResource($interview)) {
+            abort(403, 'Je hebt geen toegang tot dit interview.');
         }
         
-        $companies = auth()->user()->hasRole('super-admin') ? Company::all() : Company::where('id', auth()->user()->company_id)->get();
+        $companyQuery = Company::query();
+        $companyQuery = $this->applyTenantFilter($companyQuery);
+        $companies = $companyQuery->get();
         $interview->load(['match.vacancy.company', 'company']);
         return view('admin.interviews.edit', compact('interview', 'companies'));
     }
@@ -141,11 +169,9 @@ class AdminInterviewController extends Controller
             abort(403, 'Je hebt geen rechten om interviews te bewerken.');
         }
         
-        // Check of het interview bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($interview->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om dit interview te bewerken.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessResource($interview)) {
+            abort(403, 'Je hebt geen toegang tot dit interview.');
         }
         
         $request->validate([
@@ -171,11 +197,9 @@ class AdminInterviewController extends Controller
             abort(403, 'Je hebt geen rechten om interviews te verwijderen.');
         }
         
-        // Check of het interview bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($interview->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om dit interview te verwijderen.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessResource($interview)) {
+            abort(403, 'Je hebt geen toegang tot dit interview.');
         }
         
         $interview->delete();

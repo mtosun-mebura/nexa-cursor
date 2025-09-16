@@ -205,6 +205,7 @@
         overflow: hidden;
         box-shadow: var(--shadow-light);
         background: white;
+        table-layout: fixed;
     }
     
     .material-table thead th {
@@ -222,8 +223,46 @@
         text-align: left;
     }
     
+    .material-table thead th:nth-child(1) { width: 80px; min-width: 80px; text-align: center; }   /* ID */
+    .material-table thead th:nth-child(2) { width: 20%; }  /* Kandidaat */
+    .material-table thead th:nth-child(3) { width: 20%; }  /* Vacature */
+    .material-table thead th:nth-child(4) { width: 15%; }  /* Bedrijf */
+    .material-table thead th:nth-child(5) { width: 12%; }  /* Gepland op */
+    .material-table thead th:nth-child(6) { width: 12%; }  /* Locatie */
+    .material-table thead th:nth-child(7) { width: 10%; }  /* Status */
+    .material-table thead th:nth-child(8) { width: 8%; }   /* Acties */
+    
     .material-table thead th:hover {
         background: var(--secondary-color);
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sortable {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .material-table thead th.sortable::after {
+        content: '↕';
+        margin-left: 8px;
+        opacity: 0.5;
+        transition: var(--transition);
+    }
+    
+    .material-table thead th.sort-asc::after {
+        content: '↑';
+        opacity: 1;
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sort-desc::after {
+        content: '↓';
+        opacity: 1;
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sortable:hover::after {
+        opacity: 1;
         color: var(--primary-color);
     }
     
@@ -232,7 +271,18 @@
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
         transition: var(--transition);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
+    
+    .material-table tbody td:nth-child(1) { width: 80px; min-width: 80px; text-align: center; }   /* ID */
+    .material-table tbody td:nth-child(2) { width: 20%; }  /* Kandidaat */
+    .material-table tbody td:nth-child(3) { width: 20%; }  /* Vacature */
+    .material-table tbody td:nth-child(4) { width: 15%; }  /* Bedrijf */
+    .material-table tbody td:nth-child(5) { width: 12%; }  /* Gepland op */
+    .material-table tbody td:nth-child(6) { width: 12%; }  /* Locatie */
+    .material-table tbody td:nth-child(7) { width: 10%; }  /* Status */
+    .material-table tbody td:nth-child(8) { width: 8%; }   /* Acties */
     
     .material-table tbody tr {
         transition: var(--transition);
@@ -696,6 +746,7 @@
                                     <div class="filter-group">
                                         <label class="filter-label">Items per pagina</label>
                                         <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                            <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
                                             <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
                                             <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
                                             <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
@@ -740,6 +791,7 @@
                                     <div class="filter-group">
                                         <label class="filter-label">Items per pagina</label>
                                         <select name="per_page" class="filter-select" onchange="this.form.submit()">
+                                            <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
                                             <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
                                             <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
                                             <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
@@ -768,13 +820,41 @@
                             <table class="material-table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Kandidaat</th>
-                                        <th>Vacature</th>
-                                        <th>Bedrijf</th>
-                                        <th>Gepland op</th>
-                                        <th>Locatie</th>
-                                        <th>Status</th>
+                                        <th class="sortable {{ request('sort') == 'id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="id">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'order' => request('sort') == 'id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                ID
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'match_id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="match_id">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'match_id', 'order' => request('sort') == 'match_id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Kandidaat
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'vacancy_id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="vacancy_id">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'vacancy_id', 'order' => request('sort') == 'vacancy_id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Vacature
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'company_id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="company_id">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'company_id', 'order' => request('sort') == 'company_id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Bedrijf
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'scheduled_at' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="scheduled_at">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'scheduled_at', 'order' => request('sort') == 'scheduled_at' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Gepland op
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'location' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="location">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'location', 'order' => request('sort') == 'location' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Locatie
+                                            </a>
+                                        </th>
+                                        <th class="sortable {{ request('sort') == 'status' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="status">
+                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => request('sort') == 'status' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                                Status
+                                            </a>
+                                        </th>
                                         <th>Acties</th>
                                     </tr>
                                 </thead>
@@ -908,18 +988,47 @@
                                     </li>
                                 @endif
 
-                                {{-- Pagination Elements --}}
-                                @foreach ($interviews->getUrlRange(1, $interviews->lastPage()) as $page => $url)
-                                    @if ($page == $interviews->currentPage())
-                                        <li class="page-item active">
-                                            <span class="page-link">{{ $page }}</span>
-                                        </li>
-                                    @else
-                                        <li class="page-item">
-                                            <a class="page-link" href="{{ $url }}">{{ $page }}</a>
-                                        </li>
-                                    @endif
-                                @endforeach
+                                        {{-- Pagination Elements --}}
+                                        @php
+                                            $currentPage = $interviews->currentPage();
+                                            $lastPage = $interviews->lastPage();
+                                            $start = max(1, $currentPage - 2);
+                                            $end = min($lastPage, $currentPage + 2);
+                                        @endphp
+                                        
+                                        @if($start > 1)
+                                            <li class="page-item">
+                                                <a class="page-link" href="{{ $interviews->url(1) }}">1</a>
+                                            </li>
+                                            @if($start > 2)
+                                                <li class="page-item disabled">
+                                                    <span class="page-link">...</span>
+                                                </li>
+                                            @endif
+                                        @endif
+                                        
+                                        @for($page = $start; $page <= $end; $page++)
+                                            @if ($page == $currentPage)
+                                                <li class="page-item active">
+                                                    <span class="page-link">{{ $page }}</span>
+                                                </li>
+                                            @else
+                                                <li class="page-item">
+                                                    <a class="page-link" href="{{ $interviews->url($page) }}">{{ $page }}</a>
+                                                </li>
+                                            @endif
+                                        @endfor
+                                        
+                                        @if($end < $lastPage)
+                                            @if($end < $lastPage - 1)
+                                                <li class="page-item disabled">
+                                                    <span class="page-link">...</span>
+                                                </li>
+                                            @endif
+                                            <li class="page-item">
+                                                <a class="page-link" href="{{ $interviews->url($lastPage) }}">{{ $lastPage }}</a>
+                                            </li>
+                                        @endif
 
                                 {{-- Next Page Link --}}
                                 @if ($interviews->hasMorePages())

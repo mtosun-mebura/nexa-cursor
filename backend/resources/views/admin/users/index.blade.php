@@ -142,6 +142,7 @@
         overflow: hidden;
         box-shadow: var(--shadow-light);
         background: white;
+        table-layout: fixed;
     }
     
     .material-table thead th {
@@ -159,8 +160,46 @@
         text-align: left;
     }
     
+    .material-table thead th:nth-child(1) { width: 20%; }  /* Naam */
+    .material-table thead th:nth-child(2) { width: 20%; }  /* E-mail */
+    .material-table thead th:nth-child(3) { width: 12%; }  /* Telefoon */
+    .material-table thead th:nth-child(4) { width: 15%; }  /* Bedrijf */
+    .material-table thead th:nth-child(5) { width: 12%; }  /* Rollen */
+    .material-table thead th:nth-child(6) { width: 8%; }   /* Status */
+    .material-table thead th:nth-child(7) { width: 10%; }  /* Gemaakt op */
+    .material-table thead th:nth-child(8) { width: 8%; }   /* Acties */
+    
     .material-table thead th:hover {
         background: var(--secondary-color);
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sortable {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .material-table thead th.sortable::after {
+        content: '↕';
+        margin-left: 8px;
+        opacity: 0.5;
+        transition: var(--transition);
+    }
+    
+    .material-table thead th.sort-asc::after {
+        content: '↑';
+        opacity: 1;
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sort-desc::after {
+        content: '↓';
+        opacity: 1;
+        color: var(--primary-color);
+    }
+    
+    .material-table thead th.sortable:hover::after {
+        opacity: 1;
         color: var(--primary-color);
     }
     
@@ -169,7 +208,18 @@
         border-bottom: 1px solid var(--border-color);
         vertical-align: middle;
         transition: var(--transition);
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
+    
+    .material-table tbody td:nth-child(1) { width: 20%; }  /* Naam */
+    .material-table tbody td:nth-child(2) { width: 20%; }  /* E-mail */
+    .material-table tbody td:nth-child(3) { width: 12%; }  /* Telefoon */
+    .material-table tbody td:nth-child(4) { width: 15%; }  /* Bedrijf */
+    .material-table tbody td:nth-child(5) { width: 12%; }  /* Rollen */
+    .material-table tbody td:nth-child(6) { width: 8%; }   /* Status */
+    .material-table tbody td:nth-child(7) { width: 10%; }  /* Gemaakt op */
+    .material-table tbody td:nth-child(8) { width: 8%; }   /* Acties */
     
     .material-table tbody tr {
         transition: var(--transition);
@@ -558,9 +608,48 @@
         font-size: 0.85rem;
         color: #6c757d;
     }
+    
+    .auto-dismiss {
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .auto-dismiss.fade-out {
+        animation: slideUp 0.3s ease-in forwards;
+    }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        to {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+    }
 </style>
 
 <div class="container-fluid">
+    <!-- Success Alert -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show auto-dismiss" role="alert" id="success-alert">
+            <i class="fas fa-check-circle me-2"></i>
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    
     <div class="row">
         <div class="col-12">
             <!-- Status Statistieken -->
@@ -655,25 +744,42 @@
                 </div>
                 
                 <div class="card-body">
-                    @if(session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
 
                     <div class="table-responsive" style="width: 100%;">
                         <table class="material-table" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th>Naam</th>
-                                    <th>E-mail</th>
-                                    <th>Telefoon</th>
-                                    <th>Bedrijf</th>
+                                    <th class="sortable {{ request('sort') == 'first_name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="first_name">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'first_name', 'order' => request('sort') == 'first_name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                            Naam
+                                        </a>
+                                    </th>
+                                    <th class="sortable {{ request('sort') == 'email' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="email">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'email', 'order' => request('sort') == 'email' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                            E-mail
+                                        </a>
+                                    </th>
+                                    <th class="sortable {{ request('sort') == 'phone' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="phone">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'phone', 'order' => request('sort') == 'phone' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                            Telefoon
+                                        </a>
+                                    </th>
+                                    <th class="sortable {{ request('sort') == 'company_id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="company_id">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'company_id', 'order' => request('sort') == 'company_id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                            Bedrijf
+                                        </a>
+                                    </th>
                                     <th>Rollen</th>
-                                    <th>Status</th>
-                                    <th>Gemaakt op</th>
+                                    <th class="sortable {{ request('sort') == 'status' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="status">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => request('sort') == 'status' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                            Status
+                                        </a>
+                                    </th>
+                                    <th class="sortable {{ request('sort') == 'created_at' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="created_at">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'order' => request('sort') == 'created_at' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
+                                            Gemaakt op
+                                        </a>
+                                    </th>
                                     <th>Acties</th>
                                 </tr>
                             </thead>
@@ -829,4 +935,18 @@
         </div>
     </div>
 </div>
+<script>
+    // Auto-dismiss success alert after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const successAlert = document.getElementById('success-alert');
+        if (successAlert) {
+            setTimeout(function() {
+                successAlert.classList.add('fade-out');
+                setTimeout(function() {
+                    successAlert.remove();
+                }, 300); // Match the CSS animation duration
+            }, 5000); // 5 seconds
+        }
+    });
+</script>
 @endsection

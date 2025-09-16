@@ -50,6 +50,14 @@ class Company extends Model
     {
         return $this->hasMany(Vacancy::class);
     }
+
+    /**
+     * Get the email templates for the company.
+     */
+    public function emailTemplates()
+    {
+        return $this->hasMany(EmailTemplate::class);
+    }
 }
 
 

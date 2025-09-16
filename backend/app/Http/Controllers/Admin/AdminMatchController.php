@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\JobMatch;
 use Illuminate\Http\Request;
 
 class AdminMatchController extends Controller
 {
+    use TenantFilter;
     public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-matches')) {
@@ -16,8 +18,17 @@ class AdminMatchController extends Controller
         
         $query = \App\Models\JobMatch::with(['user', 'vacancy.company']);
         
-        // Filter op bedrijf voor non-super-admin gebruikers
-        if (!auth()->user()->hasRole('super-admin')) {
+        // Apply tenant filtering via vacancy relationship
+        $user = auth()->user();
+        if ($user->hasRole('super-admin')) {
+            if (session('selected_tenant')) {
+                $query->whereHas('vacancy', function($q) {
+                    $q->where('company_id', session('selected_tenant'));
+                });
+            }
+            // Als geen tenant geselecteerd, toon alle matches (geen filtering)
+        } else {
+            // Company admin en staff kunnen alleen matches van hun eigen bedrijf zien
             $query->whereHas('vacancy', function($q) {
                 $q->where('company_id', auth()->user()->company_id);
             });
@@ -50,8 +61,20 @@ class AdminMatchController extends Controller
             }
         }
         
+        // Sortering
+        $sortField = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('order', 'desc');
+        
+        // Valideer sorteer veld
+        $allowedSortFields = ['id', 'user_id', 'vacancy_id', 'match_score', 'status', 'created_at'];
+        if (!in_array($sortField, $allowedSortFields)) {
+            $sortField = 'created_at';
+        }
+        
+        $query->orderBy($sortField, $sortDirection);
+        
         $perPage = $request->get('per_page', 15);
-        $matches = $query->paginate($perPage);
+        $matches = $query->paginate($perPage)->withQueryString();
         
         return view('admin.matches.index', compact('matches'));
     }
@@ -109,11 +132,9 @@ class AdminMatchController extends Controller
             abort(403, 'Je hebt geen rechten om matches te bekijken.');
         }
         
-        // Check of de match bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($match->vacancy->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om deze match te bekijken.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessMatch($match)) {
+            abort(403, 'Je hebt geen toegang tot deze match.');
         }
         
         $match->load(['user', 'vacancy.company']);
@@ -126,11 +147,9 @@ class AdminMatchController extends Controller
             abort(403, 'Je hebt geen rechten om matches te bewerken.');
         }
         
-        // Check of de match bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($match->vacancy->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om deze match te bewerken.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessMatch($match)) {
+            abort(403, 'Je hebt geen toegang tot deze match.');
         }
         
         $match->load(['user', 'vacancy.company']);
@@ -143,11 +162,9 @@ class AdminMatchController extends Controller
             abort(403, 'Je hebt geen rechten om matches te bewerken.');
         }
         
-        // Check of de match bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($match->vacancy->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om deze match te bewerken.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessMatch($match)) {
+            abort(403, 'Je hebt geen toegang tot deze match.');
         }
         
         $request->validate([
@@ -171,14 +188,28 @@ class AdminMatchController extends Controller
             abort(403, 'Je hebt geen rechten om matches te verwijderen.');
         }
         
-        // Check of de match bij het bedrijf van de gebruiker hoort
-        if (!auth()->user()->hasRole('super-admin')) {
-            if ($match->vacancy->company_id !== auth()->user()->company_id) {
-                abort(403, 'Je hebt geen rechten om deze match te verwijderen.');
-            }
+        // Check if user can access this resource
+        if (!$this->canAccessMatch($match)) {
+            abort(403, 'Je hebt geen toegang tot deze match.');
         }
         
         $match->delete();
         return redirect()->route('admin.matches.index')->with('success', 'Match succesvol verwijderd.');
+    }
+    
+    /**
+     * Check if user can access a specific match
+     */
+    protected function canAccessMatch($match)
+    {
+        $user = auth()->user();
+        
+        // Super admin kan alles benaderen
+        if ($user->hasRole('super-admin')) {
+            return true;
+        }
+        
+        // Andere gebruikers kunnen alleen matches van hun eigen bedrijf benaderen
+        return $match->vacancy->company_id === $user->company_id;
     }
 }

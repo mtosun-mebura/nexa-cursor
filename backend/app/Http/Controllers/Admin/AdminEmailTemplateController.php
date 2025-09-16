@@ -3,19 +3,52 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\EmailTemplate;
 use App\Models\Company;
 use Illuminate\Http\Request;
 
 class AdminEmailTemplateController extends Controller
 {
-    public function index()
+    use TenantFilter;
+    public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
         }
         
-        $emailTemplates = EmailTemplate::with('company')->paginate(10);
+        $query = EmailTemplate::with('company');
+        
+        // Apply tenant filtering
+        $query = $this->applyTenantFilter($query);
+        
+        // Sorting
+        $sortField = $request->get('sort', 'id');
+        $sortDirection = $request->get('order', 'asc');
+        
+        $allowedSortFields = ['id', 'name', 'type', 'company_id', 'is_active', 'created_at'];
+        
+        if (in_array($sortField, $allowedSortFields)) {
+            if ($sortField === 'company_id') {
+                $query->join('companies', 'email_templates.company_id', '=', 'companies.id')
+                      ->orderBy('companies.name', $sortDirection)
+                      ->select('email_templates.*');
+            } elseif ($sortField === 'is_active') {
+                $query->orderByRaw("
+                    CASE
+                        WHEN is_active = false THEN 1
+                        WHEN is_active = true THEN 2
+                    END " . $sortDirection
+                );
+            } else {
+                $query->orderBy($sortField, $sortDirection);
+            }
+        } else {
+            $query->orderBy('id', 'asc');
+        }
+        
+        $emailTemplates = $query->paginate(10)->withQueryString();
+        
         return view('admin.email-templates.index', compact('emailTemplates'));
     }
 
@@ -25,7 +58,9 @@ class AdminEmailTemplateController extends Controller
             abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
         }
         
-        $companies = Company::all();
+        $query = Company::query();
+        $query = $this->applyTenantFilter($query);
+        $companies = $query->get();
         
         // Template variabelen voor de view
         $templateVariables = [
@@ -78,6 +113,11 @@ class AdminEmailTemplateController extends Controller
             abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
         }
         
+        // Check if user can access this resource
+        if (!$this->canAccessResource($emailTemplate)) {
+            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+        }
+        
         // Template variabelen voor de view
         $templateVariables = [
             'name' => 'Gebruikersnaam',
@@ -99,7 +139,14 @@ class AdminEmailTemplateController extends Controller
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
         }
         
-        $companies = Company::all();
+        // Check if user can access this resource
+        if (!$this->canAccessResource($emailTemplate)) {
+            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+        }
+        
+        $query = Company::query();
+        $query = $this->applyTenantFilter($query);
+        $companies = $query->get();
         
         // Template variabelen voor de view
         $templateVariables = [
@@ -120,6 +167,11 @@ class AdminEmailTemplateController extends Controller
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+        }
+        
+        // Check if user can access this resource
+        if (!$this->canAccessResource($emailTemplate)) {
+            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
         
         $request->validate([
@@ -150,6 +202,11 @@ class AdminEmailTemplateController extends Controller
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te verwijderen.');
+        }
+        
+        // Check if user can access this resource
+        if (!$this->canAccessResource($emailTemplate)) {
+            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
         
         $emailTemplate->delete();
