@@ -14,13 +14,16 @@ class Vacancy extends Model
         'company_id','title','location','employment_type','description','requirements','offer',
         'application_instructions','category_id','reference_number','logo','salary_range','start_date',
         'working_hours','travel_expenses','remote_work','status','language','publication_date','closing_date',
-        'meta_title','meta_description','meta_keywords'
+        'meta_title','meta_description','meta_keywords','is_active','published_at','salary_min','salary_max',
+        'experience_level','benefits'
     ];
 
     protected $casts = [
         'travel_expenses' => 'boolean',
         'remote_work' => 'boolean',
+        'is_active' => 'boolean',
         'publication_date' => 'datetime',
+        'published_at' => 'datetime',
         'closing_date' => 'datetime',
         'start_date' => 'date',
     ];
@@ -88,7 +91,8 @@ class Vacancy extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('status', 'Open');
+        return $query->where('is_active', true)
+                    ->where('published_at', '<=', now());
     }
 
     /**
@@ -104,7 +108,7 @@ class Vacancy extends Model
      */
     public function scopeLatest($query)
     {
-        return $query->orderBy('publication_date', 'desc');
+        return $query->orderBy('published_at', 'desc');
     }
 
     /**

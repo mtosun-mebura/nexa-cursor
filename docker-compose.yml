@@ -61,18 +61,26 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: node:20
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: nexa_frontend
-    working_dir: /workspace/frontend
-    command: bash -lc "npm install && npx ng serve --host 0.0.0.0 --port 4200 --disable-host-check"
     ports:
-      - "4200:4200"
-    volumes:
-      - ./frontend:/workspace/frontend
+      - "3000:8000"
     environment:
-      - NPM_CONFIG_CACHE=/tmp/npmcache
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:3000
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: nexa
+      DB_USERNAME: nexa
+      DB_PASSWORD: nexa
+    volumes:
+      - ./backend:/var/www/html
     depends_on:
-      - backend
+      - db
     restart: unless-stopped
 
 volumes:

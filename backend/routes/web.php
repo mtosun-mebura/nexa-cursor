@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminCompanyController;
@@ -91,7 +92,127 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     });
 });
 
-// Redirect root to vacatures pagina
+// Frontend home page
 Route::get('/', function () {
-    return redirect()->route('vacancies.index');
+    return view('frontend.pages.home');
+})->name('home');
+
+
+
+
+// Vacature matching demo page
+Route::get('/vacature-matching', function () {
+    return view('frontend.pages.vacature-matching');
+})->name('vacature-matching');
+
+/*
+|--------------------------------------------------------------------------
+| Frontend Routes
+|--------------------------------------------------------------------------
+*/
+
+// Job routes
+Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
+Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, 'show'])->name('jobs.show');
+
+
+// Auth routes
+Route::get('/login', function () {
+    return view('frontend.pages.login');
+})->name('login');
+
+Route::post('/login', function () {
+    $credentials = request()->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+    ]);
+    
+    if (Auth::guard('web')->attempt($credentials)) {
+        request()->session()->regenerate();
+        return redirect()->route('dashboard');
+    }
+    
+    return redirect()->back()->withErrors(['email' => 'Ongeldige inloggegevens']);
+})->name('login.post');
+
+Route::get('/register', function () {
+    return view('frontend.pages.register');
+})->name('register');
+
+Route::post('/register', function () {
+    $validated = request()->validate([
+        'first_name' => 'required|string|max:255',
+        'last_name' => 'required|string|max:255',
+        'email' => 'required|string|email|max:255|unique:users',
+        'password' => 'required|string|min:8|confirmed',
+    ]);
+    
+    $user = \App\Models\User::create([
+        'first_name' => $validated['first_name'],
+        'last_name' => $validated['last_name'],
+        'email' => $validated['email'],
+        'password' => Hash::make($validated['password']),
+        'email_verified_at' => now(),
+    ]);
+    
+    Auth::guard('web')->login($user);
+    
+    return redirect()->route('dashboard');
+})->name('register.post');
+Route::post('/logout', function () {
+    Auth::guard('web')->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect('/');
+})->name('logout');
+
+Route::get('/logout', function () {
+    Auth::guard('web')->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect('/');
+})->name('logout.get');
+
+// User dashboard routes
+Route::middleware(['auth:web'])->group(function () {
+    Route::get('/dashboard', function () {
+        return view('frontend.pages.dashboard');
+    })->name('dashboard');
+    
+    Route::get('/matches', function () {
+        return view('frontend.pages.matches');
+    })->name('matches');
+    
+    Route::get('/profile', function () {
+        return view('frontend.pages.profile');
+    })->name('profile');
+    
+    Route::get('/applications', function () {
+        return view('frontend.pages.applications');
+    })->name('applications');
+    
+    Route::get('/settings', function () {
+        return view('frontend.pages.settings');
+    })->name('settings');
 });
+
+// Static pages
+Route::get('/about', function () {
+    return view('frontend.pages.about');
+})->name('about');
+
+Route::get('/help', function () {
+    return view('frontend.pages.help');
+})->name('help');
+
+Route::get('/contact', function () {
+    return view('frontend.pages.contact');
+})->name('contact');
+
+Route::get('/privacy', function () {
+    return view('frontend.pages.privacy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return view('frontend.pages.terms');
+})->name('terms');

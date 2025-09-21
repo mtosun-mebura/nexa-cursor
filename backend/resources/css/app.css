@@ -1,11 +1,255 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+/* Vertel Tailwind waar klassen voorkomen (Laravel) */
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
+@source "../**/*.blade.php";
+@source "../**/*.{js,ts,vue}";
 
+/* Maak je design tokens met @theme (v4) */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand (NEXA oranje schaal) */
+  --color-brand-50:  #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+
+  /* UI-kleuren (light) */
+  --color-surface: #ffffff;
+  --color-card:    #f8fafc; /* slate-50-ish */
+  --color-border:  #e2e8f0; /* slate-200 */
+  --color-text:    #0f172a; /* slate-900 */
+  --color-muted:   #64748b; /* slate-500 */
+
+  /* UI-kleuren (dark) – aparte tokens, te gebruiken met dark: */
+  --color-surface-dark: #0f172a; /* slate-900 */
+  --color-card-dark:    #111827; /* slate-800 */
+  --color-border-dark:  #334155; /* slate-600 */
+  --color-text-dark:    #f1f5f9; /* slate-100 */
+  --color-muted-dark:   #94a3b8; /* slate-400 */
+
+  /* radius/shadows als tokens (optioneel) */
+  --radius-2xl: 1rem;
+  --shadow-soft: 0 2px 12px rgba(0,0,0,.06);
+  --shadow-soft-dark: 0 2px 18px rgba(0,0,0,.45);
+}
+
+/* Handmatige dark-mode toggle met .dark (v4) */
+@custom-variant dark (&:where(.dark, .dark *)); /* maakt 'dark:*' varianten selector-gebaseerd i.p.v. media-query */
+
+@layer components {
+  .card {
+    background-color: rgb(var(--color-card));
+    border: 1px solid rgb(var(--color-border));
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .dark .card {
+    background-color: rgb(var(--color-card-dark));
+    border-color: rgb(var(--color-border-dark));
+    box-shadow: var(--shadow-soft-dark);
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 font-medium
+           ring-1 ring-transparent transition focus:outline-none;
+  }
+  .btn-primary {
+    background-color: #ea580c;
+    color: white;
+  }
+  .btn-primary:hover {
+    background-color: #c2410c;
+  }
+  .btn-primary:focus {
+    outline: 2px solid #ea580c;
+    outline-offset: 2px;
+  }
+  
+  .btn-outline {
+    border: 1px solid rgb(var(--color-border));
+    background-color: rgb(var(--color-surface));
+    color: rgb(var(--color-text));
+  }
+  .btn-outline:hover {
+    background-color: rgb(var(--color-card));
+  }
+  .dark .btn-outline {
+    border-color: rgb(var(--color-border-dark));
+    background-color: rgb(var(--color-surface-dark));
+    color: rgb(var(--color-text-dark));
+  }
+  .dark .btn-outline:hover {
+    background-color: rgb(var(--color-card-dark));
+  }
+
+  .input, .select {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 2px solid #e2e8f0;
+    background-color: #ffffff;
+    color: #0f172a;
+    padding: 0.5rem 0.75rem;
+  }
+  .input::placeholder, .select::placeholder {
+    color: #64748b;
+  }
+  .input:focus, .select:focus {
+    border-color: #ea580c;
+    border-width: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+  }
+  .dark .input, .dark .select {
+    border: 2px solid #334155;
+    background-color: #1e293b;
+    color: #f1f5f9;
+  }
+  .dark .input::placeholder, .dark .select::placeholder {
+    color: #94a3b8;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background-color: #fff7ed;
+    color: #c2410c;
+  }
+  .dark .badge {
+    background-color: rgba(234, 88, 12, 0.2);
+    color: #fed7aa;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--color-border));
+    background-color: rgb(var(--color-card));
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    color: rgb(var(--color-text));
+  }
+  .dark .pill {
+    border-color: rgb(var(--color-border-dark));
+    background-color: rgb(var(--color-card-dark));
+    color: rgb(var(--color-text-dark));
+  }
+
+  .match {
+    position: relative;
+    height: 0.5rem;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 9999px;
+    background-color: rgb(var(--color-border));
+  }
+  .dark .match {
+    background-color: rgb(var(--color-border-dark));
+  }
+  .match > span {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    border-radius: 9999px;
+    background-color: #f97316;
+  }
+
+  .container-custom {
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-custom {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .container-custom {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .section-padding {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+  @media (min-width: 1024px) {
+    .section-padding {
+      padding-top: 6rem;
+      padding-bottom: 6rem;
+    }
+  }
+
+  .card-hover {
+    transition: all 0.3s ease;
+  }
+  .card-hover:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-0.25rem);
+  }
+
+  .card-elevated {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  .btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1.125rem;
+  }
+
+  .hover-lift {
+    transition: all 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-0.25rem);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .text-gradient {
+    background: linear-gradient(to right, #f97316, #c2410c);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .hero-gradient {
+    background: linear-gradient(to bottom right, #2563eb, #1d4ed8, #7c3aed);
+  }
+
+  .stat-card {
+    padding: 1.5rem;
+  }
+
+  .stat-number {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #ea580c;
+  }
+  .dark .stat-number {
+    color: #fb923c;
+  }
+
+  .stat-label {
+    color: rgb(var(--color-muted));
+  }
+  .dark .stat-label {
+    color: rgb(var(--color-muted-dark));
+  }
 }
