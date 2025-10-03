@@ -34,7 +34,10 @@ class VacancySeeder extends Seeder
         // Maak 5 vacatures voor Mali bedrijf
         $this->createMaliBedrijfVacancies($companies, $categories);
         
-        $this->command->info('10 vacatures succesvol aangemaakt (5 per bedrijf)!');
+        // Maak extra vacatures voor meer diversiteit
+        $this->createExtraVacancies($companies, $categories);
+        
+        $this->command->info('Extra vacatures succesvol aangemaakt!');
     }
     
     /**
@@ -52,11 +55,11 @@ class VacancySeeder extends Seeder
         $tosunVacancies = [
             [
                 'title' => 'Senior Full Stack Developer',
-                'location' => 'Amsterdam Centrum',
+                'location' => 'Tilburg Centrum',
                 'employment_type' => 'Fulltime',
                 'description' => 'Wij zoeken een ervaren Full Stack Developer die ons team kan versterken bij het ontwikkelen van innovatieve webapplicaties. Je werkt met moderne technologieën zoals React, Node.js en Laravel. Je draagt bij aan de technische architectuur en begeleidt junior developers.',
                 'requirements' => "- Minimaal 5 jaar ervaring met JavaScript, PHP en moderne frameworks\n- Ervaring met React, Vue.js of Angular\n- Kennis van Laravel, Symfony of vergelijkbare PHP frameworks\n- Ervaring met databases (MySQL, PostgreSQL)\n- Kennis van Docker en CI/CD pipelines\n- Goede communicatieve vaardigheden en teamspirit\n- Ervaring met agile development methodieken",
-                'offer' => "- Marktconform salaris van €4.500 - €6.500 per maand\n- Flexibele werktijden en remote werk mogelijkheden\n- 25 vakantiedagen per jaar\n- Pensioenregeling en ziektekostenverzekering\n- Budget voor opleidingen en conferenties\n- Moderne werkomgeving in het centrum van Amsterdam\n- Doorgroeimogelijkheden naar Tech Lead of Architect",
+                'offer' => "- Marktconform salaris van €4.500 - €6.500 per maand\n- Flexibele werktijden en remote werk mogelijkheden\n- 25 vakantiedagen per jaar\n- Pensioenregeling en ziektekostenverzekering\n- Budget voor opleidingen en conferenties\n- Moderne werkomgeving in het centrum van Tilburg\n- Doorgroeimogelijkheden naar Tech Lead of Architect",
                 'application_instructions' => 'Stuur je CV, motivatiebrief en portfolio naar hr@tosun.nl. Vermeld in je motivatie waarom je geïnteresseerd bent in deze functie en wat je kunt bijdragen aan ons team.',
                 'salary_range' => '€4.500 - €6.500 per maand',
                 'start_date' => '2024-02-01',
@@ -181,11 +184,11 @@ class VacancySeeder extends Seeder
         $maliVacancies = [
             [
                 'title' => 'Frontend Developer React',
-                'location' => 'Amsterdam Zuid',
+                'location' => 'Breda Centrum',
                 'employment_type' => 'Fulltime',
                 'description' => 'Mali bedrijf zoekt een ervaren Frontend Developer die gespecialiseerd is in React. Je werkt aan moderne webapplicaties en draagt bij aan de ontwikkeling van gebruiksvriendelijke interfaces. Je werkt in een dynamisch team van developers en designers.',
                 'requirements' => "- Minimaal 3 jaar ervaring met React en moderne JavaScript\n- Ervaring met TypeScript en ES6+\n- Kennis van CSS preprocessors (Sass, Less)\n- Ervaring met state management (Redux, Context API)\n- Kennis van responsive design en accessibility\n- Ervaring met testing frameworks (Jest, React Testing Library)\n- Goede communicatieve vaardigheden en teamspirit\n- Ervaring met Git en agile development",
-                'offer' => "- Marktconform salaris van €3.800 - €5.500 per maand\n- Flexibele werktijden en hybride werk mogelijkheden\n- 25 vakantiedagen per jaar\n- Uitstekende secundaire arbeidsvoorwaarden\n- Budget voor opleidingen en conferenties\n- Moderne werkomgeving in Amsterdam Zuid\n- Doorgroeimogelijkheden naar Senior Developer",
+                'offer' => "- Marktconform salaris van €3.800 - €5.500 per maand\n- Flexibele werktijden en hybride werk mogelijkheden\n- 25 vakantiedagen per jaar\n- Uitstekende secundaire arbeidsvoorwaarden\n- Budget voor opleidingen en conferenties\n- Moderne werkomgeving in Breda Centrum\n- Doorgroeimogelijkheden naar Senior Developer",
                 'application_instructions' => 'Solliciteer via onze website met je CV, motivatiebrief en portfolio. Zorg ervoor dat je portfolio recente React projecten bevat en toont hoe je denkt over frontend development.',
                 'salary_range' => '€3.800 - €5.500 per maand',
                 'start_date' => '2024-03-01',
@@ -366,5 +369,110 @@ class VacancySeeder extends Seeder
         }
         
         return implode(', ', array_unique($keywords));
+    }
+    
+    /**
+     * Maak extra vacatures aan voor meer diversiteit
+     */
+    private function createExtraVacancies($companies, $categories)
+    {
+        $extraVacancies = [
+            [
+                'title' => 'Product Manager',
+                'location' => 'Maastricht Centrum',
+                'employment_type' => 'Fulltime',
+                'description' => 'Als Product Manager ben je verantwoordelijk voor de ontwikkeling en uitvoering van productstrategieën. Je werkt samen met verschillende teams om producten te ontwikkelen die voldoen aan de behoeften van onze klanten.',
+                'requirements' => "- HBO/WO opleiding in Business, Marketing of aanverwant\n- Minimaal 4 jaar ervaring in product management\n- Ervaring met agile development processen\n- Kennis van product analytics en user research\n- Uitstekende communicatieve en leiderschapsvaardigheden\n- Ervaring met stakeholder management\n- Kennis van product roadmap planning",
+                'offer' => "- Marktconform salaris van €4.000 - €6.000 per maand\n- Uitstekende secundaire arbeidsvoorwaarden\n- Doorgroeimogelijkheden naar Senior Product Manager\n- Moderne werkomgeving in Maastricht Centrum\n- Budget voor product management certificeringen\n- Mogelijkheid tot remote werk",
+                'application_instructions' => 'Solliciteer met je CV en motivatiebrief naar product@company.nl.',
+                'salary_range' => '€4.000 - €6.000 per maand',
+                'start_date' => '2024-04-01',
+                'working_hours' => '40 uur per week',
+                'travel_expenses' => true,
+                'remote_work' => true,
+                'status' => 'Open',
+                'language' => 'Nederlands',
+                'reference_number' => 'PROD-001',
+                'logo' => 'https://via.placeholder.com/150x50/9C27B0/ffffff?text=Company',
+            ],
+            [
+                'title' => 'Sales Representative',
+                'location' => 'Zwolle Centrum',
+                'employment_type' => 'Fulltime',
+                'description' => 'Wij zoeken een gemotiveerde Sales Representative die ons team kan versterken. Je bent verantwoordelijk voor het genereren van nieuwe leads en het onderhouden van bestaande klantrelaties.',
+                'requirements' => "- HBO opleiding in Sales, Marketing of aanverwant\n- Minimaal 2 jaar ervaring in sales\n- Uitstekende communicatieve vaardigheden\n- Ervaring met CRM systemen\n- Resultaatgerichte instelling\n- Kennis van B2B sales processen\n- Ervaring met lead generation",
+                'offer' => "- Basis salaris + commissie structuur\n- Onbeperkte verdienmogelijkheden\n- Uitstekende secundaire arbeidsvoorwaarden\n- Doorgroeimogelijkheden naar Account Manager\n- Moderne werkomgeving in Zwolle Centrum\n- Budget voor sales training en certificeringen",
+                'application_instructions' => 'Solliciteer met je CV en motivatiebrief naar sales@company.nl.',
+                'salary_range' => '€2.500 - €3.500 + commissie',
+                'start_date' => '2024-04-15',
+                'working_hours' => '40 uur per week',
+                'travel_expenses' => true,
+                'remote_work' => false,
+                'status' => 'Open',
+                'language' => 'Nederlands',
+                'reference_number' => 'SALES-002',
+                'logo' => 'https://via.placeholder.com/150x50/FF9800/ffffff?text=Company',
+            ],
+            [
+                'title' => 'HR Business Partner',
+                'location' => 'Alkmaar Centrum',
+                'employment_type' => 'Parttime',
+                'description' => 'Als HR Business Partner ben je de schakel tussen HR en de business. Je adviseert managers over HR vraagstukken en draagt bij aan de ontwikkeling van medewerkers en teams.',
+                'requirements' => "- HBO/WO opleiding in HR, Psychologie of aanverwant\n- Minimaal 3 jaar ervaring in HR\n- Kennis van arbeidsrecht en HR processen\n- Ervaring met recruitment en selectie\n- Uitstekende communicatieve vaardigheden\n- Ervaring met performance management\n- Kennis van HR systemen en tools",
+                'offer' => "- Flexibele werktijden (24-32 uur per week)\n- Marktconform salaris\n- Uitstekende secundaire arbeidsvoorwaarden\n- Doorgroeimogelijkheden naar Senior HR Business Partner\n- Moderne werkomgeving in Alkmaar Centrum\n- Budget voor HR certificeringen",
+                'application_instructions' => 'Solliciteer met je CV en motivatiebrief naar hr@company.nl.',
+                'salary_range' => '€3.000 - €4.500 per maand (24-32 uur)',
+                'start_date' => '2024-05-01',
+                'working_hours' => '24-32 uur per week',
+                'travel_expenses' => false,
+                'remote_work' => true,
+                'status' => 'In behandeling',
+                'language' => 'Nederlands',
+                'reference_number' => 'HR-003',
+                'logo' => 'https://via.placeholder.com/150x50/4CAF50/ffffff?text=Company',
+            ],
+            [
+                'title' => 'Customer Success Manager',
+                'location' => 'Leeuwarden Centrum',
+                'employment_type' => 'Fulltime',
+                'description' => 'Als Customer Success Manager ben je verantwoordelijk voor het behouden en laten groeien van onze klanten. Je werkt nauw samen met klanten om ervoor te zorgen dat ze maximale waarde halen uit onze producten.',
+                'requirements' => "- HBO opleiding in Business, Communicatie of aanverwant\n- Minimaal 3 jaar ervaring in customer success of account management\n- Uitstekende communicatieve vaardigheden\n- Ervaring met CRM systemen\n- Kennis van customer success metrics\n- Ervaring met upselling en cross-selling\n- Probleemoplossend vermogen",
+                'offer' => "- Marktconform salaris van €3.500 - €5.000 per maand\n- Bonussysteem gebaseerd op customer success metrics\n- Uitstekende secundaire arbeidsvoorwaarden\n- Doorgroeimogelijkheden naar Senior Customer Success Manager\n- Moderne werkomgeving in Leeuwarden Centrum\n- Budget voor customer success training",
+                'application_instructions' => 'Solliciteer met je CV en motivatiebrief naar customersuccess@company.nl.',
+                'salary_range' => '€3.500 - €5.000 per maand',
+                'start_date' => '2024-05-15',
+                'working_hours' => '40 uur per week',
+                'travel_expenses' => true,
+                'remote_work' => true,
+                'status' => 'Open',
+                'language' => 'Nederlands',
+                'reference_number' => 'CS-004',
+                'logo' => 'https://via.placeholder.com/150x50/2196F3/ffffff?text=Company',
+            ],
+        ];
+        
+        foreach ($extraVacancies as $vacancyData) {
+            $company = $companies->random();
+            $category = $categories->random();
+            
+            // Voeg company_id en category_id toe
+            $vacancyData['company_id'] = $company->id;
+            $vacancyData['category_id'] = $category->id;
+            
+            // Genereer een publicatiedatum (laatste 30 dagen)
+            $vacancyData['publication_date'] = now()->subDays(rand(1, 30));
+            
+            // Genereer een sluitdatum (binnen 30 dagen)
+            $vacancyData['closing_date'] = now()->addDays(rand(7, 30));
+            
+            // Genereer SEO velden
+            $vacancyData['meta_title'] = $vacancyData['title'] . ' - ' . $company->name;
+            $vacancyData['meta_description'] = $this->generateMetaDescription($vacancyData);
+            $vacancyData['meta_keywords'] = $this->generateMetaKeywords($vacancyData, $company, $category);
+
+            Vacancy::create($vacancyData);
+        }
+        
+        $this->command->info('4 extra vacatures succesvol aangemaakt!');
     }
 }

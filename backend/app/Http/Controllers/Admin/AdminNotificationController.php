@@ -62,7 +62,7 @@ class AdminNotificationController extends Controller
             $query->orderBy($sortField, $sortDirection);
         }
         
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 25);
         $notifications = $query->paginate($perPage)->withQueryString();
         
         return view('admin.notifications.index', compact('notifications'));

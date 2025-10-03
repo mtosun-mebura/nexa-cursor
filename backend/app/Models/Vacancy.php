@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use App\Helpers\GeoHelper;
 
 class Vacancy extends Model
 {
@@ -15,7 +16,7 @@ class Vacancy extends Model
         'application_instructions','category_id','reference_number','logo','salary_range','start_date',
         'working_hours','travel_expenses','remote_work','status','language','publication_date','closing_date',
         'meta_title','meta_description','meta_keywords','is_active','published_at','salary_min','salary_max',
-        'experience_level','benefits'
+        'experience_level','benefits','latitude','longitude'
     ];
 
     protected $casts = [
@@ -26,7 +27,25 @@ class Vacancy extends Model
         'published_at' => 'datetime',
         'closing_date' => 'datetime',
         'start_date' => 'date',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
     ];
+
+    /**
+     * Get the favorites for this vacancy.
+     */
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class);
+    }
+
+    /**
+     * Get the users who favorited this vacancy.
+     */
+    public function favoritedBy()
+    {
+        return $this->belongsToMany(User::class, 'favorites', 'vacancy_id', 'user_id');
+    }
 
     protected static function boot()
     {
@@ -38,32 +57,50 @@ class Vacancy extends Model
                 $vacancy->publication_date = now();
             }
             
+            // Automatisch coordinaten instellen op basis van locatie
+            if (!empty($vacancy->location) && (empty($vacancy->latitude) || empty($vacancy->longitude))) {
+                $coordinates = GeoHelper::getCityCoordinates($vacancy->location);
+                if ($coordinates) {
+                    $vacancy->latitude = $coordinates['latitude'];
+                    $vacancy->longitude = $coordinates['longitude'];
+                }
+            }
+            
             // Automatisch SEO velden genereren als deze niet zijn opgegeven
             if (empty($vacancy->meta_title)) {
                 $vacancy->meta_title = $vacancy->title;
             }
             
             if (empty($vacancy->meta_description)) {
-                $vacancy->meta_description = $this->generateMetaDescription($vacancy);
+                $vacancy->meta_description = static::generateMetaDescription($vacancy);
             }
             
             if (empty($vacancy->meta_keywords)) {
-                $vacancy->meta_keywords = $this->generateMetaKeywords($vacancy);
+                $vacancy->meta_keywords = static::generateMetaKeywords($vacancy);
             }
         });
 
         static::updating(function ($vacancy) {
+            // Automatisch coordinaten bijwerken als locatie verandert
+            if ($vacancy->isDirty('location') && !empty($vacancy->location)) {
+                $coordinates = GeoHelper::getCityCoordinates($vacancy->location);
+                if ($coordinates) {
+                    $vacancy->latitude = $coordinates['latitude'];
+                    $vacancy->longitude = $coordinates['longitude'];
+                }
+            }
+            
             // SEO velden bijwerken als titel of beschrijving verandert
             if ($vacancy->isDirty('title') && empty($vacancy->meta_title)) {
                 $vacancy->meta_title = $vacancy->title;
             }
             
             if ($vacancy->isDirty(['title', 'description', 'location', 'employment_type']) && empty($vacancy->meta_description)) {
-                $vacancy->meta_description = $this->generateMetaDescription($vacancy);
+                $vacancy->meta_description = static::generateMetaDescription($vacancy);
             }
             
             if ($vacancy->isDirty(['title', 'description', 'location', 'employment_type', 'category_id']) && empty($vacancy->meta_keywords)) {
-                $vacancy->meta_keywords = $this->generateMetaKeywords($vacancy);
+                $vacancy->meta_keywords = static::generateMetaKeywords($vacancy);
             }
         });
     }
@@ -114,7 +151,7 @@ class Vacancy extends Model
     /**
      * Genereer meta description voor SEO
      */
-    private function generateMetaDescription($vacancy)
+    private static function generateMetaDescription($vacancy)
     {
         $description = $vacancy->title;
         
@@ -136,7 +173,7 @@ class Vacancy extends Model
     /**
      * Genereer meta keywords voor SEO
      */
-    private function generateMetaKeywords($vacancy)
+    private static function generateMetaKeywords($vacancy)
     {
         $keywords = [];
         

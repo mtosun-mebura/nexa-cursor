@@ -37,11 +37,32 @@
             <div class="flex items-center space-x-4" x-data="{ 
                 mobileMenuOpen: false,
                 userMenuOpen: false,
+                languageMenuOpen: false,
+                currentLanguage: 'nl',
                 isDark: document.documentElement.classList.contains('dark'),
                 toggleTheme() {
                     this.isDark = !this.isDark;
                     document.documentElement.classList.toggle('dark', this.isDark);
                     localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+                },
+                switchLanguage(lang) {
+                    this.currentLanguage = lang;
+                    localStorage.setItem('language', lang);
+                    
+                    // Send language change to server
+                    fetch('{{ route("language.switch") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ language: lang })
+                    }).then(() => {
+                        // Reload page to apply language changes
+                        window.location.reload();
+                    });
+                    
+                    this.languageMenuOpen = false;
                 }
             }" x-init="
                 // Check for saved theme preference or default to system preference
@@ -49,6 +70,11 @@
                 const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
                 this.isDark = saved ? saved === 'dark' : prefersDark;
                 document.documentElement.classList.toggle('dark', this.isDark);
+                
+                // Check for saved language preference or default to Dutch
+                const savedLanguage = localStorage.getItem('language');
+                const serverLanguage = '{{ app()->getLocale() }}';
+                this.currentLanguage = serverLanguage || savedLanguage || 'nl';
             ">
                 <!-- Dark mode toggle -->
                 <button @click="toggleTheme()" 
@@ -63,6 +89,44 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
                     </svg>
                 </button>
+                
+                <!-- Language selector -->
+                <div class="relative">
+                    <button @click="languageMenuOpen = !languageMenuOpen" 
+                            class="p-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800 transition-colors duration-200"
+                            aria-label="Select language">
+                        <!-- Dutch flag -->
+                        <div x-show="currentLanguage === 'nl'" class="flex items-center">
+                            <span class="fi fi-nl text-lg"></span>
+                        </div>
+                        <!-- English flag -->
+                        <div x-show="currentLanguage === 'en'" class="flex items-center">
+                            <span class="fi fi-gb text-lg"></span>
+                        </div>
+                    </button>
+                    
+                    <div x-show="languageMenuOpen" 
+                         @click.away="languageMenuOpen = false"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="transform opacity-0 scale-95 translate-y-1"
+                         x-transition:enter-end="transform opacity-100 scale-100 translate-y-0"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
+                         x-transition:leave-end="transform opacity-0 scale-95 translate-y-1"
+                         class="absolute right-0 mt-2 w-24 bg-white dark:bg-gray-800 rounded-lg shadow-sm py-1 z-50 border border-gray-200 dark:border-gray-600"
+                         role="menu">
+                        <button @click="switchLanguage('nl')" 
+                                class="flex items-center justify-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                                role="menuitem">
+                            <span class="fi fi-nl text-base"></span>
+                        </button>
+                        <button @click="switchLanguage('en')" 
+                                class="flex items-center justify-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                                role="menuitem">
+                            <span class="fi fi-gb text-base"></span>
+                        </button>
+                    </div>
+                </div>
                 
                 <!-- User menu -->
                 @auth

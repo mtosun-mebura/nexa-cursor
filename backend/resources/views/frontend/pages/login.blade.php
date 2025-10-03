@@ -4,11 +4,11 @@
 
 @section('content')
 <!-- Hero Section with Login Form -->
-<section class="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900 section-padding relative overflow-hidden min-h-screen flex items-center">
+<section class="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900 relative overflow-hidden min-h-screen flex items-center">
     <div class="absolute inset-0 bg-black/10 dark:bg-black/20"></div>
     
-    <div class="container-custom relative z-10">
-        <div class="w-full max-w-md mx-auto">
+    <div class="w-full px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="max-w-md mx-auto">
             <!-- Logo -->
             <div class="text-center mb-8">
                 <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="NEXA Skillmatching" class="h-16 w-auto mx-auto mb-6">
@@ -111,9 +111,9 @@
 </section>
 
 <!-- Features Section -->
-<section class="section-padding bg-white dark:bg-gray-900">
-    <div class="container-custom">
-        <div class="w-full">
+<section class="py-16 bg-white dark:bg-gray-900">
+    <div class="w-full px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
             <div class="text-center mb-12">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
                     Waarom inloggen?

@@ -15,7 +15,12 @@ class Company extends Model
         'street', 'house_number', 'house_number_extension', 'postal_code', 'city', 'country',
         'website', 'email', 'phone',
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
-        'is_active',
+        'is_active', 'is_intermediary',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+        'is_intermediary' => 'boolean',
     ];
 
     protected static function boot()
@@ -41,6 +46,19 @@ class Company extends Model
     public function users()
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * Generate a secure token to view a candidate's photo
+     */
+    public function getCandidatePhotoToken($userId): string
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return '';
+        }
+        
+        return $user->getCompanyPhotoToken($this->id);
     }
 
     /**

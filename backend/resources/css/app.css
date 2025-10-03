@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "flag-icons/css/flag-icons.min.css";
 
 /* Vertel Tailwind waar klassen voorkomen (Laravel) */
 @source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
@@ -37,7 +38,7 @@
   /* radius/shadows als tokens (optioneel) */
   --radius-2xl: 1rem;
   --shadow-soft: 0 2px 12px rgba(0,0,0,.06);
-  --shadow-soft-dark: 0 2px 18px rgba(0,0,0,.45);
+  --shadow-soft-dark: 0 4px 20px rgba(0,0,0,.6);
 }
 
 /* Handmatige dark-mode toggle met .dark (v4) */
@@ -90,7 +91,7 @@
     background-color: rgb(var(--color-card-dark));
   }
 
-  .input, .select {
+  .input {
     width: 100%;
     border-radius: 0.75rem;
     border: 2px solid #e2e8f0;
@@ -98,22 +99,86 @@
     color: #0f172a;
     padding: 0.5rem 0.75rem;
   }
-  .input::placeholder, .select::placeholder {
+  .input::placeholder {
     color: #64748b;
   }
-  .input:focus, .select:focus {
+  .input:focus {
     border-color: #ea580c;
     border-width: 2px;
     outline: none;
     box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
   }
-  .dark .input, .dark .select {
+  .dark .input {
     border: 2px solid #334155;
     background-color: #1e293b;
     color: #f1f5f9;
   }
-  .dark .input::placeholder, .dark .select::placeholder {
+  .dark .input::placeholder {
     color: #94a3b8;
+  }
+
+  .select {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    background: linear-gradient(to bottom, #f9fafb, #f3f4f6);
+    color: #374151;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    position: relative;
+  }
+  .select:focus {
+    border-color: #ea580c;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+  }
+  .dark .select {
+    border: 1px solid #6b7280;
+    background: #1f2937;
+    color: #f9fafb;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23f9fafb' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25em 1.25em;
+  }
+  .dark .select:focus {
+    border-color: #ea580c;
+  }
+
+  .form-select {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    background: linear-gradient(to bottom, #f9fafb, #f3f4f6);
+    color: #374151;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    position: relative;
+  }
+  .form-select:focus {
+    border-color: #ea580c;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+  }
+  .dark .form-select {
+    border: 1px solid #6b7280;
+    background: #1f2937;
+    color: #f9fafb;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23f9fafb' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25em 1.25em;
+  }
+  .dark .form-select:focus {
+    border-color: #ea580c;
   }
 
   .badge {
@@ -170,19 +235,19 @@
 
   .container-custom {
     width: 100%;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 10px;
+    padding-right: 10px;
   }
   @media (min-width: 640px) {
     .container-custom {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
+      padding-left: 10px;
+      padding-right: 10px;
     }
   }
   @media (min-width: 1024px) {
     .container-custom {
-      padding-left: 2rem;
-      padding-right: 2rem;
+      padding-left: 10px;
+      padding-right: 10px;
     }
   }
 

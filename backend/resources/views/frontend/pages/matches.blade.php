@@ -10,42 +10,226 @@
   </div>
   <div class="flex items-center gap-2">
     <span class="pill"><span class="h-2 w-2 rounded-full bg-brand-500"></span> Nieuwe matches</span>
-    <span class="pill">42 resultaten</span>
+    <span class="pill">{{ $vacancies->count() }} resultaten</span>
   </div>
 </section>
 
-<section class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-  @foreach (range(1,12) as $i)
-  <article class="card p-3 flex flex-col gap-2">
-    <header class="flex items-start justify-between gap-2">
-      <div>
-        <h3 class="font-semibold leading-tight">Senior Laravel Developer</h3>
-        <p class="text-sm text-muted dark:text-muted-dark">NEXA · Amsterdam · Hybride</p>
-      </div>
-      <span class="badge">€ 5.000–6.000</span>
-    </header>
-
-    <p class="text-sm text-muted dark:text-muted-dark line-clamp-3">
-      Bouw aan een schaalbaar matching-platform met queues en event-driven architectuur.
-    </p>
-
-    <div class="space-y-2">
-      <div class="flex items-center justify-between text-sm">
-        <span class="text-muted dark:text-muted-dark">Matchscore</span>
-        <strong>{{ rand(70, 95) }}%</strong>
-      </div>
-      <div class="match"><span style="width:{{ rand(70, 95) }}%"></span></div>
-      <div class="flex flex-wrap gap-2">
-        <span class="pill">Laravel</span><span class="pill">MySQL</span>
-        <span class="pill">Docker</span><span class="pill">Tailwind</span>
-      </div>
-    </div>
-
-    <div class="mt-auto flex items-center gap-2 pt-2">
-      <a href="#" class="btn btn-outline">Details</a>
-      <button class="btn btn-primary">Solliciteer</button>
-    </div>
-  </article>
-  @endforeach
+<section class="card overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead class="bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(0)">
+            Vacature
+            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(1)">
+            Bedrijf
+            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(2)">
+            Locatie
+            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(3)">
+            Type
+            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(4)">
+            Salaris
+            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(5)">
+            Match
+            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            Acties
+          </th>
+        </tr>
+      </thead>
+      <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+        @forelse($vacancies as $vacancy)
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <td class="px-4 py-4">
+            <div class="flex flex-col">
+              <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {{ $vacancy->title }}
+              </div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {{ Str::limit(strip_tags($vacancy->description), 80) }}
+              </div>
+              <div class="flex flex-wrap gap-1 mt-2">
+                  @if($vacancy->category)
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      {{ $vacancy->category->name }}
+                    </span>
+                  @endif
+                @if($vacancy->remote_work)
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-900">
+                    Remote
+                  </span>
+                @endif
+                @if($vacancy->travel_expenses)
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100">
+                    Reiskosten
+                  </span>
+                @endif
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="text-sm text-gray-900 dark:text-gray-100">
+                @if($vacancy->company && $vacancy->company->is_intermediary)
+                  {{ $vacancy->company->name }}
+                @else
+                  <span class="text-gray-500 dark:text-gray-400">Directe werkgever</span>
+                @endif
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="text-sm text-gray-900 dark:text-gray-100">
+              {{ $vacancy->location }}
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              {{ $vacancy->employment_type }}
+            </span>
+          </td>
+          <td class="px-4 py-4">
+            <div class="text-sm text-gray-900 dark:text-gray-100">
+              {{ $vacancy->salary_range ?? 'Niet opgegeven' }}
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center">
+              <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
+                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ $vacancy->match_score }}%"></div>
+              </div>
+              <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {{ $vacancy->match_score }}%
+              </span>
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex items-center gap-2">
+              <a href="{{ route('frontend.vacancy-details', ['company' => $vacancy->company->slug, 'vacancy' => $vacancy->id]) }}" 
+                 class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                Details
+              </a>
+              <button class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                Solliciteer
+              </button>
+            </div>
+          </td>
+        </tr>
+        @empty
+        <tr>
+          <td colspan="7" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+            Geen vacatures gevonden die matchen met jouw profiel.
+          </td>
+        </tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
 </section>
+
+<script>
+  let sortDirection = {};
+  
+  function sortTable(columnIndex) {
+    const table = document.querySelector('table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Toggle sort direction
+    sortDirection[columnIndex] = sortDirection[columnIndex] === 'asc' ? 'desc' : 'asc';
+    const direction = sortDirection[columnIndex];
+    
+    // Remove existing sort indicators
+    table.querySelectorAll('th svg').forEach(svg => {
+      svg.style.display = 'none';
+    });
+    
+    // Add sort indicator to current column
+    const currentHeader = table.querySelectorAll('th')[columnIndex];
+    const currentSvg = currentHeader.querySelector('svg');
+    currentSvg.style.display = 'inline-block';
+    
+    // Rotate arrow based on direction
+    if (direction === 'asc') {
+      currentSvg.style.transform = 'rotate(180deg)';
+    } else {
+      currentSvg.style.transform = 'rotate(0deg)';
+    }
+    
+    // Sort rows
+    rows.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch(columnIndex) {
+        case 0: // Vacature title
+          aValue = a.cells[0].querySelector('.text-sm.font-medium').textContent.trim();
+          bValue = b.cells[0].querySelector('.text-sm.font-medium').textContent.trim();
+          break;
+        case 1: // Bedrijf
+          aValue = a.cells[1].textContent.trim();
+          bValue = b.cells[1].textContent.trim();
+          break;
+        case 2: // Locatie
+          aValue = a.cells[2].textContent.trim();
+          bValue = b.cells[2].textContent.trim();
+          break;
+        case 3: // Type
+          aValue = a.cells[3].textContent.trim();
+          bValue = b.cells[3].textContent.trim();
+          break;
+        case 4: // Salaris
+          aValue = a.cells[4].textContent.trim();
+          bValue = b.cells[4].textContent.trim();
+          // Handle "Niet opgegeven" as lowest value
+          if (aValue === 'Niet opgegeven') aValue = '0';
+          if (bValue === 'Niet opgegeven') bValue = '0';
+          break;
+        case 5: // Match score
+          aValue = parseInt(a.cells[5].querySelector('span').textContent.replace('%', ''));
+          bValue = parseInt(b.cells[5].querySelector('span').textContent.replace('%', ''));
+          break;
+        default:
+          return 0;
+      }
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return direction === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      } else {
+        return direction === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+    });
+    
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+  }
+  
+  // Initialize table
+  document.addEventListener('DOMContentLoaded', function() {
+    // Hide all sort arrows initially
+    document.querySelectorAll('th svg').forEach(svg => {
+      svg.style.display = 'none';
+    });
+  });
+</script>
 @endsection

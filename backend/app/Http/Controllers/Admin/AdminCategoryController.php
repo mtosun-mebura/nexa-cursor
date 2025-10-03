@@ -53,10 +53,10 @@ class AdminCategoryController extends Controller
         }
         
         // Pagination
-        $perPage = $request->get('per_page', 10);
+        $perPage = $request->get('per_page', 25);
         $allowedPerPage = [5, 10, 25, 50, 100];
         if (!in_array($perPage, $allowedPerPage)) {
-            $perPage = 10;
+            $perPage = 25;
         }
         
         $categories = $query->paginate($perPage);

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use App\Helpers\GeoHelper;
 
 class Candidate extends Model
 {
@@ -38,7 +39,9 @@ class Candidate extends Model
         'notes',
         'source',
         'consent_gdpr',
-        'consent_marketing'
+        'consent_marketing',
+        'latitude',
+        'longitude'
     ];
 
     protected $casts = [
@@ -48,7 +51,9 @@ class Candidate extends Model
         'consent_gdpr' => 'boolean',
         'consent_marketing' => 'boolean',
         'skills' => 'array',
-        'languages' => 'array'
+        'languages' => 'array',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8'
     ];
 
     protected static function boot()
@@ -57,6 +62,26 @@ class Candidate extends Model
 
         static::creating(function ($candidate) {
             $candidate->reference_number = 'CAN-' . strtoupper(Str::random(8));
+            
+            // Automatisch coordinaten instellen op basis van stad
+            if (!empty($candidate->city) && (empty($candidate->latitude) || empty($candidate->longitude))) {
+                $coordinates = GeoHelper::getCityCoordinates($candidate->city);
+                if ($coordinates) {
+                    $candidate->latitude = $coordinates['latitude'];
+                    $candidate->longitude = $coordinates['longitude'];
+                }
+            }
+        });
+
+        static::updating(function ($candidate) {
+            // Automatisch coordinaten bijwerken als stad verandert
+            if ($candidate->isDirty('city') && !empty($candidate->city)) {
+                $coordinates = GeoHelper::getCityCoordinates($candidate->city);
+                if ($coordinates) {
+                    $candidate->latitude = $coordinates['latitude'];
+                    $candidate->longitude = $coordinates['longitude'];
+                }
+            }
         });
     }
 
@@ -184,6 +209,7 @@ class Candidate extends Model
         };
     }
 }
+
 
 
 

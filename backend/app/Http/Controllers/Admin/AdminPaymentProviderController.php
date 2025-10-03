@@ -72,7 +72,7 @@ class AdminPaymentProviderController extends Controller
             $query->orderBy($sortField, $sortDirection);
         }
         
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 25);
         $providers = $query->paginate($perPage)->withQueryString();
         
         return view('admin.payment-providers.index', compact('providers'));

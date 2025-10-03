@@ -73,7 +73,7 @@ class AdminMatchController extends Controller
         
         $query->orderBy($sortField, $sortDirection);
         
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 25);
         $matches = $query->paginate($perPage)->withQueryString();
         
         return view('admin.matches.index', compact('matches'));

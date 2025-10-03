@@ -16,6 +16,22 @@ class AdminCandidateController extends Controller
     }
 
     /**
+     * Get candidate photo for company viewing
+     */
+    public function getCandidatePhoto(Candidate $candidate)
+    {
+        if (!$candidate->photo_blob) {
+            abort(404);
+        }
+
+        // Generate secure token for company access
+        $companyId = 1; // In real implementation, get from authenticated company
+        $token = $candidate->getCompanyPhotoToken($companyId);
+        
+        return redirect()->route('candidate.photo', ['token' => $token]);
+    }
+
+    /**
      * Display a listing of candidates
      */
     public function index(Request $request)
@@ -55,8 +71,8 @@ class AdminCandidateController extends Controller
         $sortOrder = $request->get('order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
 
-        // Get per_page from request, default to 5
-        $perPage = $request->get('per_page', 5);
+        // Get per_page from request, default to 25
+        $perPage = $request->get('per_page', 25);
         $candidates = $query->paginate($perPage);
 
         // Get statistics for dashboard

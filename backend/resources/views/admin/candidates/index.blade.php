@@ -889,6 +889,7 @@
                                             @endif
                                         </a>
                                     </th>
+                                    <th>FOTO</th>
                                     <th>TYPE</th>
                                     <th>
                                         <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'order' => request('sort') == 'created_at' && request('order') == 'asc' ? 'desc' : 'asc']) }}" class="sortable-header">
@@ -946,6 +947,20 @@
                                                     {{ ucfirst($candidate->status) }}
                                                 @endif
                                             </span>
+                                        </td>
+                                        <td>
+                                            @if($candidate->photo_blob)
+                                                <div class="candidate-photo">
+                                                    <img src="{{ route('candidate.photo', ['token' => $candidate->getCompanyPhotoToken(1)]) }}" 
+                                                         alt="Kandidaat foto" 
+                                                         class="candidate-photo-img"
+                                                         style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #e0e0e0;">
+                                                </div>
+                                            @else
+                                                <div class="no-photo">
+                                                    <i class="fas fa-user-circle" style="font-size: 24px; color: #ccc;"></i>
+                                                </div>
+                                            @endif
                                         </td>
                                         <td>
                                             <span class="candidate-type">

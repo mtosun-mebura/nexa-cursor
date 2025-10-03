@@ -47,7 +47,7 @@ class AdminEmailTemplateController extends Controller
             $query->orderBy('id', 'asc');
         }
         
-        $emailTemplates = $query->paginate(10)->withQueryString();
+        $emailTemplates = $query->paginate(25)->withQueryString();
         
         return view('admin.email-templates.index', compact('emailTemplates'));
     }

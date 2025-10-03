@@ -278,6 +278,16 @@
         color: white;
     }
     
+    .action-btn-warning {
+        background: linear-gradient(135deg, #ff5722 0%, #ff7043 100%);
+        color: white;
+    }
+    
+    .action-btn-success {
+        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+        color: white;
+    }
+    
     .company-info {
         display: flex;
         flex-direction: column;
@@ -636,12 +646,12 @@
                     <div class="stat-label">Inactief</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->total() }}</div>
-                    <div class="stat-label">Totaal</div>
+                    <div class="stat-number" style="background: linear-gradient(135deg, #2196f3 0%, #42a5f5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->where('is_intermediary', true)->count() }}</div>
+                    <div class="stat-label">Tussenpartijen</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->groupBy('industry')->count() }}</div>
-                    <div class="stat-label">Industrieën</div>
+                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->total() }}</div>
+                    <div class="stat-label">Totaal</div>
                 </div>
             </div>
             <div class="material-card">
@@ -671,7 +681,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="filter-group">
                                     <label class="filter-label">Industrie</label>
                                     <select name="industry" class="filter-select" onchange="this.form.submit()">
@@ -681,6 +691,16 @@
                                                 {{ $industry }}
                                             </option>
                                         @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="filter-group">
+                                    <label class="filter-label">Tussenpartij</label>
+                                    <select name="intermediary" class="filter-select" onchange="this.form.submit()">
+                                        <option value="">Alle bedrijven</option>
+                                        <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>Tussenpartij</option>
+                                        <option value="no" {{ request('intermediary') == 'no' ? 'selected' : '' }}>Directe werkgever</option>
                                     </select>
                                 </div>
                             </div>
@@ -729,6 +749,7 @@
                                     <th>E-mail</th>
                                     <th>Telefoon</th>
                                     <th>Locatie</th>
+                                    <th>Type</th>
                                     <th>Status</th>
                                     <th>Gemaakt op</th>
                                     <th>Acties</th>
@@ -767,6 +788,13 @@
                                             @endif
                                         </td>
                                         <td>
+                                            @if($company->is_intermediary)
+                                                <span class="material-badge material-badge-info">Tussenpartij</span>
+                                            @else
+                                                <span class="material-badge material-badge-success">Directe werkgever</span>
+                                            @endif
+                                        </td>
+                                        <td>
                                             <span class="status-badge status-{{ $company->is_active ? 'active' : 'inactive' }}">
                                                 {{ $company->is_active ? 'Actief' : 'Inactief' }}
                                             </span>
@@ -782,6 +810,12 @@
                                                 <a href="{{ route('admin.companies.edit', $company) }}" class="action-btn action-btn-edit" title="Bewerken">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
+                                                <form action="{{ route('admin.companies.toggle-status', $company) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je de status van dit bedrijf wilt wijzigen?')">
+                                                    @csrf
+                                                    <button type="submit" class="action-btn {{ $company->is_active ? 'action-btn-warning' : 'action-btn-success' }}" title="{{ $company->is_active ? 'Deactiveren' : 'Activeren' }}">
+                                                        <i class="fas {{ $company->is_active ? 'fa-pause' : 'fa-play' }}"></i>
+                                                    </button>
+                                                </form>
                                                 <form action="{{ route('admin.companies.destroy', $company) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je dit bedrijf wilt verwijderen?')">
                                                     @csrf
                                                     @method('DELETE')
@@ -794,7 +828,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7">
+                                        <td colspan="8">
                                             <div class="empty-state">
                                                 <i class="fas fa-building"></i>
                                                 <h5>Nog geen bedrijven</h5>

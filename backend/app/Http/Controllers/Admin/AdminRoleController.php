@@ -45,8 +45,8 @@ class AdminRoleController extends Controller
             }
         }
         
-        // Get per_page from request, default to 15
-        $perPage = $request->get('per_page', 15);
+        // Get per_page from request, default to 25
+        $perPage = $request->get('per_page', 25);
         
         $roles = $query->orderBy('name')->paginate($perPage);
 

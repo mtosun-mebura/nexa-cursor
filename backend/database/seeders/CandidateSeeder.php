@@ -30,7 +30,7 @@ class CandidateSeeder extends Seeder
                 'phone' => '+31 6 12345678',
                 'date_of_birth' => '1990-05-15',
                 'address' => 'Hoofdstraat 123',
-                'city' => 'Amsterdam',
+                'city' => 'Nijmegen',
                 'postal_code' => '1000 AB',
                 'country' => 'Nederland',
                 'current_position' => 'Senior Developer',
@@ -40,7 +40,7 @@ class CandidateSeeder extends Seeder
                 'salary_expectation' => 75000.00,
                 'availability' => 'immediate',
                 'preferred_work_type' => 'full_time',
-                'preferred_location' => 'Amsterdam, Utrecht',
+                'preferred_location' => 'Nijmegen, Arnhem',
                 'skills' => ['PHP', 'Laravel', 'JavaScript', 'Vue.js', 'MySQL', 'Git'],
                 'languages' => ['Nederlands', 'Engels'],
                 'status' => 'active',
@@ -212,6 +212,7 @@ class CandidateSeeder extends Seeder
         $this->command->info('Kandidaten succesvol aangemaakt!');
     }
 }
+
 
 
 

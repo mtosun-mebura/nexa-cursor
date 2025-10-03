@@ -257,6 +257,11 @@
         color: white;
     }
 
+    .material-badge-info {
+        background: var(--info-color);
+        color: white;
+    }
+
     .material-text-muted {
         color: var(--text-secondary);
         font-style: italic;
@@ -300,6 +305,10 @@
                         <span>{{ $company->industry ?? 'Geen branche' }}</span>
                     </div>
                     <div class="meta-item">
+                        <i class="fas fa-handshake"></i>
+                        <span>{{ $company->is_intermediary ? 'Tussenpartij' : 'Directe werkgever' }}</span>
+                    </div>
+                    <div class="meta-item">
                         <i class="fas fa-map-marker-alt"></i>
                         <span>{{ $company->city ?? 'Locatie onbekend' }}</span>
                     </div>
@@ -316,9 +325,9 @@
                         <span>Aangemaakt: {{ $company->created_at->format('d-m-Y') }}</span>
                     </div>
                 </div>
-                <div class="company-status status-active">
+                <div class="company-status status-{{ $company->is_active ? 'active' : 'inactive' }}">
                     <i class="fas fa-circle"></i>
-                    Actief
+                    {{ $company->is_active ? 'Actief' : 'Inactief' }}
                 </div>
             </div>
 
@@ -344,6 +353,16 @@
                         <tr>
                             <td>Branche</td>
                             <td>{{ $company->industry ?? 'Niet opgegeven' }}</td>
+                        </tr>
+                        <tr>
+                            <td>Bedrijfstype</td>
+                            <td>
+                                @if($company->is_intermediary)
+                                    <span class="material-badge material-badge-info">Tussenpartij</span>
+                                @else
+                                    <span class="material-badge material-badge-success">Directe werkgever</span>
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <td>Website</td>

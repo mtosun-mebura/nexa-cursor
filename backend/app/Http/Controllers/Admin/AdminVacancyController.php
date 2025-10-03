@@ -44,7 +44,7 @@ class AdminVacancyController extends Controller
             $query->latest('publication_date');
         }
         
-        $perPage = $request->get('per_page', 5);
+        $perPage = $request->get('per_page', 25);
         $vacancies = $query->paginate($perPage);
         
         // Status statistieken

@@ -309,6 +309,30 @@
                             </div>
                         </div>
 
+                        <h6 class="material-section-title">Bedrijf Type</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="material-form-group">
+                                    <div class="form-check">
+                                        <input class="form-check-input @error('is_intermediary') is-invalid @enderror" 
+                                               type="checkbox" 
+                                               id="is_intermediary" 
+                                               name="is_intermediary" 
+                                               value="1" 
+                                               {{ old('is_intermediary') ? 'checked' : '' }}>
+                                        <input type="hidden" name="is_intermediary" value="0">
+                                        <label class="form-check-label material-form-label" for="is_intermediary">
+                                            Dit is een tussenpartij (recruitment, detachering, uitzendbureau, broker)
+                                        </label>
+                                        @error('is_intermediary')
+                                            <div class="material-invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="material-form-actions">
                             <a href="{{ route('admin.companies.index') }}" class="material-btn material-btn-secondary">Annuleren</a>
                             <button type="submit" class="material-btn material-btn-primary">

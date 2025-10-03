@@ -16,15 +16,16 @@ class AdminMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         // Check if user is authenticated
-        if (!$request->user()) {
+        if (!auth()->check()) {
             // Store the intended URL for redirect after login
             session(['url.intended' => $request->url()]);
             return redirect()->route('admin.login')->with('error', 'Je moet ingelogd zijn om deze pagina te bekijken.');
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)
-        if (!$request->user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
-            return redirect()->back()->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
+        if (!auth()->user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
+            // Redirect to admin login page instead of home
+            return redirect()->route('admin.login')->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
         }
 
         return $next($request);

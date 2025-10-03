@@ -59,7 +59,7 @@ class AdminUserController extends Controller
         }
         
         // Paginering
-        $perPage = $request->get('per_page', 5);
+        $perPage = $request->get('per_page', 25);
         $users = $query->paginate($perPage);
         
         // Voeg query parameters toe aan pagination links

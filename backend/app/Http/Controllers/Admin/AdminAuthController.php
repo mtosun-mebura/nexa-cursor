@@ -16,10 +16,12 @@ class AdminAuthController extends Controller
     }
     public function showLoginForm()
     {
-        if (Auth::guard('web')->check()) {
+        // Only redirect to dashboard if user is authenticated AND has admin role
+        if (Auth::guard('web')->check() && Auth::user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
             return redirect()->route('admin.dashboard');
         }
         
+        // Always show login form for non-authenticated users or users without admin role
         return view('admin.auth.login');
     }
 

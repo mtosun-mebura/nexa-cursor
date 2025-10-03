@@ -102,6 +102,35 @@ class PublicVacancyController extends Controller
     }
 
     /**
+     * Frontend vacature detail pagina
+     */
+    public function frontendShow($companySlug, $vacancyId)
+    {
+        $vacancy = Vacancy::with(['company', 'category'])
+            ->whereHas('company', function($query) use ($companySlug) {
+                $query->where('slug', $companySlug);
+            })
+            ->where('id', $vacancyId)
+            ->active()
+            ->firstOrFail();
+        
+        // Gerelateerde vacatures
+        $relatedVacancies = Vacancy::with(['company', 'category'])
+            ->where('id', '!=', $vacancy->id)
+            ->where(function($query) use ($vacancy) {
+                $query->where('category_id', $vacancy->category_id)
+                      ->orWhere('location', $vacancy->location)
+                      ->orWhere('company_id', $vacancy->company_id);
+            })
+            ->active()
+            ->latest()
+            ->limit(6)
+            ->get();
+        
+        return view('frontend.pages.vacancy-details', compact('vacancy', 'relatedVacancies'));
+    }
+
+    /**
      * Genereer meta description voor SEO
      */
     private function generateMetaDescription($vacancy)

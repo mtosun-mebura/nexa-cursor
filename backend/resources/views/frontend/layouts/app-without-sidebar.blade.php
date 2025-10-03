@@ -19,11 +19,11 @@
   })()
   </script>
 </head>
-<body class="bg-surface dark:bg-surface-dark text-text dark:text-text-dark antialiased">
+<body class="bg-surface dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
   <!-- Header -->
   @include('frontend.layouts.partials.header')
   
-  <div class="w-full py-6 container-custom">
+  <div class="w-full py-6 container-custom flex-1">
     @yield('content')
   </div>
 

@@ -11,7 +11,7 @@ class AdminCompanyController extends Controller
 {
     use TenantFilter;
     
-    public function index()
+    public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
@@ -19,7 +19,40 @@ class AdminCompanyController extends Controller
         
         $query = Company::withCount(['users', 'vacancies']);
         $this->applyTenantFilter($query);
-        $companies = $query->orderBy('created_at', 'desc')->paginate(15);
+        
+        // Apply filters
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+        
+        if ($request->filled('intermediary')) {
+            if ($request->intermediary === 'yes') {
+                $query->where('is_intermediary', true);
+            } elseif ($request->intermediary === 'no') {
+                $query->where('is_intermediary', false);
+            }
+        }
+        
+        if ($request->filled('industry')) {
+            $query->where('industry', $request->industry);
+        }
+        
+        // Apply sorting
+        $sortBy = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('direction', 'desc');
+        
+        if (in_array($sortBy, ['name', 'created_at', 'is_active'])) {
+            $query->orderBy($sortBy, $sortDirection);
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+        
+        $perPage = $request->get('per_page', 25);
+        $companies = $query->paginate($perPage);
 
         return view('admin.companies.index', compact('companies'));
     }
@@ -52,9 +85,14 @@ class AdminCompanyController extends Controller
             'city' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+            'is_intermediary' => 'nullable|boolean',
         ]);
 
         $companyData = $request->all();
+        
+        // Handle checkbox - if not present in request, set to false
+        $companyData['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
+        
         Company::create($companyData);
 
         return redirect()->route('admin.companies.index')
@@ -115,9 +153,15 @@ class AdminCompanyController extends Controller
             'city' => 'nullable|string|max:255',
             'country' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+            'is_intermediary' => 'nullable|boolean',
         ]);
 
-        $company->update($request->all());
+        $data = $request->all();
+        
+        // Handle checkbox - if not present in request, set to false
+        $data['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
+        
+        $company->update($data);
 
         return redirect()->route('admin.companies.index')
             ->with('success', 'Bedrijf succesvol bijgewerkt.');
@@ -146,5 +190,24 @@ class AdminCompanyController extends Controller
 
         return redirect()->route('admin.companies.index')
             ->with('success', 'Bedrijf succesvol verwijderd.');
+    }
+
+    public function toggleStatus(Company $company)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+        }
+        
+        // Check if user can access this resource
+        if (!$this->canAccessResource($company)) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+        
+        $company->update(['is_active' => !$company->is_active]);
+        
+        $status = $company->is_active ? 'geactiveerd' : 'gedeactiveerd';
+        
+        return redirect()->route('admin.companies.index')
+            ->with('success', "Bedrijf '{$company->name}' is succesvol {$status}.");
     }
 }

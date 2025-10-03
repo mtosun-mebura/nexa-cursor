@@ -1,13 +1,13 @@
-<footer class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+<footer class="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700">
     <div class="w-full">
-        <div class="py-16 container-custom">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div class="py-8 container-custom">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <!-- Company Info -->
                     <div class="col-span-1 md:col-span-2">
-                        <div class="flex items-center mb-6">
-                            <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-10 w-auto">
+                        <div class="flex items-center mb-4">
+                            <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-16 w-auto">
                         </div>
-                        <p class="text-gray-600 dark:text-gray-400 mb-6 w-full leading-relaxed">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4 w-full leading-relaxed">
                             Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.
                         </p>
                         <div class="flex space-x-4">
@@ -31,7 +31,7 @@
                     
                     <!-- Quick Links -->
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Snelle Links</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Snelle Links</h3>
                         <ul class="space-y-3">
                             <li><a href="{{ route('home') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Home</a></li>
                             <li><a href="{{ route('jobs.index') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Vacatures</a></li>
@@ -55,20 +55,12 @@
         </div>
         
         <!-- Bottom Bar -->
-        <div class="border-t border-gray-300 dark:border-gray-700 py-8 container-custom">
+        <div class="border-t border-gray-300 dark:border-gray-700 py-4 container-custom">
             <div class="flex flex-col md:flex-row justify-between items-center">
                     <p class="text-gray-600 dark:text-gray-400 text-sm">
                         &copy; {{ date('Y') }} Nexa Skillmatching. Alle rechten voorbehouden.
                     </p>
                     <div class="flex items-center space-x-6 mt-4 md:mt-0">
-                        <span class="text-gray-600 dark:text-gray-400 text-sm">Nederland</span>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-gray-600 dark:text-gray-400 text-sm">Taal:</span>
-                            <select class="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm rounded-lg px-3 py-1 border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="nl">Nederlands</option>
-                                <option value="en">English</option>
-                            </select>
-                        </div>
                     </div>
             </div>
         </div>
