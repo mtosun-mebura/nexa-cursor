@@ -67,7 +67,7 @@
                     {{ $job->published_at->diffForHumans() }}
                 </div>
                 
-                <a href="{{ route('jobs.show', $job) }}" 
+                <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}" 
                    class="btn btn-outline btn-sm hover-lift group">
                     Bekijk details
                     <svg class="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">

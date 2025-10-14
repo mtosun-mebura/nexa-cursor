@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Agenda</title>
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #calendar { max-width: 1000px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Agenda</h1>
+    <div id="calendar"></div>
+
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing calendar...');
+            
+            const calendarEl = document.getElementById('calendar');
+            console.log('Calendar element:', calendarEl);
+            
+            if (!calendarEl) {
+                console.error('Calendar element not found!');
+                return;
+            }
+            
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                locale: 'nl',
+                firstDay: 1,
+                initialView: 'timeGridWeek',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                buttonText: {
+                    today: 'Vandaag',
+                    month: 'Maand',
+                    week: 'Week',
+                    day: 'Dag'
+                },
+                slotMinTime: '08:00:00',
+                slotMaxTime: '20:00:00',
+                events: [
+                    {
+                        id: 1,
+                        title: 'Test Interview',
+                        start: new Date().toISOString(),
+                        end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                        color: '#3b82f6'
+                    },
+                    {
+                        id: 2,
+                        title: 'Test Meeting',
+                        start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                        end: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+                        color: '#10b981'
+                    }
+                ]
+            });
+            
+            console.log('Calendar created, rendering...');
+            calendar.render();
+            console.log('Calendar rendered successfully');
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,151 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [closed]
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only run if PR was merged (not just closed)
+    if: github.event.pull_request.merged == true || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, dom, fileinfo, mysql, zip, gd, curl, intl, bcmath, soap, redis, xdebug
+        coverage: none
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'backend/package-lock.json'
+        
+    - name: Install Composer dependencies
+      working-directory: ./backend
+      run: composer install --no-dev --optimize-autoloader --no-interaction
+      
+    - name: Install NPM dependencies
+      working-directory: ./backend
+      run: npm ci
+      
+    - name: Build assets
+      working-directory: ./backend
+      run: npm run build
+      
+    - name: Create deployment package
+      run: |
+        # Create a clean deployment package
+        mkdir -p deploy-package
+        
+        # Copy backend files (excluding development files)
+        rsync -av --exclude='node_modules' \
+                  --exclude='.git' \
+                  --exclude='storage/logs' \
+                  --exclude='storage/framework/cache' \
+                  --exclude='storage/framework/sessions' \
+                  --exclude='storage/framework/views' \
+                  --exclude='tests' \
+                  --exclude='.env' \
+                  --exclude='.env.example' \
+                  --exclude='phpunit.xml' \
+                  --exclude='.gitignore' \
+                  --exclude='README.md' \
+                  backend/ deploy-package/
+                  
+        # Copy frontend files if they exist
+        if [ -d "frontend" ]; then
+          rsync -av --exclude='node_modules' \
+                    --exclude='.git' \
+                    frontend/ deploy-package/frontend/
+        fi
+        
+        # Create deployment archive
+        tar -czf nexa-deployment.tar.gz -C deploy-package .
+        
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # Create backup of current deployment
+          if [ -d "/var/www/nexa" ]; then
+            sudo cp -r /var/www/nexa /var/www/nexa-backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # Create deployment directory if it doesn't exist
+          sudo mkdir -p /var/www/nexa
+          sudo chown -R $USER:$USER /var/www/nexa
+          
+    - name: Upload deployment package
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        source: "nexa-deployment.tar.gz"
+        target: "/tmp/"
+        
+    - name: Extract and deploy
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # Extract deployment package
+          cd /var/www/nexa
+          tar -xzf /tmp/nexa-deployment.tar.gz
+          
+          # Set proper permissions
+          sudo chown -R www-data:www-data /var/www/nexa
+          sudo chmod -R 755 /var/www/nexa
+          sudo chmod -R 775 /var/www/nexa/storage
+          sudo chmod -R 775 /var/www/nexa/bootstrap/cache
+          
+          # Install/update Composer dependencies on server
+          cd /var/www/nexa
+          composer install --no-dev --optimize-autoloader --no-interaction
+          
+          # Clear Laravel caches
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          
+          # Run database migrations (if needed)
+          php artisan migrate --force
+          
+          # Restart web server
+          sudo systemctl reload nginx
+          sudo systemctl reload php8.2-fpm
+          
+          # Clean up
+          rm /tmp/nexa-deployment.tar.gz
+          
+    - name: Verify deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # Check if application is accessible
+          curl -f http://localhost || exit 1
+          echo "Deployment successful!"

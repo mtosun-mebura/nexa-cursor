@@ -88,6 +88,9 @@ class RoleSeeder extends Seeder
             // Dashboard access
             'view-dashboard',
             'view-tenant-dashboard',
+            
+            // Agenda access
+            'view-agenda',
         ];
 
         foreach ($permissions as $permission) {
@@ -133,6 +136,7 @@ class RoleSeeder extends Seeder
             'view-email-templates',
             'edit-email-templates',
             'view-tenant-dashboard',
+            'view-agenda',
         ]);
 
         // Assign company-specific permissions to company admin (api)
@@ -158,6 +162,7 @@ class RoleSeeder extends Seeder
             'view-email-templates',
             'edit-email-templates',
             'view-tenant-dashboard',
+            'view-agenda',
         ]);
 
         // Assign limited permissions to staff (web)
@@ -170,6 +175,7 @@ class RoleSeeder extends Seeder
             'create-interviews',
             'view-notifications',
             'view-tenant-dashboard',
+            'view-agenda',
         ]);
 
         // Assign limited permissions to staff (api)
@@ -182,6 +188,7 @@ class RoleSeeder extends Seeder
             'create-interviews',
             'view-notifications',
             'view-tenant-dashboard',
+            'view-agenda',
         ]);
 
         // Assign candidate permissions (web)
@@ -189,6 +196,7 @@ class RoleSeeder extends Seeder
             'view-vacancies',
             'view-matches',
             'view-interviews',
+            'view-agenda',
         ]);
 
         // Assign candidate permissions (api)
@@ -196,6 +204,7 @@ class RoleSeeder extends Seeder
             'view-vacancies',
             'view-matches',
             'view-interviews',
+            'view-agenda',
         ]);
 
         // Create Super Admin user

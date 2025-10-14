@@ -12,7 +12,7 @@
                   <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                   </svg>
-                  <a href="{{ route('jobs.index') }}" class="hover:text-primary dark:hover:text-primary-dark">Vacatures</a>
+                  <a href="{{ route('jobs.index', request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort'])) }}" class="hover:text-primary dark:hover:text-primary-dark">Vacatures</a>
               </li>
               <li class="flex items-center">
                   <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
@@ -22,6 +22,17 @@
               </li>
           </ol>
       </nav>
+
+      <!-- Back to Vacatures Button -->
+      <div class="mb-6">
+          <a href="{{ route('jobs.index', request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort'])) }}" class="inline-flex items-center text-sm text-muted dark:text-muted-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
+              Terug naar vacatures
+          </a>
+          
+      </div>
 
     <!-- Job Header -->
     <div class="card p-6 mb-6">
@@ -268,7 +279,7 @@ async function saveVacancy() {
             }
             
             // Show success message
-            alert(data.message);
+            showFavoriteModal(data.message);
         } else {
             alert('Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
         }
@@ -298,6 +309,68 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     } catch (error) {
         console.error('Error checking favorite status:', error);
+    }
+});
+</script>
+
+<!-- Favorite Success Modal -->
+<div id="favorite-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-green-500">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Succes!</h3>
+                </div>
+                <button onclick="hideFavoriteModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <p id="favorite-message" class="text-gray-600 dark:text-gray-300 mb-6"></p>
+            <button onclick="hideFavoriteModal()" class="btn btn-primary w-full">Sluiten</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Favorite Modal Functions
+function showFavoriteModal(message) {
+    const modal = document.getElementById('favorite-modal');
+    const messageElement = document.getElementById('favorite-message');
+    
+    messageElement.textContent = message;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    // Add ESC key listener
+    document.addEventListener('keydown', handleFavoriteModalEsc);
+}
+
+function hideFavoriteModal() {
+    const modal = document.getElementById('favorite-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    
+    // Remove ESC key listener
+    document.removeEventListener('keydown', handleFavoriteModalEsc);
+}
+
+function handleFavoriteModalEsc(e) {
+    if (e.key === 'Escape') {
+        hideFavoriteModal();
+    }
+}
+
+// Close modal when clicking outside
+document.getElementById('favorite-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideFavoriteModal();
     }
 });
 </script>

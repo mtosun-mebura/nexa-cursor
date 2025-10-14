@@ -66,6 +66,16 @@ class User extends Authenticatable
         'photo',
         'photo_blob',
         'photo_mime_type',
+        'preferred_location',
+        'max_distance',
+        'contract_type',
+        'work_hours',
+        'min_salary',
+        'email_notifications',
+        'sms_notifications',
+        'push_notifications',
+        'profile_visible',
+        'cv_downloadable',
     ];
 
     /**

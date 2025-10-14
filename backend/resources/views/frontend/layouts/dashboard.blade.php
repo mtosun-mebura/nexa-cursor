@@ -46,6 +46,14 @@
           <span>Matches</span>
           <svg class="h-4 w-4 text-muted dark:text-muted-dark" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18l6-6-6-6"/></svg>
         </a>
+        @if(auth()->user() && auth()->user()->can('view-agenda'))
+        <a href="{{ route('agenda') }}" class="flex items-center justify-between rounded-xl px-3 py-2
+                          text-sm hover:bg-card dark:hover:bg-card-dark border border-transparent
+                          hover:border-border dark:hover:border-border-dark {{ request()->routeIs('agenda') ? 'bg-card dark:bg-card-dark border-border dark:border-border-dark' : '' }}">
+          <span>Agenda</span>
+          <svg class="h-4 w-4 text-muted dark:text-muted-dark" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18l6-6-6-6"/></svg>
+        </a>
+        @endif
         <a href="{{ route('applications') }}" class="flex items-center justify-between rounded-xl px-3 py-2
                           text-sm hover:bg-card dark:hover:bg-card-dark border border-transparent
                           hover:border-border dark:hover:border-border-dark {{ request()->routeIs('applications') ? 'bg-card dark:bg-card-dark border-border dark:border-border-dark' : '' }}">
@@ -75,6 +83,17 @@
       @if(request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details'))
       <div class="my-4 h-px bg-border dark:bg-border-dark"></div>
       <form method="GET" action="{{ route('jobs.index') }}" class="space-y-3">
+        <!-- Hidden fields to preserve search query and sort -->
+        @if(request('q'))
+          <input type="hidden" name="q" value="{{ request('q') }}">
+        @endif
+        @if(request('sort'))
+          <input type="hidden" name="sort" value="{{ request('sort') }}">
+        @endif
+        @if(request('per_page'))
+          <input type="hidden" name="per_page" value="{{ request('per_page') }}">
+        @endif
+        
         <h3 class="text-sm font-semibold">Filters</h3>
         
         <!-- Locatie -->
@@ -106,6 +125,8 @@
               <option value="Parttime" {{ request('employment_type') == 'Parttime' ? 'selected' : '' }}>Parttime</option>
               <option value="Freelance" {{ request('employment_type') == 'Freelance' ? 'selected' : '' }}>Freelance</option>
               <option value="ZZP" {{ request('employment_type') == 'ZZP' ? 'selected' : '' }}>ZZP</option>
+              <option value="Stage" {{ request('employment_type') == 'Stage' ? 'selected' : '' }}>Stage</option>
+              <option value="Traineeship" {{ request('employment_type') == 'Traineeship' ? 'selected' : '' }}>Traineeship</option>
             </select>
           </div>
           <div>
@@ -157,7 +178,7 @@
         <button class="btn btn-primary w-full" type="submit">Toon resultaten</button>
         
         @if(request()->hasAny(['location', 'distance', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills']))
-          <a href="{{ route('jobs.index') }}" class="btn btn-outline w-full">Reset filters</a>
+          <a href="{{ route('jobs.index', request()->only(['q', 'sort', 'per_page'])) }}" class="btn btn-outline w-full">Reset filters</a>
         @endif
       </form>
       @endif

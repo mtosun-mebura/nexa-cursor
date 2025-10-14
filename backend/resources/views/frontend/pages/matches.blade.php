@@ -126,7 +126,7 @@
           </td>
           <td class="px-4 py-4">
             <div class="flex items-center gap-2">
-              <a href="{{ route('frontend.vacancy-details', ['company' => $vacancy->company->slug, 'vacancy' => $vacancy->id]) }}" 
+              <a href="{{ route('frontend.vacancy-details', array_merge(['company' => $vacancy->company->slug, 'vacancy' => $vacancy->id], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}" 
                  class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 Details
               </a>

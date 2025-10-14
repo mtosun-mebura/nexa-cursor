@@ -123,6 +123,12 @@
       <excludeFolder url="file://$MODULE_DIR$/backend/vendor/webmozart/assert" />
       <excludeFolder url="file://$MODULE_DIR$/backend/vendor/laravel/scout" />
       <excludeFolder url="file://$MODULE_DIR$/backend/vendor/livewire/livewire" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/laminas/laminas-diactoros" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/lcobucci/jwt" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/vonage/client" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/vonage/client-core" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/vonage/jwt" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/vendor/vonage/nexmo-bridge" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

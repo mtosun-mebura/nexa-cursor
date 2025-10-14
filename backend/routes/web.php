@@ -208,6 +208,10 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Interviews
     Route::resource('interviews', AdminInterviewController::class);
     
+    // Agenda
+    Route::get('agenda', [App\Http\Controllers\Admin\AgendaController::class, 'index'])->name('agenda.index');
+    Route::get('agenda/events', [App\Http\Controllers\Admin\AgendaController::class, 'events'])->name('agenda.events');
+    
     // Notifications
     Route::resource('notifications', AdminNotificationController::class);
     Route::post('notifications/{notification}/mark-read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.mark-read');
@@ -355,6 +359,14 @@ Route::middleware(['auth:web'])->group(function () {
     
     Route::get('/matches', [MatchController::class, 'index'])->name('matches');
     
+    Route::get('/agenda', [App\Http\Controllers\Frontend\AgendaController::class, 'index'])->name('agenda');
+    Route::get('/agenda/events', [App\Http\Controllers\Frontend\AgendaController::class, 'events'])->name('agenda.events');
+    
+    // Test route for agenda
+    Route::get('/test-agenda', function() {
+        return view('frontend.pages.agenda');
+    });
+    
     
     Route::get('/applications', function () {
         return view('frontend.pages.applications');
@@ -363,6 +375,11 @@ Route::middleware(['auth:web'])->group(function () {
     Route::get('/settings', [App\Http\Controllers\Frontend\SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePassword'])->name('settings.password');
     Route::post('/settings/email', [App\Http\Controllers\Frontend\SettingsController::class, 'updateEmail'])->name('settings.email');
+    Route::post('/settings/job-preferences', [App\Http\Controllers\Frontend\SettingsController::class, 'updateJobPreferences'])->name('settings.job-preferences');
+    Route::post('/settings/notifications', [App\Http\Controllers\Frontend\SettingsController::class, 'updateNotificationPreferences'])->name('settings.notifications');
+    Route::post('/settings/privacy', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePrivacyPreferences'])->name('settings.privacy');
+    Route::post('/settings/export-data', [App\Http\Controllers\Frontend\SettingsController::class, 'exportData'])->name('settings.export-data');
+    Route::delete('/settings/delete-account', [App\Http\Controllers\Frontend\SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
     
     // CV routes
     Route::post('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'uploadCV'])->name('profile.cv');
@@ -423,3 +440,4 @@ Route::fallback(function () {
     
     abort(404);
 });
+Route::get('/test-agenda-public', function() { return view('frontend.pages.agenda'); });

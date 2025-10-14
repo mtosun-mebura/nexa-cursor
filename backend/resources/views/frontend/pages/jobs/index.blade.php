@@ -45,7 +45,7 @@
         </select>
         <button type="submit" class="btn btn-primary">Zoeken</button>
         @if(request()->hasAny(['q', 'sort']))
-          <a href="{{ route('jobs.index') }}" class="btn btn-outline">Reset</a>
+          <a href="{{ route('jobs.index', request()->only(['location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'per_page'])) }}" class="btn btn-outline">Reset</a>
         @endif
       </div>
     </div>
@@ -54,14 +54,35 @@
     @if(request('per_page'))
       <input type="hidden" name="per_page" value="{{ request('per_page') }}">
     @endif
-    @if(request('category'))
-      <input type="hidden" name="category" value="{{ request('category') }}">
-    @endif
     @if(request('location'))
       <input type="hidden" name="location" value="{{ request('location') }}">
     @endif
+    @if(request('distance'))
+      <input type="hidden" name="distance" value="{{ request('distance') }}">
+    @endif
+    @if(request('category'))
+      <input type="hidden" name="category" value="{{ request('category') }}">
+    @endif
     @if(request('employment_type'))
       <input type="hidden" name="employment_type" value="{{ request('employment_type') }}">
+    @endif
+    @if(request('experience_level'))
+      <input type="hidden" name="experience_level" value="{{ request('experience_level') }}">
+    @endif
+    @if(request('salary_min'))
+      <input type="hidden" name="salary_min" value="{{ request('salary_min') }}">
+    @endif
+    @if(request('salary_max'))
+      <input type="hidden" name="salary_max" value="{{ request('salary_max') }}">
+    @endif
+    @if(request('remote_work'))
+      <input type="hidden" name="remote_work" value="{{ request('remote_work') }}">
+    @endif
+    @if(request('travel_expenses'))
+      <input type="hidden" name="travel_expenses" value="{{ request('travel_expenses') }}">
+    @endif
+    @if(request('skills'))
+      <input type="hidden" name="skills" value="{{ request('skills') }}">
     @endif
   </form>
 </div>
@@ -178,7 +199,7 @@
           </td>
           <td class="px-4 py-4">
             <div class="flex items-center gap-2">
-              <a href="{{ route('jobs.show', $job) }}" 
+              <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}" 
                  class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 Details
               </a>

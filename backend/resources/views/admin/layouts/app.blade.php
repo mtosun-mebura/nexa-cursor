@@ -1196,7 +1196,38 @@
         [data-theme="dark"] .user-button i {
             color: var(--on-surface);
         }
-            color: #1565c0;
+
+        /* Dark mode dropdown menu */
+        [data-theme="dark"] .dropdown-menu {
+            background-color: #1f2937;
+            border-color: #4b5563;
+            color: #f9fafb;
+        }
+
+        [data-theme="dark"] .dropdown-item {
+            color: #f9fafb;
+        }
+
+        [data-theme="dark"] .dropdown-item:hover {
+            background-color: #374151;
+        }
+
+        [data-theme="dark"] .dropdown-divider {
+            background-color: #4b5563;
+        }
+
+        /* Dark mode notification bell border consistency */
+        [data-theme="dark"] .notification-bell {
+            border-color: #4b5563;
+            background: #1f2937;
+        }
+
+        [data-theme="dark"] .notification-bell:hover {
+            background-color: #374151;
+        }
+
+        [data-theme="dark"] .notification-bell i {
+            color: #9ca3af;
         }
 
         /* Responsive Design */
@@ -1353,6 +1384,14 @@
                     <a class="nav-link {{ request()->routeIs('admin.interviews.*') ? 'active' : '' }}" href="{{ route('admin.interviews.index') }}">
                         <i class="fas fa-calendar-alt"></i>
                         <span>Interviews</span>
+                    </a>
+                </div>
+                @endif
+                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-agenda'))
+                <div class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('admin.agenda.*') ? 'active' : '' }}" href="{{ route('admin.agenda.index') }}">
+                        <i class="fas fa-calendar"></i>
+                        <span>Agenda</span>
                     </a>
                 </div>
                 @endif

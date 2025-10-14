@@ -75,7 +75,7 @@
           <div>
             <label class="text-sm text-muted dark:text-muted-dark">Contract</label>
             <select class="select mt-1">
-              <option>Alle</option><option>Vast</option><option>Tijdelijk</option><option>ZZP</option>
+              <option>Alle</option><option>Vast</option><option>Tijdelijk</option><option>ZZP</option><option>Stage</option><option>Traineeship</option>
             </select>
           </div>
         </div>

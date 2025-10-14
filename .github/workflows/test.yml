@@ -1,0 +1,67 @@
+name: Test and Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, dom, fileinfo, mysql, zip, gd, curl, intl, bcmath, soap, redis, xdebug
+        coverage: xdebug
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'backend/package-lock.json'
+        
+    - name: Copy .env
+      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+      working-directory: ./backend
+      
+    - name: Install Composer dependencies
+      working-directory: ./backend
+      run: composer install --no-interaction --prefer-dist
+      
+    - name: Install NPM dependencies
+      working-directory: ./backend
+      run: npm ci
+      
+    - name: Generate key
+      run: php artisan key:generate
+      working-directory: ./backend
+      
+    - name: Directory Permissions
+      run: chmod -R 777 backend/storage bootstrap/cache
+      working-directory: ./
+      
+    - name: Create Database
+      run: |
+        mkdir -p database
+        touch database/database.sqlite
+      working-directory: ./backend
+      
+    - name: Execute tests (Unit and Feature tests) via PHPUnit
+      run: php artisan test
+      working-directory: ./backend
+      
+    - name: Build assets
+      working-directory: ./backend
+      run: npm run build
+      
+    - name: Check for syntax errors
+      run: php -l artisan
+      working-directory: ./backend

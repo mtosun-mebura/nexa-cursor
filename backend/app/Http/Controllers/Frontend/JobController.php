@@ -47,8 +47,8 @@ class JobController extends Controller
             });
         }
         
-        // Location filter (case insensitive) - only if no distance filter
-        if ($request->filled('location') && !$request->filled('distance')) {
+        // Location filter (case insensitive) - only if no distance filter is applied
+        if ($request->filled('location') && (!$request->filled('distance') || $request->get('distance') === '')) {
             $location = $request->get('location');
             $query->whereRaw('LOWER(location) LIKE ?', ['%' . strtolower($location) . '%']);
         }
@@ -88,9 +88,9 @@ class JobController extends Controller
         }
         
         // Distance filter with real geo coordinates
-        if ($request->filled('distance') && $request->filled('location')) {
+        if ($request->filled('distance') && $request->get('distance') !== '') {
             $distance = (int) $request->get('distance');
-            $location = $request->get('location');
+            $location = $request->get('location', 'Amsterdam'); // Default to Amsterdam if no location
             
             // Get coordinates for the search location
             $searchCoords = GeoHelper::getCityCoordinates($location);
@@ -114,7 +114,9 @@ class JobController extends Controller
                 });
             } else {
                 // Fallback to simple location matching if coordinates not found
-                $query->whereRaw('LOWER(location) LIKE ?', ['%' . strtolower($location) . '%']);
+                if ($request->filled('location')) {
+                    $query->whereRaw('LOWER(location) LIKE ?', ['%' . strtolower($location) . '%']);
+                }
             }
         }
         
