@@ -181,22 +181,18 @@ if [ -f "/var/www/nexa/backend/composer.json" ]; then
     cd /var/www/nexa/backend
 
     # Create necessary Laravel directories
-    mkdir -p storage/logs
-    mkdir -p storage/framework/cache
-    mkdir -p storage/framework/sessions
-    mkdir -p storage/framework/views
     mkdir -p bootstrap/cache
+    mkdir -p storage/framework/{cache,sessions,views}
+    mkdir -p storage/logs
 
     composer install --no-dev --optimize-autoloader --no-interaction
 
     # Generate application key
     php artisan key:generate
 
-    # Set proper permissions
-    sudo chown -R www-data:www-data /var/www/nexa
-    sudo chmod -R 755 /var/www/nexa
-    sudo chmod -R 775 /var/www/nexa/backend/storage
-    sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
+    # Set proper ownership and permissions
+    sudo chown -R www-data:www-data /var/www/nexa/backend/storage /var/www/nexa/backend/bootstrap/cache
+    sudo chmod -R 775 /var/www/nexa/backend/storage /var/www/nexa/backend/bootstrap/cache
 
     echo "Laravel setup completed!"
 fi

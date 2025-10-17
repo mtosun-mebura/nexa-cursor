@@ -122,24 +122,14 @@ jobs:
           cd /var/www/nexa
           tar -xzf /tmp/nexa-deployment.tar.gz
           
-          # Create necessary Laravel directories in backend folder
-          mkdir -p /var/www/nexa/backend/storage/logs
-          mkdir -p /var/www/nexa/backend/storage/framework/cache
-          mkdir -p /var/www/nexa/backend/storage/framework/sessions
-          mkdir -p /var/www/nexa/backend/storage/framework/views
+          # Create necessary Laravel directories
           mkdir -p /var/www/nexa/backend/bootstrap/cache
+          mkdir -p /var/www/nexa/backend/storage/framework/{cache,sessions,views}
+          mkdir -p /var/www/nexa/backend/storage/logs
           
-          # Set proper permissions
-          sudo chown -R www-data:www-data /var/www/nexa
-          sudo chmod -R 755 /var/www/nexa
-          
-          # Only set permissions if directories exist
-          if [ -d "/var/www/nexa/backend/storage" ]; then
-            sudo chmod -R 775 /var/www/nexa/backend/storage
-          fi
-          if [ -d "/var/www/nexa/backend/bootstrap/cache" ]; then
-            sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
-          fi
+          # Set proper ownership and permissions
+          sudo chown -R www-data:www-data /var/www/nexa/backend/storage /var/www/nexa/backend/bootstrap/cache
+          sudo chmod -R 775 /var/www/nexa/backend/storage /var/www/nexa/backend/bootstrap/cache
           
           # Install/update Composer dependencies on server
           cd /var/www/nexa
