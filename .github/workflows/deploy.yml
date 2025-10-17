@@ -91,6 +91,15 @@ jobs:
           sudo mkdir -p /var/www/nexa
           sudo chown -R $USER:$USER /var/www/nexa
           
+          # Git pull latest changes if repository exists
+          if [ -d "/var/www/nexa/.git" ]; then
+            echo "Pulling latest changes from git..."
+            cd /var/www/nexa
+            git pull origin main
+          else
+            echo "No git repository found, will deploy from uploaded package..."
+          fi
+          
     - name: Upload deployment package
       uses: appleboy/scp-action@v0.1.4
       with:
