@@ -48,7 +48,10 @@ De CI/CD pipeline wordt automatisch getriggerd wanneer:
 
 ## 🔐 GitHub Secrets Configuratie
 
-Ga naar je GitHub repository → Settings → Secrets and variables → Actions
+**Stap 1:** Ga naar je GitHub repository (niet je profiel settings!)
+**Stap 2:** Klik op de "Settings" tab in je repository
+**Stap 3:** Scroll naar beneden naar "Secrets and variables" in de linker sidebar
+**Stap 4:** Klik op "Actions"
 
 Voeg de volgende secrets toe:
 

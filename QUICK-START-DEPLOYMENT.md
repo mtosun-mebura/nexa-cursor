@@ -7,8 +7,12 @@
 # SSH naar je server
 ssh user@192.168.178.116
 
-# Run setup script
-curl -sSL https://raw.githubusercontent.com/your-repo/nexa-cursor/main/deploy/setup-server.sh | sudo bash
+# Run improved setup script (handles different PHP versions)
+curl -sSL https://raw.githubusercontent.com/your-repo/nexa-cursor/main/deploy/setup-server-improved.sh | sudo bash
+
+# Of als je het script lokaal hebt:
+chmod +x deploy/setup-server-improved.sh
+sudo ./deploy/setup-server-improved.sh
 ```
 
 ### 2. SSH Key Genereren
@@ -20,7 +24,10 @@ cat ~/.ssh/github_actions  # Kopieer deze output
 ```
 
 ### 3. GitHub Secrets Instellen
-Ga naar: `GitHub Repository → Settings → Secrets and variables → Actions`
+**Stap 1:** Ga naar je GitHub repository (niet je profiel!)
+**Stap 2:** Klik op "Settings" tab
+**Stap 3:** Scroll naar "Secrets and variables" in linker sidebar  
+**Stap 4:** Klik op "Actions"
 
 Voeg toe:
 - `DEPLOY_HOST`: `192.168.178.116`
