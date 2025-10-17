@@ -132,8 +132,14 @@ jobs:
           # Set proper permissions
           sudo chown -R www-data:www-data /var/www/nexa
           sudo chmod -R 755 /var/www/nexa
-          sudo chmod -R 775 /var/www/nexa/backend/storage
-          sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
+          
+          # Only set permissions if directories exist
+          if [ -d "/var/www/nexa/backend/storage" ]; then
+            sudo chmod -R 775 /var/www/nexa/backend/storage
+          fi
+          if [ -d "/var/www/nexa/backend/bootstrap/cache" ]; then
+            sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
+          fi
           
           # Install/update Composer dependencies on server
           cd /var/www/nexa
