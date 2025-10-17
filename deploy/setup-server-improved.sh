@@ -163,6 +163,14 @@ EOF
 if [ -f "/var/www/nexa/backend/composer.json" ]; then
     echo "Installing Composer dependencies..."
     cd /var/www/nexa/backend
+    
+    # Create necessary Laravel directories
+    mkdir -p storage/logs
+    mkdir -p storage/framework/cache
+    mkdir -p storage/framework/sessions
+    mkdir -p storage/framework/views
+    mkdir -p bootstrap/cache
+    
     composer install --no-dev --optimize-autoloader --no-interaction
     
     # Generate application key

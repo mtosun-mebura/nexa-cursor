@@ -113,6 +113,13 @@ jobs:
           cd /var/www/nexa
           tar -xzf /tmp/nexa-deployment.tar.gz
           
+          # Create necessary directories if they don't exist
+          mkdir -p /var/www/nexa/storage/logs
+          mkdir -p /var/www/nexa/storage/framework/cache
+          mkdir -p /var/www/nexa/storage/framework/sessions
+          mkdir -p /var/www/nexa/storage/framework/views
+          mkdir -p /var/www/nexa/bootstrap/cache
+          
           # Set proper permissions
           sudo chown -R www-data:www-data /var/www/nexa
           sudo chmod -R 755 /var/www/nexa
