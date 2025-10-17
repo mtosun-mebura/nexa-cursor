@@ -1,38 +1,77 @@
 #!/bin/bash
 
-# Server setup script for NEXA deployment
-# Run this script on your server (192.168.178.116) to prepare it for CI/CD
+# Improved server setup script for NEXA deployment
+# Handles different Ubuntu/Debian versions and PHP availability
 
 echo "Setting up NEXA deployment server..."
 
 # Update system
 sudo apt update && sudo apt upgrade -y
 
+# Install basic requirements
+sudo apt install -y software-properties-common curl wget git
+
 # Add PHP repository for latest PHP versions
-sudo apt install -y software-properties-common
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update
 
-# Install required packages
-sudo apt install -y nginx php8.2-fpm php8.2-cli php8.2-mysql php8.2-xml php8.2-gd php8.2-curl php8.2-mbstring php8.2-zip php8.2-bcmath php8.2-soap php8.2-redis php8.2-intl composer nodejs npm git curl
+# Detect available PHP versions
+echo "Detecting available PHP versions..."
+AVAILABLE_PHP_VERSIONS=()
 
-# If PHP 8.2 is not available, try PHP 8.1 or 8.0
-if ! dpkg -l | grep -q php8.2; then
-    echo "PHP 8.2 not available, trying PHP 8.1..."
+# Check for PHP 8.2
+if apt list --installed 2>/dev/null | grep -q php8.2 || apt-cache policy php8.2-fpm | grep -q "Candidate:"; then
+    AVAILABLE_PHP_VERSIONS+=("8.2")
+fi
+
+# Check for PHP 8.1
+if apt list --installed 2>/dev/null | grep -q php8.1 || apt-cache policy php8.1-fpm | grep -q "Candidate:"; then
+    AVAILABLE_PHP_VERSIONS+=("8.1")
+fi
+
+# Check for PHP 8.0
+if apt list --installed 2>/dev/null | grep -q php8.0 || apt-cache policy php8.0-fpm | grep -q "Candidate:"; then
+    AVAILABLE_PHP_VERSIONS+=("8.0")
+fi
+
+# If no PHP versions found, try to install PHP 8.1
+if [ ${#AVAILABLE_PHP_VERSIONS[@]} -eq 0 ]; then
+    echo "No PHP versions found, installing PHP 8.1..."
     sudo apt install -y php8.1-fpm php8.1-cli php8.1-mysql php8.1-xml php8.1-gd php8.1-curl php8.1-mbstring php8.1-zip php8.1-bcmath php8.1-soap php8.1-redis php8.1-intl
-    
-    # Update nginx config for PHP 8.1
-    sudo sed -i 's/php8.2/php8.1/g' /etc/nginx/sites-available/nexa
     PHP_VERSION="8.1"
 else
-    PHP_VERSION="8.2"
+    # Use the highest available version
+    PHP_VERSION=${AVAILABLE_PHP_VERSIONS[0]}
+    echo "Using PHP version: $PHP_VERSION"
+
+    # Install PHP packages for the detected version
+    sudo apt install -y php${PHP_VERSION}-fpm php${PHP_VERSION}-cli php${PHP_VERSION}-mysql php${PHP_VERSION}-xml php${PHP_VERSION}-gd php${PHP_VERSION}-curl php${PHP_VERSION}-mbstring php${PHP_VERSION}-zip php${PHP_VERSION}-bcmath php${PHP_VERSION}-soap php${PHP_VERSION}-redis php${PHP_VERSION}-intl
 fi
+
+# Install other required packages
+sudo apt install -y nginx composer nodejs npm mysql-server
 
 # Create deployment directory
 sudo mkdir -p /var/www/nexa
 sudo chown -R $USER:$USER /var/www/nexa
 
-# Create nginx configuration
+# Optional: Initialize git repository for easier updates
+echo "Do you want to initialize git repository for easier updates? (y/n)"
+read -r response
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo "Enter your GitHub repository URL (e.g., https://github.com/username/nexa-cursor.git):"
+    read -r repo_url
+    if [ ! -z "$repo_url" ]; then
+        cd /var/www/nexa
+        git init
+        git remote add origin "$repo_url"
+        git fetch origin
+        git checkout -b main origin/main
+        echo "Git repository initialized!"
+    fi
+fi
+
+# Create nginx configuration with dynamic PHP version
 sudo tee /etc/nginx/sites-available/nexa << EOF
 server {
     listen 80;
@@ -69,6 +108,10 @@ sudo nginx -t
 # Restart services
 sudo systemctl restart nginx
 sudo systemctl restart php${PHP_VERSION}-fpm
+
+# Enable services to start on boot
+sudo systemctl enable nginx
+sudo systemctl enable php${PHP_VERSION}-fpm
 
 # Create .env file template
 cat > /var/www/nexa/.env.example << EOF
@@ -132,7 +175,34 @@ VITE_PUSHER_SCHEME="\${PUSHER_SCHEME}"
 VITE_PUSHER_APP_CLUSTER="\${PUSHER_APP_CLUSTER}"
 EOF
 
+# Install Composer dependencies if Laravel project exists
+if [ -f "/var/www/nexa/backend/composer.json" ]; then
+    echo "Installing Composer dependencies..."
+    cd /var/www/nexa/backend
+
+    # Create necessary Laravel directories
+    mkdir -p storage/logs
+    mkdir -p storage/framework/cache
+    mkdir -p storage/framework/sessions
+    mkdir -p storage/framework/views
+    mkdir -p bootstrap/cache
+
+    composer install --no-dev --optimize-autoloader --no-interaction
+
+    # Generate application key
+    php artisan key:generate
+
+    # Set proper permissions
+    sudo chown -R www-data:www-data /var/www/nexa
+    sudo chmod -R 755 /var/www/nexa
+    sudo chmod -R 775 /var/www/nexa/storage
+    sudo chmod -R 775 /var/www/nexa/bootstrap/cache
+
+    echo "Laravel setup completed!"
+fi
+
 echo "Server setup completed!"
+echo "PHP Version: $PHP_VERSION"
 echo "Next steps:"
 echo "1. Configure your database (MySQL/MariaDB)"
 echo "2. Copy .env.example to .env and configure your settings"
