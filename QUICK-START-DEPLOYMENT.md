@@ -7,12 +7,12 @@
 # SSH naar je server
 ssh user@192.168.178.116
 
-# Run improved setup script (handles different PHP versions)
-curl -sSL https://raw.githubusercontent.com/your-repo/nexa-cursor/main/deploy/setup-server-improved.sh | sudo bash
+# Run setup script
+curl -sSL https://raw.githubusercontent.com/your-repo/nexa-cursor/main/deploy/setup-server.sh | sudo bash
 
 # Of als je het script lokaal hebt:
-chmod +x deploy/setup-server-improved.sh
-sudo ./deploy/setup-server-improved.sh
+chmod +x deploy/setup-server.sh
+sudo ./deploy/setup-server.sh
 ```
 
 ### 2. SSH Key Genereren

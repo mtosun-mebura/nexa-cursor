@@ -195,8 +195,8 @@ if [ -f "/var/www/nexa/backend/composer.json" ]; then
     # Set proper permissions
     sudo chown -R www-data:www-data /var/www/nexa
     sudo chmod -R 755 /var/www/nexa
-    sudo chmod -R 775 /var/www/nexa/storage
-    sudo chmod -R 775 /var/www/nexa/bootstrap/cache
+    sudo chmod -R 775 /var/www/nexa/backend/storage
+    sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
 
     echo "Laravel setup completed!"
 fi
