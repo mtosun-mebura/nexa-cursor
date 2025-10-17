@@ -55,6 +55,22 @@ sudo apt install -y nginx composer nodejs npm mysql-server
 sudo mkdir -p /var/www/nexa
 sudo chown -R $USER:$USER /var/www/nexa
 
+# Optional: Initialize git repository for easier updates
+echo "Do you want to initialize git repository for easier updates? (y/n)"
+read -r response
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo "Enter your GitHub repository URL (e.g., https://github.com/username/nexa-cursor.git):"
+    read -r repo_url
+    if [ ! -z "$repo_url" ]; then
+        cd /var/www/nexa
+        git init
+        git remote add origin "$repo_url"
+        git fetch origin
+        git checkout -b main origin/main
+        echo "Git repository initialized!"
+    fi
+fi
+
 # Create nginx configuration with dynamic PHP version
 sudo tee /etc/nginx/sites-available/nexa << EOF
 server {

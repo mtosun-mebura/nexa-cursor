@@ -1,0 +1,100 @@
+name: Deploy to Production (Git-based)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [closed]
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only run if PR was merged (not just closed)
+    if: github.event.pull_request.merged == true || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Deploy to server via Git
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # Create backup of current deployment
+          if [ -d "/var/www/nexa" ]; then
+            sudo cp -r /var/www/nexa /var/www/nexa-backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # Create deployment directory if it doesn't exist
+          sudo mkdir -p /var/www/nexa
+          sudo chown -R $USER:$USER /var/www/nexa
+          
+          # Clone or pull latest changes
+          if [ -d "/var/www/nexa/.git" ]; then
+            echo "Pulling latest changes from git..."
+            cd /var/www/nexa
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
+          else
+            echo "Cloning repository for first time..."
+            cd /var/www/nexa
+            git clone https://github.com/${{ github.repository }}.git .
+            git checkout main
+          fi
+          
+          # Create necessary Laravel directories
+          mkdir -p /var/www/nexa/backend/storage/logs
+          mkdir -p /var/www/nexa/backend/storage/framework/cache
+          mkdir -p /var/www/nexa/backend/storage/framework/sessions
+          mkdir -p /var/www/nexa/backend/storage/framework/views
+          mkdir -p /var/www/nexa/backend/bootstrap/cache
+          
+          # Set proper permissions
+          sudo chown -R www-data:www-data /var/www/nexa
+          sudo chmod -R 755 /var/www/nexa
+          sudo chmod -R 775 /var/www/nexa/backend/storage
+          sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
+          
+          # Install/update Composer dependencies on server
+          cd /var/www/nexa/backend
+          composer install --no-dev --optimize-autoloader --no-interaction
+          
+          # Clear Laravel caches
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          
+          # Run database migrations (if needed)
+          php artisan migrate --force
+          
+          # Restart web server
+          sudo systemctl reload nginx
+          # Detect PHP version and restart appropriate service
+          if systemctl is-active --quiet php8.2-fpm; then
+            sudo systemctl reload php8.2-fpm
+          elif systemctl is-active --quiet php8.1-fpm; then
+            sudo systemctl reload php8.1-fpm
+          elif systemctl is-active --quiet php8.0-fpm; then
+            sudo systemctl reload php8.0-fpm
+          else
+            echo "No PHP-FPM service found, trying to restart all PHP versions..."
+            sudo systemctl reload php8.2-fpm 2>/dev/null || true
+            sudo systemctl reload php8.1-fpm 2>/dev/null || true
+            sudo systemctl reload php8.0-fpm 2>/dev/null || true
+          fi
+          
+    - name: Verify deployment
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        port: ${{ secrets.DEPLOY_PORT || 22 }}
+        script: |
+          # Check if application is accessible
+          curl -f http://localhost || exit 1
+          echo "Deployment successful!"
