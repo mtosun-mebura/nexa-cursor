@@ -126,7 +126,7 @@ LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
 DB_CONNECTION=pgsql
-DB_HOST=mdb.tosun.nlTV Gelderland 2021.
+DB_HOST=mdb.tosun.nl
 DB_PORT=5432
 DB_DATABASE=nexa
 DB_USERNAME=mtosun
