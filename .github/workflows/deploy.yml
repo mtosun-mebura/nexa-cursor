@@ -93,11 +93,15 @@ jobs:
           
           # Git pull latest changes if repository exists
           if [ -d "/var/www/nexa/.git" ]; then
-            echo "Pulling latest changes from git..."
+            echo "Git repository found, pulling latest changes..."
             cd /var/www/nexa
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
+            echo "Git pull completed successfully!"
           else
-            echo "No git repository found, will deploy from uploaded package..."
+            echo "No git repository found. To use git pull, initialize with:"
+            echo "cd /var/www/nexa && git init && git remote add origin <your-repo-url> && git fetch && git checkout main"
           fi
           
     - name: Upload deployment package

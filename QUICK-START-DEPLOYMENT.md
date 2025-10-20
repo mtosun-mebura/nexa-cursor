@@ -34,7 +34,17 @@ Voeg toe:
 - `DEPLOY_USER`: `je_gebruikersnaam`
 - `DEPLOY_KEY`: `-----BEGIN OPENSSH PRIVATE KEY-----...` (volledige private key)
 
-### 4. Database Setup
+### 4. Git Repository Initialiseren (voor auto-pull)
+```bash
+# Op server
+cd /var/www/nexa
+git init
+git remote add origin https://github.com/username/nexa-cursor.git
+git fetch origin
+git checkout -b main origin/main
+```
+
+### 5. Database Setup
 ```bash
 # Op server
 sudo mysql -e "CREATE DATABASE nexa;"
@@ -42,7 +52,7 @@ sudo mysql -e "CREATE USER 'nexa_user'@'localhost' IDENTIFIED BY 'sterk_wachtwoo
 sudo mysql -e "GRANT ALL PRIVILEGES ON nexa.* TO 'nexa_user'@'localhost';"
 ```
 
-### 5. Environment Configureren
+### 6. Environment Configureren
 ```bash
 # Op server
 cd /var/www/nexa

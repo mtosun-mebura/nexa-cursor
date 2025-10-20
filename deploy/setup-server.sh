@@ -116,7 +116,7 @@ sudo systemctl enable php${PHP_VERSION}-fpm
 # Create .env file template
 cat > /var/www/nexa/.env.example << EOF
 APP_NAME=NEXA
-APP_ENV=production
+APP_ENV=test
 APP_KEY=
 APP_DEBUG=false
 APP_URL=http://192.168.178.116
@@ -125,12 +125,12 @@ LOG_CHANNEL=stack
 LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_CONNECTION=pgsql
+DB_HOST=mdb.tosun.nlTV Gelderland 2021.
+DB_PORT=5432
 DB_DATABASE=nexa
-DB_USERNAME=nexa_user
-DB_PASSWORD=your_secure_password
+DB_USERNAME=mtosun
+DB_PASSWORD=Memmo@Mdb!
 
 BROADCAST_DRIVER=log
 CACHE_DRIVER=file
@@ -151,7 +151,7 @@ MAIL_PORT=1025
 MAIL_USERNAME=null
 MAIL_PASSWORD=null
 MAIL_ENCRYPTION=null
-MAIL_FROM_ADDRESS="hello@example.com"
+MAIL_FROM_ADDRESS="info@mebura.nl"
 MAIL_FROM_NAME="\${APP_NAME}"
 
 AWS_ACCESS_KEY_ID=
