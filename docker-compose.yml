@@ -1,9 +1,13 @@
 version: "3.9"
 
+# Development Docker Compose
+# Voor lokale development met eigen database
+
 services:
+  # Lokale PostgreSQL voor development
   db:
     image: postgres:16-alpine
-    container_name: nexa_db
+    container_name: nexa_db_dev
     environment:
       POSTGRES_USER: nexa
       POSTGRES_PASSWORD: nexa
@@ -13,26 +17,12 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
-  n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
-    container_name: nexa_n8n
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_HOST=n8n.tosun.nl
-      - N8N_PORT=5678
-      - GENERIC_TIMEZONE=Europe/Amsterdam
-    volumes:
-      - n8n_data:/home/node/.n8n
-    depends_on:
-      - db
-    restart: unless-stopped
-
+  # Backend development server
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nexa_backend
+    container_name: nexa_backend_dev
     ports:
       - "8000:8000"
     environment:
@@ -45,29 +35,11 @@ services:
       DB_DATABASE: nexa
       DB_USERNAME: nexa
       DB_PASSWORD: nexa
-    volumes:
-      - ./backend:/var/www/html
-    depends_on:
-      - db
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: nexa_frontend
-    ports:
-      - "3000:8000"
-    environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:3000
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: nexa
-      DB_USERNAME: nexa
-      DB_PASSWORD: nexa
+      # N8N - Development kan externe service gebruiken of mock
+      N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
+      N8N_PORT: ${N8N_PORT:-5678}
+      N8N_EMAIL: ${N8N_EMAIL:-}
+      N8N_PASSWORD: ${N8N_PASSWORD:-}
     volumes:
       - ./backend:/var/www/html
     depends_on:
@@ -76,6 +48,8 @@ services:
 
 volumes:
   db_data:
-  n8n_data:
+
+# Note: N8N wordt niet lokaal gedraaid in development
+# Gebruik de externe N8N service op https://n8n.tosun.nl
 
 

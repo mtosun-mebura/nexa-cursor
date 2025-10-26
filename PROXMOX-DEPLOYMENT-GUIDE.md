@@ -132,11 +132,28 @@ nano .env
 
 Voeg toe:
 ```env
-DB_USERNAME=nexa
-DB_PASSWORD=CHANGE_THIS_PASSWORD  # Zelfde als in backend/.env
-DB_DATABASE=nexa
+# Application
 APP_URL=http://192.168.178.116:8000
+
+# Database - Externe PostgreSQL Server
+DB_CONNECTION=pgsql
+DB_HOST=192.168.178.XXX  # ⚠️ IP van je externe database server
+DB_PORT=5432
+DB_DATABASE=nexa
+DB_USERNAME=nexa
+DB_PASSWORD=CHANGE_THIS_PASSWORD  # ⚠️ Sterk wachtwoord!
+
+# N8N - Externe N8N Service
+N8N_URL=https://n8n.tosun.nl
+N8N_PORT=5678
+N8N_EMAIL=m.tosun@mebura.nl
+N8N_PASSWORD=Memmo@N8N!
 ```
+
+**⚠️ BELANGRIJK:** 
+- De database en N8N draaien op **externe servers**
+- Zorg dat de database toegankelijk is vanaf `192.168.178.116`
+- N8N is bereikbaar via `https://n8n.tosun.nl:5678`
 
 ### 6. Configureer Nginx
 
@@ -248,13 +265,11 @@ sudo systemctl reload nginx
 ### Verificatie
 
 ```bash
-# Check Docker containers
+# Check Docker container
 docker compose -f /var/www/nexa/docker-compose.prod.yml ps
 
 # Moet tonen:
 # nexa_backend    Up      0.0.0.0:8000->8000/tcp
-# nexa_db         Up      127.0.0.1:5432->5432/tcp
-# nexa_n8n        Up      127.0.0.1:5678->5678/tcp
 
 # Test applicatie
 curl -I http://localhost:8000
@@ -490,7 +505,7 @@ sudo systemctl reload nginx
 |-----|--------------|
 | `http://192.168.178.116:8000` | Direct naar Docker container |
 | `http://192.168.178.116` | Via Nginx reverse proxy (port 80) |
-| `http://192.168.178.116:5678` | N8N automation (indien enabled) |
+| `https://n8n.tosun.nl:5678` | N8N automation (externe service) |
 
 ---
 
