@@ -45,7 +45,7 @@ jobs:
       working-directory: ./backend
       
     - name: Directory Permissions
-      run: chmod -R 777 backend/storage backend/bootstrap/cache
+      run: chmod -R 777 backend/storage backend/bootstrap/cache backend/public
       working-directory: ./
       
     - name: Create Database
@@ -54,13 +54,17 @@ jobs:
         touch database/database.sqlite
       working-directory: ./backend
       
-    - name: Execute tests (Unit and Feature tests) via PHPUnit
-      run: php artisan test
+    - name: Prepare build directory
+      run: mkdir -p public/build
       working-directory: ./backend
       
     - name: Build assets
       working-directory: ./backend
       run: npm run build
+      
+    - name: Execute tests (Unit and Feature tests) via PHPUnit
+      run: php artisan test
+      working-directory: ./backend
       
     - name: Check for syntax errors
       run: php -l artisan
