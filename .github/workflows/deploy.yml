@@ -15,77 +15,172 @@ jobs:
     if: github.event.pull_request.merged == true || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-        
-    - name: Create backup and pull latest code
+    - name: Git pull latest code in /var/www/nexa
       run: |
-        # Create backup of current deployment
-        if [ -d "/var/www/nexa" ]; then
-          sudo cp -r /var/www/nexa /var/www/nexa-backup-$(date +%Y%m%d-%H%M%S)
+        echo "📥 Pulling latest code from repository..."
+        
+        # Zorg dat directory bestaat
+        if [ ! -d "/var/www/nexa" ]; then
+          echo "❌ Error: /var/www/nexa does not exist!"
+          echo "Please initialize git repository first with:"
+          echo "  cd /var/www/nexa"
+          echo "  git init"
+          echo "  git remote add origin <your-repo-url>"
+          echo "  git fetch origin"
+          echo "  git checkout -b main origin/main"
+          exit 1
         fi
         
-        # Create deployment directory if it doesn't exist
-        sudo mkdir -p /var/www/nexa
-        sudo chown -R $USER:$USER /var/www/nexa
+        # Ga naar deployment directory
+        cd /var/www/nexa
         
-        # Git pull latest changes if repository exists
-        if [ -d "/var/www/nexa/.git" ]; then
-          echo "Git repository found, pulling latest changes..."
-          cd /var/www/nexa
-          git fetch origin
-          git reset --hard origin/main
-          git clean -fd
-          echo "Git pull completed successfully!"
-        else
-          echo "Copying files from checkout..."
-          sudo cp -r $GITHUB_WORKSPACE/* /var/www/nexa/
+        # Check of het een git repository is
+        if [ ! -d ".git" ]; then
+          echo "❌ Error: /var/www/nexa is not a git repository!"
+          exit 1
         fi
-          
-    - name: Deploy Laravel application
-      run: |
-        cd /var/www/nexa/backend
-          
-          # Create necessary Laravel directories
-          mkdir -p /var/www/nexa/backend/bootstrap/cache
-          mkdir -p /var/www/nexa/backend/storage/framework/{cache,sessions,views}
-          mkdir -p /var/www/nexa/backend/storage/logs
-          
-          # Set proper ownership and permissions
-          sudo chown -R www-data:www-data /var/www/nexa/backend/storage /var/www/nexa/backend/bootstrap/cache
-          sudo chmod -R 775 /var/www/nexa/backend/storage /var/www/nexa/backend/bootstrap/cache
-          
-          # Install/update Composer dependencies
-          composer install --no-dev --optimize-autoloader --no-interaction
-          
-          # Install NPM dependencies and build assets
-          npm ci
-          npm run build
-          
-          # Clear Laravel caches
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
-          
-          # Run database migrations (if needed)
-          php artisan migrate --force
-          
-    - name: Restart services
-      run: |
-        # Restart web server
-        sudo systemctl reload nginx
         
-        # Detect PHP version and restart appropriate service
-        if systemctl is-active --quiet php8.2-fpm; then
-          sudo systemctl reload php8.2-fpm
-        elif systemctl is-active --quiet php8.1-fpm; then
-          sudo systemctl reload php8.1-fpm
-        elif systemctl is-active --quiet php8.0-fpm; then
-          sudo systemctl reload php8.0-fpm
+        # Create backup voordat we pullen
+        echo "💾 Creating backup..."
+        sudo cp -r /var/www/nexa /var/www/nexa-backup-$(date +%Y%m%d-%H%M%S)
+        
+        # Pull latest changes
+        echo "🔄 Fetching and pulling latest changes..."
+        git fetch origin
+        git reset --hard origin/main
+        git clean -fd
+        
+        echo "✅ Git pull completed successfully!"
+        git log -1 --oneline
+          
+    - name: Build and prepare application
+      run: |
+        cd /var/www/nexa
+          
+        # Create necessary Laravel directories
+        mkdir -p backend/bootstrap/cache
+        mkdir -p backend/storage/framework/{cache,sessions,views}
+        mkdir -p backend/storage/logs
+        mkdir -p backend/storage/app/public
+        
+        # Copy .env if not exists
+        if [ ! -f backend/.env ]; then
+          cp backend/.env.example backend/.env
+          # Generate app key later in container
         fi
+        
+        # Install NPM dependencies and build assets (outside container)
+        cd backend
+        npm ci
+        npm run build
+        
+    - name: Build Docker containers
+      run: |
+        cd /var/www/nexa
+        
+        echo "🐳 Building Docker containers..."
+        
+        # Stop existing containers
+        docker-compose -f docker-compose.prod.yml down || true
+        
+        # Build containers
+        docker-compose -f docker-compose.prod.yml build --no-cache backend
+        
+        echo "✅ Docker build completed!"
+        
+    - name: Prepare Laravel setup
+      run: |
+        cd /var/www/nexa
+        
+        echo "🔧 Preparing Laravel configuration..."
+        
+        # Start containers tijdelijk voor setup
+        docker-compose -f docker-compose.prod.yml up -d
+        
+        # Wait for containers
+        echo "⏳ Waiting for containers to be ready..."
+        sleep 10
+        
+        # Generate app key if needed
+        echo "🔑 Generating app key..."
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan key:generate --force || true
+        
+        # Run migrations
+        echo "📊 Running database migrations..."
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan migrate --force
+        
+        # Clear and cache Laravel config
+        echo "🗑️  Clearing caches..."
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan config:clear
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan cache:clear
+        
+        echo "📦 Caching configuration..."
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan config:cache
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan route:cache
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan view:cache
+        
+        # Create storage link
+        echo "🔗 Creating storage symlink..."
+        docker-compose -f docker-compose.prod.yml exec -T backend php artisan storage:link || true
+        
+        # Stop containers na setup
+        echo "🛑 Stopping containers after setup..."
+        docker-compose -f docker-compose.prod.yml down
+        
+        echo "✅ Laravel setup completed!"
+        
+    - name: Set permissions
+      run: |
+        # Set ownership for Laravel directories
+        sudo chown -R $USER:www-data /var/www/nexa/backend/storage
+        sudo chown -R $USER:www-data /var/www/nexa/backend/bootstrap/cache
+        sudo chmod -R 775 /var/www/nexa/backend/storage
+        sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
+          
+    - name: Start Docker container on port 8000
+      run: |
+        cd /var/www/nexa
+        
+        echo "🚀 Starting Docker containers..."
+        
+        # Start all containers
+        docker-compose -f docker-compose.prod.yml up -d
+        
+        # Wait for startup
+        echo "⏳ Waiting for application to start..."
+        sleep 5
+        
+        # Show container status
+        echo "📊 Container status:"
+        docker-compose -f docker-compose.prod.yml ps
+        
+        # Reload Nginx
+        echo "🔄 Reloading Nginx..."
+        sudo systemctl reload nginx || true
+        
+        echo "✅ Docker containers started on port 8000!"
         
     - name: Verify deployment
       run: |
-        # Check if application is accessible
-        curl -f http://localhost || echo "Warning: Application not responding"
-        echo "✅ Deployment completed successfully!"
+        echo "🔍 Verifying deployment..."
+        
+        # Check if application is accessible on port 8000
+        if curl -f http://localhost:8000 > /dev/null 2>&1; then
+          echo "✅ Application is accessible on port 8000"
+        else
+          echo "⚠️  Warning: Application not responding on port 8000"
+          echo "Checking container logs..."
+          docker-compose -f /var/www/nexa/docker-compose.prod.yml logs --tail=20 backend
+        fi
+        
+        # Check via Nginx
+        if curl -f http://localhost > /dev/null 2>&1; then
+          echo "✅ Application is accessible via Nginx"
+        else
+          echo "⚠️  Warning: Application not responding via Nginx"
+        fi
+        
+        echo ""
+        echo "🎉 Deployment completed successfully!"
+        echo "📍 Application running on: http://192.168.178.116:8000"
+        echo "📍 Via Nginx: http://192.168.178.116"

@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: nexa_db
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-nexa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-nexa}
+      POSTGRES_DB: ${DB_DATABASE:-nexa}
+    ports:
+      - "127.0.0.1:5432:5432"  # Alleen lokaal toegankelijk
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - nexa_network
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: nexa_n8n
+    ports:
+      - "127.0.0.1:5678:5678"  # Alleen lokaal toegankelijk
+    environment:
+      - N8N_HOST=${N8N_HOST:-n8n.tosun.nl}
+      - N8N_PORT=5678
+      - GENERIC_TIMEZONE=Europe/Amsterdam
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=https://n8n.tosun.nl/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - nexa_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: nexa_backend
+    ports:
+      - "8000:8000"  # Laravel op poort 8000
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://192.168.178.116:8000}
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-nexa}
+      DB_USERNAME: ${DB_USERNAME:-nexa}
+      DB_PASSWORD: ${DB_PASSWORD:-nexa}
+    volumes:
+      - ./backend:/var/www/html
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/bootstrap/cache:/var/www/html/bootstrap/cache
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - nexa_network
+
+networks:
+  nexa_network:
+    driver: bridge
+
+volumes:
+  db_data:
+  n8n_data:
+

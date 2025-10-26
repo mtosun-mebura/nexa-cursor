@@ -20,7 +20,7 @@ services:
       - "5678:5678"
     environment:
       - N8N_HOST=n8n.tosun.nl
-      - N8N_PORT=5678s
+      - N8N_PORT=5678
       - GENERIC_TIMEZONE=Europe/Amsterdam
     volumes:
       - n8n_data:/home/node/.n8n

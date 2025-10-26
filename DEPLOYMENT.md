@@ -1,12 +1,23 @@
 # NEXA CI/CD Deployment Setup
 
-Deze gids helpt je bij het opzetten van een automatische deployment pipeline naar je server.
+Deze gids helpt je bij het opzetten van een automatische deployment pipeline naar je server met **GitHub Self-Hosted Runner**.
 
-## 🚀 Overzicht
+## 🚀 Quick Start
+
+**Wil je snel aan de slag?** Kies je guide:
+
+- 📘 **[RUNNER-QUICK-START.md](RUNNER-QUICK-START.md)** - Start in 5 minuten (aanbevolen)
+- 📗 **[SETUP-RUNNER.md](SETUP-RUNNER.md)** - Gedetailleerde setup met uitleg
+- 📕 **[RUNNER-TROUBLESHOOTING.md](RUNNER-TROUBLESHOOTING.md)** - Problemen oplossen
+
+## 🔄 Overzicht
 
 De CI/CD pipeline wordt automatisch getriggerd wanneer:
-- Code wordt gemerged naar de `main` branch
+- Code wordt gepusht naar de `main` branch
+- Pull request wordt gemerged naar `main`
 - Handmatig via GitHub Actions interface
+
+**Deployment methode**: Self-hosted GitHub Actions runner op server `192.168.178.116`
 
 ## 📋 Vereisten
 
