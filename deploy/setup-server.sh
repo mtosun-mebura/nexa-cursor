@@ -181,7 +181,7 @@ if [ -f "/var/www/nexa/backend/composer.json" ]; then
     cd /var/www/nexa/backend
 
     # Create necessary Laravel directories
-    mkdir -p bootstrap/cache
+    mkdir -p backend/bootstrap/cache
     mkdir -p storage/framework/{cache,sessions,views}
     mkdir -p storage/logs
 
