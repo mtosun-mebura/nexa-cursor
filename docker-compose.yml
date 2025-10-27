@@ -1,22 +1,9 @@
 version: "3.9"
 
 # Development Docker Compose
-# Voor lokale development met eigen database
+# Gebruikt externe database op mdb.tosun.nl
 
 services:
-  # Lokale PostgreSQL voor development
-  db:
-    image: postgres:16-alpine
-    container_name: nexa_db_dev
-    environment:
-      POSTGRES_USER: nexa
-      POSTGRES_PASSWORD: nexa
-      POSTGRES_DB: nexa
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-
   # Backend development server
   backend:
     build:
@@ -29,27 +16,30 @@ services:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8000
+      
+      # Database - Externe PostgreSQL (mdb.tosun.nl)
       DB_CONNECTION: pgsql
-      DB_HOST: db
+      DB_HOST: mdb.tosun.nl
       DB_PORT: 5432
       DB_DATABASE: nexa
-      DB_USERNAME: nexa
-      DB_PASSWORD: nexa
-      # N8N - Development kan externe service gebruiken of mock
+      DB_USERNAME: mtosun
+      DB_PASSWORD: Memmo@Mdb!
+      
+      # N8N - Externe service
       N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
       N8N_PORT: ${N8N_PORT:-5678}
-      N8N_EMAIL: ${N8N_EMAIL:-}
-      N8N_PASSWORD: ${N8N_PASSWORD:-}
+      N8N_EMAIL: ${N8N_EMAIL:-m.tosun@mebura.nl}
+      N8N_PASSWORD: ${N8N_PASSWORD:-Memmo@N8N!}
     volumes:
       - ./backend:/var/www/html
-    depends_on:
-      - db
     restart: unless-stopped
+    network_mode: "host"  # Voor toegang tot externe resources
 
-volumes:
-  db_data:
+# Geen volumes meer nodig (geen lokale database)
 
-# Note: N8N wordt niet lokaal gedraaid in development
-# Gebruik de externe N8N service op https://n8n.tosun.nl
+# Note: 
+# - Database draait op mdb.tosun.nl (192.168.178.249)
+# - N8N draait op https://n8n.tosun.nl
+# - Geen lokale containers voor database of N8N
 
 
