@@ -53,26 +53,46 @@ jobs:
         echo "✅ Git pull completed successfully!"
         git log -1 --oneline
           
-    - name: Build and prepare application
+    - name: Prepare Laravel directories
       run: |
         cd /var/www/nexa
           
+        echo "📁 Creating Laravel directories..."
+        
         # Create necessary Laravel directories
         mkdir -p backend/bootstrap/cache
         mkdir -p backend/storage/framework/{cache,sessions,views}
         mkdir -p backend/storage/logs
         mkdir -p backend/storage/app/public
+        mkdir -p backend/public/build
         
         # Copy .env if not exists
         if [ ! -f backend/.env ]; then
           cp backend/.env.example backend/.env
-          # Generate app key later in container
         fi
         
-        # Install NPM dependencies and build assets (outside container)
-        cd backend
+        echo "✅ Directories created!"
+        
+    - name: Build Vite assets
+      run: |
+        cd /var/www/nexa/backend
+        
+        echo "🎨 Building Vite assets..."
+        
+        # Install NPM dependencies
         npm ci
+        
+        # Build assets
         npm run build
+        
+        # Verify manifest exists
+        if [ -f "public/build/manifest.json" ]; then
+          echo "✅ Vite manifest created successfully!"
+          ls -la public/build/
+        else
+          echo "❌ ERROR: Vite manifest not found!"
+          exit 1
+        fi
         
     - name: Build Docker containers
       run: |
@@ -83,7 +103,7 @@ jobs:
         # Stop existing containers
         docker-compose -f docker-compose.prod.yml down || true
         
-        # Build containers
+        # Build containers (assets zijn al gebouwd en in /var/www/nexa/backend/public/build)
         docker-compose -f docker-compose.prod.yml build --no-cache backend
         
         echo "✅ Docker build completed!"
