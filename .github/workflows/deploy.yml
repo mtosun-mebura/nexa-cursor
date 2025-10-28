@@ -48,6 +48,11 @@ jobs:
           npm run build
           test -f public/build/manifest.json
           echo "✅ Vite manifest aanwezig"
+          
+          # Fix permissions voor build directory
+          sudo chown -R $USER:www-data public/build
+          sudo chmod -R 755 public/build
+          echo "✅ Build directory permissions OK"
 
       - name: Pick docker compose (v2/v1)
         id: pickdc

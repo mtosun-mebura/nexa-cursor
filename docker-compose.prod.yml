@@ -19,13 +19,13 @@ services:
       DB_PORT: 5432
       DB_DATABASE: nexa
       DB_USERNAME: mtosun
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: Memmo@Mdb!
       
       # N8N - Externe service
       N8N_URL: https://n8n.tosun.nl
       N8N_PORT: 5678
       N8N_EMAIL: m.tosun@mebura.nl
-      N8N_PASSWORD: ${N8N_PASSWORD}
+      N8N_PASSWORD: Memmo@N8N!
     volumes:
       # Alleen specifieke directories mounten, niet hele backend
       # Dit voorkomt dat gebouwde assets worden overschreven

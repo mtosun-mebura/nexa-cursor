@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies
+node_modules
+vendor
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+tests
+phpunit.xml
+.phpunit.result.cache
+
+# Build artifacts
+storage/logs/*
+!storage/logs/.gitignore
+storage/framework/cache/*
+!storage/framework/cache/.gitignore
+storage/framework/sessions/*
+!storage/framework/sessions/.gitignore
+storage/framework/views/*
+!storage/framework/views/.gitignore
+
+# NPM/Vite
+npm-debug.log
+yarn-error.log
+public/hot
+public/storage
+public/build/*
+!public/build/.gitignore
+
+# Documentation
+README.md
+CHANGELOG.md
+
