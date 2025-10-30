@@ -12,6 +12,7 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: https://nexa.tosun.nl
+      APP_KEY: ${APP_KEY}
       
       # Database - Externe PostgreSQL (mdb.tosun.nl)
       DB_CONNECTION: pgsql
@@ -19,16 +20,13 @@ services:
       DB_PORT: 5432
       DB_DATABASE: nexa
       DB_USERNAME: mtosun
-      DB_PASSWORD: Memmo@Mdb!
+      DB_PASSWORD: ${DB_PASSWORD}
       
       # N8N - Externe service
       N8N_URL: https://n8n.tosun.nl
       N8N_PORT: 5678
       N8N_EMAIL: m.tosun@mebura.nl
-      N8N_PASSWORD: Memmo@N8N!
-    env_file:
-      # Laad variables uit host .env zonder deze als bestand te mounten in de container
-      - ./backend/.env
+      N8N_PASSWORD: ${N8N_PASSWORD}
     volumes:
       # Alleen specifieke directories mounten, niet hele backend
       # Dit voorkomt dat gebouwde assets worden overschreven
