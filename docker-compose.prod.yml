@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build:
@@ -12,7 +10,7 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: https://nexa.tosun.nl
-      APP_KEY: ${APP_KEY}
+      # APP_KEY wordt automatisch gegenereerd door entrypoint script als niet gezet
       
       # Database - Externe PostgreSQL (mdb.tosun.nl)
       DB_CONNECTION: pgsql

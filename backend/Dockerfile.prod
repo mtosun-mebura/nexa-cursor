@@ -39,6 +39,10 @@ RUN cp .env.example .env 2>/dev/null || echo "APP_KEY=" > .env
 # Run composer dump-autoload ZONDER scripts (voorkomt Pail errors)
 RUN composer dump-autoload --optimize --no-dev --no-scripts
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
@@ -46,6 +50,6 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 # Expose port 8000 for Laravel
 EXPOSE 8000
 
-# Start Laravel development server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Use entrypoint script that handles APP_KEY generation
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
