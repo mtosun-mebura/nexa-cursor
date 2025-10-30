@@ -233,3 +233,4 @@ Na setup:
 - Runner Logs: `sudo journalctl -u actions.runner.*.service -f`
 - Server Logs: `/var/www/nexa/backend/storage/logs/laravel.log`
 
+

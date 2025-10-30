@@ -36,8 +36,8 @@ COPY . /var/www/html
 # Create dummy .env to prevent errors during autoload
 RUN cp .env.example .env 2>/dev/null || echo "APP_KEY=" > .env
 
-# Run composer dump-autoload (scripts kunnen nu draaien met dummy .env)
-RUN composer dump-autoload --optimize --no-dev || composer dump-autoload --optimize
+# Run composer dump-autoload ZONDER scripts (voorkomt Pail errors)
+RUN composer dump-autoload --optimize --no-dev --no-scripts
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
