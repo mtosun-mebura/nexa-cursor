@@ -8,11 +8,24 @@ rm -rf bootstrap/cache/*.php 2>/dev/null || true
 rm -rf storage/framework/cache/data/* 2>/dev/null || true
 rm -rf storage/framework/views/*.php 2>/dev/null || true
 
-# Controleer of .env bestaat, anders maak een basis .env aan
+# Controleer of .env bestaat en of het een bestand is (niet een directory!)
+if [ -d .env ]; then
+    echo "WAARSCHUWING: .env is een directory! Verwijderen..."
+    rm -rf .env
+fi
+
 if [ ! -f .env ]; then
     echo "Geen .env bestand gevonden, basis .env aanmaken..."
     cp .env.example .env 2>/dev/null || echo "APP_NAME=Laravel" > .env
 fi
+
+# Verifieer dat .env nu een bestand is
+if [ ! -f .env ]; then
+    echo "FOUT: .env kon niet worden aangemaakt als bestand!"
+    exit 1
+fi
+
+echo "✓ .env bestand bestaat en is een bestand (niet een directory)"
 
 # Functie om environment variable naar .env te schrijven
 set_env_var() {
