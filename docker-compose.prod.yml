@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: nexa_backend
     ports:
-      - "8000:8000"  # Laravel op poort 8000
+      - "8000:8000"  # Publiceer Laravel op poort 8000
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -26,13 +26,16 @@ services:
       N8N_PORT: 5678
       N8N_EMAIL: m.tosun@mebura.nl
       N8N_PASSWORD: Memmo@N8N!
+    env_file:
+      # Laad variables uit host .env zonder deze als bestand te mounten in de container
+      - ./backend/.env
     volumes:
       # Alleen specifieke directories mounten, niet hele backend
       # Dit voorkomt dat gebouwde assets worden overschreven
       - ./backend/storage:/var/www/html/storage
       - ./backend/bootstrap/cache:/var/www/html/bootstrap/cache
       - ./backend/public/build:/var/www/html/public/build  # Gebouwde Vite assets
-      - ./backend/.env:/var/www/html/.env  # Environment file
+      # Verwijderd: .env file bind-mount; we gebruiken nu env_file zodat file/dir type mismatch niet kan optreden
     restart: unless-stopped
-    network_mode: "host"  # Gebruikt host netwerk voor toegang tot externe resources
+    # Standaard bridged network (geen host-mode)
 
