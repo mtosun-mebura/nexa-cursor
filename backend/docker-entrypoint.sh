@@ -1,15 +1,12 @@
 #!/bin/bash
-set -e
+# Verwijder set -e tijdelijk zodat fouten in cache:clear niet het script stoppen
+set +e
 
-# EERST: Clear alle caches VOORDAT we configuratie aanpassen
-echo "=== Alle caches volledig legen ==="
+# EERST: Verwijder bootstrap cache files handmatig (zonder Laravel commands)
+echo "=== Bootstrap cache verwijderen (handmatig) ==="
 rm -rf bootstrap/cache/*.php 2>/dev/null || true
 rm -rf storage/framework/cache/data/* 2>/dev/null || true
 rm -rf storage/framework/views/*.php 2>/dev/null || true
-php artisan config:clear || true
-php artisan cache:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
 
 # Controleer of .env bestaat, anders maak een basis .env aan
 if [ ! -f .env ]; then
@@ -30,7 +27,7 @@ set_env_var() {
     fi
 }
 
-# Zet database configuratie van environment variables naar .env
+# EERST: Zet database configuratie CORRECT in .env VOORDAT we Laravel commands gebruiken
 # FORCEER PostgreSQL - verwijder eventuele SQLite configuratie
 if [ -n "$DB_CONNECTION" ]; then
     echo "=== Database configuratie FORCEREN: DB_CONNECTION=${DB_CONNECTION} ==="
@@ -43,6 +40,10 @@ if [ -n "$DB_CONNECTION" ]; then
     set_env_var "DB_DATABASE" "$DB_DATABASE"
     set_env_var "DB_USERNAME" "$DB_USERNAME"
     set_env_var "DB_PASSWORD" "$DB_PASSWORD"
+    
+    # Zet ook CACHE_DRIVER naar file om SQLite te vermijden tijdens cache:clear
+    set_env_var "CACHE_DRIVER" "file"
+    set_env_var "SESSION_DRIVER" "file"
     
     # Bevestig dat het correct is ingesteld
     echo "=== Database configuratie verificatie ==="
@@ -65,26 +66,42 @@ set_env_var "APP_URL" "$APP_URL"
 
 # NADAT .env is aangepast: Clear alle caches opnieuw zodat Laravel de nieuwe config leest
 echo "=== Caches opnieuw legen na configuratie wijzigingen ==="
+# Verwijder bootstrap cache opnieuw (handmatig, veiliger dan artisan)
 rm -rf bootstrap/cache/*.php 2>/dev/null || true
-php artisan config:clear || true
-php artisan cache:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
+
+# Nu de .env correct is, kunnen we Laravel commands gebruiken
+# config:clear zou nu moeten werken omdat DB_CONNECTION correct is
+echo "Config cache legen..."
+php artisan config:clear 2>&1 || echo "Config clear gefaald (niet kritisch)"
+
+# cache:clear zou nu moeten werken omdat CACHE_DRIVER=file is
+echo "Application cache legen..."
+php artisan cache:clear 2>&1 || echo "Cache clear gefaald (niet kritisch)"
+
+# Andere caches
+echo "Route cache legen..."
+php artisan route:clear 2>&1 || echo "Route clear gefaald (niet kritisch)"
+
+echo "View cache legen..."
+php artisan view:clear 2>&1 || echo "View clear gefaald (niet kritisch)"
 
 # Verifieer dat config correct is
 echo "=== Laatste configuratie check ==="
-php artisan config:show database.default || echo "Config show gefaald"
+php artisan config:show database.default 2>&1 | head -5 || echo "Config show gefaald"
 
-# Test database connectie
-if [ -n "$DB_CONNECTION" ] && [ "$DB_CONNECTION" != "sqlite" ]; then
-    echo "Database connectie testen..."
-    php artisan db:show --database="$DB_CONNECTION" || echo "WAARSCHUWING: Database connectie test gefaald, maar we blijven doorgaan..."
+# Test database connectie (alleen als PostgreSQL)
+if [ -n "$DB_CONNECTION" ] && [ "$DB_CONNECTION" = "pgsql" ]; then
+    echo "Database connectie testen (PostgreSQL)..."
+    php artisan db:show --database="pgsql" 2>&1 | head -10 || echo "WAARSCHUWING: Database connectie test gefaald"
 fi
 
 # Zorg dat storage schrijfbare permissions heeft
 echo "Permissions controleren..."
 chmod -R 775 storage bootstrap/cache || true
 chown -R www-data:www-data storage bootstrap/cache || true
+
+# Zet error handling weer aan voor de server start
+set -e
 
 # Start de Laravel server
 echo "Laravel server starten op 0.0.0.0:8000..."
