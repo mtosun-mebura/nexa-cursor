@@ -15,34 +15,47 @@ fi
 # APP_ENV / APP_DEBUG / APP_URL komen uit docker-compose 'environment'
 
 # APP_KEY uit env of .env (leeg = ook genereren)
-# Gebruik temp file methode i.p.v. sed -i voor mounted volumes
 current_key="$(grep -E '^APP_KEY=' .env 2>/dev/null | cut -d= -f2- || true)"
+env_writable=true
+if [ ! -w .env ]; then
+  env_writable=false
+fi
 
 if [ -n "${APP_KEY:-}" ]; then
-  # env heeft voorrang - update of voeg toe
-  if grep -q '^APP_KEY=' .env; then
-    # Vervang regel met temp file (werkt op mounted volumes)
-    # Gebruik absolute path voor temp file in /tmp
-    grep -v '^APP_KEY=' .env > /tmp/.env.tmp 2>/dev/null || cat .env > /tmp/.env.tmp
-    echo "APP_KEY=${APP_KEY}" >> /tmp/.env.tmp
-    cat /tmp/.env.tmp > .env
-    rm -f /tmp/.env.tmp
+  export APP_KEY
+  if $env_writable; then
+    if grep -q '^APP_KEY=' .env; then
+      tmp_file=$(mktemp)
+      grep -v '^APP_KEY=' .env > "$tmp_file"
+      echo "APP_KEY=${APP_KEY}" >> "$tmp_file"
+      cat "$tmp_file" > .env
+      rm -f "$tmp_file"
+    else
+      echo "APP_KEY=${APP_KEY}" >> .env
+    fi
   else
-    echo "APP_KEY=${APP_KEY}" >> .env
+    echo "⚠️  .env is niet schrijfbaar; gebruik APP_KEY uit environment variabele"
   fi
 elif [ -z "$current_key" ] || [ "$current_key" = "" ]; then
-  echo "Geen geldige APP_KEY gevonden; genereren..."
-  newkey=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
-  if grep -q '^APP_KEY=' .env; then
-    # Vervang regel met temp file (werkt op mounted volumes)
-    # Gebruik absolute path voor temp file in /tmp
-    grep -v '^APP_KEY=' .env > /tmp/.env.tmp 2>/dev/null || cat .env > /tmp/.env.tmp
-    echo "APP_KEY=$newkey" >> /tmp/.env.tmp
-    cat /tmp/.env.tmp > .env
-    rm -f /tmp/.env.tmp
+  if $env_writable; then
+    echo "Geen geldige APP_KEY gevonden; genereren..."
+    newkey=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
+    if grep -q '^APP_KEY=' .env; then
+      tmp_file=$(mktemp)
+      grep -v '^APP_KEY=' .env > "$tmp_file"
+      echo "APP_KEY=$newkey" >> "$tmp_file"
+      cat "$tmp_file" > .env
+      rm -f "$tmp_file"
+    else
+      echo "APP_KEY=$newkey" >> .env
+    fi
+    export APP_KEY="$newkey"
   else
-    echo "APP_KEY=$newkey" >> .env
+    echo "❌ APP_KEY ontbreekt en .env is niet schrijfbaar. Voeg APP_KEY toe aan root .env."
+    exit 1
   fi
+else
+  export APP_KEY="$current_key"
 fi
 
 # Rechten (veilig & stil)
