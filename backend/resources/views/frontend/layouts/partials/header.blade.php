@@ -1,6 +1,42 @@
 <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
     <div class="container-custom">
-        <div class="flex justify-between items-center h-16 md:h-20">
+        <div class="flex justify-between items-center h-16 md:h-20"
+             x-data="{ 
+                mobileMenuOpen: false,
+                userMenuOpen: false,
+                languageMenuOpen: false,
+                currentLanguage: 'nl',
+                isDark: document.documentElement.classList.contains('dark'),
+                toggleTheme() {
+                    this.isDark = !this.isDark;
+                    document.documentElement.classList.toggle('dark', this.isDark);
+                    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+                },
+                switchLanguage(lang) {
+                    this.currentLanguage = lang;
+                    localStorage.setItem('language', lang);
+                    fetch('{{ route("language.switch") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ language: lang })
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                    this.languageMenuOpen = false;
+                }
+             }"
+             x-init="
+                const saved = localStorage.getItem('theme');
+                const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+                this.isDark = saved ? saved === 'dark' : prefersDark;
+                document.documentElement.classList.toggle('dark', this.isDark);
+                const savedLanguage = localStorage.getItem('language');
+                const serverLanguage = '{{ app()->getLocale() }}';
+                this.currentLanguage = serverLanguage || savedLanguage || 'nl';
+             ">
             <!-- Logo -->
             <div class="flex-shrink-0 ml-2 md:ml-8 py-1">
                 <a href="{{ route('home') }}" class="flex items-center" aria-label="Nexa Skillmatching">
@@ -39,48 +75,7 @@
             </nav>
             
             <!-- Right side actions -->
-            <div class="hidden md:flex items-center space-x-4" x-data="{ 
-                mobileMenuOpen: false,
-                userMenuOpen: false,
-                languageMenuOpen: false,
-                currentLanguage: 'nl',
-                isDark: document.documentElement.classList.contains('dark'),
-                toggleTheme() {
-                    this.isDark = !this.isDark;
-                    document.documentElement.classList.toggle('dark', this.isDark);
-                    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
-                },
-                switchLanguage(lang) {
-                    this.currentLanguage = lang;
-                    localStorage.setItem('language', lang);
-                    
-                    // Send language change to server
-                    fetch('{{ route("language.switch") }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify({ language: lang })
-                    }).then(() => {
-                        // Reload page to apply language changes
-                        window.location.reload();
-                    });
-                    
-                    this.languageMenuOpen = false;
-                }
-            }" x-init="
-                // Check for saved theme preference or default to system preference
-                const saved = localStorage.getItem('theme');
-                const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
-                this.isDark = saved ? saved === 'dark' : prefersDark;
-                document.documentElement.classList.toggle('dark', this.isDark);
-                
-                // Check for saved language preference or default to Dutch
-                const savedLanguage = localStorage.getItem('language');
-                const serverLanguage = '{{ app()->getLocale() }}';
-                this.currentLanguage = serverLanguage || savedLanguage || 'nl';
-            ">
+            <div class="hidden md:flex items-center space-x-4">
                 <!-- Dark mode toggle -->
                 <button @click="toggleTheme()" 
                         class="p-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800 transition-colors duration-200"

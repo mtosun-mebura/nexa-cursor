@@ -28,8 +28,20 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'backend/package-lock.json'
         
-    - name: Copy .env
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+    - name: Prepare shared .env (root)
+      run: |
+        cat > .env <<'EOF'
+APP_ENV=testing
+APP_DEBUG=true
+APP_URL=http://localhost
+APP_KEY=
+DB_CONNECTION=sqlite
+DB_DATABASE=:memory:
+LOG_CHANNEL=stack
+EOF
+    
+    - name: Link backend .env to root
+      run: ln -sf ../.env .env
       working-directory: ./backend
       
     - name: Install Composer dependencies
