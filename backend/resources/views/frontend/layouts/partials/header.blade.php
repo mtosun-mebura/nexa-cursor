@@ -1,10 +1,10 @@
 <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
     <div class="container-custom">
-        <div class="flex justify-between items-center h-20">
+        <div class="flex justify-between items-center h-16 md:h-20">
             <!-- Logo -->
-            <div class="flex-shrink-0 ml-8 py-1">
+            <div class="flex-shrink-0 ml-2 md:ml-8 py-1">
                 <a href="{{ route('home') }}" class="flex items-center" aria-label="Nexa Skillmatching">
-                    <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-16 w-auto">
+                    <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-12 md:h-16 w-auto">
                 </a>
             </div>
             
@@ -39,7 +39,7 @@
             </nav>
             
             <!-- Right side actions -->
-            <div class="flex items-center space-x-4" x-data="{ 
+            <div class="hidden md:flex items-center space-x-4" x-data="{ 
                 mobileMenuOpen: false,
                 userMenuOpen: false,
                 languageMenuOpen: false,
