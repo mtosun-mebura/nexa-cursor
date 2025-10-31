@@ -1,55 +1,33 @@
-FROM php:8.2-cli
+FROM php:8.3-cli
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    libpq-dev \
-    zip \
-    unzip \
-    libzip-dev \
-    libicu-dev \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd zip intl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    git unzip libpq-dev libzip-dev libicu-dev libonig-dev \
+  && docker-php-ext-install pdo pdo_pgsql intl zip \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory
+ENV COMPOSER_ALLOW_SUPERUSER=1
 WORKDIR /var/www/html
 
-# Copy composer files first
+# 1) Alleen composer files -> install ZONDER scripts
 COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
 
-# Install PHP dependencies (zonder autoload scripts tijdens build)
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+# 2) Dan pas alle code
+COPY . .
 
-# Copy rest of application files
-COPY . /var/www/html
+# 3) Nu artisan bestaat: optimaliseer autoload (scripts mogen nu desnoods draaien)
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Create dummy .env to prevent errors during autoload
-RUN cp .env.example .env 2>/dev/null || echo "APP_KEY=" > .env
+# Entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Run composer dump-autoload ZONDER scripts (voorkomt Pail errors)
-RUN composer dump-autoload --optimize --no-dev --no-scripts
+# Runtime dirs
+RUN mkdir -p storage/framework/{cache,views,sessions} \
+ && mkdir -p bootstrap/cache \
+ && chown -R www-data:www-data storage bootstrap/cache
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Expose port 8000 for Laravel
 EXPOSE 8000
-
-# Use entrypoint script that handles APP_KEY generation
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-
+ENTRYPOINT ["entrypoint.sh"]

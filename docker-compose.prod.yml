@@ -5,33 +5,33 @@ services:
       dockerfile: Dockerfile.prod
     container_name: nexa_backend
     ports:
-      - "8000:8000"  # Publiceer Laravel op poort 8000
+      - "8000:8000"
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: https://nexa.tosun.nl
-      # APP_KEY wordt automatisch gegenereerd door entrypoint script als niet gezet
-      
-      # Database - Externe PostgreSQL (mdb.tosun.nl)
+      APP_KEY: ${APP_KEY}
+
       DB_CONNECTION: pgsql
       DB_HOST: mdb.tosun.nl
       DB_PORT: 5432
       DB_DATABASE: nexa
       DB_USERNAME: mtosun
-      DB_PASSWORD: "Memmo@Mdb!"
-      
-      # N8N - Externe service
+      DB_PASSWORD: ${DB_PASSWORD}     # inject via runner/host env of .env naast compose
+
       N8N_URL: https://n8n.tosun.nl
-      N8N_PORT: 5678
+      N8N_PORT: "5678"
       N8N_EMAIL: m.tosun@mebura.nl
-      N8N_PASSWORD: "Memmo@N8N!"
+      N8N_PASSWORD: ${N8N_PASSWORD}   # idem
+
     volumes:
-      # Alleen specifieke directories mounten, niet hele backend
-      # Dit voorkomt dat gebouwde assets worden overschreven
       - ./backend/storage:/var/www/html/storage
       - ./backend/bootstrap/cache:/var/www/html/bootstrap/cache
-      - ./backend/public/build:/var/www/html/public/build  # Gebouwde Vite assets
-      # Verwijderd: .env file bind-mount; we gebruiken nu env_file zodat file/dir type mismatch niet kan optreden
+      - ./backend/public/build:/var/www/html/public/build
     restart: unless-stopped
-    # Standaard bridged network (geen host-mode)
 
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit((int)!@fsockopen('127.0.0.1',8000));"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
