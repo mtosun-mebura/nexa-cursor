@@ -1,17 +1,15 @@
-version: "3.9"
-
-# Development Docker Compose
-# Gebruikt externe database op mdb.tosun.nl
+# Development Docker Compose - voor lokale development
+# Gebruik: docker compose up -d
+# Draait op: http://localhost:8000
 
 services:
-  # Backend development server
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nexa_backend
+    container_name: nexa_backend_dev  # Verschillende naam dan productie
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Lokale development op localhost:8000
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
@@ -23,23 +21,24 @@ services:
       DB_PORT: 5432
       DB_DATABASE: nexa
       DB_USERNAME: mtosun
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:-Memmo@Mdb!}  # Default voor lokale dev
       
       # N8N - Externe service
       N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
       N8N_PORT: ${N8N_PORT:-5678}
       N8N_EMAIL: ${N8N_EMAIL:-m.tosun@mebura.nl}
-      N8N_PASSWORD: ${N8N_PASSWORD}
+      N8N_PASSWORD: ${N8N_PASSWORD:-Memmo@N8N!}  # Default voor lokale dev
+      
+      # APP_KEY wordt automatisch gegenereerd door entrypoint
+      APP_KEY: ${APP_KEY:-}
     volumes:
+      # Mount hele backend voor development (hot reload)
       - ./backend:/var/www/html
+      # Mount .env uit root - overschrijft backend/.env (prioriteit via volgorde)
+      # Zo gebruiken zowel Docker Compose als Laravel hetzelfde .env bestand
+      - ./.env:/var/www/html/.env
     restart: unless-stopped
-    network_mode: "host"  # Voor toegang tot externe resources
-
-# Geen volumes meer nodig (geen lokale database)
-
-# Note: 
-# - Database draait op mdb.tosun.nl (192.168.178.249)
-# - N8N draait op https://n8n.tosun.nl
-# - Geen lokale containers voor database of N8N
+    # Geen network_mode: "host" - gebruik normale bridge network
+    # Database connectie werkt via externe hostname
 
 

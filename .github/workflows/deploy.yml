@@ -18,12 +18,30 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Remove vendor/node_modules before rsync
+        run: |
+          set -e
+          echo "🗑️  Removing vendor/node_modules directories (worden in container gebouwd)..."
+          # Verwijder vendor/node_modules volledig - worden opnieuw gebouwd in container
+          sudo rm -rf "$DEPLOY_DIR"/backend/vendor 2>/dev/null || true
+          sudo rm -rf "$DEPLOY_DIR"/backend/node_modules 2>/dev/null || true
+          echo "✅ Vendor/node_modules verwijderd"
+
       - name: Rsync code to server deploy dir
         run: |
           set -e
           echo "📂 Syncing repo -> $DEPLOY_DIR"
           mkdir -p "$DEPLOY_DIR"
-          rsync -a --delete --exclude '.git' ./ "$DEPLOY_DIR"/
+          # Exclude vendor, node_modules en andere build artifacts
+          # Deze worden in de container gebouwd tijdens docker build
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude 'backend/vendor' \
+            --exclude 'backend/vendor/**' \
+            --exclude 'backend/node_modules' \
+            --exclude 'backend/node_modules/**' \
+            --exclude 'backend/.env' \
+            ./ "$DEPLOY_DIR"/
           echo "✅ Synced to $DEPLOY_DIR"
 
       - name: Ensure Laravel dirs & .env exist
@@ -34,11 +52,22 @@ jobs:
                    storage/framework/{cache,sessions,views} \
                    storage/logs \
                    public/build
-          if [ ! -f .env ]; then
-            echo "⚠️  backend/.env ontbreekt; kopieer .env.example -> .env (pas waarden aan in server .env)"
-            cp .env.example .env
-          fi
           echo "✅ Laravel dirs klaar"
+          
+      - name: Ensure .env in root exists
+        run: |
+          set -e
+          cd "$DEPLOY_DIR"
+          # .env staat in root - wordt gebruikt door zowel Docker Compose als Laravel
+          if [ ! -f .env ]; then
+            echo "⚠️  .env ontbreekt in root; kopieer backend/.env.example -> .env (pas waarden aan)"
+            if [ -f "$BACKEND_DIR/.env.example" ]; then
+              cp "$BACKEND_DIR/.env.example" .env
+            else
+              touch .env
+            fi
+          fi
+          echo "✅ .env in root aanwezig"
 
       - name: Build Vite assets (production)
         run: |
@@ -67,8 +96,9 @@ jobs:
       - name: Ensure .env and APP_KEY
         run: |
           set -e
-          cd /var/www/nexa/backend
-          [ -f .env ] || cp .env.example .env
+          cd "$DEPLOY_DIR"
+          # .env staat nu in root (niet in backend)
+          [ -f .env ] || cp "$BACKEND_DIR/.env.example" .env
           # Voeg een APP_KEY toe als hij ontbreekt
           if ! grep -q '^APP_KEY=' .env; then
             KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
@@ -78,6 +108,14 @@ jobs:
             echo "APP_KEY present"
           fi
 
+      - name: Install PHP dependencies (in container tijdens build)
+        run: |
+          set -e
+          cd "$DEPLOY_DIR"
+          echo "📦 PHP dependencies worden geïnstalleerd in container tijdens build..."
+          # Composer install gebeurt in Dockerfile, maar we kunnen het hier ook doen voor zekerheid
+          # Dit voorkomt dat we vendor moeten synchen
+          
       - name: Build & start containers
         run: |
           set -e
