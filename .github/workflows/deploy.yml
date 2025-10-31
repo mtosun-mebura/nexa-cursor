@@ -34,7 +34,9 @@ jobs:
           mkdir -p "$DEPLOY_DIR"
           # Exclude vendor, node_modules en andere build artifacts
           # Deze worden in de container gebouwd tijdens docker build
-          rsync -a --delete \
+          sudo rsync -a --delete \
+            --no-perms --no-owner --no-group --omit-dir-times \
+            --exclude '.env' \
             --exclude '.git' \
             --exclude 'backend/vendor' \
             --exclude 'backend/vendor/**' \
