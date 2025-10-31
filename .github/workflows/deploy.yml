@@ -122,9 +122,10 @@ jobs:
         run: |
           set -e
           cd "$DEPLOY_DIR"
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" down --remove-orphans || true
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" build --no-cache
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" up -d
+          dc="${{ steps.pickdc.outputs.dc }}"
+          $dc -f "$COMPOSE_FILE" down --remove-orphans || true
+          $dc -f "$COMPOSE_FILE" build --no-cache
+          $dc -f "$COMPOSE_FILE" up -d
           echo "⏳ Wachten tot backend luistert..."
           sleep 6
           curl -f http://127.0.0.1:8000 -I || (echo "❌ Backend luistert niet op :8000" && exit 1)
@@ -141,13 +142,14 @@ jobs:
         run: |
           set -e
           cd "$DEPLOY_DIR"
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan key:generate --force || true
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan route:clear
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan view:cache
-          ${ { steps.pickdc.outputs.dc } } -f "$COMPOSE_FILE" exec -T backend php artisan storage:link || true
+          dc="${{ steps.pickdc.outputs.dc }}"
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan key:generate --force || true
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan route:clear
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan view:cache
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan storage:link || true
           echo "✅ Laravel caches & migraties voltooid"
 
       - name: Fix permissions for runtime dirs
