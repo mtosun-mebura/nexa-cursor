@@ -82,7 +82,7 @@
                     @endif
                     
                     @if($job->remote_work)
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-900">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
                             Remote
                         </span>
                     @endif
@@ -96,6 +96,7 @@
             </div>
             
             <div class="flex flex-col gap-3 lg:min-w-[200px]">
+                @auth
                 <button onclick="startApplication()" class="btn btn-primary w-full">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
@@ -109,6 +110,14 @@
                     </svg>
                     Opslaan
                 </button>
+                @else
+                <a href="{{ route('login') }}" class="btn btn-primary w-full">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    Log in om te solliciteren
+                </a>
+                @endauth
             </div>
         </div>
     </div>
@@ -232,6 +241,10 @@ function startApplication() {
 }
 
 async function saveVacancy() {
+    @guest
+    window.location.href = '{{ route("login") }}';
+    return;
+    @else
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (!csrfToken) {
@@ -288,9 +301,11 @@ async function saveVacancy() {
         console.error('Response status:', error.status);
         alert('Er is een fout opgetreden bij het opslaan van de vacature. Controleer de console voor meer details.');
     }
+    @endauth
 }
 
-// Check favorite status on page load
+// Check favorite status on page load (only if user is logged in)
+@auth
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         const response = await fetch('{{ route("favorites.check", $job) }}');
@@ -298,19 +313,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         if (data.success && data.isFavorited) {
             const button = document.querySelector('button[onclick="saveVacancy()"]');
-            button.innerHTML = `
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                </svg>
-                Opgeslagen
-            `;
-            button.classList.remove('btn-outline');
-            button.classList.add('btn-primary');
+            if (button) {
+                button.innerHTML = `
+                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                    </svg>
+                    Opgeslagen
+                `;
+                button.classList.remove('btn-outline');
+                button.classList.add('btn-primary');
+            }
         }
     } catch (error) {
         console.error('Error checking favorite status:', error);
     }
 });
+@endauth
 </script>
 
 <!-- Favorite Success Modal -->
@@ -333,7 +351,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 </button>
             </div>
             <p id="favorite-message" class="text-gray-600 dark:text-gray-300 mb-6"></p>
-            <button onclick="hideFavoriteModal()" class="btn btn-primary w-full">Sluiten</button>
+            <button onclick="hideFavoriteModal()" class="btn btn-primary w-full flex items-center justify-center">Sluiten</button>
         </div>
     </div>
 </div>

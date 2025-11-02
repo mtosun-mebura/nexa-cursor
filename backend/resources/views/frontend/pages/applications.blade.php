@@ -162,13 +162,13 @@
       </div>
       
       <div class="flex flex-col gap-2">
-        <button class="btn btn-outline text-sm">Details</button>
+        <a href="{{ route('applications.show', $i) }}" class="btn btn-outline text-sm">Details</a>
         @if($i <= 6)
-        <button class="btn btn-primary text-sm">Bekijk status</button>
+        <a href="{{ route('applications.status', $i) }}" class="btn btn-primary text-sm">Bekijk status</a>
         @elseif($i == 7)
-        <button class="btn btn-primary text-sm">Contact opnemen</button>
+        <a href="{{ route('applications.show', $i) }}" class="btn btn-primary text-sm">Contact opnemen</a>
         @else
-        <button class="btn btn-outline text-sm">Nieuwe sollicitatie</button>
+        <a href="{{ route('jobs.index') }}" class="btn btn-outline text-sm">Nieuwe sollicitatie</a>
         @endif
       </div>
     </div>

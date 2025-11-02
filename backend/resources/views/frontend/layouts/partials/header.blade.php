@@ -1,7 +1,6 @@
 <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
-    <div class="container-custom">
-        <div class="flex justify-between items-center h-16 md:h-20"
-             x-data="{ 
+    <div class="container-custom"
+         x-data="{ 
                 mobileMenuOpen: false,
                 userMenuOpen: false,
                 languageMenuOpen: false,
@@ -37,6 +36,7 @@
                 const serverLanguage = '{{ app()->getLocale() }}';
                 this.currentLanguage = serverLanguage || savedLanguage || 'nl';
              ">
+        <div class="flex justify-between items-center h-16 md:h-20">
             <!-- Logo -->
             <div class="flex-shrink-0 ml-2 md:ml-8 py-1">
                 <a href="{{ route('home') }}" class="flex items-center" aria-label="Nexa Skillmatching">
@@ -205,7 +205,7 @@
             <div class="md:hidden">
                 <button @click="mobileMenuOpen = !mobileMenuOpen" 
                         class="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-                        aria-expanded="false" 
+                        :aria-expanded="mobileMenuOpen"
                         aria-label="Menu openen">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
@@ -215,7 +215,7 @@
         </div>
         
         <!-- Mobile Navigation -->
-        <div x-show="mobileMenuOpen" 
+        <div x-show="mobileMenuOpen" x-cloak
              x-transition:enter="transition ease-out duration-100"
              x-transition:enter-start="transform opacity-0 scale-95"
              x-transition:enter-end="transform opacity-100 scale-100"
@@ -243,7 +243,7 @@
                     <a href="{{ route('home') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Home
                     </a>
-                    <a href="{{ route('jobs.index') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <a href="{{ route('vacancies.index') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                         Vacatures
                     </a>
                     <a href="{{ route('about') }}" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800">

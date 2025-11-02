@@ -13,9 +13,16 @@ class JobController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Vacancy::with(['company', 'category'])
-            ->where('is_active', true)
-            ->where('published_at', '<=', now());
+            $query = Vacancy::with(['company', 'category'])
+                    ->where('is_active', true)
+                    ->where(function($q) {
+                        // Toon vacatures die gepubliceerd zijn of waar published_at ontbreekt
+                        $q->where(function($subQ) {
+                            $subQ->where('published_at', '<=', now())
+                                 ->orWhereNull('published_at')
+                                 ->orWhereNull('publication_date'); // Fallback voor oude veld naam
+                        });
+                    });
         
         // Search query (case insensitive)
         if ($request->filled('q')) {

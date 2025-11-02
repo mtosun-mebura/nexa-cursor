@@ -178,6 +178,10 @@ Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::clas
 // Frontend vacancy details
 Route::get('/vacature/{company:slug}/{vacancy}', [PublicVacancyController::class, 'frontendShow'])->name('frontend.vacancy-details');
 
+// Frontend job routes (publiek inzien)
+Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
+Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, 'show'])->name('jobs.show');
+
 // Admin Authentication Routes (without admin middleware)
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
@@ -246,9 +250,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
 });
 
 // Frontend home page
-Route::get('/', function () {
-    return view('frontend.pages.home');
-})->name('home');
+Route::get('/', [App\Http\Controllers\Frontend\HomeController::class, 'index'])->name('home');
 
 
 
@@ -261,10 +263,6 @@ Route::get('/vacature-matching', [MatchController::class, 'demo'])->name('vacatu
 | Frontend Routes
 |--------------------------------------------------------------------------
 */
-
-// Job routes
-Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
-Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, 'show'])->name('jobs.show');
 
 // Favorite routes
 Route::middleware('auth')->group(function () {
@@ -368,9 +366,9 @@ Route::middleware(['auth:web'])->group(function () {
     });
     
     
-    Route::get('/applications', function () {
-        return view('frontend.pages.applications');
-    })->name('applications');
+    Route::get('/applications', [App\Http\Controllers\Frontend\ApplicationController::class, 'index'])->name('applications');
+    Route::get('/applications/{id}', [App\Http\Controllers\Frontend\ApplicationController::class, 'show'])->name('applications.show');
+    Route::get('/applications/{id}/status', [App\Http\Controllers\Frontend\ApplicationController::class, 'status'])->name('applications.status');
     
     Route::get('/settings', [App\Http\Controllers\Frontend\SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePassword'])->name('settings.password');

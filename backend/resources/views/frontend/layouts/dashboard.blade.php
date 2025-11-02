@@ -25,9 +25,11 @@
   @include('frontend.layouts.partials.header')
   
   <div class="w-full py-6 flex-1">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 container-custom">
+    <div class="grid grid-cols-1 {{ (auth()->check() || request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details')) ? 'lg:grid-cols-12' : 'lg:grid-cols-1' }} gap-6 container-custom">
+      @if(auth()->check() || request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details'))
       <aside class="lg:col-span-2 card p-4 self-start">
-      <nav class="space-y-1">
+      @auth
+      <nav class="space-y-1 mb-6">
         <a href="{{ route('dashboard') }}" class="flex items-center justify-between rounded-xl px-3 py-2
                           text-sm hover:bg-card dark:hover:bg-card-dark border border-transparent
                           hover:border-border dark:hover:border-border-dark {{ request()->routeIs('dashboard') ? 'bg-card dark:bg-card-dark border-border dark:border-border-dark' : '' }}">
@@ -79,22 +81,73 @@
           <svg class="h-4 w-4 text-muted dark:text-muted-dark" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18l6-6-6-6"/></svg>
         </a>
       </nav>
+      @endauth
 
       @if(request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details'))
+      @auth
       <div class="my-4 h-px bg-border dark:bg-border-dark"></div>
-      <form method="GET" action="{{ route('jobs.index') }}" class="space-y-3">
-        <!-- Hidden fields to preserve search query and sort -->
-        @if(request('q'))
-          <input type="hidden" name="q" value="{{ request('q') }}">
-        @endif
-        @if(request('sort'))
-          <input type="hidden" name="sort" value="{{ request('sort') }}">
-        @endif
-        @if(request('per_page'))
-          <input type="hidden" name="per_page" value="{{ request('per_page') }}">
-        @endif
+      @endauth
+      <div x-data="{ 
+             filtersOpen: false, 
+             isDesktop: window.innerWidth >= 1024,
+             init() {
+               this.isDesktop = window.innerWidth >= 1024;
+               if (this.isDesktop) this.filtersOpen = true;
+               window.addEventListener('resize', () => {
+                 this.isDesktop = window.innerWidth >= 1024;
+                 if (this.isDesktop) this.filtersOpen = true;
+               });
+             }
+           }"
+           x-init="init()">
+        <!-- Filters Header - klikbaar op mobiel -->
+        <button @click="filtersOpen = !filtersOpen" 
+                type="button"
+                class="flex items-center justify-between w-full lg:hidden mb-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <h3 class="text-lg font-semibold">Filters</h3>
+          <svg x-show="!filtersOpen" 
+               x-cloak
+               class="w-5 h-5 transition-transform" 
+               fill="none" 
+               stroke="currentColor" 
+               viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+          <svg x-show="filtersOpen" 
+               x-cloak
+               class="w-5 h-5 transition-transform" 
+               fill="none" 
+               stroke="currentColor" 
+               viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+          </svg>
+        </button>
         
-        <h3 class="text-sm font-semibold">Filters</h3>
+        <!-- Desktop Header -->
+        <h3 class="text-lg font-semibold hidden lg:block mb-3">Filters</h3>
+        
+        <!-- Filters Form - verborgen op mobiel standaard, altijd zichtbaar op desktop -->
+        <div x-show="filtersOpen || isDesktop"
+             x-cloak
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 transform scale-95"
+             x-transition:enter-end="opacity-100 transform scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 transform scale-100"
+             x-transition:leave-end="opacity-0 transform scale-95">
+          <form method="GET" 
+                action="{{ route('jobs.index') }}" 
+                class="space-y-3">
+          <!-- Hidden fields to preserve search query and sort -->
+          @if(request('q'))
+            <input type="hidden" name="q" value="{{ request('q') }}">
+          @endif
+          @if(request('sort'))
+            <input type="hidden" name="sort" value="{{ request('sort') }}">
+          @endif
+          @if(request('per_page'))
+            <input type="hidden" name="per_page" value="{{ request('per_page') }}">
+          @endif
         
         <!-- Locatie -->
         <div>
@@ -180,7 +233,9 @@
         @if(request()->hasAny(['location', 'distance', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills']))
           <a href="{{ route('jobs.index', request()->only(['q', 'sort', 'per_page'])) }}" class="btn btn-outline w-full">Reset filters</a>
         @endif
-      </form>
+          </form>
+        </div>
+      </div>
       @endif
       
       <script>
@@ -212,8 +267,9 @@
         });
       </script>
     </aside>
+      @endif
 
-      <main class="lg:col-span-10 space-y-6">
+      <main class="{{ (auth()->check() || request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details')) ? 'lg:col-span-10' : 'lg:col-span-12' }} space-y-6">
         @yield('content')
       </main>
     </div>
