@@ -157,6 +157,50 @@
         margin-bottom: 24px;
         transition: var(--transition);
     }
+    
+    /* Dark Mode Styles */
+    [data-theme="dark"] .stat-card,
+    [data-theme="dark"] .material-card,
+    .dark .stat-card,
+    .dark .material-card {
+        background-color: #1f2937 !important; /* bg-gray-800 */
+        color: #f9fafb !important; /* text-gray-50 */
+        border-color: #374151 !important; /* border-gray-700 */
+    }
+    
+    [data-theme="dark"] .stat-label,
+    .dark .stat-label {
+        color: #d1d5db !important; /* text-gray-300 */
+    }
+    
+    [data-theme="dark"] .stat-number[style*="background-clip"],
+    .dark .stat-number[style*="background-clip"] {
+        -webkit-text-fill-color: #f9fafb !important;
+        color: #f9fafb !important;
+    }
+    
+    /* Dark mode for inline style cards in "Top Rollen per gebruik" */
+    [data-theme="dark"] [style*="background: var(--light-bg)"],
+    [data-theme="dark"] [style*="background-color: var(--light-bg)"],
+    .dark [style*="background: var(--light-bg)"],
+    .dark [style*="background-color: var(--light-bg)"] {
+        background: #374151 !important; /* bg-gray-700 */
+        background-color: #374151 !important;
+    }
+    
+    [data-theme="dark"] [style*="background: var(--light-bg)"] h6,
+    [data-theme="dark"] [style*="background: var(--light-bg)"] small,
+    .dark [style*="background: var(--light-bg)"] h6,
+    .dark [style*="background: var(--light-bg)"] small {
+        color: #f9fafb !important; /* text-gray-50 */
+    }
+    
+    /* Dark mode for card headers - behoud blauwe gradient */
+    [data-theme="dark"] .material-card .card-header,
+    .dark .material-card .card-header {
+        background: linear-gradient(135deg, #2196f3 0%, #64b5f6 100%) !important; /* Blauwe gradient behouden */
+        color: white !important;
+    }
 
     .material-card:hover {
         box-shadow: var(--shadow-medium);

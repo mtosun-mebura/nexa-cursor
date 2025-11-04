@@ -116,7 +116,7 @@
     .candidate-title {
         font-size: 2rem;
         font-weight: 700;
-        color: var(--text-primary);
+        color: #212121 !important; /* Force dark text in light mode */
         margin-bottom: 12px;
         line-height: 1.2;
     }
@@ -133,8 +133,12 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        color: var(--text-secondary);
+        color: #424242 !important; /* Force darker text in light mode */
         font-size: 14px;
+    }
+
+    .meta-item span {
+        color: #424242 !important; /* Force darker text in light mode */
     }
 
     .meta-item i {

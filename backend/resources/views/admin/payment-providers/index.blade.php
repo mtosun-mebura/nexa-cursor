@@ -363,6 +363,45 @@
         display: inline-block;
     }
     
+    /* Dark Mode Styling for Payment Providers */
+    [data-theme="dark"] .provider-type,
+    [data-theme="dark"] .provider-type[style],
+    .dark .provider-type,
+    .dark .provider-type[style] {
+        background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%) !important;
+        background-image: none !important;
+        color: #ffffff !important;
+    }
+    
+    [data-theme="dark"] .provider-mode,
+    [data-theme="dark"] .provider-mode[style],
+    .dark .provider-mode,
+    .dark .provider-mode[style] {
+        background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%) !important;
+        background-image: none !important;
+        color: #ffffff !important;
+    }
+    
+    [data-theme="dark"] .status-badge.status-active,
+    [data-theme="dark"] .status-badge.status-active[style],
+    .dark .status-badge.status-active,
+    .dark .status-badge.status-active[style] {
+        background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%) !important;
+        background-image: none !important;
+        color: #ffffff !important;
+        border-color: #22c55e !important;
+    }
+    
+    [data-theme="dark"] .status-badge.status-inactive,
+    [data-theme="dark"] .status-badge.status-inactive[style],
+    .dark .status-badge.status-inactive,
+    .dark .status-badge.status-inactive[style] {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+        background-image: none !important;
+        color: #ffffff !important;
+        border-color: #ef4444 !important;
+    }
+    
     .date-info {
         font-size: 12px;
         color: var(--medium-text);

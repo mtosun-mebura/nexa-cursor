@@ -112,13 +112,29 @@
         margin-bottom: 24px;
         border-left: 4px solid var(--primary-color);
     }
+    
+    /* Ensure user-header works in both modes */
+    [data-theme="dark"] .user-header,
+    .dark .user-header {
+        background: linear-gradient(135deg, #374151 0%, #4b5563 100%) !important;
+        background-image: none !important;
+        border-left-color: #60a5fa !important;
+    }
 
     .user-title {
         font-size: 2rem;
         font-weight: 700;
-        color: var(--text-primary);
+        color: #212121 !important; /* Force dark text in light mode */
         margin-bottom: 12px;
         line-height: 1.2;
+    }
+    
+    /* Ensure user-title is white in dark mode */
+    [data-theme="dark"] .user-title,
+    [data-theme="dark"] .user-title[style],
+    .dark .user-title,
+    .dark .user-title[style] {
+        color: #ffffff !important; /* Pure white for maximum contrast */
     }
 
     .user-meta {
@@ -133,8 +149,22 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        color: var(--text-secondary);
+        color: #424242 !important; /* Force darker text in light mode */
         font-size: 14px;
+    }
+    
+    /* Ensure meta-items are white in dark mode */
+    [data-theme="dark"] .meta-item,
+    [data-theme="dark"] .meta-item span,
+    [data-theme="dark"] .meta-item[style],
+    .dark .meta-item,
+    .dark .meta-item span,
+    .dark .meta-item[style] {
+        color: #ffffff !important; /* Pure white for maximum contrast */
+    }
+
+    .meta-item span {
+        color: #424242 !important; /* Force darker text in light mode */
     }
 
     .meta-item i {

@@ -390,6 +390,69 @@
         display: flex;
         flex-direction: column;
     }
+    
+    /* Dark Mode Styles */
+    [data-theme="dark"] .stat-card,
+    [data-theme="dark"] .material-card,
+    [data-theme="dark"] .permission-item,
+    .dark .stat-card,
+    .dark .material-card,
+    .dark .permission-item {
+        background-color: #1f2937 !important; /* bg-gray-800 */
+        color: #f9fafb !important; /* text-gray-50 */
+        border-color: #374151 !important; /* border-gray-700 */
+    }
+    
+    [data-theme="dark"] .stat-label,
+    [data-theme="dark"] .permission-name,
+    [data-theme="dark"] .permission-description,
+    [data-theme="dark"] .module-title,
+    .dark .stat-label,
+    .dark .permission-name,
+    .dark .permission-description,
+    .dark .module-title {
+        color: #f9fafb !important; /* text-gray-50 */
+    }
+    
+    [data-theme="dark"] .stat-number[style*="background-clip"],
+    .dark .stat-number[style*="background-clip"] {
+        -webkit-text-fill-color: #f9fafb !important;
+        color: #f9fafb !important;
+    }
+    
+    /* Dark mode for inline style cards in "Rechten per Type" and "Meest Gebruikte Rechten" */
+    [data-theme="dark"] [style*="background: var(--light-bg)"],
+    [data-theme="dark"] [style*="background-color: var(--light-bg)"],
+    .dark [style*="background: var(--light-bg)"],
+    .dark [style*="background-color: var(--light-bg)"] {
+        background: #374151 !important; /* bg-gray-700 - donker maar blauw accent blijft */
+        background-color: #374151 !important;
+    }
+    
+    [data-theme="dark"] [style*="background: var(--light-bg)"] h6,
+    [data-theme="dark"] [style*="background: var(--light-bg)"] small,
+    .dark [style*="background: var(--light-bg)"] h6,
+    .dark [style*="background: var(--light-bg)"] small {
+        color: #f9fafb !important; /* text-gray-50 */
+    }
+    
+    [data-theme="dark"] [style*="background: var(--light-bg)"] .stat-icon,
+    .dark [style*="background: var(--light-bg)"] .stat-icon {
+        color: #60a5fa !important; /* text-blue-400 - behoud blauwe kleur */
+    }
+    
+    /* Dark mode for card headers - behoud blauwe gradient */
+    [data-theme="dark"] .material-card .card-header,
+    .dark .material-card .card-header {
+        background: linear-gradient(135deg, #2196F3 0%, #42a5f5 100%) !important; /* Blauwe gradient behouden */
+        color: white !important;
+    }
+    
+    /* Dark mode for permission item border top */
+    [data-theme="dark"] .permission-meta,
+    .dark .permission-meta {
+        border-top-color: #374151 !important; /* border-gray-700 */
+    }
 
     .permission-item::before {
         content: '';
@@ -456,8 +519,22 @@
         border-left: 4px solid var(--primary-color);
         display: flex;
         align-items: center;
-        gap: 8px;
-        box-shadow: var(--shadow-light);
+    }
+    
+    /* Dark mode for module-title - behoud blauwe border maar donkere achtergrond */
+    [data-theme="dark"] .module-title,
+    .dark .module-title {
+        background: linear-gradient(135deg, #374151 0%, #4b5563 100%) !important; /* bg-gray-700 tot bg-gray-600 */
+        color: #f9fafb !important; /* text-gray-50 */
+        border-left-color: #2196F3 !important; /* Blauwe border behouden */
+    }
+    
+    /* Dark mode for module-title icon */
+    [data-theme="dark"] .module-title .material-icon,
+    [data-theme="dark"] .module-title i,
+    .dark .module-title .material-icon,
+    .dark .module-title i {
+        color: #60a5fa !important; /* text-blue-400 - behoud blauwe kleur */
     }
 
     .material-alert {
