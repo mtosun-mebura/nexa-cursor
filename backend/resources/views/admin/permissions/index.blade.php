@@ -528,7 +528,7 @@
 
 <!-- Permissions by Type -->
 <div class="material-card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h6 class="mb-0">
             <i class="fas fa-chart-pie me-2"></i> Rechten per Type
         </h6>
@@ -594,7 +594,7 @@
 <!-- Top Permissions by Usage -->
 @if($stats['most_used_permissions']->count() > 0)
 <div class="material-card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
         <h6 class="mb-0">
             <i class="fas fa-chart-bar me-2"></i> Meest Gebruikte Rechten
         </h6>

@@ -334,46 +334,20 @@
         .tenant-selector {
             margin: var(--spacing-md);
             padding: var(--spacing-lg);
-            background: linear-gradient(135deg, #FFE55C 0%, #FFF2CC 50%, #FFE55C 100%);
-            border-radius: var(--radius-lg);
-            border: 2px solid #FFD700;
-            box-shadow: var(--elevation-3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-radius: var(--radius-md);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--elevation-1);
+            transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
         }
 
-        .tenant-selector::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #FFF8DC 0%, #FFFFFF 50%, #FFF8DC 100%);
-            box-shadow: 0 0 8px rgba(255, 248, 220, 0.65);
-        }
-
-        .tenant-selector::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .tenant-selector:hover::after {
-            left: 100%;
-        }
+        /* Removed hover animation to prevent arrow display issues */
 
         .tenant-selector:hover {
-            background: linear-gradient(135deg, #FFF2CC 0%, #FFF8DC 50%, #FFF2CC 100%);
-            transform: translateY(-2px);
-            box-shadow: var(--elevation-3), 0 8px 25px rgba(255, 242, 204, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-            border-color: #FFC107;
+            /* Subtle hover effect without interfering with dropdown */
+            box-shadow: var(--elevation-2);
         }
 
         .tenant-selector label {
@@ -382,56 +356,63 @@
             margin-bottom: var(--spacing-md);
             font-size: 0.875rem;
             font-weight: 600;
-            color: #8B6914;
+            color: #000000;
             text-transform: uppercase;
             letter-spacing: 1px;
-            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.75);
         }
 
         .tenant-selector label i {
             margin-right: var(--spacing-sm);
             font-size: 0.875rem;
-            color: #B8860B;
-            text-shadow: 0 0 6px rgba(184, 134, 11, 0.45);
-            filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.45));
+            color: #000000;
         }
 
         .tenant-selector select {
             width: 100%;
             padding: var(--spacing-md) var(--spacing-lg);
-            border: 2px solid #FFD700;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: var(--radius-md);
-            background: linear-gradient(135deg, #DAA520 0%, #FFE55C 100%);
-            color: #8B6914;
+            background-color: rgba(255, 255, 255, 0.1);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23000000' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
+            color: #000000;
             font-size: 0.875rem;
             font-weight: 500;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%238B6914' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right var(--spacing-md) center;
-            background-size: 20px;
             padding-right: calc(var(--spacing-lg) + 24px);
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.35);
+            position: relative;
+            z-index: 2;
+            cursor: pointer;
         }
 
         .tenant-selector select:focus {
             outline: none;
-            border-color: #FFC107;
-            box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.08);
-            background: linear-gradient(135deg, #FFE55C 0%, #FFF2CC 100%);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.1);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23000000' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
         }
 
         .tenant-selector select:hover {
-            border-color: #FFC107;
-            background: linear-gradient(135deg, #FFE55C 0%, #FFF2CC 100%);
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.4);
+            /* Prevent hover effects that cause arrow duplication */
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23000000' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
         }
 
         .tenant-selector select option {
-            background-color: #757575;
+            background-color: #2C3E50;
             color: #FFFFFF;
             padding: var(--spacing-md);
             font-weight: 500;
@@ -439,12 +420,68 @@
         }
 
         .tenant-selector select option:hover {
-            background-color: #9E9E9E;
+            background-color: #34495E;
         }
 
         .tenant-selector select option:checked {
-            background: linear-gradient(135deg, #BDBDBD 0%, #9E9E9E 100%);
+            background: #34495E;
             color: #FFFFFF;
+        }
+
+        /* Dark mode support */
+        [data-theme="dark"] .tenant-selector label {
+            color: #FFFFFF;
+        }
+
+        [data-theme="dark"] .tenant-selector label i {
+            color: #FFFFFF;
+        }
+
+        [data-theme="dark"] .tenant-selector select {
+            color: #FFFFFF;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
+        }
+
+        [data-theme="dark"] .tenant-selector select:hover {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
+        }
+
+        [data-theme="dark"] .tenant-selector select:focus {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right var(--spacing-md) center;
+            background-size: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .tenant-selector label {
+                color: #FFFFFF;
+            }
+
+            .tenant-selector label i {
+                color: #FFFFFF;
+            }
+
+            .tenant-selector select {
+                color: #FFFFFF;
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+                background-repeat: no-repeat;
+                background-position: right var(--spacing-md) center;
+                background-size: 16px;
+            }
+
+            .tenant-selector select:hover {
+                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+                background-repeat: no-repeat;
+                background-position: right var(--spacing-md) center;
+                background-size: 16px;
+            }
         }
 
 
@@ -1430,6 +1467,12 @@
                         <a class="nav-link {{ request()->routeIs('admin.payment-providers.*') ? 'active' : '' }}" href="{{ route('admin.payment-providers.index') }}">
                             <i class="fas fa-credit-card"></i>
                             <span>Betalingsproviders</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}" href="{{ route('admin.settings.index') }}">
+                            <i class="fas fa-cog"></i>
+                            <span>Instellingen</span>
                         </a>
                     </div>
                 @endif

@@ -22,7 +22,7 @@
 <!-- About Section -->
 <section class="section-padding bg-white dark:bg-gray-900">
     <div class="container-custom">
-        <div class="max-w-4xl mx-auto">
+        <div class="!max-w-7xl mx-auto" style="max-width: 80rem !important;">
             <div class="mb-12">
                 <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6 text-center">
                     Onze Missie
@@ -176,7 +176,7 @@
                 <p class="text-lg text-gray-600 dark:text-gray-300 mb-8">
                     Sluit je aan bij duizenden anderen die hun droombaan hebben gevonden via NEXA Skillmatching.
                 </p>
-                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <div class="flex flex-col items-center gap-4">
                     <a href="{{ route('register') }}" class="btn btn-primary btn-lg">
                         Gratis Account Aanmaken
                     </a>

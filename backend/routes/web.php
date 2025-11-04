@@ -246,6 +246,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::resource('payment-providers', AdminPaymentProviderController::class);
         Route::post('payment-providers/{paymentProvider}/toggle-status', [AdminPaymentProviderController::class, 'toggleStatus'])->name('payment-providers.toggle-status');
         Route::post('payment-providers/{paymentProvider}/test-connection', [AdminPaymentProviderController::class, 'testConnection'])->name('payment-providers.test-connection');
+        
+        // Settings (Super Admin only)
+        Route::get('settings', [App\Http\Controllers\Admin\AdminSettingsController::class, 'index'])->name('settings.index');
+        Route::post('settings/mail', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
+        Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
     });
 });
 
@@ -405,9 +410,8 @@ Route::get('/help', function () {
     return view('frontend.pages.help');
 })->name('help');
 
-Route::get('/contact', function () {
-    return view('frontend.pages.contact');
-})->name('contact');
+Route::get('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'index'])->name('contact');
+Route::post('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'submit'])->name('contact.submit');
 
 Route::get('/privacy', function () {
     return view('frontend.pages.privacy');

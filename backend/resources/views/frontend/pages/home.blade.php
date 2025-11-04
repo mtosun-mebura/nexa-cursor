@@ -54,51 +54,62 @@
 <!-- Features Section -->
 <section class="section-padding bg-white dark:bg-gray-900">
     <div class="container-custom">
-        <div class="w-full">
-            <div class="text-center mb-16">
-                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
+        <div class="!max-w-7xl mx-auto" style="max-width: 80rem !important;">
+            <div class="mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6 text-center">
                     Waarom kiezen voor <span class="text-gradient">Nexa</span>?
                 </h2>
-                <p class="text-xl text-gray-600 dark:text-gray-300 w-full leading-relaxed">
+                <p class="text-xl text-gray-600 dark:text-gray-300 leading-relaxed text-center">
                     Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.
                 </p>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="card-hover p-8 text-center">
-                    <div class="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                        <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                        </svg>
+            <div class="mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6 text-center">
+                    Wat Wij Bieden
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="card p-6 hover:shadow-lg transition-all duration-300">
+                        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                            AI-Powered Matching
+                        </h3>
+                        <p class="text-gray-600 dark:text-gray-300">
+                            Onze geavanceerde algoritmes analyseren je vaardigheden en vinden de perfecte match met 95% accuracy.
+                        </p>
                     </div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">AI-Powered Matching</h3>
-                    <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                        Onze geavanceerde algoritmes analyseren je vaardigheden en vinden de perfecte match met 95% accuracy.
-                    </p>
-                </div>
-                
-                <div class="card-hover p-8 text-center">
-                    <div class="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                        <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
+                    
+                    <div class="card p-6 hover:shadow-lg transition-all duration-300">
+                        <div class="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                            Snelle Resultaten
+                        </h3>
+                        <p class="text-gray-600 dark:text-gray-300">
+                            Vind relevante vacatures in seconden. Ons platform filtert en rangschikt resultaten op basis van jouw profiel.
+                        </p>
                     </div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Snelle Resultaten</h3>
-                    <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                        Vind relevante vacatures in seconden. Ons platform filtert en rangschikt resultaten op basis van jouw profiel.
-                    </p>
-                </div>
-                
-                <div class="card-hover p-8 text-center">
-                    <div class="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                        <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
+                    
+                    <div class="card p-6 hover:shadow-lg transition-all duration-300">
+                        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center mb-4">
+                            <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                            Betrouwbare Partners
+                        </h3>
+                        <p class="text-gray-600 dark:text-gray-300">
+                            Werk samen met geverifieerde bedrijven en toegang tot exclusieve vacatures van topwerkgevers.
+                        </p>
                     </div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Betrouwbare Partners</h3>
-                    <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                        Werk samen met geverifieerde bedrijven en toegang tot exclusieve vacatures van topwerkgevers.
-                    </p>
                 </div>
             </div>
         </div>
@@ -108,12 +119,12 @@
 <!-- Recent Jobs Section -->
 <section class="section-padding bg-gray-50 dark:bg-gray-900">
     <div class="container-custom">
-        <div class="w-full">
-            <div class="text-center mb-16">
+        <div class="!max-w-7xl mx-auto" style="max-width: 80rem !important;">
+            <div class="mb-12 text-center">
                 <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
                     Recente <span class="text-gradient">Vacatures</span>
                 </h2>
-                <p class="text-xl text-gray-600 dark:text-gray-300 w-full leading-relaxed">
+                <p class="text-xl text-gray-600 dark:text-gray-300 leading-relaxed">
                     Ontdek de nieuwste vacatures van topbedrijven
                 </p>
             </div>
@@ -231,15 +242,15 @@
 <!-- CTA Section -->
 <section class="section-padding bg-white dark:bg-gray-900">
     <div class="container-custom">
-        <div class="w-full text-center">
-            <div class="card-elevated p-12 lg:p-16">
+        <div class="!max-w-7xl mx-auto" style="max-width: 80rem !important;">
+            <div class="text-center">
                 <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
                     Klaar om je carrière te starten?
                 </h2>
-                <p class="text-xl text-gray-600 dark:text-gray-300 mb-8 w-full">
+                <p class="text-lg text-gray-600 dark:text-gray-300 mb-8">
                     Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.
                 </p>
-                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <div class="flex flex-col items-center gap-4">
                     <a href="{{ route('register') }}" class="btn btn-primary btn-lg hover-lift">
                         Gratis account aanmaken
                     </a>
