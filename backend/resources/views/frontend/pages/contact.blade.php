@@ -28,7 +28,7 @@
     <div class="container-custom">
         <div class="!max-w-7xl mx-auto" style="max-width: 80rem !important;">
             <div class="mb-12">
-                <div class="max-w-2xl mx-auto">
+                <div class="mx-auto">
                     @if(session('success'))
                     <div id="success-message" class="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg transition-opacity duration-300">
                         <div class="flex items-center">
