@@ -30,15 +30,13 @@ jobs:
         
     - name: Prepare shared .env (root)
       run: |
-        cat > .env <<'EOF'
-APP_ENV=testing
-APP_DEBUG=true
-APP_URL=http://localhost
-APP_KEY=
-DB_CONNECTION=sqlite
-DB_DATABASE=:memory:
-LOG_CHANNEL=stack
-EOF
+        echo "APP_ENV=testing" > .env
+        echo "APP_DEBUG=true" >> .env
+        echo "APP_URL=http://localhost" >> .env
+        echo "APP_KEY=" >> .env
+        echo "DB_CONNECTION=sqlite" >> .env
+        echo "DB_DATABASE=:memory:" >> .env
+        echo "LOG_CHANNEL=stack" >> .env
     
     - name: Link backend .env to root
       run: ln -sf ../.env .env
