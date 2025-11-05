@@ -32,7 +32,7 @@
         "url": "{{ url('/') }}",
         "potentialAction": {
             "@type": "SearchAction",
-            "target": "{{ url('/vacatures') }}?search={search_term_string}",
+            "target": "{{ route('jobs.index') }}?search={search_term_string}",
             "query-input": "required name=search_term_string"
         }
     }
@@ -367,7 +367,7 @@
         
         <!-- Search Section -->
         <div class="search-section">
-            <form method="GET" action="{{ route('vacancies.index') }}" class="search-form">
+            <form method="GET" action="{{ route('jobs.index') }}" class="search-form">
                 <div class="form-group">
                     <label class="form-label">Locatie</label>
                     <input type="text" name="location" class="form-control" placeholder="Amsterdam, Rotterdam..." value="{{ request('location') }}">
@@ -496,7 +496,7 @@
                     <i class="fas fa-search"></i>
                     <h3>Geen vacatures gevonden</h3>
                     <p>Probeer je zoekcriteria aan te passen of bekijk alle beschikbare vacatures.</p>
-                    <a href="{{ route('vacancies.index') }}" class="btn btn-primary">
+                    <a href="{{ route('jobs.index') }}" class="btn btn-primary">
                         <i class="fas fa-list me-2"></i>Alle Vacatures Bekijken
                     </a>
                 </div>

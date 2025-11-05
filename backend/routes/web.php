@@ -171,8 +171,10 @@ Route::get('/candidate-photo/{token}', function ($token) {
     ]);
 })->name('candidate.photo');
 
-// Publieke vacatures routes
-Route::get('/vacatures', [PublicVacancyController::class, 'index'])->name('vacancies.index');
+// Publieke vacatures routes - redirect naar /jobs
+Route::get('/vacatures', function() {
+    return redirect()->route('jobs.index');
+})->name('vacancies.index');
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
 // Frontend vacancy details
