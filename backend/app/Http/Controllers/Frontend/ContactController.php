@@ -82,7 +82,7 @@ class ContactController extends Controller
             'phone' => [
                 'nullable',
                 'string',
-                'regex:/^[0-9]{10}$/', // Exact 10 cijfers
+                'regex:/^(\+[1-9]\d{11}|0\d{9})$/', // Begint met + en landcode (exact 12 karakters: +1+11=12) OF begint met 0 en 10 cijfers
             ],
             'message' => [
                 'required',
@@ -101,7 +101,7 @@ class ContactController extends Controller
             'last_name.regex' => 'Achternaam mag alleen letters, spaties, streepjes, apostrofs en punten bevatten.',
             'email.required' => 'E-mailadres is verplicht.',
             'email.email' => 'E-mailadres moet een geldig en volledig e-mailadres zijn.',
-            'phone.regex' => 'Telefoonnummer moet exact 10 cijfers bevatten (bijvoorbeeld: 0612345678).',
+            'phone.regex' => 'Telefoonnummer moet beginnen met 0 gevolgd door 9 cijfers (bijvoorbeeld: 0612345678) of met een landcode zoals +31 gevolgd door cijfers tot exact 12 karakters totaal (bijvoorbeeld: +31612345678).',
             'message.required' => 'Omschrijving is verplicht.',
             'message.min' => 'Omschrijving moet minimaal 10 karakters bevatten.',
             'message.max' => 'Omschrijving mag maximaal 1000 karakters bevatten.',
@@ -196,7 +196,7 @@ class ContactController extends Controller
             'first_name' => trim($request->input('first_name')),
             'last_name' => trim($request->input('last_name')),
             'email' => trim($request->input('email')),
-            'phone' => $request->input('phone') ? preg_replace('/[^0-9]/', '', trim($request->input('phone'))) : null,
+            'phone' => $request->input('phone') ? trim($request->input('phone')) : null,
             'message' => trim($request->input('message')),
         ];
 

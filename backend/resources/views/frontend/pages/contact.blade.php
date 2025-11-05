@@ -128,20 +128,19 @@
                                 <div>
                                     <label for="phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Telefoonnummer (optioneel)
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">(10 cijfers, bijv. 0612345678)</span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">(bijv. 0612345678 of +31612345678)</span>
                                     </label>
                                     <input type="tel" 
                                            id="phone" 
                                            name="phone" 
                                            value="{{ old('phone') }}"
-                                           pattern="[0-9]{10}"
-                                           maxlength="10"
-                                           placeholder="0612345678"
+                                           maxlength="15"
+                                           placeholder="0612345678 of +31612345678"
                                            class="input w-full @error('phone') border-red-500 @enderror">
                                     @error('phone')
                                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                     @enderror
-                                    <p class="mt-1 text-xs min-h-[20px] text-gray-500 dark:text-gray-400" id="phone-hint" style="display: block; visibility: visible;">Alleen cijfers, geen spaties of streepjes</p>
+                                    <p class="mt-1 text-xs min-h-[20px] text-gray-500 dark:text-gray-400" id="phone-hint" style="display: block; visibility: visible;">Begint met 0 (10 cijfers) of landcode zoals +31 (12 karakters)</p>
                                 </div>
                             </div>
                             
@@ -416,21 +415,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!hint) return false;
         
-        // Remove all non-numeric characters
-        let cleanValue = value.replace(/[^0-9]/g, '');
-        
-        // Limit to 10 digits
-        if (cleanValue.length > 10) {
-            cleanValue = cleanValue.substring(0, 10);
-        }
-        
-        if (field) {
-            field.value = cleanValue;
-        }
+        // Trim whitespace
+        let cleanValue = value.trim();
         
         // Direct validation - no waiting
         if (!cleanValue || cleanValue.length === 0) {
-            hint.innerHTML = '<span class="text-gray-500 dark:text-gray-400">Alleen cijfers, geen spaties of streepjes</span>';
+            hint.innerHTML = '<span class="text-gray-500 dark:text-gray-400">Begint met 0 (10 cijfers) of landcode zoals +31 (12 karakters)</span>';
             hint.classList.remove('text-green-600', 'dark:text-green-400', 'text-orange-500', 'dark:text-orange-400');
             hint.classList.add('text-gray-500', 'dark:text-gray-400');
             hint.style.display = 'block';
@@ -439,8 +429,35 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
         
-        if (cleanValue.length === 10) {
-            // Valid - show green checkmark with "Voldoet aan validatie"
+        // Check if it starts with + (country code)
+        if (cleanValue.startsWith('+')) {
+            // Country code format: +[country code][number]
+            // Remove + and check if rest is digits
+            const withoutPlus = cleanValue.substring(1);
+            
+            // Must contain only digits after +
+            if (!/^\d+$/.test(withoutPlus)) {
+                hint.innerHTML = '<span class="text-orange-500 dark:text-orange-400">Na + alleen cijfers toegestaan</span>';
+                hint.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-green-600', 'dark:text-green-400');
+                hint.classList.add('text-orange-500', 'dark:text-orange-400');
+                hint.style.display = 'block';
+                hint.style.visibility = 'visible';
+                if (field) field.classList.remove('border-green-500');
+                return false;
+            }
+            
+            // Country code format: must be exactly 12 characters total
+            if (cleanValue.length !== 12) {
+                hint.innerHTML = `<span class="text-orange-500 dark:text-orange-400">Met landcode: exact 12 karakters (${cleanValue.length}/12)</span>`;
+                hint.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-green-600', 'dark:text-green-400');
+                hint.classList.add('text-orange-500', 'dark:text-orange-400');
+                hint.style.display = 'block';
+                hint.style.visibility = 'visible';
+                if (field) field.classList.remove('border-green-500');
+                return false;
+            }
+            
+            // Valid country code format
             hint.innerHTML = '<span class="text-green-600 dark:text-green-400" style="color: #10b981 !important;">✓ Voldoet aan validatie</span>';
             hint.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-red-500', 'text-orange-500', 'dark:text-orange-400');
             hint.classList.add('text-green-600', 'dark:text-green-400');
@@ -451,10 +468,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 field.classList.add('border-green-500');
                 field.style.borderColor = '#10b981';
             }
-            console.log('Phone validated successfully');
+            console.log('Phone with country code validated successfully');
             return true;
+        } else if (cleanValue.startsWith('0')) {
+            // Dutch format: starts with 0, must be exactly 10 digits
+            // Remove all non-numeric characters for validation
+            const digitsOnly = cleanValue.replace(/[^0-9]/g, '');
+            
+            // Update field value to only contain digits if user typed spaces/dashes
+            if (field && cleanValue !== digitsOnly) {
+                field.value = digitsOnly;
+                cleanValue = digitsOnly;
+            }
+            
+            if (digitsOnly.length === 10) {
+                // Valid - show green checkmark with "Voldoet aan validatie"
+                hint.innerHTML = '<span class="text-green-600 dark:text-green-400" style="color: #10b981 !important;">✓ Voldoet aan validatie</span>';
+                hint.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-red-500', 'text-orange-500', 'dark:text-orange-400');
+                hint.classList.add('text-green-600', 'dark:text-green-400');
+                hint.style.display = 'block';
+                hint.style.visibility = 'visible';
+                hint.style.color = '#10b981';
+                if (field) {
+                    field.classList.add('border-green-500');
+                    field.style.borderColor = '#10b981';
+                }
+                console.log('Phone validated successfully');
+                return true;
+            } else {
+                hint.innerHTML = `<span class="text-orange-500 dark:text-orange-400">Moet 10 cijfers zijn (${digitsOnly.length}/10)</span>`;
+                hint.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-green-600', 'dark:text-green-400');
+                hint.classList.add('text-orange-500', 'dark:text-orange-400');
+                hint.style.display = 'block';
+                hint.style.visibility = 'visible';
+                if (field) field.classList.remove('border-green-500');
+                return false;
+            }
         } else {
-            hint.innerHTML = `<span class="text-orange-500 dark:text-orange-400">${cleanValue.length}/10 cijfers</span>`;
+            // Doesn't start with 0 or +, invalid format
+            hint.innerHTML = '<span class="text-orange-500 dark:text-orange-400">Moet beginnen met 0 (Nederland) of + (landcode)</span>';
             hint.classList.remove('text-gray-500', 'dark:text-gray-400', 'text-green-600', 'dark:text-green-400');
             hint.classList.add('text-orange-500', 'dark:text-orange-400');
             hint.style.display = 'block';
