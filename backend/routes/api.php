@@ -7,6 +7,7 @@ use App\Http\Controllers\VacancyController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\MatchController;
 // Controllers will be created as needed
 
 /*
@@ -20,6 +21,13 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
+
+// Matching routes (for n8n integration)
+// Note: Consider adding API key authentication for production
+Route::post('/matches', [MatchController::class, 'getMatches']);
+Route::get('/matches/rule-based/{candidateId}', [MatchController::class, 'getRuleBasedMatches']);
+Route::get('/matches/semantic/{candidateId}', [MatchController::class, 'getSemanticMatches']);
+Route::get('/matches/hybrid/{candidateId}', [MatchController::class, 'getHybridMatches']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {

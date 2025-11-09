@@ -358,6 +358,13 @@ Route::get('/logout', function () {
     return redirect('/');
 })->name('logout.get');
 
+// Test route voor 502 error pagina (alleen in development)
+if (app()->environment('local', 'development')) {
+    Route::get('/test-502', function() {
+        return response()->view('errors.502', [], 502);
+    });
+}
+
 // User dashboard routes
 Route::middleware(['auth:web'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
