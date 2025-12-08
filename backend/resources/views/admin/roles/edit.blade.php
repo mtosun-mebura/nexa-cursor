@@ -3,69 +3,52 @@
 @section('title', 'Rol Bewerken')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #2196f3;
-        --primary-light: #64b5f6;
-        --primary-dark: #1976d2;
-        --primary-hover: #42a5f5;
-    }
-</style>
 
-@include('admin.material-design-template')
 
-<div class="container-fluid">
+
+
+<div class="kt-container-fixed">
     <div class="row">
         <div class="col-12">
-            <div class="material-card">
-                <div class="card-header">
-                    <h5>
-                        <i class="fas fa-user-shield me-2"></i> Rol Bewerken: {{ $role->name }}
-                    </h5>
-                    <a href="{{ route('admin.roles.index') }}" class="material-btn material-btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                    </a>
-                </div>
-                <div class="card-body">
+            <div class="kt-container-fixed">
+    <div class="flex flex-col items-stretch grow">
+        <form[^>]*class="[^"]*"
                     <form action="{{ route('admin.roles.update', $role) }}" method="POST">
                         @csrf
                         @method('PUT')
                         
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="material-form-group">
-                                    <label for="name" class="material-form-label">Rol Naam *</label>
-                                    <input type="text" 
-                                           class="material-form-control @error('name') is-invalid @enderror" 
+                                <div class="w-full">
+                        <div class="flex items-center py-3">
+                            <label for="name" class="kt-form-label flex items-center gap-1 max-w-56">
+                                Rol Naam *
+                            </label>
+                            <input type="text" 
+                                           class="kt-input @error('name') is-invalid @enderror" 
                                            id="name" 
                                            name="name" 
-                                           value="{{ old('name', $role->name) }}" 
-                                           required
-                                           {{ in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']) ? 'readonly' : '' }}>
-                                    @error('name')
-                                        <div class="material-invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                    @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                        <div class="material-text-muted">
-                                            <i class="fas fa-exclamation-triangle me-1"></i>
-                                            Systeem rollen kunnen niet worden hernoemd
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
+                                           value="{{ old('name', $role->
+                            @error('name') is-invalid @enderror
+                        </div>
+                    </div></div>
                             
                             <div class="col-md-6">
-                                <div class="material-form-group">
-                                    <label for="description" class="material-form-label">Beschrijving</label>
+                                <div class="w-full">
+                        <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
+                            <label class="kt-form-label flex items-center gap-1 max-w-56">
+
+                                    <label for="description" class="kt-form-label">Beschrijving</label>
                                     <textarea class="material-form-textarea @error('description') is-invalid @enderror" 
                                               id="description" 
                                               name="description" 
-                                              rows="3">{{ old('description', $role->description) }}</textarea>
+                                              rows="4">{{ old('description', $role->description) }}</textarea>
                                     @error('description')
-                                        <div class="material-invalid-feedback">{{ $message }}</div>
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
-                                </div>
-                            </div>
+                                
+                        </div>
+                    </div></div>
                         </div>
 
                         <div class="mb-4">
@@ -75,7 +58,7 @@
                             </h6>
                             
                             @error('permissions')
-                                <div class="material-alert material-alert-danger">{{ $message }}</div>
+                                <div class="kt-alert kt-alert-danger">{{ $message }}</div>
                             @enderror
 
                             <div class="row">
@@ -94,7 +77,7 @@
                                                     </label>
                                                 </div>
                                             </div>
-                                            <div class="card-body">
+                                            <div class="kt-card-content grid gap-5">
                                                 @foreach($groupPermissions as $permission)
                                                     <div class="form-check">
                                                         <input class="form-check-input" 
@@ -116,20 +99,18 @@
                             </div>
                         </div>
 
-                        <div class="material-form-actions">
-                            <a href="{{ route('admin.roles.index') }}" class="material-btn material-btn-secondary">
+                        <div class="flex items-center justify-end gap-2.5">
+                            <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline">
                                 <i class="fas fa-times"></i>
                                 Annuleren
                             </a>
-                            <button type="submit" class="material-btn material-btn-primary">
+                            <button type="submit" class="kt-btn kt-btn-primary">
                                 <i class="fas fa-save"></i>
                                 Wijzigingen Opslaan
                             </button>
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
     </div>
 </div>
 

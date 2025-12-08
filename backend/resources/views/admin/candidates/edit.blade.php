@@ -3,260 +3,38 @@
 @section('title', 'Kandidaat Bewerken')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #1976d2;
-        --primary-light: #42a5f5;
-        --primary-dark: #1565c0;
-        --secondary-color: #e3f2fd;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --light-bg: #fafafa;
-        --dark-text: #212121;
-        --medium-text: #757575;
-        --border-color: #e0e0e0;
-        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
-        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
-        border: none;
-        margin-bottom: 24px;
-        transition: var(--transition);
-        overflow: hidden;
-    }
-    
-    .material-card:hover {
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        border-radius: 0;
-        padding: 24px 32px;
-        border: none;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .material-card .card-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-        transform: translateX(-100%);
-        transition: var(--transition);
-    }
-    
-    .material-card .card-header:hover::before {
-        transform: translateX(100%);
-    }
-    
-    .material-card .card-body {
-        padding: 32px;
-    }
-    
-    .material-btn {
-        border-radius: var(--border-radius);
-        text-transform: uppercase;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        padding: 12px 24px;
-        border: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 14px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-    }
-    
-    .material-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .material-btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-    
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .material-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-    }
-    
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--dark-text);
-        border: 1px solid var(--border-color);
-    }
-    
-    .material-btn-secondary:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-btn-info {
-        background: linear-gradient(135deg, var(--info-color) 0%, #42a5f5 100%);
-        color: white;
-    }
-    
-    .form-control, .form-select {
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        padding: 12px 16px;
-        transition: var(--transition);
-        background-color: white;
-    }
-    
-    .form-control:focus, .form-select:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.25);
-        outline: none;
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 8px;
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .form-text {
-        color: var(--medium-text);
-        font-size: 12px;
-        margin-top: 4px;
-    }
-    
-    .form-check {
-        margin-bottom: 16px;
-    }
-    
-    .form-check-input {
-        border-radius: 4px;
-        border: 2px solid var(--border-color);
-        transition: var(--transition);
-    }
-    
-    .form-check-input:checked {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
-    }
-    
-    .form-check-label {
-        font-weight: 500;
-        color: var(--dark-text);
-        margin-left: 8px;
-    }
-    
-    .alert {
-        border-radius: var(--border-radius);
-        border: none;
-        padding: 16px 20px;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .alert-danger {
-        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-        color: #c62828;
-    }
-    
-    .invalid-feedback {
-        color: var(--danger-color);
-        font-size: 12px;
-        margin-top: 4px;
-    }
-    
-    .is-invalid {
-        border-color: var(--danger-color) !important;
-    }
-    
-    .is-invalid:focus {
-        box-shadow: 0 0 0 0.2rem rgba(244, 67, 54, 0.25) !important;
-    }
 
-    .section-divider {
-        border: none;
-        height: 2px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        margin: 24px 0;
-        border-radius: 1px;
-    }
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
+        <div class="flex flex-col justify-center gap-2">
+            <h1 class="text-xl font-medium leading-none text-mono mb-3">
+                {{ $title ?? "Pagina" }}
+            </h1>
+        </div>
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.' . str_replace(['admin.', '.create', '.edit', '.show'], ['', '.index', '.index', '.index'], request()->route()->getName())) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+    </div>
 
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--primary-color);
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-</style>
-
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="material-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="kt-card min-w-full pb-2.5">
+                <div class="kt-card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-user-graduate me-2"></i> Kandidaat Bewerken
                     </h5>
                     <div class="d-flex gap-2">
-                        <a href="{{ route('admin.candidates.show', $candidate) }}" class="material-btn material-btn-info">
+                        <a href="{{ route('admin.candidates.show', $candidate) }}" class="kt-btn kt-btn-info">
                             <i class="fas fa-eye me-2"></i> Bekijken
                         </a>
-                        <a href="{{ route('admin.candidates.index') }}" class="material-btn material-btn-secondary">
+                        <a href="{{ route('admin.candidates.index') }}" class="kt-btn kt-btn-outline">
                             <i class="fas fa-arrow-left me-2"></i> Terug naar Overzicht
                         </a>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="kt-card-content grid gap-5">
                     @if($errors->any())
                         <div class="alert alert-danger">
                             <i class="fas fa-exclamation-circle"></i>
@@ -282,8 +60,8 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="first_name" class="form-label">Voornaam *</label>
                                     <input type="text" 
@@ -298,7 +76,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="last_name" class="form-label">Achternaam *</label>
                                     <input type="text" 
@@ -314,8 +92,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="email" class="form-label">E-mailadres *</label>
                                     <input type="email" 
@@ -330,7 +108,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="phone" class="form-label">Telefoonnummer</label>
                                     <input type="tel" 
@@ -345,8 +123,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="date_of_birth" class="form-label">Geboortedatum</label>
                                     <input type="date" 
@@ -360,7 +138,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="nationality" class="form-label">Nationaliteit</label>
                                     <input type="text" 
@@ -375,8 +153,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="gender" class="form-label">Geslacht</label>
                                     <select class="form-select @error('gender') is-invalid @enderror" id="gender" name="gender">
@@ -391,7 +169,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="reference_number" class="form-label">Referentienummer</label>
                                     <input type="text" 
@@ -413,8 +191,8 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-12">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="w-full">
                                 <div class="mb-3">
                                     <label for="address" class="form-label">Adres</label>
                                     <textarea class="form-control @error('address') is-invalid @enderror" 
@@ -428,8 +206,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-4">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-4">
                                 <div class="mb-3">
                                     <label for="postal_code" class="form-label">Postcode</label>
                                     <input type="text" 
@@ -443,7 +221,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-4">
+                            <div class="lg:col-span-4">
                                 <div class="mb-3">
                                     <label for="city" class="form-label">Plaats</label>
                                     <input type="text" 
@@ -457,7 +235,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-4">
+                            <div class="lg:col-span-4">
                                 <div class="mb-3">
                                     <label for="country" class="form-label">Land</label>
                                     <input type="text" 
@@ -472,8 +250,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="region" class="form-label">Regio</label>
                                     <input type="text" 
@@ -495,8 +273,8 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="current_position" class="form-label">Huidige functie</label>
                                     <input type="text" 
@@ -510,7 +288,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="desired_position" class="form-label">Gewenste functie</label>
                                     <input type="text" 
@@ -525,8 +303,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="experience_years" class="form-label">Ervaring (jaren) *</label>
                                     <input type="number" 
@@ -542,7 +320,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="education_level" class="form-label">Opleidingsniveau</label>
                                     <select class="form-select @error('education_level') is-invalid @enderror" id="education_level" name="education_level">
@@ -560,8 +338,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="work_type" class="form-label">Werktype</label>
                                     <select class="form-select @error('work_type') is-invalid @enderror" id="work_type" name="work_type">
@@ -578,7 +356,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="availability" class="form-label">Beschikbaarheid</label>
                                     <select class="form-select @error('availability') is-invalid @enderror" id="availability" name="availability">
@@ -603,14 +381,14 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="skills" class="form-label">Vaardigheden</label>
                                     <textarea class="form-control @error('skills') is-invalid @enderror" 
                                               id="skills" 
                                               name="skills" 
-                                              rows="3" 
+                                              rows="4" 
                                               placeholder="Voer vaardigheden in, gescheiden door komma's">{{ old('skills', is_array($candidate->skills) ? implode(', ', $candidate->skills) : $candidate->skills) }}</textarea>
                                     <div class="form-text">Voer vaardigheden in, gescheiden door komma's (bijv. PHP, Laravel, MySQL)</div>
                                     @error('skills')
@@ -619,13 +397,13 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="languages" class="form-label">Talen</label>
                                     <textarea class="form-control @error('languages') is-invalid @enderror" 
                                               id="languages" 
                                               name="languages" 
-                                              rows="3" 
+                                              rows="4" 
                                               placeholder="Voer talen in, gescheiden door komma's">{{ old('languages', is_array($candidate->languages) ? implode(', ', $candidate->languages) : $candidate->languages) }}</textarea>
                                     <div class="form-text">Voer talen in, gescheiden door komma's (bijv. Nederlands, Engels, Duits)</div>
                                     @error('languages')
@@ -642,8 +420,8 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-md-4">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-4">
                                 <div class="mb-3">
                                     <label for="linkedin_url" class="form-label">LinkedIn URL</label>
                                     <input type="url" 
@@ -658,7 +436,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-4">
+                            <div class="lg:col-span-4">
                                 <div class="mb-3">
                                     <label for="github_url" class="form-label">GitHub URL</label>
                                     <input type="url" 
@@ -673,7 +451,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-4">
+                            <div class="lg:col-span-4">
                                 <div class="mb-3">
                                     <label for="portfolio_url" class="form-label">Portfolio URL</label>
                                     <input type="url" 
@@ -696,8 +474,8 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="cv" class="form-label">CV (PDF)</label>
                                     <input type="file" 
@@ -717,7 +495,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="cover_letter" class="form-label">Motivatiebrief</label>
                                     <textarea class="form-control @error('cover_letter') is-invalid @enderror" 
@@ -739,8 +517,8 @@
                         </h6>
                         <div class="section-divider"></div>
                         
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="status" class="form-label">Status *</label>
                                     <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
@@ -755,7 +533,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="source" class="form-label">Bron</label>
                                     <select class="form-select @error('source') is-invalid @enderror" id="source" name="source">
@@ -773,8 +551,8 @@
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-12">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="w-full">
                                 <div class="mb-3">
                                     <label for="notes" class="form-label">Interne Notities</label>
                                     <textarea class="form-control @error('notes') is-invalid @enderror" 
@@ -791,17 +569,15 @@
 
                         <!-- Submit Buttons -->
                         <div class="d-flex justify-content-end gap-3 mt-4">
-                            <a href="{{ route('admin.candidates.index') }}" class="material-btn material-btn-secondary">
+                            <a href="{{ route('admin.candidates.index') }}" class="kt-btn kt-btn-outline">
                                 <i class="fas fa-times me-2"></i> Annuleren
                             </a>
-                            <button type="submit" class="material-btn material-btn-primary">
+                            <button type="submit" class="kt-btn kt-btn-primary">
                                 <i class="fas fa-save me-2"></i> Wijzigingen Opslaan
                             </button>
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
     </div>
 </div>
 @endsection

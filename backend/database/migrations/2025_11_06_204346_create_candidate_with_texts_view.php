@@ -13,8 +13,13 @@ return new class extends Migration
     public function up(): void
     {
         // Create view that joins candidates with candidate_texts
+        // SQLite doesn't support CREATE OR REPLACE VIEW, so we drop first if exists
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('DROP VIEW IF EXISTS candidate_with_texts_view');
+        }
+        
         DB::statement("
-            CREATE OR REPLACE VIEW candidate_with_texts_view AS
+            CREATE VIEW candidate_with_texts_view AS
             SELECT 
                 c.*,
                 ct.last_responsibilities,

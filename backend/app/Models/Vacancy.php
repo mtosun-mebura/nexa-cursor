@@ -13,7 +13,7 @@ class Vacancy extends Model
 
     protected $fillable = [
         'company_id','title','location','employment_type','description','requirements','offer',
-        'application_instructions','category_id','reference_number','logo','salary_range','start_date',
+        'application_instructions','branch_id','reference_number','logo','salary_range','start_date',
         'working_hours','travel_expenses','remote_work','status','language','publication_date','closing_date',
         'meta_title','meta_description','meta_keywords','is_active','published_at','salary_min','salary_max',
         'experience_level','benefits','latitude','longitude'
@@ -114,11 +114,27 @@ class Vacancy extends Model
     }
 
     /**
-     * Relatie naar de categorie
+     * Relatie naar de branch
+     */
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+    
+    /**
+     * Alias voor backward compatibility
      */
     public function category()
     {
-        return $this->belongsTo(Category::class);
+        return $this->branch();
+    }
+
+    /**
+     * Get the matches for this vacancy.
+     */
+    public function matches()
+    {
+        return $this->hasMany(\App\Models\JobMatch::class, 'vacancy_id');
     }
 
 

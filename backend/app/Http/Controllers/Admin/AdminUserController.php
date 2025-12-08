@@ -252,4 +252,30 @@ class AdminUserController extends Controller
         $user->syncRoles($request->roles);
         return back()->with('success', 'Rollen succesvol toegewezen.');
     }
+
+    public function photo(User $user)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-users')) {
+            abort(403, 'Je hebt geen rechten om gebruikersfoto\'s te bekijken.');
+        }
+
+        // Check if user can access this resource
+        if (!$this->canAccessResource($user)) {
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        if (!$user->photo_blob) {
+            abort(404);
+        }
+
+        $content = base64_decode($user->photo_blob);
+        $mimeType = $user->photo_mime_type ?: 'image/jpeg';
+
+        return response($content, 200, [
+            'Content-Type' => $mimeType,
+            'Cache-Control' => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+        ]);
+    }
 }

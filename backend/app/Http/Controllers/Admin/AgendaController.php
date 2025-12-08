@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -13,6 +14,8 @@ use App\Models\Vacancy;
 
 class AgendaController extends Controller
 {
+    use TenantFilter;
+
     public function index(Request $request)
     {
         // Check if user has permission to view agenda
@@ -36,7 +39,7 @@ class AgendaController extends Controller
             
             \Log::info('Admin agenda events requested', ['start' => $start, 'end' => $end, 'user' => auth()->id()]);
             
-            // Get appointments for the current user
+            // Get appointments for the current user with tenant filtering
             $appointments = $this->getAppointmentsForDateRange($start, $end);
             
             \Log::info('Admin agenda events response', ['count' => count($appointments)]);
@@ -56,25 +59,37 @@ class AgendaController extends Controller
             return [];
         }
 
-        // Get interviews for the logged-in user
-        $interviews = Interview::with(['match.user', 'match.vacancy', 'company'])
-            ->whereHas('match', function($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
-            ->whereBetween('scheduled_at', [$start, $end])
-            ->get();
+        // Build query with tenant filtering
+        $query = Interview::with(['match.user', 'match.vacancy', 'company'])
+            ->whereNotNull('scheduled_at')
+            ->whereBetween('scheduled_at', [$start, $end]);
+
+        // Apply tenant filtering
+        $query = $this->applyTenantFilter($query);
+
+        $interviews = $query->get();
 
         $appointments = [];
 
         foreach ($interviews as $interview) {
+            $user = $interview->match->user ?? null;
+            $candidateName = 'Onbekend';
+            if ($user) {
+                $candidateName = trim(($user->first_name ?? '') . ' ' . ($user->middle_name ?? '') . ' ' . ($user->last_name ?? ''));
+                if (empty($candidateName)) {
+                    $candidateName = 'Onbekend';
+                }
+            }
+            
             $appointments[] = [
                 'id' => $interview->id,
-                'title' => $this->getInterviewTitle($interview),
+                'title' => $this->getInterviewTitle($interview, $candidateName),
                 'start' => $interview->scheduled_at->toISOString(),
                 'end' => $interview->scheduled_at->copy()->addMinutes($interview->duration ?? 60)->toISOString(),
                 'color' => $this->getEventColor($interview->type ?? 'interview'),
                 'extendedProps' => [
-                    'candidate_name' => $interview->match->user->name ?? 'Onbekend',
+                    'user_id' => $user ? $user->id : null,
+                    'candidate_name' => $candidateName,
                     'location' => $interview->location ?? 'Locatie niet opgegeven',
                     'type' => $interview->type ?? 'interview',
                     'status' => $interview->status ?? 'scheduled',
@@ -85,7 +100,9 @@ class AgendaController extends Controller
                     'company_phone' => $interview->company->phone ?? '',
                     'vacancy_title' => $interview->match->vacancy->title ?? 'Onbekende functie',
                     'notes' => $interview->notes ?? '',
-                    'feedback' => $interview->feedback ?? ''
+                    'feedback' => $interview->feedback ?? '',
+                    'scheduled_at' => $interview->scheduled_at->format('d-m-Y H:i'),
+                    'duration' => $interview->duration ?? 60
                 ]
             ];
         }
@@ -93,10 +110,21 @@ class AgendaController extends Controller
         return $appointments;
     }
 
-    private function getInterviewTitle($interview)
+    private function getInterviewTitle($interview, $candidateName = null)
     {
         $type = $interview->type ?? 'interview';
-        $candidateName = $interview->match->user->name ?? 'Onbekend';
+        
+        if ($candidateName === null) {
+            $user = $interview->match->user ?? null;
+            if ($user) {
+                $candidateName = trim(($user->first_name ?? '') . ' ' . ($user->middle_name ?? '') . ' ' . ($user->last_name ?? ''));
+                if (empty($candidateName)) {
+                    $candidateName = 'Onbekend';
+                }
+            } else {
+                $candidateName = 'Onbekend';
+            }
+        }
         
         $typeLabels = [
             'interview' => 'Interview',

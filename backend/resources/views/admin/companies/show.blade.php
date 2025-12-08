@@ -3,462 +3,532 @@
 @section('title', 'Bedrijf Details - ' . $company->name)
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #4caf50;
-        --primary-light: #66bb6a;
-        --primary-dark: #388e3c;
-        --primary-hover: #43a047;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --secondary-color: #757575;
-        --light-bg: #f5f5f5;
-        --border-color: #e0e0e0;
-        --text-primary: #212121;
-        --text-secondary: #757575;
-        --shadow: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s ease;
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        margin-bottom: 24px;
-        overflow: hidden;
-        transition: var(--transition);
-    }
+<div class="kt-container-fixed">
+    <div class="flex flex-col gap-5 pb-7.5">
+        <div class="flex flex-wrap items-center justify-between gap-5">
+            <h1 class="text-xl font-medium leading-none text-mono flex items-center gap-2">
+                Bedrijf Details
+                <span class="text-orange-500">|</span>
+                <span class="text-blue-500">{{ $company->name }}</span>
+            </h1>
+        </div>
+        <div class="flex items-center justify-between gap-5">
+            <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+            @can('edit-companies')
+            <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-primary">
+                <i class="ki-filled ki-notepad-edit me-2"></i>
+                Bewerken
+            </a>
+            @endcan
+        </div>
+    </div>
 
-    .material-card:hover {
-        box-shadow: var(--shadow-hover);
-    }
-
-    .card-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-        color: white;
-        padding: 20px 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .card-header h5 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .material-header-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .material-btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: var(--border-radius);
-        font-weight: 500;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: var(--transition);
-        cursor: pointer;
-        font-size: 14px;
-        height: 44px;
-        min-height: 44px;
-    }
-
-    .material-btn-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-btn-warning:hover {
-        background: #f57c00;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--text-primary);
-    }
-
-    .material-btn-secondary:hover {
-        background: #e0e0e0;
-        color: var(--text-primary);
-        transform: translateY(-2px);
-    }
-
-    .card-body {
-        padding: 24px;
-    }
-
-    .company-header {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        border-radius: var(--border-radius);
-        padding: 24px;
-        margin-bottom: 24px;
-        border-left: 4px solid var(--primary-color);
-    }
-
-    .company-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #212121 !important; /* Force dark text in light mode */
-        margin-bottom: 12px;
-        line-height: 1.2;
-    }
-
-    .company-meta {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-    }
-
-    .meta-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #424242 !important; /* Force darker text in light mode */
-        font-size: 14px;
-    }
-
-    .meta-item span {
-        color: #424242 !important; /* Force darker text in light mode */
-    }
-
-    .meta-item i {
-        color: var(--primary-color);
-        width: 16px;
-    }
-
-    .company-status {
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-
-    .company-status:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .status-active {
-        background: linear-gradient(135deg, #f1f8e9 0%, #81c784 100%);
-        color: #388e3c;
-        border: 2px solid #81c784;
-    }
-
-    .status-inactive {
-        background: linear-gradient(135deg, #ffcdd2 0%, #e57373 100%);
-        color: #d32f2f;
-        border: 2px solid #e57373;
-    }
-
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 24px;
-        margin-bottom: 24px;
-    }
-
-    .info-section {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 20px;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-    }
-
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--primary-color);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .info-table tr {
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .info-table tr:last-child {
-        border-bottom: none;
-    }
-
-    .info-table td {
-        padding: 12px 0;
-        vertical-align: top;
-    }
-
-    .info-table td:first-child {
-        font-weight: 600;
-        color: var(--text-primary);
-        width: 140px;
-        min-width: 140px;
-    }
-
-    .info-table td:last-child {
-        color: var(--text-secondary);
-    }
-
-    .material-badge {
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
-    }
-
-    .material-badge-primary {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    .material-badge-secondary {
-        background: var(--secondary-color);
-        color: white;
-    }
-
-    .material-badge-success {
-        background: var(--success-color);
-        color: white;
-    }
-
-    .material-badge-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-badge-info {
-        background: var(--info-color);
-        color: white;
-    }
-
-    .material-text-muted {
-        color: var(--text-secondary);
-        font-style: italic;
-    }
-
-    .material-link {
-        color: var(--primary-color);
-        text-decoration: none;
-        transition: color 0.2s ease;
-    }
-
-    .material-link:hover {
-        color: var(--primary-hover);
-        text-decoration: underline;
-    }
-</style>
-
-<div class="container-fluid">
-    <div class="material-card">
-        <div class="card-header">
-            <h5>
-                <i class="fas fa-building"></i>
-                Bedrijf Details: {{ $company->name }}
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.companies.edit', $company) }}" class="material-btn material-btn-warning me-2">
-                    <i class="fas fa-edit"></i> Bewerken
-                </a>
-                <a href="{{ route('admin.companies.index') }}" class="material-btn material-btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
+    <div class="grid gap-5 lg:gap-7.5">
+        <!-- General Info -->
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Algemene Informatie
+                </h3>
+                <div class="flex items-center gap-2">
+                    @can('edit-companies')
+                    <form action="{{ route('admin.companies.toggle-main-location', $company) }}" method="POST" id="toggle-main-location-form">
+                        @csrf
+                        <label class="kt-label">
+                            <input type="checkbox" 
+                                   class="kt-switch kt-switch-sm" 
+                                   id="toggle-main-location-checkbox"
+                                   {{ $company->is_main || $company->mainLocation ? 'checked' : '' }}/>
+                            Hoofdkantoor
+                        </label>
+                    </form>
+                    @else
+                    <label class="kt-label">
+                        <input type="checkbox" 
+                               class="kt-switch kt-switch-sm" 
+                               {{ $company->mainLocation ? 'checked' : '' }}
+                               disabled/>
+                        Hoofdkantoor
+                    </label>
+                    @endcan
+                    <span class="text-muted-foreground">|</span>
+                    @can('edit-companies')
+                    <form action="{{ route('admin.companies.toggle-status', $company) }}" method="POST" id="toggle-status-form">
+                        @csrf
+                        <label class="kt-label">
+                            <input type="checkbox" 
+                                   class="kt-switch kt-switch-sm" 
+                                   id="toggle-status-checkbox"
+                                   {{ $company->is_active ? 'checked' : '' }}/>
+                            Actief
+                        </label>
+                    </form>
+                    @else
+                    <label class="kt-label">
+                        <input type="checkbox" class="kt-switch kt-switch-sm" {{ $company->is_active ? 'checked' : '' }} disabled/>
+                        Actief
+                    </label>
+                    @endcan
+                </div>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr style="padding-top: 18px;">
+                        <td class="min-w-56 text-secondary-foreground font-normal" style="padding-top: 18px; vertical-align: top;">
+                            Bedrijfsnaam
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal">
+                            <div class="flex flex-col gap-2">
+                                <div class="flex items-center gap-2">
+                                    {{ $company->name }}
+                                    @if($company->is_main || $company->mainLocation)
+                                        <span class="kt-badge kt-badge-success">Hoofdkantoor</span>
+                                    @endif
+                                </div>
+                                @if($company->logo_blob)
+                                    <img alt="Company Logo" class="max-h-[100px] w-auto object-contain self-start" style="height: auto; max-width: 100%;" src="{{ route('admin.companies.logo', $company) }}"/>
+                                @endif
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            KVK Nummer
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($company->kvk_number)
+                                {{ $company->kvk_number }}
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-outline kt-badge-destructive">
+                                    Niet opgegeven
+                                </span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Branche
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $company->industry ?? 'Niet opgegeven' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Bedrijfstype
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($company->is_intermediary)
+                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Website
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($company->website)
+                                <a class="text-foreground text-sm font-normal hover:text-primary" href="{{ $company->website }}" target="_blank">
+                                    {{ $company->website }}
+                                </a>
+                            @else
+                                <span class="text-secondary-foreground text-sm">Niet opgegeven</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Beschrijving
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $company->description ?? 'Geen beschrijving' }}
+                        </td>
+                    </tr>
+                </table>
             </div>
         </div>
-        <div class="card-body">
-            <!-- Company Header Section -->
-            <div class="company-header">
-                <h1 class="company-title">{{ $company->name }}</h1>
-                <div class="company-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-building"></i>
-                        <span>{{ $company->industry ?? 'Geen branche' }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-handshake"></i>
-                        <span>{{ $company->is_intermediary ? 'Tussenpartij' : 'Directe werkgever' }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>{{ $company->city ?? 'Locatie onbekend' }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-users"></i>
-                        <span>{{ $company->users->count() }} gebruikers</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-briefcase"></i>
-                        <span>{{ $company->vacancies->count() }} vacatures</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>Aangemaakt: {{ $company->created_at->format('d-m-Y') }}</span>
-                    </div>
-                </div>
-                <div class="company-status status-{{ $company->is_active ? 'active' : 'inactive' }}">
-                    <i class="fas fa-circle"></i>
-                    {{ $company->is_active ? 'Actief' : 'Inactief' }}
-                </div>
-            </div>
 
-            <div class="info-grid">
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-info-circle"></i>
-                        Bedrijfsinformatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>ID</td>
-                            <td>{{ $company->id }}</td>
-                        </tr>
-                        <tr>
-                            <td>Naam</td>
-                            <td>{{ $company->name }}</td>
-                        </tr>
-                        <tr>
-                            <td>KVK Nummer</td>
-                            <td>{{ $company->kvk_number ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Branche</td>
-                            <td>{{ $company->industry ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Bedrijfstype</td>
-                            <td>
-                                @if($company->is_intermediary)
-                                    <span class="material-badge material-badge-info">Tussenpartij</span>
-                                @else
-                                    <span class="material-badge material-badge-success">Directe werkgever</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Website</td>
-                            <td>
-                                @if($company->website)
-                                    <a href="{{ $company->website }}" target="_blank" class="material-link">{{ $company->website }}</a>
-                                @else
-                                    <span class="material-text-muted">Niet opgegeven</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Beschrijving</td>
-                            <td>{{ $company->description ?? 'Geen beschrijving' }}</td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-map-marker-alt"></i>
-                        Contact Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>E-mail</td>
-                            <td>{{ $company->email }}</td>
-                        </tr>
-                        <tr>
-                            <td>Telefoon</td>
-                            <td>{{ $company->phone ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Straat</td>
-                            <td>{{ $company->street ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Huisnummer</td>
-                            <td>{{ $company->house_number ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Postcode</td>
-                            <td>{{ $company->postal_code ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Plaats</td>
-                            <td>{{ $company->city ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Land</td>
-                            <td>{{ $company->country ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                    </table>
-                </div>
+        <!-- Contact Informatie -->
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Contact Informatie
+                </h3>
             </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">
+                            E-mail
+                        </td>
+                        <td class="min-w-60 w-full">
+                            <span class="text-foreground text-sm font-normal">
+                                {{ $company->email }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Telefoon
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $company->phone ?? 'Niet opgegeven' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Adres
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($company->street || $company->city)
+                                {{ $company->street }} {{ $company->house_number }}{{ $company->house_number_extension ? '-' . $company->house_number_extension : '' }}<br>
+                                {{ $company->postal_code }} {{ $company->city }}<br>
+                                {{ $company->country ?? 'Nederland' }}
+                            @else
+                                <span class="text-secondary-foreground text-sm">Niet opgegeven</span>
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
 
-            <div class="info-grid">
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-cog"></i>
-                        Systeem Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Aangemaakt op</td>
-                            <td>{{ $company->created_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                        <tr>
-                            <td>Laatst bijgewerkt</td>
-                            <td>{{ $company->updated_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-users"></i>
-                        Gebruikers & Vacatures
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Aantal gebruikers</td>
-                            <td>{{ $company->users->count() }}</td>
-                        </tr>
-                        <tr>
-                            <td>Aantal vacatures</td>
-                            <td>{{ $company->vacancies->count() }}</td>
-                        </tr>
-                    </table>
-                </div>
+        <!-- Vestigingen -->
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Vestigingen
+                </h3>
+                @can('edit-companies')
+                <a href="{{ route('admin.companies.locations.create', $company) }}" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-plus me-2"></i>
+                    Nieuwe Vestiging
+                </a>
+                @endcan
+            </div>
+            <div class="kt-card-content">
+                @if($company->locations->count() > 0)
+                    <div class="kt-scrollable-x-auto">
+                        <table class="kt-table table-auto kt-table-border">
+                            <thead>
+                                <tr>
+                                    <th>Naam</th>
+                                    <th>Adres</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th class="w-[60px] text-center">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($company->locations as $location)
+                                    <tr class="location-row cursor-pointer" data-href="{{ route('admin.companies.locations.show', [$company, $location]) }}" style="cursor: pointer;">
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                {{ $location->name }}
+                                                @if($location->is_main)
+                                                    <span class="kt-badge kt-badge-success">Hoofdkantoor</span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td>
+                                            @if($location->street || $location->city)
+                                                {{ $location->street }} {{ $location->house_number }}{{ $location->house_number_extension ? '-' . $location->house_number_extension : '' }}<br>
+                                                {{ $location->postal_code }} {{ $location->city }}<br>
+                                                {{ $location->country }}
+                                            @else
+                                                <span class="text-muted-foreground">Geen adres</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="flex flex-col gap-1">
+                                                @if($location->phone)
+                                                    <div><i class="ki-filled ki-phone me-1"></i> {{ $location->phone }}</div>
+                                                @endif
+                                                @if($location->email)
+                                                    <div><i class="ki-filled ki-sms me-1"></i> {{ $location->email }}</div>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td class="location-status-cell">
+                                            @can('edit-companies')
+                                            <form action="{{ route('admin.companies.locations.toggle-status', [$company, $location]) }}" method="POST" class="location-toggle-status-form-{{ $location->id }}">
+                                                @csrf
+                                                <input type="checkbox" 
+                                                       class="kt-switch kt-switch-sm location-status-checkbox" 
+                                                       id="toggle-status-checkbox-{{ $location->id }}"
+                                                       data-location-id="{{ $location->id }}"
+                                                       data-company-id="{{ $company->id }}"
+                                                       {{ $location->is_active ? 'checked' : '' }}/>
+                                            </form>
+                                            @else
+                                            <input type="checkbox" 
+                                                   class="kt-switch kt-switch-sm" 
+                                                   {{ $location->is_active ? 'checked' : '' }} 
+                                                   disabled/>
+                                            @endcan
+                                        </td>
+                                        <td class="w-[60px] location-actions-cell">
+                                            <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                                <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                        <i class="ki-filled ki-dots-vertical text-lg"></i>
+                                                    </button>
+                                                    <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                        @can('edit-companies')
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.companies.locations.edit', [$company, $location]) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-pencil"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bewerken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endcan
+                                                        @can('delete-companies')
+                                                        <div class="kt-menu-separator"></div>
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.companies.locations.destroy', [$company, $location]) }}"
+                                                                  method="POST"
+                                                                  style="display: inline;"
+                                                                  onsubmit="return confirm('Weet je zeker dat je deze vestiging wilt verwijderen?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="kt-menu-link w-full text-left text-danger">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-trash"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endcan
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-8 text-muted-foreground">
+                        <i class="ki-filled ki-information-5 text-4xl mb-2"></i>
+                        <p>Nog geen vestigingen toegevoegd.</p>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
 </div>
+
+@push('scripts')
+@can('edit-companies')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Main location toggle
+        const mainLocationCheckbox = document.getElementById('toggle-main-location-checkbox');
+        const mainLocationForm = document.getElementById('toggle-main-location-form');
+        
+        if (mainLocationCheckbox && mainLocationForm) {
+            mainLocationCheckbox.addEventListener('change', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(mainLocationForm);
+                const url = mainLocationForm.action;
+                const originalChecked = this.checked;
+                
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token')
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || 'Network response was not ok');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.message) {
+                        console.log(data.message);
+                        // Update checkbox state based on response
+                        if (data.has_main_location !== undefined) {
+                            this.checked = data.has_main_location;
+                        }
+                        // Reload page to update the UI
+                        window.location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Revert checkbox state on error
+                    this.checked = !originalChecked;
+                    alert(error.message || 'Er is een fout opgetreden bij het wijzigen van het hoofdkantoor.');
+                });
+            });
+        }
+        
+        // Company status toggle
+        const checkbox = document.getElementById('toggle-status-checkbox');
+        const form = document.getElementById('toggle-status-form');
+        
+        if (checkbox && form) {
+            checkbox.addEventListener('change', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const url = form.action;
+                
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token')
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.message) {
+                        console.log(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    checkbox.checked = !checkbox.checked;
+                    alert('Er is een fout opgetreden bij het wijzigen van de status.');
+                });
+            });
+        }
+
+        // Location status toggles
+        const locationCheckboxes = document.querySelectorAll('.location-status-checkbox');
+        locationCheckboxes.forEach(function(checkbox) {
+            checkbox.addEventListener('change', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const locationId = this.getAttribute('data-location-id');
+                const companyId = this.getAttribute('data-company-id');
+                const form = document.querySelector('.location-toggle-status-form-' + locationId);
+                const formData = new FormData(form);
+                const url = form.action;
+                const originalChecked = this.checked;
+                
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token')
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.message) {
+                        console.log(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Revert checkbox state on error
+                    this.checked = !originalChecked;
+                    alert('Er is een fout opgetreden bij het wijzigen van de status.');
+                });
+            });
+        });
+        
+        // Make location table rows clickable (except actions column and status toggle)
+        document.addEventListener('click', function(e) {
+            const row = e.target.closest('tr');
+            if (!row || !row.classList.contains('location-row')) return;
+
+            // Don't navigate if clicking on actions column, status column, menu, or toggle switch
+            if (e.target.closest('.location-actions-cell') || 
+                e.target.closest('.location-status-cell') || 
+                e.target.closest('.kt-menu') || 
+                e.target.closest('button') || 
+                e.target.closest('a') ||
+                e.target.closest('.kt-switch') ||
+                e.target.closest('form')) {
+                return;
+            }
+
+            // Try to get URL from data-href
+            let url = row.getAttribute('data-href');
+            if (url) {
+                window.location.href = url;
+            }
+        });
+        
+        // Stop propagation for status toggle clicks
+        document.querySelectorAll('.location-status-checkbox').forEach(function(checkbox) {
+            checkbox.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+    });
+</script>
+@endcan
+@endpush
+
+@push('styles')
+<style>
+    /* Remove all borders between table rows in show forms */
+    .kt-table-border-dashed tbody tr {
+        border-bottom: none !important;
+    }
+    /* Uniform row height for all table rows */
+    .kt-table-border-dashed tbody tr,
+    .kt-table-border-dashed tbody tr td {
+        height: auto;
+        min-height: 48px;
+    }
+    .kt-table-border-dashed tbody tr td {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        vertical-align: middle;
+    }
+    
+    /* Location row hover styling (same as company-row on index page) */
+    .location-row {
+        cursor: pointer !important;
+    }
+    .location-row:hover {
+        background-color: var(--muted) !important;
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+        .location-row:hover {
+            background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
+        }
+    }
+</style>
+@endpush
+
 @endsection

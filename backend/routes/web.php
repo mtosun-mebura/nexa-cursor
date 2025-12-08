@@ -7,7 +7,7 @@ use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminVacancyController;
-use App\Http\Controllers\Admin\AdminCategoryController;
+use App\Http\Controllers\Admin\AdminBranchController;
 use App\Http\Controllers\Admin\AdminMatchController;
 use App\Http\Controllers\Admin\AdminInterviewController;
 use App\Http\Controllers\Admin\AdminNotificationController;
@@ -17,6 +17,9 @@ use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminPermissionController;
 use App\Http\Controllers\Admin\AdminPaymentProviderController;
+use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminInvoiceController;
+use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Http\Controllers\Frontend\DashboardController;
@@ -171,10 +174,39 @@ Route::get('/candidate-photo/{token}', function ($token) {
     ]);
 })->name('candidate.photo');
 
+// Company logo serving route (authenticated admin users only)
+Route::get('/company-logo/{company}', function ($companyId) {
+    // Check if user is authenticated
+    if (!Auth::check()) {
+        abort(404);
+    }
+    
+    $company = \App\Models\Company::find($companyId);
+    
+    if (!$company || !$company->logo_blob) {
+        abort(404);
+    }
+    
+    // Check if user has permission to view companies
+    if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+        abort(403);
+    }
+    
+    $content = base64_decode($company->logo_blob);
+    $mimeType = $company->logo_mime_type ?: 'image/png';
+    
+    return response($content, 200, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'private, max-age=3600',
+        'X-Content-Type-Options' => 'nosniff',
+        'X-Frame-Options' => 'DENY',
+    ]);
+})->name('admin.companies.logo');
+
 // Publieke vacatures routes - redirect naar /jobs
 Route::get('/vacatures', function() {
     return redirect()->route('jobs.index');
-})->name('vacancies.index');
+})->name('vacatures.index');
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
 // Frontend vacancy details
@@ -197,13 +229,27 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Companies
     Route::resource('companies', AdminCompanyController::class);
     Route::post('companies/{company}/toggle-status', [AdminCompanyController::class, 'toggleStatus'])->name('companies.toggle-status');
+    Route::post('companies/{company}/toggle-main-location', [AdminCompanyController::class, 'toggleMainLocation'])->name('companies.toggle-main-location');
+    Route::post('companies/{company}/upload-logo', [AdminCompanyController::class, 'uploadLogo'])->name('companies.upload-logo');
+    
+    // Company Locations
+    Route::get('companies/{company}/locations/create', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
+    Route::post('companies/{company}/locations', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
+    Route::get('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'show'])->name('companies.locations.show');
+    Route::get('companies/{company}/locations/{location}/edit', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'edit'])->name('companies.locations.edit');
+    Route::put('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'update'])->name('companies.locations.update');
+    Route::delete('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'destroy'])->name('companies.locations.destroy');
+    Route::post('companies/{company}/locations/{location}/set-main', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'setMain'])->name('companies.locations.set-main');
+    Route::post('companies/{company}/locations/{location}/toggle-status', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'toggleStatus'])->name('companies.locations.toggle-status');
     
     // Users
     Route::resource('users', AdminUserController::class);
     Route::post('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
+    Route::get('users/{user}/photo', [AdminUserController::class, 'photo'])->name('users.photo');
     
-    // Categories
-    Route::resource('categories', AdminCategoryController::class);
+    // Branches (voorheen Categories)
+    Route::resource('branches', AdminBranchController::class);
+    Route::get('branches/{branch}/data', [AdminBranchController::class, 'getData'])->name('branches.data');
     
     // Vacancies
     Route::resource('vacancies', AdminVacancyController::class);
@@ -217,6 +263,19 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Agenda
     Route::get('agenda', [App\Http\Controllers\Admin\AgendaController::class, 'index'])->name('agenda.index');
     Route::get('agenda/events', [App\Http\Controllers\Admin\AgendaController::class, 'events'])->name('agenda.events');
+    
+    // Profile
+    Route::get('profile', [AdminProfileController::class, 'index'])->name('profile');
+    Route::post('profile/update', [AdminProfileController::class, 'update'])->name('profile.update');
+    Route::post('profile/photo', [AdminProfileController::class, 'uploadPhoto'])->name('profile.photo');
+    Route::post('profile/cv', [AdminProfileController::class, 'uploadCV'])->name('profile.cv');
+    Route::post('profile/cv/remove', [AdminProfileController::class, 'removeCV'])->name('profile.cv.remove');
+    Route::post('profile/skills', [AdminProfileController::class, 'addSkill'])->name('profile.skills.add');
+    Route::delete('profile/skills/{skillId}', [AdminProfileController::class, 'removeSkill'])->name('profile.skills.remove');
+    Route::post('profile/experiences', [AdminProfileController::class, 'addExperience'])->name('profile.experiences.add');
+    Route::get('profile/experiences/{experienceId}', [AdminProfileController::class, 'showExperience'])->name('profile.experiences.show');
+    Route::put('profile/experiences/{experienceId}', [AdminProfileController::class, 'updateExperience'])->name('profile.experiences.update');
+    Route::delete('profile/experiences/{experienceId}', [AdminProfileController::class, 'removeExperience'])->name('profile.experiences.remove');
     
     // Notifications
     Route::resource('notifications', AdminNotificationController::class);
@@ -249,10 +308,25 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('payment-providers/{paymentProvider}/toggle-status', [AdminPaymentProviderController::class, 'toggleStatus'])->name('payment-providers.toggle-status');
         Route::post('payment-providers/{paymentProvider}/test-connection', [AdminPaymentProviderController::class, 'testConnection'])->name('payment-providers.test-connection');
         
+        // Payments (Super Admin only)
+        Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments.index');
+        Route::get('payments/openstaand', [AdminPaymentController::class, 'openstaand'])->name('payments.openstaand');
+        Route::get('payments/voldaan', [AdminPaymentController::class, 'voldaan'])->name('payments.voldaan');
+        
+        // Invoices (Super Admin only)
+        Route::resource('invoices', AdminInvoiceController::class);
+        Route::post('invoices/{invoice}/send-reminder', [AdminInvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');
+        Route::get('invoices/{invoice}/payment-links', [AdminInvoiceController::class, 'paymentLinks'])->name('invoices.payment-links');
+        Route::get('invoices/settings', [AdminInvoiceController::class, 'settings'])->name('invoices.settings');
+        Route::post('invoices/settings', [AdminInvoiceController::class, 'updateSettings'])->name('invoices.settings.update');
+        
         // Settings (Super Admin only)
         Route::get('settings', [App\Http\Controllers\Admin\AdminSettingsController::class, 'index'])->name('settings.index');
         Route::post('settings/mail', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
         Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
+        
+        // Postcode lookup (for address autocomplete)
+        Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');
     });
 });
 
@@ -264,6 +338,10 @@ Route::get('/', [App\Http\Controllers\Frontend\HomeController::class, 'index'])-
 
 // Vacature matching demo page
 Route::get('/vacature-matching', [MatchController::class, 'demo'])->name('vacature-matching');
+
+// Demo routes (demo1-demo10)
+Route::get('/demo{demoNumber}', [App\Http\Controllers\DemoController::class, 'show'])->where('demoNumber', '[1-9]|10')->name('demo.show');
+Route::get('/demo{demoNumber}/{path}', [App\Http\Controllers\DemoController::class, 'showSubpage'])->where('demoNumber', '[1-9]|10')->where('path', '.*')->name('demo.subpage');
 
 /*
 |--------------------------------------------------------------------------

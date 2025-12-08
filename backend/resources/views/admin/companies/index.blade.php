@@ -3,922 +3,611 @@
 @section('title', 'Bedrijven Beheer')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #4caf50;
-        --primary-light: #81c784;
-        --primary-dark: #388e3c;
-        --secondary-color: #e8f5e8;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --light-bg: #fafafa;
-        --dark-text: #212121;
-        --medium-text: #757575;
-        --border-color: #e0e0e0;
-        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
-        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
-        border: none;
-        margin-bottom: 24px;
-        transition: var(--transition);
-        overflow: hidden;
-    }
-    
-    .material-card:hover {
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        border-radius: 0;
-        padding: 10px 24px;
-        border: none;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .material-card .card-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-        transform: translateX(-100%);
-        transition: var(--transition);
-    }
-    
-    .material-card .card-header:hover::before {
-        transform: translateX(100%);
-    }
-    
-    .material-card .card-body {
-        padding: 0px;
-    }
-    
-    .material-btn {
-        border-radius: var(--border-radius);
-        text-transform: uppercase;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        padding: 6px 12px;
-        border: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 12px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-    }
-    
-    .material-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .material-btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-    
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .material-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-    }
-    
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--dark-text);
-        border: 1px solid var(--border-color);
-    }
-    
-    .material-btn-secondary:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-table {
-        width: 100%;
-        border-collapse: collapse;
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--shadow-light);
-        background: white;
-    }
-    
-    .material-table thead th {
-        background: var(--light-bg);
-        border: none;
-        font-weight: 600;
-        color: var(--dark-text);
-        padding: 12px 16px;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: var(--transition);
-        position: relative;
-        text-align: left;
-    }
-    
-    .material-table thead th:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-    }
-    
-    .material-table tbody td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-        transition: var(--transition);
-    }
-    
-    .material-table tbody tr {
-        transition: var(--transition);
-        background-color: white;
-    }
-    
-    .material-table tbody tr:hover {
-        background-color: var(--secondary-color) !important;
-        transition: background-color 0.3s ease;
-    }
-    
-    .status-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-block;
-        min-width: 100px;
-        text-align: center;
-        box-shadow: var(--shadow-light);
-        transition: var(--transition);
-    }
-    
-    .status-badge:hover {
-        transform: scale(1.05);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .status-active {
-        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-        color: white;
-    }
-    
-    .status-inactive {
-        background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
-        color: white;
-    }
-    
-    .action-buttons {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        min-height: 40px;
-    }
-    
-    .action-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        text-decoration: none;
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    
-    .action-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .action-btn:hover::before {
-        width: 100px;
-        height: 100px;
-    }
-    
-    .action-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .action-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .action-btn-view {
-        background: linear-gradient(135deg, #2196f3 0%, #42a5f5 100%);
-        color: white;
-    }
-    
-    .action-btn-edit {
-        background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
-        color: white;
-    }
-    
-    .action-btn-delete {
-        background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
-        color: white;
-    }
-    
-    .action-btn-warning {
-        background: linear-gradient(135deg, #ff5722 0%, #ff7043 100%);
-        color: white;
-    }
-    
-    .action-btn-success {
-        background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
-        color: white;
-    }
-    
-    .company-info {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-    
-    .company-name {
-        font-weight: 600;
-        color: var(--dark-text);
-        font-size: 0.95rem;
-    }
-    
-    .company-details {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.85rem;
-        color: var(--medium-text);
-    }
-    
-    .company-details i {
-        width: 12px;
-        text-align: center;
-    }
-    
-    /* Statistics Cards */
-    .stats-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 20px;
-        margin-bottom: 32px;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 10px;
-        box-shadow: var(--shadow-light);
-        text-align: center;
-        transition: var(--transition);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .stat-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .stat-label {
-        font-size: 0.8rem;
-        color: var(--medium-text);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 4px;
-    }
-    
-    /* Filters Section */
-    .filters-section {
-        background: var(--light-bg);
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .filter-group {
-        margin-bottom: 0;
-    }
-    
-    .filter-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .filter-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background-color: white;
-        font-size: 12px;
-        color: var(--dark-text);
-        transition: var(--transition);
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 16px;
-        padding-right: 40px;
-    }
-    
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-    }
-    
-    .filter-select option {
-        padding: 8px;
-        background-color: white;
-        color: var(--dark-text);
-    }
-    
-    .filter-select option:checked {
-        background: var(--primary-color);
-        color: white;
-    }
-    
-    /* Results Info */
-    .results-info-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .results-info {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .results-text {
-        font-size: 0.875rem;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-    }
-    
-    .results-text i {
-        color: var(--primary-color);
-        font-size: 0.875rem;
-    }
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Bedrijven Beheer
+        </h1>
+        @can('create-companies')
+        <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-primary">
+            <i class="ki-filled ki-plus me-2"></i>
+            Nieuw Bedrijf
+        </a>
+        @endcan
+    </div>
 
-    /* Pagination */
-    .pagination-wrapper {
-        padding: 16px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-    }
-    
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
-    
-    .page-item {
-        margin: 0;
-    }
-    
-    .page-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background: white;
-        color: var(--dark-text);
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.85rem;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .page-link:hover {
-        background: var(--secondary-color);
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        border-color: var(--primary-color);
-        color: white;
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .page-item.disabled .page-link {
-        background: #f5f5f5;
-        color: #ccc;
-        cursor: not-allowed;
-        border-color: #e0e0e0;
-    }
-    
-    .page-item.disabled .page-link:hover {
-        transform: none;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .material-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .material-badge-success {
-        background: #d4edda;
-        color: #155724;
-    }
-    
-    .material-badge-warning {
-        background: #fff3cd;
-        color: #856404;
-    }
-    
-    .material-badge-info {
-        background: #d1ecf1;
-        color: #0c5460;
-    }
-    
-    
-    
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #6c757d;
-    }
-    
-    .empty-state i {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        opacity: 0.5;
-    }
-    
-    .company-info {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .company-name {
-        font-weight: 600;
-        color: #495057;
-    }
-    
-    .company-slug {
-        font-size: 0.85rem;
-        color: #6c757d;
-        margin-top: 4px;
-    }
-    
-    .company-contact {
-        color: #4caf50;
-        text-decoration: none;
-    }
-    
-    .company-contact:hover {
-        color: #388e3c;
-        text-decoration: underline;
-    }
-    
-    .company-location {
-        background: #e8f5e8;
-        color: #2e7d32;
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-    }
-    
-    .date-info {
-        font-size: 0.85rem;
-        color: #6c757d;
-    }
-    
-    .auto-dismiss {
-        animation: slideDown 0.3s ease-out;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .auto-dismiss.fade-out {
-        animation: slideUp 0.3s ease-in forwards;
-    }
-    
-    @keyframes slideUp {
-        from {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        to {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-    }
-</style>
-
-<div class="container-fluid">
     <!-- Success Alert -->
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show auto-dismiss" role="alert" id="success-alert">
-            <i class="fas fa-check-circle me-2"></i>
+        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
-    
-    <div class="row">
-        <div class="col-12">
-            <!-- Status Statistieken -->
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->where('is_active', true)->count() }}</div>
-                    <div class="stat-label">Actief</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #f44336 0%, #ef5350 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->where('is_active', false)->count() }}</div>
-                    <div class="stat-label">Inactief</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #2196f3 0%, #42a5f5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->where('is_intermediary', true)->count() }}</div>
-                    <div class="stat-label">Tussenpartijen</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $companies->total() }}</div>
-                    <div class="stat-label">Totaal</div>
-                </div>
-            </div>
-            <div class="material-card">
-                <!-- Header -->
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-building me-2"></i> Bedrijven Beheer
-                    </h5>
-                    <div class="d-flex gap-2">
-                        <a href="{{ route('admin.companies.create') }}" class="material-btn material-btn-primary">
-                            <i class="fas fa-plus me-2"></i> Nieuw Bedrijf
-                        </a>
-                    </div>
-                </div>
-                
-                <!-- Filters -->
-                <div class="filters-section">
-                    <form method="GET" action="{{ route('admin.companies.index') }}" id="filters-form">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="filter-group">
-                                    <label class="filter-label">Status</label>
-                                    <select name="status" class="filter-select" onchange="this.form.submit()">
-                                        <option value="">Alle statussen</option>
-                                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                        <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="filter-group">
-                                    <label class="filter-label">Industrie</label>
-                                    <select name="industry" class="filter-select" onchange="this.form.submit()">
-                                        <option value="">Alle industrieën</option>
-                                        @foreach($companies->pluck('industry')->unique()->filter() as $industry)
-                                            <option value="{{ $industry }}" {{ request('industry') == $industry ? 'selected' : '' }}>
-                                                {{ $industry }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="filter-group">
-                                    <label class="filter-label">Tussenpartij</label>
-                                    <select name="intermediary" class="filter-select" onchange="this.form.submit()">
-                                        <option value="">Alle bedrijven</option>
-                                        <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>Tussenpartij</option>
-                                        <option value="no" {{ request('intermediary') == 'no' ? 'selected' : '' }}>Directe werkgever</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="filter-group">
-                                    <label class="filter-label">Sorteren</label>
-                                    <select name="sort" class="filter-select" onchange="this.form.submit()">
-                                        <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
-                                        <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Aangemaakt</option>
-                                        <option value="status" {{ request('sort') == 'status' ? 'selected' : '' }}>Status</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="filter-group">
-                                    <label class="filter-label">Items per pagina</label>
-                                    <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                        <option value="5" {{ request('per_page', 5) == 5 ? 'selected' : '' }}>5</option>
-                                        <option value="15" {{ request('per_page', 5) == 15 ? 'selected' : '' }}>15</option>
-                                        <option value="25" {{ request('per_page', 5) == 25 ? 'selected' : '' }}>25</option>
-                                        <option value="50" {{ request('per_page', 5) == 50 ? 'selected' : '' }}>50</option>
-                                        <option value="100" {{ request('per_page', 5) == 100 ? 'selected' : '' }}>100</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-1">
-                                <div class="filter-group">
-                                    <label class="filter-label">&nbsp;</label>
-                                    <a href="{{ route('admin.companies.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
-                                        <i class="fas fa-times"></i>
-                                        Filter wissen
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                
-                <div class="card-body">
 
-                    <div class="table-responsive" style="width: 100%;">
-                        <table class="material-table" style="width: 100%;">
-                            <thead>
-                                <tr>
-                                    <th>Naam</th>
-                                    <th>E-mail</th>
-                                    <th>Telefoon</th>
-                                    <th>Locatie</th>
-                                    <th>Type</th>
-                                    <th>Status</th>
-                                    <th>Gemaakt op</th>
-                                    <th>Acties</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($companies as $company)
-                                    <tr>
-                                        <td>
-                                            <div class="company-info">
-                                                <div class="company-name">{{ $company->name }}</div>
-                                                @if($company->slug)
-                                                    <div class="company-slug">{{ $company->slug }}</div>
-                                                @endif
-                                            </div>
-                                        </td>
-                                        <td>
-                                            @if($company->email)
-                                                <a href="mailto:{{ $company->email }}" class="company-contact">{{ $company->email }}</a>
-                                            @else
-                                                <span class="text-muted">Geen e-mail</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($company->phone)
-                                                <a href="tel:{{ $company->phone }}" class="company-contact">{{ $company->phone }}</a>
-                                            @else
-                                                <span class="text-muted">Geen telefoon</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($company->city)
-                                                <span class="company-location">{{ $company->city }}, {{ $company->country }}</span>
-                                            @else
-                                                <span class="text-muted">Geen locatie</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($company->is_intermediary)
-                                                <span class="material-badge material-badge-info">Tussenpartij</span>
-                                            @else
-                                                <span class="material-badge material-badge-success">Directe werkgever</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <span class="status-badge status-{{ $company->is_active ? 'active' : 'inactive' }}">
-                                                {{ $company->is_active ? 'Actief' : 'Inactief' }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="date-info">{{ $company->created_at->format('d-m-Y H:i') }}</div>
-                                        </td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <a href="{{ route('admin.companies.show', $company) }}" class="action-btn action-btn-view" title="Bekijken">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                <a href="{{ route('admin.companies.edit', $company) }}" class="action-btn action-btn-edit" title="Bewerken">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <form action="{{ route('admin.companies.toggle-status', $company) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je de status van dit bedrijf wilt wijzigen?')">
-                                                    @csrf
-                                                    <button type="submit" class="action-btn {{ $company->is_active ? 'action-btn-warning' : 'action-btn-success' }}" title="{{ $company->is_active ? 'Deactiveren' : 'Activeren' }}">
-                                                        <i class="fas {{ $company->is_active ? 'fa-pause' : 'fa-play' }}"></i>
-                                                    </button>
-                                                </form>
-                                                <form action="{{ route('admin.companies.destroy', $company) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je dit bedrijf wilt verwijderen?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="action-btn action-btn-delete" title="Verwijderen">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8">
-                                            <div class="empty-state">
-                                                <i class="fas fa-building"></i>
-                                                <h5>Nog geen bedrijven</h5>
-                                                <p>Er zijn nog geen bedrijven aangemaakt.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Results Info -->
-                    <div class="results-info-wrapper">
-                        <div class="results-info">
-                            <span class="results-text">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Toon {{ $companies->firstItem() ?? 0 }} tot {{ $companies->lastItem() ?? 0 }} van {{ $companies->total() }} resultaten
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Pagination -->
-                    @if($companies->hasPages())
-                        <div class="pagination-wrapper">
-                            <nav aria-label="Paginering">
-                                <ul class="pagination">
-                                    {{-- Previous Page Link --}}
-                                    @if ($companies->onFirstPage())
-                                        <li class="page-item disabled">
-                                            <span class="page-link">
-                                                <i class="fas fa-chevron-left"></i>
-                                            </span>
-                                        </li>
-                                    @else
-                                        <li class="page-item">
-                                            <a class="page-link" href="{{ $companies->previousPageUrl() }}">
-                                                <i class="fas fa-chevron-left"></i>
-                                            </a>
-                                        </li>
-                                    @endif
-
-                                    {{-- Pagination Elements --}}
-                                    @foreach ($companies->getUrlRange(1, $companies->lastPage()) as $page => $url)
-                                        @if ($page == $companies->currentPage())
-                                            <li class="page-item active">
-                                                <span class="page-link">{{ $page }}</span>
-                                            </li>
-                                        @else
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $url }}">{{ $page }}</a>
-                                            </li>
-                                        @endif
-                                    @endforeach
-
-                                    {{-- Next Page Link --}}
-                                    @if ($companies->hasMorePages())
-                                        <li class="page-item">
-                                            <a class="page-link" href="{{ $companies->nextPageUrl() }}">
-                                                <i class="fas fa-chevron-right"></i>
-                                            </a>
-                                        </li>
-                                    @else
-                                        <li class="page-item disabled">
-                                            <span class="page-link">
-                                                <i class="fas fa-chevron-right"></i>
-                                            </span>
-                                        </li>
-                                    @endif
-                                </ul>
-                            </nav>
-                        </div>
-                    @endif
+    <!-- Statistics Cards -->
+    <div class="kt-card mb-5">
+        <div class="kt-card-content">
+            <div class="flex lg:px-10 py-1.5 gap-2">
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_companies'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Bedrijven
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['active_companies'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Actief
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_users'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Gebruikers
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_vacancies'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Vacatures
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['intermediaries'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Tussenpartijen
+                    </span>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="kt-card kt-card-grid min-w-full">
+            <div class="kt-card-header py-5 flex-wrap gap-2">
+                <h3 class="kt-card-title text-sm pb-3 w-full">
+                    Toon 1 tot {{ $companies->count() }} van {{ $companies->count() }} bedrijven
+                </h3>
+                <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
+                    <!-- Search -->
+                    <div class="flex">
+                        <form method="GET" action="{{ route('admin.companies.index') }}" class="flex gap-2" id="search-form">
+                            @if(request('status'))
+                                <input type="hidden" name="status" value="{{ request('status') }}">
+                            @endif
+                            @if(request('intermediary'))
+                                <input type="hidden" name="intermediary" value="{{ request('intermediary') }}">
+                            @endif
+                            @if(request('industry'))
+                                <input type="hidden" name="industry" value="{{ request('industry') }}">
+                            @endif
+                            @if(request('sort'))
+                                <input type="hidden" name="sort" value="{{ request('sort') }}">
+                            @endif
+                            @if(request('direction'))
+                                <input type="hidden" name="direction" value="{{ request('direction') }}">
+                            @endif
+                            @if(request('per_page'))
+                                <input type="hidden" name="per_page" value="{{ request('per_page') }}">
+                            @endif
+                            <label class="kt-input" style="position: relative !important;">
+                                <i class="ki-filled ki-magnifier"></i>
+                                <input placeholder="Zoek bedrijven..." 
+                                       type="text" 
+                                       name="search" 
+                                       value="{{ request('search') }}"
+                                       id="search-input"
+                                       data-kt-datatable-search="#companies_table"
+                                       style="{{ request('search') ? 'padding-right: 2.5rem !important;' : '' }}"/>
+                                @if(request('search'))
+                                <button type="button" 
+                                        class="kt-input-clear" 
+                                        id="search-clear-btn"
+                                        title="Zoekopdracht wissen"
+                                        style="position: absolute !important; right: 0.75rem !important; top: 50% !important; transform: translateY(-50%) !important; background: transparent !important; border: none !important; padding: 0.25rem !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; color: var(--muted-foreground) !important; opacity: 1 !important; visibility: visible !important; z-index: 10 !important; width: 1.5rem !important; height: 1.5rem !important;">
+                                    <i class="ki-filled ki-cross" style="font-size: 0.875rem !important; display: block !important; visibility: visible !important;"></i>
+                                </button>
+                                @endif
+                            </label>
+                        </form>
+                    </div>
+                    <!-- Filters -->
+                    <div class="flex flex-wrap gap-2.5 items-center">
+                        <form method="GET" action="{{ route('admin.companies.index') }}" id="filters-form" class="flex gap-2.5">
+                            @if(request('search'))
+                                <input type="hidden" name="search" value="{{ request('search') }}">
+                            @endif
+                            
+                            <select class="kt-select w-36" 
+                                    name="status" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Status"
+                                    id="status-filter">
+                                <option value="">Alle statussen</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                            </select>
+                            
+                            <select class="kt-select w-36" 
+                                    name="intermediary" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Type"
+                                    id="intermediary-filter">
+                                <option value="">Alle types</option>
+                                <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>Tussenpartij</option>
+                                <option value="no" {{ request('intermediary') == 'no' ? 'selected' : '' }}>Directe werkgever</option>
+                            </select>
+                            
+                            @if($industries->count() > 0)
+                            <select class="kt-select w-36" 
+                                    name="industry" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Industrie"
+                                    id="industry-filter">
+                                <option value="">Alle industrieën</option>
+                                @foreach($industries as $industry)
+                                    <option value="{{ $industry }}" {{ request('industry') == $industry ? 'selected' : '' }}>
+                                        {{ $industry }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @endif
+                            
+                            <select class="kt-select w-36" 
+                                    name="sort" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Sorteren"
+                                    id="sort-filter">
+                                <option value="created_at" {{ request('sort', 'created_at') == 'created_at' ? 'selected' : '' }}>Datum</option>
+                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
+                                <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>Status</option>
+                            </select>
+                        </form>
+                        @if(request('status') || request('intermediary') || request('industry') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
+                        <a href="{{ route('admin.companies.index') }}" 
+                           class="kt-btn kt-btn-outline kt-btn-icon" 
+                           title="Filters resetten"
+                           id="reset-filter-btn"
+                           style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
+                            <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
+                        </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kt-card-content">
+                @if($companies->count() > 0)
+                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="companies_table">
+                        <div class="kt-scrollable-x-auto">
+                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                            <thead>
+                                <tr>
+                                    <th class="min-w-[250px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Bedrijf</span>
+                                            <span class="kt-table-col-sort">
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'direction' => request('sort') == 'name' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[200px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Contact</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Locatie</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Type</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[100px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-sort">
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'is_active', 'direction' => request('sort') == 'is_active' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Aangemaakt</span>
+                                            <span class="kt-table-col-sort">
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => request('sort') == 'created_at' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="w-[60px] text-center">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($companies as $company)
+                                    <tr class="company-row">
+                                        <td>
+                                            <span class="text-sm font-medium text-mono" data-company-id="{{ $company->id }}">
+                                                {{ $company->name }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="flex flex-col gap-1">
+                                                @if($company->email)
+                                                    <div class="text-sm text-foreground">
+                                                        <i class="ki-filled ki-sms me-1 text-xs"></i>
+                                                        {{ $company->email }}
+                                                    </div>
+                                                @endif
+                                                @if($company->phone)
+                                                    <div class="text-sm text-foreground">
+                                                        <i class="ki-filled ki-phone me-1 text-xs"></i>
+                                                        {{ $company->phone }}
+                                                    </div>
+                                                @endif
+                                                @if(!$company->email && !$company->phone)
+                                                    <span class="text-sm text-muted-foreground">Geen contact</span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            @if($company->city || $company->country)
+                                                <div class="text-sm">
+                                                    @if($company->city){{ $company->city }}@endif
+                                                    @if($company->city && $company->country), @endif
+                                                    @if($company->country){{ $company->country }}@endif
+                                                </div>
+                                            @else
+                                                <span class="text-sm text-muted-foreground">Geen locatie</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($company->is_intermediary)
+                                                <span class="kt-badge kt-badge-info">Tussenpartij</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-success">Directe werkgever</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($company->is_active)
+                                                <span class="kt-badge kt-badge-success">Actief</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-danger">Inactief</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <span class="text-sm">{{ $company->created_at->format('d-m-Y') }}</span>
+                                        </td>
+                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                            <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                                <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                        <i class="ki-filled ki-dots-vertical text-lg"></i>
+                                                    </button>
+                                                    <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                        @can('view-companies')
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.companies.show', $company) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-eye"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bekijken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endcan
+                                                        @can('edit-companies')
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.companies.edit', $company) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-pencil"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bewerken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endcan
+                                                        @if(($canView = auth()->user()->can('view-companies')) || ($canEdit = auth()->user()->can('edit-companies')))
+                                                        <div class="kt-menu-separator"></div>
+                                                        @endif
+                                                        @can('edit-companies')
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.companies.toggle-status', $company) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;"
+                                                                  onsubmit="return confirm('Weet je zeker dat je de status wilt wijzigen?')">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled {{ $company->is_active ? 'ki-pause' : 'ki-play' }}"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">{{ $company->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endcan
+                                                        @can('delete-companies')
+                                                        <div class="kt-menu-separator"></div>
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.companies.destroy', $company) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;"
+                                                                  onsubmit="return confirm('Weet je zeker dat je dit bedrijf wilt verwijderen?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="kt-menu-link w-full text-left text-danger">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-trash"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endcan
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        </div>
+                    
+                    <!-- Pagination -->
+                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
+                        <div class="flex items-center gap-2 order-2 md:order-1">
+                            Toon
+                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            </select>
+                            per pagina
+                        </div>
+                        <div class="flex items-center gap-4 order-1 md:order-2">
+                            <span data-kt-datatable-info="true">
+                            </span>
+                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center py-16">
+                        <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
+                        <h4 class="text-lg font-semibold text-mono mb-2">Geen bedrijven gevonden</h4>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
 </div>
+
+@push('scripts')
 <script>
-    // Auto-dismiss success alert after 5 seconds
     document.addEventListener('DOMContentLoaded', function() {
+        // Replace "of" with "van" in pagination info
+        function replaceOfWithVan() {
+            const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+            if (infoSpan && infoSpan.textContent.includes(' of ')) {
+                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
+            }
+        }
+        
+        // Initial replacement
+        replaceOfWithVan();
+        
+        // Watch for changes in the info span
+        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        if (infoSpan) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                        replaceOfWithVan();
+                    }
+                });
+            });
+            
+            observer.observe(infoSpan, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
+        }
+        
+        // Filter form submission (server-side filters)
+        const filterForm = document.getElementById('filters-form');
+        const statusFilter = document.getElementById('status-filter');
+        const intermediaryFilter = document.getElementById('intermediary-filter');
+        const industryFilter = document.getElementById('industry-filter');
+        const sortFilter = document.getElementById('sort-filter');
+        const perPageFilter = document.getElementById('per-page-filter');
+        
+        if (statusFilter && filterForm) {
+            statusFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (intermediaryFilter && filterForm) {
+            intermediaryFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (industryFilter && filterForm) {
+            industryFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (sortFilter && filterForm) {
+            sortFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (perPageFilter && filterForm) {
+            perPageFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        // Auto-dismiss success alert after 3 seconds
         const successAlert = document.getElementById('success-alert');
         if (successAlert) {
             setTimeout(function() {
-                successAlert.classList.add('fade-out');
+                successAlert.style.transition = 'opacity 0.3s ease-out';
+                successAlert.style.opacity = '0';
                 setTimeout(function() {
                     successAlert.remove();
-                }, 300); // Match the CSS animation duration
-            }, 5000); // 5 seconds
+                }, 300); // Wait for fade-out animation
+            }, 3000); // 3 seconds
         }
+        
+        // Clear search input button
+        const searchClearBtn = document.getElementById('search-clear-btn');
+        const searchInput = document.getElementById('search-input');
+        const searchForm = document.getElementById('search-form');
+        
+        if (searchClearBtn && searchInput && searchForm) {
+            searchClearBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                searchInput.value = '';
+                // Trigger input event for datatable search
+                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                // Submit form to clear search from URL
+                searchForm.submit();
+            });
+        }
+        
+        // Make table rows clickable (except actions column)
+        document.querySelectorAll('tbody tr.company-row').forEach(function(row) {
+            row.addEventListener('click', function(e) {
+                // Don't navigate if clicking on actions column or menu
+                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+                    return;
+                }
+                
+                // Get company ID from the name span
+                const nameSpan = this.querySelector('td:first-child span[data-company-id]');
+                if (nameSpan) {
+                    const companyId = nameSpan.getAttribute('data-company-id');
+                    if (companyId) {
+                        window.location.href = '/admin/companies/' + companyId;
+                    }
+                }
+            });
+        });
     });
 </script>
+@endpush
+
+@push('styles')
+<style>
+    /* Table column sorting */
+    .kt-table-col {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    .kt-table-col-sort {
+        margin-left: auto !important;
+    }
+    
+    /* Input clear button */
+    .kt-input {
+        position: relative !important;
+    }
+    .kt-input:has(.kt-input-clear) input {
+        padding-right: 2.5rem !important;
+    }
+    .kt-input-clear {
+        position: absolute !important;
+        right: 0.75rem !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0.25rem !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        color: var(--muted-foreground) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        z-index: 10 !important;
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        transition: opacity 0.2s, color 0.2s !important;
+    }
+    .kt-input-clear:hover {
+        opacity: 1 !important;
+        color: var(--foreground) !important;
+    }
+    .kt-input-clear i {
+        font-size: 0.875rem !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* Reset button visibility */
+    a[title="Filters resetten"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        min-width: 34px !important;
+        height: 34px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: 1px solid var(--input) !important;
+        background-color: var(--background) !important;
+        color: var(--secondary-foreground) !important;
+    }
+    a[title="Filters resetten"]:hover {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
+    a[title="Filters resetten"] i {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Table row hover styling (same as demo) */
+    .company-row {
+        cursor: pointer !important;
+    }
+    .company-row:hover {
+        background-color: var(--muted) !important;
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+        .company-row:hover {
+            background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
+        }
+    }
+</style>
+@endpush
+
 @endsection

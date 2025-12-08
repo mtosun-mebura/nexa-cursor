@@ -3,420 +3,26 @@
 @section('title', 'Nieuwe Vacature')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #9c27b0;
-        --primary-light: #ba68c8;
-        --primary-dark: #7b1fa2;
-        --primary-hover: #ab47bc;
-        --secondary-color: #607d8b;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --text-primary: #212121;
-        --text-secondary: #757575;
-        --border-color: #e0e0e0;
-        --border-radius: 8px;
-        --shadow: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.15);
-        --transition: all 0.3s ease;
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-        margin-bottom: 24px;
-    }
 
-    .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-        color: white;
-        padding: 24px;
-        border-radius: var(--border-radius) var(--border-radius) 0 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .card-header h5 {
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .material-header-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .material-btn {
-        padding: 12px 24px;
-        border: none;
-        border-radius: var(--border-radius);
-        font-weight: 600;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: var(--transition);
-        cursor: pointer;
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        box-shadow: var(--shadow);
-    }
-
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-        color: white;
-    }
-
-    .material-btn-primary:hover {
-        background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary-color) 100%);
-        color: white;
-    }
-
-    .material-btn-secondary {
-        background: linear-gradient(135deg, var(--secondary-color) 0%, #455a64 100%);
-        color: white;
-    }
-
-    .material-btn-secondary:hover {
-        background: linear-gradient(135deg, #78909c 0%, var(--secondary-color) 100%);
-        color: white;
-    }
-
-    .material-btn-success {
-        background: linear-gradient(135deg, var(--success-color) 0%, #388e3c 100%);
-        color: white;
-    }
-
-    .material-btn-success:hover {
-        background: linear-gradient(135deg, #66bb6a 0%, var(--success-color) 100%);
-        color: white;
-    }
-
-    .material-btn-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #f57c00 100%);
-        color: white;
-    }
-
-    .material-btn-warning:hover {
-        background: linear-gradient(135deg, #ffb74d 0%, var(--warning-color) 100%);
-        color: white;
-    }
-
-    .material-btn-danger {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #d32f2f 100%);
-        color: white;
-    }
-
-    .material-btn-danger:hover {
-        background: linear-gradient(135deg, #ef5350 0%, var(--danger-color) 100%);
-        color: white;
-    }
-
-    .material-btn-info {
-        background: linear-gradient(135deg, var(--info-color) 0%, #1976d2 100%);
-        color: white;
-    }
-
-    .material-btn-info:hover {
-        background: linear-gradient(135deg, #42a5f5 0%, var(--info-color) 100%);
-        color: white;
-    }
-
-    .card-body {
-        padding: 32px;
-    }
-
-    .form-section {
-        background: #fafafa;
-        border-radius: var(--border-radius);
-        padding: 24px;
-        margin-bottom: 24px;
-        border: 1px solid var(--border-color);
-    }
-
-    .section-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid var(--primary-color);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-
-    .form-group {
-        margin-bottom: 20px;
-    }
-
-    .form-label {
-        display: block;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 8px;
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .form-control,
-    .form-select {
-        width: 100%;
-        padding: 12px 16px;
-        border: 2px solid var(--border-color);
-        border-radius: var(--border-radius);
-        font-size: 14px;
-        transition: var(--transition);
-        background: white;
-        cursor: pointer;
-        line-height: 24px;
-        height: 48px;
-        box-sizing: border-box;
-        display: flex;
-        align-items: center;
-    }
-
-    .form-control:focus,
-    .form-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1);
-    }
-
-    .form-control[type="date"],
-    .form-control[type="datetime-local"] {
-        position: relative;
-        background-image: none;
-        padding-right: 45px;
-        cursor: pointer;
-        padding: 12px 16px;
-        border: 2px solid var(--border-color);
-        border-radius: var(--border-radius);
-        font-size: 14px;
-        transition: var(--transition);
-        background: white;
-        cursor: pointer;
-        line-height: 24px;
-        height: 48px;
-        box-sizing: border-box;
-        display: flex;
-        align-items: center;
-    }
-
-    .form-control[type="date"]:hover,
-    .form-control[type="datetime-local"]:hover {
-        border-color: var(--primary-light);
-        background-color: #fafafa;
-    }
-
-    .form-control[type="date"]:focus,
-    .form-control[type="datetime-local"]:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1);
-        background-color: white;
-    }
-
-    .form-control[type="date"]::-webkit-calendar-picker-indicator,
-    .form-control[type="datetime-local"]::-webkit-calendar-picker-indicator {
-        background: transparent;
-        color: transparent;
-        cursor: pointer;
-        height: 100%;
-        left: 0;
-        position: absolute;
-        right: 0;
-        top: 0;
-        width: 100%;
-        transform: scale(4);
-        transform-origin: center;
-        font-size: 18px;
-    }
-
-    .form-control[type="date"]::-webkit-calendar-picker-indicator:active {
-        transform: scale(4.5);
-    }
-
-    .form-control[type="date"]::-webkit-calendar-picker-indicator:hover {
-        transform: scale(4.2);
-    }
-
-    .form-control[type="date"]::-webkit-calendar-picker-indicator:focus {
-        transform: scale(5);
-    }
-
-    .form-control[type="date"]::-webkit-datetime-edit {
-        font-size: 16px;
-        padding: 8px 0;
-    }
-
-    .date-input-wrapper {
-        position: relative;
-        display: block;
-        width: 100%;
-    }
-
-    .date-input-wrapper::after {
-        content: '';
-        position: absolute;
-        right: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 20px;
-        height: 20px;
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239c27b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3e%3c/rect%3e%3cline x='16' y='2' x='16' y='6'%3e%3c/line%3e%3cline x='8' y='2' x='8' y='6'%3e%3c/line%3e%3cline x='3' y='10' x='21' y='10'%3e%3c/line%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-size: contain;
-        pointer-events: none;
-        z-index: 1;
-        opacity: 0.7;
-        transition: opacity 0.3s ease;
-    }
-
-    .date-input-wrapper:hover::after {
-        opacity: 1;
-    }
-
-    .date-input-wrapper:focus-within::after {
-        opacity: 1;
-        stroke: var(--primary-color);
-    }
-
-    textarea.form-control {
-        height: auto;
-        min-height: 120px;
-        resize: vertical;
-        line-height: 1.6;
-    }
-
-    .form-check {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-
-    .form-check-input {
-        width: 20px;
-        height: 20px;
-        border: 2px solid var(--border-color);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: var(--transition);
-    }
-
-    .form-check-input:checked {
-        background-color: var(--primary-color);
-        border-color: var(--primary-color);
-    }
-
-    .form-check-label {
-        font-weight: 500;
-        color: var(--text-primary);
-        cursor: pointer;
-    }
-
-    .form-help {
-        font-size: 12px;
-        color: var(--text-secondary);
-        margin-top: 4px;
-    }
-
-    .required {
-        color: var(--danger-color);
-    }
-
-    .alert {
-        padding: 16px;
-        border-radius: var(--border-radius);
-        margin-bottom: 20px;
-        border: 1px solid;
-    }
-
-    .alert-danger {
-        background: #ffebee;
-        color: #c62828;
-        border-color: #f44336;
-    }
-
-    .alert ul {
-        margin: 0;
-        padding-left: 20px;
-    }
-
-    .form-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-top: 32px;
-        padding-top: 24px;
-        border-top: 1px solid var(--border-color);
-    }
-
-    @media (max-width: 768px) {
-        .card-header {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .material-header-actions {
-            justify-content: center;
-        }
-
-        .form-row {
-            grid-template-columns: 1fr;
-        }
-
-        .form-actions {
-            flex-direction: column;
-        }
-
-        .material-btn {
-            justify-content: center;
-        }
-    }
-</style>
-
-<div class="container-fluid">
-    <div class="material-card">
-        <div class="card-header">
-            <h5>
-                <i class="fas fa-plus"></i> Nieuwe Vacature Aanmaken
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.vacancies.index') }}" class="material-btn material-btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
-            </div>
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
+        <div class="flex flex-col justify-center gap-2">
+            <h1 class="text-xl font-medium leading-none text-mono mb-3">
+                {{ $title ?? "Pagina" }}
+            </h1>
         </div>
-        
-        <div class="card-body">
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.' . str_replace(['admin.', '.create', '.edit', '.show'], ['', '.index', '.index', '.index'], request()->route()->getName())) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+    </div>
+
+    <div class="kt-container-fixed">
+    <div class="flex flex-col items-stretch grow">
+        <form[^>]*class="[^"]*"
             @if($errors->any())
                 <div class="alert alert-danger">
                     <strong>Er zijn fouten opgetreden:</strong>
@@ -503,17 +109,18 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="category_id" class="form-label">Categorie</label>
-                            <select class="form-select @error('category_id') is-invalid @enderror" 
-                                    id="category_id" name="category_id">
-                                <option value="">Selecteer categorie</option>
-                                @foreach(\App\Models\Category::all() as $category)
-                                    <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
-                                        {{ $category->name }}
+                            <label for="branch_id" class="form-label">Branch <span class="text-muted">(optioneel)</span></label>
+                            <select class="form-select @error('branch_id') is-invalid @enderror" 
+                                    id="branch_id" name="branch_id">
+                                <option value="">Selecteer branch</option>
+                                <option value="other" {{ old('branch_id') == 'other' ? 'selected' : '' }}>Anders</option>
+                                @foreach(\App\Models\Branch::orderBy('name')->get() as $branch)
+                                    <option value="{{ $branch->id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>
+                                        {{ $branch->name }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('category_id')
+                            @error('branch_id')
                                 <div class="form-help text-danger">{{ $message }}</div>
                             @enderror
                         </div>
@@ -716,7 +323,7 @@
                     <div class="form-group">
                         <label for="meta_description" class="form-label">Meta Beschrijving</label>
                         <textarea class="form-control @error('meta_description') is-invalid @enderror" 
-                                  id="meta_description" name="meta_description" rows="3" 
+                                  id="meta_description" name="meta_description" rows="4" 
                                   placeholder="Korte beschrijving voor zoekmachines (max 160 karakters)">{{ old('meta_description') }}</textarea>
                         @error('meta_description')
                             <div class="form-help text-danger">{{ $message }}</div>
@@ -735,10 +342,10 @@
                 </div>
 
                 <div class="form-actions">
-                    <a href="{{ route('admin.vacancies.index') }}" class="material-btn material-btn-secondary">
+                    <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-outline">
                         <i class="fas fa-times"></i> Annuleren
                     </a>
-                    <button type="submit" class="material-btn material-btn-primary">
+                    <button type="submit" class="kt-btn kt-btn-primary">
                         <i class="fas fa-save"></i> Vacature Aanmaken
                     </button>
                 </div>
@@ -746,4 +353,55 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const branchSelect = document.getElementById('branch_id');
+    const descriptionField = document.getElementById('description');
+    const metaDescriptionField = document.getElementById('meta_description');
+    const metaKeywordsField = document.getElementById('meta_keywords');
+    
+    if (branchSelect) {
+        branchSelect.addEventListener('change', function() {
+            const branchId = this.value;
+            
+            // Skip if "Anders" or empty is selected
+            if (!branchId || branchId === 'other') {
+                return;
+            }
+            
+            // Fetch branch data
+            fetch(`/admin/branches/${branchId}/data`)
+                .then(response => response.json())
+                .then(data => {
+                    // Auto-fill description if empty
+                    if (descriptionField && !descriptionField.value.trim()) {
+                        if (data.description) {
+                            descriptionField.value = `Vacature in de ${data.name} sector.\n\n${data.description}`;
+                        } else {
+                            descriptionField.value = `Vacature in de ${data.name} sector.`;
+                        }
+                    }
+                    
+                    // Auto-fill meta description if empty
+                    if (metaDescriptionField && !metaDescriptionField.value.trim()) {
+                        metaDescriptionField.value = `Vacature in de ${data.name} sector. ${data.description || ''}`.substring(0, 160);
+                    }
+                    
+                    // Auto-fill meta keywords if empty
+                    if (metaKeywordsField && !metaKeywordsField.value.trim()) {
+                        const keywords = [data.name, 'vacature', 'werk', data.slug].filter(Boolean).join(', ');
+                        metaKeywordsField.value = keywords;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching branch data:', error);
+                });
+        });
+    }
+});
+</script>
+@endpush
+
 @endsection

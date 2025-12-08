@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Vacancy;
 use App\Models\Company;
-use App\Models\Category;
+use App\Models\Branch;
 use Illuminate\Http\Request;
 
 class AdminVacancyController extends Controller
@@ -19,15 +19,15 @@ class AdminVacancyController extends Controller
             abort(403, 'Je hebt geen rechten om vacatures te bekijken.');
         }
         
-        $query = Vacancy::with(['company', 'category']);
+        $query = Vacancy::with(['company', 'branch'])->withCount('matches');
         $this->applyTenantFilter($query);
         
         // Filtering
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
         }
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->integer('category_id'));
+        if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->integer('branch_id'));
         }
         if ($request->filled('company_id')) {
             $query->where('company_id', $request->integer('company_id'));
@@ -37,7 +37,7 @@ class AdminVacancyController extends Controller
         $sortBy = $request->get('sort_by', 'publication_date');
         $sortOrder = $request->get('sort_order', 'desc');
         
-        $allowedSortFields = ['id', 'title', 'company_id', 'category_id', 'status', 'publication_date'];
+        $allowedSortFields = ['id', 'title', 'company_id', 'branch_id', 'status', 'publication_date'];
         if (in_array($sortBy, $allowedSortFields)) {
             $query->orderBy($sortBy, $sortOrder);
         } else {
@@ -58,10 +58,10 @@ class AdminVacancyController extends Controller
         ];
         
         // Filter data
-        $categories = Category::orderBy('name')->get();
+        $branches = Branch::orderBy('name')->get();
         $companies = Company::orderBy('name')->get();
         
-        return view('admin.vacancies.index', compact('vacancies', 'statusStats', 'categories', 'companies'));
+        return view('admin.vacancies.index', compact('vacancies', 'statusStats', 'branches', 'companies'));
     }
 
     public function create()
@@ -71,8 +71,8 @@ class AdminVacancyController extends Controller
         }
         
         $companies = Company::all();
-        $categories = Category::all();
-        return view('admin.vacancies.create', compact('companies', 'categories'));
+        $branches = Branch::orderBy('name')->get();
+        return view('admin.vacancies.create', compact('companies', 'branches'));
     }
 
     public function store(Request $request)
@@ -86,7 +86,7 @@ class AdminVacancyController extends Controller
             'description' => 'required|string',
             'status' => 'required|in:Open,Gesloten,In behandeling',
             'company_id' => 'required|exists:companies,id',
-            'category_id' => 'nullable|exists:categories,id',
+            'branch_id' => 'nullable|exists:branches,id',
             'location' => 'nullable|string|max:255',
             'employment_type' => 'nullable|in:Fulltime,Parttime,Contract,Tijdelijke,Stage,Traineeship,Freelance,ZZP',
             'salary_range' => 'nullable|string|max:100',
@@ -132,7 +132,7 @@ class AdminVacancyController extends Controller
             abort(403, 'Je hebt geen toegang tot deze vacature.');
         }
         
-        $vacancy->load(['company', 'category']);
+        $vacancy->load(['company', 'branch']);
         
         return view('admin.vacancies.show', compact('vacancy'));
     }
@@ -149,8 +149,8 @@ class AdminVacancyController extends Controller
         }
         
         $companies = Company::all();
-        $categories = Category::all();
-        return view('admin.vacancies.edit', compact('vacancy', 'companies', 'categories'));
+        $branches = Branch::orderBy('name')->get();
+        return view('admin.vacancies.edit', compact('vacancy', 'companies', 'branches'));
     }
 
     public function update(Request $request, Vacancy $vacancy)
@@ -179,7 +179,7 @@ class AdminVacancyController extends Controller
                 'description' => 'required|string',
                 'status' => 'required|in:Open,Gesloten,In behandeling',
                 'company_id' => 'required|exists:companies,id',
-                'category_id' => 'nullable|exists:categories,id',
+                'branch_id' => 'nullable|exists:branches,id',
                 'location' => 'nullable|string|max:255',
                 'employment_type' => 'nullable|in:Fulltime,Parttime,Contract,Tijdelijke,Stage,Traineeship,Freelance,ZZP',
                 'salary_range' => 'nullable|string|max:100',

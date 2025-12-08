@@ -3,652 +3,24 @@
 @section('title', 'Vacatures Beheer')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #9c27b0;
-        --primary-light: #ba68c8;
-        --primary-dark: #7b1fa2;
-        --secondary-color: #f3e5f5;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --light-bg: #fafafa;
-        --dark-text: #212121;
-        --medium-text: #757575;
-        --border-color: #e0e0e0;
-        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
-        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
-        border: none;
-        margin-bottom: 24px;
-        transition: var(--transition);
-        overflow: hidden;
-    }
-    
-    .material-card:hover {
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        border-radius: 0;
-        padding: 10px 24px;
-        border: none;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .material-card .card-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-        transform: translateX(-100%);
-        transition: var(--transition);
-    }
-    
-    .material-card .card-header:hover::before {
-        transform: translateX(100%);
-    }
-    
-    .material-card .card-body {
-        padding: 0px;
-    }
-    
-    .material-btn {
-        border-radius: var(--border-radius);
-        text-transform: uppercase;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        padding: 6px 12px;
-        border: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 12px;
-    }
-    
-    .material-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .material-btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-    
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-    }
-    
-    .material-table {
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--shadow-light);
-        background: white;
-        table-layout: fixed;
-        width: 100%;
-    }
-    
-    .material-table thead th {
-        background: var(--light-bg);
-        border: none;
-        font-weight: 600;
-        color: var(--dark-text);
-        padding: 12px 16px;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: var(--transition);
-        position: relative;
-    }
-    
-    .material-table thead th:nth-child(1) { width: 60px; min-width: 60px; text-align: center; }   /* ID */
-    .material-table thead th:nth-child(2) { width: 25%; }  /* Titel & Locatie */
-    .material-table thead th:nth-child(3) { width: 15%; }  /* Bedrijf */
-    .material-table thead th:nth-child(4) { width: 12%; }  /* Categorie */
-    .material-table thead th:nth-child(5) { width: 10%; }  /* Status */
-    .material-table thead th:nth-child(6) { width: 8%; }   /* Type */
-    .material-table thead th:nth-child(7) { width: 12%; }  /* Publicatiedatum */
-    .material-table thead th:nth-child(8) { width: 8%; }   /* SEO */
-    .material-table thead th:nth-child(9) { width: 8%; }   /* Acties */
 
-    .material-table thead th.highlight {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-    }
-    
-    .material-table thead th:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-    }
-    
-    .material-table thead th.sortable::after {
-        content: '↕';
-        margin-left: 8px;
-        opacity: 0.5;
-        transition: var(--transition);
-    }
-    
-    .material-table thead th.sort-asc::after {
-        content: '↑';
-        opacity: 1;
-        color: var(--primary-color);
-    }
-    
-    .material-table thead th.sort-desc::after {
-        content: '↓';
-        opacity: 1;
-        color: var(--primary-color);
-    }
-    
-    .material-table tbody td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-        transition: var(--transition);
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    .material-table tbody td:nth-child(1) { width: 60px; min-width: 60px; text-align: center; }   /* ID */
-    .material-table tbody td:nth-child(2) { width: 25%; }  /* Titel & Locatie */
-    .material-table tbody td:nth-child(3) { width: 15%; }  /* Bedrijf */
-    .material-table tbody td:nth-child(4) { width: 12%; }  /* Categorie */
-    .material-table tbody td:nth-child(5) { width: 10%; }  /* Status */
-    .material-table tbody td:nth-child(6) { width: 8%; }   /* Type */
-    .material-table tbody td:nth-child(7) { width: 12%; }  /* Publicatiedatum */
-    .material-table tbody td:nth-child(8) { width: 8%; }   /* SEO */
-    .material-table tbody td:nth-child(9) { width: 8%; }   /* Acties */
-    
-    .material-table tbody tr {
-        transition: var(--transition);
-        background-color: white;
-    }
-    
-    /* Hover effect voor tabel rijen */
-    .material-table tbody tr:hover,
-    .table tbody tr:hover,
-    .material-table .table tbody tr:hover,
-    table tbody tr:hover,
-    .table-hover tbody tr:hover,
-    .material-table.table-hover tbody tr:hover {
-        background-color: #e3f2fd !important;
-        background: #e3f2fd !important;
-        transform: scale(1.005);
-        transition: background-color 0.3s ease;
-    }
-    
-    /* Specifieke override voor Bootstrap table-hover */
-    .table.table-hover tbody tr:hover {
-        background-color: #e3f2fd !important;
-        background: #e3f2fd !important;
-    }
-    
-    /* Nog specifiekere override */
-    .table.material-table.table-hover tbody tr:hover {
-        background-color: #e3f2fd !important;
-        background: #e3f2fd !important;
-    }
-    
-    /* Ultieme override voor Bootstrap */
-    .table.table-hover > tbody > tr:hover > td,
-    .table.table-hover > tbody > tr:hover > th {
-        background-color: #e3f2fd !important;
-        background: #e3f2fd !important;
-    }
-    
-    .table.material-table.table-hover > tbody > tr:hover > td,
-    .table.material-table.table-hover > tbody > tr:hover > th {
-        background-color: #e3f2fd !important;
-        background: #e3f2fd !important;
-    }
-    
-    .status-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-block;
-        min-width: 100px;
-        text-align: center;
-        box-shadow: var(--shadow-light);
-        transition: var(--transition);
-    }
-    
-    .status-badge:hover {
-        transform: scale(1.05);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .status-open {
-        background: linear-gradient(135deg, #f1f8e9 0%, #81c784 100%);
-        color: #388e3c;
-        border: 2px solid #81c784;
-    }
-    
-    .status-closed {
-        background: linear-gradient(135deg, #ffcdd2 0%, #e57373 100%);
-        color: #d32f2f;
-        border: 2px solid #e57373;
-    }
-    
-    .status-processing {
-        background: linear-gradient(135deg, #fff8e1 0%, #ffb74d 100%);
-        color: #f57c00;
-        border: 2px solid #ffb74d;
-    }
-    
-    .action-buttons {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-    }
-    
-    .action-btn {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .action-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .action-btn:hover::before {
-        width: 100px;
-        height: 100px;
-    }
-    
-    .action-btn:hover {
-        transform: scale(1.1);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .action-btn-info {
-        background: linear-gradient(135deg, var(--info-color) 0%, #42a5f5 100%);
-        color: white;
-    }
-    
-    .action-btn-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #ffb74d 100%);
-        color: white;
-    }
-    
-    .action-btn-danger {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #ef5350 100%);
-        color: white;
-    }
-    
-    .action-btn-success {
-        background: linear-gradient(135deg, var(--success-color) 0%, #66bb6a 100%);
-        color: white;
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 80px 20px;
-        color: var(--medium-text);
-    }
-    
-    .empty-state i {
-        font-size: 5rem;
-        margin-bottom: 24px;
-        opacity: 0.3;
-        color: var(--primary-color);
-    }
-    
-    .vacancy-info {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .vacancy-title {
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 4px;
-        font-size: 16px;
-    }
-    
-    .vacancy-location {
-        font-size: 12px;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    .vacancy-company {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-        color: #2e7d32;
-        padding: 6px 12px;
-        border-radius: 16px;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .vacancy-category {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        color: #f57c00;
-        padding: 6px 12px;
-        border-radius: 16px;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .vacancy-type {
-        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-        color: #7b1fa2;
-        padding: 6px 12px;
-        border-radius: 16px;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .date-info {
-        font-size: 12px;
-        color: var(--medium-text);
-    }
-    
-
-    /* Filters Section */
-    .filters-section {
-        background: var(--light-bg);
-        padding: 10px 24px;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .filter-group {
-        margin-bottom: 16px;
-    }
-
-    .filter-label {
-        display: block;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--medium-text);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0px;
-    }
-
-    .filter-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background-color: white;
-        font-size: 12px;
-        color: var(--dark-text);
-        transition: var(--transition);
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 16px;
-        padding-right: 40px;
-    }
-
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1);
-    }
-
-    
-    .stats-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 20px;
-        margin-bottom: 32px;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 10px;
-        box-shadow: var(--shadow-light);
-        text-align: center;
-        transition: var(--transition);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .stat-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .stat-label {
-        font-size: 12px;
-        color: var(--medium-text);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-    }
-    
-    .seo-indicator {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 8px;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .seo-good {
-        background: linear-gradient(135deg, var(--success-color) 0%, #66bb6a 100%);
-    }
-    
-    .seo-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #ffb74d 100%);
-    }
-    
-    .seo-bad {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #ef5350 100%);
-    }
-    
-    /* Results Info */
-    .results-info-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .results-info {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .results-text {
-        font-size: 0.875rem;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-    }
-    
-    .results-text i {
-        color: var(--primary-color);
-        font-size: 0.875rem;
-    }
-
-    /* Pagination */
-    .pagination-wrapper {
-        padding: 16px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-    }
-    
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
-    
-    .page-item {
-        list-style: none;
-    }
-    
-    .page-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        background: white;
-        color: var(--dark-text);
-        text-decoration: none;
-        transition: var(--transition);
-        font-weight: 500;
-    }
-    
-    .page-link:hover {
-        background: var(--secondary-color);
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        border-color: var(--primary-color);
-        color: white;
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .page-item.disabled .page-link {
-        background: #f5f5f5;
-        color: #ccc;
-        cursor: not-allowed;
-        border-color: #e0e0e0;
-    }
-    
-    .alert {
-        border-radius: var(--border-radius);
-        border: none;
-        padding: 16px 20px;
-        margin-bottom: 24px;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .alert-success {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-        color: #2e7d32;
-        border-left: 4px solid var(--success-color);
-    }
-    
-    @media (max-width: 768px) {
-        .stats-cards {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
-        
-        .action-buttons {
-            justify-content: center;
-        }
-        
-        .material-table thead th,
-        .material-table tbody td {
-            padding: 12px 8px;
-            font-size: 12px;
-        }
-    }
-</style>
-
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
+        <div class="flex flex-col justify-center gap-2">
+            <h1 class="text-xl font-medium leading-none text-mono mb-3">
+                Vacatures Beheer
+            </h1>
+        </div>
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.vacancies.create') }}" class="kt-btn kt-btn-primary">
+                <i class="ki-filled ki-plus me-2"></i>
+                Nieuw
+            </a>
+        </div>
+    </div>
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="w-full">
             <!-- Status Statistieken -->
             <div class="stats-cards">
                 <div class="stat-card">
@@ -669,15 +41,15 @@
                 </div>
             </div>
 
-            <div class="material-card">
+            <div class="kt-card">
                 <!-- Header -->
-                <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="kt-card-header flex justify-between items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-briefcase me-2"></i> Vacatures Beheer
                     </h5>
-                    <div class="d-flex gap-2">
+                    <div class="flex gap-2">
                         @can('create-vacancies')
-                            <a href="{{ route('admin.vacancies.create') }}" class="material-btn material-btn-primary">
+                            <a href="{{ route('admin.vacancies.create') }}" class="kt-btn kt-btn-primary">
                                 <i class="fas fa-plus me-2"></i> Nieuwe Vacature
                             </a>
                         @endcan
@@ -686,20 +58,20 @@
 
                 <!-- Success Message -->
                 @if(session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <div class="kt-alert kt-alert-success alert-dismissible fade show" role="alert">
                         <i class="fas fa-check-circle me-2"></i>
                         {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="alert"></button>
                     </div>
                 @endif
 
                 <!-- Filters -->
                 <div class="filters-section">
                         <form method="GET" action="{{ route('admin.vacancies.index') }}" id="filters-form">
-                            <div class="row">
+                            <div class="grid gap-5 lg:gap-7.5">
                                 @if(auth()->user()->hasRole('super-admin'))
                                     <!-- Super-admin: 5 kolommen over gehele breedte -->
-                                    <div class="col-md-2">
+                                    <div class="lg:col-span-2">
                                         <div class="filter-group">
                                             <label class="filter-label">Status</label>
                                             <select name="status" class="filter-select" onchange="this.form.submit()">
@@ -710,20 +82,20 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="lg:col-span-2">
                                         <div class="filter-group">
-                                            <label class="filter-label">Categorie</label>
-                                            <select name="category_id" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle categorieën</option>
-                                                @foreach($categories ?? [] as $category)
-                                                    <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
-                                                        {{ $category->name }}
+                                            <label class="filter-label">Branch</label>
+                                            <select name="branch_id" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle branches</option>
+                                                @foreach($branches ?? [] as $branch)
+                                                    <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
+                                                        {{ $branch->name }}
                                                     </option>
                                                 @endforeach
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="lg:col-span-2">
                                         <div class="filter-group">
                                             <label class="filter-label">Bedrijf</label>
                                             <select name="company_id" class="filter-select" onchange="this.form.submit()">
@@ -736,7 +108,7 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="lg:col-span-2">
                                         <div class="filter-group">
                                             <label class="filter-label">Items per pagina</label>
                                             <select name="per_page" class="filter-select" onchange="this.form.submit()">
@@ -748,7 +120,7 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="lg:col-span-2">
                                         <div class="filter-group">
                                             <label class="filter-label">&nbsp;</label>
                                             <a href="{{ route('admin.vacancies.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
@@ -759,7 +131,7 @@
                                     </div>
                                 @else
                                     <!-- Non-super-admin: 4 kolommen over gehele breedte -->
-                                    <div class="col-md-3">
+                                    <div class="lg:col-span-3">
                                         <div class="filter-group">
                                             <label class="filter-label">Status</label>
                                             <select name="status" class="filter-select" onchange="this.form.submit()">
@@ -770,20 +142,20 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="lg:col-span-3">
                                         <div class="filter-group">
-                                            <label class="filter-label">Categorie</label>
-                                            <select name="category_id" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle categorieën</option>
-                                                @foreach($categories ?? [] as $category)
-                                                    <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
-                                                        {{ $category->name }}
+                                            <label class="filter-label">Branch</label>
+                                            <select name="branch_id" class="filter-select" onchange="this.form.submit()">
+                                                <option value="">Alle branches</option>
+                                                @foreach($branches ?? [] as $branch)
+                                                    <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
+                                                        {{ $branch->name }}
                                                     </option>
                                                 @endforeach
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="lg:col-span-3">
                                         <div class="filter-group">
                                             <label class="filter-label">Items per pagina</label>
                                             <select name="per_page" class="filter-select" onchange="this.form.submit()">
@@ -795,7 +167,7 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="lg:col-span-3">
                                         <div class="filter-group">
                                             <label class="filter-label">&nbsp;</label>
                                             <a href="{{ route('admin.vacancies.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
@@ -810,18 +182,19 @@
                     </div>
 
                 <!-- Table -->
-                <div class="card-body">
-                    <div class="table-responsive" style="width: 100%;">
-                        <table class="material-table" style="width: 100%;">
+                <div class="kt-card-content">
+                    <div class="kt-table-responsive" style="width: 100%;">
+                        <kt-table class="material-kt-table" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th class="sortable" data-sort="id">ID</th>
-                                    <th class="sortable highlight" data-sort="title">Titel & Locatie</th>
-                                    <th class="sortable" data-sort="company_id">Bedrijf</th>
-                                    <th class="sortable" data-sort="category_id">Categorie</th>
-                                    <th class="sortable" data-sort="status">Status</th>
+                                    <th class="sorkt-table" data-sort="id">ID</th>
+                                    <th class="sorkt-table highlight" data-sort="title">Titel & Locatie</th>
+                                    <th class="sorkt-table" data-sort="company_id">Bedrijf</th>
+                                    <th class="sorkt-table" data-sort="branch_id">Branch</th>
+                                    <th class="sorkt-table" data-sort="status">Status</th>
                                     <th>Type</th>
-                                    <th class="sortable" data-sort="publication_date">Publicatiedatum</th>
+                                    <th>Matches</th>
+                                    <th class="sorkt-table" data-sort="publication_date">Publicatiedatum</th>
                                     <th>SEO</th>
                                     <th>Acties</th>
                                 </tr>
@@ -848,11 +221,18 @@
                                             @endif
                                         </td>
                                         <td>
-                                            @if($vacancy->category)
-                                                <span class="vacancy-category">{{ $vacancy->category->name }}</span>
+                                            @if($vacancy->branch)
+                                                <span class="vacancy-branch">{{ $vacancy->branch->name }}</span>
                                             @else
-                                                <span class="text-muted">Geen categorie</span>
+                                                <span class="text-muted-foreground">Geen branch</span>
                                             @endif
+                                        </td>
+                                        <td>
+                                            <a href="{{ route('admin.matches.index', ['vacancy' => $vacancy->id]) }}" 
+                                               class="kt-badge kt-badge-info hover:kt-badge-primary">
+                                                <i class="ki-filled ki-abstract-38 me-1"></i>
+                                                {{ $vacancy->matches_count ?? 0 }} matches
+                                            </a>
                                         </td>
                                         <td>
                                             @switch($vacancy->status)
@@ -981,7 +361,7 @@
                                                 <h5>Nog geen vacatures</h5>
                                                 <p>Er zijn nog geen vacatures aangemaakt.</p>
                                                 @can('create-vacancies')
-                                                    <a href="{{ route('admin.vacancies.create') }}" class="material-btn material-btn-primary">
+                                                    <a href="{{ route('admin.vacancies.create') }}" class="kt-btn kt-btn-primary">
                                                         <i class="fas fa-plus me-2"></i> Eerste Vacature Aanmaken
                                                     </a>
                                                 @endcan
@@ -990,7 +370,7 @@
                                     </tr>
                                 @endforelse
                             </tbody>
-                        </table>
+                        </kt-table>
                     </div>
 
                     <!-- Results Info -->
@@ -1103,9 +483,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Sortering functionaliteit
-    const sortableHeaders = document.querySelectorAll('.sortable');
+    const sorkt-tableHeaders = document.querySelectorAll('.sorkt-table');
     
-    sortableHeaders.forEach(header => {
+    sorkt-tableHeaders.forEach(header => {
         header.addEventListener('click', function() {
             const sortBy = this.dataset.sort;
             const currentSortBy = new URLSearchParams(window.location.search).get('sort_by');
@@ -1136,25 +516,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Material Design ripple effect voor buttons
-    const buttons = document.querySelectorAll('.material-btn, .action-btn');
-    buttons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            const ripple = document.createElement('span');
-            const rect = this.getBoundingClientRect();
-            const size = Math.max(rect.width, rect.height);
-            const x = e.clientX - rect.left - size / 2;
-            const y = e.clientY - rect.top - size / 2;
-            
-            ripple.style.width = ripple.style.height = size + 'px';
-            ripple.style.left = x + 'px';
-            ripple.style.top = y + 'px';
-            ripple.classList.add('ripple');
-            
-            this.appendChild(ripple);
-            
-            setTimeout(() => {
-                ripple.remove();
-            }, 600);
+    const buttons = document.querySelectorAll(', 600);
         });
     });
 });

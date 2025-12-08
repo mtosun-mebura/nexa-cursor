@@ -15,12 +15,13 @@ class Company extends Model
         'street', 'house_number', 'house_number_extension', 'postal_code', 'city', 'country',
         'website', 'email', 'phone',
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
-        'is_active', 'is_intermediary',
+        'is_active', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'is_intermediary' => 'boolean',
+        'is_main' => 'boolean',
     ];
 
     protected static function boot()
@@ -75,6 +76,22 @@ class Company extends Model
     public function emailTemplates()
     {
         return $this->hasMany(EmailTemplate::class);
+    }
+
+    /**
+     * Get the locations for the company.
+     */
+    public function locations()
+    {
+        return $this->hasMany(CompanyLocation::class);
+    }
+
+    /**
+     * Get the main location (hoofdkantoor) for the company.
+     */
+    public function mainLocation()
+    {
+        return $this->hasOne(CompanyLocation::class)->where('is_main', true);
     }
 }
 

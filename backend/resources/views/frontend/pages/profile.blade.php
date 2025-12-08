@@ -154,7 +154,7 @@
 
                 <div>
                     <label class="text-sm font-medium text-muted dark:text-muted-dark">Bio</label>
-                    <textarea name="bio" class="input mt-1" rows="3" placeholder="Vertel iets over jezelf...">{{ $user->bio ?? '' }}</textarea>
+                    <textarea name="bio" class="input mt-1" rows="4" placeholder="Vertel iets over jezelf...">{{ $user->bio ?? '' }}</textarea>
                 </div>
 
         <button type="submit" class="btn btn-primary">Opslaan</button>

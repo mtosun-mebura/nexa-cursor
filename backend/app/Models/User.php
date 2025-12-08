@@ -146,4 +146,13 @@ class User extends Authenticatable
     {
         return $this->hasMany(Experience::class);
     }
+
+    /**
+     * Get the custom notifications for the user.
+     * This overrides Laravel's default notifications() method from Notifiable trait.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'user_id');
+    }
 }

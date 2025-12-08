@@ -1,87 +1,103 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - Pagina Niet Gevonden</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .error-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 3rem;
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
-        }
-        .error-icon {
-            font-size: 4rem;
-            color: #ffc107;
-            margin-bottom: 1rem;
-        }
-        .error-title {
-            color: #333;
-            font-size: 2rem;
-            margin-bottom: 1rem;
-        }
-        .error-message {
-            color: #666;
-            margin-bottom: 2rem;
-        }
-        .btn-back {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-            margin-right: 1rem;
-        }
-        .btn-home {
-            background: #28a745;
-            border: none;
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-        }
-    </style>
+    <base href="{{ url('/') }}">
+    <title>404 - Pagina Niet Gevonden | NEXA Skillmatching</title>
+    <meta charset="utf-8"/>
+    <meta content="follow, index" name="robots"/>
+    <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
+    <meta content="404 Error page for NEXA Skillmatching Platform" name="description"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
+    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
+    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body>
-    <div class="error-card">
-        <div class="error-icon">
-            <i class="fas fa-search"></i>
-        </div>
-        
-        <h1 class="error-title">404 - Pagina Niet Gevonden</h1>
-        
-        <p class="error-message">
-            De pagina die je zoekt bestaat niet of is verplaatst. 
-            Controleer de URL of ga terug naar de hoofdpagina.
-        </p>
+<body class="antialiased flex h-full text-base text-foreground bg-background demo1 kt-sidebar-fixed kt-header-fixed">
+    <!-- Theme Mode -->
+    <script>
+        const defaultThemeMode = 'light';
+        let themeMode;
 
-        <div class="d-flex justify-content-center">
-            <a href="{{ url()->previous() }}" class="btn btn-primary btn-back">
-                <i class="fas fa-arrow-left"></i> Terug
-            </a>
-            
-            @if(auth()->check())
-                <a href="{{ route('admin.dashboard') }}" class="btn btn-success btn-home">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                </a>
-            @else
-                <a href="{{ route('admin.login') }}" class="btn btn-success btn-home">
-                    <i class="fas fa-sign-in-alt"></i> Inloggen
-                </a>
-            @endif
+        if (document.documentElement) {
+            if (localStorage.getItem('kt-theme')) {
+                themeMode = localStorage.getItem('kt-theme');
+            } else if (document.documentElement.hasAttribute('data-kt-theme-mode')) {
+                themeMode = document.documentElement.getAttribute('data-kt-theme-mode');
+            } else {
+                themeMode = defaultThemeMode;
+            }
+
+            if (themeMode === 'system') {
+                themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            document.documentElement.classList.add(themeMode);
+        }
+    </script>
+    <!-- End of Theme Mode -->
+    
+    <!-- Page -->
+    <!-- Main -->
+    <div class="flex grow">
+        <!-- Wrapper -->
+        <div class="kt-wrapper flex grow flex-col">
+            <!-- Content -->
+            <main class="grow pt-5" id="content" role="content">
+                <div class="flex flex-col items-center justify-center h-[95%]">
+                    <div class="mb-10">
+                        <img alt="404 Error" class="dark:hidden max-h-[160px]" src="{{ asset('assets/media/illustrations/19.svg') }}"/>
+                        <img alt="404 Error" class="light:hidden max-h-[160px]" src="{{ asset('assets/media/illustrations/19-dark.svg') }}"/>
+                    </div>
+                    <span class="kt-badge kt-badge-primary kt-badge-outline mb-3">
+                        404 Fout
+                    </span>
+                    <h3 class="text-2xl font-semibold text-mono text-center mb-2">
+                        Deze pagina is niet gevonden
+                    </h3>
+                    <div class="text-base text-center text-secondary-foreground mb-10">
+                        De gevraagde pagina ontbreekt. Controleer de URL of
+                        @if(auth()->check())
+                            <a class="text-primary font-medium hover:text-primary" href="{{ route('admin.dashboard') }}">
+                                ga terug naar het Dashboard
+                            </a>
+                        @else
+                            <a class="text-primary font-medium hover:text-primary" href="{{ route('home') }}">
+                                ga terug naar Home
+                            </a>
+                        @endif
+                        .
+                    </div>
+                    <div class="flex gap-2.5">
+                        @if(auth()->check())
+                            <a href="{{ route('admin.dashboard') }}" class="kt-btn kt-btn-primary">
+                                <i class="ki-filled ki-home"></i>
+                                Dashboard
+                            </a>
+                        @else
+                            <a href="{{ route('home') }}" class="kt-btn kt-btn-primary">
+                                <i class="ki-filled ki-home"></i>
+                                Home
+                            </a>
+                        @endif
+                        <a href="{{ url()->previous() }}" class="kt-btn kt-btn-outline">
+                            <i class="ki-filled ki-arrow-left"></i>
+                            Terug
+                        </a>
+                    </div>
+                </div>
+            </main>
+            <!-- End of Content -->
         </div>
+        <!-- End of Wrapper -->
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- End of Main -->
+    <!-- End of Page -->
+    
+    <!-- Scripts -->
+    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
+    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
+    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
+    <!-- End of Scripts -->
 </body>
 </html>
