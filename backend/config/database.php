@@ -85,16 +85,20 @@ return [
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
-            'host' => 'mdb.tosun.nl',
+            'host' => env('DB_HOST', 'mdb.tosun.nl'),
             'port' => env('DB_PORT', '5432'),
-            'database' => 'nexa',
-            'username' => 'mtosun',
-            'password' => 'Memmo@Mdb!',
+            'database' => env('DB_DATABASE', 'nexa'),
+            'username' => env('DB_USERNAME', 'mtosun'),
+            'password' => env('DB_PASSWORD', 'Memmo@Mdb!'),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            'options' => [
+                PDO::ATTR_TIMEOUT => env('DB_TIMEOUT', 10),
+                PDO::ATTR_PERSISTENT => false,
+            ],
         ],
 
         'sqlsrv' => [

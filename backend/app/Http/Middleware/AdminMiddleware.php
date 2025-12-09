@@ -19,11 +19,28 @@ class AdminMiddleware
         if (!auth()->check()) {
             // Store the intended URL for redirect after login
             session(['url.intended' => $request->url()]);
+            
+            // For AJAX requests, return 401 status instead of redirect
+            if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Je sessie is verlopen. Log opnieuw in.',
+                    'redirect' => route('admin.login')
+                ], 401);
+            }
+            
             return redirect()->route('admin.login')->with('error', 'Je moet ingelogd zijn om deze pagina te bekijken.');
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)
         if (!auth()->user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
+            // For AJAX requests, return 403 status instead of redirect
+            if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Je hebt geen rechten om deze actie uit te voeren.',
+                    'redirect' => route('admin.login')
+                ], 403);
+            }
+            
             // Redirect to admin login page instead of home
             return redirect()->route('admin.login')->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
         }

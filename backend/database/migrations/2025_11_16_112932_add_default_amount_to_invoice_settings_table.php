@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('invoice_settings', function (Blueprint $table) {
-            $table->decimal('default_amount', 10, 2)->nullable();
-        });
+        // Check if column already exists before adding it
+        if (!Schema::hasColumn('invoice_settings', 'default_amount')) {
+            Schema::table('invoice_settings', function (Blueprint $table) {
+                $table->decimal('default_amount', 10, 2)->nullable();
+            });
+        }
     }
 
     /**
@@ -21,8 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('invoice_settings', function (Blueprint $table) {
-            $table->dropColumn('default_amount');
-        });
+        // Check if column exists before dropping it
+        if (Schema::hasColumn('invoice_settings', 'default_amount')) {
+            Schema::table('invoice_settings', function (Blueprint $table) {
+                $table->dropColumn('default_amount');
+            });
+        }
     }
 };
