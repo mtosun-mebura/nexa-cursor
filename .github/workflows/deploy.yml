@@ -127,8 +127,18 @@ jobs:
           $dc -f "$COMPOSE_FILE" build --no-cache
           $dc -f "$COMPOSE_FILE" up -d
           echo "⏳ Wachten tot backend luistert..."
-          sleep 6
-          curl -f http://127.0.0.1:8000 -I || (echo "❌ Backend luistert niet op :8000" && exit 1)
+          tries=0
+          until curl -fs http://127.0.0.1:8000 -I >/dev/null 2>&1; do
+            tries=$((tries+1))
+            if [ "$tries" -ge 20 ]; then
+              echo "❌ Backend luistert niet op :8000 na $tries pogingen"
+              echo "📄 Laatste 200 regels van container logs:"
+              $dc -f "$COMPOSE_FILE" logs --tail=200 backend || true
+              exit 1
+            fi
+            echo "⏳ Poging $tries/20 - wachten 3s..."
+            sleep 3
+          done
           echo "✅ Backend OK op :8000"
 
       - name: Laravel post-deploy
