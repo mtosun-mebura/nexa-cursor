@@ -105,6 +105,26 @@
             // Attach event listeners
             inputs.forEach(input => {
                 this.attachValidation(input);
+                
+                // If input already has a value, trigger validation to show icon
+                const type = (input.type || '').toLowerCase();
+                const isCheckboxOrRadio = input.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio');
+                if (!isCheckboxOrRadio) {
+                    const value = input.value.trim();
+                    if (value) {
+                        // Mark as interacted and validate
+                        input.dataset.userInteracted = 'true';
+                        const feedbackElement = input.parentElement?.querySelector('.field-feedback') ||
+                                              input.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                              input.closest('td')?.querySelector('.field-feedback');
+                        if (feedbackElement || input.hasAttribute('required')) {
+                            // Small delay to ensure DOM is ready
+                            setTimeout(() => {
+                                this.validateField(input, feedbackElement, false);
+                            }, 100);
+                        }
+                    }
+                }
             });
 
             // Handle form submission
@@ -173,6 +193,11 @@
                 // For checkbox/radio, validate on change
                 input.addEventListener('change', () => {
                     this.validateField(input, feedbackElement);
+                    // Also validate checkbox group if this is part of a required group
+                    const groupName = input.getAttribute('data-checkbox-group') || input.name;
+                    if (groupName && groupName.includes('[]')) {
+                        this.validateCheckboxGroup(groupName);
+                    }
                 });
             } else {
                 // For input fields, validate on input/keyup
@@ -228,7 +253,9 @@
             const hasPattern = input.hasAttribute('pattern');
             
             // Check if user has interacted with this field
-            const userInteracted = input.dataset.userInteracted === 'true' || forceShow;
+            // Also consider it interacted if the field has a value (user might have typed before validation initialized)
+            const hasValue = value && value.trim() !== '';
+            const userInteracted = input.dataset.userInteracted === 'true' || forceShow || hasValue;
 
             // Find feedback element if not provided
             if (!feedbackElement) {
@@ -242,7 +269,8 @@
             this.clearValidationState(input, feedbackElement);
             
             // Als gebruiker nog niet heeft geïnteracteerd en niet geforceerd, toon geen feedback
-            if (!userInteracted && !forceShow) {
+            // Maar toon wel validatie als er al een waarde in het veld staat
+            if (!userInteracted && !forceShow && !hasValue) {
                 return true; // Return true om geen errors te tonen
             }
 
@@ -361,7 +389,11 @@
          * Set veld als ongeldig
          */
         setInvalid(input, feedbackElement, message, forceShow = false) {
-            const userInteracted = input.dataset.userInteracted === 'true' || forceShow;
+            const type = (input.type || '').toLowerCase();
+            const isCheckboxOrRadio = input.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio');
+            const value = isCheckboxOrRadio ? (input.checked ? (input.value || '1') : '') : input.value.trim();
+            const hasValue = value && value.trim() !== '';
+            const userInteracted = input.dataset.userInteracted === 'true' || forceShow || hasValue;
             
             // Remove all validation borders
             input.classList.remove('border-green-500', 'border-green-600', 'border-red-500', 'border-destructive');
@@ -435,7 +467,11 @@
             const isSelect = input.tagName === 'SELECT';
             const type = (input.type || '').toLowerCase();
             const isCheckboxOrRadio = input.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio');
-            const userInteracted = input.dataset.userInteracted === 'true' || forceShow;
+            const value = isSelect
+                ? input.value
+                : (isCheckboxOrRadio ? (input.checked ? (input.value || '1') : '') : input.value.trim());
+            const hasValue = value && value.trim() !== '';
+            const userInteracted = input.dataset.userInteracted === 'true' || forceShow || hasValue;
             
             // Remove all validation borders
             input.classList.remove('border-red-500', 'border-destructive', 'border-green-500', 'border-green-600');
@@ -664,16 +700,91 @@
                 }
             });
 
+            // Validate required checkbox groups
+            const requiredCheckboxGroups = this.form.querySelectorAll('[data-required-checkbox-group]');
+            requiredCheckboxGroups.forEach(groupContainer => {
+                const groupName = groupContainer.getAttribute('data-required-checkbox-group');
+                const checkboxes = groupContainer.querySelectorAll(`input[type="checkbox"][data-checkbox-group="${groupName}"], input[type="checkbox"][name="${groupName}"]`);
+                const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+                
+                if (checkedCount === 0) {
+                    isValid = false;
+                    // Find or create feedback element for this group
+                    let feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
+                    if (!feedbackElement) {
+                        feedbackElement = document.createElement('div');
+                        feedbackElement.className = 'field-feedback text-xs text-destructive mt-1';
+                        feedbackElement.setAttribute('data-field', groupName);
+                        // Insert after the error alert or at the beginning of the container
+                        const errorAlert = groupContainer.querySelector('.kt-alert');
+                        if (errorAlert) {
+                            errorAlert.parentNode.insertBefore(feedbackElement, errorAlert.nextSibling);
+                        } else {
+                            groupContainer.insertBefore(feedbackElement, groupContainer.firstChild);
+                        }
+                    }
+                    feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                    feedbackElement.classList.remove('hidden');
+                    feedbackElement.style.display = 'block';
+                } else {
+                    // Clear error if at least one is checked
+                    const feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
+                    if (feedbackElement) {
+                        feedbackElement.classList.add('hidden');
+                        feedbackElement.style.display = 'none';
+                    }
+                }
+            });
+
             if (!isValid) {
                 // Focus op eerste ongeldige veld
-                const firstInvalid = this.form.querySelector('.border-red-500, .border-destructive');
+                const firstInvalid = this.form.querySelector('.border-red-500, .border-destructive, [data-required-checkbox-group] .field-feedback:not(.hidden)');
                 if (firstInvalid) {
-                    firstInvalid.focus();
-                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (firstInvalid.tagName === 'INPUT' || firstInvalid.tagName === 'SELECT' || firstInvalid.tagName === 'TEXTAREA') {
+                        firstInvalid.focus();
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 }
             }
 
             return isValid;
+        }
+
+        /**
+         * Valideer een checkbox groep
+         */
+        validateCheckboxGroup(groupName) {
+            const groupContainer = this.form.querySelector(`[data-required-checkbox-group="${groupName}"]`);
+            if (!groupContainer) return true;
+
+            const checkboxes = groupContainer.querySelectorAll(`input[type="checkbox"][data-checkbox-group="${groupName}"], input[type="checkbox"][name="${groupName}"]`);
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            
+            let feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
+            if (!feedbackElement) {
+                feedbackElement = document.createElement('div');
+                feedbackElement.className = 'field-feedback text-xs text-destructive mt-1';
+                feedbackElement.setAttribute('data-field', groupName);
+                const errorAlert = groupContainer.querySelector('.kt-alert');
+                if (errorAlert) {
+                    errorAlert.parentNode.insertBefore(feedbackElement, errorAlert.nextSibling);
+                } else {
+                    groupContainer.insertBefore(feedbackElement, groupContainer.firstChild);
+                }
+            }
+            
+            if (checkedCount === 0) {
+                feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                feedbackElement.classList.remove('hidden');
+                feedbackElement.style.display = 'block';
+                return false;
+            } else {
+                feedbackElement.classList.add('hidden');
+                feedbackElement.style.display = 'none';
+                return true;
+            }
         }
 
         /**
@@ -714,5 +825,6 @@
     window.FormValidator = FormValidator;
     window.validationRules = validationRules;
 })();
+
 
 

@@ -310,6 +310,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Roles & Permissions (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('roles', AdminRoleController::class);
+        Route::post('roles/{role}/toggle-status', [AdminRoleController::class, 'toggleStatus'])->name('roles.toggle-status');
         Route::resource('permissions', AdminPermissionController::class);
         Route::post('permissions/{permission}/assign-to-role', [AdminPermissionController::class, 'assignToRole'])->name('permissions.assign-to-role');
         Route::get('permissions/bulk/create', [AdminPermissionController::class, 'bulkCreate'])->name('permissions.bulk-create');

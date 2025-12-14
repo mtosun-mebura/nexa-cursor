@@ -17,8 +17,18 @@ class AdminRoleController extends Controller
             abort(403, 'Je hebt geen rechten om rollen te bekijken.');
         }
         
-        $query = Role::with('permissions')
-            ->where('guard_name', 'web');
+        $query = Role::with(['permissions', 'users'])
+            ->where('guard_name', 'web')
+            ->withCount('users');
+        
+        // Apply search
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
         
         // Apply filters
         if ($request->filled('type')) {
@@ -45,12 +55,37 @@ class AdminRoleController extends Controller
             }
         }
         
-        // Get per_page from request, default to 25
-        $perPage = $request->get('per_page', 25);
+        // Apply status filter
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
         
-        $roles = $query->orderBy('name')->paginate($perPage);
+        // Apply sorting
+        $sortBy = $request->get('sort');
+        $sortDirection = $request->get('direction');
+        
+        if ($sortBy && in_array($sortBy, ['name', 'users_count', 'created_at', 'is_active'])) {
+            if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+                if ($sortBy === 'created_at') {
+                    $sortDirection = 'desc';
+                } else {
+                    $sortDirection = 'asc';
+                }
+            }
+            $query->orderBy($sortBy, $sortDirection)->orderBy('id', 'asc');
+        } else {
+            // Default sort: order by name
+            $query->orderBy('name', 'asc');
+        }
+        
+        // Load all roles for client-side pagination (like users)
+        $roles = $query->get();
 
-        // Statistieken voor dashboard
+        // Calculate statistics
         $stats = [
             'total_roles' => Role::where('guard_name', 'web')->count(),
             'system_roles' => Role::where('guard_name', 'web')
@@ -63,11 +98,6 @@ class AdminRoleController extends Controller
                 ->whereHas('permissions')
                 ->count(),
             'total_users_with_roles' => \App\Models\User::whereHas('roles')->count(),
-            'roles_by_usage' => Role::where('guard_name', 'web')
-                ->withCount('users')
-                ->orderBy('users_count', 'desc')
-                ->take(5)
-                ->get()
         ];
 
         return view('admin.roles.index', compact('roles', 'stats'));
@@ -141,6 +171,7 @@ class AdminRoleController extends Controller
         }
         
         $role->load('permissions');
+        // Pass all permissions (not grouped) like in create method
         $permissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
             ->get()
@@ -212,5 +243,70 @@ class AdminRoleController extends Controller
 
         return redirect()->route('admin.roles.index')
             ->with('success', 'Rol succesvol verwijderd.');
+    }
+
+    public function toggleStatus(Request $request, Role $role)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-roles')) {
+            abort(403, 'Je hebt geen rechten om rollen te bewerken.');
+        }
+
+        // Prevent deactivating system roles
+        if (in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate'])) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Systeem rollen kunnen niet worden gedeactiveerd.'
+                ], 403);
+            }
+            return back()->with('error', 'Systeem rollen kunnen niet worden gedeactiveerd.');
+        }
+
+        $isAjax = $request->ajax() || $request->wantsJson();
+
+        try {
+            // Check if is_active column exists
+            $columnExists = \Schema::hasColumn('roles', 'is_active');
+            
+            if (!$columnExists) {
+                // Try to add the column automatically
+                try {
+                    \DB::statement('ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true');
+                    \DB::statement('UPDATE roles SET is_active = true WHERE is_active IS NULL');
+                    $columnExists = true;
+                } catch (\Exception $e) {
+                    \Log::error('Failed to add is_active column to roles: ' . $e->getMessage());
+                    if ($isAjax) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'De is_active kolom bestaat niet.'
+                        ], 500);
+                    }
+                    return back()->with('error', 'De is_active kolom bestaat niet.');
+                }
+            }
+
+            $role->refresh();
+            $role->update(['is_active' => !($role->is_active ?? true)]);
+
+            if ($isAjax) {
+                return response()->json([
+                    'success' => true,
+                    'message' => '',
+                    'is_active' => $role->is_active
+                ]);
+            }
+
+            return back();
+        } catch (\Exception $e) {
+            \Log::error('Failed to toggle role status: ' . $e->getMessage());
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Er is een fout opgetreden bij het wijzigen van de status.'
+                ], 500);
+            }
+            return back()->with('error', 'Er is een fout opgetreden bij het wijzigen van de status.');
+        }
     }
 }

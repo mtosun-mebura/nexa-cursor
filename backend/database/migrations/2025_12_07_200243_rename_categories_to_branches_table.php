@@ -12,37 +12,87 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Rename table from categories to branches
-        Schema::rename('categories', 'branches');
-        
-        // For SQLite, we need to recreate the table with the new column name
-        if (DB::getDriverName() === 'sqlite') {
-            // Drop old foreign key constraint by recreating vacancies table
-            Schema::table('vacancies', function (Blueprint $table) {
-                $table->dropForeign(['category_id']);
-            });
+        // Check if categories table exists and branches doesn't exist
+        if (Schema::hasTable('categories') && !Schema::hasTable('branches')) {
+            // Rename table from categories to branches
+            Schema::rename('categories', 'branches');
             
-            // Rename column using raw SQL for SQLite
-            DB::statement('ALTER TABLE vacancies RENAME COLUMN category_id TO branch_id');
-            
-            // Re-add foreign key constraint
-            Schema::table('vacancies', function (Blueprint $table) {
-                $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
-            });
+            // For SQLite, we need to recreate the table with the new column name
+            if (DB::getDriverName() === 'sqlite') {
+                // Drop old foreign key constraint by recreating vacancies table
+                if (Schema::hasTable('vacancies')) {
+                    try {
+                        Schema::table('vacancies', function (Blueprint $table) {
+                            $table->dropForeign(['category_id']);
+                        });
+                    } catch (\Exception $e) {
+                        // Foreign key might not exist, continue
+                    }
+                    
+                    // Rename column using raw SQL for SQLite
+                    DB::statement('ALTER TABLE vacancies RENAME COLUMN category_id TO branch_id');
+                    
+                    // Re-add foreign key constraint
+                    Schema::table('vacancies', function (Blueprint $table) {
+                        $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
+                    });
+                }
+            } else {
+                // For other databases, use standard renameColumn
+                if (Schema::hasTable('vacancies')) {
+                    try {
+                        Schema::table('vacancies', function (Blueprint $table) {
+                            $table->dropForeign(['category_id']);
+                        });
+                    } catch (\Exception $e) {
+                        // Foreign key might not exist, continue
+                    }
+                    
+                    // Check if category_id column exists before renaming
+                    if (Schema::hasColumn('vacancies', 'category_id')) {
+                        Schema::table('vacancies', function (Blueprint $table) {
+                            $table->renameColumn('category_id', 'branch_id');
+                        });
+                    }
+                    
+                    // Check if foreign key doesn't already exist
+                    if (!Schema::hasColumn('vacancies', 'branch_id') || 
+                        !$this->foreignKeyExists('vacancies', 'vacancies_branch_id_foreign')) {
+                        Schema::table('vacancies', function (Blueprint $table) {
+                            $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
+                        });
+                    }
+                }
+            }
+        } elseif (Schema::hasTable('branches')) {
+            // Branches table already exists, skip migration
+            echo "Branches table already exists, skipping rename migration.\n";
         } else {
-            // For other databases, use standard renameColumn
-            Schema::table('vacancies', function (Blueprint $table) {
-                $table->dropForeign(['category_id']);
-            });
-            
-            Schema::table('vacancies', function (Blueprint $table) {
-                $table->renameColumn('category_id', 'branch_id');
-            });
-            
-            Schema::table('vacancies', function (Blueprint $table) {
-                $table->foreign('branch_id')->references('id')->on('branches')->onDelete('set null');
-            });
+            // Neither table exists, skip migration
+            echo "Categories table does not exist, skipping rename migration.\n";
         }
+    }
+    
+    /**
+     * Check if a foreign key constraint exists
+     */
+    private function foreignKeyExists(string $table, string $constraintName): bool
+    {
+        $connection = DB::connection();
+        $driver = $connection->getDriverName();
+        
+        if ($driver === 'pgsql') {
+            $result = DB::selectOne(
+                "SELECT constraint_name 
+                 FROM information_schema.table_constraints 
+                 WHERE table_name = ? AND constraint_name = ? AND constraint_type = 'FOREIGN KEY'",
+                [$table, $constraintName]
+            );
+            return $result !== null;
+        }
+        
+        // For other databases, assume it doesn't exist to be safe
+        return false;
     }
 
     /**

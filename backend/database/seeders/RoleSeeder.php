@@ -91,6 +91,18 @@ class RoleSeeder extends Seeder
             
             // Agenda access
             'view-agenda',
+            
+            // Role management
+            'view-roles',
+            'create-roles',
+            'edit-roles',
+            'delete-roles',
+            
+            // Permission management
+            'view-permissions',
+            'create-permissions',
+            'edit-permissions',
+            'delete-permissions',
         ];
 
         foreach ($permissions as $permission) {

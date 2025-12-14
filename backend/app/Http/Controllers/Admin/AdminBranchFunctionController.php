@@ -133,3 +133,5 @@ class AdminBranchFunctionController extends Controller
         return back()->with('success', 'Functie verwijderd.');
     }
 }
+
+

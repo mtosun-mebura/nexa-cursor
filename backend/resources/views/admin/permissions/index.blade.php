@@ -4,344 +4,273 @@
 
 @section('content')
 
-
-<!-- Dashboard Stats -->
-<div class="stats-cards">
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #2196F3 0%, #42a5f5 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['total_permissions'] }}</div>
-        <div class="stat-label">Totaal Rechten</div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['assigned_permissions'] }}</div>
-        <div class="stat-label">Toegewezen</div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #f44336 0%, #ef5350 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['unassigned_permissions'] }}</div>
-        <div class="stat-label">Niet Toegewezen</div>
-    </div>
-
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['permissions_by_group']->count() }}</div>
-        <div class="stat-label">Groepen</div>
-    </div>
-</div>
-
-<!-- Permissions by Type -->
-<div class="kt-card">
-    <div class="kt-card-header flex justify-between items-center">
-        <h6 class="mb-0">
-            <i class="fas fa-chart-pie me-2"></i> Rechten per Type
-        </h6>
-    </div>
-    <div class="kt-card-content">
-        <div class="grid gap-5 lg:gap-7.5">
-            <div class="col-md-3 mb-3">
-                <div class="flex items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light); margin: 10px 10px 0 10px;">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
-                            <i class="fas fa-eye"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="mb-1" style="font-size: 14px;">View</h6>
-                        <small style="font-size: 11px; color: var(--medium-text);">{{ $stats['permissions_by_type']['view'] ?? 0 }} rechten</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="flex items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light); margin: 10px 10px 0 10px;">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
-                            <i class="fas fa-plus"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="mb-1" style="font-size: 14px;">Create</h6>
-                        <small style="font-size: 11px; color: var(--medium-text);">{{ $stats['permissions_by_type']['create'] ?? 0 }} rechten</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="flex items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light); margin: 10px 10px 0 10px;">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
-                            <i class="fas fa-edit"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="mb-1" style="font-size: 14px;">Edit</h6>
-                        <small style="font-size: 11px; color: var(--medium-text);">{{ $stats['permissions_by_type']['edit'] ?? 0 }} rechten</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 mb-3">
-                <div class="flex items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light); margin: 10px 10px 0 10px;">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
-                            <i class="fas fa-trash"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="mb-1" style="font-size: 14px;">Delete</h6>
-                        <small style="font-size: 11px; color: var(--medium-text);">{{ $stats['permissions_by_type']['delete'] ?? 0 }} rechten</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Top Permissions by Usage -->
-@if($stats['most_used_permissions']->count() > 0)
-<div class="kt-card">
-    <div class="kt-card-header flex justify-between items-center">
-        <h6 class="mb-0">
-            <i class="fas fa-chart-bar me-2"></i> Meest Gebruikte Rechten
-        </h6>
-    </div>
-    <div class="kt-card-content">
-        <div class="grid gap-5 lg:gap-7.5">
-            @foreach($stats['most_used_permissions'] as $permission)
-            <div class="col-md-4 col-lg-2 mb-3">
-                <div class="flex items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light); margin: 10px 10px 0 10px;">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
-                            <i class="fas fa-key"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h6 class="mb-1" style="font-size: 14px;">{{ ucfirst(str_replace('-', ' ', $permission->name)) }}</h6>
-                        <small class="text-muted" style="font-size: 11px;">{{ $permission->roles_count }} rollen</small>
-                    </div>
-                </div>
-            </div>
-            @endforeach
-        </div>
-    </div>
-</div>
-@endif
-
-<!-- Permissions List -->
-<div class="kt-card">
-    <div class="kt-card-header flex justify-between items-center">
-        <h6 class="mb-0">
-            <i class="fas fa-key me-2"></i> Rechten Beheer
-        </h6>
-        <div class="flex gap-2">
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Rechten Beheer
+        </h1>
+        <div class="flex items-center gap-2.5">
+            @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-permissions'))
             <a href="{{ route('admin.permissions.bulk-create') }}" class="kt-btn kt-btn-success">
-                <i class="fas fa-plus me-1"></i>
+                <i class="ki-filled ki-plus me-2"></i>
                 Bulk Aanmaken
             </a>
             <a href="{{ route('admin.permissions.create') }}" class="kt-btn kt-btn-primary">
-                <i class="fas fa-plus me-1"></i>
+                <i class="ki-filled ki-plus me-2"></i>
                 Nieuw Recht
             </a>
+            @endif
         </div>
     </div>
-    <div class="kt-card-content">
-        @if(session('success'))
-            <div class="kt-alert kt-alert-success alert-dismissible fade show" role="alert">
-                <i class="fas fa-check-circle material-icon"></i>
-                {{ session('success') }}
-                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="alert"></button>
-            </div>
-        @endif
 
-        @if(session('error'))
-            <div class="kt-alert kt-alert-danger alert-dismissible fade show" role="alert">
-                <i class="fas fa-exclamation-circle material-icon"></i>
-                {{ session('error') }}
-                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="alert"></button>
-            </div>
-        @endif
-
-        <!-- Filters -->
-        <div class="filters-section">
-            <form method="GET" action="{{ route('admin.permissions.index') }}" id="filters-form">
-                <div class="grid gap-5 lg:gap-7.5">
-                    @if(auth()->user()->hasRole('super-admin'))
-                        <!-- Super-admin: 5 kolommen over gehele breedte -->
-                        <div class="lg:col-span-2">
-                            <div class="filter-group">
-                                <label class="filter-label">Type</label>
-                                <select name="type" class="filter-select" onchange="this.form.submit()">
-                                    <option value="">Alle types</option>
-                                    <option value="view" {{ request('type') == 'view' ? 'selected' : '' }}>View</option>
-                                    <option value="create" {{ request('type') == 'create' ? 'selected' : '' }}>Create</option>
-                                    <option value="edit" {{ request('type') == 'edit' ? 'selected' : '' }}>Edit</option>
-                                    <option value="delete" {{ request('type') == 'delete' ? 'selected' : '' }}>Delete</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-2">
-                            <div class="filter-group">
-                                <label class="filter-label">Module</label>
-                                <select name="module" class="filter-select" onchange="this.form.submit()">
-                                    <option value="">Alle modules</option>
-                                    <option value="users" {{ request('module') == 'users' ? 'selected' : '' }}>Gebruikers</option>
-                                    <option value="companies" {{ request('module') == 'companies' ? 'selected' : '' }}>Bedrijven</option>
-                                    <option value="vacancies" {{ request('module') == 'vacancies' ? 'selected' : '' }}>Vacatures</option>
-                                    <option value="categories" {{ request('module') == 'categories' ? 'selected' : '' }}>Categorieën</option>
-                                    <option value="notifications" {{ request('module') == 'notifications' ? 'selected' : '' }}>Notificaties</option>
-                                    <option value="matches" {{ request('module') == 'matches' ? 'selected' : '' }}>Matches</option>
-                                    <option value="interviews" {{ request('module') == 'interviews' ? 'selected' : '' }}>Interviews</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-2">
-                            <div class="filter-group">
-                                <label class="filter-label">Gebruik</label>
-                                <select name="usage" class="filter-select" onchange="this.form.submit()">
-                                    <option value="">Alle rechten</option>
-                                    <option value="used" {{ request('usage') == 'used' ? 'selected' : '' }}>Gebruikt</option>
-                                    <option value="unused" {{ request('usage') == 'unused' ? 'selected' : '' }}>Ongebruikt</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-2">
-                            <div class="filter-group">
-                                <label class="filter-label">Items per pagina</label>
-                                <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                    <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
-                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                    <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                    <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                    <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-2">
-                            <div class="filter-group">
-                                <label class="filter-label">&nbsp;</label>
-                                <a href="{{ route('admin.permissions.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: var(--border-radius);">
-                                    <i class="fas fa-times"></i>
-                                    Filter wissen
-                                </a>
-                            </div>
-                        </div>
-                    @else
-                        <!-- Non-super-admin: 4 kolommen over gehele breedte -->
-                        <div class="lg:col-span-3">
-                            <div class="filter-group">
-                                <label class="filter-label">Type</label>
-                                <select name="type" class="filter-select" onchange="this.form.submit()">
-                                    <option value="">Alle types</option>
-                                    <option value="view" {{ request('type') == 'view' ? 'selected' : '' }}>View</option>
-                                    <option value="create" {{ request('type') == 'create' ? 'selected' : '' }}>Create</option>
-                                    <option value="edit" {{ request('type') == 'edit' ? 'selected' : '' }}>Edit</option>
-                                    <option value="delete" {{ request('type') == 'delete' ? 'selected' : '' }}>Delete</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-3">
-                            <div class="filter-group">
-                                <label class="filter-label">Module</label>
-                                <select name="module" class="filter-select" onchange="this.form.submit()">
-                                    <option value="">Alle modules</option>
-                                    <option value="users" {{ request('module') == 'users' ? 'selected' : '' }}>Gebruikers</option>
-                                    <option value="companies" {{ request('module') == 'companies' ? 'selected' : '' }}>Bedrijven</option>
-                                    <option value="vacancies" {{ request('module') == 'vacancies' ? 'selected' : '' }}>Vacatures</option>
-                                    <option value="categories" {{ request('module') == 'categories' ? 'selected' : '' }}>Categorieën</option>
-                                    <option value="notifications" {{ request('module') == 'notifications' ? 'selected' : '' }}>Notificaties</option>
-                                    <option value="matches" {{ request('module') == 'matches' ? 'selected' : '' }}>Matches</option>
-                                    <option value="interviews" {{ request('module') == 'interviews' ? 'selected' : '' }}>Interviews</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-3">
-                            <div class="filter-group">
-                                <label class="filter-label">Items per pagina</label>
-                                <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                    <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
-                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                    <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                    <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                    <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-3">
-                            <div class="filter-group">
-                                <label class="filter-label">&nbsp;</label>
-                                <a href="{{ route('admin.permissions.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: var(--border-radius);">
-                                    <i class="fas fa-times"></i>
-                                    Filter wissen
-                                </a>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            </form>
+    <!-- Success Alert -->
+    @if(session('success'))
+        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
+            {{ session('success') }}
         </div>
+    @endif
 
-        @if($permissions->count() > 0)
-            @foreach($permissions as $group => $groupPermissions)
-                <div class="module-section">
-                    <h6 class="module-title">
-                        <i class="fas fa-folder material-icon"></i>
-                        {{ ucfirst($group) }} ({{ $groupPermissions->count() }})
-                    </h6>
+    @if(session('error'))
+        <div class="kt-alert kt-alert-danger mb-5" id="error-alert" role="alert">
+            <i class="ki-filled ki-cross-circle me-2"></i>
+            {{ session('error') }}
+        </div>
+    @endif
 
-                    <div class="grid gap-5 lg:gap-7.5">
-                        @foreach($groupPermissions as $permission)
-                            <div class="col-md-4 col-lg-2 mb-3">
-                                <div class="permission-item">
-                                    <div class="permission-name">
-                                        <i class="fas fa-shield-alt me-2 text-primary"></i>
-                                        {{ ucfirst(str_replace('-', ' ', $permission->name)) }}
-                                    </div>
-                                    <div class="permission-description">
-                                        {{ $permission->description ?? 'Geen beschrijving' }}
-                                    </div>
-                                    <div class="permission-meta">
-                                        <div>
-                                            <span class="kt-badge kt-badge-info">{{ $permission->roles->count() }} rollen</span>
-                                        </div>
-                                        <div class="action-buttons">
-                                            <a href="{{ route('admin.permissions.show', $permission) }}"
-                                               class="action-btn action-btn-info"
-                                               title="Bekijken">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            <a href="{{ route('admin.permissions.edit', $permission) }}"
-                                               class="action-btn action-btn-warning"
-                                               title="Bewerken">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            @if($permission->roles->count() === 0)
-                                                <form action="{{ route('admin.permissions.destroy', $permission) }}"
-                                                      method="POST"
-                                                      style="display: inline;"
-                                                      onsubmit="return confirm('Weet je zeker dat je dit recht wilt verwijderen?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                            class="action-btn action-btn-danger"
-                                                            title="Verwijderen">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
+    <!-- Statistics Cards -->
+    <div class="kt-card mb-5">
+        <div class="kt-card-content">
+            <div class="flex lg:px-10 py-1.5 gap-2">
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_permissions'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Totaal Rechten
+                    </span>
                 </div>
-            @endforeach
-        @else
-            <div class="empty-state">
-                <i class="fas fa-inbox"></i>
-                <p>Geen rechten gevonden</p>
-                <a href="{{ route('admin.permissions.create') }}" class="kt-btn kt-btn-primary mt-3">
-                    <i class="fas fa-plus me-1"></i>
-                    Eerste Recht Aanmaken
-                </a>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['assigned_permissions'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Toegewezen
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['unassigned_permissions'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Niet Toegewezen
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['permissions_by_group']->count() ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Groepen
+                    </span>
+                </div>
             </div>
-        @endif
+        </div>
+    </div>
+
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="kt-card kt-card-grid min-w-full">
+            <div class="kt-card-header py-5 flex-wrap gap-2">
+                <h3 class="kt-card-title text-sm pb-3 w-full">
+                    Toon alle rechten ({{ $allPermissions->count() }})
+                </h3>
+            </div>
+            
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                @if($allPermissions->count() > 0)
+                    @php
+                        // Parse permissions: structure is "action-module" (e.g., "view-users", "create-vacancies")
+                        // Group by module (the part after the action)
+                        $permissionModules = $allPermissions->groupBy(function($permission) {
+                            $parts = explode('-', $permission->name);
+                            // Get the module name (everything except the first part which is the action)
+                            if (count($parts) > 1) {
+                                array_shift($parts); // Remove the action part
+                                return implode('-', $parts);
+                            }
+                            return 'other';
+                        });
+                        
+                        // Get all unique actions (view, create, edit, delete, etc.) - the first part
+                        $allActions = $allPermissions->map(function($permission) {
+                            $parts = explode('-', $permission->name);
+                            return $parts[0] ?? 'other'; // Get the first part (action)
+                        })->unique()->sort()->values();
+                        
+                        // Create a map of module => [actions] for quick lookup
+                        $permissionMap = [];
+                        // Also create a map of module-action => permission object for edit links
+                        $permissionObjects = [];
+                        foreach ($allPermissions as $permission) {
+                            $parts = explode('-', $permission->name);
+                            $action = $parts[0] ?? 'other';
+                            array_shift($parts);
+                            $module = implode('-', $parts) ?: 'other';
+                            if (!isset($permissionMap[$module])) {
+                                $permissionMap[$module] = [];
+                            }
+                            $permissionMap[$module][] = $action;
+                            // Store permission object for edit links
+                            $permissionObjects[$module . '-' . $action] = $permission;
+                        }
+                        
+                        // Module display names
+                        $moduleNames = [
+                            'users' => 'Gebruikers',
+                            'vacancies' => 'Vacatures',
+                            'matches' => 'Matches',
+                            'interviews' => 'Interviews',
+                            'notifications' => 'Notificaties',
+                            'email-templates' => 'E-mail Templates',
+                            'email_templates' => 'E-mail Templates',
+                            'tenant-dashboard' => 'Tenant Dashboard',
+                            'tenant_dashboard' => 'Tenant Dashboard',
+                            'agenda' => 'Agenda',
+                            'companies' => 'Bedrijven',
+                            'branches' => 'Branches',
+                            'categories' => 'Categorieën',
+                            'roles' => 'Rollen',
+                            'permissions' => 'Permissies',
+                            'job-configurations' => 'Job Configuraties',
+                            'job_configurations' => 'Job Configuraties',
+                            'dashboard' => 'Dashboard',
+                        ];
+                        
+                        // Action display names
+                        $actionNames = [
+                            'view' => 'View',
+                            'create' => 'Create',
+                            'edit' => 'Edit',
+                            'delete' => 'Delete',
+                            'publish' => 'Publish',
+                            'modify' => 'Modify',
+                            'configure' => 'Configure',
+                            'approve' => 'Approve',
+                            'schedule' => 'Schedule',
+                            'send' => 'Send',
+                            'assign' => 'Assign',
+                        ];
+                    @endphp
+                    <table class="kt-table kt-table-border align-middle text-sm">
+                        <thead>
+                            <tr>
+                                <th class="min-w-[200px] text-left text-secondary-foreground font-normal">Module</th>
+                                @foreach($allActions as $action)
+                                    <th class="min-w-[100px] text-center text-secondary-foreground font-normal">
+                                        {{ $actionNames[$action] ?? ucfirst($action) }}
+                                    </th>
+                                @endforeach
+                                <th class="min-w-[60px] text-center text-secondary-foreground font-normal">Acties</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($permissionModules as $module => $permissions)
+                                <tr>
+                                    <td class="text-foreground font-medium">
+                                        {{ $moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)) }}
+                                    </td>
+                                    @foreach($allActions as $action)
+                                        <td class="text-center">
+                                            @if(isset($permissionMap[$module]) && in_array($action, $permissionMap[$module]))
+                                                @php
+                                                    $permissionKey = $module . '-' . $action;
+                                                    $permission = $permissionObjects[$permissionKey] ?? null;
+                                                @endphp
+                                                @if($permission)
+                                                    <a href="{{ route('admin.permissions.edit', $permission) }}" class="inline-block" title="Bewerken">
+                                                        <x-heroicon-s-check class="w-5 h-5 text-blue-500 mx-auto hover:text-blue-600" />
+                                                    </a>
+                                                @else
+                                                    <x-heroicon-s-check class="w-5 h-5 text-blue-500 mx-auto" />
+                                                @endif
+                                            @endif
+                                        </td>
+                                    @endforeach
+                                    <td class="text-center" onclick="event.stopPropagation();">
+                                        <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                            <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
+                                                <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                    <i class="ki-filled ki-dots-vertical text-lg"></i>
+                                                </button>
+                                                <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                    @can('create-permissions')
+                                                    <div class="kt-menu-item">
+                                                        <a class="kt-menu-link" href="{{ route('admin.permissions.create') }}">
+                                                            <span class="kt-menu-icon">
+                                                                <i class="ki-filled ki-plus"></i>
+                                                            </span>
+                                                            <span class="kt-menu-title">Nieuw Recht</span>
+                                                        </a>
+                                                    </div>
+                                                    @endcan
+                                                    @if($permissions->count() > 0)
+                                                    <div class="kt-menu-separator"></div>
+                                                    @foreach($permissions->take(3) as $permission)
+                                                    @can('edit-permissions')
+                                                    <div class="kt-menu-item">
+                                                        <a class="kt-menu-link" href="{{ route('admin.permissions.edit', $permission) }}">
+                                                            <span class="kt-menu-icon">
+                                                                <i class="ki-filled ki-pencil"></i>
+                                                            </span>
+                                                            <span class="kt-menu-title">{{ ucfirst(str_replace('-', ' ', $permission->name)) }}</span>
+                                                        </a>
+                                                    </div>
+                                                    @endcan
+                                                    @endforeach
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    <div class="p-5">
+                        <p class="text-muted-foreground">Geen rechten gevonden.</p>
+                        @can('create-permissions')
+                        <a href="{{ route('admin.permissions.create') }}" class="kt-btn kt-btn-primary mt-3">
+                            <i class="ki-filled ki-plus me-2"></i>
+                            Eerste Recht Aanmaken
+                        </a>
+                        @endcan
+                    </div>
+                @endif
+            </div>
+        </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-dismiss success alert after 3 seconds
+        const successAlert = document.getElementById('success-alert');
+        if (successAlert) {
+            setTimeout(function() {
+                successAlert.style.transition = 'opacity 0.3s ease-out';
+                successAlert.style.opacity = '0';
+                setTimeout(function() {
+                    successAlert.remove();
+                }, 300);
+            }, 3000);
+        }
+    });
+</script>
+@endpush
+
 @endsection

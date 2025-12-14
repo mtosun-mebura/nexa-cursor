@@ -52,6 +52,27 @@
             width: 100% !important;
         }
     }
+    
+    /* Select boxes on create/edit pages should have auto width */
+    /* Target all forms except filter forms on index pages */
+    form:not(#filters-form):not(#search-form) select.kt-select,
+    form:not(#filters-form):not(#search-form) select.kt-input {
+        width: auto !important;
+    }
+    
+    /* Also target forms with data-validate (create/edit forms) */
+    form[data-validate="true"] select.kt-select,
+    form[data-validate="true"] select.kt-input {
+        width: auto !important;
+    }
+    
+    /* Vacancy pages */
+    .vacancy-create select.kt-select,
+    .vacancy-create select.kt-input,
+    .vacancy-edit select.kt-select,
+    .vacancy-edit select.kt-input {
+        width: auto !important;
+    }
 </style>
 
 <!-- Stack for page-specific styles -->

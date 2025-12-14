@@ -11,20 +11,16 @@ class AdminPermissionController extends Controller
 {
 
 
-    public function index()
+    public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-permissions')) {
             abort(403, 'Je hebt geen rechten om rechten te bekijken.');
         }
         
-        $permissions = Permission::where('guard_name', 'web')
+        // Get all permissions
+        $allPermissions = Permission::where('guard_name', 'web')
             ->orderBy('name')
-            ->get()
-            ->groupBy(function ($permission) {
-                // Group permissions by their prefix (e.g., 'view-', 'create-', 'edit-', 'delete-')
-                $parts = explode('-', $permission->name);
-                return $parts[0] ?? 'other';
-            });
+            ->get();
 
         $roles = Role::where('guard_name', 'web')->get();
 
@@ -63,7 +59,7 @@ class AdminPermissionController extends Controller
                 ->get()
         ];
 
-        return view('admin.permissions.index', compact('permissions', 'roles', 'stats'));
+        return view('admin.permissions.index', compact('allPermissions', 'roles', 'stats'));
     }
 
     public function create()

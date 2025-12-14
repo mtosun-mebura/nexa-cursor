@@ -105,7 +105,7 @@
                             @if(request('per_page'))
                                 <input type="hidden" name="per_page" value="{{ request('per_page') }}">
                             @endif
-                            <label class="kt-input" style="position: relative !important;">
+                            <label class="kt-input w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
                                 <input placeholder="Zoek gebruikers..." 
                                        type="text" 
