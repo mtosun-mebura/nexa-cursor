@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('chat_rooms', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('candidate_id')->constrained('users')->onDelete('cascade');
-            $table->string('title')->nullable(); // Optioneel: custom titel voor de chat
-            $table->timestamp('last_message_at')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('chat_rooms')) {
+            Schema::create('chat_rooms', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('candidate_id')->constrained('users')->onDelete('cascade');
+                $table->string('title')->nullable(); // Optioneel: custom titel voor de chat
+                $table->timestamp('last_message_at')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

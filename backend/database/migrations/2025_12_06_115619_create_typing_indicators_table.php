@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('typing_indicators', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('chat_room_id')->constrained('chat_rooms')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->timestamp('updated_at');
-            
-            $table->unique(['chat_room_id', 'user_id']);
-        });
+        if (!Schema::hasTable('typing_indicators')) {
+            Schema::create('typing_indicators', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('chat_room_id')->constrained('chat_rooms')->onDelete('cascade');
+                $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+                $table->timestamp('updated_at');
+                
+                $table->unique(['chat_room_id', 'user_id']);
+            });
+        }
     }
 
     /**
