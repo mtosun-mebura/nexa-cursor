@@ -388,26 +388,6 @@
                 </div>
                 @endif
 
-                <!-- Profile -->
-                <div class="kt-menu-item pt-2.25 pb-px">
-                    <span
-                        class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
-                        Account
-                    </span>
-                </div>
-                <div class="kt-menu-item {{ request()->routeIs('admin.profile') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
-                        href="{{ route('admin.profile') }}" tabindex="0">
-                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-profile-circle text-lg">
-                            </i>
-                        </span>
-                        <span
-                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Mijn Profiel
-                        </span>
-                    </a>
-                </div>
 
             </div>
             <!-- End of Sidebar Menu -->

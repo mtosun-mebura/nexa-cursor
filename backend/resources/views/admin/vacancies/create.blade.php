@@ -241,7 +241,7 @@
                                             <i class="ki-filled ki-plus me-1"></i>
                                             Toevoegen
                                         </button>
-                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-success hidden" id="load-default-skills-btn">
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-warning hidden" id="load-default-skills-btn">
                                             <i class="ki-filled ki-arrow-down me-1"></i>
                                             Inladen standaard vaardigheden
                                         </button>
@@ -290,21 +290,48 @@
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Meta titel</td>
                             <td class="min-w-48 w-full">
-                                <input type="text" name="meta_title" class="kt-input @error('meta_title') border-destructive @enderror" value="{{ old('meta_title') }}">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <input type="text" name="meta_title" id="meta_title" class="kt-input @error('meta_title') border-destructive @enderror flex-1" value="{{ old('meta_title') }}">
+                                    <label class="kt-label flex items-center gap-1.5 cursor-pointer">
+                                        <input type="checkbox" id="auto-meta-title" class="kt-switch kt-switch-sm" checked>
+                                        <span class="text-xs text-muted-foreground">Auto</span>
+                                    </label>
+                                </div>
+                                <div class="text-xs text-muted-foreground mb-1">
+                                    <span id="meta-title-length">0</span>/60 karakters (ideaal: 50-60)
+                                </div>
                                 @error('meta_title')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">Meta beschrijving</td>
                             <td>
-                                <textarea name="meta_description" rows="4" class="kt-input pt-1 @error('meta_description') border-destructive @enderror">{{ old('meta_description') }}</textarea>
+                                <div class="flex items-start gap-2 mb-1">
+                                    <textarea name="meta_description" id="meta_description" rows="4" class="kt-input pt-1 @error('meta_description') border-destructive @enderror flex-1">{{ old('meta_description') }}</textarea>
+                                    <label class="kt-label flex items-center gap-1.5 cursor-pointer mt-1">
+                                        <input type="checkbox" id="auto-meta-description" class="kt-switch kt-switch-sm" checked>
+                                        <span class="text-xs text-muted-foreground">Auto</span>
+                                    </label>
+                                </div>
+                                <div class="text-xs text-muted-foreground mb-1">
+                                    <span id="meta-description-length">0</span>/160 karakters (ideaal: 150-160)
+                                </div>
                                 @error('meta_description')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Meta keywords</td>
+                            <td class="text-secondary-foreground font-normal align-top">Meta keywords</td>
                             <td>
-                                <input type="text" name="meta_keywords" class="kt-input @error('meta_keywords') border-destructive @enderror" value="{{ old('meta_keywords') }}" placeholder="keyword1, keyword2">
+                                <div class="flex items-start gap-2 mb-1">
+                                    <textarea name="meta_keywords" id="meta_keywords" rows="4" class="kt-input pt-1 @error('meta_keywords') border-destructive @enderror flex-1" placeholder="keyword1, keyword2">{{ old('meta_keywords') }}</textarea>
+                                    <label class="kt-label flex items-center gap-1.5 cursor-pointer mt-1">
+                                        <input type="checkbox" id="auto-meta-keywords" class="kt-switch kt-switch-sm" checked>
+                                        <span class="text-xs text-muted-foreground">Auto</span>
+                                    </label>
+                                </div>
+                                <div class="text-xs text-muted-foreground mb-1">
+                                    <span id="meta-keywords-count">0</span> keywords (optimaal: 5-10 relevante keywords)
+                                </div>
                                 @error('meta_keywords')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -330,16 +357,23 @@
         padding-top: 14px;
     }
     /* Groene knoppen voor skills */
-    #add-skill-btn.kt-btn-success,
-    #load-default-skills-btn.kt-btn-success {
+    #add-skill-btn.kt-btn-success {
         background-color: var(--color-green-600);
         border-color: var(--color-green-600);
         color: white;
     }
-    #add-skill-btn.kt-btn-success:hover,
-    #load-default-skills-btn.kt-btn-success:hover {
+    #add-skill-btn.kt-btn-success:hover {
         background-color: var(--color-green-700);
         border-color: var(--color-green-700);
+    }
+    #load-default-skills-btn.kt-btn-warning {
+        background-color: var(--color-orange-500);
+        border-color: var(--color-orange-500);
+        color: white;
+    }
+    #load-default-skills-btn.kt-btn-warning:hover {
+        background-color: var(--color-orange-600);
+        border-color: var(--color-orange-600);
     }
 </style>
 @endpush
@@ -554,18 +588,100 @@ document.addEventListener('DOMContentLoaded', function () {
                 suggestionsDiv.classList.add('hidden');
                 selectedFunctionId = f.id || null;
                 if (branchFunctionIdInput) branchFunctionIdInput.value = selectedFunctionId ? String(selectedFunctionId) : '';
-                
+
                 // Auto-fill branch if function has branch info and branch is not yet selected
+                let branchWasAutoFilled = false;
                 if (f.branch_id && !getBranchId()) {
                     const branch = branches.find(b => b.id === f.branch_id);
                     if (branch) {
                         branchInput.value = branch.name;
                         branchIdInput.value = String(branch.id);
                         lastBranchId = null;
+                        branchWasAutoFilled = true;
+                        // Mark branch as user interacted
+                        branchInput.dataset.userInteracted = 'true';
                         // Load functions for this branch
                         await loadBranchFunctions(String(branch.id));
                     }
                 }
+
+                // Mark as user interacted and trigger validation after function is selected
+                functionInput.dataset.userInteracted = 'true';
+
+                // Small delay to ensure DOM is updated
+                setTimeout(() => {
+                    if (window.FormValidator && functionInput.form) {
+                        const validator = functionInput.form._formValidator || 
+                            Array.from(document.querySelectorAll('form[data-validate="true"]'))
+                                .map(f => f._formValidator)
+                                .find(v => v && v.form === functionInput.form);
+                        
+                        if (validator) {
+                            const feedbackElement = functionInput.parentElement?.querySelector('.field-feedback') ||
+                                functionInput.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                functionInput.closest('td')?.querySelector('.field-feedback');
+                            validator.validateField(functionInput, feedbackElement, true);
+                            
+                            // Also validate branch if it was auto-filled
+                            if (branchWasAutoFilled && branchInput) {
+                                const branchFeedbackElement = branchInput.parentElement?.querySelector('.field-feedback') ||
+                                    branchInput.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                    branchInput.closest('td')?.querySelector('.field-feedback');
+                                validator.validateField(branchInput, branchFeedbackElement, true);
+                            }
+                        } else {
+                            // Fallback: trigger input and blur events to trigger validation
+                            functionInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            setTimeout(() => {
+                                functionInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                // Also trigger for branch if auto-filled
+                                if (branchWasAutoFilled && branchInput) {
+                                    branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                    setTimeout(() => {
+                                        branchInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                    }, 10);
+                                }
+                            }, 10);
+                        }
+                    } else {
+                        // Fallback: trigger input and blur events to trigger validation
+                        functionInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        setTimeout(() => {
+                            functionInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                            // Also trigger for branch if auto-filled
+                            if (branchWasAutoFilled && branchInput) {
+                                branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                setTimeout(() => {
+                                    branchInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                }, 10);
+                            }
+                        }, 10);
+                    }
+                }, 50);
+                
+                // Reset manual edit flags when function changes (if Auto is enabled)
+                if (typeof metaTitleManuallyEdited !== 'undefined' && autoMetaTitle?.checked) {
+                    metaTitleManuallyEdited = false;
+                }
+                if (typeof metaDescriptionManuallyEdited !== 'undefined' && autoMetaDescription?.checked) {
+                    metaDescriptionManuallyEdited = false;
+                }
+                if (typeof metaKeywordsManuallyEdited !== 'undefined' && autoMetaKeywords?.checked) {
+                    metaKeywordsManuallyEdited = false;
+                }
+                
+                // Trigger SEO meta data regeneration immediately (force update)
+                setTimeout(() => {
+                    if (typeof generateMetaTitle === 'function') {
+                        generateMetaTitle(true);
+                    }
+                    if (typeof generateMetaDescription === 'function') {
+                        generateMetaDescription(true);
+                    }
+                    if (typeof generateMetaKeywords === 'function') {
+                        generateMetaKeywords(true);
+                    }
+                }, 10);
                 
                 // reset skills for new function selection
                 skillsTouched = false;
@@ -626,6 +742,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     if (loadDefaultSkillsBtn) loadDefaultSkillsBtn.classList.add('hidden');
                 }
+                
+                // Reset manual edit flags when branch changes (if Auto is enabled)
+                if (typeof metaTitleManuallyEdited !== 'undefined' && autoMetaTitle?.checked) {
+                    metaTitleManuallyEdited = false;
+                }
+                if (typeof metaDescriptionManuallyEdited !== 'undefined' && autoMetaDescription?.checked) {
+                    metaDescriptionManuallyEdited = false;
+                }
+                if (typeof metaKeywordsManuallyEdited !== 'undefined' && autoMetaKeywords?.checked) {
+                    metaKeywordsManuallyEdited = false;
+                }
+                
+                // Trigger SEO meta data regeneration immediately (force update)
+                setTimeout(() => {
+                    if (typeof generateMetaTitle === 'function') {
+                        generateMetaTitle(true);
+                    }
+                    if (typeof generateMetaDescription === 'function') {
+                        generateMetaDescription(true);
+                    }
+                    if (typeof generateMetaKeywords === 'function') {
+                        generateMetaKeywords(true);
+                    }
+                }, 10);
             });
             branchSuggestions.appendChild(item);
         });
@@ -789,7 +929,35 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (branch) {
                             branchInput.value = branch.name;
                             branchIdInput.value = String(branch.id);
+                            branchInput.dataset.userInteracted = 'true';
                             await loadBranchFunctions(String(branch.id));
+                            
+                            // Trigger validation for branch
+                            setTimeout(() => {
+                                if (window.FormValidator && branchInput.form) {
+                                    const validator = branchInput.form._formValidator || 
+                                        Array.from(document.querySelectorAll('form[data-validate="true"]'))
+                                            .map(f => f._formValidator)
+                                            .find(v => v && v.form === branchInput.form);
+                                    
+                                    if (validator) {
+                                        const branchFeedbackElement = branchInput.parentElement?.querySelector('.field-feedback') ||
+                                            branchInput.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                            branchInput.closest('td')?.querySelector('.field-feedback');
+                                        validator.validateField(branchInput, branchFeedbackElement, true);
+                                    } else {
+                                        branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                        setTimeout(() => {
+                                            branchInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                        }, 10);
+                                    }
+                                } else {
+                                    branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                    setTimeout(() => {
+                                        branchInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                    }, 10);
+                                }
+                            }, 50);
                         }
                     }
                 }
@@ -863,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     functionInput.addEventListener('input', async function (e) {
         const query = e.target.value;
-        
+
         // typing invalidates selected function id (until user picks one)
         selectedFunctionId = null;
         if (branchFunctionIdInput) branchFunctionIdInput.value = '';
@@ -873,10 +1041,31 @@ document.addEventListener('DOMContentLoaded', function () {
             serializeSkills();
             renderChips();
         }
-        
+
+        // If function field is cleared, also clear the branch field
+        if (!query || query.trim() === '') {
+            branchInput.value = '';
+            branchIdInput.value = '';
+            lastBranchId = null;
+            // Reset branch validation
+            branchInput.dataset.userInteracted = 'false';
+            if (window.FormValidator && branchInput.form) {
+                const validator = branchInput.form._formValidator || 
+                    Array.from(document.querySelectorAll('form[data-validate="true"]'))
+                        .map(f => f._formValidator)
+                        .find(v => v && v.form === branchInput.form);
+                if (validator) {
+                    const branchFeedbackElement = branchInput.parentElement?.querySelector('.field-feedback') ||
+                        branchInput.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                        branchInput.closest('td')?.querySelector('.field-feedback');
+                    validator.validateField(branchInput, branchFeedbackElement, false);
+                }
+            }
+        }
+
         // Ensure all functions are loaded first
         await loadAllFunctions();
-        
+
         // If branch is selected, load branch functions; otherwise use all functions
         const branchId = getBranchId();
         if (branchId) {
@@ -885,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Use all functions when no branch selected
             functions = allFunctions.length > 0 ? allFunctions : [];
         }
-        
+
         // Filter and render suggestions
         const filtered = filterFunctions(query);
         renderSuggestions(filtered, query);
@@ -930,7 +1119,35 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (branch) {
                         branchInput.value = branch.name;
                         branchIdInput.value = String(branch.id);
+                        branchInput.dataset.userInteracted = 'true';
                         await loadBranchFunctions(String(branch.id));
+                        
+                        // Trigger validation for branch
+                        setTimeout(() => {
+                            if (window.FormValidator && branchInput.form) {
+                                const validator = branchInput.form._formValidator || 
+                                    Array.from(document.querySelectorAll('form[data-validate="true"]'))
+                                        .map(f => f._formValidator)
+                                        .find(v => v && v.form === branchInput.form);
+                                
+                                if (validator) {
+                                    const branchFeedbackElement = branchInput.parentElement?.querySelector('.field-feedback') ||
+                                        branchInput.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                        branchInput.closest('td')?.querySelector('.field-feedback');
+                                    validator.validateField(branchInput, branchFeedbackElement, true);
+                                } else {
+                                    branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                    setTimeout(() => {
+                                        branchInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                    }, 10);
+                                }
+                            } else {
+                                branchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                setTimeout(() => {
+                                    branchInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                }, 10);
+                            }
+                        }, 50);
                     }
                 }
                 
@@ -974,6 +1191,62 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                     // Add to allFunctions and refresh
                     await loadAllFunctions();
+                    
+                    // Mark as user interacted and trigger validation after function is created/selected
+                    functionInput.dataset.userInteracted = 'true';
+                    
+                    // Small delay to ensure DOM is updated
+                    setTimeout(() => {
+                        if (window.FormValidator && functionInput.form) {
+                            const validator = functionInput.form._formValidator || 
+                                Array.from(document.querySelectorAll('form[data-validate="true"]'))
+                                    .map(f => f._formValidator)
+                                    .find(v => v && v.form === functionInput.form);
+                            
+                            if (validator) {
+                                const feedbackElement = functionInput.parentElement?.querySelector('.field-feedback') ||
+                                    functionInput.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                    functionInput.closest('td')?.querySelector('.field-feedback');
+                                validator.validateField(functionInput, feedbackElement, true);
+                            } else {
+                                // Fallback: trigger input and blur events to trigger validation
+                                functionInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                setTimeout(() => {
+                                    functionInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                                }, 10);
+                            }
+                        } else {
+                            // Fallback: trigger input and blur events to trigger validation
+                            functionInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            setTimeout(() => {
+                                functionInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                            }, 10);
+                        }
+                    }, 50);
+                    
+                    // Reset manual edit flags when function changes (if Auto is enabled)
+                    if (typeof metaTitleManuallyEdited !== 'undefined' && autoMetaTitle?.checked) {
+                        metaTitleManuallyEdited = false;
+                    }
+                    if (typeof metaDescriptionManuallyEdited !== 'undefined' && autoMetaDescription?.checked) {
+                        metaDescriptionManuallyEdited = false;
+                    }
+                    if (typeof metaKeywordsManuallyEdited !== 'undefined' && autoMetaKeywords?.checked) {
+                        metaKeywordsManuallyEdited = false;
+                    }
+                    
+                    // Trigger SEO meta data regeneration immediately (force update)
+                    setTimeout(() => {
+                        if (typeof generateMetaTitle === 'function') {
+                            generateMetaTitle(true);
+                        }
+                        if (typeof generateMetaDescription === 'function') {
+                            generateMetaDescription(true);
+                        }
+                        if (typeof generateMetaKeywords === 'function') {
+                            generateMetaKeywords(true);
+                        }
+                    }, 10);
                     
                     // Don't auto-load skills, just show the button
                     await checkAndShowLoadButton(branchId, newId);
@@ -1086,6 +1359,13 @@ document.addEventListener('DOMContentLoaded', function () {
     modal.addEventListener('click', function (e) {
         if (e.target === modal) closeModal();
     });
+    
+    // Close modal on Esc key
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
     modal.querySelector('#skill-modal-form')?.addEventListener('submit', async function (e) {
         e.preventDefault();
         const input = modal.querySelector('#skill-modal-input');
@@ -1108,6 +1388,365 @@ document.addEventListener('DOMContentLoaded', function () {
 
         closeModal();
     });
+
+    // ===== SEO Meta Data Auto-Generation =====
+    const metaTitleInput = document.getElementById('meta_title');
+    const metaDescriptionInput = document.getElementById('meta_description');
+    const metaKeywordsInput = document.getElementById('meta_keywords');
+    const autoMetaTitle = document.getElementById('auto-meta-title');
+    const autoMetaDescription = document.getElementById('auto-meta-description');
+    const autoMetaKeywords = document.getElementById('auto-meta-keywords');
+    const metaTitleLength = document.getElementById('meta-title-length');
+    const metaDescriptionLength = document.getElementById('meta-description-length');
+    const metaKeywordsCount = document.getElementById('meta-keywords-count');
+
+    // Track if user manually edited meta fields
+    let metaTitleManuallyEdited = false;
+    let metaDescriptionManuallyEdited = false;
+    let metaKeywordsManuallyEdited = false;
+
+    // Generate SEO-friendly meta title (50-60 chars ideal)
+    function generateMetaTitle(force = false) {
+        if (!force && (!autoMetaTitle?.checked || metaTitleManuallyEdited)) return;
+        
+        const functionName = functionInput?.value?.trim() || '';
+        const companyName = document.querySelector('select[name="company_id"]')?.selectedOptions[0]?.text?.trim() || 
+                          document.querySelector('input[name="company_id"]')?.value || '';
+        const location = document.querySelector('input[name="location"]')?.value?.trim() || '';
+        const employmentType = document.querySelector('select[name="employment_type"]')?.value?.trim() || '';
+        
+        let title = '';
+        
+        if (functionName) {
+            title = functionName;
+        }
+        
+        if (companyName && companyName !== '') {
+            if (title) title += ' bij ' + companyName;
+            else title = companyName;
+        }
+        
+        if (location) {
+            if (title) title += ' in ' + location;
+            else title = 'Vacature in ' + location;
+        }
+        
+        if (employmentType && employmentType !== '-') {
+            title += ' | ' + employmentType;
+        }
+        
+        if (!title) {
+            title = 'Vacature';
+        }
+        
+        // Don't truncate - show full text, but length indicator will show red if over limit
+        if (metaTitleInput) {
+            metaTitleInput.value = title;
+            updateMetaTitleLength();
+        }
+    }
+
+    // Generate SEO-friendly meta description (150-160 chars ideal)
+    function generateMetaDescription(force = false) {
+        if (!force && (!autoMetaDescription?.checked || metaDescriptionManuallyEdited)) return;
+        
+        const functionName = functionInput?.value?.trim() || '';
+        const location = document.querySelector('input[name="location"]')?.value?.trim() || '';
+        const employmentType = document.querySelector('select[name="employment_type"]')?.value?.trim() || '';
+        const description = document.querySelector('textarea[name="description"]')?.value?.trim() || '';
+        const requirements = document.querySelector('textarea[name="requirements"]')?.value?.trim() || '';
+        
+        let desc = '';
+        
+        // Start with function name if available
+        if (functionName) {
+            desc = functionName;
+        } else {
+            desc = 'Vacature';
+        }
+        
+        // Add location
+        if (location) {
+            desc += ' in ' + location;
+        }
+        
+        // Add employment type
+        if (employmentType && employmentType !== '-') {
+            desc += ' (' + employmentType + ')';
+        }
+        
+        desc += '. ';
+        
+        // Add description or requirements
+        const content = description || requirements || '';
+        if (content) {
+            // Clean HTML tags and get first meaningful sentence
+            const cleanContent = content.replace(/<[^>]*>/g, '').trim();
+            const firstSentence = cleanContent.split(/[.!?]/)[0] || cleanContent;
+            // Use full first sentence, don't truncate
+            desc += firstSentence;
+        } else {
+            desc += 'Solliciteer nu voor deze interessante functie.';
+        }
+        
+        // Don't truncate - show full text, but length indicator will show red if over limit
+        if (metaDescriptionInput) {
+            metaDescriptionInput.value = desc;
+            updateMetaDescriptionLength();
+        }
+    }
+
+    // Generate SEO-friendly meta keywords
+    function generateMetaKeywords(force = false) {
+        if (!force && (!autoMetaKeywords?.checked || metaKeywordsManuallyEdited)) return;
+        
+        const keywords = new Set();
+        
+        // Base keywords
+        keywords.add('vacature');
+        keywords.add('werk');
+        keywords.add('baan');
+        keywords.add('sollicitatie');
+        keywords.add('carrière');
+        
+        // Function name
+        const functionName = functionInput?.value?.trim() || '';
+        if (functionName) {
+            const functionWords = functionName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            functionWords.forEach(w => keywords.add(w));
+        }
+        
+        // Branch
+        const branchName = branchInput?.value?.trim() || '';
+        if (branchName) {
+            keywords.add(branchName.toLowerCase());
+        }
+        
+        // Location
+        const location = document.querySelector('input[name="location"]')?.value?.trim() || '';
+        if (location) {
+            const locationWords = location.toLowerCase().split(/[,\s]+/).filter(w => w.length > 2);
+            locationWords.forEach(w => keywords.add(w));
+        }
+        
+        // Employment type
+        const employmentType = document.querySelector('select[name="employment_type"]')?.value?.trim() || '';
+        if (employmentType && employmentType !== '-') {
+            keywords.add(employmentType.toLowerCase());
+        }
+        
+        // Company name
+        const companySelect = document.querySelector('select[name="company_id"]');
+        if (companySelect) {
+            const companyName = companySelect.selectedOptions[0]?.text?.trim() || '';
+            if (companyName) {
+                const companyWords = companyName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                companyWords.forEach(w => keywords.add(w));
+            }
+        }
+        
+        // Remote work
+        const remoteWork = document.querySelector('input[name="remote_work"]')?.checked;
+        if (remoteWork) {
+            keywords.add('remote');
+            keywords.add('thuiswerken');
+            keywords.add('hybride');
+        }
+        
+        // Skills from chips
+        if (skills && skills.length > 0) {
+            skills.slice(0, 5).forEach(skill => {
+                const skillWords = skill.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                skillWords.forEach(w => keywords.add(w));
+            });
+        }
+        
+        // Convert to comma-separated string, limit to reasonable amount
+        const keywordsArray = Array.from(keywords).slice(0, 15);
+        const keywordsString = keywordsArray.join(', ');
+        
+        if (metaKeywordsInput) {
+            metaKeywordsInput.value = keywordsString;
+            updateMetaKeywordsCount();
+        }
+    }
+
+    // Update length indicators
+    function updateMetaTitleLength() {
+        if (metaTitleLength && metaTitleInput) {
+            const length = metaTitleInput.value.length;
+            metaTitleLength.textContent = length;
+            if (length < 50) {
+                metaTitleLength.className = 'text-xs text-orange-500';
+            } else if (length > 60) {
+                metaTitleLength.className = 'text-xs text-red-500';
+            } else {
+                metaTitleLength.className = 'text-xs text-green-500';
+            }
+        }
+    }
+
+    function updateMetaDescriptionLength() {
+        if (metaDescriptionLength && metaDescriptionInput) {
+            const length = metaDescriptionInput.value.length;
+            metaDescriptionLength.textContent = length;
+            if (length < 120) {
+                metaDescriptionLength.className = 'text-xs text-orange-500';
+            } else if (length > 160) {
+                metaDescriptionLength.className = 'text-xs text-red-500';
+            } else {
+                metaDescriptionLength.className = 'text-xs text-green-500';
+            }
+        }
+    }
+
+    function updateMetaKeywordsCount() {
+        if (metaKeywordsCount && metaKeywordsInput) {
+            const keywords = metaKeywordsInput.value.split(',').filter(k => k.trim() !== '');
+            metaKeywordsCount.textContent = keywords.length;
+            if (keywords.length < 5) {
+                metaKeywordsCount.className = 'text-xs text-orange-500';
+            } else if (keywords.length > 15) {
+                metaKeywordsCount.className = 'text-xs text-red-500';
+            } else {
+                metaKeywordsCount.className = 'text-xs text-green-500';
+            }
+        }
+    }
+
+    // Auto-generate on field changes
+    function setupSEOAutoGeneration() {
+        // Listen to relevant field changes
+        const fieldsToWatch = [
+            functionInput,
+            branchInput,
+            document.querySelector('input[name="location"]'),
+            document.querySelector('select[name="employment_type"]'),
+            document.querySelector('select[name="company_id"]'),
+            document.querySelector('textarea[name="description"]'),
+            document.querySelector('textarea[name="requirements"]'),
+            document.querySelector('input[name="remote_work"]')
+        ];
+
+        fieldsToWatch.forEach(field => {
+            if (field) {
+                field.addEventListener('input', () => {
+                    // Only auto-generate if Auto is enabled and not manually edited
+                    if (autoMetaTitle?.checked && !metaTitleManuallyEdited) {
+                        generateMetaTitle();
+                    }
+                    if (autoMetaDescription?.checked && !metaDescriptionManuallyEdited) {
+                        generateMetaDescription();
+                    }
+                    if (autoMetaKeywords?.checked && !metaKeywordsManuallyEdited) {
+                        generateMetaKeywords();
+                    }
+                });
+                field.addEventListener('change', () => {
+                    // Only auto-generate if Auto is enabled and not manually edited
+                    if (autoMetaTitle?.checked && !metaTitleManuallyEdited) {
+                        generateMetaTitle();
+                    }
+                    if (autoMetaDescription?.checked && !metaDescriptionManuallyEdited) {
+                        generateMetaDescription();
+                    }
+                    if (autoMetaKeywords?.checked && !metaKeywordsManuallyEdited) {
+                        generateMetaKeywords();
+                    }
+                });
+            }
+        });
+
+        // Listen to skills changes
+        const originalSerializeSkills = serializeSkills;
+        serializeSkills = function() {
+            originalSerializeSkills();
+            generateMetaKeywords();
+        };
+
+        // Track manual edits
+        if (metaTitleInput) {
+            metaTitleInput.addEventListener('input', function() {
+                if (!autoMetaTitle?.checked) {
+                    metaTitleManuallyEdited = true;
+                }
+                updateMetaTitleLength();
+            });
+            metaTitleInput.addEventListener('focus', function() {
+                if (autoMetaTitle?.checked) {
+                    metaTitleManuallyEdited = false;
+                }
+            });
+        }
+
+        if (metaDescriptionInput) {
+            metaDescriptionInput.addEventListener('input', function() {
+                if (!autoMetaDescription?.checked) {
+                    metaDescriptionManuallyEdited = true;
+                }
+                updateMetaDescriptionLength();
+            });
+            metaDescriptionInput.addEventListener('focus', function() {
+                if (autoMetaDescription?.checked) {
+                    metaDescriptionManuallyEdited = false;
+                }
+            });
+        }
+
+        if (metaKeywordsInput) {
+            metaKeywordsInput.addEventListener('input', function() {
+                if (!autoMetaKeywords?.checked) {
+                    metaKeywordsManuallyEdited = true;
+                }
+                updateMetaKeywordsCount();
+            });
+            metaKeywordsInput.addEventListener('focus', function() {
+                if (autoMetaKeywords?.checked) {
+                    metaKeywordsManuallyEdited = false;
+                }
+            });
+        }
+
+        // Toggle auto-generation
+        if (autoMetaTitle) {
+            autoMetaTitle.addEventListener('change', function() {
+                if (this.checked) {
+                    metaTitleManuallyEdited = false;
+                    generateMetaTitle();
+                }
+            });
+        }
+
+        if (autoMetaDescription) {
+            autoMetaDescription.addEventListener('change', function() {
+                if (this.checked) {
+                    metaDescriptionManuallyEdited = false;
+                    generateMetaDescription();
+                }
+            });
+        }
+
+        if (autoMetaKeywords) {
+            autoMetaKeywords.addEventListener('change', function() {
+                if (this.checked) {
+                    metaKeywordsManuallyEdited = false;
+                    generateMetaKeywords();
+                }
+            });
+        }
+
+        // Initial generation
+        setTimeout(() => {
+            generateMetaTitle();
+            generateMetaDescription();
+            generateMetaKeywords();
+        }, 500);
+    }
+
+    // Initialize SEO auto-generation
+    if (metaTitleInput && metaDescriptionInput && metaKeywordsInput) {
+        setupSEOAutoGeneration();
+    }
 });
 </script>
 @endpush

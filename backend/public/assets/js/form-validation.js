@@ -85,6 +85,8 @@
                 ...options
             };
             this.validatedFields = new Set();
+            // Store validator instance on form for easy access
+            this.form._formValidator = this;
             this.init();
         }
 
@@ -228,6 +230,14 @@
             // Check if user has interacted with this field
             const userInteracted = input.dataset.userInteracted === 'true' || forceShow;
 
+            // Find feedback element if not provided
+            if (!feedbackElement) {
+                feedbackElement = input.parentElement?.querySelector('.field-feedback') ||
+                                input.closest('.relative')?.parentElement?.querySelector('.field-feedback') ||
+                                input.closest('td')?.querySelector('.field-feedback') ||
+                                this.createFeedbackElement(input);
+            }
+
             // Clear previous validation state
             this.clearValidationState(input, feedbackElement);
             
@@ -367,13 +377,19 @@
             
             // Alleen feedback tonen als gebruiker heeft geïnteracteerd of geforceerd
             if (userInteracted) {
-                // Show red cross icon
+                // Show red cross icon (same styling as green checkmark)
                 if (iconWrapper) {
-                    iconWrapper.innerHTML = '<i class="ki-filled ki-cross-circle text-red-500 text-xl"></i>';
+                    iconWrapper.innerHTML = '<i class="ki-filled ki-cross-circle text-red-500" style="font-size: 1.25rem; line-height: 1;"></i>';
                     iconWrapper.classList.remove('hidden');
                     iconWrapper.style.display = 'flex';
-                    // Add padding to input to make room for icon
-                    input.style.paddingRight = '2.5rem';
+                    iconWrapper.style.position = 'absolute';
+                    iconWrapper.style.right = '0.5rem';
+                    iconWrapper.style.top = '50%';
+                    iconWrapper.style.transform = 'translateY(-50%)';
+                    iconWrapper.style.width = '1.25rem';
+                    iconWrapper.style.height = '1.25rem';
+                    // Add padding to input to make room for icon (0.5rem right + 1.25rem icon + 0.5rem spacing = 2.25rem)
+                    input.style.paddingRight = '2.25rem';
                 }
                 
                 // Show error message below input
@@ -381,6 +397,22 @@
                     feedbackElement.className = 'text-xs text-red-600 text-destructive mt-1';
                     feedbackElement.textContent = message;
                     feedbackElement.classList.remove('hidden');
+                    feedbackElement.style.display = 'block';
+                }
+                
+                // Also hide any server-side error messages that might conflict
+                const tdWrapper = input.closest('td');
+                if (tdWrapper) {
+                    const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
+                    serverErrors.forEach(errorEl => {
+                        // Only hide server errors if they're not the current feedback element
+                        if (errorEl !== feedbackElement && 
+                            errorEl.textContent && errorEl.textContent.trim() !== '' && 
+                            !errorEl.classList.contains('text-muted-foreground')) {
+                            errorEl.classList.add('hidden');
+                            errorEl.style.display = 'none';
+                        }
+                    });
                 }
             } else {
                 // Hide everything if user hasn't interacted
@@ -421,16 +453,38 @@
             if (userInteracted && !isCheckboxOrRadio) {
                 // Show green checkmark icon
                 if (iconWrapper) {
-                    iconWrapper.innerHTML = '<i class="ki-filled ki-check-circle text-green-500 text-xl"></i>';
+                    iconWrapper.innerHTML = '<i class="ki-filled ki-check-circle text-green-500" style="font-size: 1.25rem; line-height: 1;"></i>';
                     iconWrapper.classList.remove('hidden');
                     iconWrapper.style.display = 'flex';
-                    // Add padding to input to make room for icon
-                    input.style.paddingRight = '2.5rem';
+                    iconWrapper.style.position = 'absolute';
+                    iconWrapper.style.right = '0.5rem';
+                    iconWrapper.style.top = '50%';
+                    iconWrapper.style.transform = 'translateY(-50%)';
+                    iconWrapper.style.width = '1.25rem';
+                    iconWrapper.style.height = '1.25rem';
+                    // Add padding to input to make room for icon (0.5rem right + 1.25rem icon + 0.5rem spacing = 2.25rem)
+                    input.style.paddingRight = '2.25rem';
                 }
                 
                 // Hide error message if it was shown
                 if (feedbackElement) {
                     feedbackElement.classList.add('hidden');
+                    feedbackElement.style.display = 'none';
+                    feedbackElement.textContent = '';
+                }
+                
+                // Also hide any server-side error messages (from @error directive)
+                const tdWrapper = input.closest('td');
+                if (tdWrapper) {
+                    const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
+                    serverErrors.forEach(errorEl => {
+                        // Only hide if it's an error message (not the help text)
+                        if (errorEl.textContent && errorEl.textContent.trim() !== '' && 
+                            !errorEl.classList.contains('text-muted-foreground')) {
+                            errorEl.classList.add('hidden');
+                            errorEl.style.display = 'none';
+                        }
+                    });
                 }
             } else {
                 // Hide icon if user hasn't interacted or for checkboxes/radios
@@ -474,7 +528,22 @@
             
             if (feedbackElement) {
                 feedbackElement.classList.add('hidden');
+                feedbackElement.style.display = 'none';
                 feedbackElement.textContent = '';
+            }
+            
+            // Also hide any server-side error messages
+            const tdWrapper = input.closest('td');
+            if (tdWrapper) {
+                const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
+                serverErrors.forEach(errorEl => {
+                    // Only hide if it's an error message (not the help text)
+                    if (errorEl.textContent && errorEl.textContent.trim() !== '' && 
+                        !errorEl.classList.contains('text-muted-foreground')) {
+                        errorEl.classList.add('hidden');
+                        errorEl.style.display = 'none';
+                    }
+                });
             }
         }
 
@@ -482,8 +551,10 @@
          * Create feedback element voor een input
          */
         createFeedbackElement(input) {
-            // Check if feedback element already exists
-            const existing = input.parentElement.querySelector('.field-feedback');
+            // Check if feedback element already exists - look in parent or td
+            const existing = input.parentElement?.querySelector('.field-feedback') ||
+                            input.closest('td')?.querySelector('.field-feedback') ||
+                            input.closest('.relative')?.parentElement?.querySelector('.field-feedback');
             if (existing) {
                 return existing;
             }
@@ -491,10 +562,20 @@
             // Create new feedback element
             const feedback = document.createElement('div');
             feedback.className = 'field-feedback text-xs mt-1 hidden';
-            feedback.setAttribute('data-field', input.name);
+            feedback.setAttribute('data-field', input.name || input.id);
             
-            // Insert after input or in parent
-            if (input.parentElement) {
+            // Insert after the relative wrapper or in td (not inside the relative div with the input)
+            const relativeWrapper = input.closest('.relative');
+            const tdWrapper = input.closest('td');
+            
+            if (relativeWrapper && relativeWrapper.parentElement) {
+                // Insert after the relative wrapper (so it's outside the input container)
+                relativeWrapper.parentElement.insertBefore(feedback, relativeWrapper.nextSibling);
+            } else if (tdWrapper) {
+                // Insert in td after all other elements
+                tdWrapper.appendChild(feedback);
+            } else if (input.parentElement) {
+                // Fallback: insert in parent
                 input.parentElement.appendChild(feedback);
             }
             
@@ -514,19 +595,25 @@
                 return existing;
             }
 
-            // Find or create a wrapper div around the input
-            let inputWrapper = input.parentElement;
+            // Find the closest relative wrapper (should be the div containing the input)
+            let inputWrapper = input.closest('.relative');
             
-            // If input is directly in a td or doesn't have a suitable wrapper, create one
-            if (!inputWrapper || inputWrapper.tagName === 'TD' || !inputWrapper.classList.contains('relative')) {
-                // Check if there's already a wrapper div we can use
-                const existingWrapper = input.closest('.relative');
-                if (existingWrapper && existingWrapper !== inputWrapper) {
-                    inputWrapper = existingWrapper;
+            // If no relative wrapper found, use parent element
+            if (!inputWrapper) {
+                inputWrapper = input.parentElement;
+            }
+            
+            // If input is directly in a td, find or create a relative wrapper
+            if (!inputWrapper || inputWrapper.tagName === 'TD') {
+                // Check if there's already a relative div we can use
+                const existingRelative = input.closest('.relative');
+                if (existingRelative) {
+                    inputWrapper = existingRelative;
                 } else {
                     // Create a new wrapper div
                     const wrapper = document.createElement('div');
                     wrapper.className = 'relative';
+                    wrapper.style.position = 'relative';
                     input.parentNode.insertBefore(wrapper, input);
                     wrapper.appendChild(input);
                     inputWrapper = wrapper;
@@ -534,25 +621,30 @@
             }
 
             // Ensure input wrapper has relative positioning
-            if (!inputWrapper.classList.contains('relative')) {
+            if (inputWrapper && !inputWrapper.classList.contains('relative')) {
                 inputWrapper.classList.add('relative');
+                inputWrapper.style.position = 'relative';
             }
 
             // Create icon wrapper
             const iconWrapper = document.createElement('div');
             iconWrapper.className = 'validation-icon-wrapper absolute pointer-events-none hidden';
             iconWrapper.style.position = 'absolute';
-            iconWrapper.style.right = '0.75rem';
+            iconWrapper.style.right = '0.5rem';
             iconWrapper.style.top = '50%';
             iconWrapper.style.transform = 'translateY(-50%)';
-            iconWrapper.style.display = 'flex';
+            iconWrapper.style.display = 'none';
             iconWrapper.style.alignItems = 'center';
             iconWrapper.style.justifyContent = 'center';
             iconWrapper.style.zIndex = '10';
-            iconWrapper.setAttribute('data-field', input.name);
+            iconWrapper.style.width = '1.25rem';
+            iconWrapper.style.height = '1.25rem';
+            iconWrapper.setAttribute('data-field', input.name || input.id);
             
-            // Insert icon wrapper in the input wrapper
-            inputWrapper.appendChild(iconWrapper);
+            // Insert icon wrapper in the input wrapper (same level as input)
+            if (inputWrapper) {
+                inputWrapper.appendChild(iconWrapper);
+            }
             
             return iconWrapper;
         }

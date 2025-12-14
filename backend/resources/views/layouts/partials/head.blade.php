@@ -34,6 +34,24 @@
         min-height: 100px !important;
         padding-top: 0.25rem !important;
     }
+    
+    /* Hide scrollbar corner (white line) in textareas when scrollbar is present */
+    textarea.kt-input::-webkit-scrollbar-corner {
+        background-color: transparent;
+        background: transparent;
+    }
+    
+    textarea.kt-input {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-input) transparent;
+    }
+    
+    /* Ensure textareas are 100% width (not 50% like regular inputs) */
+    @media (min-width: 1024px) {
+        textarea.kt-input {
+            width: 100% !important;
+        }
+    }
 </style>
 
 <!-- Stack for page-specific styles -->

@@ -7,7 +7,7 @@
 		}
 	@endphp
 	<button class="kt-btn kt-btn-ghost kt-btn-icon size-8 hover:bg-background hover:[&_i]:text-primary relative" data-kt-drawer-toggle="#notifications_drawer">
-		<i class="ki-filled ki-notification-status text-lg">
+		<i class="ki-filled {{ $unreadCount > 0 ? 'ki-notification-on text-orange-500' : 'ki-notification' }} text-lg">
 		</i>
 		@if($unreadCount > 0)
 		<span class="absolute top-0 end-0 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white">
