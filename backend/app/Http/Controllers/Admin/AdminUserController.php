@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use App\Models\Company;
+use App\Models\JobTitle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
@@ -23,49 +26,88 @@ class AdminUserController extends Controller
         $query = User::with(['company', 'roles']);
         $this->applyTenantFilter($query);
         
-        // Filter op rol
+        // Exclude de ingelogde gebruiker uit het overzicht
+        $query->where('id', '!=', auth()->id());
+        
+        // Apply filters
+        if ($request->filled('status')) {
+            if (\Schema::hasColumn('users', 'is_active')) {
+                if ($request->status === 'active') {
+                    $query->where('is_active', true);
+                } elseif ($request->status === 'inactive') {
+                    $query->where('is_active', false);
+                }
+            } else {
+                // Fallback to email_verified_at if is_active doesn't exist
+                if ($request->status === 'active') {
+                    $query->whereNotNull('email_verified_at');
+                } elseif ($request->status === 'inactive') {
+                    $query->whereNull('email_verified_at');
+                }
+            }
+        }
+        
         if ($request->filled('role')) {
             $query->whereHas('roles', function($q) use ($request) {
                 $q->where('name', $request->role);
             });
         }
         
-        // Filter op bedrijf
         if ($request->filled('company')) {
             $query->where('company_id', $request->company);
         }
         
-        // Filter op status (actief/inactief)
-        if ($request->filled('status')) {
-            if ($request->status === 'active') {
-                $query->whereNotNull('email_verified_at');
-            } elseif ($request->status === 'inactive') {
-                $query->whereNull('email_verified_at');
+        // Apply sorting
+        $sortBy = $request->get('sort');
+        $sortDirection = $request->get('direction');
+        
+        // Always sort by ID first to maintain position, then by requested sort
+        if ($sortBy && in_array($sortBy, ['first_name', 'last_name', 'email', 'created_at', 'email_verified_at'])) {
+            // Set default direction based on sort field
+            if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+                // For date fields, default to desc (newest first)
+                if (in_array($sortBy, ['created_at', 'email_verified_at'])) {
+                    $sortDirection = 'desc';
+                } else {
+                    // For text fields, default to asc (alphabetical)
+                    $sortDirection = 'asc';
+                }
             }
-        }
-        
-        // Sortering
-        $sortField = $request->get('sort', 'created_at');
-        $sortDirection = $request->get('order', 'desc');
-        
-        if ($sortField === 'roles') {
-            // Speciale sortering voor rollen - sorteren op de eerste rol naam
-            $query->leftJoin('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
-                  ->leftJoin('roles', 'model_has_roles.role_id', '=', 'roles.id')
-                  ->orderBy('roles.name', $sortDirection)
-                  ->select('users.*'); // Zorg ervoor dat we alleen user kolommen selecteren
+            // Sort by requested field, then by ID to maintain stable order
+            $query->orderBy($sortBy, $sortDirection)->orderBy('id', 'asc');
         } else {
-            $query->orderBy($sortField, $sortDirection);
+            // Default sort: order by ID to maintain position
+            $query->orderBy('id', 'asc');
         }
         
-        // Paginering
-        $perPage = $request->get('per_page', 25);
-        $users = $query->paginate($perPage);
+        // Load all users for client-side pagination (like demo1)
+        // The KTDataTable library will handle pagination client-side
+        $users = $query->get();
         
-        // Voeg query parameters toe aan pagination links
-        $users->appends($request->query());
+        // Calculate statistics
+        $statsQuery = User::query();
+        $this->applyTenantFilter($statsQuery);
         
-        return view('admin.users.index', compact('users'));
+        $tenantId = $this->getTenantId();
+        
+        $stats = [
+            'total_companies' => $tenantId ? \App\Models\Company::where('id', $tenantId)->count() : \App\Models\Company::count(),
+            'active_companies' => $tenantId ? \App\Models\Company::where('id', $tenantId)->where('is_active', true)->count() : \App\Models\Company::where('is_active', true)->count(),
+            'total_users' => (clone $statsQuery)->count(),
+            'active_users' => \Schema::hasColumn('users', 'is_active') 
+                ? (clone $statsQuery)->where('is_active', true)->count()
+                : (clone $statsQuery)->whereNotNull('email_verified_at')->count(),
+            'total_vacancies' => $tenantId ? \App\Models\Vacancy::where('company_id', $tenantId)->count() : \App\Models\Vacancy::count(),
+            'intermediaries' => $tenantId ? \App\Models\Company::where('id', $tenantId)->where('is_intermediary', true)->count() : \App\Models\Company::where('is_intermediary', true)->count(),
+        ];
+        
+        // Get unique roles for filter
+        $roles = Role::select('name')->distinct()->orderBy('name')->pluck('name')->unique()->values();
+        
+        // Get companies for filter
+        $companies = Company::orderBy('name')->get();
+        
+        return view('admin.users.index', compact('users', 'stats', 'roles', 'companies'));
     }
 
     public function create()
@@ -93,44 +135,42 @@ class AdminUserController extends Controller
         return view('admin.users.create', compact('companies', 'roles'));
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers aan te maken.');
-        }
-        
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:8',
-            'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|string|exists:roles,name',
-            'phone' => 'nullable|string|max:20',
-            'date_of_birth' => 'nullable|date'
-        ]);
-
         $userData = [
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'date_of_birth' => $request->date_of_birth,
+            'first_name' => $request->validated()['first_name'],
+            'last_name' => $request->validated()['last_name'],
+            'email' => $request->validated()['email'],
+            'password' => Hash::make($request->validated()['password']),
+            'phone' => $request->validated()['phone'] ?? null,
+            'date_of_birth' => $request->validated()['date_of_birth'] ?? null,
+            'function' => $request->validated()['function'] ?? null,
         ];
         
         // Als Super Admin en tenant geselecteerd, gebruik die tenant
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $userData['company_id'] = session('selected_tenant');
+        if (auth()->user()->hasRole('super-admin')) {
+            if (session('selected_tenant')) {
+                $userData['company_id'] = session('selected_tenant');
+            } else {
+                $userData['company_id'] = $request->validated()['company_id'] ?? null;
+            }
         } else {
-            $userData['company_id'] = $request->company_id;
+            // Voor niet-super-admins: gebruik altijd het bedrijf van de ingelogde gebruiker
+            $userData['company_id'] = auth()->user()->company_id;
+        }
+        
+        // Save or update job title if function is provided
+        if (!empty($userData['function'])) {
+            $jobTitle = JobTitle::firstOrCreate(['name' => $userData['function']]);
+            $jobTitle->increment('usage_count');
+            $userData['job_title_id'] = $jobTitle->id;
         }
         
         $user = User::create($userData);
 
-        $user->assignRole($request->role);
+        $user->assignRole($request->validated()['role']);
 
-        return redirect()->route('admin.users.index')->with('success', 'Gebruiker succesvol aangemaakt.');
+        return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol aangemaakt.');
     }
 
     public function show(User $user)
@@ -177,51 +217,53 @@ class AdminUserController extends Controller
         return view('admin.users.edit', compact('user', 'companies', 'roles'));
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te bewerken.');
-        }
-        
         // Check if user can access this resource
         if (!$this->canAccessResource($user)) {
             abort(403, 'Je hebt geen toegang tot deze gebruiker.');
         }
-        
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|min:8',
-            'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|string|exists:roles,name',
-            'phone' => 'nullable|string|max:20',
-            'date_of_birth' => 'nullable|date'
-        ]);
 
+        $validated = $request->validated();
+        
         $userData = [
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'date_of_birth' => $request->date_of_birth,
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'function' => $validated['function'] ?? null,
         ];
         
         // Als Super Admin en tenant geselecteerd, gebruik die tenant
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $userData['company_id'] = session('selected_tenant');
+        if (auth()->user()->hasRole('super-admin')) {
+            if (session('selected_tenant')) {
+                $userData['company_id'] = session('selected_tenant');
+            } else {
+                $userData['company_id'] = $validated['company_id'] ?? null;
+            }
         } else {
-            $userData['company_id'] = $request->company_id;
+            // Voor niet-super-admins: gebruik altijd het bedrijf van de ingelogde gebruiker
+            $userData['company_id'] = auth()->user()->company_id;
         }
 
-        if ($request->filled('password')) {
-            $userData['password'] = Hash::make($request->password);
+        if (!empty($validated['password'])) {
+            $userData['password'] = Hash::make($validated['password']);
+        }
+
+        // Save or update job title if function is provided
+        if (!empty($userData['function'])) {
+            $jobTitle = JobTitle::firstOrCreate(['name' => $userData['function']]);
+            $jobTitle->increment('usage_count');
+            $userData['job_title_id'] = $jobTitle->id;
+        } else {
+            $userData['job_title_id'] = null;
         }
 
         $user->update($userData);
-        $user->syncRoles([$request->role]);
+        $user->syncRoles([$validated['role']]);
 
-        return redirect()->route('admin.users.index')->with('success', 'Gebruiker succesvol bijgewerkt.');
+        return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol bijgewerkt.');
     }
 
     public function destroy(User $user)
@@ -277,5 +319,209 @@ class AdminUserController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
         ]);
+    }
+
+    public function toggleStatus(User $user)
+    {
+        // Check if AJAX request
+        $isAjax = request()->expectsJson() || request()->ajax() || request()->header('X-Requested-With') === 'XMLHttpRequest';
+        
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-users')) {
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Je hebt geen rechten om gebruikers te bewerken.'
+                ], 403);
+            }
+            abort(403, 'Je hebt geen rechten om gebruikers te bewerken.');
+        }
+
+        // Check if user can access this resource
+        if (!$this->canAccessResource($user)) {
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Je hebt geen toegang tot deze gebruiker.'
+                ], 403);
+            }
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        // Prevent users from deactivating themselves
+        if ($user->id === auth()->id()) {
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Je kunt jezelf niet deactiveren.'
+                ], 403);
+            }
+            return back()->with('error', 'Je kunt jezelf niet deactiveren.');
+        }
+
+        // Toggle is_active to activate/deactivate user (email_verified_at remains unchanged)
+        try {
+            // Check if is_active column exists - use direct DB query to avoid schema cache issues
+            $connection = \DB::connection();
+            $driverName = $connection->getDriverName();
+            
+            // Check column existence with direct query
+            $columnExists = false;
+            try {
+                if ($driverName === 'pgsql') {
+                    $result = \DB::selectOne("SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_active'");
+                    $columnExists = $result !== null;
+                } elseif ($driverName === 'mysql') {
+                    $result = \DB::selectOne("SHOW COLUMNS FROM users LIKE 'is_active'");
+                    $columnExists = $result !== null;
+                } elseif ($driverName === 'sqlite') {
+                    // For SQLite, use PRAGMA table_info
+                    $columns = \DB::select("PRAGMA table_info(users)");
+                    foreach ($columns as $col) {
+                        if (isset($col->name) && $col->name === 'is_active') {
+                            $columnExists = true;
+                            break;
+                        }
+                    }
+                } else {
+                    // For other databases, use Schema facade
+                    $columnExists = \Schema::hasColumn('users', 'is_active');
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error checking is_active column: ' . $e->getMessage());
+                // Fallback: try to update and see if it works
+                try {
+                    $user->refresh();
+                    $testValue = $user->is_active ?? null;
+                    $columnExists = true; // If we can access it, it exists
+                } catch (\Exception $e2) {
+                    $columnExists = false;
+                }
+            }
+            
+            if (!$columnExists) {
+                // Try to add the column automatically
+                try {
+                    if ($driverName === 'pgsql') {
+                        \DB::statement('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true');
+                    } elseif ($driverName === 'mysql') {
+                        \DB::statement('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true');
+                    } elseif ($driverName === 'sqlite') {
+                        // SQLite doesn't support IF NOT EXISTS in ALTER TABLE, but we check first
+                        \DB::statement('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
+                    } else {
+                        \DB::statement('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true');
+                    }
+                    \DB::statement('UPDATE users SET is_active = true WHERE is_active IS NULL');
+                    $columnExists = true;
+                } catch (\Exception $e) {
+                    \Log::error('Failed to add is_active column: ' . $e->getMessage());
+                    if ($isAjax) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'De is_active kolom bestaat niet. Voer handmatig uit: ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true;'
+                        ], 500);
+                    }
+                    return back()->with('error', 'De is_active kolom bestaat niet.');
+                }
+            }
+            
+            // Only update is_active, never touch email_verified_at
+            $user->refresh(); // Refresh to get latest state
+            
+            // Try to update is_active - if column doesn't exist, this will throw an exception
+            try {
+                $user->update(['is_active' => !$user->is_active]);
+            } catch (\Exception $e) {
+                // If update fails, try to add the column and retry
+                \Log::warning('is_active update failed, trying to add column: ' . $e->getMessage());
+                try {
+                    if ($driverName === 'sqlite') {
+                        \DB::statement('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
+                    } else {
+                        \DB::statement('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true');
+                    }
+                    \DB::statement('UPDATE users SET is_active = true WHERE is_active IS NULL');
+                    $user->refresh();
+                    $user->update(['is_active' => !$user->is_active]);
+                } catch (\Exception $e2) {
+                    \Log::error('Failed to add is_active column after update failure: ' . $e2->getMessage());
+                    throw $e2;
+                }
+            }
+            
+            $user->refresh(); // Refresh after update to get new state
+            $status = $user->is_active ? 'geactiveerd' : 'gedeactiveerd';
+            $isActive = $user->is_active;
+
+            // Always return JSON for AJAX requests
+            if ($isAjax) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Gebruiker '{$user->first_name} {$user->last_name}' is succesvol {$status}.",
+                    'is_active' => $isActive
+                ], 200);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Toggle user status error: ' . $e->getMessage());
+            \Log::error('Toggle user status error stack: ' . $e->getTraceAsString());
+            
+            // Always return JSON for AJAX requests
+            if ($isAjax) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            return back()->with('error', 'Er is een fout opgetreden bij het wijzigen van de status.');
+        }
+
+        return redirect()->route('admin.users.index')
+            ->with('success', "Gebruiker '{$user->first_name} {$user->last_name}' is succesvol {$status}.");
+    }
+
+    /**
+     * Get job titles for autocomplete
+     */
+    public function getJobTitles(Request $request)
+    {
+        try {
+            if ($request->isMethod('post')) {
+                // Save new job title
+                $name = $request->get('name');
+                if ($name) {
+                    $jobTitle = JobTitle::firstOrCreate(['name' => $name]);
+                    $jobTitle->increment('usage_count');
+                    return response()->json(['success' => true, 'id' => $jobTitle->id]);
+                }
+                return response()->json(['success' => false], 400);
+            }
+            
+        // GET request - return suggestions
+        $query = $request->get('q', '');
+        
+        $jobTitlesQuery = JobTitle::query();
+        
+        // If query is provided, filter by it (case-insensitive)
+        if (!empty($query)) {
+            $jobTitlesQuery->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($query) . '%']);
+        }
+        
+        // Return all matching results (or all if no query), ordered by usage count then name
+        // Limit to top 20 most relevant results for better performance
+        $jobTitles = $jobTitlesQuery
+            ->orderBy('usage_count', 'desc')
+            ->orderBy('name', 'asc')
+            ->limit(20)
+            ->pluck('name')
+            ->toArray();
+            
+            return response()->json($jobTitles);
+        } catch (\Exception $e) {
+            \Log::error('Error in getJobTitles: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

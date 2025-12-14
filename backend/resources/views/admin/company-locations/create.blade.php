@@ -53,9 +53,10 @@
                             Hoofdkantoor
                         </label>
                         <span class="text-muted-foreground">|</span>
-                        <label class="kt-label">
+                        <label class="kt-label" for="is_active">
                             <input type="checkbox" 
                                    class="kt-switch kt-switch-sm" 
+                                   id="is_active"
                                    name="is_active" 
                                    value="1"
                                    {{ old('is_active', true) ? 'checked' : '' }}/>
@@ -197,20 +198,6 @@
                                 </div>
                             </td>
                         </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Hoofdkantoor
-                            </td>
-                            <td>
-                                <label class="kt-label">
-                                    <input type="checkbox" 
-                                           class="kt-switch kt-switch-sm" 
-                                           name="is_main" 
-                                           value="1"
-                                           {{ old('is_main') ? 'checked' : '' }}/>
-                                </label>
-                            </td>
-                        </tr>
                     </table>
                 </div>
             </div>
@@ -248,6 +235,35 @@
         vertical-align: middle;
     }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure Cmd+A (Mac) and Ctrl+A (Windows/Linux) works in input fields
+    // Use capture phase to run before other handlers that might block it
+    document.addEventListener('keydown', function(e) {
+        // Check if Cmd+A (Mac) or Ctrl+A (Windows/Linux) is pressed
+        const isSelectAll = (e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A');
+        
+        // Only allow if the target is an input, textarea, or contenteditable element
+        const target = e.target;
+        const isInputField = target && (
+            target.tagName === 'INPUT' || 
+            target.tagName === 'TEXTAREA' || 
+            target.isContentEditable
+        );
+        
+        if (isSelectAll && isInputField) {
+            // Stop propagation to prevent other handlers from blocking it
+            e.stopPropagation();
+            // Don't prevent default - allow browser's default select all behavior
+            // The browser will handle selecting all text in the input field
+            return true;
+        }
+    }, true); // Use capture phase to ensure this runs before other handlers
+});
+</script>
 @endpush
 
 @endsection

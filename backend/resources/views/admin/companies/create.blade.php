@@ -23,19 +23,7 @@
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
-            @if($errors->any())
-                <div class="kt-alert kt-alert-danger mb-5">
-                    <i class="ki-filled ki-information-5 me-2"></i>
-                    <div>
-                        <strong>Er zijn fouten opgetreden:</strong>
-                        <ul class="mb-0 mt-2 list-disc list-inside">
-                            @foreach($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
+            <x-error-card :errors="$errors" />
 
             <!-- General Info -->
             <div class="kt-card min-w-full">
@@ -52,9 +40,10 @@
                             Hoofdkantoor
                         </label>
                         <span class="text-muted-foreground">|</span>
-                        <label class="kt-label">
+                        <label class="kt-label" for="is_active">
                             <input type="checkbox" 
                                    class="kt-switch kt-switch-sm" 
+                                   id="is_active"
                                    name="is_active"
                                    value="1"
                                    {{ old('is_active', true) ? 'checked' : '' }}/>
@@ -576,6 +565,15 @@
     .kt-table-border-dashed tbody tr td.align-top {
         vertical-align: top !important;
         padding-top: 18px;
+    }
+    /* Ensure kt-switch checkboxes are clickable */
+    .kt-switch {
+        pointer-events: auto !important;
+        z-index: 1;
+        position: relative;
+    }
+    .kt-label {
+        cursor: pointer;
     }
 </style>
 @endpush

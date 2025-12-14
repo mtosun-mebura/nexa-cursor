@@ -169,7 +169,12 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Prevent 419 CSRF issues on HTTP (local dev) when cookies are marked secure.
+    // - In local/dev environments we force secure cookies off for http://localhost.
+    // - Otherwise, default to secure only when APP_URL is https (unless explicitly configured).
+    'secure' => env('APP_ENV') === 'local'
+        ? false
+        : env('SESSION_SECURE_COOKIE', Str::startsWith((string) env('APP_URL', ''), 'https://')),
 
     /*
     |--------------------------------------------------------------------------

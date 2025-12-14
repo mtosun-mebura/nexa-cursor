@@ -13,7 +13,7 @@ class AdminProfileController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $user->load(['skills', 'experiences', 'cvFiles']);
+        $user->load(['skills', 'experiences', 'cvFiles', 'company.locations', 'company.mainLocation']);
         
         // Calculate profile completeness percentage
         $profileCompleteness = $this->calculateProfileCompleteness($user);
@@ -90,16 +90,21 @@ class AdminProfileController extends Controller
         ]);
 
         $user = Auth::user();
-        // Convert date format from dd-mm-yyyy to yyyy-mm-dd
+        // Convert date format from dd-MM-yyyy (datepicker) or dd-mm-yyyy to yyyy-mm-dd
         $dateOfBirth = null;
         if ($request->date_of_birth && !empty(trim($request->date_of_birth))) {
             try {
-                // Try to parse the date in dd-mm-yyyy format first
-                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $request->date_of_birth)) {
-                    $dateOfBirth = \Carbon\Carbon::createFromFormat('d-m-Y', $request->date_of_birth)->format('Y-m-d');
+                $dateString = trim($request->date_of_birth);
+                // Try to parse the date in dd-MM-yyyy format (from datepicker)
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $dateString)) {
+                    // Handle dd-MM-yyyy format (datepicker uses uppercase M for month)
+                    $dateOfBirth = \Carbon\Carbon::createFromFormat('d-m-Y', $dateString)->format('Y-m-d');
+                } elseif (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $dateString)) {
+                    // Handle dd/mm/yyyy format
+                    $dateOfBirth = \Carbon\Carbon::createFromFormat('d/m/Y', $dateString)->format('Y-m-d');
                 } else {
                     // If format doesn't match, try to parse with Carbon's flexible parsing
-                    $parsedDate = \Carbon\Carbon::parse($request->date_of_birth);
+                    $parsedDate = \Carbon\Carbon::parse($dateString);
                     $dateOfBirth = $parsedDate->format('Y-m-d');
                 }
             } catch (\Exception $e) {

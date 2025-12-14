@@ -5,30 +5,67 @@
 @section('content')
 
 <div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
-        <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono mb-3">
-                Branches Beheer
-            </h1>
-            <p class="text-sm text-secondary-foreground">Beheer alle branches (voorheen categorieën)</p>
+    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Branches Beheer
+        </h1>
+        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-branches'))
+        <a href="{{ route('admin.branches.create') }}" class="kt-btn kt-btn-primary">
+            <i class="ki-filled ki-plus me-2"></i>
+            Nieuwe Branch
+        </a>
+        @endif
+    </div>
+
+    <!-- Success Alert -->
+    @if(session('success'))
+        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
+            {{ session('success') }}
         </div>
-        <div class="flex items-center gap-2.5">
-            @can('create-branches')
-            <a href="{{ route('admin.branches.create') }}" class="kt-btn kt-btn-primary">
-                <i class="ki-filled ki-plus me-2"></i>
-                Nieuwe Branch
-            </a>
-            @endcan
+    @endif
+
+    <!-- Statistics Cards -->
+    <div class="kt-card mb-5">
+        <div class="kt-card-content">
+            <div class="flex lg:px-10 py-1.5 gap-2">
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_branches'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Branches
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['active_branches'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Actief
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['inactive_branches'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Inactief
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="grid gap-5 lg:gap-7.5">
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm">
-                    Toon {{ $branches->firstItem() ?? 0 }} tot {{ $branches->lastItem() ?? 0 }} van {{ $branches->total() }} branches
+                <h3 class="kt-card-title text-sm pb-3 w-full">
+                    Toon 1 tot {{ $branches->count() }} van {{ $branches->count() }} branches
                 </h3>
-                <div class="flex flex-wrap gap-2 lg:gap-5 ml-auto">
+                <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
                     <!-- Search -->
                     <div class="flex">
                         <form method="GET" action="{{ route('admin.branches.index') }}" class="flex gap-2" id="search-form">
@@ -41,24 +78,19 @@
                             @if(request('sort_order'))
                                 <input type="hidden" name="sort_order" value="{{ request('sort_order') }}">
                             @endif
-                            @if(request('per_page'))
-                                <input type="hidden" name="per_page" value="{{ request('per_page') }}">
-                            @endif
-                            <label class="kt-input">
+                            <label class="kt-input" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
                                 <input placeholder="Zoek branches..." 
                                        type="text" 
                                        name="search" 
                                        value="{{ request('search') }}"
-                                       id="search-input"/>
+                                       id="search-input"
+                                       data-kt-datatable-search="#branches_table"/>
                             </label>
-                            <button type="submit" class="kt-btn kt-btn-primary">
-                                <i class="ki-filled ki-magnifier"></i>
-                            </button>
                         </form>
                     </div>
                     <!-- Filters -->
-                    <div class="flex flex-wrap gap-2.5">
+                    <div class="flex flex-wrap gap-2.5 items-center">
                         <form method="GET" action="{{ route('admin.branches.index') }}" id="filters-form" class="flex gap-2.5">
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
@@ -79,28 +111,19 @@
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Sorteren"
                                     id="sort-filter">
-                                <option value="sort_order" {{ request('sort_by', 'sort_order') == 'sort_order' ? 'selected' : '' }}>Volgorde</option>
-                                <option value="name" {{ request('sort_by') == 'name' ? 'selected' : '' }}>Naam</option>
+                                <option value="name" {{ request('sort_by', 'name') == 'name' ? 'selected' : '' }}>Naam</option>
+                                <option value="used_count" {{ request('sort_by') == 'used_count' ? 'selected' : '' }}>Gebruikt aantal</option>
                                 <option value="created_at" {{ request('sort_by') == 'created_at' ? 'selected' : '' }}>Datum</option>
                                 <option value="is_active" {{ request('sort_by') == 'is_active' ? 'selected' : '' }}>Status</option>
                             </select>
                             
-                            <select class="kt-select w-36" 
-                                    name="per_page" 
-                                    data-kt-select="true" 
-                                    data-kt-select-placeholder="Per pagina"
-                                    id="per-page-filter">
-                                <option value="10" {{ request('per_page', 25) == 10 ? 'selected' : '' }}>10</option>
-                                <option value="25" {{ request('per_page', 25) == 25 ? 'selected' : '' }}>25</option>
-                                <option value="50" {{ request('per_page', 25) == 50 ? 'selected' : '' }}>50</option>
-                                <option value="100" {{ request('per_page', 25) == 100 ? 'selected' : '' }}>100</option>
-                            </select>
-                            
-                            @if(request('status') || request('sort_by') || request('per_page') || request('search'))
+                            @if(request('status') || request('sort_by') || request('search'))
                             <a href="{{ route('admin.branches.index') }}" 
                                class="kt-btn kt-btn-outline kt-btn-icon" 
-                               title="Filters resetten">
-                                <i class="ki-filled ki-arrows-circle"></i>
+                               title="Filters resetten"
+                               id="reset-filter-btn"
+                               style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
+                                <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
                             </a>
                             @endif
                         </form>
@@ -109,27 +132,22 @@
             </div>
             
             <div class="kt-card-content">
-                @if(session('success'))
-                    <div class="kt-alert kt-alert-success mb-5">
-                        <i class="ki-filled ki-check-circle me-2"></i>
-                        {{ session('success') }}
-                    </div>
-                @endif
-                
                 @if($branches->count() > 0)
-                    <div class="kt-scrollable-x-auto">
-                        <table class="kt-table table-auto kt-table-border">
+                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="branches_table">
+                        <div class="kt-scrollable-x-auto">
+                        <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
                             <thead>
                                 <tr>
                                     <th class="min-w-[250px]">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Branch Naam</span>
                                             <span class="kt-table-col-sort">
-                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_order' => request('sort_by') == 'name' && request('sort_order') == 'asc' ? 'desc' : 'asc']) }}" 
-                                                   class="kt-table-col-sort-btn">
-                                                    <i class="ki-filled ki-up text-xs"></i>
-                                                    <i class="ki-filled ki-down text-xs"></i>
-                                                </a>
+                                                @php
+                                                    $currentSort = request('sort_by');
+                                                    $currentDirection = request('sort_order');
+                                                    $nextDirection = ($currentSort == 'name' && $currentDirection == 'asc') ? 'desc' : 'asc';
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'name', 'sort_order' => $nextDirection]) }}" class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
                                     </th>
@@ -138,27 +156,29 @@
                                             <span class="kt-table-col-label">Beschrijving</span>
                                         </span>
                                     </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Gebruikt aantal</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort_by');
+                                                    $currentDirection = request('sort_order');
+                                                    $nextDirection = ($currentSort == 'used_count' && $currentDirection == 'desc') ? 'asc' : 'desc';
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'used_count', 'sort_order' => $nextDirection]) }}" class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
                                     <th class="min-w-[120px]">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Status</span>
                                             <span class="kt-table-col-sort">
-                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'is_active', 'sort_order' => request('sort_by') == 'is_active' && request('sort_order') == 'asc' ? 'desc' : 'asc']) }}" 
-                                                   class="kt-table-col-sort-btn">
-                                                    <i class="ki-filled ki-up text-xs"></i>
-                                                    <i class="ki-filled ki-down text-xs"></i>
-                                                </a>
-                                            </span>
-                                        </span>
-                                    </th>
-                                    <th class="min-w-[100px]">
-                                        <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Volgorde</span>
-                                            <span class="kt-table-col-sort">
-                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'sort_order', 'sort_order' => request('sort_by') == 'sort_order' && request('sort_order') == 'asc' ? 'desc' : 'asc']) }}" 
-                                                   class="kt-table-col-sort-btn">
-                                                    <i class="ki-filled ki-up text-xs"></i>
-                                                    <i class="ki-filled ki-down text-xs"></i>
-                                                </a>
+                                                @php
+                                                    $currentSort = request('sort_by');
+                                                    $currentDirection = request('sort_order');
+                                                    $nextDirection = ($currentSort == 'is_active' && $currentDirection == 'asc') ? 'desc' : 'asc';
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'is_active', 'sort_order' => $nextDirection]) }}" class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
                                     </th>
@@ -166,11 +186,12 @@
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Aangemaakt</span>
                                             <span class="kt-table-col-sort">
-                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'created_at', 'sort_order' => request('sort_by') == 'created_at' && request('sort_order') == 'asc' ? 'desc' : 'asc']) }}" 
-                                                   class="kt-table-col-sort-btn">
-                                                    <i class="ki-filled ki-up text-xs"></i>
-                                                    <i class="ki-filled ki-down text-xs"></i>
-                                                </a>
+                                                @php
+                                                    $currentSort = request('sort_by');
+                                                    $currentDirection = request('sort_order');
+                                                    $nextDirection = ($currentSort == 'created_at' && $currentDirection == 'desc') ? 'asc' : 'desc';
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'created_at', 'sort_order' => $nextDirection]) }}" class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
                                     </th>
@@ -179,96 +200,160 @@
                             </thead>
                             <tbody>
                                 @foreach($branches as $branch)
-                                    <tr>
+                                    <tr class="branch-row" data-branch-id="{{ $branch->id }}" data-branch-url="{{ route('admin.branches.show', $branch) }}">
                                         <td>
-                                            <div class="flex items-center gap-2.5">
-                                                @if($branch->icon)
-                                                    <i class="{{ $branch->icon }} text-lg" style="color: {{ $branch->color ?? '#666' }};"></i>
-                                                @else
-                                                    <i class="ki-filled ki-tag text-lg text-muted-foreground"></i>
-                                                @endif
-                                                <div class="flex flex-col">
-                                                    <a class="text-sm font-medium text-mono hover:text-primary mb-px" 
-                                                       href="{{ route('admin.branches.show', $branch) }}">
-                                                        {{ $branch->name }}
-                                                    </a>
-                                                    @if($branch->slug)
-                                                        <span class="text-2sm text-secondary-foreground font-normal">
-                                                            {{ $branch->slug }}
+                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                                <div class="flex items-center gap-2.5">
+                                                    <span class="size-9 rounded-full shrink-0 bg-accent/60 border border-input flex items-center justify-center">
+                                                        @if($branch->icon)
+                                                            @if(is_string($branch->icon) && str_starts_with($branch->icon, 'heroicon-'))
+                                                                <x-dynamic-component :component="$branch->icon" class="w-5 h-5" style="color: {{ $branch->color ?? '#666' }};" />
+                                                            @else
+                                                                <i class="{{ $branch->icon }} text-lg" style="color: {{ $branch->color ?? '#666' }};"></i>
+                                                            @endif
+                                                        @else
+                                                            <i class="ki-filled ki-tag text-lg text-muted-foreground"></i>
+                                                        @endif
+                                                    </span>
+                                                    <div class="flex flex-col">
+                                                        <span class="text-sm font-medium text-mono hover:text-primary mb-px">
+                                                            {{ $branch->name }}
                                                         </span>
-                                                    @endif
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </a>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            @if($branch->description)
-                                                {{ Str::limit($branch->description, 50) }}
-                                            @else
-                                                <span class="text-muted-foreground">-</span>
-                                            @endif
+                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                                @if($branch->description)
+                                                    {{ Str::limit($branch->description, 50) }}
+                                                @else
+                                                    <span class="text-muted-foreground">-</span>
+                                                @endif
+                                            </a>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                                {{ $branch->used_count ?? 0 }}
+                                            </a>
                                         </td>
                                         <td>
-                                            @if($branch->is_active)
-                                                <span class="kt-badge kt-badge-success">Actief</span>
+                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                                @if($branch->is_active)
+                                                    <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                @else
+                                                    <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                @endif
+                                            </a>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                                {{ $branch->created_at->format('d-m-Y') }}
+                                            </a>
+                                        </td>
+                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                            @php
+                                                $canViewBranch = auth()->user()->hasRole('super-admin') || auth()->user()->can('view-branches');
+                                                $canEditBranch = auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-branches');
+                                                $canDeleteBranch = auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-branches');
+                                            @endphp
+
+                                            @if($canViewBranch || $canEditBranch || $canDeleteBranch)
+                                                <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                                    <div class="kt-menu-item"
+                                                         data-kt-menu-item-offset="0, 10px"
+                                                         data-kt-menu-item-placement="bottom-end"
+                                                         data-kt-menu-item-placement-rtl="bottom-start"
+                                                         data-kt-menu-item-toggle="dropdown"
+                                                         data-kt-menu-item-trigger="click">
+                                                        <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                                            <i class="ki-filled ki-dots-vertical text-lg"></i>
+                                                        </button>
+                                                        <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                            @if($canViewBranch)
+                                                                <div class="kt-menu-item">
+                                                                    <a class="kt-menu-link" href="{{ route('admin.branches.show', $branch) }}">
+                                                                        <span class="kt-menu-icon">
+                                                                            <i class="ki-filled ki-eye"></i>
+                                                                        </span>
+                                                                        <span class="kt-menu-title">Bekijken</span>
+                                                                    </a>
+                                                                </div>
+                                                            @endif
+                                                            @if($canEditBranch)
+                                                                <div class="kt-menu-item">
+                                                                    <a class="kt-menu-link" href="{{ route('admin.branches.edit', $branch) }}">
+                                                                        <span class="kt-menu-icon">
+                                                                            <i class="ki-filled ki-pencil"></i>
+                                                                        </span>
+                                                                        <span class="kt-menu-title">Bewerken</span>
+                                                                    </a>
+                                                                </div>
+                                                            @endif
+                                                            @if($canEditBranch)
+                                                                @if($canViewBranch || $canEditBranch)
+                                                                    <div class="kt-menu-separator"></div>
+                                                                @endif
+                                                                <div class="kt-menu-item">
+                                                                    <form action="{{ route('admin.branches.toggle-status', $branch) }}"
+                                                                          method="POST"
+                                                                          style="display: inline;"
+                                                                          class="branch-toggle-status-form"
+                                                                          data-branch-id="{{ $branch->id }}">
+                                                                        @csrf
+                                                                        <button type="submit" class="kt-menu-link w-full text-left">
+                                                                            <span class="kt-menu-icon">
+                                                                                <i class="ki-filled {{ $branch->is_active ? 'ki-pause' : 'ki-play' }}"></i>
+                                                                            </span>
+                                                                            <span class="kt-menu-title">{{ $branch->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                        </button>
+                                                                    </form>
+                                                                </div>
+                                                                <div class="kt-menu-separator"></div>
+                                                            @endif
+                                                            @if($canDeleteBranch)
+                                                                <div class="kt-menu-item">
+                                                                    <form action="{{ route('admin.branches.destroy', $branch) }}"
+                                                                          method="POST"
+                                                                          style="display: inline;"
+                                                                          onsubmit="return confirm('Weet je zeker dat je deze branch wilt verwijderen?')">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit" class="kt-menu-link w-full text-left text-danger">
+                                                                            <span class="kt-menu-icon">
+                                                                                <i class="ki-filled ki-trash"></i>
+                                                                            </span>
+                                                                            <span class="kt-menu-title">Verwijderen</span>
+                                                                        </button>
+                                                                    </form>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             @else
-                                                <span class="kt-badge kt-badge-danger">Inactief</span>
+                                                <span class="text-sm text-muted-foreground">-</span>
                                             @endif
-                                        </td>
-                                        <td class="text-foreground font-normal">
-                                            {{ $branch->sort_order }}
-                                        </td>
-                                        <td class="text-foreground font-normal">
-                                            {{ $branch->created_at->format('d-m-Y') }}
-                                        </td>
-                                        <td>
-                                            <div class="flex justify-center gap-1">
-                                                @can('view-branches')
-                                                <a href="{{ route('admin.branches.show', $branch) }}" 
-                                                   class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" 
-                                                   title="Bekijken">
-                                                    <i class="ki-filled ki-eye"></i>
-                                                </a>
-                                                @endcan
-                                                @can('edit-branches')
-                                                <a href="{{ route('admin.branches.edit', $branch) }}" 
-                                                   class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" 
-                                                   title="Bewerken">
-                                                    <i class="ki-filled ki-notepad-edit"></i>
-                                                </a>
-                                                @endcan
-                                                @can('delete-branches')
-                                                <form action="{{ route('admin.branches.destroy', $branch) }}" 
-                                                      method="POST" 
-                                                      style="display: inline;"
-                                                      onsubmit="return confirm('Weet je zeker dat je deze branch wilt verwijderen?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" 
-                                                            class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-danger" 
-                                                            title="Verwijderen">
-                                                        <i class="ki-filled ki-trash"></i>
-                                                    </button>
-                                                </form>
-                                                @endcan
-                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
-                    </div>
-                    
-                    <!-- Pagination -->
-                    @if($branches->hasPages())
-                        <div class="flex justify-between items-center mt-5 pt-5 border-t border-border">
-                            <div class="text-sm text-secondary-foreground">
-                                Toon {{ $branches->firstItem() }} tot {{ $branches->lastItem() }} van {{ $branches->total() }} resultaten
-                            </div>
-                            <div>
-                                {{ $branches->links() }}
-                            </div>
                         </div>
-                    @endif
+                    
+                    <!-- Pagination (KT Datatable) -->
+                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
+                        <div class="flex items-center gap-2 order-2 md:order-1">
+                            Toon
+                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage"></select>
+                            per pagina
+                        </div>
+                        <div class="flex items-center gap-4 order-1 md:order-2">
+                            <span data-kt-datatable-info="true"></span>
+                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true"></div>
+                        </div>
+                    </div>
+                    </div>
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
@@ -289,12 +374,22 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Auto-dismiss success alert after 3 seconds
+        const successAlert = document.getElementById('success-alert');
+        if (successAlert) {
+            setTimeout(function() {
+                successAlert.style.transition = 'opacity 0.3s ease-out';
+                successAlert.style.opacity = '0';
+                setTimeout(function() {
+                    successAlert.remove();
+                }, 300);
+            }, 3000);
+        }
+
         // Filter form submission
         const filterForm = document.getElementById('filters-form');
         const statusFilter = document.getElementById('status-filter');
         const sortFilter = document.getElementById('sort-filter');
-        const perPageFilter = document.getElementById('per-page-filter');
-        
         if (statusFilter) {
             statusFilter.addEventListener('change', function() {
                 filterForm.submit();
@@ -307,26 +402,60 @@
             });
         }
         
-        if (perPageFilter) {
-            perPageFilter.addEventListener('change', function() {
-                filterForm.submit();
-            });
+        // Replace "of" with "van" in pagination info (same as users)
+        function replaceOfWithVan() {
+            const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+            if (infoSpan && infoSpan.textContent.includes(' of ')) {
+                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
+            }
         }
-        
-        // Search form - submit on Enter key
-        const searchInput = document.getElementById('search-input');
-        const searchForm = document.getElementById('search-form');
-        
-        if (searchInput && searchForm) {
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    searchForm.submit();
-                }
+        replaceOfWithVan();
+        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        if (infoSpan) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                        replaceOfWithVan();
+                    }
+                });
             });
+            observer.observe(infoSpan, { childList: true, characterData: true, subtree: true });
         }
+
+        // Rows navigate via regular <a href="..."> inside cells (more robust than JS handlers)
     });
 </script>
+<script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
+@endpush
+
+@push('styles')
+<style>
+    /* Match users overview: row feels clickable */
+    .branch-row { cursor: pointer; }
+    .branch-row:hover { background-color: rgba(0, 0, 0, 0.02); }
+    .dark .branch-row:hover { background-color: rgba(255, 255, 255, 0.03); }
+
+    /* Make entire cell consistently clickable */
+    .branch-row-link {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+    .branch-row-link * {
+        pointer-events: none;
+    }
+
+    /* Table column sorting (same as users overview) */
+    .kt-table-col {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    .kt-table-col-sort {
+        margin-left: auto !important;
+    }
+</style>
 @endpush
 
 @endsection

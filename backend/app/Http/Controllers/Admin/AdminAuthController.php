@@ -27,13 +27,14 @@ class AdminAuthController extends Controller
 
     public function login(Request $request)
     {
-        // Skip CSRF verification for debugging
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'remember' => 'nullable|boolean',
         ]);
 
         $credentials = $request->only('email', 'password');
+        $remember = $request->boolean('remember');
         
         // Debug: Check if user exists
         $user = User::where('email', $credentials['email'])->first();
@@ -58,7 +59,8 @@ class AdminAuthController extends Controller
         }
         
         // Manual login
-        Auth::guard('web')->login($user);
+        // Use Laravel's built-in "remember me" mechanism (secure persistent login cookie)
+        Auth::guard('web')->login($user, $remember);
         $request->session()->regenerate();
         
         return redirect()->intended(route('admin.dashboard'));

@@ -1,11 +1,11 @@
 <!-- Sidebar -->
 <div class="kt-sidebar bg-background border-e border-e-border fixed top-0 bottom-0 z-20 flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
     data-kt-drawer="true" data-kt-drawer-class="kt-drawer kt-drawer-start top-0 bottom-0" id="sidebar">
-    <div class="kt-sidebar-header flex items-center relative justify-between px-3 lg:px-6 shrink-0"
+    <div class="kt-sidebar-header flex items-center relative justify-center px-3 lg:px-6 shrink-0"
         id="sidebar_header">
         <a href="{{ route('admin.dashboard') }}" class="flex items-center">
             <img class="default-logo h-[26px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
-            <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
+            <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ asset('images/nexa-x-logo.png') }}" alt="Nexa" />
         </a>
         <button
             class="kt-btn kt-btn-outline kt-btn-icon absolute start-full top-2/4 size-[30px] -translate-x-2/4 -translate-y-2/4 rtl:translate-x-2/4"
@@ -30,14 +30,28 @@
                     $selectedTenant = session('selected_tenant');
                     $selectedCompany = $selectedTenant ? \App\Models\Company::find($selectedTenant) : null;
                 @endphp
-                <div class="mb-2" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-start" data-kt-dropdown-trigger="click" data-kt-dropdown-offset="0px, 5px">
-                    <button class="w-full kt-btn kt-btn-outline justify-between flex-nowrap" type="button" data-kt-dropdown-toggle="true">
-                        <span class="truncate">
-                            @if($selectedCompany)
-                                {{ $selectedCompany->name }}
-                            @else
-                                Alle Tenants
-                            @endif
+                <div class="mb-2 tenant-switcher" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-start" data-kt-dropdown-trigger="click" data-kt-dropdown-offset="0px, 5px">
+                    <!-- Collapsed sidebar: icon-only toggle (opens same dropdown) -->
+                    <button
+                        class="tenant-toggle-icon kt-btn kt-btn-outline kt-btn-icon mx-auto"
+                        type="button"
+                        data-tenant-toggle-icon="true"
+                        title="{{ $selectedCompany ? $selectedCompany->name : 'Alle Tenants' }}"
+                        aria-label="Tenant kiezen">
+                        <i class="ki-filled ki-abstract-26 text-base"></i>
+                    </button>
+
+                    <!-- Expanded sidebar: full button with icon + label -->
+                    <button class="tenant-toggle-full w-full kt-btn kt-btn-outline justify-between flex-nowrap" type="button" data-kt-dropdown-toggle="true">
+                        <span class="flex items-center gap-2 min-w-0">
+                            <i class="ki-filled ki-abstract-26 text-base shrink-0"></i>
+                            <span class="truncate">
+                                @if($selectedCompany)
+                                    {{ $selectedCompany->name }}
+                                @else
+                                    Alle Tenants
+                                @endif
+                            </span>
                         </span>
                         <i class="ki-filled ki-down text-xs ms-2"></i>
                     </button>
@@ -402,6 +416,149 @@
 </div>
 <!-- End of Sidebar -->
 
+<style>
+    /* Tenant switcher: show icon-only toggle in collapsed sidebar */
+    .tenant-toggle-icon { display: none; }
+    .demo1.kt-sidebar-collapse .kt-sidebar:not(:hover) .tenant-toggle-full { display: none; }
+    .demo1.kt-sidebar-collapse .kt-sidebar:not(:hover) .tenant-toggle-icon { display: inline-flex; }
+    .demo1.kt-sidebar-collapse .kt-sidebar:not(:hover) .tenant-toggle-icon {
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const sidebarEl = document.getElementById('sidebar');
+    function isCollapsedMode() {
+        return document.body.classList.contains('kt-sidebar-collapse') || document.documentElement.classList.contains('kt-sidebar-collapse');
+    }
+    function getTenantDropdownMenuOpen() {
+        // Menu might be inside wrapper or rendered elsewhere; check both
+        const wrapper = document.querySelector('.tenant-switcher[data-kt-dropdown="true"]');
+        const inWrapper = wrapper ? wrapper.querySelector('.kt-dropdown-menu.open, [data-kt-dropdown-menu="true"].open') : null;
+        return inWrapper || document.querySelector('.kt-dropdown-menu.open, [data-kt-dropdown-menu="true"].open');
+    }
+    function shouldCloseFromLeave(relatedTarget) {
+        if (!isCollapsedMode()) return false;
+        const menu = getTenantDropdownMenuOpen();
+        // If the pointer is moving into the menu (or its children), do NOT close.
+        if (menu && relatedTarget && menu.contains(relatedTarget)) return false;
+        // If moving back into the sidebar, do NOT close.
+        if (sidebarEl && relatedTarget && sidebarEl.contains(relatedTarget)) return false;
+        // Otherwise close.
+        return true;
+    }
+
+    function forceCloseDropdownEl(wrapper) {
+        if (!wrapper) return;
+
+        // Best effort: use KTDropdown API if available
+        try {
+            if (window.KTDropdown && typeof window.KTDropdown.getInstance === 'function') {
+                const inst = window.KTDropdown.getInstance(wrapper);
+                if (inst && typeof inst.hide === 'function') inst.hide();
+                if (inst && typeof inst.close === 'function') inst.close();
+            }
+        } catch (e) {}
+
+        // Fallback: remove open state + inline display
+        wrapper.classList.remove('open');
+        const toggle = wrapper.querySelector('[data-kt-dropdown-toggle="true"]');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+
+        const menus = wrapper.querySelectorAll('.kt-dropdown-menu, [data-kt-dropdown-menu="true"]');
+        menus.forEach(function (menu) {
+            menu.classList.remove('open');
+            // If KT scripts set inline display, nuke it
+            if (menu.style && menu.style.display) menu.style.display = '';
+        });
+    }
+
+    function closeTenantDropdownIfOpen() {
+        document.querySelectorAll('.tenant-switcher[data-kt-dropdown="true"]').forEach(forceCloseDropdownEl);
+        // Also close any open dropdown menus globally (some implementations detach menus)
+        document.querySelectorAll('.kt-dropdown-menu.open, [data-kt-dropdown-menu="true"].open').forEach(function (menu) {
+            menu.classList.remove('open');
+            if (menu.style && menu.style.display) menu.style.display = '';
+        });
+        document.querySelectorAll('.open[data-kt-dropdown-initialized]').forEach(function (w) {
+            w.classList.remove('open');
+        });
+    }
+
+    // Collapsed icon toggle should open the same dropdown as the full button
+    document.querySelectorAll('.tenant-switcher [data-tenant-toggle-icon="true"]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            const wrapper = btn.closest('.tenant-switcher');
+            const fullToggle = wrapper ? wrapper.querySelector('.tenant-toggle-full[data-kt-dropdown-toggle="true"]') : null;
+            if (fullToggle) {
+                fullToggle.click();
+            }
+        });
+    });
+
+    // In collapsed sidebar mode the sidebar auto-collapses on hover-out via CSS.
+    // Allow moving the cursor from sidebar -> dropdown menu; close only when leaving BOTH.
+    if (sidebarEl) {
+        sidebarEl.addEventListener('mouseleave', function (e) {
+            if (shouldCloseFromLeave(e.relatedTarget)) closeTenantDropdownIfOpen();
+        }, true);
+        sidebarEl.addEventListener('pointerleave', function (e) {
+            if (shouldCloseFromLeave(e.relatedTarget)) closeTenantDropdownIfOpen();
+        }, true);
+    }
+
+    // When dropdown opens, attach hover listeners to the menu so it stays usable in collapsed mode
+    (function observeTenantDropdownOpen() {
+        const wrapper = document.querySelector('.tenant-switcher[data-kt-dropdown="true"]');
+        if (!wrapper) return;
+        const obs = new MutationObserver(function () {
+            const menu = getTenantDropdownMenuOpen();
+            if (!menu || menu.dataset.tenantHoverBound === '1') return;
+            menu.dataset.tenantHoverBound = '1';
+
+            menu.addEventListener('mouseleave', function (e) {
+                if (shouldCloseFromLeave(e.relatedTarget)) closeTenantDropdownIfOpen();
+            }, true);
+            menu.addEventListener('pointerleave', function (e) {
+                if (shouldCloseFromLeave(e.relatedTarget)) closeTenantDropdownIfOpen();
+            }, true);
+        });
+        obs.observe(wrapper, { attributes: true, attributeFilter: ['class'] });
+    })();
+
+    // When sidebar collapses, force-close the dropdown so it doesn't stick out
+    const sidebarToggle = document.getElementById('sidebar_toggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function () {
+            // Wait for the body class toggle to apply
+            setTimeout(function () {
+                if (isCollapsedMode()) {
+                    closeTenantDropdownIfOpen();
+                }
+            }, 0);
+        }, true);
+    }
+
+    // Click outside should close the pinned dropdown (prevents it floating over content)
+    document.addEventListener('pointerdown', function (e) {
+        if (!isCollapsedMode()) return;
+        if (e.target.closest('.tenant-switcher') || e.target.closest('.kt-dropdown-menu') || e.target.closest('[data-kt-dropdown-menu="true"]')) return;
+        closeTenantDropdownIfOpen();
+    }, true);
+
+    // Also observe direct class changes (e.g. programmatic toggles)
+    const classObserver = new MutationObserver(function () {
+        if (isCollapsedMode()) closeTenantDropdownIfOpen();
+    });
+    classObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    classObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+});
+</script>
+
 <script>
 function switchTenant(tenantId) {
     const formData = new FormData();
@@ -424,8 +581,10 @@ function switchTenant(tenantId) {
     })
     .then(data => {
         if (data.success) {
-            // Reload de pagina om de gefilterde data te tonen
-            window.location.reload();
+            // Redirect naar dashboard om company-profile te tonen
+            // Gebruik redirect URL uit response als die beschikbaar is, anders gebruik dashboard route
+            const redirectUrl = data.redirect || '{{ route("admin.dashboard") }}';
+            window.location.href = redirectUrl;
         }
     })
     .catch(error => {

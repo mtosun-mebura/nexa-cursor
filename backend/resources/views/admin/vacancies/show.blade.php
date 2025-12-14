@@ -4,319 +4,229 @@
 
 @section('content')
 
+@php
+    $status = (string)($vacancy->status ?? '');
+@endphp
 
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
-        <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono mb-3">
-                {{ $title ?? "Pagina" }}
-            </h1>
-        </div>
-        <div class="flex items-center gap-2.5">
-            <a href="{{ route('admin.' . str_replace(['admin.', '.create', '.edit', '.show'], ['', '.index', '.index', '.index'], request()->route()->getName())) }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
-            </a>
-        </div>
-    </div>
+<style>
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
+    }
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
+    }
+</style>
 
-    <div class="kt-card">
-        <div class="kt-card-header">
-            <h5>
-                <i class="fas fa-briefcase"></i> Vacature Details
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="kt-btn kt-btn-warning">
-                    <i class="fas fa-edit"></i> Bewerken
-                </a>
-                @if($vacancy->status !== 'Open' && $vacancy->status !== 'In behandeling')
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Open">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="kt-btn kt-btn-success">
-                            <i class="fas fa-play"></i> Openen
-                        </button>
-                    </form>
-                @elseif($vacancy->status === 'In behandeling')
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Open">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="kt-btn kt-btn-success">
-                            <i class="fas fa-play"></i> Openen
-                        </button>
-                    </form>
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Gesloten">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="kt-btn kt-btn-danger">
-                            <i class="fas fa-stop"></i> Sluiten
-                        </button>
-                    </form>
-                @else
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="In behandeling">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="kt-btn kt-btn-warning">
-                            <i class="fas fa-clock"></i> In behandeling
-                        </button>
-                    </form>
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Gesloten">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="kt-btn kt-btn-danger">
-                            <i class="fas fa-stop"></i> Sluiten
-                        </button>
-                    </form>
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <!-- Container -->
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            @if($vacancy->company && $vacancy->company->logo_blob)
+                <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
+                    <img class="rounded-lg w-auto object-contain bg-transparent dark:bg-transparent" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $vacancy->company) }}" alt="{{ $vacancy->company->name }}">
+                </div>
+            @elseif($vacancy->company)
+                <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
+                    {{ strtoupper(substr($vacancy->company->name, 0, 2)) }}
+                </div>
+            @else
+                <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
+                    <i class="ki-filled ki-briefcase text-3xl"></i>
+                </div>
+            @endif
+            <div class="flex items-center gap-1.5">
+                <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
+                    {{ $vacancy->title }}
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
+                @if($vacancy->company)
+                    <div class="flex gap-1.25 items-center">
+                        <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />
+                        <span class="text-secondary-foreground font-medium">{{ $vacancy->company->name }}</span>
+                    </div>
                 @endif
-                <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-outline">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
-            </div>
-        </div>
-        
-        <div class="kt-card-content">
-            <!-- Vacature Header -->
-            <div class="vacancy-header">
-                <h1 class="vacancy-title">{{ $vacancy->title }}</h1>
-                <div class="vacancy-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-building"></i>
-                        <span>{{ $vacancy->company->name }}</span>
+                @if($vacancy->branch)
+                    <div class="flex gap-1.25 items-center">
+                        <i class="ki-filled ki-tag text-muted-foreground text-sm"></i>
+                        <span class="text-secondary-foreground font-medium">{{ $vacancy->branch->name }}</span>
                     </div>
-                    @if($vacancy->location)
-                        <div class="meta-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>{{ $vacancy->location }}</span>
-                        </div>
+                @endif
+                <div class="flex gap-1.25 items-center">
+                    @if($status === 'Open')
+                        <span class="kt-badge kt-badge-sm kt-badge-success">Open</span>
+                    @elseif($status === 'Gesloten')
+                        <span class="kt-badge kt-badge-sm kt-badge-danger">Gesloten</span>
+                    @elseif($status === 'In behandeling')
+                        <span class="kt-badge kt-badge-sm kt-badge-warning">In behandeling</span>
+                    @else
+                        <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $status ?: '-' }}</span>
                     @endif
-                    @if($vacancy->employment_type)
-                        <div class="meta-item">
-                            <i class="fas fa-clock"></i>
-                            <span>{{ $vacancy->employment_type }}</span>
-                        </div>
-                    @endif
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>Gepubliceerd: {{ $vacancy->publication_date ? $vacancy->publication_date->format('d-m-Y') : 'Niet opgegeven' }}</span>
+                </div>
+                @if($vacancy->location)
+                    <div class="flex gap-1.25 items-center">
+                        <i class="ki-filled ki-geolocation text-muted-foreground text-sm"></i>
+                        <span class="text-secondary-foreground font-medium">{{ $vacancy->location }}</span>
                     </div>
-                </div>
-                <div class="status-badge @if($vacancy->status === 'In behandeling') status-processing @elseif($vacancy->status === 'Gesloten') status-closed @else status-{{ strtolower(str_replace(' ', '-', $vacancy->status)) }} @endif">
-                    <i class="fas fa-circle"></i>
-                    {{ $vacancy->status }}
-                </div>
-            </div>
-
-            <!-- Informatie Grid -->
-            <div class="info-grid">
-                <!-- Basis Informatie -->
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-info-circle"></i> Basis Informatie
-                    </h6>
-                    <kt-table class="info-kt-table">
-                        <tr>
-                            <td>ID</td>
-                            <td>{{ $vacancy->id }}</td>
-                        </tr>
-                        <tr>
-                            <td>Referentie</td>
-                            <td>{{ $vacancy->reference_number ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Bedrijf</td>
-                            <td>{{ $vacancy->company->name }}</td>
-                        </tr>
-                        <tr>
-                            <td>Categorie</td>
-                            <td>{{ $vacancy->branch->name ?? 'Geen branch' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Locatie</td>
-                            <td>{{ $vacancy->location ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Type Werk</td>
-                            <td>{{ $vacancy->employment_type ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Taal</td>
-                            <td>{{ $vacancy->language ?? 'Nederlands' }}</td>
-                        </tr>
-                    </kt-table>
-                </div>
-
-                <!-- Salaris & Details -->
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-euro-sign"></i> Salaris & Details
-                    </h6>
-                    <kt-table class="info-kt-table">
-                        <tr>
-                            <td>Status</td>
-                            <td>
-                                <span class="status-badge @if($vacancy->status === 'In behandeling') status-processing @elseif($vacancy->status === 'Gesloten') status-closed @else status-{{ strtolower(str_replace(' ', '-', $vacancy->status)) }} @endif">
-                                    <i class="fas fa-circle"></i>
-                                    {{ $vacancy->status }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Salaris</td>
-                            <td>{{ $vacancy->salary_range ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Startdatum</td>
-                            <td>{{ $vacancy->start_date ? $vacancy->start_date->format('d-m-Y') : 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Werkuren</td>
-                            <td>{{ $vacancy->working_hours ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Reiskosten</td>
-                            <td>
-                                @if($vacancy->travel_expenses)
-                                    <span class="text-success"><i class="fas fa-check"></i> Vergoed</span>
-                                @else
-                                    <span class="text-secondary"><i class="fas fa-times"></i> Niet vergoed</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Remote Werk</td>
-                            <td>
-                                @if($vacancy->remote_work)
-                                    <span class="text-success"><i class="fas fa-check"></i> Mogelijk</span>
-                                @else
-                                    <span class="text-secondary"><i class="fas fa-times"></i> Niet mogelijk</span>
-                                @endif
-                            </td>
-                        </tr>
-                    </kt-table>
-                </div>
-
-                <!-- Datums -->
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-calendar-alt"></i> Datums
-                    </h6>
-                    <kt-table class="info-kt-table">
-                        <tr>
-                            <td>Publicatiedatum</td>
-                            <td>{{ $vacancy->publication_date ? $vacancy->publication_date->format('d-m-Y H:i') : 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Sluitingsdatum</td>
-                            <td>{{ $vacancy->closing_date ? $vacancy->closing_date->format('d-m-Y') : 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Aangemaakt</td>
-                            <td>{{ $vacancy->created_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                        <tr>
-                            <td>Bijgewerkt</td>
-                            <td>{{ $vacancy->updated_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                    </kt-table>
-                </div>
-            </div>
-
-            <!-- Beschrijving -->
-            @if($vacancy->description)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-align-left"></i> Functieomschrijving
-                    </h6>
-                    <div class="content-body">{{ $vacancy->description }}</div>
-                </div>
-            @endif
-
-            <!-- Vereisten -->
-            @if($vacancy->requirements)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-list-check"></i> Vereisten
-                    </h6>
-                    <div class="content-body">{{ $vacancy->requirements }}</div>
-                </div>
-            @endif
-
-            <!-- Aanbod -->
-            @if($vacancy->offer)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-gift"></i> Wat Wij Bieden
-                    </h6>
-                    <div class="content-body">{{ $vacancy->offer }}</div>
-                </div>
-            @endif
-
-            <!-- Sollicitatie Instructies -->
-            @if($vacancy->application_instructions)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-paper-plane"></i> Sollicitatie Instructies
-                    </h6>
-                    <div class="content-body">{{ $vacancy->application_instructions }}</div>
-                </div>
-            @endif
-
-            <!-- SEO Informatie -->
-            <div class="seo-section">
-                <h6 class="seo-title">
-                    <i class="fas fa-search"></i> SEO Informatie
-                </h6>
-                <div class="seo-grid">
-                    <div class="seo-item">
-                        <div class="seo-label">Meta Titel</div>
-                        <div class="seo-value">{{ $vacancy->meta_title ?? 'Niet ingesteld' }}</div>
-                    </div>
-                    <div class="seo-item">
-                        <div class="seo-label">Meta Beschrijving</div>
-                        <div class="seo-value">{{ Str::limit($vacancy->meta_description ?? 'Niet ingesteld', 100) }}</div>
-                    </div>
-                    <div class="seo-item">
-                        <div class="seo-label">Meta Keywords</div>
-                        <div class="seo-value">{{ Str::limit($vacancy->meta_keywords ?? 'Niet ingesteld', 100) }}</div>
-                    </div>
-                    <div class="seo-item">
-                        <div class="seo-label">URL</div>
-                        <div class="seo-value">{{ $vacancy->url ?? 'Niet beschikbaar' }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actie Knoppen -->
-            <div class="action-buttons">
-                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="kt-btn kt-btn-warning">
-                    <i class="fas fa-edit"></i> Vacature Bewerken
-                </a>
-                <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-outline">
-                    <i class="fas fa-list"></i> Terug naar Overzicht
-                </a>
-                <form action="{{ route('admin.vacancies.destroy', $vacancy) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je deze vacature wilt verwijderen?')">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="kt-btn kt-btn-danger">
-                        <i class="fas fa-trash"></i> Vacature Verwijderen
-                    </button>
-                </form>
+                @endif
             </div>
         </div>
     </div>
 </div>
+
+<div class="kt-container-fixed">
+    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10 mt-5">
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+        <div class="flex items-center gap-2.5">
+            @can('edit-vacancies')
+                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-notepad-edit me-2"></i>
+                    Bewerken
+                </a>
+            @endcan
+        </div>
+    </div>
+</div>
+
+<div class="kt-container-fixed">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5">
+        <!-- Vacature -->
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Vacature</h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Titel</td>
+                        <td class="min-w-48 w-full text-foreground font-normal">{{ $vacancy->title }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Status</td>
+                        <td class="text-foreground font-normal">
+                            @if($status === 'Open')
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Open</span>
+                            @elseif($status === 'Gesloten')
+                                <span class="kt-badge kt-badge-sm kt-badge-danger">Gesloten</span>
+                            @elseif($status === 'In behandeling')
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">In behandeling</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $status ?: '-' }}</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Bedrijf</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->company?->name ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Branch</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->branch?->name ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Locatie</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->location ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Dienstverband</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->employment_type ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Salarisrange</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->salary_range ?? '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Datums & opties -->
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Datums & opties</h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Publicatie</td>
+                        <td class="min-w-48 w-full text-foreground font-normal">{{ optional($vacancy->publication_date)->format('d-m-Y') ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Sluiting</td>
+                        <td class="text-foreground font-normal">{{ optional($vacancy->closing_date)->format('d-m-Y') ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Werkuren</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->working_hours ?? '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Reiskosten</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->travel_expenses ? 'Vergoed' : 'Niet vergoed' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Remote</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->remote_work ? 'Mogelijk' : 'Niet mogelijk' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Taal</td>
+                        <td class="text-foreground font-normal">{{ $vacancy->language ?? 'Nederlands' }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="kt-card mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">Beschrijving</h3>
+        </div>
+        <div class="kt-card-content">
+            <div class="prose dark:prose-invert max-w-none text-secondary-foreground">
+                {!! nl2br(e($vacancy->description)) !!}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5 mt-5 lg:mt-7.5">
+        <div class="kt-card">
+            <div class="kt-card-header"><h3 class="kt-card-title">Vereisten</h3></div>
+            <div class="kt-card-content">
+                <div class="text-secondary-foreground">{!! nl2br(e($vacancy->requirements ?? '-')) !!}</div>
+            </div>
+        </div>
+        <div class="kt-card">
+            <div class="kt-card-header"><h3 class="kt-card-title">Aanbod</h3></div>
+            <div class="kt-card-content">
+                <div class="text-secondary-foreground">{!! nl2br(e($vacancy->offer ?? '-')) !!}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="kt-card mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">SEO</h3>
+        </div>
+        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">Meta titel</td>
+                    <td class="min-w-48 w-full text-foreground font-normal">{{ $vacancy->meta_title ?? '-' }}</td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">Meta beschrijving</td>
+                    <td class="text-foreground font-normal">{{ $vacancy->meta_description ?? '-' }}</td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">Meta keywords</td>
+                    <td class="text-foreground font-normal">{{ $vacancy->meta_keywords ?? '-' }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
 @endsection

@@ -75,7 +75,7 @@
                 Facturen
             </h3>
             <div class="flex items-center gap-2">
-                <div class="kt-input max-w-48">
+                <label class="kt-input max-w-48" style="position: relative !important;">
                     <i class="ki-filled ki-magnifier"></i>
                     <form method="GET" action="{{ route('admin.invoices.index') }}" class="inline">
                         <input type="text" 
@@ -85,7 +85,7 @@
                                class="min-w-0"
                                autocomplete="off">
                     </form>
-                </div>
+                </label>
                 @if(request('status'))
                     <a href="{{ route('admin.invoices.index', request()->except('status')) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
                         <i class="ki-filled ki-cross"></i>
@@ -213,5 +213,10 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
+@endpush
+
 @endsection
 

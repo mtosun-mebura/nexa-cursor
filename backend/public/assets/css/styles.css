@@ -7296,11 +7296,11 @@
     color: var(--accent-foreground);
   }
   .kt-badge-success {
-    background-color: var(--color-green-500);
+    background-color: rgb(11 178 32);
     color: var(--color-white);
   }
   .kt-badge-warning {
-    background-color: var(--color-yellow-400);
+    background-color: var(--color-amber-600);
     color: var(--color-white);
   }
   .kt-badge-info {

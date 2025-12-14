@@ -27,6 +27,14 @@ class Branch extends Model
     {
         return $this->hasMany(Vacancy::class, 'branch_id');
     }
+
+    /**
+     * Functions/job titles that belong to this branch.
+     */
+    public function functions()
+    {
+        return $this->hasMany(BranchFunction::class, 'branch_id');
+    }
 }
 
 

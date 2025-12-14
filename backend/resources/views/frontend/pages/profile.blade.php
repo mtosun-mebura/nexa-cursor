@@ -210,11 +210,39 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
-                                <input type="date" name="start_date" class="input mt-1" required>
+                                <!--begin::Input with Calendar-->
+                                <div class="kt-input w-64 mt-1">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="start_date" 
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"
+                                           required/>
+                                </div>
+                                <!--end::Input with Calendar-->
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
-                                <input type="date" name="end_date" class="input mt-1" id="end-date">
+                                <!--begin::Input with Calendar-->
+                                <div class="kt-input w-64 mt-1">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="end_date" 
+                                           id="end-date"
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"/>
+                                </div>
+                                <!--end::Input with Calendar-->
                             </div>
                         </div>
                         <div>
@@ -424,11 +452,39 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
-            <input type="date" name="start_date" class="input mt-1" required>
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="start_date" 
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="yyyy-MM-dd"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"
+                       required/>
+            </div>
+            <!--end::Input with Calendar-->
           </div>
           <div>
             <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
-            <input type="date" name="end_date" class="input mt-1" id="end-date">
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="end_date" 
+                       id="end-date"
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="yyyy-MM-dd"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"/>
+            </div>
+            <!--end::Input with Calendar-->
           </div>
         </div>
         <div>

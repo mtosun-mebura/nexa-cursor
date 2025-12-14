@@ -58,53 +58,19 @@ Author: Keenthemes
                 @csrf
                 
                 <div class="text-center mb-2.5">
+                    <div class="mb-4">
+                        <img
+                            src="{{ asset('images/nexa-skillmatching-logo.png') }}"
+                            alt="Nexa Skillmatching"
+                            class="h-10 w-auto mx-auto object-contain"
+                        />
+                        <div class="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            Administratie paneel
+                        </div>
+                    </div>
                     <h3 class="text-lg font-medium text-mono leading-none mb-2.5">
                         Inloggen
                     </h3>
-                    <div class="flex items-center justify-center font-medium">
-                        <span class="text-sm text-secondary-foreground me-1.5">
-                            Heeft u geen account?
-                        </span>
-                        <a class="text-sm link" href="#">
-                            Registreren
-                        </a>
-                    </div>
-                </div>
-
-                @if ($errors->any())
-                    <div class="kt-alert kt-alert-danger">
-                        <ul class="mb-0">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="kt-alert kt-alert-danger">
-                        <i class="ki-filled ki-information-5"></i> {{ session('error') }}
-                    </div>
-                @endif
-
-                <div class="grid grid-cols-2 gap-2.5">
-                    <a class="kt-btn kt-btn-outline justify-center" href="#">
-                        <img alt="" class="size-3.5 shrink-0" src="{{ asset('assets/media/brand-logos/google.svg') }}"/>
-                        Gebruik Google
-                    </a>
-                    <a class="kt-btn kt-btn-outline justify-center" href="#">
-                        <img alt="" class="size-3.5 shrink-0 dark:hidden" src="{{ asset('assets/media/brand-logos/apple-black.svg') }}"/>
-                        <img alt="" class="size-3.5 shrink-0 light:hidden" src="{{ asset('assets/media/brand-logos/apple-white.svg') }}"/>
-                        Gebruik Apple
-                    </a>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <span class="border-t border-border w-full"></span>
-                    <span class="text-xs text-muted-foreground font-medium uppercase">
-                        OF
-                    </span>
-                    <span class="border-t border-border w-full"></span>
                 </div>
 
                 <div class="flex flex-col gap-1">

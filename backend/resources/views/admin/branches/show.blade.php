@@ -1,159 +1,503 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Categorie Details - ' . $category->name)
+@section('title', 'Branch Details - ' . $branch->name)
 
 @section('content')
 
+@php
+    $canViewBranch = auth()->user()->hasRole('super-admin') || auth()->user()->can('view-branches');
+    $canEditBranch = auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-branches');
+@endphp
+
+<style>
+    .hero-bg { background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}'); }
+    .dark .hero-bg { background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}'); }
+</style>
+
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            <div class="rounded-full border-3 border-green-500 size-[100px] shrink-0 flex items-center justify-center bg-primary/10">
+                @if($branch->icon)
+                    @if(is_string($branch->icon) && str_starts_with($branch->icon, 'heroicon-'))
+                        <x-dynamic-component :component="$branch->icon" class="w-10 h-10" style="color: {{ $branch->color ?? 'var(--color-primary)' }};" />
+                    @else
+                        <i class="{{ $branch->icon }} text-3xl" style="color: {{ $branch->color ?? 'var(--color-primary)' }};"></i>
+                    @endif
+                @else
+                    <i class="ki-filled ki-tag text-3xl text-primary"></i>
+                @endif
+            </div>
+
+            <div class="flex items-center gap-2">
+                <div class="text-lg leading-5 font-semibold text-mono">{{ $branch->name }}</div>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-briefcase text-muted-foreground text-sm"></i>
+                    <span class="text-secondary-foreground font-medium">{{ $branch->vacancies_count ?? 0 }} vacatures</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
-        <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono mb-3">
-                {{ $title ?? "Pagina" }}
-            </h1>
-        </div>
+    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10">
         <div class="flex items-center gap-2.5">
-            <a href="{{ route('admin.' . str_replace(['admin.', '.create', '.edit', '.show'], ['', '.index', '.index', '.index'], request()->route()->getName())) }}" class="kt-btn kt-btn-outline">
+            <a href="{{ route('admin.branches.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
         </div>
-    </div>
 
-    <div class="kt-card">
-        <div class="kt-card-header">
-            <h5>
-                <i class="fas fa-tags"></i>
-                Categorie Details: {{ $category->name }}
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.categories.edit', $category) }}" class="kt-btn kt-btn-warning me-2">
-                    <i class="fas fa-edit"></i> Bewerken
+        <div class="flex items-center gap-2.5">
+            @if($canEditBranch)
+                <form action="{{ route('admin.branches.toggle-status', $branch) }}" method="POST" id="toggle-status-form" class="inline">
+                    @csrf
+                    <label class="kt-label flex items-center">
+                        <input type="checkbox" class="kt-switch kt-switch-sm" id="toggle-status-checkbox" {{ $branch->is_active ? 'checked' : '' }}/>
+                        <span class="ms-2">Actief</span>
+                    </label>
+                </form>
+            @else
+                <label class="kt-label flex items-center">
+                    <input type="checkbox" class="kt-switch kt-switch-sm" {{ $branch->is_active ? 'checked' : '' }} disabled/>
+                    <span class="ms-2">Actief</span>
+                </label>
+            @endif
+
+            @if($canEditBranch)
+                <span class="text-orange-500">|</span>
+                <a href="{{ route('admin.branches.edit', $branch) }}" class="kt-btn kt-btn-primary ml-auto">
+                    <i class="ki-filled ki-notepad-edit me-2"></i>
+                    Bewerken
                 </a>
-                <a href="{{ route('admin.categories.index') }}" class="kt-btn kt-btn-outline">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
-            </div>
-        </div>
-        <div class="kt-card-content">
-            <!-- Category Header Section -->
-            <div class="category-header">
-                <h1 class="category-title">{{ $category->name }}</h1>
-                <div class="category-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-tag"></i>
-                        <span>{{ $category->name }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-sort-numeric-up"></i>
-                        <span>Volgorde: {{ $category->sort_order }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-palette"></i>
-                        <span>Kleur: {{ $category->color }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>Aangemaakt: {{ $category->created_at->format('d-m-Y') }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-briefcase"></i>
-                        <span>{{ $category->vacancies->count() }} vacatures</span>
-                    </div>
-                </div>
-                <div class="category-status status-{{ $category->is_active ? 'active' : 'inactive' }}">
-                    <i class="fas fa-circle"></i>
-                    {{ $category->is_active ? 'Actief' : 'Inactief' }}
-                </div>
-            </div>
-
-            <div class="info-grid">
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-info-circle"></i>
-                        Categorie Informatie
-                    </h6>
-                    <kt-table class="info-kt-table">
-                        <tr>
-                            <td>ID</td>
-                            <td>{{ $category->id }}</td>
-                        </tr>
-                        <tr>
-                            <td>Naam</td>
-                            <td>{{ $category->name }}</td>
-                        </tr>
-                        <tr>
-                            <td>Slug</td>
-                            <td><code>{{ $category->slug }}</code></td>
-                        </tr>
-                        <tr>
-                            <td>Status</td>
-                            <td>
-                                <span class="kt-badge kt-badge-{{ $category->is_active ? 'success' : 'secondary' }}">
-                                    {{ $category->is_active ? 'Actief' : 'Inactief' }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Sorteervolgorde</td>
-                            <td>{{ $category->sort_order ?? 'Niet ingesteld' }}</td>
-                        </tr>
-                    </kt-table>
-                </div>
-                
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-cog"></i>
-                        Weergave Instellingen
-                    </h6>
-                    <kt-table class="info-kt-table">
-                        <tr>
-                            <td>Icoon</td>
-                            <td>
-                                @if($category->icon)
-                                    <i class="{{ $category->icon }}"></i> {{ $category->icon }}
-                                @else
-                                    <span class="material-text-muted">Geen icoon</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Kleur</td>
-                            <td>
-                                @if($category->color)
-                                    <div class="d-flex align-items-center">
-                                        <div class="me-2 rounded" style="background-color: {{ $category->color }}; width: 20px; height: 20px;"></div>
-                                        {{ $category->color }}
-                                    </div>
-                                @else
-                                    <span class="material-text-muted">Geen kleur ingesteld</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Aangemaakt op</td>
-                            <td>{{ $category->created_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                        <tr>
-                            <td>Laatst bijgewerkt</td>
-                            <td>{{ $category->updated_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                    </kt-table>
-                </div>
-            </div>
-
-            @if($category->description)
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-align-left"></i>
-                        Beschrijving
-                    </h6>
-                    <div class="p-3 bg-light rounded">
-                        {{ $category->description }}
-                    </div>
-                </div>
             @endif
         </div>
     </div>
 </div>
+
+<div class="kt-container-fixed">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5">
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Branch</h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Naam</td>
+                        <td class="min-w-48 w-full text-foreground font-normal">{{ $branch->name }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Slug</td>
+                        <td class="text-foreground font-normal"><code>{{ $branch->slug ?? '-' }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Beschrijving</td>
+                        <td class="text-foreground font-normal">{{ $branch->description ?: '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Vacatures</td>
+                        <td class="text-foreground font-normal">{{ $branch->vacancies_count ?? 0 }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Instellingen</h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Status</td>
+                        <td class="min-w-48 w-full text-foreground font-normal">
+                            @if($branch->is_active)
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Icoon</td>
+                        <td class="text-foreground font-normal">
+                            @if($branch->icon)
+                                <i class="{{ $branch->icon }} me-2" style="color: {{ $branch->color ?? 'inherit' }};"></i>
+                                <span class="text-secondary-foreground">{{ $branch->icon }}</span>
+                            @else
+                                -
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">Kleur</td>
+                        <td class="text-foreground font-normal">
+                            @if($branch->color)
+                                <span class="inline-flex items-center gap-2">
+                                    <span class="size-4 rounded border border-input" style="background-color: {{ $branch->color }};"></span>
+                                    {{ $branch->color }}
+                                </span>
+                            @else
+                                -
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="kt-card mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">Vacatures in deze branch</h3>
+            <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">Bekijk alle</a>
+        </div>
+        <div class="kt-card-content p-0">
+            <div class="kt-table-responsive">
+                <table class="kt-table align-middle">
+                    <thead>
+                        <tr>
+                            <th class="min-w-64">Vacature</th>
+                            <th class="min-w-48">Bedrijf</th>
+                            <th class="min-w-24">Status</th>
+                            <th class="min-w-32">Datum</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($recentVacancies ?? [] as $vacancy)
+                            @php $status = $vacancy->status ?? 'onbekend'; @endphp
+                            <tr>
+                                <td>
+                                    <a class="font-medium text-foreground hover:text-primary" href="{{ route('admin.vacancies.show', $vacancy) }}">
+                                        {{ $vacancy->title }}
+                                    </a>
+                                </td>
+                                <td class="text-secondary-foreground">{{ $vacancy->company->name ?? 'N/A' }}</td>
+                                <td>
+                                    <span class="kt-badge kt-badge-sm {{ $status === 'active' ? 'kt-badge-success' : 'kt-badge-secondary' }}">
+                                        {{ ucfirst($status) }}
+                                    </span>
+                                </td>
+                                <td class="text-muted-foreground">{{ optional($vacancy->created_at)->format('d-m-Y') }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="text-center text-muted-foreground py-5">Geen vacatures gevonden</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Functies binnen branch -->
+    <div class="kt-card mt-5 lg:mt-7.5" id="branch-functions-card">
+        <div class="kt-card-header flex-wrap gap-3">
+            <h3 class="kt-card-title">Functies</h3>
+            <div id="branch-functions-flash" class="text-sm text-muted-foreground"></div>
+            @if($canEditBranch)
+                <form class="flex items-center gap-2 ms-auto"
+                      method="POST"
+                      action="{{ route('admin.branches.functions.store', $branch) }}"
+                      data-branch-functions-create-form
+                      data-validate="true">
+                    @csrf
+                    <input type="text"
+                           name="name"
+                           class="kt-input kt-input-sm w-[280px] @error('name') border-destructive @enderror"
+                           placeholder="Nieuwe functie (bijv. Digital Marketeer)"
+                           required>
+                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">
+                        <i class="ki-filled ki-plus me-1"></i>
+                        Toevoegen
+                    </button>
+                </form>
+            @endif
+        </div>
+        <div class="kt-card-content p-0">
+            <div class="kt-table-responsive">
+                <table class="kt-table align-middle">
+                    <thead>
+                        <tr>
+                            <th class="min-w-64">Functie</th>
+                            <th class="min-w-64">Sleutel</th>
+                            @if($canEditBranch)
+                                <th class="w-[260px] text-end">Acties</th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody id="branch-functions-tbody">
+                        @forelse($branch->functions ?? [] as $function)
+                            <tr data-branch-function-id="{{ $function->id }}" data-branch-function-key="{{ $function->name }}">
+                                <td class="text-foreground font-normal" data-branch-function-display>{{ $function->display_name }}</td>
+                                <td class="text-muted-foreground font-normal" data-branch-function-code><code>{{ $function->name }}</code></td>
+                                @if($canEditBranch)
+                                    <td class="text-end" onclick="event.stopPropagation();">
+                                        <form method="POST"
+                                              action="{{ route('admin.branches.functions.update', [$branch, $function]) }}"
+                                              class="inline-flex items-center gap-2"
+                                              data-branch-functions-update-form
+                                              data-validate="true">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="text"
+                                                   name="name"
+                                                   class="kt-input kt-input-sm w-[220px]"
+                                                   value="{{ $function->display_name }}"
+                                                   required>
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline" title="Opslaan">
+                                                <i class="ki-filled ki-check"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST"
+                                              action="{{ route('admin.branches.functions.destroy', [$branch, $function]) }}"
+                                              class="inline-flex"
+                                              data-branch-functions-delete-form
+                                              onsubmit="return confirm('Weet je zeker dat je deze functie wilt verwijderen?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-danger" title="Verwijderen">
+                                                <i class="ki-filled ki-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                @endif
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="{{ $canEditBranch ? 3 : 2 }}" class="text-center text-muted-foreground py-5">
+                                    Geen functies gevonden voor deze branch.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+@if($canEditBranch)
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('toggle-status-checkbox');
+    const form = document.getElementById('toggle-status-form');
+    if (!checkbox || !form) return;
+
+    checkbox.addEventListener('change', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        const url = form.action;
+        const originalChecked = this.checked;
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token')
+            },
+            credentials: 'same-origin'
+        })
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('Network response was not ok')))
+        .then(data => {
+            if (data.success) window.location.reload();
+        })
+        .catch(err => {
+            console.error(err);
+            checkbox.checked = !originalChecked;
+            alert('Fout: status wijzigen is mislukt.');
+        });
+    });
+});
+</script>
+@endif
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('branch-functions-card');
+    if (!card) return;
+
+    const tbody = document.getElementById('branch-functions-tbody');
+    const flash = document.getElementById('branch-functions-flash');
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    function setFlash(message, isError = false) {
+        if (!flash) return;
+        flash.textContent = message || '';
+        flash.classList.toggle('text-danger', !!isError);
+        flash.classList.toggle('text-muted-foreground', !isError);
+        if (message) {
+            window.clearTimeout(setFlash._t);
+            setFlash._t = window.setTimeout(() => { flash.textContent = ''; }, 3500);
+        }
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function sortRows() {
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr[data-branch-function-id]'));
+        rows.sort((a, b) => {
+            const ak = (a.getAttribute('data-branch-function-key') || '').toLowerCase();
+            const bk = (b.getAttribute('data-branch-function-key') || '').toLowerCase();
+            return ak.localeCompare(bk, 'nl');
+        });
+        rows.forEach(r => tbody.appendChild(r));
+    }
+
+    function buildRow(fn) {
+        const id = fn.id;
+        const name = fn.name;
+        const display = fn.display_name;
+        const updateUrl = fn.update_url;
+        const destroyUrl = fn.destroy_url;
+
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-branch-function-id', String(id));
+        tr.setAttribute('data-branch-function-key', String(name));
+
+        tr.innerHTML = `
+            <td class="text-foreground font-normal" data-branch-function-display>${escapeHtml(display)}</td>
+            <td class="text-muted-foreground font-normal" data-branch-function-code><code>${escapeHtml(name)}</code></td>
+            <td class="text-end" onclick="event.stopPropagation();">
+                <form method="POST" action="${escapeHtml(updateUrl)}" class="inline-flex items-center gap-2" data-branch-functions-update-form data-validate="true">
+                    <input type="hidden" name="_token" value="${escapeHtml(csrf || '')}">
+                    <input type="hidden" name="_method" value="PUT">
+                    <input type="text" name="name" class="kt-input kt-input-sm w-[220px]" value="${escapeHtml(display)}" required>
+                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline" title="Opslaan">
+                        <i class="ki-filled ki-check"></i>
+                    </button>
+                </form>
+                <form method="POST" action="${escapeHtml(destroyUrl)}" class="inline-flex" data-branch-functions-delete-form onsubmit="return confirm('Weet je zeker dat je deze functie wilt verwijderen?');">
+                    <input type="hidden" name="_token" value="${escapeHtml(csrf || '')}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-danger" title="Verwijderen">
+                        <i class="ki-filled ki-trash"></i>
+                    </button>
+                </form>
+            </td>
+        `;
+
+        return tr;
+    }
+
+    async function submitAjax(form) {
+        const formData = new FormData(form);
+        const url = form.action;
+
+        const res = await fetch(url, {
+            method: (form.getAttribute('method') || 'POST').toUpperCase(),
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+            },
+            credentials: 'same-origin',
+        });
+
+        let json = null;
+        try { json = await res.json(); } catch (_) {}
+
+        if (!res.ok) {
+            const msg = (json && (json.message || json.error)) || 'Opslaan is mislukt.';
+            throw { status: res.status, json, message: msg };
+        }
+
+        return json;
+    }
+
+    // Create
+    card.addEventListener('submit', async function (e) {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        if (form.hasAttribute('data-branch-functions-create-form')) {
+            e.preventDefault();
+            try {
+                const json = await submitAjax(form);
+                if (json?.function && tbody) {
+                    tbody.appendChild(buildRow(json.function));
+                    sortRows();
+                }
+                const input = form.querySelector('input[name=\"name\"]');
+                if (input) input.value = '';
+                setFlash(json?.message || 'Functie toegevoegd.');
+            } catch (err) {
+                setFlash(err?.message || 'Toevoegen is mislukt.', true);
+            }
+        }
+    });
+
+    // Update/Delete (delegation)
+    card.addEventListener('submit', async function (e) {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        if (form.hasAttribute('data-branch-functions-update-form') || form.hasAttribute('data-branch-functions-delete-form')) {
+            e.preventDefault();
+
+            // keep confirm() behavior for delete
+            if (form.hasAttribute('data-branch-functions-delete-form')) {
+                // confirm already handled by onsubmit attr; if it returned false we wouldn't be here
+            }
+
+            try {
+                const json = await submitAjax(form);
+                const tr = form.closest('tr[data-branch-function-id]');
+
+                if (form.hasAttribute('data-branch-functions-delete-form')) {
+                    if (tr) tr.remove();
+                    setFlash(json?.message || 'Functie verwijderd.');
+                    return;
+                }
+
+                if (json?.function && tr) {
+                    // Refresh only the updated row so the input returns to default state.
+                    const destroyUrl = tr.querySelector('form[data-branch-functions-delete-form]')?.action || '';
+                    const updateUrl = form.action || '';
+                    const refreshed = buildRow({
+                        id: json.function.id,
+                        name: json.function.name,
+                        display_name: json.function.display_name,
+                        update_url: updateUrl,
+                        destroy_url: destroyUrl,
+                    });
+                    tr.replaceWith(refreshed);
+                    sortRows();
+                }
+
+                setFlash(json?.message || 'Functie bijgewerkt.');
+            } catch (err) {
+                setFlash(err?.message || 'Opslaan is mislukt.', true);
+            }
+        }
+    }, true);
+});
+</script>
+@endpush
+
+@push('styles')
+<style>
+    .kt-table-border-dashed tbody tr { border-bottom: none !important; }
+    .kt-table-border-dashed tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: top; }
+</style>
+@endpush
 @endsection

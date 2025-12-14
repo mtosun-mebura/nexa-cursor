@@ -22,6 +22,17 @@ class AdminVacancyController extends Controller
         $query = Vacancy::with(['company', 'branch'])->withCount('matches');
         $this->applyTenantFilter($query);
         
+        // Search
+        if ($request->filled('search')) {
+            $search = $request->string('search')->toString();
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('location', 'like', "%{$search}%")
+                  ->orWhere('reference_number', 'like', "%{$search}%");
+            });
+        }
+
         // Filtering
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -33,19 +44,24 @@ class AdminVacancyController extends Controller
             $query->where('company_id', $request->integer('company_id'));
         }
         
-        // Sortering
-        $sortBy = $request->get('sort_by', 'publication_date');
-        $sortOrder = $request->get('sort_order', 'desc');
+        // Sorting (same convention as Users: sort + direction)
+        $sortField = $request->get('sort', 'publication_date');
+        $sortDirection = $request->get('direction', 'desc');
         
-        $allowedSortFields = ['id', 'title', 'company_id', 'branch_id', 'status', 'publication_date'];
-        if (in_array($sortBy, $allowedSortFields)) {
-            $query->orderBy($sortBy, $sortOrder);
+        $allowedSortFields = ['id', 'title', 'company_id', 'branch_id', 'status', 'publication_date', 'created_at', 'matches_count'];
+        if (in_array($sortField, $allowedSortFields, true)) {
+            // Special: sort by matches_count (withCount alias)
+            if ($sortField === 'matches_count') {
+                $query->orderBy('matches_count', $sortDirection);
+            } else {
+                $query->orderBy($sortField, $sortDirection);
+            }
         } else {
             $query->latest('publication_date');
         }
         
-        $perPage = $request->get('per_page', 25);
-        $vacancies = $query->paginate($perPage);
+        // Load all for KT Datatable client-side pagination
+        $vacancies = $query->get();
         
         // Status statistieken
         $statusStatsQuery = Vacancy::query();
@@ -70,8 +86,8 @@ class AdminVacancyController extends Controller
             abort(403, 'Je hebt geen rechten om vacatures aan te maken.');
         }
         
-        $companies = Company::all();
-        $branches = Branch::orderBy('name')->get();
+        $companies = auth()->user()->hasRole('super-admin') ? Company::all() : collect();
+        $branches = Branch::with('functions')->orderBy('name')->get();
         return view('admin.vacancies.create', compact('companies', 'branches'));
     }
 
@@ -80,13 +96,23 @@ class AdminVacancyController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-vacancies')) {
             abort(403, 'Je hebt geen rechten om vacatures aan te maken.');
         }
+
+        // Enforce company_id:
+        // - Super admin: allow tenant selection via sidebar
+        // - Others: always use the user's company_id (no company selector in UI)
+        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            $request->merge(['company_id' => session('selected_tenant')]);
+        } elseif (!auth()->user()->hasRole('super-admin')) {
+            $request->merge(['company_id' => auth()->user()->company_id]);
+        }
         
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'status' => 'required|in:Open,Gesloten,In behandeling',
             'company_id' => 'required|exists:companies,id',
-            'branch_id' => 'nullable|exists:branches,id',
+            'branch_id' => 'required|exists:branches,id',
+            'required_skills' => 'nullable|string',
             'location' => 'nullable|string|max:255',
             'employment_type' => 'nullable|in:Fulltime,Parttime,Contract,Tijdelijke,Stage,Traineeship,Freelance,ZZP',
             'salary_range' => 'nullable|string|max:100',
@@ -106,10 +132,36 @@ class AdminVacancyController extends Controller
         ]);
 
         $vacancyData = $request->all();
+
+        // Normalize required_skills JSON -> array of strings
+        $requiredSkills = null;
+        if ($request->filled('required_skills')) {
+            try {
+                $decoded = json_decode($request->string('required_skills')->toString(), true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $requiredSkills = collect($decoded)
+                        ->filter(fn ($v) => is_string($v))
+                        ->map(fn ($v) => trim($v))
+                        ->filter(fn ($v) => $v !== '')
+                        ->map(fn ($v) => preg_replace('/\s+/', ' ', $v) ?? $v)
+                        ->unique(fn ($v) => mb_strtolower($v))
+                        ->take(30)
+                        ->values()
+                        ->all();
+                }
+            } catch (\Throwable $e) {
+                // ignore invalid JSON, let it be null
+            }
+        }
+        $vacancyData['required_skills'] = $requiredSkills;
         
         // Als Super Admin en tenant geselecteerd, gebruik die tenant
         if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
             $vacancyData['company_id'] = session('selected_tenant');
+        }
+        // Voor overige gebruikers: forceer bedrijf van medewerker (beschermt tegen manipulatie)
+        if (!auth()->user()->hasRole('super-admin')) {
+            $vacancyData['company_id'] = auth()->user()->company_id;
         }
         
         // Standaard waarden instellen
@@ -148,8 +200,8 @@ class AdminVacancyController extends Controller
             abort(403, 'Je hebt geen toegang tot deze vacature.');
         }
         
-        $companies = Company::all();
-        $branches = Branch::orderBy('name')->get();
+        $companies = auth()->user()->hasRole('super-admin') ? Company::all() : collect();
+        $branches = Branch::with('functions')->orderBy('name')->get();
         return view('admin.vacancies.edit', compact('vacancy', 'companies', 'branches'));
     }
 
@@ -163,6 +215,15 @@ class AdminVacancyController extends Controller
         if (!$this->canAccessResource($vacancy)) {
             abort(403, 'Je hebt geen toegang tot deze vacature.');
         }
+
+        // Enforce company_id:
+        // - Super admin: allow tenant selection via sidebar
+        // - Others: always use the user's company_id (no company selector in UI)
+        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            $request->merge(['company_id' => session('selected_tenant')]);
+        } elseif (!auth()->user()->hasRole('super-admin')) {
+            $request->merge(['company_id' => auth()->user()->company_id]);
+        }
         
         // Als alleen status wordt bijgewerkt, valideer alleen status
         if ($request->has('status') && count($request->all()) <= 4) {
@@ -170,6 +231,7 @@ class AdminVacancyController extends Controller
                 'status' => 'required|in:Open,Gesloten,In behandeling',
                 'title' => 'required|string|max:255',
                 'company_id' => 'required|exists:companies,id',
+                'branch_id' => 'required|exists:branches,id',
                 'description' => 'required|string',
             ]);
         } else {
@@ -179,7 +241,8 @@ class AdminVacancyController extends Controller
                 'description' => 'required|string',
                 'status' => 'required|in:Open,Gesloten,In behandeling',
                 'company_id' => 'required|exists:companies,id',
-                'branch_id' => 'nullable|exists:branches,id',
+                'branch_id' => 'required|exists:branches,id',
+                'required_skills' => 'nullable|string',
                 'location' => 'nullable|string|max:255',
                 'employment_type' => 'nullable|in:Fulltime,Parttime,Contract,Tijdelijke,Stage,Traineeship,Freelance,ZZP',
                 'salary_range' => 'nullable|string|max:100',
@@ -200,10 +263,36 @@ class AdminVacancyController extends Controller
         }
 
         $vacancyData = $request->all();
+
+        // Normalize required_skills JSON -> array of strings
+        $requiredSkills = null;
+        if ($request->filled('required_skills')) {
+            try {
+                $decoded = json_decode($request->string('required_skills')->toString(), true, 512, JSON_THROW_ON_ERROR);
+                if (is_array($decoded)) {
+                    $requiredSkills = collect($decoded)
+                        ->filter(fn ($v) => is_string($v))
+                        ->map(fn ($v) => trim($v))
+                        ->filter(fn ($v) => $v !== '')
+                        ->map(fn ($v) => preg_replace('/\s+/', ' ', $v) ?? $v)
+                        ->unique(fn ($v) => mb_strtolower($v))
+                        ->take(30)
+                        ->values()
+                        ->all();
+                }
+            } catch (\Throwable $e) {
+                // ignore invalid JSON, let it be null
+            }
+        }
+        $vacancyData['required_skills'] = $requiredSkills;
         
         // Als Super Admin en tenant geselecteerd, gebruik die tenant
         if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
             $vacancyData['company_id'] = session('selected_tenant');
+        }
+        // Voor overige gebruikers: forceer bedrijf van medewerker (beschermt tegen manipulatie)
+        if (!auth()->user()->hasRole('super-admin')) {
+            $vacancyData['company_id'] = auth()->user()->company_id;
         }
 
         $vacancy->update($vacancyData);

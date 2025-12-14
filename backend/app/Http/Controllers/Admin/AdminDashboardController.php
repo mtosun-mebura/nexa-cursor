@@ -10,7 +10,9 @@ use App\Models\Vacancy;
 use App\Models\JobMatch;
 use App\Models\Interview;
 use App\Models\Payment;
+use App\Models\Invoice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdminDashboardController extends Controller
 {
@@ -18,19 +20,12 @@ class AdminDashboardController extends Controller
     
     public function index()
     {
-        $tenantId = null;
+        $tenantId = $this->getTenantId();
+        
         // Voor Super Admin, toon alle data als geen tenant geselecteerd
         if (auth()->user()->hasRole('super-admin') && !session('selected_tenant')) {
-            $stats = [
-                'total_users' => User::count(),
-                'total_companies' => Company::count(),
-                'total_vacancies' => Vacancy::count(),
-                'total_matches' => \App\Models\JobMatch::count(),
-                'total_interviews' => Interview::count(),
-                'active_vacancies' => Vacancy::where('status', 'active')->count(),
-                'pending_matches' => \App\Models\JobMatch::where('status', 'pending')->count(),
-                'completed_interviews' => Interview::where('scheduled_at', '<', now())->count(),
-            ];
+            $tenantId = null; // Reset voor super admin zonder tenant
+            $stats = $this->buildSuperAdminStats();
 
             $financials = $this->buildFinancialStats(Payment::query());
             $recent_users = User::with('company')
@@ -48,40 +43,64 @@ class AdminDashboardController extends Controller
                 ->get();
         } else {
             // Tenant-specifieke data
-            $tenantId = $this->getTenantId();
-            
-            $stats = [
-                'total_users' => User::where('company_id', $tenantId)->count(),
-                'total_companies' => Company::where('id', $tenantId)->count(),
-                'total_vacancies' => Vacancy::where('company_id', $tenantId)->count(),
-                'total_matches' => \App\Models\JobMatch::whereHas('vacancy', function($q) use ($tenantId) {
-                    $q->where('company_id', $tenantId);
-                })->count(),
-                'total_interviews' => Interview::where('company_id', $tenantId)->count(),
-                'active_vacancies' => Vacancy::where('company_id', $tenantId)->where('status', 'active')->count(),
-                'pending_matches' => \App\Models\JobMatch::whereHas('vacancy', function($q) use ($tenantId) {
-                    $q->where('company_id', $tenantId);
-                })->where('status', 'pending')->count(),
-                'completed_interviews' => Interview::where('company_id', $tenantId)->where('scheduled_at', '<', now())->count(),
-            ];
+            if (!$tenantId) {
+                // Fallback naar super admin view als geen tenantId
+                $stats = [
+                    'total_users' => User::count(),
+                    'total_companies' => Company::count(),
+                    'total_vacancies' => Vacancy::count(),
+                    'total_matches' => \App\Models\JobMatch::count(),
+                    'total_interviews' => Interview::count(),
+                    'active_vacancies' => Vacancy::where('status', 'active')->count(),
+                    'pending_matches' => \App\Models\JobMatch::where('status', 'pending')->count(),
+                    'completed_interviews' => Interview::where('scheduled_at', '<', now())->count(),
+                ];
+                $financials = $this->buildFinancialStats(Payment::query());
+                $recent_users = User::with('company')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
+                $recent_companies = Company::orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
+                $recent_vacancies = Vacancy::with(['company', 'category'])
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
+            } else {
+                $stats = [
+                    'total_users' => User::where('company_id', $tenantId)->count(),
+                    'total_companies' => Company::where('id', $tenantId)->count(),
+                    'total_vacancies' => Vacancy::where('company_id', $tenantId)->count(),
+                    'total_matches' => \App\Models\JobMatch::whereHas('vacancy', function($q) use ($tenantId) {
+                        $q->where('company_id', $tenantId);
+                    })->count(),
+                    'total_interviews' => Interview::where('company_id', $tenantId)->count(),
+                    'active_vacancies' => Vacancy::where('company_id', $tenantId)->where('status', 'active')->count(),
+                    'pending_matches' => \App\Models\JobMatch::whereHas('vacancy', function($q) use ($tenantId) {
+                        $q->where('company_id', $tenantId);
+                    })->where('status', 'pending')->count(),
+                    'completed_interviews' => Interview::where('company_id', $tenantId)->where('scheduled_at', '<', now())->count(),
+                ];
 
-            $financials = $this->buildFinancialStats(Payment::where('company_id', $tenantId));
-            $recent_users = User::where('company_id', $tenantId)
-                ->with('company')
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get();
+                $financials = $this->buildFinancialStats(Payment::where('company_id', $tenantId));
+                $recent_users = User::where('company_id', $tenantId)
+                    ->with('company')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
 
-            $recent_companies = Company::where('id', $tenantId)
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get();
+                $recent_companies = Company::where('id', $tenantId)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
 
-            $recent_vacancies = Vacancy::where('company_id', $tenantId)
-                ->with(['company', 'category'])
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get();
+                $recent_vacancies = Vacancy::where('company_id', $tenantId)
+                    ->with(['company', 'category'])
+                    ->orderBy('created_at', 'desc')
+                    ->limit(5)
+                    ->get();
+            }
         }
 
         $recent_matches = JobMatch::with(['user', 'vacancy.company'])
@@ -120,7 +139,14 @@ class AdminDashboardController extends Controller
                     $q->limit(8); // Limit for avatar display
                 }
             ])->find($tenantId);
-            $isCompanyView = true;
+            
+            // Als company niet gevonden wordt, maar tenantId bestaat, probeer zonder eager loading
+            if (!$selectedCompany && $tenantId) {
+                $selectedCompany = Company::find($tenantId);
+            }
+            
+            // Alleen company view tonen als company gevonden is
+            $isCompanyView = $selectedCompany !== null;
         }
 
         return view('admin.dashboard', compact(
@@ -152,12 +178,107 @@ class AdminDashboardController extends Controller
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.'
+                'message' => $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.',
+                'redirect' => route('admin.dashboard') // Altijd naar dashboard redirecten
             ]);
         }
         
-        // Redirect terug naar de vorige pagina of dashboard
-        return redirect()->back()->with('success', $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.');
+        // Redirect naar dashboard om company-profile te tonen
+        return redirect()->route('admin.dashboard')->with('success', $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.');
+    }
+
+    /**
+     * Bouw uitgebreide statistieken voor Super Admin dashboard.
+     */
+    protected function buildSuperAdminStats(): array
+    {
+        // Basis statistieken
+        $totalUsers = User::count();
+        $totalCompanies = Company::count();
+        $totalVacancies = Vacancy::count();
+        $totalMatches = JobMatch::count();
+        $totalInterviews = Interview::count();
+        
+        // Gebruikers per bedrijf
+        $usersPerCompany = User::select('company_id', DB::raw('count(*) as user_count'))
+            ->whereNotNull('company_id')
+            ->groupBy('company_id')
+            ->with('company:id,name')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'company_name' => $item->company->name ?? 'Onbekend',
+                    'user_count' => $item->user_count
+                ];
+            });
+        
+        // Vacatures per bedrijf
+        $vacanciesPerCompany = Vacancy::select('company_id', DB::raw('count(*) as vacancy_count'))
+            ->whereNotNull('company_id')
+            ->groupBy('company_id')
+            ->with('company:id,name')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'company_name' => $item->company->name ?? 'Onbekend',
+                    'vacancy_count' => $item->vacancy_count
+                ];
+            });
+        
+        // Kandidaten (gebruikers zonder company_id of met specifieke rollen)
+        $candidates = User::whereDoesntHave('roles', function($q) {
+            $q->whereIn('name', ['super-admin', 'company-admin', 'company-staff']);
+        })->count();
+        
+        // Match statussen
+        $matchStatuses = JobMatch::select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+        
+        // Interviews die tot match hebben geleid (interviews waarvan de match status 'hired' of 'accepted' is)
+        $interviewsLeadingToMatch = Interview::whereHas('match', function($q) {
+            $q->whereIn('status', ['hired', 'accepted']);
+        })->count();
+        
+        // Facturen per jaar (PostgreSQL compatible)
+        $invoicesPerYear = Invoice::select(
+                DB::raw('EXTRACT(YEAR FROM invoice_date)::integer as year'),
+                DB::raw('count(*) as invoice_count'),
+                DB::raw('COALESCE(sum(total_amount), 0) as total_revenue')
+            )
+            ->whereNotNull('invoice_date')
+            ->groupBy(DB::raw('EXTRACT(YEAR FROM invoice_date)'))
+            ->orderBy('year', 'desc')
+            ->get();
+        
+        // Facturen van dit jaar
+        $currentYearInvoices = Invoice::whereYear('invoice_date', now()->year)->count();
+        $currentYearRevenue = Invoice::whereYear('invoice_date', now()->year)
+            ->where('status', 'paid')
+            ->sum('total_amount') ?? 0;
+        
+        return [
+            'total_users' => $totalUsers,
+            'total_companies' => $totalCompanies,
+            'total_vacancies' => $totalVacancies,
+            'total_matches' => $totalMatches,
+            'total_interviews' => $totalInterviews,
+            'active_vacancies' => Vacancy::where('status', 'active')->count(),
+            'pending_matches' => $matchStatuses['pending'] ?? 0,
+            'accepted_matches' => $matchStatuses['accepted'] ?? 0,
+            'rejected_matches' => $matchStatuses['rejected'] ?? 0,
+            'interview_matches' => $matchStatuses['interview'] ?? 0,
+            'hired_matches' => $matchStatuses['hired'] ?? 0,
+            'completed_interviews' => Interview::where('scheduled_at', '<', now())->count(),
+            'interviews_leading_to_match' => $interviewsLeadingToMatch,
+            'candidates' => $candidates,
+            'users_per_company' => $usersPerCompany,
+            'vacancies_per_company' => $vacanciesPerCompany,
+            'invoices_per_year' => $invoicesPerYear,
+            'current_year_invoices' => $currentYearInvoices,
+            'current_year_revenue' => $currentYearRevenue,
+        ];
     }
 
     /**

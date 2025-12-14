@@ -1,0 +1,26 @@
+/**
+ * Fix voor kt-badge-danger - maak deze rood zoals kt-badge-destructive
+ * En zorg dat de grootte consistent is met andere badges
+ */
+.kt-badge-danger {
+    background-color: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+}
+
+/* Zorg dat kt-badge-danger dezelfde grootte heeft als andere kt-badge-sm badges */
+.kt-badge-danger.kt-badge-sm,
+.kt-badge-danger {
+    height: calc(var(--spacing) * 5) !important;
+    min-width: calc(var(--spacing) * 5) !important;
+    gap: calc(var(--spacing) * 1) !important;
+    border-radius: calc(var(--radius) - 4px) !important;
+    padding-inline: 0.325rem !important;
+    font-size: 0.6875rem !important;
+    --tw-leading: 0.75rem !important;
+    line-height: 0.75rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+

@@ -3,272 +3,402 @@
 @section('title', 'Mijn Profiel - NEXA Skillmatching')
 
 @section('content')
-<div class="kt-container-fixed">
-  <!-- Page Title -->
-  <div class="flex items-center justify-between mb-5">
-    <h1 class="text-xl font-medium leading-none text-mono">Mijn Profiel</h1>
-  </div>
+
+<style>
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
+    }
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
+    }
+</style>
+
+<!-- Hero Section with Photo -->
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            <!-- Profile Photo Container -->
+            <div class="relative" style="width: 300px; height: 300px;">
+                <div class="relative bg-gray-100 dark:bg-gray-800 rounded-full w-full h-full flex items-center justify-center overflow-hidden border-4 border-gray-300 dark:border-gray-600 shadow-lg"
+                     id="photo-container"
+                     style="display: flex; visibility: visible;"
+                     ondrop="handleDrop(event)"
+                     ondragover="handleDragOver(event)"
+                     ondragenter="handleDragEnter(event)"
+                     ondragleave="handleDragLeave(event)">
+
+                    <!-- Profile Image or Placeholder -->
+                    @if($user->photo_blob)
+                        <img id="profile-image"
+                             src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"
+                             alt="Profile Photo"
+                             class="absolute inset-0 w-full h-full object-contain cursor-move"
+                             draggable="false"
+                             style="transform: scale(1) translate(0px, 0px);">
+                    @else
+                        <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                            <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                    @endif
+
+                    <!-- Drag Overlay -->
+                    <div id="drag-overlay" class="absolute inset-0 bg-blue-500 bg-opacity-50 rounded-full flex items-center justify-center text-white font-semibold hidden">
+                        <div class="text-center">
+                            <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            <div class="text-sm">Sleep foto hier</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Button Container -->
+                <div class="absolute -bottom-2 left-0 right-0 flex justify-between px-2">
+                    <!-- Reset Button -->
+                    <button onclick="resetPhotoTransform()"
+                            class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
+                            title="Reset foto">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+
+                    <!-- Upload Button -->
+                    <button onclick="document.getElementById('photo-upload').click()"
+                            class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors z-10 shadow-lg"
+                            title="Foto aanpassen">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <input type="file" id="photo-upload" class="hidden" accept="image/*,.svg" onchange="uploadPhoto(this)">
+
+            <!-- Photo editor instructions -->
+            <div class="text-sm text-muted-foreground mb-2">
+                <div class="flex flex-col items-center space-y-1">
+                    <span>Sleep om te verplaatsen</span>
+                    <span>+/- = zoom in/uit</span>
+                </div>
+            </div>
+
+            <!-- Name -->
+            <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
+                {{ $user->first_name }} {{ $user->last_name }}
+            </div>
+            <!-- Function and Role -->
+            <div class="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+                @if($user->function)
+                    <span class="flex items-center gap-1">
+                        <i class="ki-filled ki-briefcase text-base"></i>
+                        {{ $user->function }}
+                    </span>
+                @endif
+                @if($user->roles->isNotEmpty())
+                    @if($user->function)
+                        <span class="text-muted-foreground">•</span>
+                    @endif
+                    <span class="flex items-center gap-1">
+                        <i class="ki-filled ki-profile-user text-base"></i>
+                        {{ $user->roles->first()->name }}
+                    </span>
+                @endif
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="kt-container-fixed">
-  <div class="flex flex-col items-stretch grow">
-    <div class="flex flex-col gap-5 lg:gap-7.5">
-      <!-- Top Row: Profile Photo + Personal Information -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-7.5 w-full">
-  <!-- Profile Overview -->
-  <div class="lg:col-span-1 w-full">
-    <div class="kt-card min-w-full">
-      <div class="kt-card-content p-6 text-center">
-      <!-- Profile Photo Container with Upload Button -->
-      <div class="relative mx-auto mb-4" style="width: 300px; height: 300px;">
-        <!-- Photo Container -->
-        <div class="relative bg-gray-100 dark:bg-gray-800 rounded-full w-full h-full flex items-center justify-center overflow-hidden border-4 border-gray-300 dark:border-gray-600 shadow-lg"
-             id="photo-container"
-             style="display: flex; visibility: visible;"
-             ondrop="handleDrop(event)"
-             ondragover="handleDragOver(event)"
-             ondragenter="handleDragEnter(event)"
-             ondragleave="handleDragLeave(event)">
-
-          <!-- Profile Image or Placeholder -->
-          @if($user->photo_blob)
-            <img id="profile-image"
-                 src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"
-                 alt="Profile Photo"
-                 class="absolute inset-0 w-full h-full object-cover cursor-move"
-                 draggable="false"
-                 style="transform: scale(1) translate(0px, 0px);">
-          @else
-            <!-- Default Avatar Icon -->
-            <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-              <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-        </svg>
-      </div>
-          @endif
-
-          <!-- Drag Overlay -->
-          <div id="drag-overlay" class="absolute inset-0 bg-blue-500 bg-opacity-50 rounded-full flex items-center justify-center text-white font-semibold hidden">
-            <div class="text-center">
-              <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-              </svg>
-              <div class="text-sm">Sleep foto hier</div>
-            </div>
-          </div>
+<!-- Profiel Card -->
+<div class="kt-card mb-5 lg:mb-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                Profiel
+            </h3>
+            <button type="button" id="edit-profile-btn" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" onclick="toggleEditMode()">
+                <i class="ki-filled ki-pencil"></i>
+            </button>
         </div>
-
-        <!-- Button Container -->
-        <div class="absolute -bottom-2 left-0 right-0 flex justify-between px-2">
-          <!-- Reset Button -->
-          <button onclick="resetPhotoTransform()"
-                  class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
-                  title="Reset foto">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-          </button>
-
-          <!-- Upload Button -->
-          <button onclick="document.getElementById('photo-upload').click()"
-                  class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors z-10 shadow-lg"
-                  title="Foto aanpassen">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <input type="file" id="photo-upload" class="hidden" accept="image/*,.svg" onchange="uploadPhoto(this)">
-
-      <!-- Photo editor instructions -->
-      <div class="text-sm text-muted dark:text-muted-dark mb-4">
-        <div class="flex flex-col items-center space-y-1">
-          <div class="flex items-center space-x-4">
-            <span>Sleep om te verplaatsen</span>
-          </div>
-          <div class="flex items-center space-x-4">
-            <span>+/- = zoom in/uit</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Separator line -->
-      <div class="w-full h-px bg-gray-200 dark:bg-gray-700 mb-2"></div>
-
-      <h3 class="font-semibold text-lg mb-1">{{ $user->first_name ?? 'Gebruiker' }} {{ $user->last_name ?? '' }}</h3>
-      </div>
-    </div>
-  </div>
-    <!-- Personal Information -->
-    <div class="lg:col-span-2 w-full">
-      <div class="kt-card min-w-full">
-        <div class="kt-card-content p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-lg">Persoonlijke Informatie</h3>
-          <span class="text-sm text-gray-500 dark:text-gray-400">* verplicht</span>
-        </div>
-        <form id="profile-form" class="space-y-5">
-          @csrf
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <label class="kt-form-label flex items-center gap-1 max-w-56">
-                Voornaam <span class="text-red-500">*</span>
-              </label>
-              <div class="flex-1">
-                <input type="text" name="first_name" class="kt-input" value="{{ $user->first_name ?? '' }}" placeholder="Voornaam" required>
-              </div>
-            </div>
-          </div>
-
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <label class="kt-form-label flex items-center gap-1 max-w-56">
-                Achternaam <span class="text-red-500">*</span>
-              </label>
-              <div class="flex-1">
-                <input type="text" name="last_name" class="kt-input" value="{{ $user->last_name ?? '' }}" placeholder="Achternaam" required>
-              </div>
-            </div>
-          </div>
-
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <label class="kt-form-label flex items-center gap-1 max-w-56">
-                E-mailadres <span class="text-red-500">*</span>
-              </label>
-              <div class="flex-1">
-                <input type="email" name="email" class="kt-input" value="{{ $user->email ?? '' }}" placeholder="E-mailadres" required>
-              </div>
-            </div>
-          </div>
-
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <label class="kt-form-label flex items-center gap-1 max-w-56">
-                Geboortedatum
-              </label>
-              <div class="flex-1">
-                <input type="text" name="date_of_birth" id="birth-date-input" class="kt-input" value="{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '' }}" placeholder="dd-mm-jjjj" readonly onclick="showBirthDatePicker()">
-              </div>
-            </div>
-          </div>
-
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <label class="kt-form-label flex items-center gap-1 max-w-56">
-                Telefoonnummer
-              </label>
-              <div class="flex-1">
-                <input type="tel" name="phone" class="kt-input" value="{{ $user->phone ?? '' }}" placeholder="+31 6 12345678">
-              </div>
-            </div>
-          </div>
-
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <label class="kt-form-label flex items-center gap-1 max-w-56">
-                Locatie <span class="text-red-500">*</span>
-              </label>
-              <div class="flex-1">
-                <input type="text" name="location" class="kt-input" value="{{ $user->location ?? '' }}" placeholder="Amsterdam, Nederland">
-              </div>
-            </div>
-          </div>
-
-          <div class="w-full">
-            <div class="flex items-baseline flex-wrap lg:flex-nowrap gap-2.5">
-              <div class="max-w-56"></div>
-              <div class="flex-1">
-                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-              </div>
-            </div>
-          </div>
-        </form>
-        </div>
-      </div>
-    </div>
-  </div>
-<!-- End of kt-container-fixed for main content -->
-</div>
-
-  <!-- Add Skill Modal -->
-        <div id="skill-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative border border-gray-200 dark:border-gray-700 shadow-xl">
-                <button onclick="hideAddSkillModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-                <h3 class="text-lg font-semibold mb-4">Vaardigheid Toevoegen</h3>
-                <form id="skill-form">
-                    @csrf
-                    <input type="hidden" id="skill-type" name="type">
-                    <div class="mb-4">
-                        <label class="text-sm font-medium text-muted dark:text-muted-dark">Naam</label>
-                        <input type="text" name="name" class="input mt-1" placeholder="Vaardigheid naam" required>
-                    </div>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="hideAddSkillModal()" class="btn btn-outline flex-1 flex items-center justify-center dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Annuleren</button>
-                        <button type="submit" class="btn btn-primary flex-1 flex items-center justify-center">Toevoegen</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Add Experience Modal -->
-        <div id="experience-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 overflow-hidden">
-            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-[95vw] mx-4 relative max-h-[90vh] overflow-y-auto">
-                <button onclick="hideAddExperienceModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-                <h3 class="text-lg font-semibold mb-4" id="experience-modal-title">Werkervaring Toevoegen</h3>
-                <form id="experience-form">
-                    @csrf
-                    <div class="space-y-4">
-                        <div>
-                            <label class="text-sm font-medium text-muted dark:text-muted-dark">Functietitel</label>
-                            <input type="text" name="title" class="input mt-1" placeholder="Bijv. Senior Developer" required>
+        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">
+                        Voornaam
+                    </td>
+                    <td class="min-w-48 w-full">
+                        <span id="view-first_name">{{ $user->first_name }}</span>
+                        <input type="text" name="first_name" id="edit-first_name" class="kt-input hidden max-w-md" value="{{ $user->first_name }}" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Achternaam
+                    </td>
+                    <td>
+                        <span id="view-last_name">{{ $user->last_name }}</span>
+                        <input type="text" name="last_name" id="edit-last_name" class="kt-input hidden max-w-md" value="{{ $user->last_name }}" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        E-mail
+                    </td>
+                    <td>
+                        <span id="view-email">{{ $user->email }}</span>
+                        <input type="email" name="email" id="edit-email" class="kt-input hidden max-w-md" value="{{ $user->email }}" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Telefoon
+                    </td>
+                    <td>
+                        <span id="view-phone">{{ $user->phone ?? '-' }}</span>
+                        <input type="tel" name="phone" id="edit-phone" class="kt-input hidden max-w-md" value="{{ $user->phone }}">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Locatie
+                    </td>
+                    <td>
+                        <span id="view-location">
+                            @if($user->location)
+                                @php
+                                    $displayLocation = '-';
+                                    if (strpos($user->location, 'Bedrijf: ') === 0) {
+                                        // It's the main company
+                                        $companyName = str_replace('Bedrijf: ', '', $user->location);
+                                        $city = $user->company && $user->company->mainLocation ? $user->company->mainLocation->city : ($user->company ? $user->company->city : '');
+                                        $displayLocation = $companyName . ($city ? ', ' . $city : '');
+                                    } elseif (strpos($user->location, 'Vestiging: ') === 0) {
+                                        // It's a branch location
+                                        $locationName = str_replace('Vestiging: ', '', $user->location);
+                                        $branch = $user->company ? $user->company->locations->where('name', $locationName)->first() : null;
+                                        $city = $branch ? $branch->city : '';
+                                        $displayLocation = $locationName . ($city ? ', ' . $city : '');
+                                    } else {
+                                        // Fallback to original location if format doesn't match
+                                        $displayLocation = $user->location;
+                                    }
+                                @endphp
+                                {{ $displayLocation }}
+                            @else
+                                -
+                            @endif
+                        </span>
+                        @if($user->company)
+                        <select name="location" id="edit-location" class="kt-input hidden max-w-md">
+                            <option value="">-- Selecteer locatie --</option>
+                            @php
+                                $mainLocationName = $user->company->name;
+                                if ($user->company->is_main || $user->company->mainLocation) {
+                                    $mainLocationName .= ' (Hoofdkantoor)';
+                                }
+                            @endphp
+                            <option value="Bedrijf: {{ $user->company->name }}" {{ $user->location === 'Bedrijf: ' . $user->company->name ? 'selected' : '' }}>
+                                Bedrijf: {{ $mainLocationName }}
+                            </option>
+                            @foreach($user->company->locations as $location)
+                                @if($location->is_active)
+                                <option value="Vestiging: {{ $location->name }}" {{ $user->location === 'Vestiging: ' . $location->name ? 'selected' : '' }}>
+                                    Vestiging: {{ $location->name }}
+                                </option>
+                                @endif
+                            @endforeach
+                        </select>
+                        @else
+                        <input type="text" name="location" id="edit-location" class="kt-input hidden max-w-md" value="{{ $user->location }}">
+                        @endif
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Geboortedatum
+                    </td>
+                    <td>
+                        <span id="view-date_of_birth">{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '-' }}</span>
+                        <div class="kt-input hidden max-w-md" id="edit-date_of_birth-wrapper">
+                            <i class="ki-outline ki-calendar"></i>
+                            <input class="grow" 
+                                   name="date_of_birth" 
+                                   id="edit-date_of_birth" 
+                                   data-kt-date-picker="true" 
+                                   data-kt-date-picker-input-mode="true" 
+                                   data-kt-date-picker-position-to-input="left"
+                                   data-kt-date-picker-format="dd-mm-yyyy"
+                                   placeholder="Selecteer datum" 
+                                   readonly 
+                                   type="text"
+                                   value="{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '' }}"/>
                         </div>
-                        <div>
-                            <label class="text-sm font-medium text-muted dark:text-muted-dark">Bedrijf</label>
-                            <input type="text" name="company" class="input mt-1" placeholder="Bedrijfsnaam" required>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
-                                <input type="date" name="start_date" class="input mt-1" required>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div id="edit-profile-actions" class="kt-card-footer hidden flex items-center justify-end gap-2.5">
+            <button type="button" onclick="cancelEdit()" class="kt-btn kt-btn-outline">
+                Annuleren
+            </button>
+            <button type="button" onclick="saveProfile()" class="kt-btn kt-btn-primary">
+                Opslaan
+            </button>
+        </div>
+    </div>
+
+    @if($user->company)
+    <!-- Bedrijfsgegevens -->
+    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5">
+        <!-- Bedrijfsinformatie -->
+        <div class="kt-card xl:w-auto xl:min-w-[400px] xl:max-w-[500px]">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Bedrijfsinformatie
+                </h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">
+                            Bedrijfsnaam
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal">
+                            <div class="flex items-start gap-2">
+                                <x-heroicon-o-building-office-2 class="w-5 h-5 font-bold text-gray-700 dark:text-white flex-shrink-0 {{ ($user->company->is_main || $user->company->mainLocation) ? '' : 'hidden' }}" />
+                                <span>{{ $user->company->name }}</span>
                             </div>
-                            <div>
-                                <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
-                                <input type="date" name="end_date" class="input mt-1" id="end-date">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            KVK Nummer
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $user->company->kvk_number ?? '-' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Branche
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $user->company->industry ?? '-' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Bedrijfstype
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($user->company->is_intermediary)
+                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Beschrijving
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $user->company->description ?? '-' }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Contact Informatie -->
+        <div class="kt-card flex-1">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Contact Informatie
+                </h3>
+            </div>
+            <div class="kt-card-content">
+                <div class="flex flex-wrap items-start gap-5">
+                    <div class="rounded-xl w-full md:w-80 min-h-52 flex-shrink-0" id="company_contact_map">
+                    </div>
+                    <div class="flex flex-col gap-2.5 flex-1 min-w-0">
+                        @if($user->company->email)
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-sms text-lg text-muted-foreground"></i>
+                            </span>
+                            <a class="link text-sm font-medium" href="mailto:{{ $user->company->email }}">
+                                {{ $user->company->email }}
+                            </a>
+                        </div>
+                        @endif
+                        @if($user->company->phone)
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-whatsapp text-lg text-muted-foreground"></i>
+                            </span>
+                            <span class="text-sm text-mono">
+                                {{ $user->company->phone }}
+                            </span>
+                        </div>
+                        @endif
+                        @if($user->company->website)
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-dribbble text-lg text-muted-foreground"></i>
+                            </span>
+                            <a class="link text-sm font-medium" href="{{ $user->company->website }}" target="_blank">
+                                {{ $user->company->website }}
+                            </a>
+                        </div>
+                        @endif
+                        @php
+                            $addressParts = [];
+                            if ($user->company->mainLocation) {
+                                if ($user->company->mainLocation->street && $user->company->mainLocation->house_number) {
+                                    $addressParts[] = $user->company->mainLocation->street . ' ' . $user->company->mainLocation->house_number . ($user->company->mainLocation->house_number_extension ? '-' . $user->company->mainLocation->house_number_extension : '');
+                                }
+                                if ($user->company->mainLocation->postal_code && $user->company->mainLocation->city) {
+                                    $addressParts[] = $user->company->mainLocation->postal_code . ' ' . $user->company->mainLocation->city;
+                                }
+                                if ($user->company->mainLocation->country) {
+                                    $addressParts[] = $user->company->mainLocation->country;
+                                }
+                            } elseif ($user->company->street || $user->company->city) {
+                                if ($user->company->street && $user->company->house_number) {
+                                    $addressParts[] = $user->company->street . ' ' . $user->company->house_number . ($user->company->house_number_extension ? '-' . $user->company->house_number_extension : '');
+                                }
+                                if ($user->company->postal_code && $user->company->city) {
+                                    $addressParts[] = $user->company->postal_code . ' ' . $user->company->city;
+                                }
+                                if ($user->company->country) {
+                                    $addressParts[] = $user->company->country;
+                                }
+                            }
+                        @endphp
+                        @if(!empty($addressParts))
+                        <div class="flex items-start gap-2.5">
+                            <span class="mt-0.5">
+                                <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
+                            </span>
+                            <div class="flex flex-col gap-0.5">
+                                @foreach($addressParts as $part)
+                                <span class="text-sm text-mono">
+                                    {{ $part }}
+                                </span>
+                                @endforeach
                             </div>
                         </div>
-                        <div>
-                            <label class="flex items-center">
-                                <input type="checkbox" name="current" id="current-job" class="mr-2" onchange="toggleEndDate()">
-                                <span class="text-sm">Huidige functie</span>
-                            </label>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-muted dark:text-muted-dark">Beschrijving</label>
-                            <textarea name="description" class="input mt-1" rows="6" placeholder="Beschrijf je taken en verantwoordelijkheden..."></textarea>
-                        </div>
+                        @endif
                     </div>
-                    <div class="flex gap-2 mt-6 justify-end">
-                        <button type="button" onclick="hideAddExperienceModal()" class="btn btn-outline">Annuleren</button>
-                        <button type="submit" class="btn btn-primary min-w-[120px]">Toevoegen</button>
-                    </div>
-                </form>
+                </div>
             </div>
-      </div>
+        </div>
     </div>
-  </div>
-</div>
+    @endif
 
-  <!-- Add Skill Modal -->
+<!-- Add Skill Modal -->
 <div id="skill-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
   <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
     <button onclick="hideAddSkillModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
@@ -315,11 +445,39 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
-            <input type="date" name="start_date" class="input mt-1" required>
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="start_date" 
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="yyyy-MM-dd"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"
+                       required/>
+            </div>
+            <!--end::Input with Calendar-->
           </div>
           <div>
             <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
-            <input type="date" name="end_date" class="input mt-1" id="end-date">
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="end_date" 
+                       id="end-date"
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="yyyy-MM-dd"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"/>
+            </div>
+            <!--end::Input with Calendar-->
           </div>
         </div>
         <div>
@@ -450,6 +608,411 @@
 </div>
 
 <script>
+// Profile edit mode
+let isEditMode = false;
+let originalData = {};
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    const editBtn = document.getElementById('edit-profile-btn');
+    const editActions = document.getElementById('edit-profile-actions');
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    
+    if (isEditMode) {
+        // Save original data
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            // Special handling for date_of_birth wrapper
+            if (field === 'date_of_birth' && !editEl) {
+                editEl = document.getElementById('edit-date_of_birth');
+            }
+            if (viewEl && editEl) {
+                originalData[field] = editEl.value || editEl.textContent || '';
+            }
+        });
+        
+        // Show edit inputs, hide view spans
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            let editWrapper = null;
+            
+            // Special handling for date_of_birth
+            if (field === 'date_of_birth') {
+                editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                if (!editEl && editWrapper) {
+                    editEl = editWrapper.querySelector('input');
+                }
+            }
+            
+            if (viewEl && (editEl || editWrapper)) {
+                viewEl.classList.add('hidden');
+                if (editWrapper) {
+                    editWrapper.classList.remove('hidden');
+                } else if (editEl) {
+                    editEl.classList.remove('hidden');
+                }
+            }
+        });
+        
+        editActions.classList.remove('hidden');
+        editBtn.innerHTML = '<i class="ki-filled ki-cross"></i>';
+        
+        // Initialize datepicker if needed
+        if (typeof KTDatePicker !== 'undefined') {
+            const dateInput = document.getElementById('edit-date_of_birth');
+            if (dateInput) {
+                // Remove existing datepicker instance if any
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.destroy();
+                    delete dateInput._flatpickr;
+                }
+                
+                // Format the existing value to dd-mm-yyyy if it exists
+                if (dateInput.value) {
+                    try {
+                        // Try to parse and reformat the date
+                        const dateParts = dateInput.value.split('-');
+                        if (dateParts.length === 3) {
+                            // If it's in YYYY-MM-DD format, convert to DD-MM-YYYY
+                            if (dateParts[0].length === 4) {
+                                dateInput.value = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Date formatting error:', e);
+                    }
+                }
+                
+                // Initialize the datepicker - use setTimeout to ensure DOM is ready
+                setTimeout(() => {
+                    try {
+                        // Re-initialize KTDatePicker for this element
+                        KTDatePicker.init(dateInput);
+                    } catch (e) {
+                        console.warn('Datepicker initialization error:', e);
+                    }
+                }, 50);
+            }
+        }
+    } else {
+        // Cancel edit - restore original values
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            
+            // Special handling for date_of_birth
+            if (field === 'date_of_birth') {
+                const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                if (editWrapper) {
+                    editEl = editWrapper.querySelector('input');
+                }
+            }
+            
+            if (viewEl && editEl && originalData[field] !== undefined) {
+                editEl.value = originalData[field];
+                viewEl.textContent = originalData[field] || '-';
+            }
+        });
+        
+        // Show view spans, hide edit inputs
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            let editWrapper = null;
+            
+            // Special handling for date_of_birth
+            if (field === 'date_of_birth') {
+                editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                if (editWrapper) {
+                    editEl = editWrapper.querySelector('input');
+                }
+            }
+            
+            if (viewEl && (editEl || editWrapper)) {
+                viewEl.classList.remove('hidden');
+                if (editWrapper) {
+                    editWrapper.classList.add('hidden');
+                } else if (editEl) {
+                    editEl.classList.add('hidden');
+                }
+            }
+        });
+        
+        editActions.classList.add('hidden');
+        editBtn.innerHTML = '<i class="ki-filled ki-pencil"></i>';
+    }
+}
+
+function cancelEdit() {
+    isEditMode = false;
+    
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const editBtn = document.getElementById('edit-profile-btn');
+    const editActions = document.getElementById('edit-profile-actions');
+    
+    // Restore original values
+    fields.forEach(field => {
+        const viewEl = document.getElementById('view-' + field);
+        let editEl = document.getElementById('edit-' + field);
+        
+        // Special handling for date_of_birth
+        if (field === 'date_of_birth') {
+            const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+            if (editWrapper) {
+                editEl = editWrapper.querySelector('input');
+            }
+        }
+        
+        if (viewEl && editEl && originalData[field] !== undefined) {
+            editEl.value = originalData[field];
+            // For location dropdown, format the display value
+            if (field === 'location' && editEl.tagName === 'SELECT') {
+                const selectedValue = originalData[field];
+                if (selectedValue) {
+                    // Parse the location value to extract name and city
+                    if (selectedValue.startsWith('Bedrijf: ')) {
+                        const companyName = selectedValue.replace('Bedrijf: ', '');
+                        // Try to get city from company data
+                        @if($user->company)
+                        const companyCity = @json($user->company->mainLocation ? $user->company->mainLocation->city : ($user->company->city ?? ''));
+                        viewEl.textContent = companyName + (companyCity ? ', ' + companyCity : '');
+                        @else
+                        viewEl.textContent = companyName;
+                        @endif
+                    } else if (selectedValue.startsWith('Vestiging: ')) {
+                        const locationName = selectedValue.replace('Vestiging: ', '');
+                        // Try to get city from location data
+                        @if($user->company)
+                        const locations = @json($user->company->locations->mapWithKeys(function($loc) { return [$loc->name => $loc->city]; })->toArray());
+                        const locationCity = locations[locationName] || '';
+                        viewEl.textContent = locationName + (locationCity ? ', ' + locationCity : '');
+                        @else
+                        viewEl.textContent = locationName;
+                        @endif
+                    } else {
+                        // Fallback: find the option that matches the original value
+                        for (let i = 0; i < editEl.options.length; i++) {
+                            if (editEl.options[i].value === originalData[field]) {
+                                const optionText = editEl.options[i].text;
+                                // Remove "Bedrijf: " or "Vestiging: " prefix if present
+                                viewEl.textContent = optionText.replace(/^(Bedrijf|Vestiging):\s*/, '');
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    viewEl.textContent = '-';
+                }
+            } else {
+                // Format date for display if needed
+                let displayValue = originalData[field] || '-';
+                if (field === 'date_of_birth' && displayValue !== '-') {
+                    const parts = displayValue.split('-');
+                    if (parts.length === 3) {
+                        displayValue = parts[0] + '-' + parts[1] + '-' + parts[2];
+                    }
+                }
+                viewEl.textContent = displayValue;
+            }
+        }
+    });
+    
+    // Show view spans, hide edit inputs
+    fields.forEach(field => {
+        const viewEl = document.getElementById('view-' + field);
+        let editEl = document.getElementById('edit-' + field);
+        let editWrapper = null;
+        
+        // Special handling for date_of_birth
+        if (field === 'date_of_birth') {
+            editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+            if (editWrapper) {
+                editEl = editWrapper.querySelector('input');
+            }
+        }
+        
+        if (viewEl && (editEl || editWrapper)) {
+            viewEl.classList.remove('hidden');
+            if (editWrapper) {
+                editWrapper.classList.add('hidden');
+            } else if (editEl) {
+                editEl.classList.add('hidden');
+            }
+        }
+    });
+    
+    // Hide edit actions and reset edit button
+    if (editActions) {
+        editActions.classList.add('hidden');
+    }
+    if (editBtn) {
+        editBtn.innerHTML = '<i class="ki-filled ki-pencil"></i>';
+    }
+}
+
+async function saveProfile() {
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const formData = new FormData();
+    formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+    
+    fields.forEach(field => {
+        let editEl = document.getElementById('edit-' + field);
+        
+        // Special handling for date_of_birth
+        if (field === 'date_of_birth') {
+            const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+            if (editWrapper) {
+                editEl = editWrapper.querySelector('input');
+            }
+        }
+        
+        if (editEl) {
+            let value = editEl.value || '';
+            
+            // Datepicker already returns in dd-MM-yyyy format which backend can parse
+            formData.append(field, value);
+        }
+    });
+    
+    try {
+        const response = await fetch('{{ route("admin.profile.update") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update view with new values
+            fields.forEach(field => {
+                const viewEl = document.getElementById('view-' + field);
+                let editEl = document.getElementById('edit-' + field);
+                
+                // Special handling for date_of_birth
+                if (field === 'date_of_birth') {
+                    const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                    if (editWrapper) {
+                        editEl = editWrapper.querySelector('input');
+                    }
+                }
+                
+                if (viewEl && editEl) {
+                    let value = editEl.value || '-';
+                    // Format date for display
+                    if (field === 'date_of_birth' && value !== '-') {
+                        // Value is in dd-MM-yyyy format from datepicker, convert to dd-mm-yyyy for display
+                        const parts = value.split('-');
+                        if (parts.length === 3) {
+                            value = parts[0] + '-' + parts[1] + '-' + parts[2];
+                        }
+                    }
+                    // For location dropdown, format the display value
+                    if (field === 'location' && editEl.tagName === 'SELECT') {
+                        const selectedOption = editEl.options[editEl.selectedIndex];
+                        const selectedValue = editEl.value;
+                        if (selectedValue) {
+                            // Parse the location value to extract name and city
+                            if (selectedValue.startsWith('Bedrijf: ')) {
+                                const companyName = selectedValue.replace('Bedrijf: ', '');
+                                // Try to get city from company data
+                                @if($user->company)
+                                const companyCity = @json($user->company->mainLocation ? $user->company->mainLocation->city : ($user->company->city ?? ''));
+                                value = companyName + (companyCity ? ', ' + companyCity : '');
+                                @else
+                                value = companyName;
+                                @endif
+                            } else if (selectedValue.startsWith('Vestiging: ')) {
+                                const locationName = selectedValue.replace('Vestiging: ', '');
+                                // Try to get city from location data
+                                @if($user->company)
+                                const locations = @json($user->company->locations->mapWithKeys(function($loc) { return [$loc->name => $loc->city]; })->toArray());
+                                const locationCity = locations[locationName] || '';
+                                value = locationName + (locationCity ? ', ' + locationCity : '');
+                                @else
+                                value = locationName;
+                                @endif
+                            } else {
+                                value = selectedOption ? selectedOption.text : '-';
+                            }
+                        } else {
+                            value = '-';
+                        }
+                    }
+                    viewEl.textContent = value;
+                    originalData[field] = editEl.value;
+                }
+            });
+            
+            // Update name in hero section
+            const firstName = document.getElementById('edit-first_name').value;
+            const lastName = document.getElementById('edit-last_name').value;
+            const nameElement = document.querySelector('.hero-bg .text-mono');
+            if (nameElement) {
+                nameElement.textContent = `${firstName} ${lastName}`;
+            }
+            
+            // Exit edit mode - ensure we're in view mode
+            isEditMode = false;
+            
+            // Force toggle to view mode
+            const editBtn = document.getElementById('edit-profile-btn');
+            const editActions = document.getElementById('edit-profile-actions');
+            
+            // Show view spans, hide edit inputs
+            fields.forEach(field => {
+                const viewEl = document.getElementById('view-' + field);
+                let editEl = document.getElementById('edit-' + field);
+                let editWrapper = null;
+                
+                // Special handling for date_of_birth
+                if (field === 'date_of_birth') {
+                    editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                    if (editWrapper) {
+                        editEl = editWrapper.querySelector('input');
+                    }
+                }
+                
+                if (viewEl && (editEl || editWrapper)) {
+                    viewEl.classList.remove('hidden');
+                    if (editWrapper) {
+                        editWrapper.classList.add('hidden');
+                    } else if (editEl) {
+                        editEl.classList.add('hidden');
+                    }
+                }
+            });
+            
+            // Hide edit actions and reset edit button
+            if (editActions) {
+                editActions.classList.add('hidden');
+            }
+            if (editBtn) {
+                editBtn.innerHTML = '<i class="ki-filled ki-pencil"></i>';
+            }
+            
+            showMessageModal('success', 'Succesvol!', data.message || 'Profiel succesvol bijgewerkt!');
+        } else {
+            let errorMessage = 'Er is een fout opgetreden';
+            if (data.errors) {
+                const errorList = Object.values(data.errors).flat();
+                errorMessage = errorList.join(', ');
+            } else if (data.message) {
+                errorMessage = data.message;
+            }
+            showMessageModal('error', 'Fout!', errorMessage);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van het profiel.');
+    }
+}
+
 // Interactive photo editor variables
 let isDragging = false;
 let isResizing = false;
@@ -1521,157 +2084,15 @@ function handleDrop(e) {
   }
 }
 
-// Profile form submission
-document.getElementById('profile-form').addEventListener('submit', async function(e) {
-  e.preventDefault();
-
-  // Clear any existing error styling
-  clearFieldErrors();
-
-  // Frontend validation for required fields
-  const requiredFields = [
-    { name: 'first_name', label: 'Voornaam' },
-    { name: 'last_name', label: 'Achternaam' },
-    { name: 'email', label: 'E-mailadres' },
-    { name: 'location', label: 'Locatie' }
-  ];
-
-  let hasErrors = false;
-  const errorMessages = [];
-
-  requiredFields.forEach(field => {
-    const input = document.querySelector(`input[name="${field.name}"]`);
-    if (!input || !input.value || input.value.trim() === '') {
-      hasErrors = true;
-      errorMessages.push(`${field.label} is verplicht`);
-
-      // Highlight the field with error
-      if (input) {
-        input.classList.add('border-red-500', 'ring-2', 'ring-red-200');
-        input.classList.remove('border-gray-300', 'dark:border-gray-600');
-      }
-    }
-  });
-
-  // Additional email validation
-  const emailInput = document.querySelector('input[name="email"]');
-  if (emailInput && emailInput.value && emailInput.value.trim() !== '') {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailInput.value)) {
-      hasErrors = true;
-      errorMessages.push('E-mailadres moet een geldig e-mailadres zijn');
-      emailInput.classList.add('border-red-500', 'ring-2', 'ring-red-200');
-      emailInput.classList.remove('border-gray-300', 'dark:border-gray-600');
-    }
-  }
-
-  if (hasErrors) {
-    showMessageModal('error', 'Validatie fout!', errorMessages.join(', '));
-
-    // Focus on the first error field
-    const firstErrorField = document.querySelector('.border-red-500');
-    if (firstErrorField) {
-      firstErrorField.focus();
-    }
-
-    return;
-  }
-
-  const formData = new FormData(this);
-
-  try {
-    const response = await fetch('{{ route("admin.profile.update") }}', {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-        'Accept': 'application/json'
-      },
-      body: formData
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      // Update the profile display immediately
-      updateProfileDisplay(formData);
-      // Update profile completeness
-      updateProfileCompleteness();
-      showMessageModal('success', 'Succesvol!', data.message);
-    } else {
-      // Handle validation errors with field highlighting
-      let errorMessage = 'Er is een fout opgetreden';
-      let fieldWithError = null;
-
-      if (data.errors) {
-        const errorMessages = [];
-        if (data.errors.first_name) {
-          errorMessages.push('Voornaam: ' + data.errors.first_name[0]);
-          fieldWithError = 'first_name';
-        }
-        if (data.errors.last_name) {
-          errorMessages.push('Achternaam: ' + data.errors.last_name[0]);
-          fieldWithError = 'last_name';
-        }
-        if (data.errors.email) {
-          errorMessages.push('E-mailadres: ' + data.errors.email[0]);
-          fieldWithError = 'email';
-        }
-        if (data.errors.phone) {
-          errorMessages.push('Telefoonnummer: ' + data.errors.phone[0]);
-          fieldWithError = 'phone';
-        }
-        if (data.errors.location) {
-          errorMessages.push('Locatie: ' + data.errors.location[0]);
-          fieldWithError = 'location';
-        }
-        if (data.errors.bio) {
-          errorMessages.push('Bio: ' + data.errors.bio[0]);
-          fieldWithError = 'bio';
-        }
-        if (data.errors.date_of_birth) {
-          errorMessages.push('Geboortedatum: ' + data.errors.date_of_birth[0]);
-          fieldWithError = 'date_of_birth';
-        }
-
-        if (errorMessages.length > 0) {
-          errorMessage = errorMessages.join(', ');
-        } else {
-          const errorList = Object.values(data.errors).flat();
-          errorMessage = errorList.join(', ');
-        }
-      } else if (data.message) {
-        errorMessage = data.message;
-      }
-
-      showMessageModal('error', 'Validatie fout!', errorMessage);
-
-      // Highlight the field with error and focus on it
-      if (fieldWithError) {
-        highlightFieldError(fieldWithError);
-      }
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van het profiel.');
-  }
-});
-
 // Update profile display function
 function updateProfileDisplay(formData) {
   const firstName = formData.get('first_name');
   const lastName = formData.get('last_name');
-  const bio = formData.get('bio');
-
-  // Update the name in the profile overview
-  const nameElement = document.querySelector('h3.font-semibold.text-lg.mb-1');
+  
+  // Update the name in the hero section
+  const nameElement = document.querySelector('.hero-bg .text-mono');
   if (nameElement) {
     nameElement.textContent = `${firstName} ${lastName}`;
-  }
-
-  // Update the bio in the profile overview
-  const bioElement = document.querySelector('p.text-sm.text-muted.dark\\:text-muted-dark.mb-4');
-  if (bioElement && bio) {
-    bioElement.textContent = bio;
   }
 }
 
@@ -1759,7 +2180,7 @@ function updatePhotoDisplay(photoUrl) {
     const separator = photoUrl.includes('?') ? '&' : '?';
     newImage.src = photoUrl + separator + 't=' + Date.now();
     newImage.alt = 'Profile Photo';
-    newImage.className = 'absolute inset-0 w-full h-full object-cover cursor-move';
+    newImage.className = 'absolute inset-0 w-full h-full object-contain cursor-move';
     newImage.draggable = false;
     
     // Add error handling for image load
@@ -2309,4 +2730,97 @@ async function removeExperience(experienceId) {
     </div>
   </div>
 </div>
+
 @endsection
+
+@if($user->company)
+@push('styles')
+<link href="{{ asset('assets/vendors/leaflet/leaflet.bundle.css') }}" rel="stylesheet" type="text/css" />
+@endpush
+
+@push('scripts')
+<script src="{{ asset('assets/vendors/leaflet/leaflet.bundle.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mapElement = document.getElementById('company_contact_map');
+    if (!mapElement) return;
+
+    if (typeof L === 'undefined') {
+        console.error('Leaflet is not loaded');
+        return;
+    }
+
+    @php
+        $address = '';
+        $lat = 52.2217; // Default to Enschede, Netherlands
+        $lng = 6.8937;
+        if ($user->company->mainLocation) {
+            $address = $user->company->mainLocation->street . ' ' . $user->company->mainLocation->house_number . ($user->company->mainLocation->house_number_extension ? '-' . $user->company->mainLocation->house_number_extension : '') . ', ' . $user->company->mainLocation->postal_code . ' ' . $user->company->mainLocation->city . ($user->company->mainLocation->country ? ', ' . $user->company->mainLocation->country : '');
+        } elseif ($user->company->street || $user->company->city) {
+            $address = $user->company->street . ' ' . $user->company->house_number . ($user->company->house_number_extension ? '-' . $user->company->house_number_extension : '') . ', ' . $user->company->postal_code . ' ' . $user->company->city . ($user->company->country ? ', ' . $user->company->country : '');
+        }
+    @endphp
+
+    const leaflet = L.map('company_contact_map', {
+        center: [{{ $lat }}, {{ $lng }}],
+        zoom: 14,
+        zoomControl: false
+    });
+
+    L.control.zoom({
+        position: 'bottomleft'
+    }).addTo(leaflet);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(leaflet);
+
+    const leafletIcon = L.divIcon({
+        html: '<i class="ki-solid ki-geolocation text-3xl text-green-500"></i>',
+        bgPos: [10, 10],
+        iconAnchor: [20, 37],
+        popupAnchor: [0, -37],
+        className: 'leaflet-marker'
+    });
+
+    const address = @json($address);
+
+    if (address) {
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    leaflet.setView([lat, lng], 16);
+                    const marker = L.marker([lat, lng], { icon: leafletIcon }).addTo(leaflet);
+                    marker.bindPopup(address, {
+                        closeButton: false,
+                        autoPan: true,
+                        autoPanPadding: [20, 20],
+                        offset: [0, -40],
+                        keepInView: true
+                    }).openPopup();
+                } else {
+                    leaflet.setView([{{ $lat }}, {{ $lng }}], 16);
+                    const marker = L.marker([{{ $lat }}, {{ $lng }}], { icon: leafletIcon }).addTo(leaflet);
+                    marker.bindPopup(address, {
+                        closeButton: false,
+                        autoPan: true,
+                        autoPanPadding: [20, 20],
+                        offset: [0, -40],
+                        keepInView: true
+                    }).openPopup();
+                }
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+                leaflet.setView([{{ $lat }}, {{ $lng }}], 16);
+            });
+    } else {
+        leaflet.setView([{{ $lat }}, {{ $lng }}], 14);
+    }
+});
+</script>
+@endpush
+@endif

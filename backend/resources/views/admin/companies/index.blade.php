@@ -112,17 +112,7 @@
                                        name="search" 
                                        value="{{ request('search') }}"
                                        id="search-input"
-                                       data-kt-datatable-search="#companies_table"
-                                       style="{{ request('search') ? 'padding-right: 2.5rem !important;' : '' }}"/>
-                                @if(request('search'))
-                                <button type="button" 
-                                        class="kt-input-clear" 
-                                        id="search-clear-btn"
-                                        title="Zoekopdracht wissen"
-                                        style="position: absolute !important; right: 0.75rem !important; top: 50% !important; transform: translateY(-50%) !important; background: transparent !important; border: none !important; padding: 0.25rem !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; color: var(--muted-foreground) !important; opacity: 1 !important; visibility: visible !important; z-index: 10 !important; width: 1.5rem !important; height: 1.5rem !important;">
-                                    <i class="ki-filled ki-cross" style="font-size: 0.875rem !important; display: block !important; visibility: visible !important;"></i>
-                                </button>
-                                @endif
+                                       data-kt-datatable-search="#companies_table"/>
                             </label>
                         </form>
                     </div>
@@ -171,9 +161,10 @@
                             <select class="kt-select w-36" 
                                     name="sort" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Sorteren"
+                                    data-kt-select-placeholder="Sortering"
                                     id="sort-filter">
-                                <option value="created_at" {{ request('sort', 'created_at') == 'created_at' ? 'selected' : '' }}>Datum</option>
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
                                 <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
                                 <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>Status</option>
                             </select>
@@ -295,7 +286,7 @@
                                             @if($company->is_active)
                                                 <span class="kt-badge kt-badge-success">Actief</span>
                                             @else
-                                                <span class="kt-badge kt-badge-danger">Inactief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
@@ -484,22 +475,6 @@
             }, 3000); // 3 seconds
         }
         
-        // Clear search input button
-        const searchClearBtn = document.getElementById('search-clear-btn');
-        const searchInput = document.getElementById('search-input');
-        const searchForm = document.getElementById('search-form');
-        
-        if (searchClearBtn && searchInput && searchForm) {
-            searchClearBtn.addEventListener('click', function(e) {
-                e.preventDefault();
-                searchInput.value = '';
-                // Trigger input event for datatable search
-                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-                // Submit form to clear search from URL
-                searchForm.submit();
-            });
-        }
-        
         // Make table rows clickable (except actions column)
         document.querySelectorAll('tbody tr.company-row').forEach(function(row) {
             row.addEventListener('click', function(e) {
@@ -533,43 +508,6 @@
     }
     .kt-table-col-sort {
         margin-left: auto !important;
-    }
-    
-    /* Input clear button */
-    .kt-input {
-        position: relative !important;
-    }
-    .kt-input:has(.kt-input-clear) input {
-        padding-right: 2.5rem !important;
-    }
-    .kt-input-clear {
-        position: absolute !important;
-        right: 0.75rem !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
-        background: transparent !important;
-        border: none !important;
-        padding: 0.25rem !important;
-        cursor: pointer !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        color: var(--muted-foreground) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        z-index: 10 !important;
-        width: 1.5rem !important;
-        height: 1.5rem !important;
-        transition: opacity 0.2s, color 0.2s !important;
-    }
-    .kt-input-clear:hover {
-        opacity: 1 !important;
-        color: var(--foreground) !important;
-    }
-    .kt-input-clear i {
-        font-size: 0.875rem !important;
-        display: block !important;
-        visibility: visible !important;
     }
     
     /* Reset button visibility */
@@ -608,6 +546,10 @@
         }
     }
 </style>
+@endpush
+
+@push('scripts')
+<script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
 @endpush
 
 @endsection

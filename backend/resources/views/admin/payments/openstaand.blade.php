@@ -28,7 +28,7 @@
             <h3 class="kt-card-title">
                 Openstaande Betalingen
             </h3>
-            <div class="kt-input max-w-48">
+            <label class="kt-input max-w-48" style="position: relative !important;">
                 <i class="ki-filled ki-magnifier"></i>
                 <form method="GET" action="{{ route('admin.payments.openstaand') }}" class="inline">
                     <input type="text" 
@@ -38,7 +38,7 @@
                            class="min-w-0"
                            autocomplete="off">
                 </form>
-            </div>
+            </label>
         </div>
         <div class="kt-card-table">
             <div class="kt-scrollable-x-auto">
@@ -146,6 +146,11 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+<script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
+@endpush
+
 @endsection
 
 

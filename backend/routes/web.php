@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminVacancyController;
 use App\Http\Controllers\Admin\AdminBranchController;
+use App\Http\Controllers\Admin\AdminBranchFunctionController;
+use App\Http\Controllers\Admin\AdminBranchFunctionSkillController;
 use App\Http\Controllers\Admin\AdminMatchController;
 use App\Http\Controllers\Admin\AdminInterviewController;
 use App\Http\Controllers\Admin\AdminNotificationController;
@@ -245,11 +247,21 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Users
     Route::resource('users', AdminUserController::class);
     Route::post('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
+    Route::post('users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
     Route::get('users/{user}/photo', [AdminUserController::class, 'photo'])->name('users.photo');
+    Route::match(['get', 'post'], 'api/job-titles', [AdminUserController::class, 'getJobTitles'])->name('api.job-titles');
     
     // Branches (voorheen Categories)
     Route::resource('branches', AdminBranchController::class);
+    Route::post('branches/{branch}/toggle-status', [AdminBranchController::class, 'toggleStatus'])->name('branches.toggle-status');
     Route::get('branches/{branch}/data', [AdminBranchController::class, 'getData'])->name('branches.data');
+    Route::get('branches/functions/all', [AdminBranchController::class, 'getAllFunctions'])->name('branches.functions.all');
+    Route::post('branches/{branch}/functions', [AdminBranchFunctionController::class, 'store'])->name('branches.functions.store');
+    Route::put('branches/{branch}/functions/{function}', [AdminBranchFunctionController::class, 'update'])->name('branches.functions.update');
+    Route::delete('branches/{branch}/functions/{function}', [AdminBranchFunctionController::class, 'destroy'])->name('branches.functions.destroy');
+    Route::get('branches/{branch}/functions/{function}/skills', [AdminBranchFunctionSkillController::class, 'index'])->name('branches.functions.skills.index');
+    Route::post('branches/{branch}/functions/{function}/skills', [AdminBranchFunctionSkillController::class, 'store'])->name('branches.functions.skills.store');
+    Route::delete('branches/{branch}/functions/{function}/skills/{skill}', [AdminBranchFunctionSkillController::class, 'destroy'])->name('branches.functions.skills.destroy');
     
     // Vacancies
     Route::resource('vacancies', AdminVacancyController::class);

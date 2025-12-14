@@ -39,7 +39,7 @@
                     @if($location->is_active)
                         <span class="kt-badge kt-badge-success">Actief</span>
                     @else
-                        <span class="kt-badge kt-badge-danger">Inactief</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
                     @endif
                 </div>
             </div>
@@ -130,7 +130,19 @@
     .kt-table-border-dashed tbody tr td {
         padding-top: 12px;
         padding-bottom: 12px;
-        vertical-align: middle;
+        vertical-align: top;
+    }
+    
+    /* Labels (first column) should align with top of content */
+    .kt-table-border-dashed tbody tr td:first-child {
+        vertical-align: top;
+        padding-top: 12px;
+    }
+    
+    /* Content (second column) should align with top */
+    .kt-table-border-dashed tbody tr td:last-child {
+        vertical-align: top;
+        padding-top: 12px;
     }
 </style>
 @endpush

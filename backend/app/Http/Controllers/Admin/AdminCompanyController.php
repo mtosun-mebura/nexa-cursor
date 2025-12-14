@@ -193,7 +193,7 @@ class AdminCompanyController extends Controller
             }
         }
 
-        return redirect()->route('admin.companies.index')
+        return redirect()->route('admin.companies.show', $company)
             ->with('success', 'Bedrijf succesvol aangemaakt.');
     }
 
@@ -293,7 +293,7 @@ class AdminCompanyController extends Controller
         
         $company->update($data);
 
-        return redirect()->route('admin.companies.index')
+        return redirect()->route('admin.companies.show', $company)
             ->with('success', 'Bedrijf succesvol bijgewerkt.');
     }
 

@@ -5,7 +5,7 @@
         id="sidebar_header">
         <a href="{{ route('dashboard') }}" class="flex items-center">
             <img class="default-logo h-[26px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
-            <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
+            <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ asset('images/nexa-x-logo.png') }}" alt="Nexa" />
         </a>
         <button
             class="kt-btn kt-btn-outline kt-btn-icon absolute start-full top-2/4 size-[30px] -translate-x-2/4 -translate-y-2/4 rtl:translate-x-2/4"

@@ -86,8 +86,25 @@
                             
                             <div class="col-md-6 mb-3">
                                 <label for="date_of_birth" class="form-label">Geboortedatum</label>
-                                <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                                       value="{{ old('date_of_birth') }}">
+                                <!--begin::Input with Calendar-->
+                                <div class="kt-input w-64 @error('date_of_birth') border-destructive @enderror">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="date_of_birth" 
+                                           id="date_of_birth"
+                                           value="{{ old('date_of_birth') }}"
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"/>
+                                </div>
+                                @error('date_of_birth')
+                                    <div class="form-help text-danger">{{ $message }}</div>
+                                @enderror
+                                <!--end::Input with Calendar-->
                             </div>
                             
                             <div class="col-md-6 mb-3">

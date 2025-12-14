@@ -5,7 +5,20 @@
 @section('content')
 @if($isCompanyView && $selectedCompany)
     {{-- Company Profile View --}}
-    @include('admin.dashboard.company-profile', ['company' => $selectedCompany, 'stats' => $stats])
+    @include('admin.dashboard.company-profile', ['company' => $selectedCompany, 'stats' => $stats ?? []])
+@elseif($isCompanyView && !$selectedCompany)
+    {{-- Tenant geselecteerd maar company niet gevonden --}}
+    <div class="kt-card">
+        <div class="kt-card-content">
+            <div class="alert alert-warning">
+                <i class="ki-filled ki-information-5"></i>
+                De geselecteerde tenant kon niet worden gevonden. Selecteer een andere tenant of ga terug naar het overzicht.
+            </div>
+            <a href="{{ route('admin.dashboard') }}" class="kt-btn kt-btn-primary mt-4">
+                Terug naar dashboard
+            </a>
+        </div>
+    </div>
 @else
     {{-- Super Admin Dashboard View --}}
 <div class="flex flex-col gap-7.5">
@@ -24,15 +37,14 @@
     @endphp
 
     <!-- Hero + Revenue -->
-    <div class="grid gap-5 xl:grid-cols-3">
-        <div class="kt-card xl:col-span-2 overflow-hidden bg-gradient-to-r from-[#0f172a] via-[#111827] to-[#0b1324] text-white">
+    <div class="grid gap-5 xl:grid-cols-5">
+        <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-[#0f172a] via-[#111827] to-[#0b1324] text-white">
             <div class="kt-card-body p-7 lg:p-10">
                 <div class="flex flex-col gap-6">
                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                         <div class="space-y-3">
-                            <div class="text-xs uppercase tracking-[0.18em] text-white/60">Metronic Dark Sidebar</div>
                             <h1 class="text-3xl font-semibold leading-tight">
-                                Platform overzicht
+                                Nexa overzicht
                             </h1>
                             <p class="text-sm text-white/70">
                                 Direct inzicht in gebruikers, vacatures, matches, interviews en inkomsten.
@@ -92,14 +104,6 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-3">
-                        <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-light kt-btn-sm">Gebruikers</a>
-                        <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-light kt-btn-sm">Vacatures</a>
-                        <a href="{{ route('admin.matches.index') }}" class="kt-btn kt-btn-light kt-btn-sm">Matches</a>
-                        @if($isSuperAdmin)
-                            <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-light kt-btn-sm">Betalingen</a>
-                        @endif
-                    </div>
                 </div>
             </div>
         </div>
@@ -137,92 +141,319 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-5">
         <div class="kt-card">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
-                <div class="space-y-1">
+                <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Gebruikers</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_users'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">Nieuwe accounts en admins</div>
+                    <div class="text-xs text-secondary-foreground">Totaal aantal gebruikers</div>
                 </div>
-                <span class="size-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <span class="size-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-people text-primary text-xl"></i>
                 </span>
             </div>
         </div>
         <div class="kt-card">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
-                <div class="space-y-1">
+                <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Bedrijven</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_companies'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">Actieve klanten in het platform</div>
+                    <div class="text-xs text-secondary-foreground">Actieve klanten</div>
                 </div>
-                <span class="size-12 rounded-full bg-success/10 flex items-center justify-center">
+                <span class="size-12 rounded-full bg-success/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-abstract-26 text-success text-xl"></i>
                 </span>
             </div>
         </div>
         <div class="kt-card">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
-                <div class="space-y-1">
+                <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Vacatures</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_vacancies'] ?? 0 }}</div>
-                    <div class="flex items-center gap-2 text-xs text-secondary-foreground">
+                    <div class="text-xs text-secondary-foreground">
                         <span class="inline-flex items-center gap-1">
                             <span class="size-2 rounded-full bg-success"></span> {{ $stats['active_vacancies'] ?? 0 }} actief
                         </span>
                     </div>
                 </div>
-                <span class="size-12 rounded-full bg-warning/10 flex items-center justify-center">
+                <span class="size-12 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-briefcase text-warning text-xl"></i>
                 </span>
             </div>
         </div>
         <div class="kt-card">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
-                <div class="space-y-1">
+                <div class="space-y-1 flex-1 min-w-0">
+                    <div class="text-sm text-secondary-foreground">Kandidaten</div>
+                    <div class="text-2xl font-semibold text-mono">{{ $stats['candidates'] ?? 0 }}</div>
+                    <div class="text-xs text-secondary-foreground">Ingeschreven kandidaten</div>
+                </div>
+                <span class="size-12 rounded-full bg-info/10 flex items-center justify-center shrink-0">
+                    <i class="ki-filled ki-profile-user text-info text-xl"></i>
+                </span>
+            </div>
+        </div>
+        <div class="kt-card">
+            <div class="kt-card-body flex items-start justify-between gap-4 p-6">
+                <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Matches</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_matches'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">{{ $stats['pending_matches'] ?? 0 }} openstaand</div>
+                    <div class="text-xs text-secondary-foreground">
+                        <span class="inline-flex items-center gap-1">
+                            <span class="size-2 rounded-full bg-warning"></span> {{ $stats['pending_matches'] ?? 0 }} openstaand
+                        </span>
+                    </div>
                 </div>
-                <span class="size-12 rounded-full bg-info/10 flex items-center justify-center">
+                <span class="size-12 rounded-full bg-info/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-abstract-38 text-info text-xl"></i>
                 </span>
             </div>
         </div>
         <div class="kt-card">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
-                <div class="space-y-1">
+                <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Interviews</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_interviews'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">{{ $stats['completed_interviews'] ?? 0 }} afgerond</div>
+                    <div class="text-xs text-secondary-foreground">
+                        {{ $stats['interviews_leading_to_match'] ?? 0 }} tot match
+                    </div>
                 </div>
-                <span class="size-12 rounded-full bg-danger/10 flex items-center justify-center">
+                <span class="size-12 rounded-full bg-danger/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-calendar text-danger text-xl"></i>
-                </span>
-            </div>
-        </div>
-        <div class="kt-card">
-            <div class="kt-card-body flex items-start justify-between gap-4 p-6">
-                <div class="space-y-1">
-                    <div class="text-sm text-secondary-foreground">Omzet</div>
-                    <div class="text-2xl font-semibold text-mono">€{{ number_format((float)($financials['total_revenue'] ?? 0), 0, ',', '.') }}</div>
-                    <div class="text-xs text-secondary-foreground">Gem. ticket €{{ number_format((float)($financials['average_ticket'] ?? 0), 2, ',', '.') }}</div>
-                </div>
-                <span class="size-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <i class="ki-filled ki-wallet text-primary text-xl"></i>
                 </span>
             </div>
         </div>
     </div>
 
+    @if($isSuperAdmin && !session('selected_tenant'))
+    <!-- Uitgebreide Statistieken voor Super Admin -->
+    <div class="grid gap-5 lg:grid-cols-2">
+        <!-- Match Statussen -->
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    <i class="ki-filled ki-abstract-38 me-2"></i>
+                    Match Statussen
+                </h3>
+            </div>
+            <div class="kt-card-body">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                        <div class="flex items-center gap-3">
+                            <span class="size-10 rounded-full bg-warning/10 flex items-center justify-center">
+                                <i class="ki-filled ki-time text-warning"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm text-secondary-foreground">In Afwachting</div>
+                                <div class="text-xl font-semibold text-mono">{{ $stats['pending_matches'] ?? 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                        <div class="flex items-center gap-3">
+                            <span class="size-10 rounded-full bg-success/10 flex items-center justify-center">
+                                <i class="ki-filled ki-check-circle text-success"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm text-secondary-foreground">Geaccepteerd</div>
+                                <div class="text-xl font-semibold text-mono">{{ $stats['accepted_matches'] ?? 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                        <div class="flex items-center gap-3">
+                            <span class="size-10 rounded-full bg-danger/10 flex items-center justify-center">
+                                <i class="ki-filled ki-cross-circle text-danger"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm text-secondary-foreground">Afgewezen</div>
+                                <div class="text-xl font-semibold text-mono">{{ $stats['rejected_matches'] ?? 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                        <div class="flex items-center gap-3">
+                            <span class="size-10 rounded-full bg-info/10 flex items-center justify-center">
+                                <i class="ki-filled ki-calendar text-info"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm text-secondary-foreground">Interview</div>
+                                <div class="text-xl font-semibold text-mono">{{ $stats['interview_matches'] ?? 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-input col-span-2">
+                        <div class="flex items-center gap-3">
+                            <span class="size-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <i class="ki-filled ki-check text-primary"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm text-secondary-foreground">Aangenomen</div>
+                                <div class="text-xl font-semibold text-mono">{{ $stats['hired_matches'] ?? 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interviews Statistieken -->
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    <i class="ki-filled ki-calendar me-2"></i>
+                    Interviews Overzicht
+                </h3>
+            </div>
+            <div class="kt-card-body space-y-4">
+                <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                    <div class="flex items-center gap-3">
+                        <span class="size-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="ki-filled ki-calendar text-primary"></i>
+                        </span>
+                        <div>
+                            <div class="text-sm text-secondary-foreground">Totaal Interviews</div>
+                            <div class="text-xl font-semibold text-mono">{{ $stats['total_interviews'] ?? 0 }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                    <div class="flex items-center gap-3">
+                        <span class="size-10 rounded-full bg-success/10 flex items-center justify-center">
+                            <i class="ki-filled ki-check-circle text-success"></i>
+                        </span>
+                        <div>
+                            <div class="text-sm text-secondary-foreground">Afgerond</div>
+                            <div class="text-xl font-semibold text-mono">{{ $stats['completed_interviews'] ?? 0 }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between p-4 rounded-lg border border-input">
+                    <div class="flex items-center gap-3">
+                        <span class="size-10 rounded-full bg-info/10 flex items-center justify-center">
+                            <i class="ki-filled ki-abstract-38 text-info"></i>
+                        </span>
+                        <div>
+                            <div class="text-sm text-secondary-foreground">Leidend tot Match</div>
+                            <div class="text-xl font-semibold text-mono">{{ $stats['interviews_leading_to_match'] ?? 0 }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gebruikers en Vacatures per Bedrijf -->
+    <div class="grid gap-5 lg:grid-cols-2">
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    <i class="ki-filled ki-people me-2"></i>
+                    Gebruikers per Bedrijf
+                </h3>
+            </div>
+            <div class="kt-card-content p-0">
+                <div class="kt-table-responsive">
+                    <table class="kt-table align-middle">
+                        <thead>
+                            <tr>
+                                <th class="min-w-48">Bedrijf</th>
+                                <th class="min-w-24 text-right">Aantal Gebruikers</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($stats['users_per_company'] ?? [] as $item)
+                            <tr>
+                                <td>
+                                    <div class="font-medium text-foreground">{{ $item['company_name'] }}</div>
+                                </td>
+                                <td class="text-right">
+                                    <div class="text-sm font-semibold text-mono">{{ $item['user_count'] }}</div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="2" class="text-center text-muted-foreground py-5">
+                                    Geen data beschikbaar
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    <i class="ki-filled ki-briefcase me-2"></i>
+                    Vacatures per Bedrijf
+                </h3>
+            </div>
+            <div class="kt-card-content p-0">
+                <div class="kt-table-responsive">
+                    <table class="kt-table align-middle">
+                        <thead>
+                            <tr>
+                                <th class="min-w-48">Bedrijf</th>
+                                <th class="min-w-24 text-right">Aantal Vacatures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($stats['vacancies_per_company'] ?? [] as $item)
+                            <tr>
+                                <td>
+                                    <div class="font-medium text-foreground">{{ $item['company_name'] }}</div>
+                                </td>
+                                <td class="text-right">
+                                    <div class="text-sm font-semibold text-mono">{{ $item['vacancy_count'] }}</div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="2" class="text-center text-muted-foreground py-5">
+                                    Geen data beschikbaar
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Facturen en Opbrengsten Grafiek -->
+    <div class="kt-card">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                <i class="ki-filled ki-chart-line-up-2 me-2"></i>
+                Facturen en Opbrengsten per Jaar
+            </h3>
+            <div class="flex gap-5">
+                <div class="text-sm text-secondary-foreground">
+                    {{ now()->year }}: <span class="font-semibold text-foreground">{{ $stats['current_year_invoices'] ?? 0 }} facturen</span>
+                </div>
+                <div class="text-sm text-secondary-foreground">
+                    Opbrengst: <span class="font-semibold text-success">€{{ number_format((float)($stats['current_year_revenue'] ?? 0), 2, ',', '.') }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="kt-card-body flex flex-col justify-end items-stretch grow px-3 py-1">
+            <div id="invoices_revenue_chart"></div>
+        </div>
+    </div>
+    @endif
+
     <!-- Pipeline & Activity -->
     <div class="grid gap-5 lg:grid-cols-3">
-        <div class="kt-card lg:col-span-1">
+        <div class="kt-card lg:col-span-1 flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-route me-2"></i>
                     Pipeline status
                 </h3>
             </div>
-            <div class="kt-card-body space-y-6">
+            <div class="kt-card-body space-y-6 flex-1 p-6">
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-secondary-foreground">Match succes</span>
@@ -255,14 +486,14 @@
                 </div>
             </div>
         </div>
-        <div class="kt-card lg:col-span-2">
+        <div class="kt-card lg:col-span-2 flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-activity me-2"></i>
                     Recente activiteit
                 </h3>
             </div>
-            <div class="kt-card-body grid md:grid-cols-2 gap-4">
+            <div class="kt-card-body grid md:grid-cols-2 gap-4 flex-1 p-6">
                 <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
                         <span class="font-semibold text-foreground">Recente matches</span>
@@ -318,62 +549,7 @@
     </div>
 
     <!-- Data tables -->
-    <div class="grid gap-5 lg:grid-cols-3">
-        <div class="kt-card min-w-full">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-people me-2"></i>
-                    Recente gebruikers
-                </h3>
-                <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">
-                    Bekijk alle
-                </a>
-            </div>
-            <div class="kt-card-content p-0">
-                <div class="kt-table-responsive">
-                    <table class="kt-table align-middle">
-                        <thead>
-                            <tr>
-                                <th class="min-w-48">Naam</th>
-                                <th class="min-w-48">E-mail</th>
-                                <th class="min-w-32">Datum</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($recent_users ?? [] as $user)
-                            <tr>
-                                <td>
-                                    <div class="font-medium text-foreground">
-                                        {{ $user->first_name }} {{ $user->last_name }}
-                                    </div>
-                                    <div class="text-xs text-secondary-foreground">
-                                        {{ $user->company->name ?? 'Geen bedrijf' }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="text-sm text-secondary-foreground">
-                                        {{ $user->email }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="text-sm text-muted-foreground">
-                                        {{ $user->created_at->format('d-m-Y') }}
-                                    </div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="3" class="text-center text-muted-foreground py-5">
-                                    Geen recente gebruikers
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
+    <div class="grid gap-5 lg:grid-cols-2">
         <div class="kt-card min-w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
@@ -429,7 +605,7 @@
                 <div class="border-t border-border px-6 py-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
                         <div class="flex items-center gap-2">
-                            <span class="size-2 rounded-full bg-success"></span>
+                            <i class="ki-filled ki-abstract-26 text-success text-base"></i>
                             Nieuwste bedrijven
                         </div>
                         <a href="{{ route('admin.companies.index') }}" class="text-primary hover:underline">Alle bedrijven</a>
@@ -659,6 +835,156 @@ document.addEventListener('DOMContentLoaded', function() {
         const chart = new ApexCharts(earningsChartElement, options);
         chart.render();
     }
+
+    @if($isSuperAdmin && !session('selected_tenant'))
+    // Initialize Invoices & Revenue Chart
+    const invoicesRevenueChartElement = document.querySelector('#invoices_revenue_chart');
+    if (invoicesRevenueChartElement && typeof ApexCharts !== 'undefined') {
+        const invoicesData = @json(($stats['invoices_per_year'] ?? [])->pluck('invoice_count')->values()->all());
+        const revenueDataYear = @json(($stats['invoices_per_year'] ?? [])->pluck('total_revenue')->values()->all());
+        const yearCategories = @json(($stats['invoices_per_year'] ?? [])->pluck('year')->values()->all());
+        
+        const maxRevenueYear = Math.max(...(revenueDataYear.length > 0 ? revenueDataYear : [1]));
+        const yAxisMaxYear = Math.ceil(maxRevenueYear * 1.2 / 1000) * 1000;
+        
+        const optionsYear = {
+            series: [
+                {
+                    name: 'Aantal Facturen',
+                    type: 'column',
+                    data: invoicesData.length > 0 ? invoicesData : [0]
+                },
+                {
+                    name: 'Opbrengsten (€)',
+                    type: 'line',
+                    data: revenueDataYear.length > 0 ? revenueDataYear : [0]
+                }
+            ],
+            chart: {
+                height: 350,
+                type: 'line',
+                toolbar: {
+                    show: false
+                }
+            },
+            stroke: {
+                width: [0, 3],
+                curve: 'smooth'
+            },
+            plotOptions: {
+                bar: {
+                    columnWidth: '50%'
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                enabledOnSeries: [1]
+            },
+            legend: {
+                show: true,
+                position: 'top'
+            },
+            xaxis: {
+                categories: yearCategories.length > 0 ? yearCategories : ['Geen data'],
+                axisBorder: {
+                    show: false
+                },
+                axisTicks: {
+                    show: false
+                },
+                labels: {
+                    style: {
+                        colors: 'var(--color-muted-foreground)',
+                        fontSize: '12px'
+                    }
+                }
+            },
+            yaxis: [
+                {
+                    title: {
+                        text: 'Aantal Facturen',
+                        style: {
+                            color: 'var(--color-muted-foreground)',
+                            fontSize: '12px'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            colors: 'var(--color-muted-foreground)',
+                            fontSize: '12px'
+                        }
+                    }
+                },
+                {
+                    opposite: true,
+                    title: {
+                        text: 'Opbrengsten (€)',
+                        style: {
+                            color: 'var(--color-muted-foreground)',
+                            fontSize: '12px'
+                        }
+                    },
+                    min: 0,
+                    max: yAxisMaxYear,
+                    labels: {
+                        style: {
+                            colors: 'var(--color-muted-foreground)',
+                            fontSize: '12px'
+                        },
+                        formatter: function(value) {
+                            return '€' + (value / 1000).toFixed(0) + 'K';
+                        }
+                    }
+                }
+            ],
+            tooltip: {
+                shared: true,
+                intersect: false,
+                custom: function({series, seriesIndex, dataPointIndex, w}) {
+                    const year = w.globals.seriesX[seriesIndex][dataPointIndex];
+                    const invoices = series[0][dataPointIndex];
+                    const revenue = series[1][dataPointIndex];
+                    const formattedRevenue = new Intl.NumberFormat('nl-NL', {
+                        style: 'currency',
+                        currency: 'EUR'
+                    }).format(revenue);
+                    
+                    return `
+                        <div class="flex flex-col gap-2 p-3.5">
+                            <div class="font-medium text-2sm text-white">Jaar ${year}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="size-2 rounded-full bg-primary"></span>
+                                <span class="text-sm">Facturen: <strong>${invoices}</strong></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="size-2 rounded-full bg-success"></span>
+                                <span class="text-sm">Opbrengsten: <strong>${formattedRevenue}</strong></span>
+                            </div>
+                        </div>
+                    `;
+                }
+            },
+            colors: ['var(--color-primary)', 'var(--color-success)'],
+            grid: {
+                borderColor: 'var(--color-border)',
+                strokeDashArray: 5,
+                yaxis: {
+                    lines: {
+                        show: true
+                    }
+                },
+                xaxis: {
+                    lines: {
+                        show: false
+                    }
+                }
+            }
+        };
+        
+        const chartYear = new ApexCharts(invoicesRevenueChartElement, optionsYear);
+        chartYear.render();
+    }
+    @endif
 });
 </script>
 @endpush

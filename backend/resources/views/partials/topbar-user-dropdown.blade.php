@@ -30,7 +30,7 @@
                         {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
                     </span>
                     <a class="hover:text-primary text-xs font-medium leading-none text-secondary-foreground"
-                        href="{{ route('profile') }}">
+                        href="{{ route('admin.profile') }}">
                         {{ auth()->user()->email }}
                     </a>
                 </div>
@@ -51,7 +51,7 @@
                 </div>
             </li>
             <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('dashboard') }}">
+                <a class="kt-dropdown-menu-link" href="{{ route('admin.dashboard') }}">
                     <i class="ki-filled ki-element-11">
                     </i>
                     Dashboard
@@ -66,62 +66,22 @@
             </li>
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-agenda'))
             <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('agenda') }}">
+                <a class="kt-dropdown-menu-link" href="{{ route('admin.agenda.index') }}">
                     <i class="ki-filled ki-calendar">
                     </i>
                     Agenda
                 </a>
             </li>
             @endif
-            <li data-kt-dropdown="true" data-kt-dropdown-placement="right-start" data-kt-dropdown-trigger="hover">
-                <button class="kt-dropdown-menu-toggle" data-kt-dropdown-toggle="true">
-                    <i class="ki-filled ki-setting-2">
+            @if(auth()->user()->company_id)
+            <li>
+                <a class="kt-dropdown-menu-link" href="{{ route('admin.companies.show', auth()->user()->company_id) }}">
+                    <i class="ki-filled ki-abstract-26">
                     </i>
-                    Instellingen
-                    <span class="kt-dropdown-menu-indicator">
-                        <i class="ki-filled ki-right text-xs">
-                        </i>
-                    </span>
-                </button>
-                <div class="kt-dropdown-menu w-[220px]" data-kt-dropdown-menu="true">
-                    <ul class="kt-dropdown-menu-sub">
-                        <li>
-                            <a class="kt-dropdown-menu-link" href="{{ route('admin.profile') }}">
-                                <i class="ki-filled ki-some-files">
-                                </i>
-                                Mijn Profiel
-                            </a>
-                        </li>
-                        <li>
-                            <a class="kt-dropdown-menu-link" href="{{ route('settings') }}">
-                                <i class="ki-filled ki-setting">
-                                </i>
-                                Account Instellingen
-                            </a>
-                        </li>
-                        @if(auth()->user()->hasRole('super-admin'))
-                        <li>
-                            <a class="kt-dropdown-menu-link" href="{{ route('admin.dashboard') }}">
-                                <i class="ki-filled ki-shield-tick">
-                                </i>
-                                Admin Panel
-                            </a>
-                        </li>
-                        @endif
-                        <li>
-                            <div class="kt-dropdown-menu-separator">
-                            </div>
-                        </li>
-                        <li>
-                            <a class="kt-dropdown-menu-link" href="{{ route('applications') }}">
-                                <i class="ki-filled ki-document">
-                                </i>
-                                Mijn Sollicitaties
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                    Bedrijfsprofiel
+                </a>
             </li>
+            @endif
             <li>
                 <div class="kt-dropdown-menu-separator">
                 </div>
@@ -139,7 +99,7 @@
                 <input class="kt-switch" data-kt-theme-switch-state="dark" data-kt-theme-switch-toggle="true"
                     name="check" type="checkbox" value="1" />
             </div>
-            <form method="POST" action="{{ route('logout') }}">
+            <form method="POST" action="{{ route('admin.logout') }}">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-outline w-full justify-center">
                     Uitloggen

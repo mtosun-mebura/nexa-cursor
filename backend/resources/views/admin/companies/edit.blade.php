@@ -22,21 +22,10 @@
     <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data">
         @csrf
         @method('PUT')
+        <input type="hidden" name="is_active" id="is_active_hidden" value="{{ old('is_active', $company->is_active) ? '1' : '0' }}">
 
         <div class="grid gap-5 lg:gap-7.5">
-            @if($errors->any())
-                <div class="kt-alert kt-alert-danger mb-5">
-                    <i class="ki-filled ki-information-5 me-2"></i>
-                    <div>
-                        <strong>Er zijn fouten opgetreden:</strong>
-                        <ul class="mb-0 mt-2 list-disc list-inside">
-                            @foreach($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            @endif
+            <x-error-card :errors="$errors" />
 
             <!-- General Info -->
             <div class="kt-card min-w-full">
@@ -44,37 +33,6 @@
                     <h3 class="kt-card-title">
                         Algemene Informatie
                     </h3>
-                    <div class="flex items-center gap-2">
-                        @can('edit-companies')
-                        <form action="{{ route('admin.companies.toggle-main-location', $company) }}" method="POST" id="toggle-main-location-form">
-                            @csrf
-                        <label class="kt-label">
-                            <input type="checkbox" 
-                                   class="kt-switch kt-switch-sm" 
-                                   id="toggle-main-location-checkbox"
-                                   {{ $company->is_main || $company->mainLocation ? 'checked' : '' }}/>
-                            Hoofdkantoor
-                        </label>
-                        </form>
-                        @else
-                        <label class="kt-label">
-                            <input type="checkbox" 
-                                   class="kt-switch kt-switch-sm" 
-                                   {{ $company->mainLocation ? 'checked' : '' }}
-                                   disabled/>
-                            Hoofdkantoor
-                        </label>
-                        @endcan
-                        <span class="text-muted-foreground">|</span>
-                        <label class="kt-label">
-                            <input type="checkbox" 
-                                   class="kt-switch kt-switch-sm" 
-                                   name="is_active"
-                                   value="1"
-                                   {{ old('is_active', $company->is_active) ? 'checked' : '' }}/>
-                            Actief
-                        </label>
-                    </div>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
@@ -401,59 +359,21 @@
         vertical-align: top !important;
         padding-top: 18px;
     }
+    /* Ensure kt-switch checkboxes are clickable */
+    .kt-switch {
+        pointer-events: auto !important;
+        z-index: 1;
+        position: relative;
+    }
+    .kt-label {
+        cursor: pointer;
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Main location toggle
-        const mainLocationCheckbox = document.getElementById('toggle-main-location-checkbox');
-        const mainLocationForm = document.getElementById('toggle-main-location-form');
-        
-        if (mainLocationCheckbox && mainLocationForm) {
-            mainLocationCheckbox.addEventListener('change', function(e) {
-                e.preventDefault();
-                
-                const formData = new FormData(mainLocationForm);
-                const url = mainLocationForm.action;
-                const originalChecked = this.checked;
-                
-                fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || formData.get('_token')
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(data => {
-                            throw new Error(data.message || 'Network response was not ok');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.message) {
-                        console.log(data.message);
-                        // Update checkbox state based on response
-                        if (data.has_main_location !== undefined) {
-                            this.checked = data.has_main_location;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    // Revert checkbox state on error
-                    this.checked = !originalChecked;
-                    alert(error.message || 'Er is een fout opgetreden bij het wijzigen van het hoofdkantoor.');
-                });
-            });
-        }
-        
         // Logo upload handling
         const logoInput = document.getElementById('logo-input');
         const logoUploadArea = document.getElementById('logo-upload-area');

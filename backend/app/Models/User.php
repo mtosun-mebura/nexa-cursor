@@ -59,6 +59,7 @@ class User extends Authenticatable
         'phone_verified_at',
         'phone',
         'company_id',
+        'is_active',
         'cv_path',
         'cv_original_name',
         'location',
@@ -76,6 +77,8 @@ class User extends Authenticatable
         'push_notifications',
         'profile_visible',
         'cv_downloadable',
+        'function',
+        'job_title_id',
     ];
 
     /**
@@ -99,6 +102,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -129,6 +133,14 @@ class User extends Authenticatable
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Get the job title for the user
+     */
+    public function jobTitle()
+    {
+        return $this->belongsTo(JobTitle::class);
     }
 
     /**

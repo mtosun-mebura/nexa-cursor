@@ -35,6 +35,74 @@
     <!-- End of Theme Mode -->
     
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    
+    <style>
+        /* Maak menu heading borders grijs - voeg border-top toe aan menu items met headings */
+        .kt-menu-item.pt-2\.25 {
+            border-top: 1px solid var(--border) !important;
+        }
+        .kt-menu-item.pt-2\.25:first-child {
+            border-top: none !important;
+        }
+        /* Maak dropdown separator borders grijs */
+        .kt-dropdown-menu-separator {
+            background-color: var(--border) !important;
+            border-color: var(--border) !important;
+        }
+        /* Zorg dat alle separators in de sidebar grijs zijn */
+        .kt-sidebar .kt-menu-separator {
+            border-color: var(--border) !important;
+            background-color: var(--border) !important;
+        }
+        /* Zorg dat alle borders in de sidebar grijs zijn */
+        .kt-sidebar .kt-menu-item {
+            border-color: var(--border) !important;
+        }
+        /* Zorg dat border-e (east border) ook grijs is */
+        .kt-sidebar.border-e,
+        [class*="border-e"] {
+            border-color: var(--border) !important;
+        }
+        /* Zorg dat .border-border ook de juiste border-color heeft */
+        .border-border {
+            border-color: var(--border) !important;
+        }
+        /* Success Banner Bar */
+        .success-banner-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            background-color: #10b981;
+            color: white;
+            padding: 12px 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            transform: translateY(0);
+        }
+        .success-banner-bar.fade-out {
+            opacity: 0;
+            transform: translateY(-100%);
+        }
+        .dark .success-banner-bar {
+            background-color: #059669;
+        }
+
+        /* UI rule: labels next to textarea should be top-aligned */
+        .kt-table.kt-table-border-dashed.align-middle td.align-top {
+            vertical-align: top !important;
+        }
+        .kt-table.kt-table-border-dashed.align-middle td.align-top:first-child {
+            padding-top: 14px;
+        }
+        /* UI rule: if right cell is taller (help text/textarea), top-align left label cell */
+        .kt-table.kt-table-border-dashed.align-middle tr:has(td:nth-child(2) textarea) td:first-child,
+        .kt-table.kt-table-border-dashed.align-middle tr:has(td:nth-child(2) .text-xs) td:first-child {
+            vertical-align: top !important;
+            padding-top: 14px;
+        }
+    </style>
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased">
     <!-- Page -->
@@ -48,15 +116,20 @@
 
             <!-- Content -->
             <main class="grow pt-5" id="content" role="content">
+                <!-- Success Banner -->
+                @if(session('success'))
+                    <div id="success-banner" class="success-banner-bar">
+                        <div class="kt-container-fixed">
+                            <div class="flex items-center justify-center gap-2">
+                                <i class="ki-filled ki-check-circle text-lg"></i>
+                                <span>{{ session('success') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 <!-- Container -->
                 <div class="kt-container-fixed">
-                    @if(session('success'))
-                        <div class="kt-alert kt-alert-success mb-5">
-                            <i class="ki-filled ki-check-circle"></i>
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
                     @if(session('error'))
                         <div class="kt-alert kt-alert-danger mb-5">
                             <i class="ki-filled ki-information"></i>
@@ -79,6 +152,73 @@
 
     @include('layouts.partials.scripts')
     
+    <!-- Ensure Cmd+A / Ctrl+A works in input fields -->
+    <script>
+    (function() {
+        // Force Cmd+A (Mac) / Ctrl+A (Win/Linux) to select all text,
+        // even if other scripts block the default behavior.
+        document.addEventListener('keydown', function(e) {
+            const key = (e.key || '').toLowerCase();
+            const isSelectAll = (e.metaKey || e.ctrlKey) && key === 'a';
+            if (!isSelectAll) return;
+
+            const t = e.target;
+            const isInput = t instanceof HTMLInputElement;
+            const isTextarea = t instanceof HTMLTextAreaElement;
+            if (!isInput && !isTextarea) return;
+
+            if (isInput) {
+                const type = (t.getAttribute('type') || 'text').toLowerCase();
+                // Skip non-text-like inputs
+                if (['button','submit','checkbox','radio','file','color','range','date','time','datetime-local','month','week'].includes(type)) {
+                    return;
+                }
+            }
+
+            try {
+                t.focus();
+                if (typeof t.select === 'function') {
+                    t.select();
+                }
+                if (typeof t.setSelectionRange === 'function') {
+                    t.setSelectionRange(0, (t.value || '').length);
+                }
+            } catch (_) {
+                // ignore
+            }
+
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true);
+    })();
+    </script>
+    
+    <!-- Success Banner Auto-Dismiss -->
+    <script>
+    (function() {
+        const successBanner = document.getElementById('success-banner');
+        if (successBanner) {
+            // Adjust main content padding to account for banner
+            const mainContent = document.getElementById('content');
+            if (mainContent) {
+                mainContent.style.paddingTop = 'calc(1.25rem + 48px)'; // pt-5 + banner height
+            }
+            
+            // Auto-dismiss after 3 seconds
+            setTimeout(function() {
+                successBanner.classList.add('fade-out');
+                setTimeout(function() {
+                    successBanner.remove();
+                    // Reset padding after banner is removed
+                    if (mainContent) {
+                        mainContent.style.paddingTop = '';
+                    }
+                }, 300); // Match CSS transition duration
+            }, 3000); // 3 seconds
+        }
+    })();
+    </script>
+    
     <!-- Session Expiry Handler -->
     <script>
     (function() {
@@ -93,6 +233,25 @@
             const urlStr = typeof url === 'string' ? url : (url.url || '');
             return urlStr.includes('/admin/login') || urlStr.includes('admin.login.post');
         }
+        
+        // Wait for jQuery to be available
+        function initAjaxErrorHandler() {
+            if (typeof jQuery === 'undefined' && typeof $ === 'undefined') {
+                // jQuery not loaded yet, try again after a short delay
+                setTimeout(initAjaxErrorHandler, 100);
+                return;
+            }
+            
+            const $ = window.jQuery || window.$;
+        
+        // Wait for jQuery to be available
+        function initAjaxErrorHandler() {
+            const $ = window.jQuery || window.$;
+            if (!$) {
+                // jQuery not loaded yet, try again after a short delay
+                setTimeout(initAjaxErrorHandler, 100);
+                return;
+            }
         
         // Global AJAX error handler for expired sessions
         $(document).ajaxError(function(event, xhr, settings, thrownError) {
@@ -185,6 +344,13 @@
                     throw error;
                 });
         };
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initAjaxErrorHandler);
+        } else {
+            initAjaxErrorHandler();
+        }
     })();
     </script>
 </body>

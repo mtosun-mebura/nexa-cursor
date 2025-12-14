@@ -73,30 +73,52 @@
                         <label class="kt-form-label font-normal text-mono" for="invoice_date">
                             Factuurdatum <span class="text-destructive">*</span>
                         </label>
-                        <input class="kt-input" 
-                               type="date" 
-                               name="invoice_date" 
-                               id="invoice_date"
-                               value="{{ old('invoice_date', $invoice->invoice_date->format('Y-m-d')) }}"
-                               required>
+                        <!--begin::Input with Calendar-->
+                        <div class="kt-input w-64 @error('invoice_date') border-destructive @enderror">
+                            <i class="ki-outline ki-calendar"></i>
+                            <input class="grow" 
+                                   name="invoice_date" 
+                                   id="invoice_date"
+                                   value="{{ old('invoice_date', $invoice->invoice_date->format('Y-m-d')) }}"
+                                   data-kt-date-picker="true" 
+                                   data-kt-date-picker-input-mode="true" 
+                                   data-kt-date-picker-position-to-input="left"
+                                   data-kt-date-picker-format="yyyy-MM-dd"
+                                   placeholder="Selecteer datum" 
+                                   readonly 
+                                   type="text"
+                                   required/>
+                        </div>
                         @error('invoice_date')
                             <span class="text-sm text-destructive">{{ $message }}</span>
                         @enderror
+                        <!--end::Input with Calendar-->
                     </div>
                     
                     <div class="flex flex-col gap-1">
                         <label class="kt-form-label font-normal text-mono" for="due_date">
                             Vervaldatum <span class="text-destructive">*</span>
                         </label>
-                        <input class="kt-input" 
-                               type="date" 
-                               name="due_date" 
-                               id="due_date"
-                               value="{{ old('due_date', $invoice->due_date->format('Y-m-d')) }}"
-                               required>
+                        <!--begin::Input with Calendar-->
+                        <div class="kt-input w-64 @error('due_date') border-destructive @enderror">
+                            <i class="ki-outline ki-calendar"></i>
+                            <input class="grow" 
+                                   name="due_date" 
+                                   id="due_date"
+                                   value="{{ old('due_date', $invoice->due_date->format('Y-m-d')) }}"
+                                   data-kt-date-picker="true" 
+                                   data-kt-date-picker-input-mode="true" 
+                                   data-kt-date-picker-position-to-input="left"
+                                   data-kt-date-picker-format="yyyy-MM-dd"
+                                   placeholder="Selecteer datum" 
+                                   readonly 
+                                   type="text"
+                                   required/>
+                        </div>
                         @error('due_date')
                             <span class="text-sm text-destructive">{{ $message }}</span>
                         @enderror
+                        <!--end::Input with Calendar-->
                     </div>
                     
                     <div class="flex flex-col gap-1">

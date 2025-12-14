@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Branch;
+use App\Models\Vacancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -17,8 +18,16 @@ class AdminBranchController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-branches')) {
             abort(403, 'Je hebt geen rechten om branches te bekijken.');
         }
+
+        // Stats (overall)
+        $stats = [
+            'total_branches' => Branch::count(),
+            'active_branches' => Branch::where('is_active', true)->count(),
+            'inactive_branches' => Branch::where('is_active', false)->count(),
+        ];
         
-        $query = Branch::query();
+        $query = Branch::query()
+            ->withCount('vacancies as used_count');
         $this->applyTenantFilter($query);
         
         // Search functionality
@@ -42,32 +51,25 @@ class AdminBranchController extends Controller
         }
         
         // Sort functionality
-        $sortBy = $request->get('sort_by', 'sort_order');
+        $sortBy = $request->get('sort_by', 'name');
         $sortOrder = $request->get('sort_order', 'asc');
         
-        $allowedSortFields = ['name', 'sort_order', 'created_at', 'is_active'];
+        $allowedSortFields = ['name', 'created_at', 'is_active', 'used_count'];
         if (in_array($sortBy, $allowedSortFields)) {
             $query->orderBy($sortBy, $sortOrder);
         } else {
-            $query->orderBy('sort_order', 'asc');
+            $query->orderBy('name', 'asc');
         }
         
-        // Pagination
-        $perPage = $request->get('per_page', 25);
-        $allowedPerPage = [5, 10, 25, 50, 100];
-        if (!in_array($perPage, $allowedPerPage)) {
-            $perPage = 25;
-        }
-        
-        $branches = $query->paginate($perPage);
-        $branches->appends($request->query());
+        // Load all branches for client-side pagination (same as users list)
+        $branches = $query->get();
         
         // Check if this is an AJAX request
         if ($request->ajax()) {
-            return view('admin.branches.index', compact('branches'))->render();
+            return view('admin.branches.index', compact('branches', 'stats'))->render();
         }
         
-        return view('admin.branches.index', compact('branches'));
+        return view('admin.branches.index', compact('branches', 'stats'));
     }
 
     public function create()
@@ -101,9 +103,9 @@ class AdminBranchController extends Controller
             $branchData['slug'] = Str::slug($request->name);
         }
 
-        Branch::create($branchData);
+        $branch = Branch::create($branchData);
 
-        return redirect()->route('admin.branches.index')->with('success', 'Branch succesvol aangemaakt.');
+        return redirect()->route('admin.branches.show', $branch)->with('success', 'Branch succesvol aangemaakt.');
     }
 
     public function show(Branch $branch)
@@ -111,8 +113,18 @@ class AdminBranchController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-branches')) {
             abort(403, 'Je hebt geen rechten om branches te bekijken.');
         }
+
+        $branch->loadCount('vacancies')->load(['functions' => function ($q) {
+            $q->orderBy('name');
+        }]);
+
+        $recentVacancies = Vacancy::with(['company'])
+            ->where('branch_id', $branch->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
         
-        return view('admin.branches.show', compact('branch'));
+        return view('admin.branches.show', compact('branch', 'recentVacancies'));
     }
 
     public function edit(Branch $branch)
@@ -148,7 +160,7 @@ class AdminBranchController extends Controller
 
         $branch->update($branchData);
 
-        return redirect()->route('admin.branches.index')->with('success', 'Branch succesvol bijgewerkt.');
+        return redirect()->route('admin.branches.show', $branch)->with('success', 'Branch succesvol bijgewerkt.');
     }
 
     public function destroy(Branch $branch)
@@ -165,17 +177,86 @@ class AdminBranchController extends Controller
         return redirect()->route('admin.branches.index')->with('success', 'Branch succesvol verwijderd.');
     }
 
+    public function toggleStatus(Request $request, Branch $branch)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-branches')) {
+            abort(403, 'Je hebt geen rechten om branches te bewerken.');
+        }
+
+        $branch->is_active = !$branch->is_active;
+        $branch->save();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'is_active' => (bool) $branch->is_active,
+            ]);
+        }
+
+        return back()->with('success', 'Branch status succesvol bijgewerkt.');
+    }
+
     public function getData(Branch $branch)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-branches')) {
+        if (
+            !auth()->user()->hasRole('super-admin')
+            && !auth()->user()->can('view-branches')
+            && !auth()->user()->can('create-vacancies')
+            && !auth()->user()->can('edit-vacancies')
+        ) {
             abort(403, 'Je hebt geen rechten om branches te bekijken.');
         }
+
+        $functions = $branch->functions()
+            ->orderBy('name')
+            ->get(['id', 'branch_id', 'name'])
+            ->map(function ($f) {
+                return [
+                    'id' => $f->id,
+                    'name' => $f->name,
+                    'display_name' => str_replace('_', ' ', (string) $f->name),
+                ];
+            })
+            ->values()
+            ->all();
 
         return response()->json([
             'id' => $branch->id,
             'name' => $branch->name,
             'description' => $branch->description,
             'slug' => $branch->slug,
+            'functions' => $functions,
+        ]);
+    }
+
+    public function getAllFunctions()
+    {
+        if (
+            !auth()->user()->hasRole('super-admin')
+            && !auth()->user()->can('view-branches')
+            && !auth()->user()->can('create-vacancies')
+            && !auth()->user()->can('edit-vacancies')
+        ) {
+            abort(403, 'Je hebt geen rechten om branches te bekijken.');
+        }
+
+        $functions = \App\Models\BranchFunction::with('branch:id,name')
+            ->orderBy('name')
+            ->get(['id', 'branch_id', 'name'])
+            ->map(function ($f) {
+                return [
+                    'id' => $f->id,
+                    'name' => $f->name,
+                    'display_name' => str_replace('_', ' ', (string) $f->name),
+                    'branch_id' => $f->branch_id,
+                    'branch_name' => $f->branch->name ?? '',
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json([
+            'functions' => $functions,
         ]);
     }
 }

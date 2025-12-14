@@ -141,9 +141,25 @@
                             <label for="application_date" class="kt-form-label flex items-center gap-1 max-w-56">
                                 Sollicitatiedatum
                             </label>
-                            <input type="date" class="kt-input @error('application_date') is-invalid @enderror" 
-                                           id="application_date" name="application_date" value="{{ old('application_date', $match->
-                            @error('application_date') is-invalid @enderror
+                            <!--begin::Input with Calendar-->
+                            <div class="kt-input w-64 @error('application_date') border-destructive @enderror">
+                                <i class="ki-outline ki-calendar"></i>
+                                <input class="grow" 
+                                       name="application_date" 
+                                       id="application_date"
+                                       value="{{ old('application_date', $match->application_date ? $match->application_date->format('Y-m-d') : '') }}"
+                                       data-kt-date-picker="true" 
+                                       data-kt-date-picker-input-mode="true" 
+                                       data-kt-date-picker-position-to-input="left"
+                                       data-kt-date-picker-format="yyyy-MM-dd"
+                                       placeholder="Selecteer datum" 
+                                       readonly 
+                                       type="text"/>
+                            </div>
+                            @error('application_date')
+                                <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                            @enderror
+                            <!--end::Input with Calendar-->
                         </div>
                     </div></div>
                         </div>

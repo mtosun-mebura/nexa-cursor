@@ -13,7 +13,7 @@ services:
       APP_KEY: ${APP_KEY}
 
       DB_CONNECTION: pgsql
-      DB_HOST: mdb.tosun.nl
+      DB_HOST: 192.168.178.249
       DB_PORT: 5432
       DB_DATABASE: nexa
       DB_USERNAME: mtosun

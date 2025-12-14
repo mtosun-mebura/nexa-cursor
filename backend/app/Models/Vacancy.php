@@ -16,7 +16,7 @@ class Vacancy extends Model
         'application_instructions','branch_id','reference_number','logo','salary_range','start_date',
         'working_hours','travel_expenses','remote_work','status','language','publication_date','closing_date',
         'meta_title','meta_description','meta_keywords','is_active','published_at','salary_min','salary_max',
-        'experience_level','benefits','latitude','longitude'
+        'experience_level','benefits','latitude','longitude','required_skills'
     ];
 
     protected $casts = [
@@ -29,6 +29,7 @@ class Vacancy extends Model
         'start_date' => 'date',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
+        'required_skills' => 'array',
     ];
 
     /**

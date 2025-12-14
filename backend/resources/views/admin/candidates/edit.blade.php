@@ -127,14 +127,25 @@
                             <div class="lg:col-span-6">
                                 <div class="mb-3">
                                     <label for="date_of_birth" class="form-label">Geboortedatum</label>
-                                    <input type="date" 
-                                           class="form-control @error('date_of_birth') is-invalid @enderror" 
-                                           id="date_of_birth" 
-                                           name="date_of_birth" 
-                                           value="{{ old('date_of_birth', $candidate->date_of_birth ? $candidate->date_of_birth->format('Y-m-d') : '') }}">
+                                    <!--begin::Input with Calendar-->
+                                    <div class="kt-input w-64 @error('date_of_birth') border-destructive @enderror">
+                                        <i class="ki-outline ki-calendar"></i>
+                                        <input class="grow" 
+                                               name="date_of_birth" 
+                                               id="date_of_birth"
+                                               value="{{ old('date_of_birth', $candidate->date_of_birth ? $candidate->date_of_birth->format('Y-m-d') : '') }}"
+                                               data-kt-date-picker="true" 
+                                               data-kt-date-picker-input-mode="true" 
+                                               data-kt-date-picker-position-to-input="left"
+                                               data-kt-date-picker-format="yyyy-MM-dd"
+                                               placeholder="Selecteer datum" 
+                                               readonly 
+                                               type="text"/>
+                                    </div>
                                     @error('date_of_birth')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                    <!--end::Input with Calendar-->
                                 </div>
                             </div>
                             
