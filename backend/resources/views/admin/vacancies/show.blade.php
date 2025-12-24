@@ -133,6 +133,46 @@
                         <td class="text-foreground font-normal">{{ $vacancy->location ?? '-' }}</td>
                     </tr>
                     <tr>
+                        <td class="text-secondary-foreground font-normal align-top">Contactpersoon</td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $contactUser = $vacancy->contactUser;
+                                $contactName = $contactUser ? trim(($contactUser->first_name ?? '') . ' ' . ($contactUser->middle_name ?? '') . ' ' . ($contactUser->last_name ?? '')) : $vacancy->contact_name;
+                                $contactEmail = $contactUser ? $contactUser->email : $vacancy->contact_email;
+                                $contactPhone = $contactUser ? $contactUser->phone : $vacancy->contact_phone;
+                                $contactPhoto = $contactUser ? $contactUser->photo_blob : $vacancy->contact_photo_blob;
+                            @endphp
+                            @if($contactName || $contactEmail || $contactPhone || $contactPhoto)
+                                <div class="flex items-start gap-3">
+                                    @if($contactPhoto)
+                                        @if($contactUser)
+                                            <img src="{{ route('admin.users.photo', $contactUser) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                        @else
+                                            <img src="{{ route('admin.vacancies.contact-photo', $vacancy) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                        @endif
+                                    @endif
+                                    <div class="flex flex-col gap-1">
+                                        @if($contactName)
+                                            <div class="font-medium">{{ $contactName }}</div>
+                                        @endif
+                                        @if($contactEmail)
+                                            <div>
+                                                <a href="mailto:{{ $contactEmail }}" class="text-primary hover:underline">{{ $contactEmail }}</a>
+                                            </div>
+                                        @endif
+                                        @if($contactPhone)
+                                            <div>
+                                                <a href="tel:{{ $contactPhone }}" class="text-primary hover:underline">{{ $contactPhone }}</a>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @else
+                                -
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
                         <td class="text-secondary-foreground font-normal">Dienstverband</td>
                         <td class="text-foreground font-normal">{{ $vacancy->employment_type ?? '-' }}</td>
                     </tr>

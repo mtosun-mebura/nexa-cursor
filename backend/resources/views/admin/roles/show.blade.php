@@ -291,8 +291,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             'edit' => 'Edit',
                             'delete' => 'Delete',
                             'publish' => 'Publish',
-                            'modify' => 'Modify',
-                            'configure' => 'Configure',
                             'approve' => 'Approve',
                             'schedule' => 'Schedule',
                             'send' => 'Send',

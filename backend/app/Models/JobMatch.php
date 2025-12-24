@@ -12,7 +12,7 @@ class JobMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'user_id', 'vacancy_id', 'match_score', 'status', 'ai_recommendation', 'application_date', 'notes', 'ai_analysis'
+        'candidate_id', 'vacancy_id', 'match_score', 'status', 'ai_recommendation', 'application_date', 'notes', 'ai_analysis'
     ];
 
     protected $casts = [
@@ -20,13 +20,18 @@ class JobMatch extends Model
         'match_score' => 'decimal:2',
     ];
 
-    public function user()
+    public function candidate()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Candidate::class);
     }
 
     public function vacancy()
     {
         return $this->belongsTo(Vacancy::class);
+    }
+
+    public function interviews()
+    {
+        return $this->hasMany(Interview::class, 'match_id');
     }
 }

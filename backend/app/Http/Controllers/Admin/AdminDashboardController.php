@@ -103,7 +103,7 @@ class AdminDashboardController extends Controller
             }
         }
 
-        $recent_matches = JobMatch::with(['user', 'vacancy.company'])
+        $recent_matches = JobMatch::with(['candidate', 'vacancy.company'])
             ->when(isset($tenantId), function ($query) use ($tenantId) {
                 $query->whereHas('vacancy', function ($q) use ($tenantId) {
                     $q->where('company_id', $tenantId);
@@ -113,7 +113,7 @@ class AdminDashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $upcoming_interviews = Interview::with(['match.user', 'match.vacancy'])
+        $upcoming_interviews = Interview::with(['match.candidate', 'match.vacancy'])
             ->when(isset($tenantId), function ($query) use ($tenantId) {
                 $query->where('company_id', $tenantId);
             })

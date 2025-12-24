@@ -60,7 +60,7 @@ class AgendaController extends Controller
         }
 
         // Build query with tenant filtering
-        $query = Interview::with(['match.user', 'match.vacancy', 'company'])
+        $query = Interview::with(['match.candidate', 'match.vacancy', 'company'])
             ->whereNotNull('scheduled_at')
             ->whereBetween('scheduled_at', [$start, $end]);
 
@@ -72,10 +72,10 @@ class AgendaController extends Controller
         $appointments = [];
 
         foreach ($interviews as $interview) {
-            $user = $interview->match->user ?? null;
+            $candidate = $interview->match->candidate ?? null;
             $candidateName = 'Onbekend';
-            if ($user) {
-                $candidateName = trim(($user->first_name ?? '') . ' ' . ($user->middle_name ?? '') . ' ' . ($user->last_name ?? ''));
+            if ($candidate) {
+                $candidateName = trim(($candidate->first_name ?? '') . ' ' . ($candidate->last_name ?? ''));
                 if (empty($candidateName)) {
                     $candidateName = 'Onbekend';
                 }
@@ -88,7 +88,7 @@ class AgendaController extends Controller
                 'end' => $interview->scheduled_at->copy()->addMinutes($interview->duration ?? 60)->toISOString(),
                 'color' => $this->getEventColor($interview->type ?? 'interview'),
                 'extendedProps' => [
-                    'user_id' => $user ? $user->id : null,
+                    'candidate_id' => $candidate ? $candidate->id : null,
                     'candidate_name' => $candidateName,
                     'location' => $interview->location ?? 'Locatie niet opgegeven',
                     'type' => $interview->type ?? 'interview',
@@ -115,9 +115,9 @@ class AgendaController extends Controller
         $type = $interview->type ?? 'interview';
         
         if ($candidateName === null) {
-            $user = $interview->match->user ?? null;
-            if ($user) {
-                $candidateName = trim(($user->first_name ?? '') . ' ' . ($user->middle_name ?? '') . ' ' . ($user->last_name ?? ''));
+            $candidate = $interview->match->candidate ?? null;
+            if ($candidate) {
+                $candidateName = trim(($candidate->first_name ?? '') . ' ' . ($candidate->last_name ?? ''));
                 if (empty($candidateName)) {
                     $candidateName = 'Onbekend';
                 }

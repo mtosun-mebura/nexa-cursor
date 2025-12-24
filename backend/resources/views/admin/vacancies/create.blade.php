@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.vacancies.store') }}" method="POST" class="flex flex-col gap-5 lg:gap-7.5" data-validate="true">
+    <form action="{{ route('admin.vacancies.store') }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-5 lg:gap-7.5" data-validate="true">
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -114,6 +114,23 @@
                                 @error('location')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
+                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('create-users')) && isset($users) && $users->count() > 0)
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">Contactpersoon</td>
+                            <td>
+                                <select name="contact_user_id" class="kt-select @error('contact_user_id') border-destructive @enderror" data-kt-select="true">
+                                    <option value="">- Selecteer contactpersoon -</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user->id }}" {{ old('contact_user_id') == $user->id ? 'selected' : '' }}>
+                                            {{ $user->first_name }} {{ $user->middle_name }} {{ $user->last_name }} ({{ $user->email }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer een medewerker als contactpersoon. Als er geen selectie wordt gemaakt, wordt u automatisch als contactpersoon ingesteld.</div>
+                                @error('contact_user_id')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal">Type dienstverband</td>
                             <td>
@@ -352,6 +369,67 @@
 
 @push('styles')
 <style>
+    /* Zorg dat de card-table overflow niet blokkeert, maar card zelf niet uitrekt */
+    .vacancy-create .kt-card-table {
+        overflow: visible !important;
+    }
+
+    .vacancy-create .kt-card-table.kt-scrollable-x-auto {
+        overflow-x: auto !important;
+        overflow-y: hidden !important; /* Geen verticale scrollbar */
+    }
+
+    /* Zorg dat de kt-card zelf ook overflow toestaat, maar niet uitrekt */
+    .vacancy-create .kt-card {
+        overflow: visible !important;
+    }
+
+    .vacancy-create .kt-card-content {
+        overflow: visible !important;
+    }
+
+    /* Voorkom dat de card-table de card uitrekt */
+    .vacancy-create .kt-card-table tbody {
+        position: relative !important;
+    }
+
+    /* Zorg dat de kt-select-wrapper zelf niet de card uitrekt */
+    .vacancy-create .kt-card-table .kt-select-wrapper {
+        position: relative !important;
+        overflow: visible !important;
+    }
+
+    /* Voorkom dat table rows uitrekken door dropdown */
+    .vacancy-create .kt-card-table tbody tr {
+        position: relative !important;
+        height: auto !important; /* Laat row hoogte bepalen door content, niet door dropdown */
+    }
+
+    /* Zorg dat td met contactpersoon select niet uitrekt */
+    .vacancy-create .kt-card-table tbody tr td:has(select[name="contact_user_id"]) {
+        position: relative !important;
+        overflow: visible !important;
+        height: auto !important; /* Laat td hoogte bepalen door content, niet door dropdown */
+    }
+
+    /* Contactpersoon dropdown - net zoals Functie dropdown, scrollbaar binnen dropdown */
+    .vacancy-create select[name="contact_user_id"] + .kt-select-wrapper .kt-select-dropdown,
+    .vacancy-create select[name="contact_user_id"] + .kt-select-wrapper [data-kt-select-dropdown],
+    .vacancy-create .kt-select-wrapper:has(select[name="contact_user_id"]) .kt-select-dropdown,
+    .vacancy-create .kt-select-wrapper:has(select[name="contact_user_id"]) [data-kt-select-dropdown] {
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Fallback voor browsers die :has() niet ondersteunen */
+    .vacancy-create .kt-select-wrapper[data-contact-user-select] .kt-select-dropdown,
+    .vacancy-create .kt-select-wrapper[data-contact-user-select] [data-kt-select-dropdown] {
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
     .vacancy-create .kt-table-border-dashed.align-middle td.align-top {
         vertical-align: top !important;
         padding-top: 14px;
@@ -1746,6 +1824,121 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize SEO auto-generation
     if (metaTitleInput && metaDescriptionInput && metaKeywordsInput) {
         setupSEOAutoGeneration();
+    }
+
+    // Mark contact user select wrapper for dropdown z-index fix (fallback for browsers without :has() support)
+    const contactUserSelect = document.querySelector('select[name="contact_user_id"]');
+    if (contactUserSelect) {
+        const wrapper = contactUserSelect.closest('.kt-select-wrapper') || contactUserSelect.parentElement;
+        if (wrapper) {
+            wrapper.setAttribute('data-contact-user-select', 'true');
+        }
+
+        // Voorkom dat dropdown over header gaat en pas positionering aan
+        const selectElement = wrapper ? wrapper.querySelector('.kt-select') : contactUserSelect;
+        if (selectElement) {
+            // Wacht tot KT Select is geïnitialiseerd
+            setTimeout(() => {
+                // Zoek de dropdown element
+                const findDropdown = () => {
+                    return wrapper.querySelector('.kt-select-dropdown') || wrapper.querySelector('[data-kt-select-dropdown]');
+                };
+
+                // Functie om dropdown te positioneren
+                const positionDropdown = (dropdown) => {
+                    if (!dropdown || !dropdown.classList.contains('open')) return;
+                    
+                    const rect = selectElement.getBoundingClientRect();
+                    const headerHeight = 90; // Header hoogte
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    const spaceAbove = rect.top - headerHeight;
+                    
+                    // Verplaats dropdown naar body - ALTIJD, om stacking context te vermijden
+                    if (dropdown.parentElement !== document.body) {
+                        const originalParent = dropdown.parentElement;
+                        document.body.appendChild(dropdown);
+                        dropdown._originalParent = originalParent;
+                        dropdown._originalWrapper = wrapper;
+                    }
+                    
+                    // Bereken beschikbare ruimte
+                    const availableSpaceBelow = spaceBelow - 10;
+                    const availableSpaceAbove = spaceAbove - 10;
+                    const maxHeight = Math.max(300, Math.min(600, availableSpaceBelow, availableSpaceAbove));
+                    
+                    // Positioneer dropdown
+                    dropdown.style.cssText = `
+                        position: fixed !important;
+                        top: ${rect.bottom + 4}px !important;
+                        left: ${rect.left}px !important;
+                        width: ${rect.width}px !important;
+                        max-height: ${maxHeight}px !important;
+                        overflow-y: auto !important;
+                        overflow-x: hidden !important;
+                        z-index: 999 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        display: block !important;
+                        visibility: visible !important;
+                    `;
+                    
+                    // Als er niet genoeg ruimte onder is, open naar boven
+                    if (availableSpaceBelow < 300 && availableSpaceAbove > availableSpaceBelow) {
+                        dropdown.style.top = 'auto';
+                        dropdown.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+                    }
+                };
+
+                // Observer voor wanneer dropdown wordt getoond
+                const observer = new MutationObserver(() => {
+                    const dropdown = findDropdown();
+                    if (dropdown && dropdown.classList.contains('open')) {
+                        // Wacht even zodat dropdown volledig is gerenderd
+                        setTimeout(() => positionDropdown(dropdown), 10);
+                    } else if (dropdown && !dropdown.classList.contains('open') && dropdown._originalParent) {
+                        // Verplaats dropdown terug naar originele parent wanneer gesloten
+                        dropdown._originalParent.appendChild(dropdown);
+                        dropdown._originalParent = null;
+                        dropdown._originalWrapper = null;
+                        // Reset styles
+                        dropdown.style.cssText = '';
+                    }
+                });
+
+                // Observeer wrapper voor changes
+                observer.observe(wrapper, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    attributeFilter: ['class']
+                });
+
+                // Ook luisteren naar click events
+                selectElement.addEventListener('click', () => {
+                    setTimeout(() => {
+                        const dropdown = findDropdown();
+                        if (dropdown && dropdown.classList.contains('open')) {
+                            positionDropdown(dropdown);
+                        }
+                    }, 100);
+                });
+
+                // Luister naar scroll en resize om dropdown positie bij te werken
+                let resizeTimeout;
+                const updateDropdownPosition = () => {
+                    const dropdown = findDropdown();
+                    if (dropdown && dropdown.classList.contains('open')) {
+                        positionDropdown(dropdown);
+                    }
+                };
+                
+                window.addEventListener('scroll', updateDropdownPosition, true);
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(updateDropdownPosition, 100);
+                });
+            }, 500);
+        }
     }
 });
 </script>

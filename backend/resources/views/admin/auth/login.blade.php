@@ -50,6 +50,34 @@ Author: Keenthemes
         .dark .branded-bg {
             background-image: url('{{ asset('assets/media/images/2600x1600/1-dark.png') }}');
         }
+        
+        /* Login form input fields 100% width */
+        #sign_in_form .kt-input {
+            width: 100% !important;
+        }
+        
+        #sign_in_form .kt-input input {
+            width: 100% !important;
+        }
+        
+        /* Autofill achtergrond licht grijs */
+        #sign_in_form input:-webkit-autofill,
+        #sign_in_form input:-webkit-autofill:hover,
+        #sign_in_form input:-webkit-autofill:focus,
+        #sign_in_form input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #f3f4f6 inset !important;
+            -webkit-text-fill-color: #1f2937 !important;
+            background-color: #f3f4f6 !important;
+        }
+        
+        .dark #sign_in_form input:-webkit-autofill,
+        .dark #sign_in_form input:-webkit-autofill:hover,
+        .dark #sign_in_form input:-webkit-autofill:focus,
+        .dark #sign_in_form input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #374151 inset !important;
+            -webkit-text-fill-color: #f9fafb !important;
+            background-color: #374151 !important;
+        }
     </style>
     
     <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
@@ -73,6 +101,13 @@ Author: Keenthemes
                     </h3>
                 </div>
 
+                @error('email')
+                    <div class="kt-alert kt-alert-danger flex items-center gap-2.5 p-4 rounded-lg">
+                        <i class="ki-filled ki-information-5 text-xl"></i>
+                        <div class="text-sm font-medium">{{ $message }}</div>
+                    </div>
+                @enderror
+
                 <div class="flex flex-col gap-1">
                     <label class="kt-form-label font-normal text-mono">
                         E-mail
@@ -84,9 +119,6 @@ Author: Keenthemes
                            value="{{ old('email') }}" 
                            required
                            autofocus/>
-                    @error('email')
-                        <div class="text-sm text-danger mt-1">{{ $message }}</div>
-                    @enderror
                 </div>
 
                 <div class="flex flex-col gap-1">

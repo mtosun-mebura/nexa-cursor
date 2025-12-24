@@ -4,18 +4,63 @@
 
 @push('styles')
 <style>
+    /* Permission Set buttons styling */
+    .permission-set-btn {
+        transition: all 0.2s ease;
+    }
+
+    .permission-set-btn:hover {
+        background-color: rgba(0, 204, 255, 0.15) !important;
+        border-color: rgba(0, 204, 255, 0.5) !important;
+        transform: translateY(-1px);
+    }
+
+    .permission-set-btn {
+        overflow: hidden !important;
+        align-items: flex-start !important;
+    }
+
+    .permission-set-btn > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        flex: 1 1 auto !important;
+    }
+
+    .permission-set-btn span.line-clamp-2 {
+        display: -webkit-box !important;
+        -webkit-line-clamp: 2 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        line-height: 1.4 !important;
+    }
+
     /* Duidelijkere checkbox styling voor permissions tabel */
     table[data-required-checkbox-group] .kt-checkbox {
-        border-width: 2px;
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        border-width: 1px !important;
         border-color: #555555;
         color: #555555;
+        padding-right: 0 !important;
+        padding-left: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
     }
-    
+
     table[data-required-checkbox-group] .kt-checkbox:hover {
         border-color: #555555;
         background-color: rgba(85, 85, 85, 0.1);
     }
-    
+
     table[data-required-checkbox-group] .kt-checkbox:checked {
         border-color: #10b981 !important;
         background-color: transparent !important;
@@ -23,13 +68,101 @@
         background-position: center !important;
         background-repeat: no-repeat !important;
         background-size: 20px 20px !important;
-        border-width: 2px;
+        border-width: 1px !important;
         color: #10b981 !important;
     }
-    
+
     table[data-required-checkbox-group] .kt-checkbox:focus-visible {
         --tw-ring-color: #555555;
         --tw-ring-offset-width: 2px;
+    }
+
+    /* Duidelijke styling voor permissions validatie melding - oranje balk */
+    .kt-card-content .field-feedback[data-field="permissions"] {
+        display: block !important;
+        padding: 0.75rem 1rem;
+        margin: 0.75rem 1.25rem;
+        background-color: rgba(251, 146, 60, 0.1);
+        border: 1px solid rgba(251, 146, 60, 0.3);
+        border-left: 4px solid #fb923c;
+        border-radius: 0.375rem;
+        color: #c2410c;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.5;
+        opacity: 1;
+        transition: opacity 0.3s ease-out;
+    }
+
+    .kt-card-content .field-feedback[data-field="permissions"].fade-out {
+        opacity: 0;
+    }
+
+    .kt-card-content .field-feedback[data-field="permissions"]:empty,
+    .kt-card-content .field-feedback[data-field="permissions"].hidden {
+        display: none !important;
+        opacity: 0;
+    }
+
+    .kt-card-content .field-feedback[data-field="permissions"]:not(:empty):not(.hidden) {
+        display: block !important;
+        opacity: 1;
+    }
+    
+    /* Verberg field-feedback berichten in de tabel */
+    .kt-card-table .field-feedback[data-field="permissions[]"],
+    table .field-feedback[data-field="permissions[]"],
+    tbody .field-feedback[data-field="permissions[]"],
+    td .field-feedback[data-field="permissions[]"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Remove padding from Rechten card content */
+    .kt-card .kt-card-content.no-padding {
+        padding-inline: 0 !important;
+        padding-block: 0 !important;
+    }
+    
+    /* Add bottom border to table rows */
+    .kt-card-content.no-padding table.kt-table tbody tr {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .kt-card-content.no-padding table.kt-table tbody tr td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .kt-card-content.no-padding table.kt-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+    
+    /* Success alert styling - groene balk en tekst */
+    .kt-alert-success {
+        background-color: rgba(16, 185, 129, 0.1) !important;
+        border: 1px solid rgba(16, 185, 129, 0.3) !important;
+        border-left: 4px solid #10b981 !important;
+        color: #059669 !important;
+        padding: 0.75rem 1rem !important;
+        border-radius: 0.375rem !important;
+    }
+    
+    .kt-alert-success i {
+        color: #10b981 !important;
+    }
+    
+    /* Danger alert styling - rood balkje en tekst */
+    .kt-alert-danger {
+        background-color: rgba(239, 68, 68, 0.1) !important;
+        border: 1px solid rgba(239, 68, 68, 0.3) !important;
+        border-left: 4px solid #ef4444 !important;
+        color: #dc2626 !important;
+        padding: 0.75rem 1rem !important;
+        border-radius: 0.375rem !important;
+    }
+    
+    .kt-alert-danger i {
+        color: #ef4444 !important;
     }
 </style>
 @endpush
@@ -125,9 +258,9 @@
                             <td class="min-w-56 text-secondary-foreground font-normal">Rol Naam *</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="text" 
-                                           name="name" 
-                                           class="kt-input @error('name') border-destructive @enderror" 
+                                    <input type="text"
+                                           name="name"
+                                           class="kt-input @error('name') border-destructive @enderror"
                                            value="{{ old('name', $role->name) }}"
                                            required>
                                 </div>
@@ -149,8 +282,8 @@
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">Beschrijving</td>
                             <td>
-                                <textarea name="description" 
-                                          rows="4" 
+                                <textarea name="description"
+                                          rows="4"
                                           class="kt-input pt-1 @error('description') border-destructive @enderror">{{ old('description', $role->description) }}</textarea>
                                 @error('description')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -177,25 +310,80 @@
             <!-- Rechten -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Rechten Toewijzen *</h3>
+                    <h3 class="kt-card-title">Permissies Toewijzen *</h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3" data-required-checkbox-group="permissions[]">
+                <div class="kt-card-content no-padding">
                     @error('permissions')
-                        <div class="kt-alert kt-alert-danger mb-5 mx-5">
+                        <div class="kt-alert kt-alert-danger mb-5">
                             <i class="ki-filled ki-cross-circle me-2"></i>
                             {{ $message }}
                         </div>
                     @enderror
-                    
-                    <div class="field-feedback text-xs mt-1 hidden" data-field="permissions"></div>
-                    
+
+                    <!-- Permission Sets -->
+                    <div class="mb-5" style="background-color: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 0.5rem; padding: 1.25rem 1.5rem; margin: 16px;">
+                        <div class="flex items-start gap-3 mb-4">
+                            <div class="flex-shrink-0">
+                                <x-heroicon-s-information-circle class="w-6 h-6 flex-shrink-0" style="color: rgb(59, 130, 246);" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-base font-medium text-foreground dark:text-white mb-1">Snel Toepassen: Permission Sets</h4>
+                                <p class="text-sm text-muted-foreground dark:text-gray-300">Selecteer een set om automatisch alle bijbehorende rechten toe te passen op alle modules.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                            @foreach($permissionSets as $setKey => $set)
+                                @php
+                                    // Get all modules from permissions
+                                    $allModules = collect($permissions)->flatten()
+                                        ->map(function($p) {
+                                            $parts = explode('-', $p->name);
+                                            if (count($parts) > 1) {
+                                                array_shift($parts);
+                                                return implode('-', $parts);
+                                            }
+                                            return null;
+                                        })
+                                        ->filter()
+                                        ->unique()
+                                        ->values()
+                                        ->toArray();
+
+                                    $setPermissions = \App\Services\PermissionSetService::getAllPermissionsForSet($setKey, $allModules);
+                                @endphp
+                                <button type="button"
+                                        class="permission-set-btn kt-btn kt-btn-outline text-left justify-start h-auto py-3 px-3 w-full"
+                                        style="background-color: rgba(0, 204, 255, 0.1); border-color: rgba(0, 204, 255, 0.3); min-height: 90px; align-items: flex-start;"
+                                        data-set-key="{{ $setKey }}"
+                                        data-permissions='@json($setPermissions)'>
+                                    <div class="flex flex-col items-start gap-1.5 w-full overflow-hidden" style="width: 100%; max-width: 100%;">
+                                        <span class="font-medium text-sm text-foreground leading-tight whitespace-normal" style="flex-shrink: 0;">{{ $set['name'] }}</span>
+                                        <span class="text-xs text-muted-foreground leading-relaxed line-clamp-2" style="display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; max-width: 100% !important; width: 100% !important; line-height: 1.4 !important;">{{ $set['description'] }}</span>
+                                    </div>
+                                </button>
+                            @endforeach
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    class="kt-btn kt-btn-sm kt-btn-outline text-xs"
+                                    id="clear-all-permissions">
+                                Alles Wissen
+                            </button>
+                            <span class="text-xs text-muted-foreground">of selecteer individuele rechten hieronder</span>
+                        </div>
+                    </div>
+
+                    <div class="field-feedback hidden" data-field="permissions"></div>
+
+                    <div class="kt-card-table kt-scrollable-x-auto pb-3 w-full -mx-5" style="border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1);" data-required-checkbox-group="permissions[]">
+
                     @php
                         // Get currently selected permissions (from old input or role)
                         $rolePermissionNames = old('permissions', $role->permissions->pluck('name')->toArray());
-                        
+
                         // Flatten all permissions from grouped structure
                         $allPermissions = collect($permissions)->flatten();
-                        
+
                         // Parse permissions: structure is "action-module" (e.g., "view-users", "create-vacancies")
                         // Group by module (the part after the action)
                         $permissionModules = $allPermissions->groupBy(function($permission) {
@@ -206,13 +394,13 @@
                             }
                             return 'other';
                         });
-                        
+
                         // Get all unique actions
                         $allActions = $allPermissions->map(function($permission) {
                             $parts = explode('-', $permission->name);
                             return $parts[0] ?? 'other';
                         })->unique()->sort()->values();
-                        
+
                         // Create a map of module => [permissions by action]
                         $permissionMap = [];
                         foreach ($allPermissions as $permission) {
@@ -225,7 +413,7 @@
                             }
                             $permissionMap[$module][$action] = $permission;
                         }
-                        
+
                         // Module display names
                         $moduleNames = [
                             'users' => 'Gebruikers',
@@ -241,13 +429,11 @@
                             'companies' => 'Bedrijven',
                             'branches' => 'Branches',
                             'categories' => 'Categorieën',
-                            'roles' => 'Rollen',
+                            'roles' => 'Rollen en Permissies',
                             'permissions' => 'Permissies',
-                            'job-configurations' => 'Job Configuraties',
-                            'job_configurations' => 'Job Configuraties',
                             'dashboard' => 'Dashboard',
                         ];
-                        
+
                         // Action display names
                         $actionNames = [
                             'view' => 'View',
@@ -255,16 +441,14 @@
                             'edit' => 'Edit',
                             'delete' => 'Delete',
                             'publish' => 'Publish',
-                            'modify' => 'Modify',
-                            'configure' => 'Configure',
                             'approve' => 'Approve',
                             'schedule' => 'Schedule',
                             'send' => 'Send',
                             'assign' => 'Assign',
                         ];
                     @endphp
-                    
-                    <table class="kt-table kt-table-border align-middle text-sm" data-required-checkbox-group="permissions[]">
+
+                    <table class="kt-table kt-table-border align-middle text-sm w-full" data-required-checkbox-group="permissions[]">
                         <thead>
                             <tr>
                                 <th class="min-w-[200px] text-left text-secondary-foreground font-normal">Module</th>
@@ -288,10 +472,10 @@
                                                     $permission = $permissionMap[$module][$action];
                                                 @endphp
                                                 <label class="kt-label flex items-center justify-center cursor-pointer">
-                                                    <input type="checkbox" 
-                                                           class="kt-checkbox" 
-                                                           name="permissions[]" 
-                                                           value="{{ $permission->name }}" 
+                                                    <input type="checkbox"
+                                                           class="kt-checkbox"
+                                                           name="permissions[]"
+                                                           value="{{ $permission->name }}"
                                                            id="permission_{{ $permission->id }}"
                                                            data-checkbox-group="permissions[]"
                                                            {{ in_array($permission->name, $rolePermissionNames) ? 'checked' : '' }}>
@@ -306,7 +490,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="flex items-center justify-end gap-2.5 mb-3 mr-3">
                 <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-outline">
                     Annuleren
                 </a>
@@ -321,6 +505,157 @@
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix permission set button text wrapping
+    const fixButtonTextWrapping = () => {
+        const buttons = document.querySelectorAll('.permission-set-btn');
+        buttons.forEach(button => {
+            const desc = button.querySelector('span.line-clamp-2');
+            if (desc) {
+                desc.style.display = '-webkit-box';
+                desc.style.webkitLineClamp = '2';
+                desc.style.webkitBoxOrient = 'vertical';
+                desc.style.overflow = 'hidden';
+                desc.style.textOverflow = 'ellipsis';
+                desc.style.whiteSpace = 'normal';
+                desc.style.wordWrap = 'break-word';
+                desc.style.maxWidth = '100%';
+            }
+        });
+    };
+
+    // Apply fixes immediately
+    fixButtonTextWrapping();
+
+    // Also apply after a short delay to ensure DOM is ready
+    setTimeout(fixButtonTextWrapping, 100);
+    
+    // Function to check permissions and show/hide validation message
+    function checkPermissionsValidation() {
+        const allCheckboxes = document.querySelectorAll('input[name="permissions[]"]');
+        const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
+        const feedbackElement = document.querySelector('.field-feedback[data-field="permissions"]');
+        
+        if (feedbackElement) {
+            if (checkedCount === 0) {
+                // Show message with fade-in - ensure fade-out and hidden are removed first
+                feedbackElement.classList.remove('fade-out', 'hidden');
+                feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                feedbackElement.style.display = 'block';
+                // Force reflow and then set opacity to ensure fade-in works
+                void feedbackElement.offsetHeight; // Force reflow
+                // Reset opacity to ensure it's visible
+                feedbackElement.style.opacity = '';
+                setTimeout(() => {
+                    feedbackElement.style.opacity = '1';
+                }, 10);
+            } else {
+                // Fade out before hiding
+                if (!feedbackElement.classList.contains('fade-out')) {
+                    feedbackElement.classList.add('fade-out');
+                    feedbackElement.style.opacity = '0';
+                    setTimeout(() => {
+                        feedbackElement.classList.add('hidden');
+                        feedbackElement.style.display = 'none';
+                    }, 300); // Match transition duration
+                }
+            }
+        }
+    }
+    
+    // Check permissions on page load
+    checkPermissionsValidation();
+    
+    // Listen for checkbox changes
+    const allPermissionCheckboxes = document.querySelectorAll('input[name="permissions[]"]');
+    allPermissionCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            checkPermissionsValidation();
+        });
+    });
+
+    // Permission Sets functionality
+    const permissionSetButtons = document.querySelectorAll('.permission-set-btn');
+    const clearAllBtn = document.getElementById('clear-all-permissions');
+
+    permissionSetButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const permissions = JSON.parse(this.getAttribute('data-permissions'));
+            const allCheckboxes = document.querySelectorAll('input[name="permissions[]"]');
+
+            // First, clear ALL checkboxes
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.dispatchEvent(new Event('change'));
+            });
+
+            // Then, check only the checkboxes that match the set permissions
+            allCheckboxes.forEach(checkbox => {
+                if (permissions.includes(checkbox.value)) {
+                    checkbox.checked = true;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+
+            // Check validation after setting permissions - use setTimeout to ensure DOM is updated
+            setTimeout(() => {
+                checkPermissionsValidation();
+            }, 10);
+
+            // Show feedback
+            const setName = this.querySelector('.font-medium').textContent;
+            showTemporaryFeedback(`Permission set "${setName}" toegepast!`, 'success');
+        });
+    });
+
+    // Clear all permissions
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function() {
+            const allCheckboxes = document.querySelectorAll('input[name="permissions[]"]');
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.dispatchEvent(new Event('change'));
+            });
+            // Check validation after clearing - use setTimeout to ensure DOM is updated
+            setTimeout(() => {
+                checkPermissionsValidation();
+            }, 10);
+            showTemporaryFeedback('Alle rechten gewist', 'danger');
+        });
+    }
+
+    // Helper function to show temporary feedback
+    function showTemporaryFeedback(message, type = 'info') {
+        let alertClass, iconClass;
+        if (type === 'success') {
+            alertClass = 'kt-alert-success';
+            iconClass = 'ki-check-circle';
+        } else if (type === 'danger') {
+            alertClass = 'kt-alert-danger';
+            iconClass = 'ki-cross-circle';
+        } else {
+            alertClass = 'kt-alert-info';
+            iconClass = 'ki-information-5';
+        }
+        
+        const feedback = document.createElement('div');
+        feedback.className = `kt-alert ${alertClass} mb-4 mx-5`;
+        feedback.innerHTML = `<i class="ki-filled ${iconClass} me-2"></i>${message}`;
+
+        const permissionsCard = document.querySelector('[data-required-checkbox-group="permissions[]"]');
+        if (permissionsCard && permissionsCard.parentElement) {
+            permissionsCard.parentElement.insertBefore(feedback, permissionsCard);
+
+            setTimeout(() => {
+                feedback.style.transition = 'opacity 0.3s ease-out';
+                feedback.style.opacity = '0';
+                setTimeout(() => feedback.remove(), 300);
+            }, 2000);
+        }
+    }
+});
+</script>
 @endpush
 
 @endsection

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Vacancy;
 use App\Models\Company;
 use App\Models\Branch;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class AdminVacancyController extends Controller
@@ -88,7 +89,34 @@ class AdminVacancyController extends Controller
         
         $companies = auth()->user()->hasRole('super-admin') ? Company::all() : collect();
         $branches = Branch::with('functions')->orderBy('name')->get();
-        return view('admin.vacancies.create', compact('companies', 'branches'));
+        
+        // Get users for contact person dropdown (only if user has create-users permission or is super-admin)
+        $users = collect();
+        $currentUser = auth()->user();
+        if ($currentUser->hasRole('super-admin')) {
+            // Super admin: show users from selected tenant or all users (exclude super-admin users)
+            if (session('selected_tenant')) {
+                $users = User::where('company_id', session('selected_tenant'))
+                    ->whereDoesntHave('roles', function($q) {
+                        $q->where('name', 'super-admin');
+                    })
+                    ->orderBy('first_name')->orderBy('last_name')->get();
+            } else {
+                $users = User::whereDoesntHave('roles', function($q) {
+                    $q->where('name', 'super-admin');
+                })
+                ->orderBy('first_name')->orderBy('last_name')->get();
+            }
+        } elseif ($currentUser->can('create-users') && $currentUser->company_id) {
+            // Company admin with create-users permission: show users from their company (exclude super-admin users)
+            $users = User::where('company_id', $currentUser->company_id)
+                ->whereDoesntHave('roles', function($q) {
+                    $q->where('name', 'super-admin');
+                })
+                ->orderBy('first_name')->orderBy('last_name')->get();
+        }
+        
+        return view('admin.vacancies.create', compact('companies', 'branches', 'users'));
     }
 
     public function store(Request $request)
@@ -114,6 +142,7 @@ class AdminVacancyController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'required_skills' => 'nullable|string',
             'location' => 'nullable|string|max:255',
+            'contact_user_id' => 'nullable|exists:users,id',
             'employment_type' => 'nullable|in:Fulltime,Parttime,Contract,Tijdelijke,Stage,Traineeship,Freelance,ZZP',
             'salary_range' => 'nullable|string|max:100',
             'requirements' => 'nullable|string',
@@ -131,7 +160,37 @@ class AdminVacancyController extends Controller
             'meta_keywords' => 'nullable|string',
         ]);
 
-        $vacancyData = $request->all();
+        $vacancyData = $request->except(['contact_photo', '_token', '_method']);
+
+        // Handle contact person: set from contact_user_id or default to current user
+        $contactUser = null;
+        if ($request->filled('contact_user_id')) {
+            $contactUser = User::find($request->input('contact_user_id'));
+        }
+        
+        // If no contact user selected and user has no create-users permission, use current user
+        if (!$contactUser && !auth()->user()->can('create-users') && !auth()->user()->hasRole('super-admin')) {
+            $contactUser = auth()->user();
+        }
+        
+        // Set contact person data from user
+        if ($contactUser) {
+            $vacancyData['contact_user_id'] = $contactUser->id;
+            $vacancyData['contact_name'] = trim(($contactUser->first_name ?? '') . ' ' . ($contactUser->middle_name ?? '') . ' ' . ($contactUser->last_name ?? ''));
+            $vacancyData['contact_email'] = $contactUser->email;
+            $vacancyData['contact_phone'] = $contactUser->phone;
+            $vacancyData['contact_photo_blob'] = $contactUser->photo_blob;
+            $vacancyData['contact_photo_mime_type'] = $contactUser->photo_mime_type;
+        } else {
+            // Fallback: use current user if no contact user selected
+            $currentUser = auth()->user();
+            $vacancyData['contact_user_id'] = $currentUser->id;
+            $vacancyData['contact_name'] = trim(($currentUser->first_name ?? '') . ' ' . ($currentUser->middle_name ?? '') . ' ' . ($currentUser->last_name ?? ''));
+            $vacancyData['contact_email'] = $currentUser->email;
+            $vacancyData['contact_phone'] = $currentUser->phone;
+            $vacancyData['contact_photo_blob'] = $currentUser->photo_blob;
+            $vacancyData['contact_photo_mime_type'] = $currentUser->photo_mime_type;
+        }
 
         // Normalize required_skills JSON -> array of strings
         $requiredSkills = null;
@@ -184,7 +243,7 @@ class AdminVacancyController extends Controller
             abort(403, 'Je hebt geen toegang tot deze vacature.');
         }
         
-        $vacancy->load(['company', 'branch']);
+        $vacancy->load(['company', 'branch', 'contactUser']);
         
         return view('admin.vacancies.show', compact('vacancy'));
     }
@@ -202,7 +261,34 @@ class AdminVacancyController extends Controller
         
         $companies = auth()->user()->hasRole('super-admin') ? Company::all() : collect();
         $branches = Branch::with('functions')->orderBy('name')->get();
-        return view('admin.vacancies.edit', compact('vacancy', 'companies', 'branches'));
+        
+        // Get users for contact person dropdown (only if user has create-users permission or is super-admin)
+        $users = collect();
+        $currentUser = auth()->user();
+        if ($currentUser->hasRole('super-admin')) {
+            // Super admin: show users from selected tenant or all users (exclude super-admin users)
+            if (session('selected_tenant')) {
+                $users = User::where('company_id', session('selected_tenant'))
+                    ->whereDoesntHave('roles', function($q) {
+                        $q->where('name', 'super-admin');
+                    })
+                    ->orderBy('first_name')->orderBy('last_name')->get();
+            } else {
+                $users = User::whereDoesntHave('roles', function($q) {
+                    $q->where('name', 'super-admin');
+                })
+                ->orderBy('first_name')->orderBy('last_name')->get();
+            }
+        } elseif ($currentUser->can('create-users') && $currentUser->company_id) {
+            // Company admin with create-users permission: show users from their company (exclude super-admin users)
+            $users = User::where('company_id', $currentUser->company_id)
+                ->whereDoesntHave('roles', function($q) {
+                    $q->where('name', 'super-admin');
+                })
+                ->orderBy('first_name')->orderBy('last_name')->get();
+        }
+        
+        return view('admin.vacancies.edit', compact('vacancy', 'companies', 'branches', 'users'));
     }
 
     public function update(Request $request, Vacancy $vacancy)
@@ -244,6 +330,7 @@ class AdminVacancyController extends Controller
                 'branch_id' => 'required|exists:branches,id',
                 'required_skills' => 'nullable|string',
                 'location' => 'nullable|string|max:255',
+                'contact_user_id' => 'nullable|exists:users,id',
                 'employment_type' => 'nullable|in:Fulltime,Parttime,Contract,Tijdelijke,Stage,Traineeship,Freelance,ZZP',
                 'salary_range' => 'nullable|string|max:100',
                 'requirements' => 'nullable|string',
@@ -262,7 +349,37 @@ class AdminVacancyController extends Controller
             ]);
         }
 
-        $vacancyData = $request->all();
+        $vacancyData = $request->except(['contact_photo', '_token', '_method']);
+
+        // Handle contact person: set from contact_user_id or default to current user
+        $contactUser = null;
+        if ($request->filled('contact_user_id')) {
+            $contactUser = User::find($request->input('contact_user_id'));
+        }
+        
+        // If no contact user selected and user has no create-users permission, use current user
+        if (!$contactUser && !auth()->user()->can('create-users') && !auth()->user()->hasRole('super-admin')) {
+            $contactUser = auth()->user();
+        }
+        
+        // Set contact person data from user
+        if ($contactUser) {
+            $vacancyData['contact_user_id'] = $contactUser->id;
+            $vacancyData['contact_name'] = trim(($contactUser->first_name ?? '') . ' ' . ($contactUser->middle_name ?? '') . ' ' . ($contactUser->last_name ?? ''));
+            $vacancyData['contact_email'] = $contactUser->email;
+            $vacancyData['contact_phone'] = $contactUser->phone;
+            $vacancyData['contact_photo_blob'] = $contactUser->photo_blob;
+            $vacancyData['contact_photo_mime_type'] = $contactUser->photo_mime_type;
+        } else {
+            // Fallback: use current user if no contact user selected
+            $currentUser = auth()->user();
+            $vacancyData['contact_user_id'] = $currentUser->id;
+            $vacancyData['contact_name'] = trim(($currentUser->first_name ?? '') . ' ' . ($currentUser->middle_name ?? '') . ' ' . ($currentUser->last_name ?? ''));
+            $vacancyData['contact_email'] = $currentUser->email;
+            $vacancyData['contact_phone'] = $currentUser->phone;
+            $vacancyData['contact_photo_blob'] = $currentUser->photo_blob;
+            $vacancyData['contact_photo_mime_type'] = $currentUser->photo_mime_type;
+        }
 
         // Normalize required_skills JSON -> array of strings
         $requiredSkills = null;
@@ -312,5 +429,31 @@ class AdminVacancyController extends Controller
         
         $vacancy->delete();
         return redirect()->route('admin.vacancies.index')->with('success', 'Vacature succesvol verwijderd.');
+    }
+
+    public function getContactPhoto(Vacancy $vacancy)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-vacancies')) {
+            abort(403, 'Je hebt geen rechten om vacatures te bekijken.');
+        }
+        
+        // Check if user can access this resource
+        if (!$this->canAccessResource($vacancy)) {
+            abort(403, 'Je hebt geen toegang tot deze vacature.');
+        }
+        
+        if (!$vacancy->contact_photo_blob) {
+            abort(404);
+        }
+        
+        $content = base64_decode($vacancy->contact_photo_blob);
+        $mimeType = $vacancy->contact_photo_mime_type ?: 'image/jpeg';
+        
+        return response($content, 200, [
+            'Content-Type' => $mimeType,
+            'Cache-Control' => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+        ]);
     }
 }

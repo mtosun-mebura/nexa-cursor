@@ -39,14 +39,38 @@ class AdminNotificationController extends Controller
             $query->where('priority', $request->priority);
         }
         
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->whereHas('user', function($userQuery) use ($search) {
+                    $userQuery->where('first_name', 'like', "%{$search}%")
+                              ->orWhere('last_name', 'like', "%{$search}%")
+                              ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orWhere('message', 'like', "%{$search}%")
+                ->orWhere('title', 'like', "%{$search}%")
+                ->orWhere('type', 'like', "%{$search}%");
+            });
+        }
+        
         // Sortering
         $sortField = $request->get('sort', 'created_at');
-        $sortDirection = $request->get('order', 'desc');
+        $sortDirection = $request->get('direction', 'desc');
         
         // Valideer sorteer veld
         $allowedSortFields = ['id', 'user_id', 'type', 'status', 'created_at'];
         if (!in_array($sortField, $allowedSortFields)) {
             $sortField = 'created_at';
+        }
+        
+        // Set default direction based on sort field
+        if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+            if (in_array($sortField, ['created_at'])) {
+                $sortDirection = 'desc';
+            } else {
+                $sortDirection = 'asc';
+            }
         }
         
         // Speciale behandeling voor status sortering
@@ -57,15 +81,26 @@ class AdminNotificationController extends Controller
                     WHEN read_at IS NULL THEN 1
                     WHEN read_at IS NOT NULL THEN 2
                 END " . $sortDirection
-            );
+            )->orderBy('id', 'asc');
         } else {
-            $query->orderBy($sortField, $sortDirection);
+            $query->orderBy($sortField, $sortDirection)->orderBy('id', 'asc');
         }
         
-        $perPage = $request->get('per_page', 25);
-        $notifications = $query->paginate($perPage)->withQueryString();
+        // Load all notifications for client-side pagination
+        $notifications = $query->get();
         
-        return view('admin.notifications.index', compact('notifications'));
+        // Calculate statistics
+        $statsQuery = Notification::query();
+        $statsQuery = $this->applyTenantFilter($statsQuery);
+        
+        $stats = [
+            'total_notifications' => (clone $statsQuery)->count(),
+            'read' => (clone $statsQuery)->whereNotNull('read_at')->count(),
+            'unread' => (clone $statsQuery)->whereNull('read_at')->count(),
+            'unique_users' => (clone $statsQuery)->distinct('user_id')->count('user_id'),
+        ];
+        
+        return view('admin.notifications.index', compact('notifications', 'stats'));
     }
 
     public function create()

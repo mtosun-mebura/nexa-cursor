@@ -72,7 +72,7 @@
                                 <option value="">Selecteer match</option>
                                 @foreach($matches ?? [] as $match)
                                     <option value="{{ $match->id }}" {{ old('match_id') == $match->id ? 'selected' : '' }}>
-                                        {{ $match->user->first_name ?? '' }} {{ $match->user->last_name ?? '' }} - {{ $match->vacancy->title ?? '' }}
+                                        {{ $match->candidate->first_name ?? '' }} {{ $match->candidate->last_name ?? '' }} - {{ $match->vacancy->title ?? '' }}
                                     </option>
                                 @endforeach
                             </select>

@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Recht Details - ' . $permission->name)
+@section('title', 'Permissie Details - ' . $permission->name)
 
 @section('content')
 
@@ -24,7 +24,7 @@
         <div class="kt-card-header">
             <h5>
                 <i class="fas fa-key"></i>
-                Recht Details: {{ $permission->name }}
+                Permissie Details: {{ $permission->name }}
             </h5>
             <div class="material-header-actions">
                 <a href="{{ route('admin.permissions.edit', $permission) }}" class="kt-btn kt-btn-warning me-2">
@@ -137,7 +137,7 @@
             <div class="info-section">
                 <h6 class="section-title">
                     <i class="fas fa-user-shield"></i>
-                    Rollen met dit Recht ({{ $permission->roles->count() }})
+                    Rollen met deze Permissie ({{ $permission->roles->count() }})
                 </h6>
                 
                 @if($permission->roles->count() > 0)
@@ -179,7 +179,7 @@
                 @else
                     <div class="kt-alert kt-alert-warning">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Dit recht is niet toegewezen aan rollen.
+                        Deze permissie is niet toegewezen aan rollen.
                     </div>
                 @endif
             </div>
@@ -189,7 +189,7 @@
                 <div class="info-section">
                     <h6 class="section-title">
                         <i class="fas fa-users"></i>
-                        Gebruikers met dit Recht ({{ $permission->users->count() }})
+                        Gebruikers met deze Permissie ({{ $permission->users->count() }})
                     </h6>
                     
                     <div class="kt-table-responsive">

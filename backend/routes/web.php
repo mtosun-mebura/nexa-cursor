@@ -265,9 +265,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     
     // Vacancies
     Route::resource('vacancies', AdminVacancyController::class);
+    Route::get('vacancies/{vacancy}/contact-photo', [AdminVacancyController::class, 'getContactPhoto'])->name('vacancies.contact-photo');
     
     // Matches
     Route::resource('matches', AdminMatchController::class);
+    Route::get('matches/vacancy/{vacancy}/candidates', [AdminMatchController::class, 'candidates'])->name('matches.candidates');
     
     // Interviews
     Route::resource('interviews', AdminInterviewController::class);
@@ -311,10 +313,17 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('roles', AdminRoleController::class);
         Route::post('roles/{role}/toggle-status', [AdminRoleController::class, 'toggleStatus'])->name('roles.toggle-status');
-        Route::resource('permissions', AdminPermissionController::class);
-        Route::post('permissions/{permission}/assign-to-role', [AdminPermissionController::class, 'assignToRole'])->name('permissions.assign-to-role');
+        
+        // Bulk permission routes must come BEFORE the resource route to avoid route conflicts
         Route::get('permissions/bulk/create', [AdminPermissionController::class, 'bulkCreate'])->name('permissions.bulk-create');
         Route::post('permissions/bulk/store', [AdminPermissionController::class, 'bulkStore'])->name('permissions.bulk-store');
+        Route::get('permissions/bulk/edit', [AdminPermissionController::class, 'bulkEdit'])->name('permissions.bulk-edit');
+        Route::post('permissions/bulk/update', [AdminPermissionController::class, 'bulkUpdate'])->name('permissions.bulk-update');
+        Route::delete('permissions/bulk/delete', [AdminPermissionController::class, 'bulkDelete'])->name('permissions.bulk-delete');
+        
+        // Resource route for individual permissions (must come after bulk routes)
+        Route::resource('permissions', AdminPermissionController::class);
+        Route::post('permissions/{permission}/assign-to-role', [AdminPermissionController::class, 'assignToRole'])->name('permissions.assign-to-role');
         
         // Payment Providers (Super Admin only)
         Route::resource('payment-providers', AdminPaymentProviderController::class);
@@ -337,6 +346,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('settings', [App\Http\Controllers\Admin\AdminSettingsController::class, 'index'])->name('settings.index');
         Route::post('settings/mail', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
         Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
+        Route::post('settings/seo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
+        Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
+        Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         
         // Postcode lookup (for address autocomplete)
         Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');

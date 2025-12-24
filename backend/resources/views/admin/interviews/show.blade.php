@@ -45,7 +45,7 @@
                             Kandidaat
                         </label>
                         <div class="flex-1">
-                            {{ trim(($interview->match->user->first_name ?? '') . ' ' . ($interview->match->user->middle_name ?? '') . ' ' . ($interview->match->user->last_name ?? '')) ?: 'Onbekend' }}
+                            {{ trim(($interview->match->candidate->first_name ?? '') . ' ' . ($interview->match->candidate->last_name ?? '')) ?: 'Onbekend' }}
                         </div>
                     </div>
                 </div>

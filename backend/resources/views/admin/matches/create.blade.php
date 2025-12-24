@@ -45,19 +45,19 @@
                             <div class="lg:col-span-6">
                                 <div class="w-full">
                         <div class="flex items-center py-3">
-                            <label for="user_id" class="kt-form-label flex items-center gap-1 max-w-56">
-                                Gebruiker *
+                            <label for="candidate_id" class="kt-form-label flex items-center gap-1 max-w-56">
+                                Kandidaat *
                             </label>
-                            <select class="kt-select @error('user_id') is-invalid @enderror" 
-                                            id="user_id" name="user_id" required>
-                                        <option value="">Selecteer gebruiker</option>
-                                        @foreach(\App\Models\User::all() as $user)
-                                            <option value="{{ $user->id }}" {{ old('user_id') == $user->id ? 'selected' : '' }}>
-                                                {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
+                            <select class="kt-select @error('candidate_id') is-invalid @enderror" 
+                                            id="candidate_id" name="candidate_id" required>
+                                        <option value="">Selecteer kandidaat</option>
+                                        @foreach($candidates as $candidate)
+                                            <option value="{{ $candidate->id }}" {{ old('candidate_id') == $candidate->id ? 'selected' : '' }}>
+                                                {{ $candidate->first_name }} {{ $candidate->last_name }} (K) ({{ $candidate->email }})
                                             </option>
                                         @endforeach
                                     </select>
-                            @error('user_id') is-invalid @enderror
+                            @error('candidate_id') is-invalid @enderror
                         </div>
                     </div></div>
                             

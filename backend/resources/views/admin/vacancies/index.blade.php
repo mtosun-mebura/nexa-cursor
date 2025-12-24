@@ -303,6 +303,20 @@
                                                                     </a>
                                                                 </div>
                                                             @endcan
+                                                            @if($vacancy->matches_count > 0)
+                                                                <div class="kt-menu-separator"></div>
+                                                                <div class="kt-menu-item">
+                                                                    <a class="kt-menu-link" href="{{ route('admin.matches.candidates', $vacancy->id) }}">
+                                                                        <span class="kt-menu-icon">
+                                                                            <i class="ki-filled ki-people"></i>
+                                                                        </span>
+                                                                        <span class="kt-menu-title" style="position: relative;">
+                                                                            Kandidaten
+                                                                            <span style="position: absolute; top: -4px; right: -8px; background-color: #3b82f6; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 600;">{{ $vacancy->matches_count }}</span>
+                                                                        </span>
+                                                                    </a>
+                                                                </div>
+                                                            @endif
                                                             @can('delete-vacancies')
                                                                 <div class="kt-menu-separator"></div>
                                                                 <div class="kt-menu-item">

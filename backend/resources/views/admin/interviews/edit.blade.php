@@ -74,9 +74,9 @@
                             <select class="kt-select @error('match_id') border-destructive @enderror" 
                                     id="match_id" name="match_id" required>
                                 <option value="">Selecteer match</option>
-                                @foreach(\App\Models\JobMatch::with(['user', 'vacancy'])->get() as $match)
+                                @foreach(\App\Models\JobMatch::with(['candidate', 'vacancy'])->get() as $match)
                                     <option value="{{ $match->id }}" {{ old('match_id', $interview->match_id) == $match->id ? 'selected' : '' }}>
-                                        {{ trim(($match->user->first_name ?? '') . ' ' . ($match->user->middle_name ?? '') . ' ' . ($match->user->last_name ?? '')) ?: 'Onbekend' }} - {{ $match->vacancy->title }}
+                                        {{ trim(($match->candidate->first_name ?? '') . ' ' . ($match->candidate->last_name ?? '')) ?: 'Onbekend' }} - {{ $match->vacancy->title }}
                                     </option>
                                 @endforeach
                             </select>

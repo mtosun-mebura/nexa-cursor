@@ -37,9 +37,26 @@ class AdminInterviewController extends Controller
             $query->where('type', $request->type);
         }
         
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->whereHas('match.candidate', function($candidateQuery) use ($search) {
+                    $candidateQuery->where('first_name', 'like', "%{$search}%")
+                              ->orWhere('last_name', 'like', "%{$search}%")
+                              ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orWhereHas('match.vacancy', function($vacancyQuery) use ($search) {
+                    $vacancyQuery->where('title', 'like', "%{$search}%");
+                })
+                ->orWhere('location', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%");
+            });
+        }
+        
         // Sortering
         $sortField = $request->get('sort', 'created_at');
-        $sortDirection = $request->get('order', 'desc');
+        $sortDirection = $request->get('direction', 'desc');
         
         // Valideer sorteer veld
         $allowedSortFields = ['id', 'match_id', 'company_id', 'scheduled_at', 'location', 'status', 'created_at'];
@@ -47,11 +64,20 @@ class AdminInterviewController extends Controller
             $sortField = 'created_at';
         }
         
+        // Set default direction based on sort field
+        if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+            if (in_array($sortField, ['created_at', 'scheduled_at'])) {
+                $sortDirection = 'desc';
+            } else {
+                $sortDirection = 'asc';
+            }
+        }
+        
         // Speciale behandeling voor verschillende sorteervelden
         if ($sortField === 'vacancy_id') {
             $query->join('matches', 'interviews.match_id', '=', 'matches.id')
                   ->orderBy('matches.vacancy_id', $sortDirection)
-                  ->select('interviews.*'); // Zorg ervoor dat alleen interview kolommen worden geselecteerd
+                  ->select('interviews.*');
         } elseif ($sortField === 'status') {
             // Sorteer op status met logische volgorde: Niet gepland, Gepland, Afgelopen
             $query->orderByRaw("
@@ -60,15 +86,29 @@ class AdminInterviewController extends Controller
                     WHEN scheduled_at > NOW() THEN 2
                     WHEN scheduled_at <= NOW() THEN 3
                 END " . $sortDirection
-            );
+            )->orderBy('id', 'asc');
         } else {
-            $query->orderBy($sortField, $sortDirection);
+            $query->orderBy($sortField, $sortDirection)->orderBy('id', 'asc');
         }
         
-        $perPage = $request->get('per_page', 25);
-        $interviews = $query->paginate($perPage)->withQueryString();
+        // Load all interviews for client-side pagination
+        $interviews = $query->get();
         
-        return view('admin.interviews.index', compact('interviews'));
+        // Calculate statistics
+        $statsQuery = Interview::query();
+        $statsQuery = $this->applyTenantFilter($statsQuery);
+        
+        $stats = [
+            'total_interviews' => (clone $statsQuery)->count(),
+            'scheduled' => (clone $statsQuery)->whereNotNull('scheduled_at')->where('scheduled_at', '>', now())->count(),
+            'past' => (clone $statsQuery)->whereNotNull('scheduled_at')->where('scheduled_at', '<=', now())->count(),
+            'not_scheduled' => (clone $statsQuery)->whereNull('scheduled_at')->count(),
+        ];
+        
+        // Get companies for filter (only for super-admin)
+        $companies = auth()->user()->hasRole('super-admin') ? Company::orderBy('name')->get() : collect();
+        
+        return view('admin.interviews.index', compact('interviews', 'stats', 'companies'));
     }
 
     public function create()
@@ -82,7 +122,7 @@ class AdminInterviewController extends Controller
         $companyQuery = $this->applyTenantFilter($companyQuery);
         $companies = $companyQuery->get();
         
-        $matchQuery = \App\Models\JobMatch::with(['user', 'vacancy.company']);
+        $matchQuery = \App\Models\JobMatch::with(['candidate', 'vacancy.company']);
         if (!auth()->user()->hasRole('super-admin') || session('selected_tenant')) {
             $tenantId = $this->getTenantId();
             $matchQuery->whereHas('vacancy', function($q) use ($tenantId) {

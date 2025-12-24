@@ -49,6 +49,92 @@
             background-color: var(--border) !important;
             border-color: var(--border) !important;
         }
+        
+        /* Globale checkbox border-width: 1px voor consistentie */
+        .kt-checkbox {
+            border-width: 1px !important;
+        }
+        
+        /* Consistente badge styling voor het hele systeem */
+        .kt-badge {
+            display: inline-flex !important;
+            align-items: center !important;
+            padding: 0.25rem 0.625rem !important;
+            border-radius: 9999px !important;
+            font-size: 0.75rem !important;
+            font-weight: 500 !important;
+            border: 1px solid transparent !important;
+        }
+        
+        .kt-badge-sm {
+            padding: 0.125rem 0.5rem !important;
+            font-size: 0.75rem !important;
+        }
+        
+        /* Success badge - groen */
+        .kt-badge-success {
+            background-color: rgba(16, 185, 129, 0.1) !important;
+            color: rgb(2, 101, 66) !important;
+            border-color: rgba(16, 185, 129, 0.3) !important;
+        }
+        
+        .dark .kt-badge-success {
+            background-color: rgba(16, 185, 129, 0.2) !important;
+            color: rgb(16, 185, 129) !important;
+            border-color: rgba(16, 185, 129, 0.4) !important;
+        }
+        
+        /* Warning badge - geel/oranje */
+        .kt-badge-warning {
+            background-color: rgba(251, 146, 60, 0.1) !important;
+            color: rgb(154, 52, 18) !important;
+            border-color: rgba(251, 146, 60, 0.3) !important;
+        }
+        
+        .dark .kt-badge-warning {
+            background-color: rgba(251, 146, 60, 0.2) !important;
+            color: rgb(251, 146, 60) !important;
+            border-color: rgba(251, 146, 60, 0.4) !important;
+        }
+        
+        /* Danger badge - rood */
+        .kt-badge-danger {
+            background-color: rgba(239, 68, 68, 0.1) !important;
+            color: rgb(153, 27, 27) !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+        }
+        
+        .dark .kt-badge-danger {
+            background-color: rgba(239, 68, 68, 0.2) !important;
+            color: rgb(239, 68, 68) !important;
+            border-color: rgba(239, 68, 68, 0.4) !important;
+        }
+        
+        /* Info badge - blauw */
+        .kt-badge-info {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            color: rgb(30, 64, 175) !important;
+            border-color: rgba(59, 130, 246, 0.3) !important;
+        }
+        
+        .dark .kt-badge-info {
+            background-color: rgba(59, 130, 246, 0.2) !important;
+            color: rgb(96, 165, 250) !important;
+            border-color: rgba(59, 130, 246, 0.4) !important;
+        }
+        
+        /* Secondary badge - grijs */
+        .kt-badge-secondary {
+            background-color: rgba(107, 114, 128, 0.1) !important;
+            color: rgb(55, 65, 81) !important;
+            border-color: rgba(107, 114, 128, 0.3) !important;
+        }
+        
+        .dark .kt-badge-secondary {
+            background-color: rgba(107, 114, 128, 0.2) !important;
+            color: rgb(156, 163, 175) !important;
+            border-color: rgba(107, 114, 128, 0.4) !important;
+        }
         /* Zorg dat alle separators in de sidebar grijs zijn */
         .kt-sidebar .kt-menu-separator {
             border-color: var(--border) !important;
@@ -101,6 +187,51 @@
         .kt-table.kt-table-border-dashed.align-middle tr:has(td:nth-child(2) .text-xs) td:first-child {
             vertical-align: top !important;
             padding-top: 14px;
+        }
+        
+        /* Zorg dat alle dropdown opties volledig zichtbaar zijn in filter dropdowns */
+        .kt-select-dropdown {
+            min-width: max-content !important;
+            width: auto !important;
+            max-width: 500px !important;
+        }
+        
+        /* Zorg dat de dropdown breder kan zijn dan de select button */
+        .kt-select-wrapper .kt-select-dropdown {
+            min-width: max-content !important;
+            width: auto !important;
+        }
+        
+        .kt-select-options {
+            min-width: max-content !important;
+            width: 100% !important;
+        }
+        
+        /* Zorg dat de optie tekst volledig zichtbaar is (geen ellipsis) */
+        .kt-select-option-text {
+            overflow: visible !important;
+            white-space: normal !important;
+            text-overflow: clip !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+        }
+        
+        /* Zorg dat de optie zelf ook volledig zichtbaar is */
+        .kt-select-option {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            min-width: max-content !important;
+        }
+        
+        /* Zorg dat de dropdown container de volledige breedte kan gebruiken */
+        .kt-select-wrapper {
+            position: relative !important;
+        }
+        
+        .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
+            min-width: max-content !important;
+            width: auto !important;
         }
     </style>
 </head>

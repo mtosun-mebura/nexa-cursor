@@ -74,8 +74,8 @@
     </div>
 </div>
 
-<div class="kt-container-fixed vacancy-edit">
-    <div class="flex flex-col gap-5 pb-7.5 mt-5">
+<div class="kt-container-fixed vacancy-edit" style="padding-top: 90px;">
+    <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
                 Vacature Bewerken
@@ -89,7 +89,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="flex flex-col gap-5 lg:gap-7.5" data-validate="true">
+    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-5 lg:gap-7.5" data-validate="true">
         @csrf
         @method('PUT')
 
@@ -195,6 +195,23 @@
                                 @error('location')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
+                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('create-users')) && $users->count() > 0)
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">Contactpersoon</td>
+                            <td>
+                                <select name="contact_user_id" class="kt-select @error('contact_user_id') border-destructive @enderror" data-kt-select="true">
+                                    <option value="">- Selecteer contactpersoon -</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user->id }}" {{ old('contact_user_id', $vacancy->contact_user_id) == $user->id ? 'selected' : '' }}>
+                                            {{ $user->first_name }} {{ $user->middle_name }} {{ $user->last_name }} ({{ $user->email }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer een medewerker als contactpersoon. Als er geen selectie wordt gemaakt, wordt u automatisch als contactpersoon ingesteld.</div>
+                                @error('contact_user_id')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
+                        @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal">Type dienstverband</td>
                             <td>
@@ -456,6 +473,131 @@
     #load-default-skills-btn.kt-btn-warning:hover {
         background-color: var(--color-orange-600);
         border-color: var(--color-orange-600);
+    }
+    
+    /* Ensure validation icons are positioned at the end of input fields with gap */
+    .vacancy-edit .kt-card-table .relative {
+        position: relative !important;
+        width: 100%;
+    }
+    
+    /* Add padding-right to input fields to make room for validation icon */
+    .vacancy-edit .kt-card-table .relative .kt-input,
+    .vacancy-edit .kt-card-table .relative .kt-select {
+        padding-right: 2.75rem !important;
+        width: 100% !important;
+        position: relative !important;
+    }
+    
+    /* Position validation icon at the end with gap - inside the input field */
+    .vacancy-edit .kt-card-table .relative .validation-icon-wrapper {
+        position: absolute !important;
+        right: 0.75rem !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        pointer-events: none !important;
+        z-index: 1 !important;
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+    }
+    
+    /* Ensure relative wrapper stays in document flow for scrolling */
+    .vacancy-edit .kt-card-table .relative {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Also handle inputs that are direct children of td (not wrapped in relative) */
+    .vacancy-edit .kt-card-table td {
+        position: relative !important;
+    }
+    
+    .vacancy-edit .kt-card-table td .kt-input,
+    .vacancy-edit .kt-card-table td .kt-select {
+        position: relative !important;
+    }
+
+    /* Zorg dat de card-table overflow niet blokkeert, maar card zelf niet uitrekt */
+    .vacancy-edit .kt-card-table {
+        overflow: visible !important;
+    }
+
+    .vacancy-edit .kt-card-table.kt-scrollable-x-auto {
+        overflow-x: auto !important;
+        overflow-y: hidden !important; /* Geen verticale scrollbar */
+    }
+
+    /* Zorg dat de kt-card zelf ook overflow toestaat, maar niet uitrekt */
+    .vacancy-edit .kt-card {
+        overflow: visible !important;
+    }
+
+    .vacancy-edit .kt-card-content {
+        overflow: visible !important;
+    }
+
+    /* Voorkom dat de card-table de card uitrekt */
+    .vacancy-edit .kt-card-table tbody {
+        position: relative !important;
+    }
+
+    /* Zorg dat de kt-select-wrapper zelf niet de card uitrekt */
+    .vacancy-edit .kt-card-table .kt-select-wrapper {
+        position: relative !important;
+        overflow: visible !important;
+    }
+
+    /* Voorkom dat table rows uitrekken door dropdown */
+    .vacancy-edit .kt-card-table tbody tr {
+        position: relative !important;
+        height: auto !important; /* Laat row hoogte bepalen door content, niet door dropdown */
+    }
+
+    /* Zorg dat td met contactpersoon select niet uitrekt */
+    .vacancy-edit .kt-card-table tbody tr td:has(select[name="contact_user_id"]) {
+        position: relative !important;
+        overflow: visible !important;
+        height: auto !important; /* Laat td hoogte bepalen door content, niet door dropdown */
+    }
+
+    /* Contactpersoon dropdown - net zoals Functie dropdown, scrollbaar binnen dropdown */
+    .vacancy-edit select[name="contact_user_id"] + .kt-select-wrapper .kt-select-dropdown,
+    .vacancy-edit select[name="contact_user_id"] + .kt-select-wrapper [data-kt-select-dropdown],
+    .vacancy-edit .kt-select-wrapper:has(select[name="contact_user_id"]) .kt-select-dropdown,
+    .vacancy-edit .kt-select-wrapper:has(select[name="contact_user_id"]) [data-kt-select-dropdown] {
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Fallback voor browsers die :has() niet ondersteunen */
+    .vacancy-edit .kt-select-wrapper[data-contact-user-select] .kt-select-dropdown,
+    .vacancy-edit .kt-select-wrapper[data-contact-user-select] [data-kt-select-dropdown] {
+        max-height: 400px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+    
+    .vacancy-edit .kt-card-table td .validation-icon-wrapper {
+        position: absolute !important;
+        right: 0.75rem !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        pointer-events: none !important;
+        z-index: 1 !important;
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+    }
+    
+    /* Ensure validation icons scroll with content */
+    .vacancy-edit .kt-card-table .validation-icon-wrapper {
+        position: absolute !important;
     }
 </style>
 @endpush
@@ -1800,6 +1942,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize SEO auto-generation
     if (metaTitleInput && metaDescriptionInput && metaKeywordsInput) {
         setupSEOAutoGeneration();
+    }
+
+    // Mark contact user select wrapper (fallback for browsers without :has() support)
+    const contactUserSelect = document.querySelector('select[name="contact_user_id"]');
+    if (contactUserSelect) {
+        const wrapper = contactUserSelect.closest('.kt-select-wrapper') || contactUserSelect.parentElement;
+        if (wrapper) {
+            wrapper.setAttribute('data-contact-user-select', 'true');
+        }
     }
 });
 </script>

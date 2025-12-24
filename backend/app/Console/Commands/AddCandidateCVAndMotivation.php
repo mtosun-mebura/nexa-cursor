@@ -84,7 +84,7 @@ class AddCandidateCVAndMotivation extends Command
             }
             
             // Voeg motivatie toe aan matches
-            $matches = JobMatch::where('user_id', $candidate->id)->get();
+            $matches = JobMatch::where('candidate_id', $candidate->id)->get();
             foreach ($matches as $match) {
                 if (empty($match->notes) || $match->notes === 'Automatische match voor ' . $candidate->first_name . ' ' . $candidate->last_name) {
                     $motivation = $motivations[$index % count($motivations)] ?? $motivations[0];

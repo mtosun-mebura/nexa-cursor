@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\PermissionSetService;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -118,7 +119,9 @@ class AdminRoleController extends Controller
                 return $parts[0] ?? 'other';
             });
 
-        return view('admin.roles.create', compact('permissions'));
+        $permissionSets = PermissionSetService::getSets();
+
+        return view('admin.roles.create', compact('permissions', 'permissionSets'));
     }
 
     public function store(Request $request)
@@ -180,7 +183,9 @@ class AdminRoleController extends Controller
                 return $parts[0] ?? 'other';
             });
 
-        return view('admin.roles.edit', compact('role', 'permissions'));
+        $permissionSets = PermissionSetService::getSets();
+
+        return view('admin.roles.edit', compact('role', 'permissions', 'permissionSets'));
     }
 
     public function update(Request $request, Role $role)

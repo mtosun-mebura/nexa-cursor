@@ -7296,11 +7296,11 @@
     color: var(--accent-foreground);
   }
   .kt-badge-success {
-    background-color: rgb(11 178 32);
+    background-color: var(--color-green-500);
     color: var(--color-white);
   }
   .kt-badge-warning {
-    background-color: var(--color-amber-600);
+    background-color: var(--color-yellow-400);
     color: var(--color-white);
   }
   .kt-badge-info {
@@ -10287,27 +10287,6 @@
     --tw-shadow: 0 1px 2px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
     --tw-shadow-color: rgba(0,0,0,0.05);
-  }
-  @media (min-width: 1024px) {
-    .kt-input {
-      width: 50%;
-    }
-    /* Meta keywords input should be 100% width */
-    input[name="meta_keywords"].kt-input {
-      width: 100% !important;
-    }
-    /* Inputs in skill modal should be 100% width */
-    #skill-modal .kt-input {
-      width: 100% !important;
-    }
-  }
-}
-@layer components {
-  @media (min-width: 1024px) {
-    .vacancy-create select.kt-select,
-    .vacancy-edit select.kt-select {
-      width: 30%;
-    }
   }
     @supports (color: color-mix(in lab, red, red)) {
   .kt-input {

@@ -5,3 +5,6 @@ UPDATE users SET is_active = true;
 SELECT COUNT(*) as active_users FROM users WHERE is_active = true;
 
 
+
+
+

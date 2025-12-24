@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             VacancySeeder::class,
             PaymentProviderSeeder::class,
             CandidateSeeder::class,
+            MatchSeeder::class, // Nieuwe seeder voor matches
             InterviewMatchSeeder::class,
             NotificationSeeder::class,
             EmailTemplateSeeder::class,

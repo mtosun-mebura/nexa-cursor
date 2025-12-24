@@ -57,9 +57,10 @@ class AgendaController extends Controller
         }
 
         // Get interviews for the logged-in user
-        $interviews = Interview::with(['match.user', 'match.vacancy', 'company'])
-            ->whereHas('match', function($query) use ($user) {
-                $query->where('user_id', $user->id);
+        // Note: This assumes candidate email matches user email - may need refactoring
+        $interviews = Interview::with(['match.candidate', 'match.vacancy', 'company'])
+            ->whereHas('match.candidate', function($query) use ($user) {
+                $query->where('email', $user->email);
             })
             ->whereBetween('scheduled_at', [$start, $end])
             ->get();
@@ -74,7 +75,7 @@ class AgendaController extends Controller
                 'end' => $interview->scheduled_at->copy()->addMinutes($interview->duration ?? 60)->toISOString(),
                 'color' => $this->getEventColor($interview->type ?? 'interview'),
                 'extendedProps' => [
-                    'candidate_name' => $interview->match->user->name ?? 'Onbekend',
+                    'candidate_name' => $interview->match->candidate->full_name ?? 'Onbekend',
                     'location' => $interview->location ?? 'Locatie niet opgegeven',
                     'type' => $interview->type ?? 'interview',
                     'status' => $interview->status ?? 'scheduled',
@@ -96,7 +97,7 @@ class AgendaController extends Controller
     private function getInterviewTitle($interview)
     {
         $type = $interview->type ?? 'interview';
-        $candidateName = $interview->match->user->name ?? 'Onbekend';
+        $candidateName = $interview->match->candidate->full_name ?? 'Onbekend';
         
         $typeLabels = [
             'interview' => 'Interview',

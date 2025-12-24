@@ -22,11 +22,53 @@ class AdminEmailTemplateController extends Controller
         // Apply tenant filtering
         $query = $this->applyTenantFilter($query);
         
+        // Filter op type
+        if ($request->filled('type')) {
+            $query->where('type', $request->type);
+        }
+        
+        // Filter op status
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+        
+        // Filter op bedrijf (alleen voor super-admin)
+        if ($request->filled('company') && auth()->user()->hasRole('super-admin')) {
+            $query->where('company_id', $request->company);
+        }
+        
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('subject', 'like', "%{$search}%")
+                  ->orWhere('type', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhereHas('company', function($companyQuery) use ($search) {
+                      $companyQuery->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+        
         // Sorting
         $sortField = $request->get('sort', 'id');
-        $sortDirection = $request->get('order', 'asc');
+        $sortDirection = $request->get('direction', 'asc');
         
         $allowedSortFields = ['id', 'name', 'type', 'company_id', 'is_active', 'created_at'];
+        
+        // Set default direction based on sort field
+        if (!$sortDirection || !in_array($sortDirection, ['asc', 'desc'])) {
+            if (in_array($sortField, ['created_at'])) {
+                $sortDirection = 'desc';
+            } else {
+                $sortDirection = 'asc';
+            }
+        }
         
         if (in_array($sortField, $allowedSortFields)) {
             if ($sortField === 'company_id') {
@@ -39,17 +81,32 @@ class AdminEmailTemplateController extends Controller
                         WHEN is_active = false THEN 1
                         WHEN is_active = true THEN 2
                     END " . $sortDirection
-                );
+                )->orderBy('id', 'asc');
             } else {
-                $query->orderBy($sortField, $sortDirection);
+                $query->orderBy($sortField, $sortDirection)->orderBy('id', 'asc');
             }
         } else {
             $query->orderBy('id', 'asc');
         }
         
-        $emailTemplates = $query->paginate(25)->withQueryString();
+        // Load all email templates for client-side pagination
+        $emailTemplates = $query->get();
         
-        return view('admin.email-templates.index', compact('emailTemplates'));
+        // Calculate statistics
+        $statsQuery = EmailTemplate::query();
+        $statsQuery = $this->applyTenantFilter($statsQuery);
+        
+        $stats = [
+            'total_templates' => (clone $statsQuery)->count(),
+            'active' => (clone $statsQuery)->where('is_active', true)->count(),
+            'inactive' => (clone $statsQuery)->where('is_active', false)->count(),
+            'unique_types' => (clone $statsQuery)->distinct('type')->count('type'),
+        ];
+        
+        // Get companies for filter (only for super-admin)
+        $companies = auth()->user()->hasRole('super-admin') ? Company::orderBy('name')->get() : collect();
+        
+        return view('admin.email-templates.index', compact('emailTemplates', 'stats', 'companies'));
     }
 
     public function create()

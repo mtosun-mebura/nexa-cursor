@@ -625,6 +625,11 @@
          * Create validation icon element voor een input
          */
         createValidationIcon(input) {
+            // Don't create validation icons for checkboxes or radio buttons
+            if (input.type === 'checkbox' || input.type === 'radio') {
+                return null;
+            }
+            
             // Check if icon wrapper already exists
             const existing = input.parentElement?.querySelector('.validation-icon-wrapper');
             if (existing) {
@@ -650,23 +655,29 @@
                     const wrapper = document.createElement('div');
                     wrapper.className = 'relative';
                     wrapper.style.position = 'relative';
+                    wrapper.style.width = '100%';
                     input.parentNode.insertBefore(wrapper, input);
                     wrapper.appendChild(input);
                     inputWrapper = wrapper;
                 }
             }
 
-            // Ensure input wrapper has relative positioning
-            if (inputWrapper && !inputWrapper.classList.contains('relative')) {
-                inputWrapper.classList.add('relative');
+            // Ensure input wrapper has relative positioning and full width
+            if (inputWrapper) {
+                if (!inputWrapper.classList.contains('relative')) {
+                    inputWrapper.classList.add('relative');
+                }
                 inputWrapper.style.position = 'relative';
+                if (!inputWrapper.style.width || inputWrapper.style.width === '') {
+                    inputWrapper.style.width = '100%';
+                }
             }
 
             // Create icon wrapper
             const iconWrapper = document.createElement('div');
             iconWrapper.className = 'validation-icon-wrapper absolute pointer-events-none hidden';
             iconWrapper.style.position = 'absolute';
-            iconWrapper.style.right = '0.5rem';
+            iconWrapper.style.right = '0.75rem';
             iconWrapper.style.top = '50%';
             iconWrapper.style.transform = 'translateY(-50%)';
             iconWrapper.style.display = 'none';
@@ -675,6 +686,13 @@
             iconWrapper.style.zIndex = '10';
             iconWrapper.style.width = '1.25rem';
             iconWrapper.style.height = '1.25rem';
+            
+            // Ensure input has padding-right for the icon (but not for checkboxes or radio buttons)
+            if (input.type !== 'checkbox' && input.type !== 'radio') {
+                if (!input.style.paddingRight || input.style.paddingRight === '') {
+                    input.style.paddingRight = '2.75rem';
+                }
+            }
             iconWrapper.setAttribute('data-field', input.name || input.id);
             
             // Insert icon wrapper in the input wrapper (same level as input)
@@ -709,29 +727,76 @@
                 
                 if (checkedCount === 0) {
                     isValid = false;
-                    // Find or create feedback element for this group
-                    let feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
-                    if (!feedbackElement) {
-                        feedbackElement = document.createElement('div');
-                        feedbackElement.className = 'field-feedback text-xs text-destructive mt-1';
-                        feedbackElement.setAttribute('data-field', groupName);
-                        // Insert after the error alert or at the beginning of the container
-                        const errorAlert = groupContainer.querySelector('.kt-alert');
-                        if (errorAlert) {
-                            errorAlert.parentNode.insertBefore(feedbackElement, errorAlert.nextSibling);
-                        } else {
-                            groupContainer.insertBefore(feedbackElement, groupContainer.firstChild);
+                    
+                    // Special handling for actions[] - show in orange bar above the card
+                    if (groupName === 'actions[]') {
+                        // Remove ALL existing feedback elements inside the card (including in sub-cards)
+                        const existingFeedbackInCard = groupContainer.querySelectorAll('.field-feedback');
+                        existingFeedbackInCard.forEach(el => {
+                            // Only remove if it's related to actions[] validation
+                            if (el.getAttribute('data-field') === 'actions[]' || el.textContent.includes('Selecteer minimaal één recht')) {
+                                el.remove();
+                            }
+                        });
+                        
+                        // Show validation in orange bar above the card
+                        let validationWrapper = document.getElementById('actions-validation-wrapper');
+                        if (validationWrapper) {
+                            let feedbackElement = validationWrapper.querySelector('.field-feedback[data-field="actions[]"]');
+                            if (feedbackElement) {
+                                feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                                // Remove hidden class and ensure it's visible
+                                validationWrapper.classList.remove('hidden');
+                                validationWrapper.style.display = 'block';
+                                validationWrapper.style.visibility = 'visible';
+                                validationWrapper.style.opacity = '1';
+                                // Force reflow to ensure visibility
+                                void validationWrapper.offsetHeight;
+                            }
                         }
+                    } else {
+                        // Standard handling for other checkbox groups
+                        let feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
+                        if (!feedbackElement) {
+                            feedbackElement = document.createElement('div');
+                            feedbackElement.className = 'field-feedback text-xs text-destructive mt-1';
+                            feedbackElement.setAttribute('data-field', groupName);
+                            // Insert after the error alert or at the beginning of the container
+                            const errorAlert = groupContainer.querySelector('.kt-alert');
+                            if (errorAlert) {
+                                errorAlert.parentNode.insertBefore(feedbackElement, errorAlert.nextSibling);
+                            } else {
+                                groupContainer.insertBefore(feedbackElement, groupContainer.firstChild);
+                            }
+                        }
+                        feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                        feedbackElement.classList.remove('hidden');
+                        feedbackElement.style.display = 'block';
                     }
-                    feedbackElement.textContent = 'Selecteer minimaal één recht.';
-                    feedbackElement.classList.remove('hidden');
-                    feedbackElement.style.display = 'block';
                 } else {
                     // Clear error if at least one is checked
-                    const feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
-                    if (feedbackElement) {
-                        feedbackElement.classList.add('hidden');
-                        feedbackElement.style.display = 'none';
+                    if (groupName === 'actions[]') {
+                        // Remove ALL feedback elements inside the card (including in sub-cards)
+                        const existingFeedbackInCard = groupContainer.querySelectorAll('.field-feedback');
+                        existingFeedbackInCard.forEach(el => {
+                            // Only remove if it's related to actions[] validation
+                            if (el.getAttribute('data-field') === 'actions[]' || el.textContent.includes('Selecteer minimaal één recht')) {
+                                el.remove();
+                            }
+                        });
+                        
+                        // Hide orange bar
+                        let validationWrapper = document.getElementById('actions-validation-wrapper');
+                        if (validationWrapper) {
+                            validationWrapper.classList.add('hidden');
+                            validationWrapper.style.display = 'none';
+                        }
+                    } else {
+                        const feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
+                        if (feedbackElement) {
+                            feedbackElement.classList.add('hidden');
+                            feedbackElement.style.display = 'none';
+                        }
                     }
                 }
             });
@@ -825,6 +890,8 @@
     window.FormValidator = FormValidator;
     window.validationRules = validationRules;
 })();
+
+
 
 
 

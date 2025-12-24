@@ -507,7 +507,7 @@
                                 </span>
                                 <div class="flex flex-col">
                                     <div class="font-semibold text-sm">
-                                        {{ $match->user->first_name ?? 'Kandidaat' }} → {{ $match->vacancy->title ?? 'Vacature' }}
+                                        {{ $match->candidate->first_name ?? 'Kandidaat' }} → {{ $match->vacancy->title ?? 'Vacature' }}
                                     </div>
                                     <div class="text-xs text-secondary-foreground">
                                         {{ ucfirst($match->status ?? 'onbekend') }} • {{ optional($match->created_at)->format('d-m-Y') }}

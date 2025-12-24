@@ -17,7 +17,7 @@ class AddCVToInterviewUser extends Command
     {
         $interviewId = (int) $this->argument('interview_id');
         
-        $interview = Interview::with('match.user')->find($interviewId);
+        $interview = Interview::with('match.candidate')->find($interviewId);
         
         if (!$interview) {
             $this->error("Interview met ID {$interviewId} niet gevonden!");
@@ -29,19 +29,28 @@ class AddCVToInterviewUser extends Command
             return 1;
         }
         
-        $user = $interview->match->user;
+        $candidate = $interview->match->candidate;
         
-        if (!$user) {
-            $this->error("Match heeft geen user!");
+        if (!$candidate) {
+            $this->error("Match heeft geen candidate!");
             return 1;
         }
         
-        $userName = trim(($user->first_name ?? '') . ' ' . ($user->middle_name ?? '') . ' ' . ($user->last_name ?? '')) ?: 'Onbekend';
+        $candidateName = trim(($candidate->first_name ?? '') . ' ' . ($candidate->last_name ?? '')) ?: 'Onbekend';
+        
+        // Note: This command was designed for User, but matches now use Candidate.
+        // You may need to find the User by email or refactor this command.
+        $user = \App\Models\User::where('email', $candidate->email)->first();
+        
+        if (!$user) {
+            $this->error("Geen user gevonden voor candidate email: {$candidate->email}");
+            return 1;
+        }
         
         // Voeg CV toe als deze nog niet bestaat
         if (!$user->cv_path && !$user->cvFiles()->exists()) {
             $cvPath = 'cvs/candidate_' . $user->id . '_cv.pdf';
-            $cvFileName = 'CV_' . str_replace(' ', '_', $userName) . '.pdf';
+            $cvFileName = 'CV_' . str_replace(' ', '_', $candidateName) . '.pdf';
             
             // Update user cv_path
             $user->update([
@@ -60,9 +69,9 @@ class AddCVToInterviewUser extends Command
                 'updated_at' => Carbon::now()->subDays(rand(1, 30)),
             ]);
             
-            $this->info("✓ CV toegevoegd aan: {$userName} (User ID: {$user->id})");
+            $this->info("✓ CV toegevoegd aan: {$candidateName} (User ID: {$user->id})");
         } else {
-            $this->info("User {$userName} heeft al een CV.");
+            $this->info("User {$candidateName} heeft al een CV.");
         }
         
         // Voeg motivatie toe als deze nog niet bestaat
@@ -86,6 +95,9 @@ class AddCVToInterviewUser extends Command
         return 0;
     }
 }
+
+
+
 
 
 

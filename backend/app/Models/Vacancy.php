@@ -12,7 +12,7 @@ class Vacancy extends Model
     use HasFactory;
 
     protected $fillable = [
-        'company_id','title','location','employment_type','description','requirements','offer',
+        'company_id','title','location','contact_name','contact_email','contact_phone','contact_photo_blob','contact_photo_mime_type','contact_user_id','employment_type','description','requirements','offer',
         'application_instructions','branch_id','reference_number','logo','salary_range','start_date',
         'working_hours','travel_expenses','remote_work','status','language','publication_date','closing_date',
         'meta_title','meta_description','meta_keywords','is_active','published_at','salary_min','salary_max',
@@ -138,7 +138,13 @@ class Vacancy extends Model
         return $this->hasMany(\App\Models\JobMatch::class, 'vacancy_id');
     }
 
-
+    /**
+     * Relatie naar de contactpersoon (user)
+     */
+    public function contactUser()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'contact_user_id');
+    }
 
     /**
      * Scope voor actieve vacatures

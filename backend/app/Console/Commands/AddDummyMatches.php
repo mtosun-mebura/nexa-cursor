@@ -69,7 +69,7 @@ class AddDummyMatches extends Command
             $vacancy = $vacancies->random();
             
             // Controleer of deze combinatie al bestaat
-            $existingMatch = JobMatch::where('user_id', $candidate->id)
+            $existingMatch = JobMatch::where('candidate_id', $candidate->id)
                 ->where('vacancy_id', $vacancy->id)
                 ->first();
             

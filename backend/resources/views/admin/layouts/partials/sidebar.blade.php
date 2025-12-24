@@ -258,7 +258,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Rollen & Rechten
+                            Rollen & Permissies
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -278,7 +278,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Rollen
+                                    Rollen en Permissies
                                 </span>
                             </a>
                         </div>
@@ -288,7 +288,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Rechten
+                                    Permissies
                                 </span>
                             </a>
                         </div>
@@ -382,7 +382,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Instellingen
+                            Configuraties
                         </span>
                     </a>
                 </div>
