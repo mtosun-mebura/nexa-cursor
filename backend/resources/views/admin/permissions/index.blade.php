@@ -5,156 +5,55 @@
 @push('scripts')
 <script>
 // Prevent sidebar accordion from closing when clicking Bulk Bewerken button
-// Use MutationObserver to prevent show class from being removed
 (function() {
     // Initialize global flag
     window.isBulkEditClick = false;
-    let bulkEditClickTimeout = null;
     
-    // Track when Bulk Bewerken button is clicked
-    document.addEventListener('click', function(e) {
-        const bulkEditButton = e.target.closest('.kt-menu-item[data-kt-menu-item-toggle="dropdown"] button');
-        const isBulkEditButton = bulkEditButton && bulkEditButton.textContent.includes('Bulk Bewerken');
-        const isInsideBulkEditDropdown = e.target.closest('.kt-menu-item[data-kt-menu-item-toggle="dropdown"] .kt-menu-dropdown');
-        const bulkEditContainer = e.target.closest('.kt-menu-item[data-kt-menu-item-toggle="dropdown"]');
-        const isBulkEditContainer = bulkEditContainer && bulkEditContainer.querySelector('button') && bulkEditContainer.querySelector('button').textContent.includes('Bulk Bewerken');
-        
-        if (isBulkEditButton || isInsideBulkEditDropdown || isBulkEditContainer) {
-            window.isBulkEditClick = true;
-            // Clear any existing timeout
-            if (bulkEditClickTimeout) {
-                clearTimeout(bulkEditClickTimeout);
-            }
-            // Reset flag after a delay
-            bulkEditClickTimeout = setTimeout(function() {
-                window.isBulkEditClick = false;
-            }, 300);
-        }
-    }, true);
-    
-    // Use MutationObserver to prevent sidebar accordion from closing
+    // Track when Bulk Bewerken button is clicked - only handle Bulk Bewerken specifically
+    // Don't interfere with any other clicks
     document.addEventListener('DOMContentLoaded', function() {
-        const sidebarAccordion = document.querySelector('#sidebar_menu .kt-menu-item[data-kt-menu-item-toggle="accordion"]');
-        if (sidebarAccordion) {
-            const observer = new MutationObserver(function(mutations) {
-                if (window.isBulkEditClick) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                            // If show class was removed and it was a Bulk Bewerken click, restore it
-                            if (!sidebarAccordion.classList.contains('show') && mutation.oldValue && mutation.oldValue.includes('show')) {
-                                // Restore immediately
-                                sidebarAccordion.classList.add('show');
-                                const accordionContent = sidebarAccordion.querySelector('.kt-menu-accordion');
-                                if (accordionContent) {
-                                    accordionContent.classList.add('show');
+        // Only add handler to Bulk Bewerken button specifically, not all clicks
+        const bulkEditButton = document.querySelector('button.kt-btn-primary');
+        if (bulkEditButton && bulkEditButton.textContent.includes('Bulk Bewerken')) {
+            bulkEditButton.addEventListener('click', function(e) {
+                window.isBulkEditClick = true;
+                setTimeout(function() {
+                    window.isBulkEditClick = false;
+                }, 300);
+                
+                // Prevent sidebar accordion from closing
+                const sidebarAccordion = document.querySelector('#sidebar_menu .kt-menu-item[data-kt-menu-item-toggle="accordion"]');
+                if (sidebarAccordion && sidebarAccordion.classList.contains('show')) {
+                    // Use MutationObserver to restore show class if removed
+                    const observer = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                                if (!sidebarAccordion.classList.contains('show') && mutation.oldValue && mutation.oldValue.includes('show')) {
+                                    sidebarAccordion.classList.add('show');
+                                    const accordionContent = sidebarAccordion.querySelector('.kt-menu-accordion');
+                                    if (accordionContent) {
+                                        accordionContent.classList.add('show');
+                                    }
                                 }
                             }
-                        }
+                        });
                     });
+                    
+                    observer.observe(sidebarAccordion, {
+                        attributes: true,
+                        attributeFilter: ['class'],
+                        attributeOldValue: true
+                    });
+                    
+                    // Stop observing after a short delay
+                    setTimeout(function() {
+                        observer.disconnect();
+                    }, 500);
                 }
             });
-            
-            observer.observe(sidebarAccordion, {
-                attributes: true,
-                attributeFilter: ['class'],
-                attributeOldValue: true
-            });
-            
-            // Also observe the accordion content
-            const accordionContent = sidebarAccordion.querySelector('.kt-menu-accordion');
-            if (accordionContent) {
-                observer.observe(accordionContent, {
-                    attributes: true,
-                    attributeFilter: ['class'],
-                    attributeOldValue: true
-                });
-            }
         }
     });
 })();
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Voorkom dat de sidebar drawer sluit wanneer je binnen de content area klikt
-    // Alleen blokkeer drawer backdrop clicks, niet normale clicks op knoppen/links/menu's
-    const contentArea = document.getElementById('content');
-    const sidebar = document.getElementById('sidebar');
-    
-    // Voorkom dat sidebar accordion sluit bij clicks in content area
-    if (contentArea) {
-        contentArea.addEventListener('click', function(e) {
-            // Voorkom dat clicks in content area de sidebar accordion sluiten
-            const sidebarAccordion = document.querySelector('#sidebar_menu .kt-menu-item[data-kt-menu-item-toggle="accordion"]');
-            if (sidebarAccordion && sidebarAccordion.classList.contains('show')) {
-                // Behoud de show class
-                e.stopPropagation();
-            }
-        }, true); // Use capture phase to intercept early
-    }
-    
-    if (contentArea && sidebar) {
-        // Blokkeer alleen backdrop clicks die de drawer sluiten
-        // Gebruik een MutationObserver om de backdrop te vinden wanneer deze wordt toegevoegd
-        const observer = new MutationObserver(function(mutations) {
-            const backdrop = document.querySelector('.kt-drawer-backdrop');
-            if (backdrop && !backdrop.dataset.listenerAdded) {
-                backdrop.dataset.listenerAdded = 'true';
-                // Use bubble phase instead of capture to let other handlers fire first
-                backdrop.addEventListener('click', preventBackdropClose, false);
-            }
-        });
-        
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-        
-        function preventBackdropClose(e) {
-            // Laat clicks op interactieve elementen (knoppen, menu's, dropdowns) gewoon werken
-            const isInteractiveElement = e.target.closest('button, a, input, select, .kt-menu, .kt-menu-item, .kt-menu-dropdown, .kt-menu-link, .kt-menu-toggle');
-            
-            // Specifiek check voor Bulk Bewerken button en dropdown
-            const clickedButton = e.target.closest('button.kt-btn-primary');
-            const isBulkEditButton = clickedButton && clickedButton.textContent.includes('Bulk Bewerken');
-            const isBulkEditDropdown = e.target.closest('.kt-menu-item[data-kt-menu-item-toggle="dropdown"]');
-            const isInsideOpenDropdown = e.target.closest('.kt-menu-item.show .kt-menu-dropdown');
-            
-            // Als het een interactief element is, laat het gewoon werken
-            if (isInteractiveElement || isBulkEditButton || isBulkEditDropdown || isInsideOpenDropdown) {
-                return;
-            }
-            
-            // Alleen blokkeer als de klik direct op de backdrop zelf is (niet op child elementen)
-            // Dit voorkomt dat de drawer sluit wanneer je binnen de content area klikt
-            if (e.target === e.currentTarget) {
-                // Check of de click positie binnen de content area valt
-                const contentRect = contentArea.getBoundingClientRect();
-                const clickX = e.clientX;
-                const clickY = e.clientY;
-                
-                const isWithinContentArea = clickX >= contentRect.left && 
-                                          clickX <= contentRect.right && 
-                                          clickY >= contentRect.top && 
-                                          clickY <= contentRect.bottom;
-                
-                if (isWithinContentArea) {
-                    e.preventDefault();
-                    e.stopPropagation(); // Use stopPropagation instead of stopImmediatePropagation
-                    return false;
-                }
-            }
-        }
-        
-        // Initial check voor backdrop
-        setTimeout(function() {
-            const backdrop = document.querySelector('.kt-drawer-backdrop');
-            if (backdrop && !backdrop.dataset.listenerAdded) {
-                backdrop.dataset.listenerAdded = 'true';
-                // Use bubble phase instead of capture to let other handlers fire first
-                backdrop.addEventListener('click', preventBackdropClose, false);
-            }
-        }, 100);
-    }
-});
 </script>
 @endpush
 
@@ -187,7 +86,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     #permissions_table td:last-child .kt-menu-dropdown {
-        position: absolute !important;
+        position: fixed !important;
+        z-index: 99999 !important;
+    }
+    
+    #permissions_table td:last-child .kt-menu-item.show {
+        z-index: 99999 !important;
+    }
+    
+    #permissions_table td:last-child .kt-menu-item.show .kt-menu-dropdown {
+        z-index: 99999 !important;
     }
 
     /* Prevent table rows from stretching when dropdown is open */
@@ -335,6 +243,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 'roles' => 'Rollen',
                                 'permissions' => 'Permissies',
                                 'dashboard' => 'Dashboard',
+                                'settings' => 'Configuraties',
+                                'instellingen' => 'Configuraties',
+                                'configuraties' => 'Configuraties',
+                                'job-configurations' => 'Job Configuraties',
+                                'job_configurations' => 'Job Configuraties',
                             ];
                         @endphp
                         @foreach($allModulesForDropdown as $module)
@@ -477,10 +390,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                     'companies' => 'Bedrijven',
                                     'branches' => 'Branches',
                                     'categories' => 'Categorieën',
-                                    'roles' => 'Rollen en Permissies',
-                                    'permissions' => 'Permissies',
-                                    'dashboard' => 'Dashboard',
-                                ];
+                                'roles' => 'Rollen en Permissies',
+                                'permissions' => 'Permissies',
+                                'dashboard' => 'Dashboard',
+                                'settings' => 'Configuraties',
+                                'instellingen' => 'Configuraties',
+                                'configuraties' => 'Configuraties',
+                                'job-configurations' => 'Job Configuraties',
+                                'job_configurations' => 'Job Configuraties',
+                            ];
                             @endphp
 
                             <select class="kt-select w-36"
@@ -615,7 +533,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                             </label>
                                             @else
                                             <span class="text-muted-foreground text-xs" title="Niet verwijderbaar: toegewezen aan rollen">
-                                                <i class="ki-filled ki-lock"></i>
+                                                <i class="ki-filled ki-lock text-lg"></i>
                                             </span>
                                             @endif
                                         </td>
@@ -670,7 +588,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                                         <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
                                                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
-                                                        @if($canEdit)
+                                                        @php
+                                                            $canView = auth()->user()->hasRole('super-admin') || auth()->user()->can('view-permissions');
+                                                            $canEditPermission = $canEdit && !$hasRoles;
+                                                        @endphp
+                                                        @if($canView)
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.permissions.show', $permission) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-eye"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bekijken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endif
+                                                        @if($canEditPermission)
+                                                        @if($canView)
+                                                        <div class="kt-menu-separator"></div>
+                                                        @endif
                                                         <div class="kt-menu-item">
                                                             <a class="kt-menu-link" href="{{ route('admin.permissions.edit', $permission) }}">
                                                                 <span class="kt-menu-icon">
@@ -681,7 +616,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                         </div>
                                                         @endif
                                                         @if($canDeletePermission)
-                                                        @if($canEdit)
+                                                        @if($canView || $canEditPermission)
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
                                                         <div class="kt-menu-item">
@@ -810,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
             observer.observe(infoSpan, { childList: true, characterData: true, subtree: true });
         }
 
-        // Also try KTComponents.init if available
+        // Initialize KTComponents first (if available)
         if (window.KTComponents && window.KTComponents.init) {
             try {
                 window.KTComponents.init();
@@ -818,38 +753,90 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn('KTComponents initialization failed:', error);
             }
         }
-
-        // Special handling for Bulk Bewerken button only
-        function initializeBulkEditButton() {
-            const bulkEditButtons = document.querySelectorAll('.kt-menu-toggle');
-            bulkEditButtons.forEach(function(toggle) {
-                if (toggle.textContent.includes('Bulk Bewerken') && !toggle.dataset.bulkEditHandled) {
-                    toggle.dataset.bulkEditHandled = 'true';
-                    toggle.addEventListener('click', function(e) {
-                        window.isBulkEditClick = true;
-                        setTimeout(function() {
-                            window.isBulkEditClick = false;
-                        }, 300);
-                        
-                        const sidebarAccordion = document.querySelector('#sidebar_menu .kt-menu-item[data-kt-menu-item-toggle="accordion"]');
-                        if (sidebarAccordion && sidebarAccordion.classList.contains('show')) {
-                            const sidebarLink = sidebarAccordion.querySelector('.kt-menu-link');
-                            if (sidebarLink) {
-                                sidebarLink.style.pointerEvents = 'none';
-                                setTimeout(function() {
-                                    sidebarLink.style.pointerEvents = '';
-                                }, 300);
+        
+        // Add click listeners to all menu toggles
+        function initializeMenuClicks() {
+            const menuToggles = document.querySelectorAll('#permissions_table .kt-menu-toggle');
+            
+            menuToggles.forEach(function(toggle) {
+                // Remove any existing listeners by cloning
+                const newToggle = toggle.cloneNode(true);
+                toggle.parentNode.replaceChild(newToggle, toggle);
+                
+                // Add click listener that manually toggles the menu
+                newToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // Find menu item and dropdown
+                    const menuItem = newToggle.closest('.kt-menu-item');
+                    const dropdown = menuItem ? menuItem.querySelector('.kt-menu-dropdown') : null;
+                    
+                    if (!menuItem || !dropdown) {
+                        return;
+                    }
+                    
+                    const isOpen = menuItem.classList.contains('show');
+                    
+                    // Close all other menus first
+                    document.querySelectorAll('#permissions_table .kt-menu-item.show').forEach(function(item) {
+                        if (item !== menuItem) {
+                            item.classList.remove('show');
+                            const otherDropdown = item.querySelector('.kt-menu-dropdown');
+                            if (otherDropdown) {
+                                otherDropdown.classList.remove('show');
                             }
                         }
-                    }, true);
-                }
+                    });
+                    
+                    // Toggle this menu
+                    if (isOpen) {
+                        menuItem.classList.remove('show');
+                        dropdown.classList.remove('show');
+                    } else {
+                        menuItem.classList.add('show');
+                        dropdown.classList.add('show');
+                        
+                        // Position dropdown using fixed positioning to avoid stacking context issues
+                        const buttonRect = newToggle.getBoundingClientRect();
+                        
+                        dropdown.style.position = 'fixed';
+                        dropdown.style.left = (buttonRect.right - 175) + 'px'; // Align right edge with button
+                        dropdown.style.top = (buttonRect.bottom + 5) + 'px';
+                        dropdown.style.right = 'auto';
+                        dropdown.style.minWidth = '175px';
+                        dropdown.style.width = '175px';
+                        dropdown.style.zIndex = '99999';
+                    }
+                }, true); // Use capture phase to catch early
             });
         }
         
-        // Initialize Bulk Bewerken button handler
-        initializeBulkEditButton();
-        setTimeout(initializeBulkEditButton, 100);
-        setTimeout(initializeBulkEditButton, 500);
+        // Initialize menu listeners
+        initializeMenuClicks();
+        setTimeout(initializeMenuClicks, 100);
+        setTimeout(initializeMenuClicks, 500);
+        setTimeout(initializeMenuClicks, 1000);
+        
+        // Initialize KTMenu for all menus (including table action menus)
+        // This should be called after DOM is ready
+        function initKTMenu() {
+            if (window.KTMenu && window.KTMenu.init) {
+                try {
+                    window.KTMenu.init();
+                } catch (error) {
+                    console.warn('KTMenu initialization failed:', error);
+                }
+            }
+        }
+        
+        // Initialize immediately
+        initKTMenu();
+        
+        // Also try after delays in case menus are added dynamically
+        setTimeout(initKTMenu, 100);
+        setTimeout(initKTMenu, 500);
+        setTimeout(initKTMenu, 1000);
+
 
         // Select All functionality - Wait for elements to be available
         function initSelectAll() {
@@ -989,14 +976,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Also add listener to document as fallback (event delegation)
             document.addEventListener('change', selectAllHandler);
 
-            // Also listen for click events
+            // Also listen for click events - but only for select-all checkbox
             document.addEventListener('click', function(e) {
+                // Only handle clicks on the select-all checkbox, ignore everything else
                 if (e.target && e.target.id === 'select-all-permissions') {
+                    e.stopPropagation(); // Prevent event from bubbling to other handlers
                     setTimeout(function() {
                         selectAllHandler(e);
                     }, 10);
                 }
-            });
+            }, true); // Use capture phase to handle before other listeners
 
             // Individual checkbox handlers
             document.addEventListener('change', function(e) {
@@ -1029,6 +1018,75 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             initSelectAll();
         }, 1000);
+        
+        // Prevent sidebar accordion from closing when clicking anywhere on the page
+        // Monitor all accordion items and restore show class if removed unintentionally
+        const sidebarMenu = document.getElementById('sidebar_menu');
+        if (sidebarMenu) {
+            const accordionItems = sidebarMenu.querySelectorAll('.kt-menu-item-accordion');
+            const accordionObservers = new Map();
+            
+            function setupAccordionProtection(accordion) {
+                // Only protect if accordion is open and has 'here' class (active page)
+                const menuLink = accordion.querySelector('.kt-menu-link');
+                const shouldBeOpen = accordion.classList.contains('show') || (menuLink && menuLink.classList.contains('here'));
+                
+                if (shouldBeOpen && !accordionObservers.has(accordion)) {
+                    const observer = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(mutation) {
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                                const wasOpen = mutation.oldValue && mutation.oldValue.includes('show');
+                                const isNowClosed = !accordion.classList.contains('show');
+                                
+                                // If accordion was open and is now closed, but should stay open
+                                if (wasOpen && isNowClosed) {
+                                    const menuLink = accordion.querySelector('.kt-menu-link');
+                                    // Only restore if this accordion has the 'here' class (active page)
+                                    if (menuLink && menuLink.classList.contains('here')) {
+                                        // Restore show class after a short delay
+                                        setTimeout(function() {
+                                            accordion.classList.add('show');
+                                            const accordionContent = accordion.querySelector('.kt-menu-accordion');
+                                            if (accordionContent) {
+                                                accordionContent.classList.add('show');
+                                            }
+                                        }, 10);
+                                    }
+                                }
+                            }
+                        });
+                    });
+                    
+                    observer.observe(accordion, {
+                        attributes: true,
+                        attributeFilter: ['class'],
+                        attributeOldValue: true
+                    });
+                    
+                    accordionObservers.set(accordion, observer);
+                }
+            }
+            
+            // Setup protection for all accordions
+            accordionItems.forEach(setupAccordionProtection);
+            
+            // Re-setup when accordions are toggled
+            accordionItems.forEach(function(accordion) {
+                const menuLink = accordion.querySelector('.kt-menu-link');
+                if (menuLink) {
+                    menuLink.addEventListener('click', function() {
+                        setTimeout(function() {
+                            const observer = accordionObservers.get(accordion);
+                            if (observer) {
+                                observer.disconnect();
+                                accordionObservers.delete(accordion);
+                            }
+                            setupAccordionProtection(accordion);
+                        }, 100);
+                    });
+                }
+            });
+        }
     });
 </script>
 @endpush

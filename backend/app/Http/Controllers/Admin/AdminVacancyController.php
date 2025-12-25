@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Vacancy;
 use App\Models\Company;
+use App\Models\CompanyLocation;
 use App\Models\Branch;
 use App\Models\User;
+use App\Models\JobConfiguration;
+use App\Models\JobConfigurationType;
 use Illuminate\Http\Request;
 
 class AdminVacancyController extends Controller
@@ -93,20 +96,19 @@ class AdminVacancyController extends Controller
         // Get users for contact person dropdown (only if user has create-users permission or is super-admin)
         $users = collect();
         $currentUser = auth()->user();
+        $selectedCompanyId = session('selected_tenant') ?: ($companies->first()?->id);
+        
         if ($currentUser->hasRole('super-admin')) {
-            // Super admin: show users from selected tenant or all users (exclude super-admin users)
-            if (session('selected_tenant')) {
-                $users = User::where('company_id', session('selected_tenant'))
+            // Super admin: show users from selected company only (exclude super-admin users)
+            // If no company is selected, show no users (they will be loaded dynamically when company is selected)
+            if ($selectedCompanyId) {
+                $users = User::where('company_id', $selectedCompanyId)
                     ->whereDoesntHave('roles', function($q) {
                         $q->where('name', 'super-admin');
                     })
                     ->orderBy('first_name')->orderBy('last_name')->get();
-            } else {
-                $users = User::whereDoesntHave('roles', function($q) {
-                    $q->where('name', 'super-admin');
-                })
-                ->orderBy('first_name')->orderBy('last_name')->get();
             }
+            // If no company selected, $users remains empty - will be populated via JavaScript when company is selected
         } elseif ($currentUser->can('create-users') && $currentUser->company_id) {
             // Company admin with create-users permission: show users from their company (exclude super-admin users)
             $users = User::where('company_id', $currentUser->company_id)
@@ -116,7 +118,110 @@ class AdminVacancyController extends Controller
                 ->orderBy('first_name')->orderBy('last_name')->get();
         }
         
-        return view('admin.vacancies.create', compact('companies', 'branches', 'users'));
+        // Get job configurations dynamically based on active types
+        $companyId = session('selected_tenant') ?: $currentUser->company_id;
+        $types = JobConfigurationType::active()->ordered()->get();
+        
+        $configurationsByType = [];
+        foreach ($types as $type) {
+            $values = JobConfiguration::where(function($q) use ($type) {
+                $q->where('type_id', $type->id)->orWhere('type', $type->name);
+            })
+            ->where(function($q) use ($companyId) {
+                $q->whereNull('company_id')->orWhere('company_id', $companyId);
+            })
+            ->pluck('value')
+            ->unique()
+            ->values();
+            
+            // Special sorting for working_hours: numeric values first (low to high), then non-numeric
+            if ($type->name === 'working_hours') {
+                $values = $values->sort(function($a, $b) {
+                    $aNum = is_numeric($a) ? (int)$a : PHP_INT_MAX;
+                    $bNum = is_numeric($b) ? (int)$b : PHP_INT_MAX;
+                    
+                    if ($aNum !== PHP_INT_MAX && $bNum !== PHP_INT_MAX) {
+                        return $aNum <=> $bNum;
+                    } elseif ($aNum !== PHP_INT_MAX) {
+                        return -1;
+                    } elseif ($bNum !== PHP_INT_MAX) {
+                        return 1;
+                    } else {
+                        return strcmp($a, $b);
+                    }
+                })->values();
+            } elseif (in_array($type->name, ['salary_bruto_per_maand', 'salary_zzp_uurtarief', 'salary_bruto_per_uur', 'salary_bruto_per_jaar'])) {
+                // Special sorting for salary ranges: extract min value and sort low to high
+                $values = $values->sort(function($a, $b) {
+                    // Extract minimum value from range (e.g., "0–50" -> 0, "50–75" -> 50, "150+" -> 150)
+                    $extractMin = function($str) {
+                        // Remove any non-numeric characters except digits, dash, and plus
+                        $str = trim($str);
+                        // Match first number in the string
+                        if (preg_match('/^(\d+)/', $str, $matches)) {
+                            return (int)$matches[1];
+                        }
+                        // If it ends with +, try to extract the number before it
+                        if (preg_match('/(\d+)\+$/', $str, $matches)) {
+                            return (int)$matches[1];
+                        }
+                        return PHP_INT_MAX;
+                    };
+                    
+                    $aMin = $extractMin($a);
+                    $bMin = $extractMin($b);
+                    
+                    if ($aMin !== PHP_INT_MAX && $bMin !== PHP_INT_MAX) {
+                        return $aMin <=> $bMin;
+                    } elseif ($aMin !== PHP_INT_MAX) {
+                        return -1;
+                    } elseif ($bMin !== PHP_INT_MAX) {
+                        return 1;
+                    } else {
+                        return strcmp($a, $b);
+                    }
+                })->values();
+            } else {
+                $values = $values->sort()->values();
+            }
+            
+            $configurationsByType[$type->name] = $values;
+        }
+        
+        // For backward compatibility, also set individual variables
+        $employmentTypes = $configurationsByType['employment_type'] ?? collect();
+        $workingHours = $configurationsByType['working_hours'] ?? collect();
+        $statuses = $configurationsByType['status'] ?? collect();
+        $salaryBrutoPerMaand = $configurationsByType['salary_bruto_per_maand'] ?? collect();
+        $salaryZzpUurtarief = $configurationsByType['salary_zzp_uurtarief'] ?? collect();
+        
+        // Get company locations and main address
+        $companyLocations = collect();
+        $selectedCompany = null;
+        if ($currentUser->hasRole('super-admin')) {
+            // For super admin, get locations for selected company or first company
+            $selectedCompanyId = session('selected_tenant') ?: ($companies->first()?->id);
+            if ($selectedCompanyId) {
+                $selectedCompany = Company::find($selectedCompanyId);
+                $companyLocations = CompanyLocation::where('company_id', $selectedCompanyId)
+                    ->where('is_active', true)
+                    ->orderBy('is_main', 'desc')
+                    ->orderBy('name')
+                    ->get();
+            }
+        } else {
+            // For company user, get locations for their company
+            if ($currentUser->company_id) {
+                $selectedCompany = Company::find($currentUser->company_id);
+                $companyLocations = CompanyLocation::where('company_id', $currentUser->company_id)
+                    ->where('is_active', true)
+                    ->orderBy('is_main', 'desc')
+                    ->orderBy('name')
+                    ->get();
+            }
+        }
+        
+        return view('admin.vacancies.create', compact('companies', 'branches', 'users', 'employmentTypes', 'workingHours', 'statuses', 'salaryBrutoPerMaand', 'salaryZzpUurtarief', 'companyLocations', 'selectedCompany'));
     }
 
     public function store(Request $request)
@@ -265,19 +370,16 @@ class AdminVacancyController extends Controller
         // Get users for contact person dropdown (only if user has create-users permission or is super-admin)
         $users = collect();
         $currentUser = auth()->user();
+        $selectedCompanyId = $vacancy->company_id ?: (session('selected_tenant') ?: ($companies->first()?->id));
+        
         if ($currentUser->hasRole('super-admin')) {
-            // Super admin: show users from selected tenant or all users (exclude super-admin users)
-            if (session('selected_tenant')) {
-                $users = User::where('company_id', session('selected_tenant'))
+            // Super admin: show users from selected company (exclude super-admin users)
+            if ($selectedCompanyId) {
+                $users = User::where('company_id', $selectedCompanyId)
                     ->whereDoesntHave('roles', function($q) {
                         $q->where('name', 'super-admin');
                     })
                     ->orderBy('first_name')->orderBy('last_name')->get();
-            } else {
-                $users = User::whereDoesntHave('roles', function($q) {
-                    $q->where('name', 'super-admin');
-                })
-                ->orderBy('first_name')->orderBy('last_name')->get();
             }
         } elseif ($currentUser->can('create-users') && $currentUser->company_id) {
             // Company admin with create-users permission: show users from their company (exclude super-admin users)
@@ -288,7 +390,84 @@ class AdminVacancyController extends Controller
                 ->orderBy('first_name')->orderBy('last_name')->get();
         }
         
-        return view('admin.vacancies.edit', compact('vacancy', 'companies', 'branches', 'users'));
+        // Get job configurations dynamically based on active types
+        $companyId = $selectedCompanyId;
+        $types = JobConfigurationType::active()->ordered()->get();
+        
+        $configurationsByType = [];
+        foreach ($types as $type) {
+            $values = JobConfiguration::where(function($q) use ($type) {
+                $q->where('type_id', $type->id)->orWhere('type', $type->name);
+            })
+            ->where(function($q) use ($companyId) {
+                $q->whereNull('company_id')->orWhere('company_id', $companyId);
+            })
+            ->pluck('value')
+            ->unique()
+            ->values();
+            
+            // Special sorting for working_hours: numeric values first (low to high), then non-numeric
+            if ($type->name === 'working_hours') {
+                $values = $values->sort(function($a, $b) {
+                    $aNum = is_numeric($a) ? (int)$a : PHP_INT_MAX;
+                    $bNum = is_numeric($b) ? (int)$b : PHP_INT_MAX;
+                    
+                    if ($aNum !== PHP_INT_MAX && $bNum !== PHP_INT_MAX) {
+                        return $aNum <=> $bNum;
+                    } elseif ($aNum !== PHP_INT_MAX) {
+                        return -1;
+                    } elseif ($bNum !== PHP_INT_MAX) {
+                        return 1;
+                    } else {
+                        return strcmp($a, $b);
+                    }
+                })->values();
+            } elseif (in_array($type->name, ['salary_bruto_per_maand', 'salary_zzp_uurtarief', 'salary_bruto_per_uur', 'salary_bruto_per_jaar'])) {
+                // Special sorting for salary ranges: extract min value and sort low to high
+                $values = $values->sort(function($a, $b) {
+                    // Extract minimum value from range (e.g., "0–50" -> 0, "50–75" -> 50, "150+" -> 150)
+                    $extractMin = function($str) {
+                        // Remove any non-numeric characters except digits, dash, and plus
+                        $str = trim($str);
+                        // Match first number in the string
+                        if (preg_match('/^(\d+)/', $str, $matches)) {
+                            return (int)$matches[1];
+                        }
+                        // If it ends with +, try to extract the number before it
+                        if (preg_match('/(\d+)\+$/', $str, $matches)) {
+                            return (int)$matches[1];
+                        }
+                        return PHP_INT_MAX;
+                    };
+                    
+                    $aMin = $extractMin($a);
+                    $bMin = $extractMin($b);
+                    
+                    if ($aMin !== PHP_INT_MAX && $bMin !== PHP_INT_MAX) {
+                        return $aMin <=> $bMin;
+                    } elseif ($aMin !== PHP_INT_MAX) {
+                        return -1;
+                    } elseif ($bMin !== PHP_INT_MAX) {
+                        return 1;
+                    } else {
+                        return strcmp($a, $b);
+                    }
+                })->values();
+            } else {
+                $values = $values->sort()->values();
+            }
+            
+            $configurationsByType[$type->name] = $values;
+        }
+        
+        // For backward compatibility, also set individual variables
+        $employmentTypes = $configurationsByType['employment_type'] ?? collect();
+        $workingHours = $configurationsByType['working_hours'] ?? collect();
+        $statuses = $configurationsByType['status'] ?? collect();
+        $salaryBrutoPerMaand = $configurationsByType['salary_bruto_per_maand'] ?? collect();
+        $salaryZzpUurtarief = $configurationsByType['salary_zzp_uurtarief'] ?? collect();
+        
+        return view('admin.vacancies.edit', compact('vacancy', 'companies', 'branches', 'users', 'employmentTypes', 'workingHours', 'statuses', 'salaryBrutoPerMaand', 'salaryZzpUurtarief'));
     }
 
     public function update(Request $request, Vacancy $vacancy)

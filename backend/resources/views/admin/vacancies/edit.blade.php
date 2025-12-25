@@ -108,10 +108,12 @@
                             <td class="text-secondary-foreground font-normal">Status *</td>
                             <td>
                                 <select name="status" class="kt-select @error('status') border-destructive @enderror" data-kt-select="true" required>
-                                    <option value="Open" {{ old('status', $vacancy->status) == 'Open' ? 'selected' : '' }}>Open</option>
-                                    <option value="In behandeling" {{ old('status', $vacancy->status) == 'In behandeling' ? 'selected' : '' }}>In behandeling</option>
-                                    <option value="Gesloten" {{ old('status', $vacancy->status) == 'Gesloten' ? 'selected' : '' }}>Gesloten</option>
+                                    <option value="">Selecteer status</option>
+                                    @foreach($statuses ?? [] as $opt)
+                                        <option value="{{ $opt }}" {{ old('status', $vacancy->status) == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                    @endforeach
                                 </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare statussen</div>
                                 @error('status')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -195,17 +197,19 @@
                                 @error('location')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
-                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('create-users')) && $users->count() > 0)
+                        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-users'))
                         <tr>
                             <td class="text-secondary-foreground font-normal">Contactpersoon</td>
                             <td>
                                 <select name="contact_user_id" class="kt-select @error('contact_user_id') border-destructive @enderror" data-kt-select="true">
                                     <option value="">- Selecteer contactpersoon -</option>
-                                    @foreach($users as $user)
-                                        <option value="{{ $user->id }}" {{ old('contact_user_id', $vacancy->contact_user_id) == $user->id ? 'selected' : '' }}>
-                                            {{ $user->first_name }} {{ $user->middle_name }} {{ $user->last_name }} ({{ $user->email }})
-                                        </option>
-                                    @endforeach
+                                    @if(isset($users) && $users->count() > 0)
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}" {{ old('contact_user_id', $vacancy->contact_user_id) == $user->id ? 'selected' : '' }}>
+                                                {{ $user->first_name }} {{ $user->middle_name }} {{ $user->last_name }} ({{ $user->email }})
+                                            </option>
+                                        @endforeach
+                                    @endif
                                 </select>
                                 <div class="text-xs text-muted-foreground mt-1">Selecteer een medewerker als contactpersoon. Als er geen selectie wordt gemaakt, wordt u automatisch als contactpersoon ingesteld.</div>
                                 @error('contact_user_id')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
@@ -217,17 +221,24 @@
                             <td>
                                 <select name="employment_type" class="kt-select @error('employment_type') border-destructive @enderror" data-kt-select="true">
                                     <option value="">-</option>
-                                    @foreach(['Fulltime','Parttime','Contract','Tijdelijke','Stage','Traineeship','Freelance','ZZP'] as $opt)
+                                    @foreach($employmentTypes ?? [] as $opt)
                                         <option value="{{ $opt }}" {{ old('employment_type', $vacancy->employment_type) == $opt ? 'selected' : '' }}>{{ $opt }}</option>
                                     @endforeach
                                 </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare dienstverband types</div>
                                 @error('employment_type')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">Salarisrange</td>
                             <td>
-                                <input type="text" name="salary_range" class="kt-input @error('salary_range') border-destructive @enderror" value="{{ old('salary_range', $vacancy->salary_range) }}" placeholder="bijv. €3000 - €4000">
+                                <select name="salary_range" id="salary_range_select" class="kt-select @error('salary_range') border-destructive @enderror" data-kt-select="true">
+                                    <option value="">-</option>
+                                    @foreach($salaryBrutoPerMaand ?? [] as $opt)
+                                        <option value="{{ $opt }}" {{ old('salary_range', $vacancy->salary_range) == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare salarisranges</div>
                                 @error('salary_range')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -241,7 +252,13 @@
                         <tr>
                             <td class="text-secondary-foreground font-normal">Werkuren</td>
                             <td>
-                                <input type="text" name="working_hours" class="kt-input @error('working_hours') border-destructive @enderror" value="{{ old('working_hours', $vacancy->working_hours) }}" placeholder="bijv. 32-40">
+                                <select name="working_hours" class="kt-select @error('working_hours') border-destructive @enderror" data-kt-select="true">
+                                    <option value="">-</option>
+                                    @foreach($workingHours ?? [] as $opt)
+                                        <option value="{{ $opt }}" {{ old('working_hours', $vacancy->working_hours) == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare werkuren</div>
                                 @error('working_hours')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -1946,11 +1963,116 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Mark contact user select wrapper (fallback for browsers without :has() support)
     const contactUserSelect = document.querySelector('select[name="contact_user_id"]');
+    const companySelect = document.querySelector('select[name="company_id"]');
+    
     if (contactUserSelect) {
         const wrapper = contactUserSelect.closest('.kt-select-wrapper') || contactUserSelect.parentElement;
         if (wrapper) {
             wrapper.setAttribute('data-contact-user-select', 'true');
         }
+    }
+    
+    // Update contact person options when company changes (for super admin)
+    @if(auth()->user()->hasRole('super-admin'))
+    if (companySelect && contactUserSelect) {
+        companySelect.addEventListener('change', function() {
+            const companyId = this.value;
+            
+            if (!companyId) return;
+            
+            // Fetch users for selected company
+            fetch(`/admin/companies/${companyId}/users/json`)
+                .then(response => response.json())
+                .then(data => {
+                    // Clear existing options except first
+                    while (contactUserSelect.options.length > 1) {
+                        contactUserSelect.remove(1);
+                    }
+                    
+                    // Add new user options
+                    if (data.users && data.users.length > 0) {
+                        data.users.forEach(user => {
+                            const opt = document.createElement('option');
+                            opt.value = user.id;
+                            opt.textContent = `${user.first_name} ${user.middle_name || ''} ${user.last_name}`.trim() + ` (${user.email})`;
+                            contactUserSelect.appendChild(opt);
+                        });
+                    }
+                    
+                    // Reinitialize KT Select
+                    if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+                        const selectElement = contactUserSelect.closest('.kt-select-wrapper');
+                        if (selectElement) {
+                            try {
+                                window.KTSelect.init(selectElement);
+                            } catch (e) {
+                                console.warn('KTSelect init error:', e);
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching users:', error);
+                });
+        });
+    }
+    @endif
+    
+    // Dynamic salary range based on employment type
+    const employmentTypeSelect = document.querySelector('select[name="employment_type"]');
+    const salaryRangeSelect = document.getElementById('salary_range_select');
+    const salaryBrutoPerMaand = @json($salaryBrutoPerMaand ?? []);
+    const salaryZzpUurtarief = @json($salaryZzpUurtarief ?? []);
+    
+    function updateSalaryOptions() {
+        if (!employmentTypeSelect || !salaryRangeSelect) return;
+        
+        const selectedEmploymentType = employmentTypeSelect.value;
+        const currentValue = salaryRangeSelect.value;
+        
+        // Clear existing options except the first one
+        while (salaryRangeSelect.options.length > 1) {
+            salaryRangeSelect.remove(1);
+        }
+        
+        // Determine which salary options to use
+        let salaryOptions = [];
+        if (selectedEmploymentType === 'Freelance/ZZP') {
+            salaryOptions = salaryZzpUurtarief;
+        } else {
+            salaryOptions = salaryBrutoPerMaand;
+        }
+        
+        // Add options
+        salaryOptions.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            if (option === currentValue) {
+                opt.selected = true;
+            }
+            salaryRangeSelect.appendChild(opt);
+        });
+        
+        // Reinitialize KT Select if it exists
+        if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+            const selectElement = salaryRangeSelect.closest('.kt-select-wrapper');
+            if (selectElement) {
+                try {
+                    window.KTSelect.init(selectElement);
+                } catch (e) {
+                    console.warn('KTSelect init error:', e);
+                }
+            }
+        }
+    }
+    
+    // Listen for employment type changes
+    if (employmentTypeSelect) {
+        employmentTypeSelect.addEventListener('change', updateSalaryOptions);
+        
+        // Initialize on page load
+        updateSalaryOptions();
     }
 });
 </script>

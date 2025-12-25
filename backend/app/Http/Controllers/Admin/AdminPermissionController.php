@@ -123,10 +123,65 @@ class AdminPermissionController extends Controller
         }
         
         // Combine and sort
-        $modules = $modulesFromGroup->merge($modulesFromName)
+        $allModules = $modulesFromGroup->merge($modulesFromName)
             ->unique()
             ->sort()
             ->values();
+        
+        // Filter modules based on user permissions (only show modules user can access)
+        $accessibleModules = collect();
+        
+        // Module to permission mapping (based on sidebar menu items)
+        $modulePermissionMap = [
+            'users' => 'view-users',
+            'vacancies' => 'view-vacancies',
+            'matches' => 'view-matches',
+            'interviews' => 'view-interviews',
+            'agenda' => 'view-agenda',
+            'notifications' => 'view-notifications',
+            'email-templates' => 'view-email-templates',
+            'email_templates' => 'view-email-templates',
+            'companies' => 'view-companies',
+            'branches' => 'view-branches',
+            'roles' => 'view-roles',
+            'permissions' => 'view-permissions',
+            'job-configurations' => 'view-job-configurations',
+            'job_configurations' => 'view-job-configurations',
+            'dashboard' => null, // Dashboard is always accessible
+        ];
+        
+        // Check each module if user has access
+        foreach ($allModules as $module) {
+            // Settings/Configuraties: only for super-admin
+            if (in_array($module, ['settings', 'instellingen', 'configuraties'])) {
+                if (auth()->user()->hasRole('super-admin')) {
+                    $accessibleModules->push($module);
+                }
+            } elseif ($module === 'dashboard') {
+                // Dashboard is always accessible
+                $accessibleModules->push($module);
+            } elseif (isset($modulePermissionMap[$module])) {
+                $permission = $modulePermissionMap[$module];
+                if ($permission === null || auth()->user()->hasRole('super-admin') || auth()->user()->can($permission)) {
+                    $accessibleModules->push($module);
+                }
+            } else {
+                // For other modules without mapping, include them (might be custom permissions)
+                // But only if user is super-admin or has view-permissions
+                if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-permissions')) {
+                    $accessibleModules->push($module);
+                }
+            }
+        }
+        
+        // Always add Configuraties for super-admin, even if no permissions exist for it
+        if (auth()->user()->hasRole('super-admin')) {
+            $accessibleModules->push('configuraties');
+            $accessibleModules->push('settings');
+            $accessibleModules->push('instellingen');
+        }
+        
+        $modules = $accessibleModules->unique()->sort()->values();
 
         // Statistieken voor dashboard
         $viewCount = Permission::where('guard_name', 'web')->where('name', 'like', 'view-%')->count();
@@ -190,10 +245,13 @@ class AdminPermissionController extends Controller
 
     public function show(Permission $permission)
     {
-        $permission->load('roles');
-        $roles = Role::where('guard_name', 'web')->get();
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-permissions')) {
+            abort(403, 'Je hebt geen rechten om permissies te bekijken.');
+        }
+        
+        $permission->load(['roles.users', 'users']);
 
-        return view('admin.permissions.show', compact('permission', 'roles'));
+        return view('admin.permissions.show', compact('permission'));
     }
 
     public function edit(Permission $permission)

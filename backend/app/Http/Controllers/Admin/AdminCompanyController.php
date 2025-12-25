@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Company;
 use App\Models\Branch;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class AdminCompanyController extends Controller
@@ -423,5 +424,26 @@ class AdminCompanyController extends Controller
         
         return redirect()->route('admin.companies.show', $company)
             ->with('success', $message);
+    }
+
+    public function getUsersJson(Company $company)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+            abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
+        }
+
+        if (!$this->canAccessResource($company)) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+
+        $users = User::where('company_id', $company->id)
+            ->whereDoesntHave('roles', function($q) {
+                $q->where('name', 'super-admin');
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'middle_name', 'last_name', 'email']);
+
+        return response()->json(['users' => $users]);
     }
 }

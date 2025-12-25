@@ -230,6 +230,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     
     // Companies
     Route::resource('companies', AdminCompanyController::class);
+    Route::get('companies/{company}/users/json', [AdminCompanyController::class, 'getUsersJson'])->name('companies.users.json');
     Route::post('companies/{company}/toggle-status', [AdminCompanyController::class, 'toggleStatus'])->name('companies.toggle-status');
     Route::post('companies/{company}/toggle-main-location', [AdminCompanyController::class, 'toggleMainLocation'])->name('companies.toggle-main-location');
     Route::post('companies/{company}/upload-logo', [AdminCompanyController::class, 'uploadLogo'])->name('companies.upload-logo');
@@ -237,6 +238,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Company Locations
     Route::get('companies/{company}/locations/create', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
     Route::post('companies/{company}/locations', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
+    Route::get('companies/{company}/locations/json', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'getLocationsJson'])->name('companies.locations.json');
     Route::get('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'show'])->name('companies.locations.show');
     Route::get('companies/{company}/locations/{location}/edit', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'edit'])->name('companies.locations.edit');
     Route::put('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'update'])->name('companies.locations.update');
@@ -341,6 +343,18 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('invoices/{invoice}/payment-links', [AdminInvoiceController::class, 'paymentLinks'])->name('invoices.payment-links');
         Route::get('invoices/settings', [AdminInvoiceController::class, 'settings'])->name('invoices.settings');
         Route::post('invoices/settings', [AdminInvoiceController::class, 'updateSettings'])->name('invoices.settings.update');
+        
+        // Job Configurations (Super Admin only)
+        // Bulk delete route must be defined BEFORE resource route to avoid route conflict
+        Route::delete('job-configurations/bulk-delete', [App\Http\Controllers\Admin\AdminJobConfigurationController::class, 'bulkDelete'])->name('job-configurations.bulk-delete');
+        Route::resource('job-configurations', App\Http\Controllers\Admin\AdminJobConfigurationController::class);
+        
+        // Import routes must be defined BEFORE resource route to avoid route conflict
+        Route::get('job-configuration-types/import', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'import'])->name('job-configuration-types.import');
+        Route::post('job-configuration-types/import', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'import']);
+        
+        Route::resource('job-configuration-types', App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class);
+        Route::post('job-configuration-types/{jobConfigurationType}/toggle-status', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'toggleStatus'])->name('job-configuration-types.toggle-status');
         
         // Settings (Super Admin only)
         Route::get('settings', [App\Http\Controllers\Admin\AdminSettingsController::class, 'index'])->name('settings.index');

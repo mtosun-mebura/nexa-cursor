@@ -12,6 +12,52 @@ class AdminCompanyLocationController extends Controller
 {
     use TenantFilter;
 
+    public function getLocationsJson(Company $company)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+            abort(403, 'Je hebt geen rechten om vestigingen te bekijken.');
+        }
+
+        if (!$this->canAccessResource($company)) {
+            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+        }
+
+        $locations = CompanyLocation::where('company_id', $company->id)
+            ->where('is_active', true)
+            ->orderBy('is_main', 'desc')
+            ->orderBy('name')
+            ->get(['id', 'name', 'city']);
+
+        // Add main company address as first option
+        $mainAddress = null;
+        if ($company->city || $company->street) {
+            $mainAddressText = $company->city;
+            if ($company->street) {
+                $mainAddressText = $company->street;
+                if ($company->house_number) {
+                    $mainAddressText .= ' ' . $company->house_number;
+                    if ($company->house_number_extension) {
+                        $mainAddressText .= $company->house_number_extension;
+                    }
+                }
+                if ($company->city && $company->city != $company->street) {
+                    $mainAddressText .= ', ' . $company->city;
+                }
+            }
+            $mainAddress = [
+                'id' => 0,
+                'name' => $mainAddressText,
+                'city' => $company->city,
+                'is_main_address' => true
+            ];
+        }
+
+        return response()->json([
+            'locations' => $locations,
+            'mainAddress' => $mainAddress
+        ]);
+    }
+
     public function show(Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {

@@ -37,10 +37,12 @@
                             <td class="text-secondary-foreground font-normal">Status *</td>
                             <td>
                                 <select name="status" class="kt-select @error('status') border-destructive @enderror" data-kt-select="true" required>
-                                    <option value="Open" {{ old('status', 'Open') == 'Open' ? 'selected' : '' }}>Open</option>
-                                    <option value="In behandeling" {{ old('status') == 'In behandeling' ? 'selected' : '' }}>In behandeling</option>
-                                    <option value="Gesloten" {{ old('status') == 'Gesloten' ? 'selected' : '' }}>Gesloten</option>
+                                    <option value="">Selecteer status</option>
+                                    @foreach($statuses ?? [] as $opt)
+                                        <option value="{{ $opt }}" {{ old('status', 'Open') == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                    @endforeach
                                 </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare statussen</div>
                                 @error('status')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -64,6 +66,56 @@
                         @else
                             <input type="hidden" name="company_id" value="{{ auth()->user()->company_id }}">
                         @endif
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">Locatie</td>
+                            <td>
+                                <div class="flex gap-2">
+                                    <select name="location" id="location-select" class="kt-select @error('location') border-destructive @enderror" data-kt-select="true" style="flex: 1;">
+                                        <option value="">- Selecteer locatie -</option>
+                                        @if($selectedCompany && ($selectedCompany->city || $selectedCompany->street))
+                                            @php
+                                                $mainAddress = $selectedCompany->city;
+                                                if ($selectedCompany->street) {
+                                                    $mainAddress = $selectedCompany->street;
+                                                    if ($selectedCompany->house_number) {
+                                                        $mainAddress .= ' ' . $selectedCompany->house_number;
+                                                        if ($selectedCompany->house_number_extension) {
+                                                            $mainAddress .= $selectedCompany->house_number_extension;
+                                                        }
+                                                    }
+                                                    if ($selectedCompany->city && $selectedCompany->city != $selectedCompany->street) {
+                                                        $mainAddress .= ', ' . $selectedCompany->city;
+                                                    }
+                                                }
+                                            @endphp
+                                            <option value="{{ $mainAddress }}" {{ old('location') == $mainAddress ? 'selected' : '' }}>
+                                                Hoofdadres{{ $selectedCompany->city ? ' - ' . $selectedCompany->city : '' }}
+                                            </option>
+                                        @endif
+                                        @foreach($companyLocations ?? [] as $location)
+                                            <option value="{{ $location->name }}" {{ old('location') == $location->name ? 'selected' : '' }}>
+                                                {{ $location->name }}
+                                                @if($location->city)
+                                                    @if($location->name != $location->city)
+                                                        - {{ $location->city }}
+                                                    @endif
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                        <option value="__custom__">+ Nieuwe locatie invoeren</option>
+                                    </select>
+                                    <input type="text" 
+                                           name="location_custom" 
+                                           id="location-custom-input" 
+                                           class="kt-input @error('location') border-destructive @enderror" 
+                                           value="{{ old('location_custom', old('location')) }}"
+                                           placeholder="Voer locatie in..."
+                                           style="display: none; width: 100%; min-width: 400px;">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer een locatie of voer een nieuwe in</div>
+                                @error('location')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                            </td>
+                        </tr>
                         @php
                             $selectedBranchId = old('branch_id');
                             $selectedBranchName = '';
@@ -107,24 +159,19 @@
                                 @error('title')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">Locatie</td>
-                            <td>
-                                <input type="text" name="location" class="kt-input @error('location') border-destructive @enderror" value="{{ old('location') }}">
-                                @error('location')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
-                            </td>
-                        </tr>
-                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('create-users')) && isset($users) && $users->count() > 0)
+                        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-users'))
                         <tr>
                             <td class="text-secondary-foreground font-normal">Contactpersoon</td>
                             <td>
                                 <select name="contact_user_id" class="kt-select @error('contact_user_id') border-destructive @enderror" data-kt-select="true">
                                     <option value="">- Selecteer contactpersoon -</option>
-                                    @foreach($users as $user)
-                                        <option value="{{ $user->id }}" {{ old('contact_user_id') == $user->id ? 'selected' : '' }}>
-                                            {{ $user->first_name }} {{ $user->middle_name }} {{ $user->last_name }} ({{ $user->email }})
-                                        </option>
-                                    @endforeach
+                                    @if(isset($users) && $users->count() > 0)
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}" {{ old('contact_user_id') == $user->id ? 'selected' : '' }}>
+                                                {{ $user->first_name }} {{ $user->middle_name }} {{ $user->last_name }} ({{ $user->email }})
+                                            </option>
+                                        @endforeach
+                                    @endif
                                 </select>
                                 <div class="text-xs text-muted-foreground mt-1">Selecteer een medewerker als contactpersoon. Als er geen selectie wordt gemaakt, wordt u automatisch als contactpersoon ingesteld.</div>
                                 @error('contact_user_id')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
@@ -136,17 +183,24 @@
                             <td>
                                 <select name="employment_type" class="kt-select @error('employment_type') border-destructive @enderror" data-kt-select="true">
                                     <option value="">-</option>
-                                    @foreach(['Fulltime','Parttime','Contract','Tijdelijke','Stage','Traineeship','Freelance','ZZP'] as $opt)
+                                    @foreach($employmentTypes ?? [] as $opt)
                                         <option value="{{ $opt }}" {{ old('employment_type') == $opt ? 'selected' : '' }}>{{ $opt }}</option>
                                     @endforeach
                                 </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare dienstverband types</div>
                                 @error('employment_type')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">Salarisrange</td>
                             <td>
-                                <input type="text" name="salary_range" class="kt-input @error('salary_range') border-destructive @enderror" value="{{ old('salary_range') }}" placeholder="bijv. €3000 - €4000">
+                                <select name="salary_range" id="salary_range_select" class="kt-select @error('salary_range') border-destructive @enderror" data-kt-select="true">
+                                    <option value="">-</option>
+                                    @foreach($salaryBrutoPerMaand ?? [] as $opt)
+                                        <option value="{{ $opt }}" {{ old('salary_range') == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare salarisranges</div>
                                 @error('salary_range')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -160,7 +214,13 @@
                         <tr>
                             <td class="text-secondary-foreground font-normal">Werkuren</td>
                             <td>
-                                <input type="text" name="working_hours" class="kt-input @error('working_hours') border-destructive @enderror" value="{{ old('working_hours') }}" placeholder="bijv. 32-40">
+                                <select name="working_hours" class="kt-select @error('working_hours') border-destructive @enderror" data-kt-select="true">
+                                    <option value="">-</option>
+                                    @foreach($workingHours ?? [] as $opt)
+                                        <option value="{{ $opt }}" {{ old('working_hours') == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Selecteer uit beschikbare werkuren</div>
                                 @error('working_hours')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -417,17 +477,29 @@
     .vacancy-create select[name="contact_user_id"] + .kt-select-wrapper [data-kt-select-dropdown],
     .vacancy-create .kt-select-wrapper:has(select[name="contact_user_id"]) .kt-select-dropdown,
     .vacancy-create .kt-select-wrapper:has(select[name="contact_user_id"]) [data-kt-select-dropdown] {
-        max-height: 400px !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        position: fixed !important;
+        z-index: 99999 !important;
     }
 
     /* Fallback voor browsers die :has() niet ondersteunen */
     .vacancy-create .kt-select-wrapper[data-contact-user-select] .kt-select-dropdown,
     .vacancy-create .kt-select-wrapper[data-contact-user-select] [data-kt-select-dropdown] {
-        max-height: 400px !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+        position: fixed !important;
+        z-index: 99999 !important;
+    }
+    
+    /* Zorg dat de dropdown opties altijd volledig zichtbaar zijn */
+    .vacancy-create .kt-select-wrapper[data-contact-user-select] .kt-select-options,
+    .vacancy-create select[name="contact_user_id"] + .kt-select-wrapper .kt-select-options {
+        max-height: none !important;
+        overflow: visible !important;
+        position: relative !important;
     }
 
     .vacancy-create .kt-table-border-dashed.align-middle td.align-top {
@@ -1490,7 +1562,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const functionName = functionInput?.value?.trim() || '';
         const companyName = document.querySelector('select[name="company_id"]')?.selectedOptions[0]?.text?.trim() || 
                           document.querySelector('input[name="company_id"]')?.value || '';
-        const location = document.querySelector('input[name="location"]')?.value?.trim() || '';
+        // Get location from select or custom input
+        const locationSelect = document.getElementById('location-select');
+        const locationCustomInput = document.getElementById('location-custom-input');
+        let location = '';
+        if (locationCustomInput && locationCustomInput.style.display !== 'none' && locationCustomInput.value) {
+            location = locationCustomInput.value.trim();
+        } else if (locationSelect && locationSelect.value && locationSelect.value !== '__custom__') {
+            location = locationSelect.value.trim();
+        }
         const employmentType = document.querySelector('select[name="employment_type"]')?.value?.trim() || '';
         
         let title = '';
@@ -1529,7 +1609,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!force && (!autoMetaDescription?.checked || metaDescriptionManuallyEdited)) return;
         
         const functionName = functionInput?.value?.trim() || '';
-        const location = document.querySelector('input[name="location"]')?.value?.trim() || '';
+        // Get location from select or custom input
+        const locationSelect = document.getElementById('location-select');
+        const locationCustomInput = document.getElementById('location-custom-input');
+        let location = '';
+        if (locationCustomInput && locationCustomInput.style.display !== 'none' && locationCustomInput.value) {
+            location = locationCustomInput.value.trim();
+        } else if (locationSelect && locationSelect.value && locationSelect.value !== '__custom__') {
+            location = locationSelect.value.trim();
+        }
         const employmentType = document.querySelector('select[name="employment_type"]')?.value?.trim() || '';
         const description = document.querySelector('textarea[name="description"]')?.value?.trim() || '';
         const requirements = document.querySelector('textarea[name="requirements"]')?.value?.trim() || '';
@@ -1601,7 +1689,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         // Location
-        const location = document.querySelector('input[name="location"]')?.value?.trim() || '';
+        // Get location from select or custom input
+        const locationSelect = document.getElementById('location-select');
+        const locationCustomInput = document.getElementById('location-custom-input');
+        let location = '';
+        if (locationCustomInput && locationCustomInput.style.display !== 'none' && locationCustomInput.value) {
+            location = locationCustomInput.value.trim();
+        } else if (locationSelect && locationSelect.value && locationSelect.value !== '__custom__') {
+            location = locationSelect.value.trim();
+        }
         if (location) {
             const locationWords = location.toLowerCase().split(/[,\s]+/).filter(w => w.length > 2);
             locationWords.forEach(w => keywords.add(w));
@@ -1695,10 +1791,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Auto-generate on field changes
     function setupSEOAutoGeneration() {
         // Listen to relevant field changes
+        const locationSelectEl = document.getElementById('location-select');
+        const locationCustomInputEl = document.getElementById('location-custom-input');
         const fieldsToWatch = [
             functionInput,
             branchInput,
-            document.querySelector('input[name="location"]'),
+            locationSelectEl,
+            locationCustomInputEl,
             document.querySelector('select[name="employment_type"]'),
             document.querySelector('select[name="company_id"]'),
             document.querySelector('textarea[name="description"]'),
@@ -1939,6 +2038,234 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             }, 500);
         }
+    }
+    
+    // Dynamic salary range based on employment type
+    const employmentTypeSelect = document.querySelector('select[name="employment_type"]');
+    const salaryRangeSelect = document.getElementById('salary_range_select');
+    const salaryBrutoPerMaand = @json($salaryBrutoPerMaand ?? []);
+    const salaryZzpUurtarief = @json($salaryZzpUurtarief ?? []);
+    
+    function updateSalaryOptions() {
+        if (!employmentTypeSelect || !salaryRangeSelect) return;
+        
+        const selectedEmploymentType = employmentTypeSelect.value;
+        const currentValue = salaryRangeSelect.value;
+        
+        // Clear existing options except the first one
+        while (salaryRangeSelect.options.length > 1) {
+            salaryRangeSelect.remove(1);
+        }
+        
+        // Determine which salary options to use
+        let salaryOptions = [];
+        if (selectedEmploymentType === 'Freelance/ZZP') {
+            salaryOptions = salaryZzpUurtarief;
+        } else {
+            salaryOptions = salaryBrutoPerMaand;
+        }
+        
+        // Add options
+        salaryOptions.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            if (option === currentValue) {
+                opt.selected = true;
+            }
+            salaryRangeSelect.appendChild(opt);
+        });
+        
+        // Reinitialize KT Select if it exists
+        if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+            const selectElement = salaryRangeSelect.closest('.kt-select-wrapper');
+            if (selectElement) {
+                try {
+                    window.KTSelect.init(selectElement);
+                } catch (e) {
+                    console.warn('KTSelect init error:', e);
+                }
+            }
+        }
+    }
+    
+    // Listen for employment type changes
+    if (employmentTypeSelect) {
+        employmentTypeSelect.addEventListener('change', updateSalaryOptions);
+        
+        // Initialize on page load
+        updateSalaryOptions();
+    }
+    
+    // Location dropdown with custom input option
+    const locationSelect = document.getElementById('location-select');
+    const locationCustomInput = document.getElementById('location-custom-input');
+    const companySelect = document.querySelector('select[name="company_id"]');
+    
+    // Handle location select change
+    if (locationSelect && locationCustomInput) {
+        locationSelect.addEventListener('change', function() {
+            if (this.value === '__custom__') {
+                // Show custom input, hide select
+                locationSelect.style.display = 'none';
+                locationCustomInput.style.display = 'block';
+                locationCustomInput.focus();
+            } else {
+                // Hide custom input, show select
+                locationCustomInput.style.display = 'none';
+                locationSelect.style.display = 'block';
+            }
+        });
+        
+        // If custom input has value on load, show it
+        if (locationCustomInput.value && !locationSelect.value) {
+            locationSelect.style.display = 'none';
+            locationCustomInput.style.display = 'block';
+        }
+    }
+    
+    // Update location and contact person options when company changes (for super admin)
+    @if(auth()->user()->hasRole('super-admin'))
+    // Function to update contact users based on selected company
+    function updateContactUsers(companyId) {
+        const contactUserSelect = document.querySelector('select[name="contact_user_id"]');
+        if (!contactUserSelect) return;
+        
+        if (!companyId) {
+            // Clear all options except first if no company selected
+            while (contactUserSelect.options.length > 1) {
+                contactUserSelect.remove(1);
+            }
+            
+            // Reinitialize KT Select
+            if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+                const selectElement = contactUserSelect.closest('.kt-select-wrapper');
+                if (selectElement) {
+                    try {
+                        window.KTSelect.init(selectElement);
+                    } catch (e) {
+                        console.warn('KTSelect init error:', e);
+                    }
+                }
+            }
+            return;
+        }
+        
+        // Fetch users for selected company
+        fetch(`/admin/companies/${companyId}/users/json`)
+            .then(response => response.json())
+            .then(data => {
+                // Clear existing options except first
+                while (contactUserSelect.options.length > 1) {
+                    contactUserSelect.remove(1);
+                }
+                
+                // Add new user options
+                if (data.users && data.users.length > 0) {
+                    data.users.forEach(user => {
+                        const opt = document.createElement('option');
+                        opt.value = user.id;
+                        opt.textContent = `${user.first_name} ${user.middle_name || ''} ${user.last_name}`.trim() + ` (${user.email})`;
+                        contactUserSelect.appendChild(opt);
+                    });
+                }
+                
+                // Reinitialize KT Select
+                if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+                    const selectElement = contactUserSelect.closest('.kt-select-wrapper');
+                    if (selectElement) {
+                        try {
+                            window.KTSelect.init(selectElement);
+                        } catch (e) {
+                            console.warn('KTSelect init error:', e);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching users:', error);
+            });
+    }
+    
+    if (companySelect) {
+        // Update contact users when company changes
+        companySelect.addEventListener('change', function() {
+            const companyId = this.value;
+            
+            // Update contact users
+            updateContactUsers(companyId);
+            
+            if (!companyId) return;
+            
+            // Fetch locations for selected company
+            if (locationSelect) {
+                fetch(`/admin/companies/${companyId}/locations/json`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Clear existing options except first and custom
+                        while (locationSelect.options.length > 2) {
+                            locationSelect.remove(1);
+                        }
+                        
+                        // Add main address as first option if available
+                        if (data.mainAddress) {
+                            const mainOpt = document.createElement('option');
+                            mainOpt.value = data.mainAddress.name;
+                            mainOpt.textContent = 'Hoofdadres' + (data.mainAddress.city ? ' - ' + data.mainAddress.city : '');
+                            locationSelect.insertBefore(mainOpt, locationSelect.lastElementChild);
+                        }
+                        
+                        // Add new location options
+                        if (data.locations && data.locations.length > 0) {
+                            data.locations.forEach(location => {
+                                const opt = document.createElement('option');
+                                opt.value = location.name;
+                                opt.textContent = location.name + (location.city && location.name !== location.city ? ' - ' + location.city : '');
+                                locationSelect.insertBefore(opt, locationSelect.lastElementChild);
+                            });
+                        }
+                        
+                        // Reinitialize KT Select
+                        if (window.KTSelect && typeof window.KTSelect.init === 'function') {
+                            const selectElement = locationSelect.closest('.kt-select-wrapper');
+                            if (selectElement) {
+                                try {
+                                    window.KTSelect.init(selectElement);
+                                } catch (e) {
+                                    console.warn('KTSelect init error:', e);
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching locations:', error);
+                    });
+            }
+        });
+        
+        // Initialize contact users on page load if company is already selected
+        if (companySelect.value) {
+            updateContactUsers(companySelect.value);
+        }
+    }
+    @endif
+    
+    // Update form submission to use correct location value
+    const vacancyForm = document.querySelector('form[action*="vacancies"]');
+    if (vacancyForm) {
+        vacancyForm.addEventListener('submit', function(e) {
+            // If custom input is visible and has value, use that; otherwise use select value
+            if (locationCustomInput && locationCustomInput.style.display !== 'none' && locationCustomInput.value) {
+                // Create hidden input with location value
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'location';
+                hiddenInput.value = locationCustomInput.value;
+                vacancyForm.appendChild(hiddenInput);
+                // Remove the custom input name to avoid duplicate
+                locationCustomInput.removeAttribute('name');
+            }
+        });
     }
 });
 </script>
