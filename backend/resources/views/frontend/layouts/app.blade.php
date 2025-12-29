@@ -23,7 +23,9 @@
     <meta property="twitter:image" content="{{ asset('images/og-image.jpg') }}">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/nexa-x-logo.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ asset('images/nexa-x-logo.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/nexa-x-logo.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
     
     <!-- Fonts -->
