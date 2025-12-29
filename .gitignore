@@ -1,5 +1,38 @@
 .DS_Store
 .idea/
+
+# Root env
+.env
+
+# Backend env and config files
 backend/.env
 backend/.env.backup
+backend/.env.production
+backend/.phpactor.json
+backend/.phpunit.result.cache
+backend/.fleet/
+backend/.idea/
+backend/.nova/
+backend/.phpunit.cache
+backend/.vscode/
+backend/.zed/
+backend/auth.json
+
+# Backend build and vendor
+backend/node_modules
+backend/public/build
+backend/public/hot
+backend/public/storage
+backend/storage/*.key
+backend/storage/pail
+backend/vendor
+
+# Backend misc
+backend/Homestead.json
+backend/Homestead.yaml
+backend/Thumbs.db
+backend/public/html/
+backend/public/assets/media/
+
+# Do not track backend/.gitignore file itself locally
 backend/.gitignore
