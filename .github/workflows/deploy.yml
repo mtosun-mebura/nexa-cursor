@@ -15,6 +15,54 @@ jobs:
       BACKEND_DIR: /var/www/nexa/backend
 
     steps:
+      - name: Cleanup disk space
+        run: |
+          set -e
+          echo "🧹 Cleaning up disk space..."
+          
+          # Clean Docker resources
+          echo "🗑️  Cleaning Docker..."
+          docker system prune -af --volumes || true
+          docker builder prune -af || true
+          
+          # Clean APT cache
+          echo "🗑️  Cleaning APT cache..."
+          sudo apt-get clean || true
+          sudo apt-get autoclean || true
+          sudo rm -rf /var/lib/apt/lists/* || true
+          
+          # Clean old logs (keep last 7 days)
+          echo "🗑️  Cleaning old logs..."
+          sudo find /var/log -type f -name "*.log" -mtime +7 -delete || true
+          sudo find /var/log -type f -name "*.gz" -delete || true
+          
+          # Clean GitHub Actions runner logs and cache
+          echo "🗑️  Cleaning GitHub Actions runner logs..."
+          # Clean runner diagnostic logs (can be very large)
+          if [ -d "$HOME/actions-runner/_diag" ]; then
+            sudo find "$HOME/actions-runner/_diag" -type f -name "*.log" -delete || true
+            sudo find "$HOME/actions-runner/_diag/pages" -type f -delete || true
+            sudo rm -rf "$HOME/actions-runner/_diag/pages"/* || true
+          fi
+          
+          # Clean runner work directory old files
+          if [ -d "$HOME/actions-runner/_work" ]; then
+            sudo find "$HOME/actions-runner/_work" -type f -name "*.log" -mtime +1 -delete || true
+          fi
+          
+          # Clean npm cache
+          echo "🗑️  Cleaning npm cache..."
+          npm cache clean --force || true
+          
+          # Clean Composer cache
+          echo "🗑️  Cleaning Composer cache..."
+          composer clear-cache || true
+          
+          # Show disk space
+          echo "💾 Disk space after cleanup:"
+          df -h
+          echo "✅ Cleanup complete"
+
       - name: Check out code
         uses: actions/checkout@v4
 
@@ -124,6 +172,11 @@ jobs:
           cd "$DEPLOY_DIR"
           dc="${{ steps.pickdc.outputs.dc }}"
           $dc -f "$COMPOSE_FILE" down --remove-orphans || true
+          
+          # Clean Docker build cache before building to save space
+          echo "🧹 Cleaning Docker build cache..."
+          docker builder prune -af || true
+          
           $dc -f "$COMPOSE_FILE" build --no-cache
           $dc -f "$COMPOSE_FILE" up -d
           echo "⏳ Wachten tot backend luistert..."
