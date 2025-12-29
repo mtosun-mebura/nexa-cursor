@@ -8,16 +8,24 @@ RUN apt-get clean && \
 # Fix any broken packages first
 RUN apt-get install -y --fix-broken || true
 
-# Install all dependencies in one go
+# Install base dependencies and clean cache immediately
 RUN apt-get install -y --no-install-recommends \
         git \
         unzip \
         libpq-dev \
         libzip-dev \
         libonig-dev \
-    && apt-get install -y --no-install-recommends libicu-dev \
-    && docker-php-ext-install pdo pdo_pgsql intl zip \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Update again and install libicu-dev separately
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libicu-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_pgsql intl zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
