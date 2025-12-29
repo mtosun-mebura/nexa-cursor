@@ -123,10 +123,23 @@ jobs:
         run: |
           set -e
           cd "$BACKEND_DIR"
+          
+          # Clean previous build
+          rm -rf public/build || true
+          
+          # Install dependencies
           npm ci
-          npm run build
-          test -f public/build/manifest.json
+          
+          # Build assets for production
+          NODE_ENV=production npm run build
+          
+          # Verify build output
+          test -f public/build/manifest.json || (echo "❌ manifest.json niet gevonden" && exit 1)
           echo "✅ Vite manifest aanwezig"
+          
+          # List build files for debugging
+          echo "📦 Build bestanden:"
+          ls -lah public/build/ | head -20
           
           # Fix permissions voor build directory
           sudo chown -R $USER:www-data public/build
@@ -193,6 +206,11 @@ jobs:
             sleep 3
           done
           echo "✅ Backend OK op :8000"
+          
+          # Verify Vite assets are accessible in container
+          echo "🔍 Verifiëren Vite assets in container..."
+          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "test -f /var/www/html/public/build/manifest.json && echo '✅ manifest.json aanwezig in container' || echo '❌ manifest.json NIET aanwezig in container'"
+          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "ls -lah /var/www/html/public/build/ | head -10 || echo '❌ Build directory niet toegankelijk'"
 
       - name: Laravel post-deploy
         run: |
@@ -219,9 +237,14 @@ jobs:
           # Generate key only if APP_KEY is not set (skip if already exists)
           $dc -f "$COMPOSE_FILE" exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force
+          # Clear all caches first to ensure fresh state
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan route:clear
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan view:clear
+          # Rebuild caches
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:cache
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan route:cache
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan view:cache
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan storage:link || true
           echo "✅ Laravel caches & migraties voltooid"

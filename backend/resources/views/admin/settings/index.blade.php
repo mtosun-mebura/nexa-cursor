@@ -207,8 +207,10 @@
                         <div class="flex items-end gap-2.5">
                             <div class="flex flex-col">
                                 <label for="test-email-input" class="kt-form-label text-sm mb-1">Test Email</label>
-                                <input type="email" class="kt-input" id="test-email-input" 
-                                       placeholder="test@example.com">
+                                <div class="relative">
+                                    <input type="email" class="kt-input" id="test-email-input" 
+                                           placeholder="test@example.com">
+                                </div>
                             </div>
                             <button type="button" class="kt-btn kt-btn-outline" id="test-email-btn">
                                 <i class="ki-filled ki-send me-2"></i> Verstuur Test

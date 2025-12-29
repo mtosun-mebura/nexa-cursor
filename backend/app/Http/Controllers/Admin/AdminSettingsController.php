@@ -159,10 +159,22 @@ class AdminSettingsController extends Controller
         }
 
         try {
-            \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request) {
+            // Haal SMTP username op voor envelope sender
+            // De envelope sender (SMTP MAIL FROM) moet overeenkomen met de SMTP authenticatie gebruiker
+            // om te voorkomen dat de mailserver de verzending weigert
+            $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
+            $configuredFromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
+            $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+            
+            // Gebruik SMTP username als from address als deze beschikbaar is EN verschilt van configured address
+            // Dit voorkomt "not authorized to send on behalf of" errors wanneer de server dit niet toestaat
+            // Als SMTP username niet beschikbaar is of gelijk is aan configured address, gebruik de configured from address
+            $fromAddress = (!empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
+            
+            \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
                 $message->to($request->input('test_email'))
                     ->subject('Test Email - NEXA Skillmatching')
-                    ->from(config('mail.from.address', 'noreply@nexa-skillmatching.nl'), config('mail.from.name', 'NEXA Skillmatching'));
+                    ->from($fromAddress, $fromName);
             });
 
             $mailer = config('mail.default');
