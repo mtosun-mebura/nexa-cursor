@@ -46,6 +46,53 @@ backend/Thumbs.db
 backend/public/html/
 backend/public/assets/media/
 
+# Strict allowlist for specific media assets to be tracked
+# 1) Ignore everything under media recursively
+backend/public/assets/media/**
+# 2) Unignore media root and key subfolders so we can target specific files
+!backend/public/assets/media/
+!backend/public/assets/media/images/
+!backend/public/assets/media/app/
+
+# 3) Within images and app, ignore all by default, then re-allow exact files
+# images: ignore all
+backend/public/assets/media/images/**
+# app: ignore all
+backend/public/assets/media/app/**
+
+# images/2600x1200 (allow only these files)
+!backend/public/assets/media/images/2600x1200/
+!backend/public/assets/media/images/2600x1200/bg-1.png
+!backend/public/assets/media/images/2600x1200/bg-1-dark.png
+!backend/public/assets/media/images/2600x1200/bg-10.png
+!backend/public/assets/media/images/2600x1200/bg-10-dark.png
+
+# images/2600x1600 (allow only these files)
+!backend/public/assets/media/images/2600x1600/
+!backend/public/assets/media/images/2600x1600/1.png
+!backend/public/assets/media/images/2600x1600/1-dark.png
+!backend/public/assets/media/images/2600x1600/2.png
+!backend/public/assets/media/images/2600x1600/2-dark.png
+!backend/public/assets/media/images/2600x1600/bg-3.png
+!backend/public/assets/media/images/2600x1600/bg-3-dark.png
+
+# images/600x400 (allow only these files)
+!backend/public/assets/media/images/600x400/
+!backend/public/assets/media/images/600x400/10.jpg
+!backend/public/assets/media/images/600x400/11.jpg
+!backend/public/assets/media/images/600x400/12.jpg
+
+# images/600x600 (allow only these files)
+!backend/public/assets/media/images/600x600/
+!backend/public/assets/media/images/600x600/1.jpg
+!backend/public/assets/media/images/600x600/6.jpg
+
+# app assets (allow only these files)
+!backend/public/assets/media/app/
+!backend/public/assets/media/app/og-image.png
+!backend/public/assets/media/app/mini-logo-circle.svg
+!backend/public/assets/media/app/mini-logo-circle-dark.svg
+
 # Do not track backend/.gitignore file itself locally
 backend/.gitignore
 
