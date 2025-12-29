@@ -29,9 +29,9 @@
     <div class="grid lg:grid-cols-3 gap-5 lg:gap-7.5">
         <!-- Invoice Details -->
         <div class="lg:col-span-2">
-            <div class="kt-card">
-                <div class="kt-kt-card-header">
-                    <h3 class="kt-kt-card-title">
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
                         Factuurdetails
                     </h3>
                 </div>
@@ -172,9 +172,9 @@
         
         <!-- Actions Sidebar -->
         <div class="lg:col-span-1">
-            <div class="kt-card">
-                <div class="kt-kt-card-header">
-                    <h3 class="kt-kt-card-title">
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
                         Acties
                     </h3>
                 </div>
@@ -202,9 +202,9 @@
             </div>
             
             @if($invoice->payments && $invoice->payments->count() > 0)
-            <div class="kt-card mt-5">
-                <div class="kt-kt-card-header">
-                    <h3 class="kt-kt-card-title">
+            <div class="kt-card min-w-full mt-5">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
                         Betalingen
                     </h3>
                 </div>

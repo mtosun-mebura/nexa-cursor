@@ -115,7 +115,8 @@
                                            class="form-control @error('phone') is-invalid @enderror" 
                                            id="phone" 
                                            name="phone" 
-                                           value="{{ old('phone', $candidate->phone) }}">
+                                           value="{{ old('phone', $candidate->phone) }}"
+                                           style="width: 15ch;">
                                     @error('phone')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -225,7 +226,9 @@
                                            class="form-control @error('postal_code') is-invalid @enderror" 
                                            id="postal_code" 
                                            name="postal_code" 
-                                           value="{{ old('postal_code', $candidate->postal_code) }}">
+                                           value="{{ old('postal_code', $candidate->postal_code) }}"
+                                           style="text-transform: uppercase; width: 12ch;"
+                                           maxlength="8">
                                     @error('postal_code')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror

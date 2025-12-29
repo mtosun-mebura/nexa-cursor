@@ -66,6 +66,17 @@ trait TenantFilter
             return true;
         }
         
+        // Voor gebruikers: controleer of de resource een super-admin is
+        // Alleen super-admins kunnen andere super-admins zien
+        if ($tableName === 'users') {
+            // Als de resource een super-admin is, kan alleen een super-admin deze benaderen
+            if ($resource->hasRole('super-admin')) {
+                return false; // Niet-super-admins kunnen geen super-admins benaderen
+            }
+            // Voor niet-super-admin gebruikers: controleer bedrijfsfilter
+            return $resource->company_id === $user->company_id;
+        }
+        
         // Andere gebruikers kunnen alleen hun eigen bedrijfsresources benaderen
         if ($tableName === 'companies') {
             return $resource->id === $user->company_id;

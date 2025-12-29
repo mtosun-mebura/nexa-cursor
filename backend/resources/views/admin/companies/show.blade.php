@@ -11,6 +11,18 @@
     .dark .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
     }
+    /* Hide scrollbar in Google Maps InfoWindow */
+    .gm-style-iw-c {
+        overflow: hidden !important;
+    }
+    .gm-style-iw-d {
+        overflow: hidden !important;
+        max-height: none !important;
+    }
+    /* Remove close button container */
+    .gm-style-iw-chr {
+        display: none !important;
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -116,15 +128,15 @@
 <!-- Container -->
 <div class="kt-container-fixed">
     <!-- begin: grid -->
-    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5">
+    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 items-stretch">
         <!-- Bedrijfsinformatie -->
-        <div class="kt-card xl:w-auto xl:min-w-[400px] xl:max-w-[500px]">
+        <div class="kt-card flex-1 flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Bedrijfsinformatie
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 flex-1">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
@@ -166,10 +178,10 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="text-secondary-foreground font-normal">
+                        <td class="text-secondary-foreground font-normal align-top">
                             Beschrijving
                         </td>
-                        <td class="text-foreground font-normal">
+                        <td class="text-foreground font-normal break-words" style="word-wrap: break-word; overflow-wrap: break-word;">
                             {{ $company->description ?? '-' }}
                         </td>
                     </tr>
@@ -178,13 +190,13 @@
         </div>
 
         <!-- Contact Informatie -->
-        <div class="kt-card flex-1">
+        <div class="kt-card flex-1 flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Contact Informatie
                 </h3>
             </div>
-            <div class="kt-card-content">
+            <div class="kt-card-content flex-1">
                 <div class="flex flex-wrap items-start gap-5">
                     <div class="rounded-xl w-full md:w-80 min-h-52 flex-shrink-0" id="company_contact_map">
                     </div>
@@ -742,149 +754,250 @@
 </script>
 @endcan
 
-<!-- Leaflet Map Initialization -->
-<script src="{{ asset('assets/vendors/leaflet/leaflet.bundle.js') }}"></script>
+<!-- Google Maps Initialization -->
+@if(!empty($googleMapsApiKey))
 <script>
+// Store reference to initGoogleMap function
+let initGoogleMapFunction = null;
+
+// Define callback function globally before loading the script
+window.initGoogleMapsCallback = function() {
+    // Wait for DOM to be ready and function to be defined
+    function tryInit() {
+        if (typeof initGoogleMapFunction === 'function') {
+            initGoogleMapFunction();
+        } else {
+            setTimeout(tryInit, 50);
+        }
+    }
+    tryInit();
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const mapElement = document.getElementById('company_contact_map');
     if (!mapElement) return;
 
-    // Check if Leaflet is loaded
-    if (typeof L === 'undefined') {
-        console.error('Leaflet is not loaded');
-        return;
-    }
-
     @php
-        // Get address for geocoding
-        $address = '';
-        $lat = 52.2217; // Default to Enschede, Netherlands
-        $lng = 6.8937;
+        // Get address for geocoding and popup display
+        $streetAddress = '';
+        $postalCity = '';
+        $country = '';
+        $lat = null;
+        $lng = null;
+        $defaultZoom = $googleMapsZoom;
+        $fullAddress = '';
+        
         if ($company->mainLocation) {
-            $address = $company->mainLocation->street . ' ' . $company->mainLocation->house_number . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : '') . ', ' . $company->mainLocation->postal_code . ' ' . $company->mainLocation->city . ($company->mainLocation->country ? ', ' . $company->mainLocation->country : '');
+            $streetAddress = trim(($company->mainLocation->street ?? '') . ' ' . ($company->mainLocation->house_number ?? '') . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : ''));
+            $postalCity = trim(($company->mainLocation->postal_code ?? '') . ' ' . ($company->mainLocation->city ?? ''));
+            $country = $company->mainLocation->country ?: '';
+            $lat = $company->mainLocation->latitude;
+            $lng = $company->mainLocation->longitude;
+            
+            // Build full address for geocoding
+            $addressParts = array_filter([
+                $streetAddress,
+                $postalCity,
+                $country
+            ]);
+            $fullAddress = implode(', ', $addressParts);
         } elseif ($company->street || $company->city) {
-            $address = $company->street . ' ' . $company->house_number . ($company->house_number_extension ? '-' . $company->house_number_extension : '') . ', ' . $company->postal_code . ' ' . $company->city . ($company->country ? ', ' . $company->country : '');
+            $streetAddress = trim(($company->street ?? '') . ' ' . ($company->house_number ?? '') . ($company->house_number_extension ? '-' . $company->house_number_extension : ''));
+            $postalCity = trim(($company->postal_code ?? '') . ' ' . ($company->city ?? ''));
+            $country = $company->country ?: '';
+            $lat = $company->latitude;
+            $lng = $company->longitude;
+            
+            // Build full address for geocoding
+            $addressParts = array_filter([
+                $streetAddress,
+                $postalCity,
+                $country
+            ]);
+            $fullAddress = implode(', ', $addressParts);
+        }
+        
+        // Store original coordinates before any fallback
+        $originalLat = $lat;
+        $originalLng = $lng;
+        
+        // Check if we have valid stored coordinates (not fallback)
+        // Coordinates must be numeric, not null, not empty, and not zero (0,0 is invalid for Netherlands)
+        $hasCoordinates = false;
+        if ($originalLat !== null && $originalLng !== null) {
+            $originalLat = is_numeric($originalLat) ? (float)$originalLat : null;
+            $originalLng = is_numeric($originalLng) ? (float)$originalLng : null;
+            $hasCoordinates = $originalLat !== null && $originalLng !== null && 
+                             $originalLat != 0 && $originalLng != 0 &&
+                             abs($originalLat) <= 90 && abs($originalLng) <= 180;
+        }
+        
+        // Use original coordinates if we have them
+        if ($hasCoordinates) {
+            $lat = $originalLat;
+            $lng = $originalLng;
+        } elseif (empty($fullAddress) && empty($streetAddress) && empty($postalCity)) {
+            // Only use default center if we have no coordinates AND no address to geocode
+            $lat = $googleMapsCenterLat;
+            $lng = $googleMapsCenterLng;
+        } else {
+            // If we have an address but no coordinates, keep lat/lng as null for geocoding
+            $lat = null;
+            $lng = null;
         }
     @endphp
 
-    // Initialize map with default location
-    const leaflet = L.map('company_contact_map', {
-        center: [{{ $lat }}, {{ $lng }}],
-        zoom: 14,
-        zoomControl: false
-    });
+    function initGoogleMap() {
+        if (typeof google === 'undefined' || typeof google.maps === 'undefined' || typeof google.maps.Map === 'undefined') {
+            console.error('Google Maps API not loaded');
+            return;
+        }
 
-    // Add zoom controls in bottom-left corner
-    L.control.zoom({
-        position: 'bottomleft'
-    }).addTo(leaflet);
+        const hasCoordinates = {{ $hasCoordinates ? 'true' : 'false' }};
+        const mapLat = {{ $hasCoordinates && $lat ? $lat : 'null' }};
+        const mapLng = {{ $hasCoordinates && $lng ? $lng : 'null' }};
+        const mapZoom = hasCoordinates ? 16 : {{ $defaultZoom }};
+        const defaultCenterLat = {{ $googleMapsCenterLat }};
+        const defaultCenterLng = {{ $googleMapsCenterLng }};
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(leaflet);
+        @if($fullAddress || $streetAddress || $postalCity)
+        const streetAddress = @json($streetAddress);
+        const postalCity = @json($postalCity);
+        const country = @json($country);
+        const companyName = @json($company->name);
+        const fullAddress = @json($fullAddress);
+        const addressText = fullAddress || (streetAddress + (postalCity ? ', ' + postalCity : '') + (country ? ', ' + country : ''));
+        
+        // Determine initial map center
+        let initialCenter;
+        let initialZoom = mapZoom;
+        if (hasCoordinates) {
+            initialCenter = { lat: parseFloat(mapLat), lng: parseFloat(mapLng) };
+        } else if (addressText && addressText.trim() !== '') {
+            // If we have an address but no coordinates, we'll geocode it
+            // Use a wider zoom to show Netherlands while geocoding
+            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
+            initialZoom = 7; // Wider zoom to show Netherlands
+        } else {
+            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
+        }
 
-    // Custom marker icon
-    const leafletIcon = L.divIcon({
-        html: '<i class="ki-solid ki-geolocation text-3xl text-green-500"></i>',
-        bgPos: [10, 10],
-        iconAnchor: [20, 37],
-        popupAnchor: [0, -37],
-        className: 'leaflet-marker'
-    });
+        const googleMap = new google.maps.Map(mapElement, {
+            center: initialCenter,
+            zoom: initialZoom,
+            mapTypeId: '{{ $googleMapsType }}',
+            mapTypeControl: false,
+            mapId: 'COMPANY_MAP'
+        });
+        
+        @if($hasCoordinates)
+        // Use stored coordinates
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+            position: { lat: parseFloat(mapLat), lng: parseFloat(mapLng) },
+            map: googleMap,
+            title: addressText
+        });
+        
+        // Center map on marker
+        googleMap.setCenter({ lat: parseFloat(mapLat), lng: parseFloat(mapLng) });
+        googleMap.setZoom(16);
 
-    // Try to geocode the address
-    const address = @json($address);
-
-    if (address) {
-        // Use Nominatim (OpenStreetMap geocoding service) - free and no API key needed
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`)
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lng = parseFloat(data[0].lon);
-
-                    // Update map center
-                    leaflet.setView([lat, lng], 16);
-
-                    // Add marker with popup always visible
-                    const marker = L.marker([lat, lng], {
-                        icon: leafletIcon
-                    }).addTo(leaflet);
-
-                    // Create popup and ensure it's always visible
-                    marker.bindPopup(address, {
-                        closeButton: false,
-                        autoPan: true,
-                        autoPanPadding: [20, 20],
-                        offset: [0, -40],
-                        keepInView: true
+        // Create HTML for InfoWindow with company name and address
+        let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
+        if (companyName) {
+            addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
+        }
+        if (streetAddress) {
+            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
+        }
+        if (postalCity) {
+            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
+        }
+        if (country) {
+            addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
+        }
+        addressHtml += '</div>';
+        
+        const infoWindow = new google.maps.InfoWindow({
+            content: addressHtml,
+            maxWidth: 300
+        });
+        
+        infoWindow.open(googleMap, marker);
+        @else
+        // Geocode address immediately if no coordinates
+        if (addressText && addressText.trim() !== '') {
+            const geocoder = new google.maps.Geocoder();
+            // Execute geocoding immediately - this is async but will update the map as soon as results arrive
+            geocoder.geocode({ address: addressText }, function(results, status) {
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
+                    const lat = location.lat();
+                    const lng = location.lng();
+                    
+                    // Create marker at geocoded location
+                    const marker = new google.maps.marker.AdvancedMarkerElement({
+                        position: { lat: lat, lng: lng },
+                        map: googleMap,
+                        title: addressText
                     });
 
-                    // Open popup immediately and keep it open
-                    marker.openPopup();
-
-                    // Ensure popup stays visible
-                    setTimeout(() => {
-                        marker.openPopup();
-                    }, 100);
+                    // Create HTML for InfoWindow with company name and address
+                    let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
+                    if (companyName) {
+                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
+                    }
+                    if (streetAddress) {
+                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
+                    }
+                    if (postalCity) {
+                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
+                    }
+                    if (country) {
+                        addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
+                    }
+                    addressHtml += '</div>';
+                    
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: addressHtml,
+                        maxWidth: 300
+                    });
+                    
+                    // Open InfoWindow immediately
+                    infoWindow.open(googleMap, marker);
+                    
+                    // Center and zoom to the geocoded location AFTER marker and infowindow are created
+                    googleMap.setCenter({ lat: lat, lng: lng });
+                    googleMap.setZoom(16);
                 } else {
-                    // Fallback to default location
-                    leaflet.setView([{{ $lat }}, {{ $lng }}], 16);
-
-                    const marker = L.marker([{{ $lat }}, {{ $lng }}], {
-                        icon: leafletIcon
-                    }).addTo(leaflet);
-
-                    marker.bindPopup(address, {
-                        closeButton: false,
-                        autoPan: true,
-                        autoPanPadding: [20, 20],
-                        offset: [0, -40],
-                        keepInView: true
-                    });
-
-                    marker.openPopup();
-
-                    setTimeout(() => {
-                        marker.openPopup();
-                    }, 100);
+                    console.error('Geocoding failed for address:', addressText, 'Status:', status);
                 }
-            })
-            .catch(error => {
-                console.error('Geocoding error:', error);
-                // Fallback to default location
-                leaflet.setView([{{ $lat }}, {{ $lng }}], 16);
-
-                const marker = L.marker([{{ $lat }}, {{ $lng }}], {
-                    icon: leafletIcon
-                }).addTo(leaflet);
-
-                marker.bindPopup(address || 'Locatie niet gevonden', {
-                    closeButton: false,
-                    autoPan: true,
-                    autoPanPadding: [20, 20],
-                    offset: [0, -40],
-                    keepInView: true
-                });
-
-                marker.openPopup();
-
-                setTimeout(() => {
-                    marker.openPopup();
-                }, 100);
             });
-    } else {
-        // No address available, show default location
-        leaflet.setView([{{ $lat }}, {{ $lng }}], 14);
+        } else {
+            console.warn('No address text available for geocoding');
+        }
+        @endif
+        @endif
+    }
+    
+    // Store function reference globally
+    initGoogleMapFunction = initGoogleMap;
+    
+    // Fallback: also check if Google Maps is already loaded
+    if (typeof google !== 'undefined' && typeof google.maps !== 'undefined' && typeof google.maps.Map !== 'undefined') {
+        setTimeout(function() {
+            if (typeof initGoogleMapFunction === 'function') {
+                initGoogleMapFunction();
+            }
+        }, 100);
     }
 });
 </script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}&libraries=places,geocoding,marker&callback=initGoogleMapsCallback&loading=async"></script>
+@endif
 @endpush
 
 @push('styles')
-<link href="{{ asset('assets/vendors/leaflet/leaflet.bundle.css') }}" rel="stylesheet" type="text/css" />
 <style>
     /* Success and Danger button styles */
     .kt-btn-success {

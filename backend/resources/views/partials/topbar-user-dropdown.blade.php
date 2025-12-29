@@ -5,45 +5,45 @@
     <div class="shrink-0 cursor-pointer" data-kt-dropdown-toggle="true">
         @if(auth()->user()->photo_blob)
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                class="size-9 shrink-0 rounded-full border-2 border-green-500"
+                class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
                 src="{{ route('user.photo', auth()->id()) }}" />
         @else
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                class="size-9 shrink-0 rounded-full border-2 border-green-500"
+                class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
                 src="{{ asset('assets/media/avatars/300-2.png') }}" />
         @endif
     </div>
     <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
-        <div class="flex items-center justify-between gap-1.5 px-2.5 py-1.5">
-            <div class="flex items-center gap-2">
-                @if(auth()->user()->photo_blob)
-                    <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                        class="size-9 shrink-0 rounded-full border-2 border-green-500"
-                        src="{{ route('user.photo', auth()->id()) }}" />
-                @else
-                    <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                        class="size-9 shrink-0 rounded-full border-2 border-green-500"
-                        src="{{ asset('assets/media/avatars/300-2.png') }}" />
-                @endif
-                <div class="flex flex-col gap-1.5">
-                    <span class="text-sm font-semibold leading-none text-foreground">
-                        {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
-                    </span>
-                    <a class="hover:text-primary text-xs font-medium leading-none text-secondary-foreground"
-                        href="{{ route('admin.profile') }}">
-                        {{ auth()->user()->email }}
-                    </a>
-                </div>
-            </div>
-            @if(auth()->user()->hasRole('super-admin'))
-                <span class="kt-badge kt-badge-sm kt-badge-primary kt-badge-outline">
-                    Admin
-                </span>
+        <div class="flex items-start gap-2 px-2.5 py-1.5">
+            @if(auth()->user()->photo_blob)
+                <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+                    class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
+                    src="{{ route('user.photo', auth()->id()) }}" />
             @else
-                <span class="kt-badge kt-badge-sm kt-badge-success kt-badge-outline">
-                    User
-                </span>
+                <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+                    class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
+                    src="{{ asset('assets/media/avatars/300-2.png') }}" />
             @endif
+            <div class="flex flex-col gap-1.5">
+                <span class="text-sm font-semibold leading-none text-foreground">
+                    {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
+                </span>
+                <a class="hover:text-primary text-xs font-medium leading-none text-secondary-foreground"
+                    href="{{ route('admin.profile') }}">
+                    {{ auth()->user()->email }}
+                </a>
+                @if(auth()->user()->roles->count() > 0)
+                    @foreach(auth()->user()->roles as $role)
+                        <span class="kt-badge kt-badge-sm kt-badge-primary me-1">
+                            {{ ucfirst(str_replace('-', ' ', $role->name)) }}
+                        </span>
+                    @endforeach
+                @else
+                    <span class="kt-badge kt-badge-sm kt-badge-success me-1">
+                        User
+                    </span>
+                @endif
+            </div>
         </div>
         <ul class="kt-dropdown-menu-sub">
             <li>

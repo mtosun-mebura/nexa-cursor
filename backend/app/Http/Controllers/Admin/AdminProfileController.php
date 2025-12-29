@@ -7,9 +7,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\EnvService;
 
 class AdminProfileController extends Controller
 {
+    protected $envService;
+
+    public function __construct(EnvService $envService)
+    {
+        $this->envService = $envService;
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -18,7 +26,13 @@ class AdminProfileController extends Controller
         // Calculate profile completeness percentage
         $profileCompleteness = $this->calculateProfileCompleteness($user);
         
-        return view('admin.pages.profile', compact('user', 'profileCompleteness'));
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+        
+        return view('admin.pages.profile', compact('user', 'profileCompleteness', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
     
     private function calculateProfileCompleteness($user)

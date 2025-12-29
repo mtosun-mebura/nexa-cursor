@@ -1,5 +1,7 @@
+@props(['id' => null])
+
 @if(isset($errors) && $errors->any())
-    <div class="kt-card min-w-full mb-5" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);">
+    <div class="kt-card min-w-full mb-5" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);" @if($id) id="{{ $id }}" @endif>
         <div class="kt-card-content p-5 lg:px-7 lg:py-6">
             <div class="flex items-center gap-3">
                 <div class="flex-shrink-0">

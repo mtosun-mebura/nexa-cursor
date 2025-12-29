@@ -644,16 +644,24 @@
             return false;
         }, true);
         
-        // Make table rows clickable (except actions column)
-        document.querySelectorAll('tbody tr.user-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
+        // Make table rows clickable (except actions column) - using event delegation
+        // This works even after filtering/searching because we listen on tbody
+        const tbody = document.querySelector('#users_table table tbody');
+        if (tbody) {
+            tbody.addEventListener('click', function(e) {
+                // Find the closest row
+                const row = e.target.closest('tr.user-row');
+                if (!row) {
+                    return;
+                }
+                
                 // Don't navigate if clicking on actions column or menu
                 if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
                     return;
                 }
                 
                 // Get user ID from the name link
-                const nameLink = this.querySelector('td:first-child a[data-user-id]');
+                const nameLink = row.querySelector('td:first-child a[data-user-id]');
                 if (nameLink) {
                     const userId = nameLink.getAttribute('data-user-id');
                     if (userId) {
@@ -661,7 +669,7 @@
                     }
                 }
             });
-        });
+        }
     });
 </script>
 @endpush

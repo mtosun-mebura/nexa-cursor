@@ -28,262 +28,289 @@
         
         <div class="grid lg:grid-cols-2 gap-5 lg:gap-7.5">
             <!-- Basic Information -->
-            <div class="kt-card">
-                <div class="kt-kt-card-header">
-                    <h3 class="kt-kt-card-title">
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
                         Basis Informatie
                     </h3>
                 </div>
-                <div class="kt-card-content flex flex-col gap-4 p-5 lg:p-7.5">
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="company_id">
-                            Bedrijf <span class="text-destructive">*</span>
-                        </label>
-                        <select class="kt-select" name="company_id" id="company_id" required>
-                            <option value="">Selecteer bedrijf</option>
-                            @foreach($companies as $company)
-                                <option value="{{ $company->id }}" {{ old('company_id', $invoice->company_id) == $company->id ? 'selected' : '' }}>
-                                    {{ $company->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('company_id')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="job_match_id">
-                            Match (optioneel)
-                        </label>
-                        <select class="kt-select" name="job_match_id" id="job_match_id">
-                            <option value="">Geen match</option>
-                            @foreach($jobMatches as $match)
-                                <option value="{{ $match->id }}" {{ old('job_match_id', $invoice->job_match_id) == $match->id ? 'selected' : '' }}>
-                                    Match #{{ $match->id }} - {{ $match->company->name ?? 'N/A' }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('job_match_id')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="invoice_date">
-                            Factuurdatum <span class="text-destructive">*</span>
-                        </label>
-                        <!--begin::Input with Calendar-->
-                        <div class="kt-input w-64 @error('invoice_date') border-destructive @enderror">
-                            <i class="ki-outline ki-calendar"></i>
-                            <input class="grow" 
-                                   name="invoice_date" 
-                                   id="invoice_date"
-                                   value="{{ old('invoice_date', $invoice->invoice_date->format('Y-m-d')) }}"
-                                   data-kt-date-picker="true" 
-                                   data-kt-date-picker-input-mode="true" 
-                                   data-kt-date-picker-position-to-input="left"
-                                   data-kt-date-picker-format="yyyy-MM-dd"
-                                   placeholder="Selecteer datum" 
-                                   readonly 
-                                   type="text"
-                                   required/>
-                        </div>
-                        @error('invoice_date')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                        <!--end::Input with Calendar-->
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="due_date">
-                            Vervaldatum <span class="text-destructive">*</span>
-                        </label>
-                        <!--begin::Input with Calendar-->
-                        <div class="kt-input w-64 @error('due_date') border-destructive @enderror">
-                            <i class="ki-outline ki-calendar"></i>
-                            <input class="grow" 
-                                   name="due_date" 
-                                   id="due_date"
-                                   value="{{ old('due_date', $invoice->due_date->format('Y-m-d')) }}"
-                                   data-kt-date-picker="true" 
-                                   data-kt-date-picker-input-mode="true" 
-                                   data-kt-date-picker-position-to-input="left"
-                                   data-kt-date-picker-format="yyyy-MM-dd"
-                                   placeholder="Selecteer datum" 
-                                   readonly 
-                                   type="text"
-                                   required/>
-                        </div>
-                        @error('due_date')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                        <!--end::Input with Calendar-->
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="status">
-                            Status <span class="text-destructive">*</span>
-                        </label>
-                        <select class="kt-select" name="status" id="status" required>
-                            <option value="draft" {{ old('status', $invoice->status) == 'draft' ? 'selected' : '' }}>Concept</option>
-                            <option value="in_progress" {{ old('status', $invoice->status) == 'in_progress' ? 'selected' : '' }}>In behandeling</option>
-                            <option value="sent" {{ old('status', $invoice->status) == 'sent' ? 'selected' : '' }}>Verzonden</option>
-                            <option value="paid" {{ old('status', $invoice->status) == 'paid' ? 'selected' : '' }}>Betaald</option>
-                            <option value="cancelled" {{ old('status', $invoice->status) == 'cancelled' ? 'selected' : '' }}>Geannuleerd</option>
-                        </select>
-                        @error('status')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Bedrijf <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <select class="kt-select" name="company_id" id="company_id" required>
+                                    <option value="">Selecteer bedrijf</option>
+                                    @foreach($companies as $company)
+                                        <option value="{{ $company->id }}" {{ old('company_id', $invoice->company_id) == $company->id ? 'selected' : '' }}>
+                                            {{ $company->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('company_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Match (optioneel)
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <select class="kt-select" name="job_match_id" id="job_match_id">
+                                    <option value="">Geen match</option>
+                                    @foreach($jobMatches as $match)
+                                        <option value="{{ $match->id }}" {{ old('job_match_id', $invoice->job_match_id) == $match->id ? 'selected' : '' }}>
+                                            Match #{{ $match->id }} - {{ $match->company->name ?? 'N/A' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('job_match_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Factuurdatum <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <div class="kt-input w-64 @error('invoice_date') border-destructive @enderror">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="invoice_date" 
+                                           id="invoice_date"
+                                           value="{{ old('invoice_date', $invoice->invoice_date->format('Y-m-d')) }}"
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"
+                                           required/>
+                                </div>
+                                @error('invoice_date')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Vervaldatum <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <div class="kt-input w-64 @error('due_date') border-destructive @enderror">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="due_date" 
+                                           id="due_date"
+                                           value="{{ old('due_date', $invoice->due_date->format('Y-m-d')) }}"
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"
+                                           required/>
+                                </div>
+                                @error('due_date')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Status <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <select class="kt-select" name="status" id="status" required>
+                                    <option value="draft" {{ old('status', $invoice->status) == 'draft' ? 'selected' : '' }}>Concept</option>
+                                    <option value="in_progress" {{ old('status', $invoice->status) == 'in_progress' ? 'selected' : '' }}>In behandeling</option>
+                                    <option value="sent" {{ old('status', $invoice->status) == 'sent' ? 'selected' : '' }}>Verzonden</option>
+                                    <option value="paid" {{ old('status', $invoice->status) == 'paid' ? 'selected' : '' }}>Betaald</option>
+                                    <option value="cancelled" {{ old('status', $invoice->status) == 'cancelled' ? 'selected' : '' }}>Geannuleerd</option>
+                                </select>
+                                @error('status')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
                 </div>
             </div>
 
             <!-- Amount Information -->
-            <div class="kt-card">
-                <div class="kt-kt-card-header">
-                    <h3 class="kt-kt-card-title">
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
                         Bedrag Informatie
                     </h3>
                 </div>
-                <div class="kt-card-content flex flex-col gap-4 p-5 lg:p-7.5">
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="amount">
-                            Bedrag (excl. BTW) <span class="text-destructive">*</span>
-                        </label>
-                        <input class="kt-input" 
-                               type="number" 
-                               name="amount" 
-                               id="amount"
-                               value="{{ old('amount', $invoice->amount) }}"
-                               step="0.01"
-                               min="0"
-                               required>
-                        @error('amount')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="tax_rate">
-                            BTW Percentage
-                        </label>
-                        @php
-                            $currentTaxRate = $invoice->amount > 0 ? ($invoice->tax_amount / $invoice->amount) * 100 : ($settings->default_tax_rate ?? 21);
-                            $currentTaxRate = (int)round($currentTaxRate);
-                        @endphp
-                        <input class="kt-input" 
-                               type="number" 
-                               name="tax_rate" 
-                               id="tax_rate"
-                               value="{{ old('tax_rate', $currentTaxRate) }}"
-                               step="1"
-                               min="0"
-                               max="100">
-                        <span class="text-xs text-secondary-foreground">Standaard: {{ (int)($settings->default_tax_rate ?? 21) }}%</span>
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="tax_amount">
-                            BTW Bedrag
-                        </label>
-                        <input class="kt-input" 
-                               type="text" 
-                               name="tax_amount_display" 
-                               id="tax_amount"
-                               value="{{ old('tax_amount', '€ ' . number_format($invoice->tax_amount, 2, ',', '.')) }}"
-                               readonly>
-                        <input type="hidden" name="tax_amount" id="tax_amount_hidden" value="{{ old('tax_amount', $invoice->tax_amount) }}">
-                        @error('tax_amount')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="total_amount">
-                            Totaal Bedrag (incl. BTW) <span class="text-destructive">*</span>
-                        </label>
-                        <input class="kt-input font-semibold" 
-                               type="text" 
-                               name="total_amount_display" 
-                               id="total_amount"
-                               value="{{ old('total_amount', '€ ' . number_format($invoice->total_amount, 2, ',', '.')) }}"
-                               required
-                               readonly>
-                        <input type="hidden" name="total_amount" id="total_amount_hidden" value="{{ old('total_amount', $invoice->total_amount) }}">
-                        @error('total_amount')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono" for="currency">
-                            Valuta <span class="text-destructive">*</span>
-                        </label>
-                        <select class="kt-select" name="currency" id="currency" required>
-                            <option value="EUR" {{ old('currency', $invoice->currency) == 'EUR' ? 'selected' : '' }}>EUR</option>
-                            <option value="USD" {{ old('currency', $invoice->currency) == 'USD' ? 'selected' : '' }}>USD</option>
-                        </select>
-                        @error('currency')
-                            <span class="text-sm text-destructive">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="flex items-center gap-2">
-                        <input class="kt-checkbox" 
-                               type="checkbox" 
-                               name="is_partial" 
-                               id="is_partial"
-                               value="1"
-                               {{ old('is_partial', $invoice->is_partial) ? 'checked' : '' }}>
-                        <label class="kt-checkbox-label" for="is_partial">
-                            Deelfactuur
-                        </label>
-                    </div>
-                    
-                    <div id="partial-fields" class="{{ old('is_partial', $invoice->is_partial) ? '' : 'hidden' }} flex flex-col gap-4">
-                        <div class="flex flex-col gap-1">
-                            <label class="kt-form-label font-normal text-mono" for="parent_invoice_number">
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Bedrag (excl. BTW) <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input @error('amount') border-destructive @enderror" 
+                                       type="number" 
+                                       name="amount" 
+                                       id="amount"
+                                       value="{{ old('amount', $invoice->amount) }}"
+                                       step="0.01"
+                                       min="0"
+                                       required>
+                                @error('amount')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                BTW Percentage
+                            </td>
+                            <td class="min-w-48 w-full">
+                                @php
+                                    $currentTaxRate = $invoice->amount > 0 ? ($invoice->tax_amount / $invoice->amount) * 100 : ($settings->default_tax_rate ?? 21);
+                                    $currentTaxRate = (int)round($currentTaxRate);
+                                @endphp
+                                <input class="kt-input" 
+                                       type="number" 
+                                       name="tax_rate" 
+                                       id="tax_rate"
+                                       value="{{ old('tax_rate', $currentTaxRate) }}"
+                                       step="1"
+                                       min="0"
+                                       max="100">
+                                <div class="text-xs text-secondary-foreground mt-1">Standaard: {{ (int)($settings->default_tax_rate ?? 21) }}%</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                BTW Bedrag
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input" 
+                                       type="text" 
+                                       name="tax_amount_display" 
+                                       id="tax_amount"
+                                       value="{{ old('tax_amount', '€ ' . number_format($invoice->tax_amount, 2, ',', '.')) }}"
+                                       readonly>
+                                <input type="hidden" name="tax_amount" id="tax_amount_hidden" value="{{ old('tax_amount', $invoice->tax_amount) }}">
+                                @error('tax_amount')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Totaal Bedrag (incl. BTW) <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input font-semibold @error('total_amount') border-destructive @enderror" 
+                                       type="text" 
+                                       name="total_amount_display" 
+                                       id="total_amount"
+                                       value="{{ old('total_amount', '€ ' . number_format($invoice->total_amount, 2, ',', '.')) }}"
+                                       required
+                                       readonly>
+                                <input type="hidden" name="total_amount" id="total_amount_hidden" value="{{ old('total_amount', $invoice->total_amount) }}">
+                                @error('total_amount')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Valuta <span class="text-destructive">*</span>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <select class="kt-select" name="currency" id="currency" required>
+                                    <option value="EUR" {{ old('currency', $invoice->currency) == 'EUR' ? 'selected' : '' }}>EUR</option>
+                                    <option value="USD" {{ old('currency', $invoice->currency) == 'USD' ? 'selected' : '' }}>USD</option>
+                                </select>
+                                @error('currency')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Deelfactuur
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <div class="flex items-center gap-2">
+                                    <input class="kt-checkbox" 
+                                           type="checkbox" 
+                                           name="is_partial" 
+                                           id="is_partial"
+                                           value="1"
+                                           {{ old('is_partial', $invoice->is_partial) ? 'checked' : '' }}>
+                                    <label class="kt-checkbox-label" for="is_partial">
+                                        Deelfactuur
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr id="partial-fields-row" class="{{ old('is_partial', $invoice->is_partial) ? '' : 'hidden' }}">
+                            <td class="min-w-56 text-secondary-foreground font-normal">
                                 Ouder Factuurnummer
-                            </label>
-                            <input class="kt-input" 
-                                   type="text" 
-                                   name="parent_invoice_number" 
-                                   id="parent_invoice_number"
-                                   value="{{ old('parent_invoice_number', $invoice->parent_invoice_number) }}">
-                        </div>
-                        
-                        <div class="flex flex-col gap-1">
-                            <label class="kt-form-label font-normal text-mono" for="partial_number">
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input" 
+                                       type="text" 
+                                       name="parent_invoice_number" 
+                                       id="parent_invoice_number"
+                                       value="{{ old('parent_invoice_number', $invoice->parent_invoice_number) }}">
+                            </td>
+                        </tr>
+                        <tr id="partial-number-row" class="{{ old('is_partial', $invoice->is_partial) ? '' : 'hidden' }}">
+                            <td class="min-w-56 text-secondary-foreground font-normal">
                                 Deelnummer
-                            </label>
-                            <input class="kt-input" 
-                                   type="number" 
-                                   name="partial_number" 
-                                   id="partial_number"
-                                   value="{{ old('partial_number', $invoice->partial_number ?? 1) }}"
-                                   min="1">
-                        </div>
-                    </div>
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input" 
+                                       type="number" 
+                                       name="partial_number" 
+                                       id="partial_number"
+                                       value="{{ old('partial_number', $invoice->partial_number ?? 1) }}"
+                                       min="1">
+                            </td>
+                        </tr>
+                    </table>
                 </div>
             </div>
 
             <!-- Notes -->
-            <div class="kt-card lg:col-span-2">
-                <div class="kt-kt-card-header">
-                    <h3 class="kt-kt-card-title">
+            <div class="kt-card min-w-full lg:col-span-2">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
                         Opmerkingen
                     </h3>
                 </div>
-                <div class="kt-card-content p-5 lg:p-7.5">
-                    <textarea class="kt-input" 
-                              name="notes" 
-                              id="notes"
-                              rows="4"
-                              placeholder="Optionele opmerkingen...">{{ old('notes', $invoice->notes) }}</textarea>
-                    @error('notes')
-                        <span class="text-sm text-destructive">{{ $message }}</span>
-                    @enderror
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                                Opmerkingen
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <textarea class="kt-input @error('notes') border-destructive @enderror" 
+                                          name="notes" 
+                                          id="notes"
+                                          rows="4"
+                                          placeholder="Optionele opmerkingen...">{{ old('notes', $invoice->notes) }}</textarea>
+                                @error('notes')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
                 </div>
             </div>
         </div>
@@ -308,14 +335,17 @@
     // Wacht tot DOM volledig geladen is
     function initInvoiceCalculation() {
         const isPartialCheckbox = document.getElementById('is_partial');
-        const partialFields = document.getElementById('partial-fields');
         
         if (isPartialCheckbox) {
             isPartialCheckbox.addEventListener('change', function() {
+                const partialFieldsRow = document.getElementById('partial-fields-row');
+                const partialNumberRow = document.getElementById('partial-number-row');
                 if (this.checked) {
-                    partialFields.classList.remove('hidden');
+                    if (partialFieldsRow) partialFieldsRow.classList.remove('hidden');
+                    if (partialNumberRow) partialNumberRow.classList.remove('hidden');
                 } else {
-                    partialFields.classList.add('hidden');
+                    if (partialFieldsRow) partialFieldsRow.classList.add('hidden');
+                    if (partialNumberRow) partialNumberRow.classList.add('hidden');
                 }
             });
         }

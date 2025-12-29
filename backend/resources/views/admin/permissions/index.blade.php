@@ -5,51 +5,14 @@
 @push('scripts')
 <script>
 // Prevent sidebar accordion from closing when clicking Bulk Bewerken button
+// Simplified approach: just prevent clicks on Bulk Bewerken from closing the sidebar
 (function() {
-    // Initialize global flag
-    window.isBulkEditClick = false;
-    
-    // Track when Bulk Bewerken button is clicked - only handle Bulk Bewerken specifically
-    // Don't interfere with any other clicks
     document.addEventListener('DOMContentLoaded', function() {
-        // Only add handler to Bulk Bewerken button specifically, not all clicks
         const bulkEditButton = document.querySelector('button.kt-btn-primary');
         if (bulkEditButton && bulkEditButton.textContent.includes('Bulk Bewerken')) {
             bulkEditButton.addEventListener('click', function(e) {
-                window.isBulkEditClick = true;
-                setTimeout(function() {
-                    window.isBulkEditClick = false;
-                }, 300);
-                
-                // Prevent sidebar accordion from closing
-                const sidebarAccordion = document.querySelector('#sidebar_menu .kt-menu-item[data-kt-menu-item-toggle="accordion"]');
-                if (sidebarAccordion && sidebarAccordion.classList.contains('show')) {
-                    // Use MutationObserver to restore show class if removed
-                    const observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                                if (!sidebarAccordion.classList.contains('show') && mutation.oldValue && mutation.oldValue.includes('show')) {
-                                    sidebarAccordion.classList.add('show');
-                                    const accordionContent = sidebarAccordion.querySelector('.kt-menu-accordion');
-                                    if (accordionContent) {
-                                        accordionContent.classList.add('show');
-                                    }
-                                }
-                            }
-                        });
-                    });
-                    
-                    observer.observe(sidebarAccordion, {
-                        attributes: true,
-                        attributeFilter: ['class'],
-                        attributeOldValue: true
-                    });
-                    
-                    // Stop observing after a short delay
-                    setTimeout(function() {
-                        observer.disconnect();
-                    }, 500);
-                }
+                // Just stop propagation to prevent sidebar from closing
+                e.stopPropagation();
             });
         }
     });
@@ -89,11 +52,11 @@
         position: fixed !important;
         z-index: 99999 !important;
     }
-    
+
     #permissions_table td:last-child .kt-menu-item.show {
         z-index: 99999 !important;
     }
-    
+
     #permissions_table td:last-child .kt-menu-item.show .kt-menu-dropdown {
         z-index: 99999 !important;
     }
@@ -160,6 +123,134 @@
         width: 24px !important;
         height: 24px !important;
         font-size: 24px !important;
+    }
+
+    /* Make card header sticky so it stays on top when scrolling */
+    /* Create a new stacking context for the card */
+    .kt-card.kt-card-grid {
+        position: relative;
+        overflow: visible !important;
+        border-radius: var(--radius) !important;
+        transform: translateZ(0); /* Force new stacking context */
+        will-change: transform; /* Optimize for sticky */
+    }
+    
+    /* Page header must always be on top */
+    #header.kt-header {
+        z-index: 9999 !important;
+    }
+    
+    /* Card header must be below page header but above content */
+    .kt-card-header {
+        position: sticky !important;
+        top: 70px !important; /* Below page header height */
+        z-index: 9998 !important; /* Below page header z-index 9999 */
+        background-color: var(--background) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border-top-left-radius: inherit !important;
+        border-top-right-radius: inherit !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 1.25rem !important;
+        transform: translateZ(0); /* Force new stacking context */
+    }
+    
+    /* Icons in buttons should have z-index 1 */
+    .ki-filled {
+        position: relative;
+        z-index: 1 !important;
+    }
+    
+    /* ALL header content must have lower z-index to scroll behind */
+    .kt-card-header h3,
+    .kt-card-header .kt-card-title,
+    .kt-card-header .flex,
+    .kt-card-header form,
+    .kt-card-header .kt-input,
+    .kt-card-header input,
+    .kt-card-header .kt-select-wrapper,
+    .kt-card-header .kt-select,
+    .kt-card-header select,
+    .kt-card-header .kt-btn,
+    .kt-card-header button,
+    .kt-card-header a,
+    .kt-card-header label,
+    .kt-card-header i,
+    .kt-card-header span,
+    .kt-card-header div {
+        position: relative !important;
+        z-index: 0 !important;
+    }
+    
+    /* But dropdowns in header should still appear above when open */
+    .kt-card-header .kt-select-dropdown,
+    .kt-card-header .kt-select-options,
+    .kt-card-header .kt-menu-dropdown {
+        position: fixed !important;
+        z-index: 1001 !important;
+    }
+    
+    /* Content must be behind header - use negative z-index or lower positive */
+    .kt-card-content {
+        position: relative;
+        z-index: 1 !important;
+        transform: translateZ(0); /* Force new stacking context */
+    }
+    
+    /* All content inside must respect the lower z-index */
+    .kt-card-content > * {
+        position: relative;
+        z-index: auto !important;
+    }
+    
+    /* Table and all its children must be behind header */
+    .kt-card-content #permissions_table,
+    .kt-card-content [data-kt-datatable],
+    .kt-card-content .kt-scrollable-x-auto,
+    .kt-card-content .kt-table {
+        position: relative !important;
+        z-index: 1 !important;
+    }
+    
+    /* Table rows and cells must be behind */
+    .kt-card-content tbody,
+    .kt-card-content thead,
+    .kt-card-content tr,
+    .kt-card-content td,
+    .kt-card-content th {
+        position: relative !important;
+        z-index: 1 !important;
+    }
+    
+    /* Exception: dropdowns in table should still work (they use fixed positioning) */
+    .kt-card-content .kt-menu-dropdown,
+    .kt-card-content .kt-select-dropdown {
+        z-index: 100000 !important;
+    }
+    
+    /* Dropdowns in header should appear above everything when open */
+    .kt-card-header .kt-select-wrapper {
+        position: relative;
+        z-index: 1001 !important;
+    }
+    
+    .kt-card-header .kt-select-dropdown,
+    .kt-card-header .kt-select-options {
+        position: fixed !important;
+        z-index: 10000 !important;
+    }
+    
+    /* Menu dropdowns in header should appear above */
+    .kt-card-header .kt-menu {
+        position: relative;
+        z-index: 1001 !important;
+    }
+    
+    .kt-card-header .kt-menu-dropdown {
+        position: fixed !important;
+        z-index: 10000 !important;
     }
 </style>
 @endpush
@@ -620,8 +711,8 @@
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
                                                         <div class="kt-menu-item">
-                                                            <form action="{{ route('admin.permissions.destroy', $permission) }}" 
-                                                                  method="POST" 
+                                                            <form action="{{ route('admin.permissions.destroy', $permission) }}"
+                                                                  method="POST"
                                                                   style="display: inline;"
                                                                   onsubmit="return confirm('Weet je zeker dat je deze permissie wilt verwijderen?')">
                                                                 @csrf
@@ -753,70 +844,10 @@
                 console.warn('KTComponents initialization failed:', error);
             }
         }
-        
-        // Add click listeners to all menu toggles
-        function initializeMenuClicks() {
-            const menuToggles = document.querySelectorAll('#permissions_table .kt-menu-toggle');
-            
-            menuToggles.forEach(function(toggle) {
-                // Remove any existing listeners by cloning
-                const newToggle = toggle.cloneNode(true);
-                toggle.parentNode.replaceChild(newToggle, toggle);
-                
-                // Add click listener that manually toggles the menu
-                newToggle.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    
-                    // Find menu item and dropdown
-                    const menuItem = newToggle.closest('.kt-menu-item');
-                    const dropdown = menuItem ? menuItem.querySelector('.kt-menu-dropdown') : null;
-                    
-                    if (!menuItem || !dropdown) {
-                        return;
-                    }
-                    
-                    const isOpen = menuItem.classList.contains('show');
-                    
-                    // Close all other menus first
-                    document.querySelectorAll('#permissions_table .kt-menu-item.show').forEach(function(item) {
-                        if (item !== menuItem) {
-                            item.classList.remove('show');
-                            const otherDropdown = item.querySelector('.kt-menu-dropdown');
-                            if (otherDropdown) {
-                                otherDropdown.classList.remove('show');
-                            }
-                        }
-                    });
-                    
-                    // Toggle this menu
-                    if (isOpen) {
-                        menuItem.classList.remove('show');
-                        dropdown.classList.remove('show');
-                    } else {
-                        menuItem.classList.add('show');
-                        dropdown.classList.add('show');
-                        
-                        // Position dropdown using fixed positioning to avoid stacking context issues
-                        const buttonRect = newToggle.getBoundingClientRect();
-                        
-                        dropdown.style.position = 'fixed';
-                        dropdown.style.left = (buttonRect.right - 175) + 'px'; // Align right edge with button
-                        dropdown.style.top = (buttonRect.bottom + 5) + 'px';
-                        dropdown.style.right = 'auto';
-                        dropdown.style.minWidth = '175px';
-                        dropdown.style.width = '175px';
-                        dropdown.style.zIndex = '99999';
-                    }
-                }, true); // Use capture phase to catch early
-            });
-        }
-        
-        // Initialize menu listeners
-        initializeMenuClicks();
-        setTimeout(initializeMenuClicks, 100);
-        setTimeout(initializeMenuClicks, 500);
-        setTimeout(initializeMenuClicks, 1000);
-        
+
+        // REMOVED: initializeMenuClicks() - This was interfering with KTMenu and sidebar accordions
+        // Let KTMenu handle all menu toggles, just like the roles page does
+
         // Initialize KTMenu for all menus (including table action menus)
         // This should be called after DOM is ready
         function initKTMenu() {
@@ -828,14 +859,24 @@
                 }
             }
         }
-        
+
         // Initialize immediately
         initKTMenu();
-        
+
         // Also try after delays in case menus are added dynamically
         setTimeout(initKTMenu, 100);
         setTimeout(initKTMenu, 500);
         setTimeout(initKTMenu, 1000);
+        
+        // Re-initialize KTMenu after datatable updates to ensure 3-dots menus work
+        const permissionsTable = document.getElementById('permissions_table');
+        if (permissionsTable) {
+            const tableObserver = new MutationObserver(function() {
+                // Re-initialize KTMenu when table content changes
+                setTimeout(initKTMenu, 50);
+            });
+            tableObserver.observe(permissionsTable, { childList: true, subtree: true });
+        }
 
 
         // Select All functionality - Wait for elements to be available
@@ -977,7 +1018,14 @@
             document.addEventListener('change', selectAllHandler);
 
             // Also listen for click events - but only for select-all checkbox
+            // Use bubble phase (false) to avoid interfering with KTMenu and other handlers
             document.addEventListener('click', function(e) {
+                // Skip if click is on sidebar menu
+                const sidebarMenuEl = document.getElementById('sidebar_menu');
+                if (sidebarMenuEl && sidebarMenuEl.contains(e.target)) {
+                    return; // Don't interfere with sidebar clicks
+                }
+
                 // Only handle clicks on the select-all checkbox, ignore everything else
                 if (e.target && e.target.id === 'select-all-permissions') {
                     e.stopPropagation(); // Prevent event from bubbling to other handlers
@@ -985,7 +1033,7 @@
                         selectAllHandler(e);
                     }, 10);
                 }
-            }, true); // Use capture phase to handle before other listeners
+            }, false); // Use bubble phase to avoid interfering with KTMenu
 
             // Individual checkbox handlers
             document.addEventListener('change', function(e) {
@@ -1018,73 +1066,88 @@
         setTimeout(function() {
             initSelectAll();
         }, 1000);
-        
-        // Prevent sidebar accordion from closing when clicking anywhere on the page
-        // Monitor all accordion items and restore show class if removed unintentionally
+
+        // Fix for sidebar accordion closing immediately after opening
+        // We monitor accordion state changes and ensure proper cleanup
         const sidebarMenu = document.getElementById('sidebar_menu');
+        
+        // Track which accordion was just opened to prevent immediate closing
+        let recentlyOpenedAccordion = null;
+        let accordionOpenTime = 0;
+        
         if (sidebarMenu) {
             const accordionItems = sidebarMenu.querySelectorAll('.kt-menu-item-accordion');
-            const accordionObservers = new Map();
             
-            function setupAccordionProtection(accordion) {
-                // Only protect if accordion is open and has 'here' class (active page)
-                const menuLink = accordion.querySelector('.kt-menu-link');
-                const shouldBeOpen = accordion.classList.contains('show') || (menuLink && menuLink.classList.contains('here'));
-                
-                if (shouldBeOpen && !accordionObservers.has(accordion)) {
-                    const observer = new MutationObserver(function(mutations) {
-                        mutations.forEach(function(mutation) {
-                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                                const wasOpen = mutation.oldValue && mutation.oldValue.includes('show');
-                                const isNowClosed = !accordion.classList.contains('show');
+            accordionItems.forEach(function(accordionItem) {
+                // Monitor accordion state changes
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            const wasOpen = mutation.oldValue && mutation.oldValue.includes('show');
+                            const isNowOpen = accordionItem.classList.contains('show');
+                            
+                            if (wasOpen !== isNowOpen) {
+                                // Track when accordion is opened
+                                if (!wasOpen && isNowOpen) {
+                                    recentlyOpenedAccordion = accordionItem;
+                                    accordionOpenTime = Date.now();
+                                    
+                                    // Ensure all other accordions are properly closed
+                                    accordionItems.forEach(function(otherItem) {
+                                        if (otherItem !== accordionItem && otherItem.classList.contains('show')) {
+                                            // Close other accordion properly
+                                            otherItem.classList.remove('show');
+                                            const otherContent = otherItem.querySelector('.kt-menu-accordion');
+                                            if (otherContent) {
+                                                otherContent.classList.remove('show');
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Clear flag after 300ms
+                                    setTimeout(function() {
+                                        if (recentlyOpenedAccordion === accordionItem) {
+                                            recentlyOpenedAccordion = null;
+                                        }
+                                    }, 300);
+                                }
                                 
-                                // If accordion was open and is now closed, but should stay open
-                                if (wasOpen && isNowClosed) {
-                                    const menuLink = accordion.querySelector('.kt-menu-link');
-                                    // Only restore if this accordion has the 'here' class (active page)
-                                    if (menuLink && menuLink.classList.contains('here')) {
-                                        // Restore show class after a short delay
-                                        setTimeout(function() {
-                                            accordion.classList.add('show');
-                                            const accordionContent = accordion.querySelector('.kt-menu-accordion');
+                                // If it was just opened but is now closed within 300ms, reopen it
+                                if (wasOpen && !isNowOpen && recentlyOpenedAccordion === accordionItem && (Date.now() - accordionOpenTime) < 300) {
+                                    // Reopen the accordion immediately
+                                    requestAnimationFrame(function() {
+                                        if (!accordionItem.classList.contains('show')) {
+                                            accordionItem.classList.add('show');
+                                            const accordionContent = accordionItem.querySelector('.kt-menu-accordion');
                                             if (accordionContent) {
                                                 accordionContent.classList.add('show');
                                             }
-                                        }, 10);
+                                        }
+                                    });
+                                }
+                                
+                                // Ensure accordion content state matches accordion item state
+                                // This prevents visual artifacts when accordions are opened/closed
+                                const accordionContent = accordionItem.querySelector('.kt-menu-accordion');
+                                if (accordionContent) {
+                                    if (isNowOpen) {
+                                        // Accordion is open - ensure content is shown
+                                        accordionContent.classList.add('show');
+                                    } else {
+                                        // Accordion is closed - ensure content is hidden
+                                        accordionContent.classList.remove('show');
                                     }
                                 }
                             }
-                        });
+                        }
                     });
-                    
-                    observer.observe(accordion, {
-                        attributes: true,
-                        attributeFilter: ['class'],
-                        attributeOldValue: true
-                    });
-                    
-                    accordionObservers.set(accordion, observer);
-                }
-            }
-            
-            // Setup protection for all accordions
-            accordionItems.forEach(setupAccordionProtection);
-            
-            // Re-setup when accordions are toggled
-            accordionItems.forEach(function(accordion) {
-                const menuLink = accordion.querySelector('.kt-menu-link');
-                if (menuLink) {
-                    menuLink.addEventListener('click', function() {
-                        setTimeout(function() {
-                            const observer = accordionObservers.get(accordion);
-                            if (observer) {
-                                observer.disconnect();
-                                accordionObservers.delete(accordion);
-                            }
-                            setupAccordionProtection(accordion);
-                        }, 100);
-                    });
-                }
+                });
+                
+                observer.observe(accordionItem, {
+                    attributes: true,
+                    attributeFilter: ['class'],
+                    attributeOldValue: true
+                });
             });
         }
     });

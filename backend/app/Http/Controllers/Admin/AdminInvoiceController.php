@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Models\PaymentReminder;
 use App\Models\Company;
+use App\Models\CompanyLocation;
 use App\Models\JobMatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -294,8 +295,49 @@ class AdminInvoiceController extends Controller
         }
 
         $settings = InvoiceSetting::getSettings();
+        
+        // Load companies with their locations for the dropdown
+        $companies = Company::where('is_active', true)
+            ->with(['locations' => function($query) {
+                $query->where('is_active', true)
+                      ->orderBy('is_main', 'desc')
+                      ->orderBy('name');
+            }])
+            ->orderBy('name')
+            ->get();
+        
+        // Prepare companies data for JavaScript
+        $companiesData = $companies->map(function($company) {
+            return [
+                'id' => $company->id,
+                'name' => $company->name,
+                'street' => $company->street ?? '',
+                'house_number' => $company->house_number ?? '',
+                'house_number_extension' => $company->house_number_extension ?? '',
+                'postal_code' => $company->postal_code ?? '',
+                'city' => $company->city ?? '',
+                'country' => $company->country ?? '',
+                'email' => $company->email ?? '',
+                'phone' => $company->phone ?? '',
+                'kvk_number' => $company->kvk_number ?? '',
+                'locations' => $company->locations->map(function($location) {
+                    return [
+                        'id' => $location->id,
+                        'name' => $location->name,
+                        'street' => $location->street ?? '',
+                        'house_number' => $location->house_number ?? '',
+                        'house_number_extension' => $location->house_number_extension ?? '',
+                        'postal_code' => $location->postal_code ?? '',
+                        'city' => $location->city ?? '',
+                        'country' => $location->country ?? '',
+                        'email' => $location->email ?? '',
+                        'phone' => $location->phone ?? '',
+                    ];
+                })->toArray(),
+            ];
+        })->keyBy('id');
 
-        return view('admin.invoices.settings', compact('settings'));
+        return view('admin.invoices.settings', compact('settings', 'companies', 'companiesData'));
     }
 
     public function updateSettings(Request $request)
@@ -309,6 +351,8 @@ class AdminInvoiceController extends Controller
             'invoice_number_format' => 'required|string|max:100',
             'next_invoice_number' => 'required|integer|min:1',
             'current_year' => 'required|integer|min:2020|max:2100',
+            'company_id' => 'nullable|exists:companies,id',
+            'location_id' => 'nullable|exists:company_locations,id',
             'company_name' => 'nullable|string|max:255',
             'company_address' => 'nullable|string|max:255',
             'company_city' => 'nullable|string|max:100',

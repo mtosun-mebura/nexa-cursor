@@ -10,4 +10,7 @@ export default defineConfig({
     }),
     tailwind(),
   ],
+  build: {
+    sourcemap: false,
+  },
 })

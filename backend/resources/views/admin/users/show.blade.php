@@ -103,6 +103,16 @@
             @endcan
             @can('edit-users')
             <span class="text-orange-500">|</span>
+            @if(!$user->email_verified_at)
+            <form action="{{ route('admin.users.send-activation-link', $user) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="kt-btn kt-btn-sm" style="background-color: #f97316; color: white !important; border-color: #f97316;">
+                    <i class="ki-filled ki-sms me-1" style="color: white !important;"></i>
+                    Verstuur activatielink
+                </button>
+            </form>
+            <span class="text-orange-500">|</span>
+            @endif
             <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-primary ml-auto">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
                 Bewerken

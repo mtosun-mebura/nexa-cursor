@@ -9,8 +9,11 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use App\Models\Company;
 use App\Models\JobTitle;
+use App\Services\EnvService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Config;
 use Spatie\Permission\Models\Role;
 
 class AdminUserController extends Controller
@@ -28,6 +31,14 @@ class AdminUserController extends Controller
         
         // Exclude de ingelogde gebruiker uit het overzicht
         $query->where('id', '!=', auth()->id());
+        
+        // Filter super-admins: alleen super-admins kunnen andere super-admins zien
+        if (!auth()->user()->hasRole('super-admin')) {
+            // Exclude alle gebruikers met de super-admin rol
+            $query->whereDoesntHave('roles', function($q) {
+                $q->where('name', 'super-admin');
+            });
+        }
         
         // Apply filters
         if ($request->filled('status')) {
@@ -102,7 +113,12 @@ class AdminUserController extends Controller
         ];
         
         // Get unique roles for filter
-        $roles = Role::select('name')->distinct()->orderBy('name')->pluck('name')->unique()->values();
+        // Exclude super-admin role from filter if current user is not a super-admin
+        $rolesQuery = Role::select('name')->distinct()->orderBy('name');
+        if (!auth()->user()->hasRole('super-admin')) {
+            $rolesQuery->where('name', '!=', 'super-admin');
+        }
+        $roles = $rolesQuery->pluck('name')->unique()->values();
         
         // Get companies for filter
         $companies = Company::orderBy('name')->get();
@@ -478,6 +494,140 @@ class AdminUserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('success', "Gebruiker '{$user->first_name} {$user->last_name}' is succesvol {$status}.");
+    }
+
+    /**
+     * Send activation link to user
+     */
+    public function sendActivationLink(User $user)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-users')) {
+            abort(403, 'Je hebt geen rechten om activatielinks te versturen.');
+        }
+
+        // Check if user can access this resource
+        if (!$this->canAccessResource($user)) {
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        // Check if email is already verified
+        if ($user->email_verified_at) {
+            return back()->with('error', 'Deze gebruiker is al geverifieerd.');
+        }
+
+        try {
+            // Apply mail settings (same as ContactController)
+            $envService = app(EnvService::class);
+            $this->applyMailSettings($envService);
+            
+            // Generate a signed verification URL that expires in 7 days
+            $verificationUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'verify-email',
+                now()->addDays(7),
+                ['user' => $user->id, 'hash' => sha1($user->email)]
+            );
+
+            // Get mail settings
+            $fromAddress = $envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
+            $fromName = $envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+            $smtpUsername = $envService->get('MAIL_USERNAME', '');
+
+            // Send email using Laravel's Mail facade
+            Mail::send('emails.verification', [
+                'user' => $user,
+                'verificationUrl' => $verificationUrl,
+            ], function ($message) use ($user, $fromAddress, $fromName, $smtpUsername) {
+                $message->to($user->email, $user->first_name . ' ' . $user->last_name)
+                        ->subject('Verifieer je e-mailadres - Nexa Skillmatching')
+                        ->from($fromAddress, $fromName);
+                
+                // Add Sender header if SMTP username is available
+                // This helps with mail servers that check authorization
+                if (!empty($smtpUsername)) {
+                    try {
+                        $symfonyMessage = $message->getSymfonyMessage();
+                        $symfonyMessage->getHeaders()->remove('Sender');
+                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $smtpUsername);
+                    } catch (\Exception $e) {
+                        \Log::warning('Could not set Sender header', [
+                            'error' => $e->getMessage(),
+                            'smtp_username' => $smtpUsername
+                        ]);
+                    }
+                }
+            });
+            
+            return back()->with('success', 'Activatielink is succesvol verzonden naar ' . $user->email . '.');
+        } catch (\Exception $e) {
+            \Log::error('Error sending activation link: ' . $e->getMessage());
+            return back()->with('error', 'Er is een fout opgetreden bij het versturen van de activatielink: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Apply mail settings dynamically (same as ContactController)
+     */
+    protected function applyMailSettings(EnvService $envService)
+    {
+        $mailer = $envService->get('MAIL_MAILER', 'log');
+        $host = $envService->get('MAIL_HOST', '');
+        $port = $envService->get('MAIL_PORT', '587');
+        $username = $envService->get('MAIL_USERNAME', '');
+        $password = $envService->get('MAIL_PASSWORD', '');
+        $encryption = $envService->get('MAIL_ENCRYPTION', 'tls');
+        $fromAddress = $envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
+        $fromName = $envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
+
+        Config::set('mail.default', $mailer);
+        Config::set('mail.from.address', $fromAddress);
+        Config::set('mail.from.name', $fromName);
+
+        if ($mailer === 'smtp') {
+            Config::set('mail.mailers.smtp.host', $host);
+            Config::set('mail.mailers.smtp.port', $port);
+            Config::set('mail.mailers.smtp.username', $username);
+            Config::set('mail.mailers.smtp.password', $password);
+            Config::set('mail.mailers.smtp.encryption', $encryption === 'null' ? null : $encryption);
+            
+            if (!empty($username) && !empty($password)) {
+                Config::set('mail.mailers.smtp.auth_mode', null);
+            }
+        }
+        
+        app()->forgetInstance('mail.manager');
+    }
+
+    /**
+     * Verify user email
+     */
+    public function verifyEmail(Request $request, User $user)
+    {
+        // Verify the signed URL
+        if (!$request->hasValidSignature()) {
+            return view('auth.email-verification-failed', [
+                'message' => 'Deze link is ongeldig of verlopen. Vraag een nieuwe activatielink aan via de beheerder.'
+            ]);
+        }
+
+        // Verify the hash matches
+        if (sha1($user->email) !== $request->hash) {
+            return view('auth.email-verification-failed', [
+                'message' => 'Deze link is ongeldig. Vraag een nieuwe activatielink aan via de beheerder.'
+            ]);
+        }
+
+        // Mark email as verified
+        $wasAlreadyVerified = (bool) $user->email_verified_at;
+        if (!$wasAlreadyVerified) {
+            $user->email_verified_at = now();
+            $user->save();
+        }
+
+        // Show success page
+        return view('auth.email-verified', [
+            'user' => $user,
+            'wasAlreadyVerified' => $wasAlreadyVerified
+        ]);
     }
 
     /**

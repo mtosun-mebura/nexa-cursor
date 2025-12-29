@@ -13,6 +13,7 @@ class Company extends Model
     protected $fillable = [
         'name', 'description', 'department', 'industry', 'kvk_number',
         'street', 'house_number', 'house_number_extension', 'postal_code', 'city', 'country',
+        'latitude', 'longitude',
         'website', 'email', 'phone',
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
         'is_active', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',

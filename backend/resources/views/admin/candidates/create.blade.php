@@ -81,7 +81,8 @@
                             <div class="col-md-6 mb-3">
                                 <label for="phone" class="form-label">Telefoonnummer</label>
                                 <input type="tel" class="form-control" id="phone" name="phone" 
-                                       value="{{ old('phone') }}">
+                                       value="{{ old('phone') }}"
+                                       style="width: 15ch;">
                             </div>
                             
                             <div class="col-md-6 mb-3">
@@ -135,7 +136,9 @@
                             <div class="col-md-6 mb-3">
                                 <label for="postal_code" class="form-label">Postcode</label>
                                 <input type="text" class="form-control" id="postal_code" name="postal_code" 
-                                       value="{{ old('postal_code') }}">
+                                       value="{{ old('postal_code') }}"
+                                       style="text-transform: uppercase; width: 12ch;"
+                                       maxlength="8">
                             </div>
                         </div>
 

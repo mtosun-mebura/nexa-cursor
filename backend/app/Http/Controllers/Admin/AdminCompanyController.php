@@ -8,10 +8,18 @@ use App\Models\Company;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Services\EnvService;
 
 class AdminCompanyController extends Controller
 {
     use TenantFilter;
+
+    protected $envService;
+
+    public function __construct(EnvService $envService)
+    {
+        $this->envService = $envService;
+    }
     
     public function index(Request $request)
     {
@@ -90,7 +98,13 @@ class AdminCompanyController extends Controller
         
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         
-        return view('admin.companies.create', compact('branches'));
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+        
+        return view('admin.companies.create', compact('branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function store(Request $request)
@@ -103,14 +117,16 @@ class AdminCompanyController extends Controller
             'name' => 'required|string|max:255|min:2',
             'kvk_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
             'email' => 'required|email:rfc,dns|max:255',
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
+            'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
             'website' => 'nullable|url:http,https|max:255',
             'industry' => 'nullable|string|max:255',
-            'street' => 'nullable|string|max:255',
-            'house_number' => 'nullable|string|max:20',
-            'postal_code' => ['nullable', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
-            'city' => 'nullable|string|max:255',
+            'street' => 'required|string|max:255|min:2',
+            'house_number' => 'required|string|max:20|min:1',
+            'postal_code' => ['required', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
+            'city' => 'required|string|max:255|min:2',
             'country' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'description' => 'nullable|string|max:5000',
             'is_intermediary' => 'nullable|boolean',
             'locations' => 'nullable|array',
@@ -130,9 +146,17 @@ class AdminCompanyController extends Controller
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
             'email.required' => 'E-mailadres is verplicht.',
             'email.email' => 'Voer een geldig e-mailadres in.',
-            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
+            'phone.required' => 'Telefoonnummer is verplicht.',
             'phone.regex' => 'Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).',
+            'street.required' => 'Straat is verplicht.',
+            'street.min' => 'Straat moet minimaal 2 tekens bevatten.',
+            'house_number.required' => 'Huisnummer is verplicht.',
+            'house_number.min' => 'Huisnummer is verplicht.',
+            'postal_code.required' => 'Postcode is verplicht.',
             'postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
+            'city.required' => 'Plaats is verplicht.',
+            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
+            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
             'locations.*.name.required_with' => 'Vestigingsnaam is verplicht wanneer een vestiging wordt toegevoegd.',
             'locations.*.name.min' => 'Vestigingsnaam moet minimaal 2 tekens bevatten.',
@@ -211,7 +235,13 @@ class AdminCompanyController extends Controller
         
         $company->load(['users', 'vacancies.branch', 'locations', 'mainLocation']);
         
-        return view('admin.companies.show', compact('company'));
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+        
+        return view('admin.companies.show', compact('company', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function edit(Company $company)
@@ -228,7 +258,13 @@ class AdminCompanyController extends Controller
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $company->load('mainLocation');
         
-        return view('admin.companies.edit', compact('company', 'branches'));
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+        
+        return view('admin.companies.edit', compact('company', 'branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function update(Request $request, Company $company)
@@ -246,14 +282,16 @@ class AdminCompanyController extends Controller
             'name' => 'required|string|max:255|min:2',
             'kvk_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
             'email' => 'required|email:rfc,dns|max:255',
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
+            'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
             'website' => 'nullable|url:http,https|max:255',
             'industry' => 'nullable|string|max:255',
-            'street' => 'nullable|string|max:255',
-            'house_number' => 'nullable|string|max:20',
-            'postal_code' => ['nullable', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
-            'city' => 'nullable|string|max:255',
+            'street' => 'required|string|max:255|min:2',
+            'house_number' => 'required|string|max:20|min:1',
+            'postal_code' => ['required', 'string', 'max:20', 'regex:/^[1-9][0-9]{3}\s?[A-Z]{2}$/i'],
+            'city' => 'required|string|max:255|min:2',
             'country' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
             'description' => 'nullable|string|max:5000',
             'is_intermediary' => 'nullable|boolean',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
@@ -262,9 +300,17 @@ class AdminCompanyController extends Controller
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
             'email.required' => 'E-mailadres is verplicht.',
             'email.email' => 'Voer een geldig e-mailadres in.',
-            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
+            'phone.required' => 'Telefoonnummer is verplicht.',
             'phone.regex' => 'Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).',
+            'street.required' => 'Straat is verplicht.',
+            'street.min' => 'Straat moet minimaal 2 tekens bevatten.',
+            'house_number.required' => 'Huisnummer is verplicht.',
+            'house_number.min' => 'Huisnummer is verplicht.',
+            'postal_code.required' => 'Postcode is verplicht.',
             'postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
+            'city.required' => 'Plaats is verplicht.',
+            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
+            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
         ]);
 

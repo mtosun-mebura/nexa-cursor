@@ -7,10 +7,18 @@ use App\Models\Company;
 use App\Models\CompanyLocation;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
+use App\Services\EnvService;
 
 class AdminCompanyLocationController extends Controller
 {
     use TenantFilter;
+
+    protected $envService;
+
+    public function __construct(EnvService $envService)
+    {
+        $this->envService = $envService;
+    }
 
     public function getLocationsJson(Company $company)
     {
@@ -81,7 +89,12 @@ class AdminCompanyLocationController extends Controller
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
-        return view('admin.company-locations.create', compact('company'));
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+        return view('admin.company-locations.create', compact('company', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function edit(Company $company, CompanyLocation $location)
@@ -94,7 +107,12 @@ class AdminCompanyLocationController extends Controller
             abort(403, 'Je hebt geen toegang tot deze vestiging.');
         }
 
-        return view('admin.company-locations.edit', compact('company', 'location'));
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+        return view('admin.company-locations.edit', compact('company', 'location', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function store(Request $request, Company $company)
@@ -114,6 +132,8 @@ class AdminCompanyLocationController extends Controller
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'is_main' => 'nullable|boolean',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ]);
 
         $data = $request->all();
@@ -157,6 +177,8 @@ class AdminCompanyLocationController extends Controller
             'phone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'is_main' => 'nullable|boolean',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ]);
 
         $data = $request->all();

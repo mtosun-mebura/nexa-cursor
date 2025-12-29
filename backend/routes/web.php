@@ -223,6 +223,13 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name(
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
+// Password Reset Routes
+Route::get('/admin/password/reset', [AdminAuthController::class, 'showLinkRequestForm'])->name('admin.password.request');
+Route::post('/admin/password/email', [AdminAuthController::class, 'sendResetLinkEmail'])->middleware('throttle:6,1')->name('admin.password.email');
+Route::get('/admin/password/reset/{token}', [AdminAuthController::class, 'showResetForm'])->name('admin.password.reset');
+Route::post('/admin/password/reset', [AdminAuthController::class, 'reset'])->middleware('throttle:6,1')->name('admin.password.update');
+Route::get('/admin/password/changed', [AdminAuthController::class, 'showPasswordChanged'])->name('admin.password.changed');
+
 // Admin Protected Routes
 Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
@@ -230,7 +237,6 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     
     // Companies
     Route::resource('companies', AdminCompanyController::class);
-    Route::get('companies/{company}/users/json', [AdminCompanyController::class, 'getUsersJson'])->name('companies.users.json');
     Route::post('companies/{company}/toggle-status', [AdminCompanyController::class, 'toggleStatus'])->name('companies.toggle-status');
     Route::post('companies/{company}/toggle-main-location', [AdminCompanyController::class, 'toggleMainLocation'])->name('companies.toggle-main-location');
     Route::post('companies/{company}/upload-logo', [AdminCompanyController::class, 'uploadLogo'])->name('companies.upload-logo');
@@ -238,7 +244,6 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Company Locations
     Route::get('companies/{company}/locations/create', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
     Route::post('companies/{company}/locations', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
-    Route::get('companies/{company}/locations/json', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'getLocationsJson'])->name('companies.locations.json');
     Route::get('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'show'])->name('companies.locations.show');
     Route::get('companies/{company}/locations/{location}/edit', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'edit'])->name('companies.locations.edit');
     Route::put('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'update'])->name('companies.locations.update');
@@ -250,6 +255,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::resource('users', AdminUserController::class);
     Route::post('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
     Route::post('users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::post('users/{user}/send-activation-link', [AdminUserController::class, 'sendActivationLink'])->name('users.send-activation-link');
     Route::get('users/{user}/photo', [AdminUserController::class, 'photo'])->name('users.photo');
     Route::match(['get', 'post'], 'api/job-titles', [AdminUserController::class, 'getJobTitles'])->name('api.job-titles');
     
@@ -338,23 +344,20 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('payments/voldaan', [AdminPaymentController::class, 'voldaan'])->name('payments.voldaan');
         
         // Invoices (Super Admin only)
+        // Settings routes moeten vóór resource route staan om route conflict te voorkomen
+        Route::get('invoices/settings', [AdminInvoiceController::class, 'settings'])->name('invoices.settings');
+        Route::post('invoices/settings', [AdminInvoiceController::class, 'updateSettings'])->name('invoices.settings.update');
         Route::resource('invoices', AdminInvoiceController::class);
         Route::post('invoices/{invoice}/send-reminder', [AdminInvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');
         Route::get('invoices/{invoice}/payment-links', [AdminInvoiceController::class, 'paymentLinks'])->name('invoices.payment-links');
-        Route::get('invoices/settings', [AdminInvoiceController::class, 'settings'])->name('invoices.settings');
-        Route::post('invoices/settings', [AdminInvoiceController::class, 'updateSettings'])->name('invoices.settings.update');
         
         // Job Configurations (Super Admin only)
-        // Bulk delete route must be defined BEFORE resource route to avoid route conflict
-        Route::delete('job-configurations/bulk-delete', [App\Http\Controllers\Admin\AdminJobConfigurationController::class, 'bulkDelete'])->name('job-configurations.bulk-delete');
         Route::resource('job-configurations', App\Http\Controllers\Admin\AdminJobConfigurationController::class);
         
-        // Import routes must be defined BEFORE resource route to avoid route conflict
-        Route::get('job-configuration-types/import', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'import'])->name('job-configuration-types.import');
-        Route::post('job-configuration-types/import', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'import']);
-        
+        // Job Configuration Types (Super Admin only)
         Route::resource('job-configuration-types', App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class);
         Route::post('job-configuration-types/{jobConfigurationType}/toggle-status', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'toggleStatus'])->name('job-configuration-types.toggle-status');
+        Route::match(['get', 'post'], 'job-configuration-types/import', [App\Http\Controllers\Admin\AdminJobConfigurationTypeController::class, 'import'])->name('job-configuration-types.import');
         
         // Settings (Super Admin only)
         Route::get('settings', [App\Http\Controllers\Admin\AdminSettingsController::class, 'index'])->name('settings.index');
@@ -418,6 +421,9 @@ Route::middleware('auth')->group(function () {
 });
 
 
+// Email verification route (public, no auth required)
+Route::get('/verify-email/{user}', [App\Http\Controllers\Admin\AdminUserController::class, 'verifyEmail'])->name('verify-email');
+
 // Auth routes
 Route::get('/login', function () {
     return view('frontend.pages.login');
@@ -429,8 +435,35 @@ Route::post('/login', function () {
         'password' => 'required',
     ]);
     
-    if (Auth::guard('web')->attempt($credentials)) {
+    // Check if user exists and password is correct
+    $user = \App\Models\User::where('email', $credentials['email'])->first();
+    
+    if (!$user || !\Illuminate\Support\Facades\Hash::check($credentials['password'], $user->password)) {
+        return redirect()->back()->withErrors(['email' => 'Ongeldige inloggegevens']);
+    }
+    
+    // Check if email is verified
+    if (!$user->email_verified_at) {
+        return redirect()->back()->withErrors([
+            'email' => 'Je e-mailadres is nog niet geverifieerd. Controleer je inbox voor de verificatielink of vraag een nieuwe aan via de beheerder.',
+        ])->withInput(request()->only('email'));
+    }
+    
+    // Check if this is the first login (no previous login recorded)
+    $isFirstLogin = !session()->has('has_logged_in_before');
+    
+    // Login the user
+    if (Auth::guard('web')->loginUsingId($user->id)) {
         request()->session()->regenerate();
+        
+        // Mark that user has logged in before
+        session()->put('has_logged_in_before', true);
+        
+        // If first login, always redirect to dashboard
+        if ($isFirstLogin) {
+            return redirect()->route('dashboard');
+        }
+        
         return redirect()->route('dashboard');
     }
     

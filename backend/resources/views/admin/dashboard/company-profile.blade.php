@@ -420,149 +420,111 @@
     </div>
 </div>
 
-@push('styles')
-<link href="{{ asset('assets/vendors/leaflet/leaflet.bundle.css') }}" rel="stylesheet" type="text/css" />
-@endpush
-
 @push('scripts')
-<script src="{{ asset('assets/vendors/leaflet/leaflet.bundle.js') }}"></script>
+@if(!empty($googleMapsApiKey))
+<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}&libraries=places,geocoding"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const mapElement = document.getElementById('company_profile_map');
     if (!mapElement) return;
 
-    // Check if Leaflet is loaded
-    if (typeof L === 'undefined') {
-        console.error('Leaflet is not loaded');
-        return;
-    }
-
     @php
-        // Get address for geocoding
         $address = '';
-        $lat = 40.725;
-        $lng = -73.985;
+        $lat = null;
+        $lng = null;
+        
         if ($company->mainLocation) {
             $address = $company->mainLocation->street . ' ' . $company->mainLocation->house_number . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : '') . ', ' . $company->mainLocation->postal_code . ' ' . $company->mainLocation->city . ($company->mainLocation->country ? ', ' . $company->mainLocation->country : '');
-        } elseif ($company->street) {
+            $lat = $company->mainLocation->latitude;
+            $lng = $company->mainLocation->longitude;
+        } elseif ($company->street || $company->city) {
             $address = $company->street . ' ' . $company->house_number . ($company->house_number_extension ? '-' . $company->house_number_extension : '') . ', ' . $company->postal_code . ' ' . $company->city . ($company->country ? ', ' . $company->country : '');
-        } else {
-            $address = '430 E 6th St, New York, 10009.';
+            $lat = $company->latitude;
+            $lng = $company->longitude;
         }
+        
+        $defaultLat = $googleMapsCenterLat;
+        $defaultLng = $googleMapsCenterLng;
+        $defaultZoom = $googleMapsZoom;
     @endphp
 
-    // Initialize map with default location
-    const leaflet = L.map('company_profile_map', {
-        center: [{{ $lat }}, {{ $lng }}],
-        zoom: 14,  // More zoomed in
-        zoomControl: false  // Disable default zoom controls
-    });
+    function initGoogleMap() {
+        if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+            console.error('Google Maps API not loaded');
+            return;
+        }
 
-    // Add zoom controls in bottom-left corner
-    L.control.zoom({
-        position: 'bottomleft'
-    }).addTo(leaflet);
+        const mapLat = {{ $lat ?: 'null' }} || {{ $defaultLat }};
+        const mapLng = {{ $lng ?: 'null' }} || {{ $defaultLng }};
+        const mapZoom = {{ $lat && $lng ? '16' : $defaultZoom }};
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(leaflet);
-
-    // Custom marker icon
-    const leafletIcon = L.divIcon({
-        html: '<i class="ki-solid ki-geolocation text-3xl text-green-500"></i>',
-        bgPos: [10, 10],
-        iconAnchor: [20, 37],
-        popupAnchor: [0, -37],
-        className: 'leaflet-marker'
-    });
-
-    // Try to geocode the address
-    const address = @json($address);
-
-    // Use Nominatim (OpenStreetMap geocoding service) - free and no API key needed
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`)
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lng = parseFloat(data[0].lon);
-
-                // Update map center - more zoomed in
-                leaflet.setView([lat, lng], 16);
-
-                // Add marker with popup (balloon) always visible
-                const marker = L.marker([lat, lng], {
-                    icon: leafletIcon
-                }).addTo(leaflet);
-
-                // Create popup and ensure it's always visible
-                marker.bindPopup(address, {
-                    closeButton: false,
-                    autoPan: true,
-                    autoPanPadding: [20, 20],  // Minimal padding since zoom is bottom-left
-                    offset: [0, -40],  // Offset popup up to center it better
-                    keepInView: true  // Keep popup in view when panning
-                });
-
-                // Open popup immediately and keep it open
-                marker.openPopup();
-
-                // Ensure popup stays visible
-                setTimeout(() => {
-                    marker.openPopup();
-                }, 100);
-            } else {
-                // Fallback to default location - more zoomed in
-                leaflet.setView([{{ $lat }}, {{ $lng }}], 16);
-
-                const marker = L.marker([{{ $lat }}, {{ $lng }}], {
-                    icon: leafletIcon
-                }).addTo(leaflet);
-
-                marker.bindPopup(address, {
-                    closeButton: false,
-                    autoPan: true,
-                    autoPanPadding: [20, 20],  // Minimal padding since zoom is bottom-left
-                    offset: [0, -40],  // Offset popup up to center it better
-                    keepInView: true
-                });
-
-                // Open popup immediately and keep it open
-                marker.openPopup();
-
-                // Ensure popup stays visible
-                setTimeout(() => {
-                    marker.openPopup();
-                }, 100);
-            }
-        })
-        .catch(error => {
-            console.error('Geocoding error:', error);
-            // Fallback to default location - more zoomed in
-            leaflet.setView([{{ $lat }}, {{ $lng }}], 16);
-
-            const marker = L.marker([{{ $lat }}, {{ $lng }}], {
-                icon: leafletIcon
-            }).addTo(leaflet);
-
-            marker.bindPopup(address, {
-                closeButton: false,
-                autoPan: true,
-                autoPanPadding: [20, 20],  // Minimal padding since zoom is bottom-left
-                offset: [0, -40],  // Offset popup up to center it better
-                keepInView: true
-            });
-
-            // Open popup immediately and keep it open
-            marker.openPopup();
-
-            // Ensure popup stays visible
-            setTimeout(() => {
-                marker.openPopup();
-            }, 100);
+        const googleMap = new google.maps.Map(mapElement, {
+            center: { lat: mapLat, lng: mapLng },
+            zoom: mapZoom,
+            mapTypeId: '{{ $googleMapsType }}',
+            mapTypeControl: false
         });
+
+        @if($address)
+        const addressText = @json($address);
+        
+        @if($lat && $lng)
+        // Use stored coordinates
+        const marker = new google.maps.Marker({
+            position: { lat: {{ $lat }}, lng: {{ $lng }} },
+            map: googleMap,
+            title: addressText
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding: 8px 12px; color: #1f2937; font-size: 14px; line-height: 1.5;"><strong style="color: #111827;">${addressText}</strong></div>`
+        });
+        
+        marker.addListener('click', function() {
+            infoWindow.open(googleMap, marker);
+        });
+        infoWindow.open(googleMap, marker);
+        @else
+        // Geocode address if no coordinates
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: addressText }, function(results, status) {
+            if (status === 'OK' && results[0]) {
+                const location = results[0].geometry.location;
+                googleMap.setCenter(location);
+                googleMap.setZoom(16);
+
+                const marker = new google.maps.Marker({
+                    position: location,
+                    map: googleMap,
+                    title: addressText
+                });
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `<div style="padding: 8px 12px; color: #1f2937; font-size: 14px; line-height: 1.5;"><strong style="color: #111827;">${addressText}</strong></div>`
+                });
+                
+                marker.addListener('click', function() {
+                    infoWindow.open(googleMap, marker);
+                });
+                infoWindow.open(googleMap, marker);
+            }
+        });
+        @endif
+        @endif
+    }
+
+    // Wait for Google Maps to load
+    function waitForGoogleMaps() {
+        if (typeof google !== 'undefined' && typeof google.maps !== 'undefined') {
+            initGoogleMap();
+        } else {
+            setTimeout(waitForGoogleMaps, 100);
+        }
+    }
+    
+    waitForGoogleMaps();
 });
 </script>
+@endif
 @endpush
 

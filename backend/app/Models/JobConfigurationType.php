@@ -47,3 +47,4 @@ class JobConfigurationType extends Model
     }
 }
 
+

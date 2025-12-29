@@ -26,19 +26,27 @@ class AdminPaymentProviderController extends Controller
         
         $query = PaymentProvider::query();
         
+        // Zoeken
+        if ($request->filled('search')) {
+            $search = $request->get('search');
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('provider_type', 'like', "%{$search}%");
+            });
+        }
+        
         // Filter op status
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
         }
         
         // Filter op provider type
         if ($request->filled('provider_type')) {
             $query->where('provider_type', $request->provider_type);
-        }
-        
-        // Filter op modus
-        if ($request->filled('mode')) {
-            $query->where('mode', $request->mode);
         }
         
         // Sortering
@@ -60,20 +68,53 @@ class AdminPaymentProviderController extends Controller
                     WHEN is_active = true THEN 2
                 END " . $sortDirection
             );
-        } elseif ($sortField === 'mode') {
-            // Sorteer op modus met logische volgorde: Test, Live
-            $query->orderByRaw("
-                CASE 
-                    WHEN config->>'test_mode' = 'true' THEN 1
-                    WHEN config->>'test_mode' = 'false' OR config->>'test_mode' IS NULL THEN 2
-                END " . $sortDirection
-            );
         } else {
             $query->orderBy($sortField, $sortDirection);
         }
         
+        // Haal alle providers op voor filtering en sortering op mode
+        $allProviders = $query->get();
+        
+        // Filter op modus (test_mode in config) - moet in PHP omdat het in JSON staat
+        if ($request->filled('mode')) {
+            $mode = $request->mode;
+            $allProviders = $allProviders->filter(function($provider) use ($mode) {
+                $testMode = $provider->getConfigValue('test_mode');
+                
+                // Normalize test_mode to boolean
+                $isTestMode = filter_var($testMode, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($isTestMode === null) {
+                    // If test_mode is not set or invalid, treat as false (live mode)
+                    $isTestMode = false;
+                }
+                
+                if ($mode === 'test') {
+                    return $isTestMode === true;
+                } elseif ($mode === 'live') {
+                    return $isTestMode === false;
+                }
+                return true;
+            });
+        }
+        
+        // Sorteer op mode als dat het sorteerveld is
+        if ($sortField === 'mode') {
+            $allProviders = $allProviders->sortBy(function($provider) use ($sortDirection) {
+                $testMode = $provider->getConfigValue('test_mode', false);
+                return $testMode ? 1 : 2;
+            }, SORT_REGULAR, $sortDirection === 'desc');
+        }
+        
+        // Pagineer de resultaten
         $perPage = $request->get('per_page', 25);
-        $providers = $query->paginate($perPage)->withQueryString();
+        $currentPage = $request->get('page', 1);
+        $providers = new \Illuminate\Pagination\LengthAwarePaginator(
+            $allProviders->forPage($currentPage, $perPage)->values(),
+            $allProviders->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
         
         return view('admin.payment-providers.index', compact('providers'));
     }
@@ -244,11 +285,26 @@ class AdminPaymentProviderController extends Controller
 
     public function toggleStatus(PaymentProvider $paymentProvider)
     {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
+            if (request()->ajax() || request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om de status van betalingsproviders te wijzigen.'], 403);
+            }
+            abort(403, 'Je hebt geen rechten om de status van betalingsproviders te wijzigen.');
+        }
+
         $paymentProvider->update([
             'is_active' => !$paymentProvider->is_active
         ]);
 
         $status = $paymentProvider->is_active ? 'geactiveerd' : 'gedeactiveerd';
+        
+        if (request()->ajax() || request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Betalingsprovider succesvol ' . $status . '.',
+                'is_active' => $paymentProvider->is_active
+            ]);
+        }
         
         return redirect()->route('admin.payment-providers.index')
             ->with('success', "Betalingsprovider succesvol {$status}.");

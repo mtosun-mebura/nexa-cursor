@@ -13,10 +13,18 @@ use App\Models\Payment;
 use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\EnvService;
 
 class AdminDashboardController extends Controller
 {
     use TenantFilter;
+
+    protected $envService;
+
+    public function __construct(EnvService $envService)
+    {
+        $this->envService = $envService;
+    }
     
     public function index()
     {
@@ -149,6 +157,12 @@ class AdminDashboardController extends Controller
             $isCompanyView = $selectedCompany !== null;
         }
 
+        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
+        $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
+        $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
+        $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
+
         return view('admin.dashboard', compact(
             'stats',
             'recent_users',
@@ -161,7 +175,12 @@ class AdminDashboardController extends Controller
             'revenue_trend',
             'selectedCompany',
             'isCompanyView',
-            'tenantId'
+            'tenantId',
+            'googleMapsApiKey',
+            'googleMapsZoom',
+            'googleMapsCenterLat',
+            'googleMapsCenterLng',
+            'googleMapsType'
         ));
     }
 
