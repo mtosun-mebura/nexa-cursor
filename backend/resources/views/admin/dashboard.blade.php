@@ -38,68 +38,68 @@
 
     <!-- Hero + Revenue -->
     <div class="grid gap-5 xl:grid-cols-5">
-        <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-[#0f172a] via-[#111827] to-[#0b1324] text-white">
+        <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-slate-50 via-slate-100 to-slate-50 dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1324] text-foreground dark:text-white">
             <div class="kt-card-body p-7 lg:p-10">
                 <div class="flex flex-col gap-6">
                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                         <div class="space-y-3">
-                            <h1 class="text-3xl font-semibold leading-tight">
+                            <h1 class="text-3xl font-semibold leading-tight text-foreground dark:text-white">
                                 Nexa overzicht
                             </h1>
-                            <p class="text-sm text-white/70">
+                            <p class="text-sm text-secondary-foreground dark:text-white/70">
                                 Direct inzicht in gebruikers, vacatures, matches, interviews en inkomsten.
                             </p>
                         </div>
                         <div class="flex flex-col items-start md:items-end gap-3">
                             <span class="kt-badge kt-badge-light">{{ now()->translatedFormat('d M Y') }}</span>
-                            <div class="flex items-center gap-2 text-sm text-white/70">
+                            <div class="flex items-center gap-2 text-sm text-secondary-foreground dark:text-white/70">
                                 <i class="ki-filled ki-profile-circle text-lg"></i>
                                 {{ auth()->user()->first_name ?? auth()->user()->email }}
                             </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div class="kt-card bg-white/5 ring-1 ring-white/10">
+                        <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-white/70">Gebruikers</div>
-                                    <div class="text-2xl font-semibold">{{ $stats['total_users'] ?? 0 }}</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Gebruikers</div>
+                                    <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $stats['total_users'] ?? 0 }}</div>
                                 </div>
-                                <span class="size-10 rounded-full bg-white/10 flex items-center justify-center">
-                                    <i class="ki-filled ki-people text-lg"></i>
+                                <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
+                                    <i class="ki-filled ki-people text-lg text-primary dark:text-white"></i>
                                 </span>
                             </div>
                         </div>
-                        <div class="kt-card bg-white/5 ring-1 ring-white/10">
+                        <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-white/70">Vacatures</div>
-                                    <div class="text-2xl font-semibold">{{ $stats['total_vacancies'] ?? 0 }}</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Vacatures</div>
+                                    <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $stats['total_vacancies'] ?? 0 }}</div>
                                 </div>
-                                <span class="size-10 rounded-full bg-white/10 flex items-center justify-center">
-                                    <i class="ki-filled ki-briefcase text-lg"></i>
+                                <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
+                                    <i class="ki-filled ki-briefcase text-lg text-primary dark:text-white"></i>
                                 </span>
                             </div>
                         </div>
-                        <div class="kt-card bg-white/5 ring-1 ring-white/10">
+                        <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-white/70">Matches</div>
-                                    <div class="text-2xl font-semibold">{{ $stats['total_matches'] ?? 0 }}</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Matches</div>
+                                    <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $stats['total_matches'] ?? 0 }}</div>
                                 </div>
-                                <span class="size-10 rounded-full bg-white/10 flex items-center justify-center">
-                                    <i class="ki-filled ki-abstract-38 text-lg"></i>
+                                <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
+                                    <i class="ki-filled ki-abstract-38 text-lg text-primary dark:text-white"></i>
                                 </span>
                             </div>
                         </div>
-                        <div class="kt-card bg-white/5 ring-1 ring-white/10">
+                        <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-white/70">Inkomsten</div>
-                                    <div class="text-2xl font-semibold">€{{ number_format((float)($financials['total_revenue'] ?? 0), 2, ',', '.') }}</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Inkomsten</div>
+                                    <div class="text-2xl font-semibold text-foreground dark:text-white">€{{ number_format((float)($financials['total_revenue'] ?? 0), 2, ',', '.') }}</div>
                                 </div>
-                                <span class="size-10 rounded-full bg-white/10 flex items-center justify-center">
-                                    <i class="ki-filled ki-wallet text-lg"></i>
+                                <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
+                                    <i class="ki-filled ki-wallet text-lg text-primary dark:text-white"></i>
                                 </span>
                             </div>
                         </div>

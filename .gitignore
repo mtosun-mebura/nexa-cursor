@@ -20,12 +20,24 @@ backend/auth.json
 
 # Backend build and vendor
 backend/node_modules
-backend/public/build
 backend/public/hot
 backend/public/storage
 backend/storage/*.key
 backend/storage/pail
 backend/vendor
+
+# Backend build output: only track Vite manifest and compiled CSS/JS
+# Ignore everything by default in build folder
+backend/public/build/*
+# Allow the manifest.json at the root of build
+!backend/public/build/manifest.json
+# Allow the assets folder itself
+!backend/public/build/assets/
+# Ignore everything inside assets by default
+backend/public/build/assets/*
+# Re-allow only compiled CSS and JS bundles
+!backend/public/build/assets/*.css
+!backend/public/build/assets/*.js
 
 # Backend misc
 backend/Homestead.json
