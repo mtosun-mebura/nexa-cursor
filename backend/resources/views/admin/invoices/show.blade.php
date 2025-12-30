@@ -8,7 +8,7 @@
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Factuur Details <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}</span>
+                Factuur Details <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}{{ $invoice->is_partial && $invoice->partial_number ? '-' . $invoice->partial_number : '' }}</span>
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
                 Factuurdetails en betalingsinformatie
@@ -75,7 +75,7 @@
                                 </div>
                                 <div>
                                     <span class="text-sm text-secondary-foreground">Factuurdatum</span>
-                                    <p class="text-sm font-semibold text-mono">{{ $invoice->invoice_date->format('d M, Y') }}</p>
+                                    <p class="text-sm font-semibold text-mono">{{ $invoice->invoice_date->format('d M Y') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -83,13 +83,34 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <span class="text-sm text-secondary-foreground">Factuurnummer</span>
-                                <p class="text-sm font-semibold text-mono">{{ $invoice->invoice_number }}</p>
+                                <p class="text-sm font-semibold text-mono">{{ $invoice->invoice_number }}{{ $invoice->is_partial && $invoice->partial_number ? '-' . $invoice->partial_number : '' }}</p>
                             </div>
                             <div>
                                 <span class="text-sm text-secondary-foreground">Vervaldatum</span>
-                                <p class="text-sm font-semibold text-mono">{{ $invoice->due_date->format('d M, Y') }}</p>
+                                <p class="text-sm font-semibold text-mono">{{ $invoice->due_date->format('d M Y') }}</p>
                             </div>
                         </div>
+                        
+                        @if($invoice->jobMatch && $invoice->jobMatch->candidate)
+                        <div class="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <span class="text-sm text-secondary-foreground">Kandidaat</span>
+                                <p class="text-sm font-semibold text-mono">
+                                    {{ trim(($invoice->jobMatch->candidate->first_name ?? '') . ' ' . ($invoice->jobMatch->candidate->last_name ?? '')) }}
+                                </p>
+                            </div>
+                            <div>
+                                <span class="text-sm text-secondary-foreground">Vacature</span>
+                                <p class="text-sm font-semibold text-mono">
+                                    @if($invoice->jobMatch->vacancy)
+                                        {{ $invoice->jobMatch->vacancy->title }}
+                                    @else
+                                        N/A
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                        @endif
                         
                         <div class="border-t border-input pt-4">
                             <h4 class="text-sm font-semibold text-mono mb-3">Bedrijf</h4>
@@ -103,30 +124,15 @@
                         </div>
                         
                         <div class="border-t border-input pt-4">
-                            <h4 class="text-sm font-semibold text-mono mb-3">Regels</h4>
-                            <kt-table class="kt-kt-table w-full">
-                                <thead>
-                                    <tr>
-                                        <th>Omschrijving</th>
-                                        <th class="text-right">Bedrag</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @if($invoice->line_items && count($invoice->line_items) > 0)
-                                        @foreach($invoice->line_items as $item)
-                                        <tr>
-                                            <td>{{ $item['description'] ?? 'N/A' }}</td>
-                                            <td class="text-right">€{{ number_format($item['total'] ?? $item['price'] ?? $item['amount'] ?? 0, 2, ',', '.') }}</td>
-                                        </tr>
-                                        @endforeach
-                                    @else
-                                        <tr>
-                                            <td>Match fee</td>
-                                            <td class="text-right">€{{ number_format($invoice->amount, 2, ',', '.') }}</td>
-                                        </tr>
-                                    @endif
-                                </tbody>
-                            </kt-table>
+                            <h4 class="text-sm font-semibold text-mono mb-3">Omschrijving</h4>
+                            @php
+                                $description = 'Match fee';
+                                if ($invoice->line_items && is_array($invoice->line_items) && count($invoice->line_items) > 0) {
+                                    $firstItem = $invoice->line_items[0];
+                                    $description = $firstItem['description'] ?? 'Match fee';
+                                }
+                            @endphp
+                            <p class="text-sm text-secondary-foreground">{{ $description }}</p>
                         </div>
                         
                         <div class="border-t border-input pt-4">
@@ -213,7 +219,7 @@
                     <div class="flex items-center justify-between border-b border-input pb-2.5 last:border-0 last:pb-0">
                         <div class="flex flex-col gap-1">
                             <span class="text-sm font-semibold text-mono">€{{ number_format($payment->amount, 2, ',', '.') }}</span>
-                            <span class="text-xs text-secondary-foreground">{{ $payment->paid_at ? $payment->paid_at->format('d M, Y') : 'N/A' }}</span>
+                            <span class="text-xs text-secondary-foreground">{{ $payment->paid_at ? $payment->paid_at->format('d M Y') : 'N/A' }}</span>
                         </div>
                         <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]">
                             Betaald

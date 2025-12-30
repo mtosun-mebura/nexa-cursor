@@ -28,28 +28,28 @@
     <!-- Statistics Cards (same style as Users overview) -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">
-            <div class="flex lg:px-10 py-1.5 gap-2">
+            <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $statusStats['Open'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">Open</span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $statusStats['In behandeling'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">In behandeling</span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $statusStats['Gesloten'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">Gesloten</span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $vacancies->count() }}
@@ -67,9 +67,9 @@
                     Toon 1 tot {{ $vacancies->count() }} van {{ $vacancies->count() }} vacatures
                 </h3>
 
-                <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
                     <!-- Search -->
-                    <div class="flex">
+                    <div class="flex w-full sm:w-auto justify-center sm:justify-start">
                         <form method="GET" action="{{ route('admin.vacancies.index') }}" class="flex gap-2" id="search-form">
                             @if(request('status'))
                                 <input type="hidden" name="status" value="{{ request('status') }}">
@@ -86,7 +86,7 @@
                             @if(request('direction'))
                                 <input type="hidden" name="direction" value="{{ request('direction') }}">
                             @endif
-                            <label class="kt-input" style="position: relative !important;">
+                            <label class="kt-input w-full sm:w-auto" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
                                 <input placeholder="Zoek vacatures..."
                                        type="text"
@@ -99,8 +99,8 @@
                     </div>
 
                     <!-- Filters -->
-                    <div class="flex flex-wrap gap-2.5 items-center">
-                        <form method="GET" action="{{ route('admin.vacancies.index') }}" id="filters-form" class="flex gap-2.5">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-center justify-center sm:justify-start w-full sm:w-auto">
+                        <form method="GET" action="{{ route('admin.vacancies.index') }}" id="filters-form" class="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-center sm:items-stretch">
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
                             @endif
@@ -111,7 +111,7 @@
                                 <input type="hidden" name="direction" value="{{ request('direction') }}">
                             @endif
 
-                            <select class="kt-select w-48"
+                            <select class="kt-select w-full sm:w-48"
                                     name="status"
                                     data-kt-select="true"
                                     data-kt-select-placeholder="Status"
@@ -122,7 +122,7 @@
                                 <option value="Gesloten" {{ request('status') == 'Gesloten' ? 'selected' : '' }}>Gesloten</option>
                             </select>
 
-                            <select class="kt-select w-56"
+                            <select class="kt-select w-full sm:w-56"
                                     name="branch_id"
                                     data-kt-select="true"
                                     data-kt-select-placeholder="Branch"
@@ -136,7 +136,7 @@
                             </select>
 
                             @if(auth()->user()->hasRole('super-admin'))
-                            <select class="kt-select w-56"
+                            <select class="kt-select w-full sm:w-56"
                                     name="company_id"
                                     data-kt-select="true"
                                     data-kt-select-placeholder="Bedrijf"

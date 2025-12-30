@@ -156,7 +156,7 @@ class AdminInvoiceController extends Controller
             abort(403);
         }
 
-        $invoice->load(['company', 'jobMatch', 'reminders', 'payments']);
+        $invoice->load(['company', 'jobMatch.candidate', 'jobMatch.vacancy', 'reminders', 'payments']);
         $settings = InvoiceSetting::getSettings();
 
         return view('admin.invoices.show', compact('invoice', 'settings'));
@@ -198,6 +198,7 @@ class AdminInvoiceController extends Controller
             'is_partial' => 'boolean',
             'parent_invoice_number' => 'nullable|string|max:255',
             'partial_number' => 'nullable|integer|min:1',
+            'line_item_description' => 'required|string|max:255',
             'notes' => 'nullable|string',
         ]);
 
@@ -212,6 +213,20 @@ class AdminInvoiceController extends Controller
         // Verwijder display values als die bestaan
         unset($validated['tax_amount_display'], $validated['total_amount_display']);
 
+        // Handle is_partial: if checkbox is checked, value is 1, otherwise use hidden input value (0)
+        $validated['is_partial'] = $request->has('is_partial') && $request->input('is_partial') == '1' ? true : false;
+
+        // Handle line items - update description
+        $lineItemDescription = $request->input('line_item_description', 'Match fee');
+        $validated['line_items'] = [
+            [
+                'description' => $lineItemDescription,
+                'quantity' => 1,
+                'price' => $validated['amount'],
+                'total' => $validated['amount'],
+            ]
+        ];
+
         $company = Company::findOrFail($validated['company_id']);
         $validated['company_details'] = $company->toArray();
 
@@ -219,6 +234,45 @@ class AdminInvoiceController extends Controller
 
         return redirect()->route('admin.invoices.show', $invoice->id)
             ->with('success', 'Factuur succesvol bijgewerkt.');
+    }
+
+    public function getMatchesForCompany(Request $request)
+    {
+        if (!auth()->user()->hasRole('super-admin')) {
+            abort(403);
+        }
+
+        $companyId = $request->input('company_id');
+        
+        if (!$companyId) {
+            return response()->json([]);
+        }
+
+        // Get matches for company - only include 'accepted' and 'hired' status
+        $matches = JobMatch::whereIn('status', ['hired', 'accepted'])
+            ->whereHas('vacancy', function($query) use ($companyId) {
+                $query->where('company_id', $companyId);
+            })
+            ->with(['vacancy', 'candidate'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($matches->map(function($match) {
+            $candidateName = 'N/A';
+            if ($match->candidate) {
+                $candidateName = trim(($match->candidate->first_name ?? '') . ' ' . ($match->candidate->last_name ?? ''));
+                if (empty($candidateName)) {
+                    $candidateName = 'N/A';
+                }
+            }
+            
+            $vacancyTitle = $match->vacancy->title ?? 'N/A';
+            
+            return [
+                'id' => $match->id,
+                'text' => $candidateName . ' (' . $vacancyTitle . ')'
+            ];
+        }));
     }
 
     public function sendReminder(Invoice $invoice)

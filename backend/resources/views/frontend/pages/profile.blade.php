@@ -661,6 +661,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Add scroll zoom functionality
+  // Use { passive: false } to allow preventDefault() when needed
   document.addEventListener('wheel', function(e) {
     // Check if we're over the photo container
     const container = document.getElementById('photo-container');
@@ -693,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mouseOverContainer: true
       });
     }
-  });
+  }, { passive: false });
 });
 
 function initializePhotoEditor() {

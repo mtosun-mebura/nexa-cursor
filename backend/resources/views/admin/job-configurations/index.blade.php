@@ -41,7 +41,7 @@
     <!-- Statistics Cards -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">
-            <div class="flex lg:px-10 py-1.5 gap-2">
+            <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['total'] ?? 0 }}
@@ -50,7 +50,7 @@
                         Totaal
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['global'] ?? 0 }}

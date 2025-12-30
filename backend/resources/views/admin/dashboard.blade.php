@@ -37,8 +37,8 @@
     @endphp
 
     <!-- Hero + Revenue -->
-    <div class="grid gap-5 xl:grid-cols-5">
-        <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-slate-50 via-slate-100 to-slate-50 dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1324] text-foreground dark:text-white">
+    <div class="grid gap-5 grid-cols-1 xl:grid-cols-5">
+        <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-slate-50 via-slate-100 to-slate-50 dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1324] text-foreground dark:text-white w-full">
             <div class="kt-card-body p-7 lg:p-10">
                 <div class="flex flex-col gap-6">
                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
@@ -58,7 +58,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
@@ -107,7 +107,7 @@
                 </div>
             </div>
         </div>
-        <div class="kt-card h-full">
+        <div class="kt-card h-full w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-chart-line-up-2 me-2"></i>
@@ -139,7 +139,7 @@
 
     <!-- KPI Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-5">
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Gebruikers</div>
@@ -151,7 +151,7 @@
                 </span>
             </div>
         </div>
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Bedrijven</div>
@@ -163,7 +163,7 @@
                 </span>
             </div>
         </div>
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Vacatures</div>
@@ -179,7 +179,7 @@
                 </span>
             </div>
         </div>
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Kandidaten</div>
@@ -191,7 +191,7 @@
                 </span>
             </div>
         </div>
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Matches</div>
@@ -207,7 +207,7 @@
                 </span>
             </div>
         </div>
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
                     <div class="text-sm text-secondary-foreground">Interviews</div>
@@ -227,7 +227,7 @@
     <!-- Uitgebreide Statistieken voor Super Admin -->
     <div class="grid gap-5 lg:grid-cols-2">
         <!-- Match Statussen -->
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-abstract-38 me-2"></i>
@@ -296,7 +296,7 @@
         </div>
 
         <!-- Interviews Statistieken -->
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-calendar me-2"></i>
@@ -343,7 +343,7 @@
 
     <!-- Gebruikers en Vacatures per Bedrijf -->
     <div class="grid gap-5 lg:grid-cols-2">
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-people me-2"></i>
@@ -382,7 +382,7 @@
             </div>
         </div>
 
-        <div class="kt-card">
+        <div class="kt-card w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-briefcase me-2"></i>
@@ -423,7 +423,7 @@
     </div>
 
     <!-- Facturen en Opbrengsten Grafiek -->
-    <div class="kt-card">
+    <div class="kt-card w-full">
         <div class="kt-card-header">
             <h3 class="kt-card-title">
                 <i class="ki-filled ki-chart-line-up-2 me-2"></i>
@@ -446,7 +446,7 @@
 
     <!-- Pipeline & Activity -->
     <div class="grid gap-5 lg:grid-cols-3">
-        <div class="kt-card lg:col-span-1 flex flex-col">
+        <div class="kt-card lg:col-span-1 flex flex-col w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-route me-2"></i>
@@ -486,7 +486,7 @@
                 </div>
             </div>
         </div>
-        <div class="kt-card lg:col-span-2 flex flex-col">
+        <div class="kt-card lg:col-span-2 flex flex-col w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-activity me-2"></i>

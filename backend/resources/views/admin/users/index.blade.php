@@ -28,7 +28,7 @@
     <!-- Statistics Cards -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">
-            <div class="flex lg:px-10 py-1.5 gap-2">
+            <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['total_companies'] ?? 0 }}
@@ -37,7 +37,7 @@
                         Bedrijven
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['active_companies'] ?? 0 }}
@@ -46,7 +46,7 @@
                         Actief
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['total_users'] ?? 0 }}
@@ -55,7 +55,7 @@
                         Gebruikers
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['total_vacancies'] ?? 0 }}
@@ -64,7 +64,7 @@
                         Vacatures
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $stats['intermediaries'] ?? 0 }}
@@ -83,9 +83,9 @@
                 <h3 class="kt-card-title text-sm pb-3 w-full">
                     Toon 1 tot {{ $users->count() }} van {{ $users->count() }} gebruikers
                 </h3>
-                <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
                     <!-- Search -->
-                    <div class="flex">
+                    <div class="flex w-full sm:w-auto justify-center sm:justify-start">
                         <form method="GET" action="{{ route('admin.users.index') }}" class="flex gap-2" id="search-form">
                             @if(request('status'))
                                 <input type="hidden" name="status" value="{{ request('status') }}">
@@ -105,7 +105,7 @@
                             @if(request('per_page'))
                                 <input type="hidden" name="per_page" value="{{ request('per_page') }}">
                             @endif
-                            <label class="kt-input w-64" style="position: relative !important;">
+                            <label class="kt-input w-full sm:w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
                                 <input placeholder="Zoek gebruikers..." 
                                        type="text" 
@@ -117,13 +117,13 @@
                         </form>
                     </div>
                     <!-- Filters -->
-                    <div class="flex flex-wrap gap-2.5 items-center">
-                        <form method="GET" action="{{ route('admin.users.index') }}" id="filters-form" class="flex gap-2.5">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-stretch sm:items-center w-full sm:w-auto">
+                        <form method="GET" action="{{ route('admin.users.index') }}" id="filters-form" class="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
                             @endif
                             
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36" 
                                     name="status" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Status"
@@ -134,7 +134,7 @@
                             </select>
                             
                             @if($roles->count() > 0)
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36" 
                                     name="role" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Rol"
@@ -149,7 +149,7 @@
                             @endif
                             
                             @if($companies->count() > 0)
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36" 
                                     name="company" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Bedrijf"
@@ -163,7 +163,7 @@
                             </select>
                             @endif
                             
-                            <select class="kt-select w-36" 
+                            <select class="kt-select w-full sm:w-36" 
                                     name="sort" 
                                     data-kt-select="true" 
                                     data-kt-select-placeholder="Sortering"

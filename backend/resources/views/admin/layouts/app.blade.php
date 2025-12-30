@@ -233,6 +233,22 @@
             min-width: max-content !important;
             width: auto !important;
         }
+        
+        /* Fix for passive event listener warnings in responsive mode */
+        /* Allow touch-action to be controlled for elements that need preventDefault */
+        .kt-drawer,
+        .kt-drawer-backdrop,
+        .kt-sidebar,
+        [data-kt-drawer] {
+            touch-action: pan-y;
+        }
+        
+        /* Prevent passive event listener warnings for draggable elements */
+        [draggable="true"],
+        .photo-container,
+        #photo-container {
+            touch-action: none;
+        }
     </style>
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased">

@@ -347,11 +347,13 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         // Settings routes moeten vóór resource route staan om route conflict te voorkomen
         Route::get('invoices/settings', [AdminInvoiceController::class, 'settings'])->name('invoices.settings');
         Route::post('invoices/settings', [AdminInvoiceController::class, 'updateSettings'])->name('invoices.settings.update');
+        Route::get('invoices/matches-for-company', [AdminInvoiceController::class, 'getMatchesForCompany'])->name('invoices.matches-for-company');
         Route::resource('invoices', AdminInvoiceController::class);
         Route::post('invoices/{invoice}/send-reminder', [AdminInvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');
         Route::get('invoices/{invoice}/payment-links', [AdminInvoiceController::class, 'paymentLinks'])->name('invoices.payment-links');
         
         // Job Configurations (Super Admin only)
+        Route::delete('job-configurations/bulk/delete', [App\Http\Controllers\Admin\AdminJobConfigurationController::class, 'bulkDelete'])->name('job-configurations.bulk-delete');
         Route::resource('job-configurations', App\Http\Controllers\Admin\AdminJobConfigurationController::class);
         
         // Job Configuration Types (Super Admin only)

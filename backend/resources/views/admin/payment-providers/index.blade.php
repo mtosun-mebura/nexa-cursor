@@ -69,7 +69,7 @@
     <!-- Statistics Cards -->
     <div class="kt-card mb-5">
         <div class="kt-card-content">
-            <div class="flex lg:px-10 py-1.5 gap-2">
+            <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold text-green-600 dark:text-green-400">
                         {{ $providers->where('is_active', true)->count() }}
@@ -78,7 +78,7 @@
                         Actief
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold text-red-600 dark:text-red-400">
                         {{ $providers->where('is_active', false)->count() }}
@@ -87,7 +87,7 @@
                         Inactief
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold text-orange-600 dark:text-orange-400">
                         {{ $providers->filter(function($provider) { return $provider->getConfigValue('test_mode', false); })->count() }}
@@ -96,7 +96,7 @@
                         Test Modus
                     </span>
                 </div>
-                <span class="not-last:border-e border-e-input my-1"></span>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
                         {{ $providers->count() }}
