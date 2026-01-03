@@ -415,19 +415,101 @@
             observer.observe(infoSpan, { childList: true, characterData: true, subtree: true });
         }
 
-        // Make table rows clickable (except actions column)
-        document.querySelectorAll('tbody tr.vacancy-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+        // Make table rows clickable (except actions column) - robust event delegation
+        function setupVacancyRowClicks() {
+            const vacanciesTable = document.getElementById('vacancies_table');
+            if (!vacanciesTable) {
+                return;
+            }
+            
+            // Remove existing handler if it exists
+            if (vacanciesTable._rowClickHandler) {
+                vacanciesTable.removeEventListener('click', vacanciesTable._rowClickHandler, true);
+            }
+            
+            // Create robust click handler
+            vacanciesTable._rowClickHandler = function(e) {
+                const row = e.target.closest('tr.vacancy-row');
+                if (!row) {
                     return;
                 }
-
-                const link = this.querySelector('td:first-child a[data-vacancy-id]');
-                if (link) {
-                    window.location.href = link.getAttribute('href');
+                
+                // Don't navigate if clicking on actions column or menu
+                const clickedElement = e.target;
+                const actionsTd = row.querySelector('td:last-child');
+                const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                
+                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                    return;
                 }
+                
+                // Get vacancy ID - try multiple methods
+                let vacancyId = null;
+                
+                // Method 1: Try data attribute on row
+                vacancyId = row.getAttribute('data-vacancy-id');
+                
+                // Method 2: Try link with data attribute
+                if (!vacancyId || vacancyId === 'null' || vacancyId === '') {
+                    const link = row.querySelector('td:first-child a[data-vacancy-id]');
+                    if (link) {
+                        vacancyId = link.getAttribute('data-vacancy-id');
+                        if (!vacancyId) {
+                            // Try to get from href
+                            const href = link.getAttribute('href');
+                            if (href) {
+                                const match = href.match(/\/admin\/vacancies\/(\d+)/);
+                                if (match && match[1]) {
+                                    vacancyId = match[1];
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Method 3: Try to extract from any link in the row
+                if (!vacancyId || vacancyId === 'null' || vacancyId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/vacancies/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/vacancies\/(\d+)/);
+                        if (match && match[1]) {
+                            vacancyId = match[1];
+                        }
+                    }
+                }
+                
+                if (vacancyId && vacancyId !== 'null' && vacancyId !== '' && vacancyId !== null && vacancyId !== undefined) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    window.location.href = '/admin/vacancies/' + vacancyId;
+                }
+            };
+            
+            // Add event listener with capture phase on container
+            vacanciesTable.addEventListener('click', vacanciesTable._rowClickHandler, true);
+        }
+        
+        // Initialize immediately
+        setupVacancyRowClicks();
+        
+        // Re-initialize after delays in case datatable initializes later
+        setTimeout(setupVacancyRowClicks, 100);
+        setTimeout(setupVacancyRowClicks, 500);
+        setTimeout(setupVacancyRowClicks, 1000);
+        
+        // Watch for table changes
+        const vacanciesTable = document.getElementById('vacancies_table');
+        if (vacanciesTable) {
+            const observer = new MutationObserver(function() {
+                setupVacancyRowClicks();
             });
-        });
+            observer.observe(vacanciesTable, { childList: true, subtree: true });
+        }
     });
 </script>
 <script src="{{ asset('assets/js/search-input-clear.js') }}"></script>

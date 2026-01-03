@@ -112,6 +112,33 @@ class AdminInvoiceController extends Controller
         );
 
         $company = Company::findOrFail($validated['company_id']);
+        
+        // Parse dates from dd-MM-yyyy format
+        $invoiceDate = now();
+        if (isset($validated['invoice_date']) && !empty($validated['invoice_date'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $validated['invoice_date'])) {
+                    $invoiceDate = \Carbon\Carbon::createFromFormat('d-m-Y', $validated['invoice_date']);
+                } else {
+                    $invoiceDate = \Carbon\Carbon::parse($validated['invoice_date']);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse invoice_date', ['input' => $validated['invoice_date'], 'error' => $e->getMessage()]);
+            }
+        }
+        
+        $dueDate = $invoiceDate->copy()->addDays($settings->payment_terms_days);
+        if (isset($validated['due_date']) && !empty($validated['due_date'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $validated['due_date'])) {
+                    $dueDate = \Carbon\Carbon::createFromFormat('d-m-Y', $validated['due_date']);
+                } else {
+                    $dueDate = \Carbon\Carbon::parse($validated['due_date']);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse due_date', ['input' => $validated['due_date'], 'error' => $e->getMessage()]);
+            }
+        }
 
         $invoice = Invoice::create([
             'invoice_number' => $invoiceNumber,
@@ -122,8 +149,8 @@ class AdminInvoiceController extends Controller
             'total_amount' => $totalAmount,
             'currency' => 'EUR',
             'status' => 'draft',
-            'invoice_date' => now(),
-            'due_date' => now()->addDays($settings->payment_terms_days),
+            'invoice_date' => $invoiceDate,
+            'due_date' => $dueDate,
             'is_partial' => $validated['is_partial'] ?? false,
             'parent_invoice_number' => $validated['parent_invoice_number'] ?? null,
             'partial_number' => $validated['partial_number'] ?? null,
@@ -229,6 +256,31 @@ class AdminInvoiceController extends Controller
 
         $company = Company::findOrFail($validated['company_id']);
         $validated['company_details'] = $company->toArray();
+        
+        // Parse dates from dd-MM-yyyy format
+        if (isset($validated['invoice_date']) && !empty($validated['invoice_date'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $validated['invoice_date'])) {
+                    $validated['invoice_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $validated['invoice_date'])->format('Y-m-d');
+                } else {
+                    $validated['invoice_date'] = \Carbon\Carbon::parse($validated['invoice_date'])->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse invoice_date', ['input' => $validated['invoice_date'], 'error' => $e->getMessage()]);
+            }
+        }
+        
+        if (isset($validated['due_date']) && !empty($validated['due_date'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $validated['due_date'])) {
+                    $validated['due_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $validated['due_date'])->format('Y-m-d');
+                } else {
+                    $validated['due_date'] = \Carbon\Carbon::parse($validated['due_date'])->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse due_date', ['input' => $validated['due_date'], 'error' => $e->getMessage()]);
+            }
+        }
 
         $invoice->update($validated);
 

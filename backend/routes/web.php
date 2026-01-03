@@ -274,6 +274,13 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     // Vacancies
     Route::resource('vacancies', AdminVacancyController::class);
     Route::get('vacancies/{vacancy}/contact-photo', [AdminVacancyController::class, 'getContactPhoto'])->name('vacancies.contact-photo');
+    Route::get('vacancies/{vacancy}/candidate/{candidate}', [AdminVacancyController::class, 'showCandidate'])->name('vacancies.candidate');
+    Route::get('vacancies/{vacancy}/candidate/{candidate}/timeline', [AdminVacancyController::class, 'getTimeline'])->name('vacancies.candidate.timeline');
+    Route::post('vacancies/{vacancy}/candidate/{candidate}/interview', [AdminVacancyController::class, 'scheduleInterview'])->name('vacancies.candidate.interview');
+    Route::put('vacancies/{vacancy}/candidate/{candidate}/interview/{interview}', [AdminVacancyController::class, 'updateInterview'])->name('vacancies.candidate.interview.update');
+    Route::put('vacancies/{vacancy}/candidate/{candidate}/interview/{interview}/cancel', [AdminVacancyController::class, 'cancelInterview'])->name('vacancies.candidate.interview.cancel');
+    Route::post('vacancies/{vacancy}/candidate/{candidate}/reject', [AdminVacancyController::class, 'rejectCandidate'])->name('vacancies.candidate.reject');
+    Route::post('vacancies/{vacancy}/candidate/{candidate}/accept', [AdminVacancyController::class, 'acceptCandidate'])->name('vacancies.candidate.accept');
     
     // Matches
     Route::resource('matches', AdminMatchController::class);

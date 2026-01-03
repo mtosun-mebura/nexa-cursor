@@ -137,11 +137,11 @@
                                     <input class="grow" 
                                            name="application_date" 
                                            id="application_date"
-                                           value="{{ old('application_date', $match->application_date ? $match->application_date->format('Y-m-d') : '') }}"
+                                           value="{{ old('application_date', $match->application_date ? $match->application_date->format('d-m-Y') : '') }}"
                                            data-kt-date-picker="true" 
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
-                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           data-kt-date-picker-format="dd-MM-yyyy"
                                            placeholder="Selecteer datum" 
                                            readonly 
                                            type="text"/>

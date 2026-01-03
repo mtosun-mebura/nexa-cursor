@@ -182,6 +182,53 @@ Met vriendelijke groet,
                 'company_id' => $company->id
             ],
             [
+                'name' => 'Kandidaat afwijzing - ' . $company->name,
+                'subject' => 'Reactie op je sollicitatie voor {{VACANCY_TITLE}}',
+                'type' => 'rejection',
+                'description' => 'E-mail die wordt verzonden wanneer een kandidaat wordt afgewezen',
+                'html_content' => '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Reactie op sollicitatie</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #333;">Reactie op je sollicitatie</h1>
+        <p>Beste {CANDIDATE_FIRST_NAME},</p>
+        <p>Bedankt voor je interesse in de functie <strong>{VACANCY_TITLE}</strong> bij {COMPANY_NAME}.</p>
+        <p>We hebben je sollicitatie zorgvuldig bekeken. Helaas moeten we je mededelen dat we op dit moment niet verder kunnen gaan met jouw sollicitatie voor deze functie.</p>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Reden:</h3>
+            <p>{REJECTION_REASON}</p>
+        </div>
+        <p>Dit betekent niet dat je niet geschikt bent voor andere functies. We raden je aan om onze andere vacatures te bekijken.</p>
+        <p>We wensen je veel succes met je verdere carrière.</p>
+        <p>Met vriendelijke groet,<br>{COMPANY_NAME}</p>
+    </div>
+</body>
+</html>',
+                'text_content' => 'Reactie op je sollicitatie
+
+Beste {CANDIDATE_FIRST_NAME},
+
+Bedankt voor je interesse in de functie {VACANCY_TITLE} bij {COMPANY_NAME}.
+
+We hebben je sollicitatie zorgvuldig bekeken. Helaas moeten we je mededelen dat we op dit moment niet verder kunnen gaan met jouw sollicitatie voor deze functie.
+
+Reden:
+{REJECTION_REASON}
+
+Dit betekent niet dat je niet geschikt bent voor andere functies. We raden je aan om onze andere vacatures te bekijken.
+
+We wensen je veel succes met je verdere carrière.
+
+Met vriendelijke groet,
+{COMPANY_NAME}',
+                'is_active' => true,
+                'company_id' => $company->id
+            ],
+            [
                 'name' => 'Sollicitatie ontvangen - ' . $company->name,
                 'subject' => 'Nieuwe sollicitatie ontvangen - {{ $vacancy_title }}',
                 'type' => 'application_received',

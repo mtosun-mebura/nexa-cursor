@@ -134,11 +134,11 @@
                                         <input class="grow" 
                                                name="date_of_birth" 
                                                id="date_of_birth"
-                                               value="{{ old('date_of_birth', $candidate->date_of_birth ? $candidate->date_of_birth->format('Y-m-d') : '') }}"
+                                               value="{{ old('date_of_birth', $candidate->date_of_birth ? $candidate->date_of_birth->format('d-m-Y') : '') }}"
                                                data-kt-date-picker="true" 
                                                data-kt-date-picker-input-mode="true" 
                                                data-kt-date-picker-position-to-input="left"
-                                               data-kt-date-picker-format="yyyy-MM-dd"
+                                               data-kt-date-picker-format="dd-MM-yyyy"
                                                placeholder="Selecteer datum" 
                                                readonly 
                                                type="text"/>

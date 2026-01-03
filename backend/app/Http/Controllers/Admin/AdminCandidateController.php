@@ -170,6 +170,20 @@ class AdminCandidateController extends Controller
             $data['cv_path'] = $cvPath;
         }
 
+        // Parse date_of_birth from dd-MM-yyyy format
+        if (isset($data['date_of_birth']) && !empty($data['date_of_birth'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $data['date_of_birth'])) {
+                    $data['date_of_birth'] = \Carbon\Carbon::createFromFormat('d-m-Y', $data['date_of_birth'])->format('Y-m-d');
+                } else {
+                    $data['date_of_birth'] = \Carbon\Carbon::parse($data['date_of_birth'])->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse date_of_birth', ['input' => $data['date_of_birth'], 'error' => $e->getMessage()]);
+                $data['date_of_birth'] = null;
+            }
+        }
+        
         // Convert arrays to JSON
         if (isset($data['skills'])) {
             $data['skills'] = array_filter($data['skills']);
@@ -268,6 +282,20 @@ class AdminCandidateController extends Controller
             $data['cv_path'] = $cvPath;
         }
 
+        // Parse date_of_birth from dd-MM-yyyy format
+        if (isset($data['date_of_birth']) && !empty($data['date_of_birth'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $data['date_of_birth'])) {
+                    $data['date_of_birth'] = \Carbon\Carbon::createFromFormat('d-m-Y', $data['date_of_birth'])->format('Y-m-d');
+                } else {
+                    $data['date_of_birth'] = \Carbon\Carbon::parse($data['date_of_birth'])->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse date_of_birth', ['input' => $data['date_of_birth'], 'error' => $e->getMessage()]);
+                $data['date_of_birth'] = null;
+            }
+        }
+        
         // Convert arrays to JSON
         if (isset($data['skills'])) {
             $data['skills'] = array_filter($data['skills']);

@@ -462,29 +462,81 @@ document.addEventListener('DOMContentLoaded', function() {
         paginationObserver.observe(typesTable, { childList: true, subtree: true });
     }
     
-    // Make table rows clickable (except actions column)
+    // Make table rows clickable (except actions column) - robust event delegation
     function makeRowsClickable() {
-        document.querySelectorAll('tbody tr.type-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
-                // Don't navigate if clicking on actions column or menu
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
-                    return;
-                }
-                
-                // Get type ID from the name code element (now in second column)
-                const nameCode = this.querySelector('td:nth-child(2) code[data-type-id]');
+        if (!typesTable) {
+            return;
+        }
+        
+        // Remove existing handler if it exists
+        if (typesTable._rowClickHandler) {
+            typesTable.removeEventListener('click', typesTable._rowClickHandler, true);
+        }
+        
+        // Create robust click handler
+        typesTable._rowClickHandler = function(e) {
+            const row = e.target.closest('tr.type-row');
+            if (!row) {
+                return;
+            }
+            
+            // Don't navigate if clicking on actions column or menu
+            const clickedElement = e.target;
+            const actionsTd = row.querySelector('td:last-child');
+            const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+            const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+            const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+            const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+            
+            if (isInActionsColumn || isInMenu || isButton || isLink) {
+                return;
+            }
+            
+            // Get type ID - try multiple methods
+            let typeId = null;
+            
+            // Method 1: Try data attribute on row
+            typeId = row.getAttribute('data-type-id');
+            
+            // Method 2: Try name code element
+            if (!typeId || typeId === 'null' || typeId === '') {
+                const nameCode = row.querySelector('td:nth-child(2) code[data-type-id]');
                 if (nameCode) {
-                    const typeId = nameCode.getAttribute('data-type-id');
-                    if (typeId) {
-                        window.location.href = '/admin/job-configuration-types/' + typeId;
+                    typeId = nameCode.getAttribute('data-type-id');
+                }
+            }
+            
+            // Method 3: Try to extract from any link in the row
+            if (!typeId || typeId === 'null' || typeId === '') {
+                const viewLink = row.querySelector('a[href*="/admin/job-configuration-types/"]');
+                if (viewLink) {
+                    const href = viewLink.getAttribute('href');
+                    const match = href.match(/\/admin\/job-configuration-types\/(\d+)/);
+                    if (match && match[1]) {
+                        typeId = match[1];
                     }
                 }
-            });
-        });
+            }
+            
+            if (typeId && typeId !== 'null' && typeId !== '' && typeId !== null && typeId !== undefined) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                e.preventDefault();
+                window.location.href = '/admin/job-configuration-types/' + typeId;
+            }
+        };
+        
+        // Add event listener with capture phase on container
+        typesTable.addEventListener('click', typesTable._rowClickHandler, true);
     }
     
     // Initialize row click handlers
     makeRowsClickable();
+    
+    // Re-initialize after delays in case datatable initializes later
+    setTimeout(makeRowsClickable, 100);
+    setTimeout(makeRowsClickable, 500);
+    setTimeout(makeRowsClickable, 1000);
     
     // Re-initialize when table content changes (for pagination/search)
     if (typesTable) {

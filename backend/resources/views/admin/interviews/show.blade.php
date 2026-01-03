@@ -56,7 +56,7 @@
             </div>
             <div class="flex items-center gap-1.5">
                 <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
-                    Interview #{{ $interview->id }}
+                    Interview met {{ trim(($interview->match->candidate->first_name ?? '') . ' ' . ($interview->match->candidate->last_name ?? '')) ?: 'Onbekend' }}
                 </div>
             </div>
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
@@ -67,14 +67,16 @@
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
+                    @php
+                        $statusMap = [
+                            'scheduled' => 'Ingepland',
+                            'completed' => 'Voltooid',
+                            'cancelled' => 'Geannuleerd',
+                        ];
+                        $statusLabel = $statusMap[$interview->status] ?? ucfirst($interview->status ?? 'Onbekend');
+                    @endphp
                     <span class="kt-badge kt-badge-sm kt-badge-{{ $interview->status == 'scheduled' ? 'info' : ($interview->status == 'completed' ? 'success' : ($interview->status == 'cancelled' ? 'danger' : 'warning')) }}">
-                        {{ ucfirst($interview->status ?? 'Onbekend') }}
-                    </span>
-                </div>
-                <div class="flex gap-1.25 items-center">
-                    <i class="ki-filled ki-user text-base"></i>
-                    <span class="text-secondary-foreground">
-                        {{ trim(($interview->match->candidate->first_name ?? '') . ' ' . ($interview->match->candidate->last_name ?? '')) ?: 'Onbekend' }}
+                        {{ $statusLabel }}
                     </span>
                 </div>
             </div>
@@ -116,9 +118,7 @@
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
                             @if($interview->match && $interview->match->candidate)
-                                <a href="{{ route('admin.candidates.show', $interview->match->candidate) }}" class="text-primary hover:underline">
-                                    {{ trim($interview->match->candidate->first_name . ' ' . $interview->match->candidate->last_name) }}
-                                </a>
+                                {{ trim($interview->match->candidate->first_name . ' ' . $interview->match->candidate->last_name) }}
                             @else
                                 Onbekend
                             @endif
@@ -130,9 +130,7 @@
                         </td>
                         <td class="text-foreground font-normal">
                             @if($interview->match && $interview->match->vacancy)
-                                <a href="{{ route('admin.vacancies.show', $interview->match->vacancy) }}" class="text-primary hover:underline">
-                                    {{ $interview->match->vacancy->title }}
-                                </a>
+                                {{ $interview->match->vacancy->title }}
                             @else
                                 Onbekend
                             @endif
@@ -144,13 +142,9 @@
                         </td>
                         <td class="text-foreground font-normal">
                             @if($interview->company)
-                                <a href="{{ route('admin.companies.show', $interview->company) }}" class="text-primary hover:underline">
-                                    {{ $interview->company->name }}
-                                </a>
+                                {{ $interview->company->name }}
                             @elseif($interview->match && $interview->match->vacancy && $interview->match->vacancy->company)
-                                <a href="{{ route('admin.companies.show', $interview->match->vacancy->company) }}" class="text-primary hover:underline">
-                                    {{ $interview->match->vacancy->company->name }}
-                                </a>
+                                {{ $interview->match->vacancy->company->name }}
                             @else
                                 Onbekend
                             @endif
@@ -169,8 +163,16 @@
                             Status
                         </td>
                         <td class="text-foreground font-normal">
+                            @php
+                                $statusMap = [
+                                    'scheduled' => 'Ingepland',
+                                    'completed' => 'Voltooid',
+                                    'cancelled' => 'Geannuleerd',
+                                ];
+                                $statusLabel = $statusMap[$interview->status] ?? ucfirst($interview->status ?? 'Onbekend');
+                            @endphp
                             <span class="kt-badge kt-badge-sm kt-badge-{{ $interview->status == 'scheduled' ? 'info' : ($interview->status == 'completed' ? 'success' : ($interview->status == 'cancelled' ? 'danger' : 'warning')) }}">
-                                {{ ucfirst($interview->status ?? 'Onbekend') }}
+                                {{ $statusLabel }}
                             </span>
                         </td>
                     </tr>
@@ -211,13 +213,7 @@
                             Interviewer E-mail
                         </td>
                         <td class="text-foreground font-normal">
-                            @if($interview->interviewer_email)
-                                <a href="mailto:{{ $interview->interviewer_email }}" class="text-primary hover:underline">
-                                    {{ $interview->interviewer_email }}
-                                </a>
-                            @else
-                                Niet opgegeven
-                            @endif
+                            {{ $interview->interviewer_email ?? 'Niet opgegeven' }}
                         </td>
                     </tr>
                 </table>
@@ -236,7 +232,7 @@
                 @if($interview->notes)
                 <div class="mb-5">
                     <h4 class="text-sm font-semibold text-secondary-foreground mb-2">Notities</h4>
-                    <div class="kt-input pt-3 pb-3 px-4 break-words text-left" style="min-height: 100px; white-space: pre-wrap; text-align: left;">
+                    <div class="kt-input pt-3 pb-3 px-4 break-words text-left">
                         {{ trim($interview->notes) }}
                     </div>
                 </div>

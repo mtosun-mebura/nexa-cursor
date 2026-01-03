@@ -11,7 +11,7 @@ class Interview extends Model
 
     protected $fillable = [
         'match_id', 'company_id', 'type', 'scheduled_at', 'duration', 'status', 'location', 
-        'interviewer_name', 'interviewer_email', 'notes', 'feedback'
+        'company_location_id', 'interviewer_name', 'interviewer_email', 'user_id', 'notes', 'feedback'
     ];
 
     protected $casts = [
@@ -27,6 +27,16 @@ class Interview extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function companyLocation()
+    {
+        return $this->belongsTo(CompanyLocation::class, 'company_location_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }
 

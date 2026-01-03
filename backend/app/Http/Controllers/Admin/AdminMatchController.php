@@ -242,7 +242,23 @@ class AdminMatchController extends Controller
             }
         }
 
-        \App\Models\JobMatch::create($request->all());
+        $matchData = $request->all();
+        
+        // Parse application_date from dd-MM-yyyy format
+        if (isset($matchData['application_date']) && !empty($matchData['application_date'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $matchData['application_date'])) {
+                    $matchData['application_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $matchData['application_date'])->format('Y-m-d');
+                } else {
+                    $matchData['application_date'] = \Carbon\Carbon::parse($matchData['application_date'])->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse application_date', ['input' => $matchData['application_date'], 'error' => $e->getMessage()]);
+                $matchData['application_date'] = null;
+            }
+        }
+        
+        \App\Models\JobMatch::create($matchData);
         return redirect()->route('admin.matches.index')->with('success', 'Match succesvol aangemaakt.');
     }
 
@@ -404,7 +420,23 @@ class AdminMatchController extends Controller
             'ai_analysis' => 'nullable|string',
         ]);
 
-        $match->update($request->all());
+        $matchData = $request->all();
+        
+        // Parse application_date from dd-MM-yyyy format
+        if (isset($matchData['application_date']) && !empty($matchData['application_date'])) {
+            try {
+                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', $matchData['application_date'])) {
+                    $matchData['application_date'] = \Carbon\Carbon::createFromFormat('d-m-Y', $matchData['application_date'])->format('Y-m-d');
+                } else {
+                    $matchData['application_date'] = \Carbon\Carbon::parse($matchData['application_date'])->format('Y-m-d');
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to parse application_date', ['input' => $matchData['application_date'], 'error' => $e->getMessage()]);
+                $matchData['application_date'] = null;
+            }
+        }
+
+        $match->update($matchData);
         return redirect()->route('admin.matches.index')->with('success', 'Match succesvol bijgewerkt.');
     }
 

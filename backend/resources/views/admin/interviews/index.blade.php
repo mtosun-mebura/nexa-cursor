@@ -120,7 +120,7 @@
                                     data-kt-select-placeholder="Status"
                                     id="status-filter">
                                 <option value="">Alle statussen</option>
-                                <option value="scheduled" {{ request('status') == 'scheduled' ? 'selected' : '' }}>Gepland</option>
+                                <option value="scheduled" {{ request('status') == 'scheduled' ? 'selected' : '' }}>Ingepland</option>
                                 <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Voltooid</option>
                                 <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Geannuleerd</option>
                             </select>
@@ -254,9 +254,9 @@
                                                     <span class="text-sm font-medium text-mono mb-px">
                                                         {{ $interview->match->candidate->first_name }} {{ $interview->match->candidate->last_name }} (K)
                                                     </span>
-                                                    <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $interview->match->candidate->email }}">
+                                                    <span class="text-sm text-secondary-foreground font-normal">
                                                         {{ $interview->match->candidate->email }}
-                                                    </a>
+                                                    </span>
                                                 </div>
                                             @else
                                                 <span class="text-sm text-muted-foreground">Kandidaat niet gevonden</span>
@@ -298,7 +298,7 @@
                                                 @if(\Carbon\Carbon::parse($interview->scheduled_at)->isPast())
                                                     <span class="kt-badge kt-badge-sm kt-badge-secondary">Afgelopen</span>
                                                 @else
-                                                    <span class="kt-badge kt-badge-sm kt-badge-success">Gepland</span>
+                                                    <span class="kt-badge kt-badge-sm kt-badge-success">Ingepland</span>
                                                 @endif
                                             @else
                                                 <span class="kt-badge kt-badge-sm kt-badge-warning">Niet gepland</span>
@@ -463,21 +463,164 @@
             }, 3000);
         }
         
-        // Make table rows clickable (except actions column)
-        document.querySelectorAll('tbody tr.interview-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
-                // Don't navigate if clicking on actions column or menu
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+        // Make table rows clickable - use both event delegation and direct handlers
+        let rowClickHandler = null;
+        const attachedRows = new WeakSet();
+        
+        function setupRowClicks() {
+            const interviewsTable = document.getElementById('interviews_table');
+            if (!interviewsTable) {
+                return;
+            }
+            
+            // Try to find tbody - check multiple possible locations
+            let tbody = interviewsTable.querySelector('table tbody');
+            if (!tbody) {
+                tbody = interviewsTable.querySelector('tbody');
+            }
+            if (!tbody) {
+                tbody = document.querySelector('[data-kt-datatable-table="true"] tbody');
+            }
+            
+            if (!tbody) {
+                return;
+            }
+            
+            // Remove existing handler if it exists (for event delegation)
+            if (rowClickHandler) {
+                tbody.removeEventListener('click', rowClickHandler, true);
+            }
+            
+            // Create event delegation handler
+            rowClickHandler = function(e) {
+                const row = e.target.closest('tr.interview-row');
+                if (!row) {
                     return;
                 }
                 
-                // Get interview ID
-                const interviewId = this.getAttribute('data-interview-id');
-                if (interviewId) {
+                // Don't navigate if clicking on actions column or menu
+                const clickedElement = e.target;
+                const actionsTd = row.querySelector('td:last-child');
+                const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                
+                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                    return;
+                }
+                
+                // Get interview ID - try multiple methods since datatable might remove data attributes
+                let interviewId = row.getAttribute('data-interview-id');
+                
+                // If not found, try to get it from the "Bekijken" link in the actions menu
+                if (!interviewId || interviewId === 'null' || interviewId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/interviews/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/interviews\/(\d+)/);
+                        if (match && match[1]) {
+                            interviewId = match[1];
+                        }
+                    }
+                }
+                
+                if (interviewId && interviewId !== 'null' && interviewId !== '' && interviewId !== null && interviewId !== undefined) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
                     window.location.href = '/admin/interviews/' + interviewId;
                 }
+            };
+            
+            // Add event delegation listener
+            tbody.addEventListener('click', rowClickHandler, true);
+            
+            // Also attach direct handlers to each row (backup method)
+            const rows = tbody.querySelectorAll('tr.interview-row');
+            
+            rows.forEach(function(row, index) {
+                // Skip if already attached
+                if (attachedRows.has(row)) {
+                    return;
+                }
+                
+                // Get interview ID - try multiple methods
+                let interviewId = row.getAttribute('data-interview-id');
+                
+                // If not found, try to get it from the "Bekijken" link
+                if (!interviewId || interviewId === 'null' || interviewId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/interviews/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/interviews\/(\d+)/);
+                        if (match && match[1]) {
+                            interviewId = match[1];
+                            // Store it in the row for future use
+                            row.setAttribute('data-interview-id', interviewId);
+                        }
+                    }
+                }
+                
+                row.style.cursor = 'pointer';
+                attachedRows.add(row);
+                
+                // Store interview ID in closure for this row
+                const rowInterviewId = interviewId;
+                
+                // Add direct click handler as backup
+                row.addEventListener('click', function(e) {
+                    // Don't navigate if clicking on actions column or menu
+                    const clickedElement = e.target;
+                    const actionsTd = this.querySelector('td:last-child');
+                    const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                    const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                    const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                    const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                    
+                    if (isInActionsColumn || isInMenu || isButton || isLink) {
+                        return;
+                    }
+                    
+                    // Use stored ID or try to get it again
+                    let interviewId = rowInterviewId || this.getAttribute('data-interview-id');
+                    if (!interviewId || interviewId === 'null' || interviewId === '') {
+                        const viewLink = this.querySelector('a[href*="/admin/interviews/"]');
+                        if (viewLink) {
+                            const href = viewLink.getAttribute('href');
+                            const match = href.match(/\/admin\/interviews\/(\d+)/);
+                            if (match && match[1]) {
+                                interviewId = match[1];
+                            }
+                        }
+                    }
+                    
+                    if (interviewId && interviewId !== 'null' && interviewId !== '' && interviewId !== null && interviewId !== undefined) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        e.preventDefault();
+                        window.location.href = '/admin/interviews/' + interviewId;
+                    }
+                }, true);
             });
-        });
+        }
+        
+        // Try immediately
+        setupRowClicks();
+        
+        // Also try after delays in case datatable initializes later
+        setTimeout(setupRowClicks, 100);
+        setTimeout(setupRowClicks, 500);
+        setTimeout(setupRowClicks, 1000);
+        
+        // Watch for table changes
+        const interviewsTable = document.getElementById('interviews_table');
+        if (interviewsTable) {
+            const observer = new MutationObserver(function() {
+                setupRowClicks();
+            });
+            observer.observe(interviewsTable, { childList: true, subtree: true });
+        }
     });
 </script>
 @endpush

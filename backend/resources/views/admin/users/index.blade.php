@@ -644,31 +644,91 @@
             return false;
         }, true);
         
-        // Make table rows clickable (except actions column) - using event delegation
-        // This works even after filtering/searching because we listen on tbody
-        const tbody = document.querySelector('#users_table table tbody');
-        if (tbody) {
-            tbody.addEventListener('click', function(e) {
-                // Find the closest row
+        // Make table rows clickable (except actions column) - robust event delegation
+        // Use container-level delegation to survive datatable updates
+        function setupUserRowClicks() {
+            const usersTable = document.getElementById('users_table');
+            if (!usersTable) {
+                return;
+            }
+            
+            // Remove existing handler if it exists
+            if (usersTable._rowClickHandler) {
+                usersTable.removeEventListener('click', usersTable._rowClickHandler, true);
+            }
+            
+            // Create robust click handler
+            usersTable._rowClickHandler = function(e) {
                 const row = e.target.closest('tr.user-row');
                 if (!row) {
                     return;
                 }
                 
                 // Don't navigate if clicking on actions column or menu
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+                const clickedElement = e.target;
+                const actionsTd = row.querySelector('td:last-child');
+                const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                
+                if (isInActionsColumn || isInMenu || isButton || isLink) {
                     return;
                 }
                 
-                // Get user ID from the name link
-                const nameLink = row.querySelector('td:first-child a[data-user-id]');
-                if (nameLink) {
-                    const userId = nameLink.getAttribute('data-user-id');
-                    if (userId) {
-                        window.location.href = '/admin/users/' + userId;
+                // Get user ID - try multiple methods
+                let userId = null;
+                
+                // Method 1: Try data attribute on row
+                userId = row.getAttribute('data-user-id');
+                
+                // Method 2: Try name link with data attribute
+                if (!userId || userId === 'null' || userId === '') {
+                    const nameLink = row.querySelector('td:first-child a[data-user-id]');
+                    if (nameLink) {
+                        userId = nameLink.getAttribute('data-user-id');
                     }
                 }
+                
+                // Method 3: Try to extract from any link in the row
+                if (!userId || userId === 'null' || userId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/users/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/users\/(\d+)/);
+                        if (match && match[1]) {
+                            userId = match[1];
+                        }
+                    }
+                }
+                
+                if (userId && userId !== 'null' && userId !== '' && userId !== null && userId !== undefined) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    window.location.href = '/admin/users/' + userId;
+                }
+            };
+            
+            // Add event listener with capture phase on container
+            usersTable.addEventListener('click', usersTable._rowClickHandler, true);
+        }
+        
+        // Initialize immediately
+        setupUserRowClicks();
+        
+        // Re-initialize after delays in case datatable initializes later
+        setTimeout(setupUserRowClicks, 100);
+        setTimeout(setupUserRowClicks, 500);
+        setTimeout(setupUserRowClicks, 1000);
+        
+        // Watch for table changes
+        const usersTable = document.getElementById('users_table');
+        if (usersTable) {
+            const observer = new MutationObserver(function() {
+                setupUserRowClicks();
             });
+            observer.observe(usersTable, { childList: true, subtree: true });
         }
     });
 </script>

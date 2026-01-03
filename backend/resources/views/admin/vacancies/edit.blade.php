@@ -278,11 +278,11 @@
                                     <input class="grow" 
                                            name="publication_date" 
                                            id="publication_date"
-                                           value="{{ old('publication_date', $vacancy->publication_date ? $vacancy->publication_date->format('Y-m-d') : '') }}"
+                                           value="{{ old('publication_date', $vacancy->publication_date ? $vacancy->publication_date->format('d-m-Y') : '') }}"
                                            data-kt-date-picker="true" 
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
-                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           data-kt-date-picker-format="dd-MM-yyyy"
                                            placeholder="Selecteer datum" 
                                            readonly 
                                            type="text"/>
@@ -299,11 +299,11 @@
                                     <input class="grow" 
                                            name="closing_date" 
                                            id="closing_date"
-                                           value="{{ old('closing_date', $vacancy->closing_date ? $vacancy->closing_date->format('Y-m-d') : '') }}"
+                                           value="{{ old('closing_date', $vacancy->closing_date ? $vacancy->closing_date->format('d-m-Y') : '') }}"
                                            data-kt-date-picker="true" 
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
-                                           data-kt-date-picker-format="yyyy-MM-dd"
+                                           data-kt-date-picker-format="dd-MM-yyyy"
                                            placeholder="Selecteer datum" 
                                            readonly 
                                            type="text"/>

@@ -109,7 +109,7 @@
                                     <input type="hidden" 
                                            name="due_date" 
                                            id="due_date"
-                                           value="{{ old('due_date', $invoice->due_date->format('Y-m-d')) }}"
+                                           value="{{ old('due_date', $invoice->due_date->format('d-m-Y')) }}"
                                            required/>
                                 </div>
                                 <div class="text-xs text-muted-foreground/60 mt-1">

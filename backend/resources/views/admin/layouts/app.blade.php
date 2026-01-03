@@ -155,24 +155,30 @@
         }
         /* Success Banner Bar */
         .success-banner-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 9999;
+            position: relative;
+            width: 100%;
+            z-index: 10;
             background-color: #10b981;
             color: white;
             padding: 12px 0;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: opacity 0.3s ease-out, transform 0.3s ease-out;
             transform: translateY(0);
+            margin-bottom: 1.25rem;
         }
         .success-banner-bar.fade-out {
             opacity: 0;
-            transform: translateY(-100%);
+            transform: translateY(-20px);
         }
         .dark .success-banner-bar {
             background-color: #059669;
+        }
+        /* Rejection Banner (Red) */
+        .success-banner-bar.rejection {
+            background-color: #dc2626;
+        }
+        .dark .success-banner-bar.rejection {
+            background-color: #b91c1c;
         }
 
         /* UI rule: labels next to textarea should be top-aligned */
@@ -265,10 +271,17 @@
             <main class="grow pt-5" id="content" role="content">
                 <!-- Success Banner -->
                 @if(session('success'))
-                    <div id="success-banner" class="success-banner-bar">
+                    @php
+                        $isRejection = str_contains(strtolower(session('success')), 'afgewezen') || str_contains(strtolower(session('success')), 'afwijzing');
+                    @endphp
+                    <div id="success-banner" class="success-banner-bar {{ $isRejection ? 'rejection' : '' }}">
                         <div class="kt-container-fixed">
                             <div class="flex items-center justify-center gap-2">
-                                <i class="ki-filled ki-check-circle text-lg"></i>
+                                @if($isRejection)
+                                    <i class="ki-filled ki-cross-circle text-lg"></i>
+                                @else
+                                    <i class="ki-filled ki-check-circle text-lg"></i>
+                                @endif
                                 <span>{{ session('success') }}</span>
                             </div>
                         </div>
@@ -345,23 +358,13 @@
     (function() {
         const successBanner = document.getElementById('success-banner');
         if (successBanner) {
-            // Adjust main content padding to account for banner
-            const mainContent = document.getElementById('content');
-            if (mainContent) {
-                mainContent.style.paddingTop = 'calc(1.25rem + 48px)'; // pt-5 + banner height
-            }
-            
-            // Auto-dismiss after 3 seconds
+            // Auto-dismiss after 5 seconds
             setTimeout(function() {
                 successBanner.classList.add('fade-out');
                 setTimeout(function() {
                     successBanner.remove();
-                    // Reset padding after banner is removed
-                    if (mainContent) {
-                        mainContent.style.paddingTop = '';
-                    }
                 }, 300); // Match CSS transition duration
-            }, 3000); // 3 seconds
+            }, 5000); // 5 seconds
         }
     })();
     </script>

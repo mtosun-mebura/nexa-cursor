@@ -10734,9 +10734,6 @@
     inset-inline-start: calc(1/2 * 100%);
     top: calc(1/2 * 100%);
     display: none;
-    --tw-translate-x: calc(calc(1/2 * 100%) * -1);
-    --tw-translate-y: calc(calc(1/2 * 100%) * -1);
-    translate: var(--tw-translate-x) var(--tw-translate-y);
     overflow: auto;
     padding: calc(var(--spacing) * 4);
   }
