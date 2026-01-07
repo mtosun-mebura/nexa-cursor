@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             UserRoleSeeder::class,
             CategorySeeder::class,
+            StageTypeSeeder::class,
+            PipelineTemplateSeeder::class,
             VacancySeeder::class,
             PaymentProviderSeeder::class,
             CandidateSeeder::class,

@@ -115,6 +115,10 @@
                 </form>
             </div>
             <span class="text-orange-500 dark:text-orange-400 flex items-center">|</span>
+            <a href="{{ route('admin.companies.pipeline-templates.index', $company) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-diagram-3 me-2"></i>
+                Pipeline Templates
+            </a>
             <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-primary ml-auto">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
                 Bewerken

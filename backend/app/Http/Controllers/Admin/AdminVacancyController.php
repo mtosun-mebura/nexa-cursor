@@ -17,6 +17,7 @@ use App\Models\Application;
 use App\Models\Interview;
 use App\Services\EmailTemplateService;
 use Illuminate\Http\Request;
+use App\Models\StageInstance;
 use Illuminate\Support\Facades\DB;
 
 class AdminVacancyController extends Controller
@@ -766,10 +767,12 @@ class AdminVacancyController extends Controller
         
         // Get company locations for location dropdown
         $companyLocations = [];
+        $company = null;
         if ($vacancy->company) {
             $companyLocations = \App\Models\CompanyLocation::where('company_id', $vacancy->company_id)
                 ->orderBy('name')
                 ->get();
+            $company = $vacancy->company;
         }
         
         // Get company users for interviewer dropdown
@@ -782,7 +785,40 @@ class AdminVacancyController extends Controller
                 ->get();
         }
         
-        return view('admin.vacancies.candidate', compact('vacancy', 'candidate', 'match', 'application', 'type', 'timeline', 'companyLocations', 'companyUsers', 'interviews', 'latestInterview'));
+        // Get stage instances for this match/application
+        $stageInstances = collect();
+        $pipelineTemplate = null;
+        if ($match) {
+            $stageInstances = \App\Models\StageInstance::where('match_id', $match->id)
+                ->orderBy('sequence')
+                ->get();
+            if ($stageInstances->isNotEmpty()) {
+                $pipelineTemplate = $stageInstances->first()->pipelineTemplate;
+            }
+        } elseif ($application) {
+            $stageInstances = \App\Models\StageInstance::where('application_id', $application->id)
+                ->orderBy('sequence')
+                ->get();
+            if ($stageInstances->isNotEmpty()) {
+                $pipelineTemplate = $stageInstances->first()->pipelineTemplate;
+            }
+        }
+        
+        // Get available pipeline templates for initialization
+        $availableTemplates = \App\Models\PipelineTemplate::where(function($query) use ($vacancy) {
+            if ($vacancy->company_id) {
+                $query->where('company_id', $vacancy->company_id)
+                      ->orWhere('company_id', null);
+            } else {
+                $query->where('company_id', null);
+            }
+        })
+        ->where('is_active', true)
+        ->orderBy('is_default', 'desc')
+        ->orderBy('name')
+        ->get();
+        
+        return view('admin.vacancies.candidate', compact('vacancy', 'candidate', 'match', 'application', 'type', 'timeline', 'companyLocations', 'companyUsers', 'interviews', 'latestInterview', 'stageInstances', 'pipelineTemplate', 'availableTemplates', 'company'));
     }
 
     public function scheduleInterview(Vacancy $vacancy, Candidate $candidate, Request $request)
@@ -1540,20 +1576,93 @@ class AdminVacancyController extends Controller
             ->orderBy('action_at', 'desc')
             ->get();
         
-        $timeline = [];
-        
+        $timeline = collect();
+
         foreach ($activities as $activity) {
-            $timeline[] = [
+            $timeline->push([
                 'type' => $activity->action,
                 'title' => $activity->title,
                 'description' => $activity->description,
                 'date' => $activity->action_at,
                 'icon' => $activity->icon,
                 'color' => $activity->color,
-            ];
+            ]);
         }
 
-        return $timeline;
+        $stageStatusColors = [
+            'PENDING' => 'secondary',
+            'SCHEDULED' => 'info',
+            'IN_PROGRESS' => 'warning',
+            'COMPLETED' => 'success',
+            'SKIPPED' => 'muted',
+            'CANCELED' => 'danger',
+        ];
+        $stageStatusLabels = [
+            'PENDING' => 'In afwachting',
+            'SCHEDULED' => 'Ingepland',
+            'IN_PROGRESS' => 'Bezig',
+            'COMPLETED' => 'Voltooid',
+            'SKIPPED' => 'Overgeslagen',
+            'CANCELED' => 'Geannuleerd',
+        ];
+        $stageStatusIcons = [
+            'PENDING' => 'ki-clock',
+            'SCHEDULED' => 'ki-calendar',
+            'IN_PROGRESS' => 'ki-time',
+            'COMPLETED' => 'ki-check-circle',
+            'SKIPPED' => 'ki-arrow-right',
+            'CANCELED' => 'ki-cross-circle',
+        ];
+
+        $stagesQuery = StageInstance::query();
+        if ($match) {
+            $stagesQuery->where('match_id', $match->id);
+        } elseif ($application) {
+            $stagesQuery->where('application_id', $application->id);
+        }
+
+        $stageInstances = $stagesQuery->orderBy('sequence')->get();
+        foreach ($stageInstances as $stage) {
+            $statusKey = $stage->status;
+            $statusLabel = $stageStatusLabels[$statusKey] ?? $statusKey;
+            $descriptionParts = ['Status: ' . $statusLabel];
+            if ($stage->scheduled_at) {
+                $descriptionParts[] = 'Gepland: ' . $stage->scheduled_at->format('d-m-Y H:i');
+            }
+            if ($stage->outcome) {
+                $outcomeLabels = [
+                    'PASS' => 'Geslaagd',
+                    'FAIL' => 'Niet geslaagd',
+                    'ON_HOLD' => 'On hold',
+                    'ACCEPTED' => 'Geaccepteerd',
+                    'DECLINED' => 'Afgewezen',
+                ];
+                $descriptionParts[] = 'Uitkomst: ' . ($outcomeLabels[$stage->outcome] ?? $stage->outcome);
+            }
+            if ($statusKey === 'PENDING') {
+                continue;
+            }
+
+            $artifacts = $stage->artifacts ?? [];
+            if (!empty($artifacts['location'])) {
+                $descriptionParts[] = 'Locatie: ' . $artifacts['location'];
+            } elseif (!empty($artifacts['location_custom'])) {
+                $descriptionParts[] = 'Locatie: ' . $artifacts['location_custom'];
+            }
+            if (!empty($artifacts['interviewer_name'])) {
+                $descriptionParts[] = 'Interviewer: ' . $artifacts['interviewer_name'];
+            }
+            $timeline->push([
+                'type' => 'stage_' . $stage->id,
+                'title' => $stage->label,
+                'description' => implode(' - ', $descriptionParts),
+                'date' => $stage->updated_at ?? $stage->created_at ?? now(),
+                'icon' => $stageStatusIcons[$statusKey] ?? 'ki-list-check',
+                'color' => $stageStatusColors[$statusKey] ?? 'secondary',
+            ]);
+        }
+
+        return $timeline->sortByDesc('date')->values()->all();
     }
 
     /**

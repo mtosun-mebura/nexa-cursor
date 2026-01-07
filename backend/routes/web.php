@@ -241,6 +241,17 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::post('companies/{company}/toggle-main-location', [AdminCompanyController::class, 'toggleMainLocation'])->name('companies.toggle-main-location');
     Route::post('companies/{company}/upload-logo', [AdminCompanyController::class, 'uploadLogo'])->name('companies.upload-logo');
     
+    // Pipeline Templates
+    Route::get('companies/{company}/pipeline-templates', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'index'])->name('companies.pipeline-templates.index');
+    Route::get('companies/{company}/pipeline-templates/{pipelineTemplate}/edit', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'edit'])->name('companies.pipeline-templates.edit');
+    Route::put('companies/{company}/pipeline-templates/{pipelineTemplate}', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'update'])->name('companies.pipeline-templates.update');
+    Route::post('companies/{company}/pipeline-templates/create-from-default', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'createFromDefault'])->name('companies.pipeline-templates.create-from-default');
+    
+    // Stage Instances
+    Route::post('stage-instances/initialize/{type}/{id}', [App\Http\Controllers\Admin\StageInstanceController::class, 'initialize'])->name('stage-instances.initialize');
+    Route::get('stage-instances/{stageInstance}', [App\Http\Controllers\Admin\StageInstanceController::class, 'show'])->name('stage-instances.show');
+    Route::put('stage-instances/{stageInstance}', [App\Http\Controllers\Admin\StageInstanceController::class, 'update'])->name('stage-instances.update');
+    
     // Company Locations
     Route::get('companies/{company}/locations/create', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
     Route::post('companies/{company}/locations', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
