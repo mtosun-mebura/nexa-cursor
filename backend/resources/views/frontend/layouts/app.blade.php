@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="auth-check" content="{{ auth()->check() ? 'true' : 'false' }}">
     
     <title>@yield('title', 'Nexa Skillmatching - Vind je droombaan')</title>
     <meta name="description" content="@yield('description', 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.')">
@@ -33,18 +34,36 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Dark Mode Initial State (FOUC-vrij) -->
+    <!-- Dark Mode Initial State (FOUC-vrij) - MUST RUN FIRST -->
     <script>
     (() => {
       const el = document.documentElement
       const saved = localStorage.getItem('theme')
-      const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches
-      el.classList.toggle('dark', saved ? saved === 'dark' : prefersDark)
+      
+      // Remove dark class first to ensure clean state
+      el.classList.remove('dark')
+      
+      if (saved === 'dark') {
+        // Use saved dark preference
+        el.classList.add('dark')
+      } else if (saved === 'light') {
+        // Use saved light preference (already removed)
+        el.classList.remove('dark')
+      } else {
+        // No saved preference - use system preference
+        const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches
+        if (prefersDark) {
+          el.classList.add('dark')
+          localStorage.setItem('theme', 'dark')
+        } else {
+          localStorage.setItem('theme', 'light')
+        }
+      }
     })()
     </script>
     
     <!-- Styles -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
     
     @stack('styles')
 </head>
@@ -69,6 +88,38 @@
     
     <!-- AI Chatbot -->
     @include('frontend.components.ai-chatbot')
+    
+    <!-- Frontend Header Badges -->
+    <script src="{{ asset('js/frontend-header-badges.js') }}"></script>
+    <script src="{{ asset('js/frontend-chat.js') }}"></script>
+    
+    <!-- Hide user dropdown if not authenticated -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const authMeta = document.querySelector('meta[name="auth-check"]');
+        const isAuthenticated = authMeta && authMeta.getAttribute('content') === 'true';
+        
+        if (!isAuthenticated) {
+          // Hide user dropdown container
+          const userDropdown = document.querySelector('.user-dropdown-container');
+          if (userDropdown) {
+            userDropdown.style.display = 'none';
+            userDropdown.style.visibility = 'hidden';
+            userDropdown.style.opacity = '0';
+          }
+          
+          // Hide all user dropdown menus
+          const userDropdownMenus = document.querySelectorAll('[data-kt-dropdown-toggle="true"]');
+          userDropdownMenus.forEach(menu => {
+            const container = menu.closest('.user-dropdown-container');
+            if (container) {
+              container.style.display = 'none';
+              container.style.visibility = 'hidden';
+            }
+          });
+        }
+      });
+    </script>
     
     @stack('scripts')
 </body>

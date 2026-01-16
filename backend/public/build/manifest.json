@@ -2168,7 +2168,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-vpqBhTmF.css",
+    "file": "assets/app-CPGZsyIJ.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2176,9 +2176,18 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-B6vhmd6y.js",
+    "file": "assets/app-Dzn7BkSf.js",
     "name": "app",
     "src": "resources/js/app.js",
+    "isEntry": true,
+    "imports": [
+      "resources/js/frontend-app.js"
+    ]
+  },
+  "resources/js/frontend-app.js": {
+    "file": "assets/frontend-app-B6vhmd6y.js",
+    "name": "frontend-app",
+    "src": "resources/js/frontend-app.js",
     "isEntry": true
   }
 }

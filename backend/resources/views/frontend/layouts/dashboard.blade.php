@@ -4,19 +4,118 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="auth-check" content="{{ auth()->check() ? 'true' : 'false' }}">
   <title>@yield('title', 'NEXA Skillmatching – Dashboard')</title>
-  @vite(['resources/css/app.css', 'resources/js/app.js'])
+  @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
   <!-- Inter (optioneel) -->
   <link rel="preconnect" href="https://rsms.me/" />
   <link href="https://rsms.me/inter/inter.css" rel="stylesheet" />
+  <!-- Keenicons for icons -->
+  <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
   
-  <!-- Dark Mode Initial State (FOUC-vrij) -->
+  <!-- Custom styles for KT dropdown menu only -->
+  <style>
+    /* Hide user dropdown if not authenticated */
+    @if(!auth()->check())
+    .user-dropdown-container,
+    .user-dropdown-container * {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    @endif
+    
+    /* KT Dropdown Menu Styles - isolated to prevent conflicts */
+    .kt-dropdown-menu {
+      border-radius: calc(0.5rem - 2px);
+      border: 1px solid rgb(229, 231, 235);
+      background-color: rgb(255, 255, 255);
+      padding: 0.5rem;
+      color: rgb(17, 24, 39);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+    .dark .kt-dropdown-menu {
+      border-color: rgb(55, 65, 81);
+      background-color: rgb(31, 41, 55);
+      color: rgb(243, 244, 246);
+    }
+    .kt-dropdown-menu:not(.open) {
+      display: none;
+    }
+    .kt-dropdown-menu-link {
+      display: flex;
+      width: 100%;
+      cursor: pointer;
+      align-items: center;
+      column-gap: 0.625rem;
+      border-radius: calc(0.5rem - 2px);
+      padding: 0.5rem 0.625rem;
+      text-align: start;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: rgb(17, 24, 39);
+      transition: background-color 0.15s ease-in-out;
+    }
+    .dark .kt-dropdown-menu-link {
+      color: rgb(243, 244, 246);
+    }
+    .kt-dropdown-menu-link:hover {
+      background-color: rgb(249, 250, 251);
+    }
+    .dark .kt-dropdown-menu-link:hover {
+      background-color: rgb(55, 65, 81);
+    }
+    .kt-dropdown-menu-link i {
+      flex-shrink: 0;
+      font-size: 1rem;
+      color: rgb(107, 114, 128);
+    }
+    .dark .kt-dropdown-menu-link i {
+      color: rgb(156, 163, 175);
+    }
+    .kt-dropdown-menu-separator {
+      height: 1px;
+      background-color: rgb(229, 231, 235);
+      margin: 0.25rem 0;
+    }
+    .dark .kt-dropdown-menu-separator {
+      background-color: rgb(55, 65, 81);
+    }
+    .kt-dropdown-menu-sub {
+      width: 100%;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .kt-dropdown-menu-sub li {
+      margin: 0;
+    }
+  </style>
+  
+  <!-- Dark Mode Initial State (FOUC-vrij) - MUST RUN FIRST -->
   <script>
   (() => {
     const el = document.documentElement
     const saved = localStorage.getItem('theme')
-    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches
-    el.classList.toggle('dark', saved ? saved === 'dark' : prefersDark)
+    
+    // Remove dark class first to ensure clean state
+    el.classList.remove('dark')
+    
+    if (saved === 'dark') {
+      // Use saved dark preference
+      el.classList.add('dark')
+    } else if (saved === 'light') {
+      // Use saved light preference (already removed)
+      el.classList.remove('dark')
+    } else {
+      // No saved preference - use system preference
+      const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches
+      if (prefersDark) {
+        el.classList.add('dark')
+        localStorage.setItem('theme', 'dark')
+      } else {
+        localStorage.setItem('theme', 'light')
+      }
+    }
   })()
   </script>
 </head>
@@ -242,6 +341,10 @@
         // Auto-submit form when dropdown values change
         document.addEventListener('DOMContentLoaded', function() {
           const form = document.querySelector('form[action="{{ route('jobs.index') }}"]');
+          if (!form) {
+            return; // Form doesn't exist on this page, skip initialization
+          }
+          
           const selects = form.querySelectorAll('select');
           const inputs = form.querySelectorAll('input[name="location"]');
           
@@ -277,5 +380,116 @@
 
   <!-- Footer -->
   @include('frontend.layouts.partials.footer')
+  
+  <!-- KT UI Scripts for dropdowns and drawers -->
+  <script src="{{ asset('assets/js/core.bundle.js') }}" data-navigate-once></script>
+  <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}" data-navigate-once></script>
+  
+  <!-- Initialize KT UI dropdowns -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Ensure dropdown menus are hidden by default
+      document.querySelectorAll('[data-kt-dropdown-menu="true"]').forEach(function(menu) {
+        if (!menu.classList.contains('open')) {
+          menu.style.display = 'none';
+        }
+      });
+      
+      // Initialize all dropdowns
+      if (typeof window.KTDropdown !== 'undefined') {
+        document.querySelectorAll('[data-kt-dropdown="true"]').forEach(function(element) {
+          try {
+            if (!window.KTDropdown.getInstance(element)) {
+              new window.KTDropdown(element);
+            }
+          } catch(e) {
+            console.error('Error initializing dropdown:', e);
+          }
+        });
+      }
+    });
+  </script>
+  
+      <!-- Frontend Header Badges -->
+      <script src="{{ asset('js/frontend-header-badges.js') }}"></script>
+      
+      <!-- Frontend Chat -->
+      <script src="{{ asset('js/frontend-chat.js') }}"></script>
+  
+  <!-- Hide user dropdown if not authenticated -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const authMeta = document.querySelector('meta[name="auth-check"]');
+      const isAuthenticated = authMeta && authMeta.getAttribute('content') === 'true';
+      
+      if (!isAuthenticated) {
+        // Hide user dropdown container
+        const userDropdown = document.querySelector('.user-dropdown-container');
+        if (userDropdown) {
+          userDropdown.style.display = 'none';
+          userDropdown.style.visibility = 'hidden';
+          userDropdown.style.opacity = '0';
+        }
+        
+        // Hide all user dropdown menus
+        const userDropdownMenus = document.querySelectorAll('[data-kt-dropdown-toggle="true"]');
+        userDropdownMenus.forEach(menu => {
+          const container = menu.closest('.user-dropdown-container');
+          if (container) {
+            container.style.display = 'none';
+            container.style.visibility = 'hidden';
+          }
+        });
+      }
+    });
+  </script>
+  
+  <!-- Dark Mode Toggle Script -->
+  <script>
+    function toggleDarkMode() {
+      const html = document.documentElement;
+      const isDark = html.classList.contains('dark');
+      
+      if (isDark) {
+        // Switch to light mode
+        html.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+        console.log('🌞 Switched to light mode, saved to localStorage');
+      } else {
+        // Switch to dark mode
+        html.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        console.log('🌙 Switched to dark mode, saved to localStorage');
+      }
+      
+      // Update switch state if KT UI switch exists
+      const switchElement = document.querySelector('[data-kt-theme-switch-toggle="true"]');
+      if (switchElement) {
+        switchElement.checked = !isDark;
+      }
+    }
+    
+    // Ensure dark mode is applied on page load (run after initial state script)
+    document.addEventListener('DOMContentLoaded', function() {
+      const html = document.documentElement;
+      const saved = localStorage.getItem('theme');
+      
+      // Re-apply saved preference to ensure it's not overridden
+      if (saved === 'dark') {
+        html.classList.add('dark');
+      } else {
+        html.classList.remove('dark');
+      }
+      
+      // Update switch state if KT UI switch exists
+      const isDark = html.classList.contains('dark');
+      const switchElement = document.querySelector('[data-kt-theme-switch-toggle="true"]');
+      if (switchElement) {
+        switchElement.checked = isDark;
+      }
+      
+      console.log('📱 Dark mode initialized on DOMContentLoaded:', { saved, isDark: html.classList.contains('dark') });
+    });
+  </script>
 </body>
 </html>

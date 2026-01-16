@@ -5,18 +5,36 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'NEXA Skillmatching')</title>
-  @vite(['resources/css/app.css', 'resources/js/app.js'])
+  @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
   <!-- Inter (optioneel) -->
   <link rel="preconnect" href="https://rsms.me/" />
   <link href="https://rsms.me/inter/inter.css" rel="stylesheet" />
   
-  <!-- Dark Mode Initial State (FOUC-vrij) -->
+  <!-- Dark Mode Initial State (FOUC-vrij) - MUST RUN FIRST -->
   <script>
   (() => {
     const el = document.documentElement
     const saved = localStorage.getItem('theme')
-    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches
-    el.classList.toggle('dark', saved ? saved === 'dark' : prefersDark)
+    
+    // Remove dark class first to ensure clean state
+    el.classList.remove('dark')
+    
+    if (saved === 'dark') {
+      // Use saved dark preference
+      el.classList.add('dark')
+    } else if (saved === 'light') {
+      // Use saved light preference (already removed)
+      el.classList.remove('dark')
+    } else {
+      // No saved preference - use system preference
+      const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches
+      if (prefersDark) {
+        el.classList.add('dark')
+        localStorage.setItem('theme', 'dark')
+      } else {
+        localStorage.setItem('theme', 'light')
+      }
+    }
   })()
   </script>
 </head>

@@ -503,5 +503,21 @@
         }
     })();
     </script>
+    
+    <!-- Ensure chat functions are available -->
+    <script>
+        // Fallback: ensure chat functions are available
+        if (typeof window.openChatWithCandidate === 'undefined') {
+            window.openChatWithCandidate = function() {
+                console.warn('Chat functionality not loaded yet. Please refresh the page.');
+            };
+        }
+        if (typeof window.loadActiveChats === 'undefined') {
+            window.loadActiveChats = function() {
+                console.warn('Chat functionality not loaded yet. Please refresh the page.');
+                return Promise.resolve([]);
+            };
+        }
+    </script>
 </body>
 </html>

@@ -34,7 +34,7 @@
             <img id="profile-image"
                  src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"
                  alt="Profile Photo"
-                 class="absolute inset-0 w-full h-full object-cover cursor-move"
+                 class="absolute inset-0 w-full h-full object-contain cursor-move"
                  draggable="false"
                  style="transform: scale(1) translate(0px, 0px);">
           @else
@@ -1497,6 +1497,9 @@ function savePhotoTransform() {
     translateY: currentTranslateY
   };
   localStorage.setItem('photoTransform', JSON.stringify(transformData));
+  
+  // Update header photos with new transform
+  updateHeaderPhotos();
 }
 
 function loadPhotoTransform() {
@@ -1885,6 +1888,8 @@ async function uploadPhoto(input) {
     if (data.success) {
       // Update photo display immediately
       updatePhotoDisplay(data.photo_url);
+      // Update header photos
+      updateHeaderPhotos();
       // Update profile completeness
       updateProfileCompleteness();
       showMessageModal('success', 'Succesvol!', data.message);
@@ -1925,7 +1930,7 @@ function updatePhotoDisplay(photoUrl) {
     const separator = photoUrl.includes('?') ? '&' : '?';
     newImage.src = photoUrl + separator + 't=' + Date.now();
     newImage.alt = 'Profile Photo';
-    newImage.className = 'absolute inset-0 w-full h-full object-cover cursor-move';
+    newImage.className = 'absolute inset-0 w-full h-full object-contain cursor-move';
     newImage.draggable = false;
     
     // Add error handling for image load
@@ -1938,6 +1943,22 @@ function updatePhotoDisplay(photoUrl) {
     
     newImage.onload = function() {
       console.log('Image loaded successfully:', photoUrl);
+      // Calculate initial scale to fit entire image in container
+      const containerSize = 300; // Container is 300x300
+      const imgWidth = this.naturalWidth;
+      const imgHeight = this.naturalHeight;
+      
+      // Calculate scale to fit entire image (use contain logic)
+      const scaleX = containerSize / imgWidth;
+      const scaleY = containerSize / imgHeight;
+      const initialScale = Math.min(scaleX, scaleY);
+      
+      // Set initial scale to show entire image
+      currentScale = initialScale;
+      currentTranslateX = 0;
+      currentTranslateY = 0;
+      updateImageTransform();
+      savePhotoTransform();
     };
 
     // Insert the new image
@@ -1946,7 +1967,7 @@ function updatePhotoDisplay(photoUrl) {
     // Update current image reference
     currentImage = newImage;
 
-    // Reset transform values for new image
+    // Reset transform values for new image (will be overridden by onload if image loads)
     currentScale = 1;
     currentTranslateX = 0;
     currentTranslateY = 0;
@@ -1954,8 +1975,8 @@ function updatePhotoDisplay(photoUrl) {
     // Setup interactions for the new image
     setupImageInteractions();
 
-    // Load saved transform for new image
-    loadPhotoTransform();
+    // Don't load saved transform for newly uploaded image - show entire image first
+    // loadPhotoTransform();
 
     console.log('Photo display updated successfully');
   } else {
@@ -1975,6 +1996,121 @@ function showDefaultAvatar() {
     
     // Show default avatar (the fallback div should already be there)
     console.log('Showing default avatar');
+  }
+}
+
+// Update header photos after profile photo upload
+function updateHeaderPhotos() {
+  const userId = {{ auth()->id() }};
+  const photoUrl = '{{ route("user.photo", auth()->id()) }}';
+  const timestamp = Date.now();
+  const newPhotoUrl = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 't=' + timestamp;
+  
+  // Load transform values from localStorage
+  const savedTransform = localStorage.getItem('photoTransform');
+  let transformData = { scale: 1, translateX: 0, translateY: 0 };
+  if (savedTransform) {
+    try {
+      transformData = JSON.parse(savedTransform);
+    } catch (e) {
+      console.log('Could not load transform for header photos:', e);
+    }
+  }
+  
+  // Calculate scale ratio: profile photo is 300px, header photos are 36px (size-9)
+  // So we need to scale down the translate values proportionally
+  const profileSize = 300;
+  const headerSize = 36;
+  const sizeRatio = headerSize / profileSize;
+  
+  // Apply transform to header photos
+  const scale = transformData.scale || 1;
+  const translateX = (transformData.translateX || 0) * sizeRatio;
+  const translateY = (transformData.translateY || 0) * sizeRatio;
+  const transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+  
+  // Update all header user photos - find by class or src pattern
+  const allImages = document.querySelectorAll('img');
+  allImages.forEach(img => {
+    const src = img.src || img.getAttribute('src') || '';
+    // Check if this is a user photo (matches user-photo route)
+    if (src.includes('user-photo/' + userId) || src.includes('user.photo')) {
+      // Find parent container that should have the border
+      let parent = img.parentElement;
+      if (parent) {
+        // Ensure parent container has overflow hidden, fixed size, border, and rounded
+        parent.style.overflow = 'hidden';
+        parent.style.width = '36px';
+        parent.style.height = '36px';
+        parent.style.borderRadius = '50%';
+        parent.style.border = '2px solid rgb(34, 197, 94)'; // border-green-500
+        parent.classList.add('rounded-full');
+        // Remove border classes from img if present
+        img.classList.remove('border-2', 'border-green-500', 'rounded-full', 'size-9', 'shrink-0');
+      }
+      img.src = newPhotoUrl;
+      // Apply transform only to the image, not affecting container size
+      img.style.transform = transform;
+      img.style.objectFit = 'cover';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      console.log('Updated header photo with transform:', img, transform);
+    }
+  });
+  
+  // Also specifically target header dropdown photos
+  const headerDropdownPhotos = document.querySelectorAll('header img, .kt-dropdown-menu img');
+  headerDropdownPhotos.forEach(img => {
+    const src = img.src || img.getAttribute('src') || '';
+    if (src.includes('user-photo') || src.includes('user.photo')) {
+      // Find parent container
+      let parent = img.parentElement;
+      if (parent) {
+        // Ensure parent container has overflow hidden, fixed size, border, and rounded
+        parent.style.overflow = 'hidden';
+        parent.style.width = '36px';
+        parent.style.height = '36px';
+        parent.style.borderRadius = '50%';
+        parent.style.border = '2px solid rgb(34, 197, 94)'; // border-green-500
+        parent.classList.add('rounded-full');
+        // Remove border classes from img if present
+        img.classList.remove('border-2', 'border-green-500', 'rounded-full', 'size-9', 'shrink-0');
+      }
+      img.src = newPhotoUrl;
+      // Apply transform only to the image, not affecting container size
+      img.style.transform = transform;
+      img.style.objectFit = 'cover';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      console.log('Updated dropdown photo with transform:', img, transform);
+    }
+  });
+  
+  // Update chat drawer avatar if it exists
+  const chatAvatar = document.getElementById('chat_user_avatar');
+  if (chatAvatar) {
+    const src = chatAvatar.src || chatAvatar.getAttribute('src') || '';
+    if (src.includes('user-photo') || src.includes('user.photo')) {
+      chatAvatar.src = newPhotoUrl;
+      // Chat avatar might be different size, adjust if needed
+      const chatSize = 30; // Based on size-[30px] class
+      const chatSizeRatio = chatSize / profileSize;
+      const chatTransform = `scale(${scale}) translate(${(transformData.translateX || 0) * chatSizeRatio}px, ${(transformData.translateY || 0) * chatSizeRatio}px)`;
+      // Ensure parent container has overflow hidden and fixed size
+      let chatParent = chatAvatar.parentElement;
+      if (chatParent) {
+        chatParent.style.overflow = 'hidden';
+        chatParent.style.width = '30px';
+        chatParent.style.height = '30px';
+        chatParent.style.borderRadius = '50%';
+      }
+      // Apply transform only to the image, not affecting container size
+      chatAvatar.style.transform = chatTransform;
+      chatAvatar.style.objectFit = 'cover';
+      chatAvatar.style.width = '100%';
+      chatAvatar.style.height = '100%';
+      console.log('Updated chat avatar with transform:', chatAvatar, chatTransform);
+    }
   }
 }
 

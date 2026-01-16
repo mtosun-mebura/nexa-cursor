@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\EnvService;
+use App\Models\GeneralSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 class AdminSettingsController extends Controller
 {
@@ -334,6 +337,363 @@ class AdminSettingsController extends Controller
             return redirect()->route('admin.settings.index')
                 ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
                 ->withInput();
+        }
+    }
+
+    /**
+     * Display general settings page
+     * Alleen toegankelijk voor super-admin
+     */
+    public function generalIndex()
+    {
+        $this->ensureSuperAdmin();
+        
+        $logo = GeneralSetting::get('logo');
+        $favicon = GeneralSetting::get('favicon');
+        $logoSize = GeneralSetting::get('logo_size', '26');
+        
+        // Verify files exist
+        if ($logo && !Storage::disk('public')->exists($logo)) {
+            \Log::warning('Logo file not found in storage', ['path' => $logo]);
+            $logo = null;
+        }
+        
+        if ($favicon && !Storage::disk('public')->exists($favicon)) {
+            \Log::warning('Favicon file not found in storage', ['path' => $favicon]);
+            $favicon = null;
+        }
+        
+        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize'));
+    }
+
+    /**
+     * Update general settings
+     * Alleen toegankelijk voor super-admin
+     */
+    public function generalUpdate(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        
+        $validator = Validator::make($request->all(), [
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
+            'logo_size' => 'nullable|integer|min:10|max:100',
+        ], [
+            'logo.image' => 'Logo moet een afbeelding zijn.',
+            'logo.mimes' => 'Logo moet een jpeg, png, jpg, gif of svg bestand zijn.',
+            'logo.max' => 'Logo mag maximaal 2MB groot zijn.',
+            'favicon.image' => 'Favicon moet een afbeelding zijn.',
+            'favicon.mimes' => 'Favicon moet een ico, png of jpg bestand zijn.',
+            'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
+            'logo_size.integer' => 'Logo grootte moet een getal zijn.',
+            'logo_size.min' => 'Logo grootte moet minimaal 10px zijn.',
+            'logo_size.max' => 'Logo grootte mag maximaal 100px zijn.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->route('admin.settings.general.index')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        try {
+            // Ensure settings directory exists
+            $settingsDir = storage_path('app/public/settings');
+            if (!file_exists($settingsDir)) {
+                File::makeDirectory($settingsDir, 0755, true);
+            }
+            
+            // Handle logo upload (only if not already uploaded via AJAX)
+            if ($request->hasFile('logo') && !$request->ajax()) {
+                $logoFile = $request->file('logo');
+                
+                // Delete old logo if exists
+                $oldLogo = GeneralSetting::get('logo');
+                if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
+                    Storage::disk('public')->delete($oldLogo);
+                }
+                
+                // Store new logo
+                $logoPath = $logoFile->store('settings', 'public');
+                
+                // Verify file was stored
+                if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+                    \Log::error('Logo storage failed', [
+                        'path' => $logoPath,
+                        'file_exists' => $logoPath ? Storage::disk('public')->exists($logoPath) : false,
+                        'storage_path' => storage_path('app/public'),
+                        'settings_dir_exists' => file_exists($settingsDir),
+                    ]);
+                    throw new \Exception('Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.');
+                }
+                
+                // Save path to database
+                GeneralSetting::set('logo', $logoPath);
+                
+                \Log::info('Logo uploaded successfully', [
+                    'path' => $logoPath,
+                    'full_path' => storage_path('app/public/' . $logoPath),
+                    'file_exists' => Storage::disk('public')->exists($logoPath),
+                ]);
+            }
+
+            // Handle favicon upload (only if not already uploaded via AJAX)
+            if ($request->hasFile('favicon') && !$request->ajax()) {
+                $faviconFile = $request->file('favicon');
+                
+                // Delete old favicon if exists
+                $oldFavicon = GeneralSetting::get('favicon');
+                if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
+                    Storage::disk('public')->delete($oldFavicon);
+                }
+                
+                // Store new favicon
+                $faviconPath = $faviconFile->store('settings', 'public');
+                
+                // Verify file was stored
+                if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {
+                    \Log::error('Favicon storage failed', [
+                        'path' => $faviconPath,
+                        'file_exists' => $faviconPath ? Storage::disk('public')->exists($faviconPath) : false,
+                        'storage_path' => storage_path('app/public'),
+                        'settings_dir_exists' => file_exists($settingsDir),
+                    ]);
+                    throw new \Exception('Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.');
+                }
+                
+                // Save path to database
+                GeneralSetting::set('favicon', $faviconPath);
+                
+                \Log::info('Favicon uploaded successfully', [
+                    'path' => $faviconPath,
+                    'full_path' => storage_path('app/public/' . $faviconPath),
+                    'file_exists' => Storage::disk('public')->exists($faviconPath),
+                ]);
+            }
+
+            // Update logo size
+            if ($request->has('logo_size')) {
+                GeneralSetting::set('logo_size', $request->input('logo_size'));
+            }
+
+            return redirect()->route('admin.settings.general.index')
+                ->with('success', 'Algemene configuraties succesvol bijgewerkt!');
+        } catch (\Exception $e) {
+            \Log::error('Error updating general settings', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return redirect()->route('admin.settings.general.index')
+                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Upload logo immediately via AJAX
+     */
+    public function uploadLogo(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        
+        $request->validate([
+            'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ], [
+            'logo.required' => 'Selecteer een logo bestand.',
+            'logo.file' => 'Het bestand moet een geldig bestand zijn.',
+            'logo.mimes' => 'Alleen JPEG, PNG, JPG, GIF en SVG bestanden zijn toegestaan.',
+            'logo.max' => 'Het bestand mag maximaal 2MB groot zijn.',
+        ]);
+
+        try {
+            // Ensure settings directory exists
+            $settingsDir = storage_path('app/public/settings');
+            if (!file_exists($settingsDir)) {
+                File::makeDirectory($settingsDir, 0755, true);
+            }
+            
+            $logoFile = $request->file('logo');
+            
+            // Delete old logo if exists
+            $oldLogo = GeneralSetting::get('logo');
+            if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
+                Storage::disk('public')->delete($oldLogo);
+            }
+            
+            // Store new logo
+            $logoPath = $logoFile->store('settings', 'public');
+            
+            // Verify file was stored
+            if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+                \Log::error('Logo storage failed', [
+                    'path' => $logoPath,
+                    'file_exists' => $logoPath ? Storage::disk('public')->exists($logoPath) : false,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.'
+                ], 500);
+            }
+            
+            // Save path to database
+            GeneralSetting::set('logo', $logoPath);
+            
+            \Log::info('Logo uploaded successfully', ['path' => $logoPath]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Logo succesvol geüpload.',
+                'logo_url' => route('admin.settings.logo') . '?t=' . time()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error uploading logo', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload favicon immediately via AJAX
+     */
+    public function uploadFavicon(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        
+        $request->validate([
+            'favicon' => 'required|file|mimes:ico,png,jpg|max:2048',
+        ], [
+            'favicon.required' => 'Selecteer een favicon bestand.',
+            'favicon.file' => 'Het bestand moet een geldig bestand zijn.',
+            'favicon.mimes' => 'Alleen ICO, PNG en JPG bestanden zijn toegestaan.',
+            'favicon.max' => 'Het bestand mag maximaal 2MB groot zijn.',
+        ]);
+
+        try {
+            // Ensure settings directory exists
+            $settingsDir = storage_path('app/public/settings');
+            if (!file_exists($settingsDir)) {
+                File::makeDirectory($settingsDir, 0755, true);
+            }
+            
+            $faviconFile = $request->file('favicon');
+            
+            // Delete old favicon if exists
+            $oldFavicon = GeneralSetting::get('favicon');
+            if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
+                Storage::disk('public')->delete($oldFavicon);
+            }
+            
+            // Store new favicon
+            $faviconPath = $faviconFile->store('settings', 'public');
+            
+            // Verify file was stored
+            if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {
+                \Log::error('Favicon storage failed', [
+                    'path' => $faviconPath,
+                    'file_exists' => $faviconPath ? Storage::disk('public')->exists($faviconPath) : false,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.'
+                ], 500);
+            }
+            
+            // Save path to database
+            GeneralSetting::set('favicon', $faviconPath);
+            
+            \Log::info('Favicon uploaded successfully', ['path' => $faviconPath]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Favicon succesvol geüpload.',
+                'favicon_url' => route('admin.settings.favicon') . '?t=' . time()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error uploading favicon', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get logo file
+     */
+    public function getLogo()
+    {
+        $this->ensureSuperAdmin();
+        
+        $logoPath = GeneralSetting::get('logo');
+        
+        if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+            abort(404, 'Logo niet gevonden');
+        }
+        
+        $file = Storage::disk('public')->get($logoPath);
+        $mimeType = Storage::disk('public')->mimeType($logoPath);
+        
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="logo"');
+    }
+
+    /**
+     * Get favicon file
+     */
+    public function getFavicon()
+    {
+        $this->ensureSuperAdmin();
+        
+        $faviconPath = GeneralSetting::get('favicon');
+        
+        if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {
+            abort(404, 'Favicon niet gevonden');
+        }
+        
+        $file = Storage::disk('public')->get($faviconPath);
+        $mimeType = Storage::disk('public')->mimeType($faviconPath);
+        
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="favicon"');
+    }
+
+    /**
+     * Update logo size immediately via AJAX
+     */
+    public function updateLogoSize(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        
+        $request->validate([
+            'logo_size' => 'required|integer|min:10|max:100',
+        ], [
+            'logo_size.required' => 'Logo grootte is verplicht.',
+            'logo_size.integer' => 'Logo grootte moet een getal zijn.',
+            'logo_size.min' => 'Logo grootte moet minimaal 10px zijn.',
+            'logo_size.max' => 'Logo grootte mag maximaal 100px zijn.',
+        ]);
+
+        try {
+            $logoSize = $request->input('logo_size');
+            GeneralSetting::set('logo_size', $logoSize);
+            
+            \Log::info('Logo size updated', ['size' => $logoSize]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Logo grootte succesvol bijgewerkt.',
+                'logo_size' => $logoSize
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error updating logo size', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

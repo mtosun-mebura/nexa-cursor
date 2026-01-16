@@ -220,7 +220,11 @@ let sortDirection = {};
 
 function sortTable(columnIndex) {
   const table = document.querySelector('table');
+  if (!table) return; // Table doesn't exist, exit early
+  
   const tbody = table.querySelector('tbody');
+  if (!tbody) return; // Tbody doesn't exist, exit early
+  
   const rows = Array.from(tbody.querySelectorAll('tr'));
   
   // Toggle sort direction
@@ -228,13 +232,19 @@ function sortTable(columnIndex) {
   const direction = sortDirection[columnIndex];
   
   // Remove existing sort indicators
-  table.querySelectorAll('th svg').forEach(svg => {
-    svg.style.display = 'none';
-  });
+  if (table) {
+    table.querySelectorAll('th svg').forEach(svg => {
+      svg.style.display = 'none';
+    });
+  }
   
   // Add sort indicator to current column
   const currentHeader = table.querySelectorAll('th')[columnIndex];
+  if (!currentHeader) return; // Header doesn't exist, exit early
+  
   const currentSvg = currentHeader.querySelector('svg');
+  if (!currentSvg) return; // SVG doesn't exist, exit early
+  
   currentSvg.style.display = 'inline-block';
   
   // Rotate arrow based on direction
@@ -250,8 +260,10 @@ function sortTable(columnIndex) {
     
     switch(columnIndex) {
       case 0: // Vacature title
-        aValue = a.cells[0].querySelector('.text-sm.font-medium').textContent.trim();
-        bValue = b.cells[0].querySelector('.text-sm.font-medium').textContent.trim();
+        const aTitleEl = a.cells[0]?.querySelector('.text-sm.font-medium');
+        const bTitleEl = b.cells[0]?.querySelector('.text-sm.font-medium');
+        aValue = aTitleEl ? aTitleEl.textContent.trim() : '';
+        bValue = bTitleEl ? bTitleEl.textContent.trim() : '';
         break;
       case 1: // Bedrijf
         aValue = a.cells[1].textContent.trim();
@@ -270,8 +282,10 @@ function sortTable(columnIndex) {
         bValue = b.cells[4].textContent.trim();
         break;
       case 5: // Match score
-        aValue = parseInt(a.cells[5].querySelector('span').textContent.replace('%', ''));
-        bValue = parseInt(b.cells[5].querySelector('span').textContent.replace('%', ''));
+        const aScoreEl = a.cells[5]?.querySelector('span');
+        const bScoreEl = b.cells[5]?.querySelector('span');
+        aValue = aScoreEl ? parseInt(aScoreEl.textContent.replace('%', '')) : 0;
+        bValue = bScoreEl ? parseInt(bScoreEl.textContent.replace('%', '')) : 0;
         break;
       default:
         return 0;
@@ -291,9 +305,12 @@ function sortTable(columnIndex) {
 // Initialize table
 document.addEventListener('DOMContentLoaded', function() {
   // Hide all sort arrows initially
-  document.querySelectorAll('th svg').forEach(svg => {
-    svg.style.display = 'none';
-  });
+  const table = document.querySelector('table');
+  if (table) {
+    table.querySelectorAll('th svg').forEach(svg => {
+      svg.style.display = 'none';
+    });
+  }
 });
 </script>
 @endsection

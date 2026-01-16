@@ -6,11 +6,11 @@
 			$unreadCount = auth()->user()->notifications()->whereNull('read_at')->count();
 		}
 	@endphp
-	<button class="kt-btn kt-btn-ghost kt-btn-icon size-8 hover:bg-background hover:[&_i]:text-primary relative" data-kt-drawer-toggle="#notifications_drawer">
-		<i class="ki-filled {{ $unreadCount > 0 ? 'ki-notification-on text-orange-500' : 'ki-notification' }} text-lg">
+	<button class="kt-btn kt-btn-ghost kt-btn-icon size-8 hover:bg-background hover:[&_i]:text-primary relative notification-icon-button {{ $unreadCount > 0 ? 'has-unread' : '' }}" data-kt-drawer-toggle="#notifications_drawer">
+		<i class="ki-filled {{ $unreadCount > 0 ? 'ki-notification-on text-red-500' : 'ki-notification' }} text-lg notification-icon">
 		</i>
 		@if($unreadCount > 0)
-		<span class="absolute top-0 end-0 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white">
+		<span class="absolute top-0 end-0 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white notification-badge">
 			{{ $unreadCount > 9 ? '9+' : $unreadCount }}
 		</span>
 		@endif

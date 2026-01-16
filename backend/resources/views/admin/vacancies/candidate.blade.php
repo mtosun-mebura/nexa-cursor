@@ -150,6 +150,18 @@
                     <button type="button" class="kt-btn kt-btn-outline kt-btn-danger" data-kt-modal-toggle="reject_modal" style="background-color: #dc2626 !important; border-color: #dc2626 !important; color: white !important;" onmouseover="this.style.backgroundColor='#b91c1c'" onmouseout="this.style.backgroundColor='#dc2626'">Afwijzen</button>
                 </form>
             @endif
+            <button type="button" class="kt-btn kt-btn-primary" id="chat_with_candidate_btn" 
+                data-candidate-id="{{ $candidate->id }}"
+                data-match-id="{{ $match ? $match->id : '' }}"
+                data-application-id="{{ $application ? $application->id : '' }}"
+                data-type="{{ $match ? 'match' : ($application ? 'application' : '') }}">
+                <i class="ki-filled ki-message-text me-2"></i>
+                Chat
+            </button>
+            <button type="button" class="kt-btn kt-btn-outline" onclick="openChatHistory()">
+                <i class="ki-filled ki-history me-2"></i>
+                Chat Historie
+            </button>
             @if($rawStatus !== 'accepted' && $rawStatus !== 'rejected')
                 <form action="{{ route('admin.vacancies.candidate.accept', ['vacancy' => $vacancy->id, 'candidate' => $candidate->id]) }}" method="POST" class="inline">
                     @csrf
@@ -256,15 +268,6 @@
                 $scheduledStages = $stageInstances->filter(function($stage) {
                     return $stage->scheduled_at !== null;
                 })->sortBy('scheduled_at');
-                
-                $now = now();
-                $firstUpcomingIndex = null;
-                foreach ($scheduledStages as $index => $stage) {
-                    if ($stage->scheduled_at && $stage->scheduled_at->isFuture()) {
-                        $firstUpcomingIndex = $index;
-                        break;
-                    }
-                }
             @endphp
             
             @if($scheduledStages->isNotEmpty())
@@ -273,130 +276,96 @@
                     <h3 class="kt-card-title">Afspraken</h3>
                 </div>
                 <div class="kt-card-content">
-                    <div data-kt-accordion="true">
+                    <div class="space-y-4">
                         @foreach($scheduledStages as $index => $stage)
-                            @php
-                                $isUpcoming = $stage->scheduled_at && $stage->scheduled_at->isFuture();
-                                $isFirstUpcoming = $firstUpcomingIndex !== null && $index === $firstUpcomingIndex;
-                                $isExpanded = $isFirstUpcoming;
-                                $accordionId = 'appointment_' . $stage->id;
-                                $contentId = 'appointment_content_' . $stage->id;
-                            @endphp
-                            <div class="kt-accordion-item not-last:border-b border-border {{ $isExpanded ? 'active' : '' }}" 
-                                 data-kt-accordion-item="true" 
-                                 aria-expanded="{{ $isExpanded ? 'true' : 'false' }}">
-                                <button type="button"
-                                        aria-controls="{{ $contentId }}"
-                                        class="kt-accordion-toggle py-4 w-full flex items-center justify-between text-left"
-                                        data-kt-accordion-toggle="#{{ $contentId }}">
-                                    <span class="text-base text-mono font-semibold">
+                            <div class="not-last:border-b border-border pb-4 {{ $index > 0 ? 'pt-4' : '' }}">
+                                <div class="mb-3">
+                                    <h4 class="text-base text-mono font-semibold">
                                         {{ $stage->label }}@if($stage->scheduled_at) <span class="text-sm text-muted-foreground font-normal">- {{ $stage->scheduled_at->format('d-m-Y H:i') }}</span>@endif
-                                    </span>
-                                    <span class="kt-accordion-active:hidden inline-flex">
-                                        <svg class="w-5 h-5 text-muted-foreground" 
-                                             fill="none" 
-                                             viewBox="0 0 24 24" 
-                                             stroke="currentColor"
-                                             stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                                        </svg>
-                                    </span>
-                                    <span class="kt-accordion-active:inline-flex hidden">
-                                        <svg class="w-5 h-5 text-muted-foreground" 
-                                             fill="none" 
-                                             viewBox="0 0 24 24" 
-                                             stroke="currentColor"
-                                             stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
-                                        </svg>
-                                    </span>
-                                </button>
-                                <div class="kt-accordion-content" 
-                                     id="{{ $contentId }}"
-                                     style="{{ $isExpanded ? 'display: block;' : 'display: none;' }}">
-                                    <div class="text-secondary-foreground text-base pb-4">
-                                        <div class="space-y-2 text-sm">
-                                            @if($stage->scheduled_at)
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-muted-foreground w-36">Datum & Tijd:</span>
-                                                    <span class="text-foreground">{{ $stage->scheduled_at->format('d-m-Y H:i') }}</span>
-                                                </div>
-                                            @endif
-                                            @if($stage->location)
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-muted-foreground w-36">Locatie:</span>
-                                                    <span class="text-foreground">
-                                                        @php
-                                                            $locationParts = explode(' - ', $stage->location, 2);
-                                                            $locationName = $locationParts[0];
-                                                            $locationAddress = isset($locationParts[1]) ? $locationParts[1] : '';
-                                                        @endphp
-                                                        {{ $locationName }}
-                                                        @if($locationAddress)
-                                                            <br><span class="text-xs text-muted-foreground">{{ $locationAddress }}</span>
-                                                        @endif
-                                                    </span>
-                                                </div>
-                                            @endif
-                                            @if($stage->interviewer_name)
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-muted-foreground w-36">Interviewer:</span>
-                                                    <span class="text-foreground">{{ $stage->interviewer_name }}</span>
-                                                </div>
-                                            @endif
-                                            @if($stage->type)
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-muted-foreground w-36">Type:</span>
-                                                    <span class="text-foreground">
-                                                        @php
-                                                            $typeMap = [
-                                                                'phone' => 'Telefoon',
-                                                                'video' => 'Microsoft Teams / Zoom',
-                                                                'onsite' => 'Op locatie',
-                                                                'assessment' => 'Assessment',
-                                                                'final' => 'Eindgesprek',
-                                                            ];
-                                                        @endphp
-                                                        {{ $typeMap[$stage->type] ?? ucfirst($stage->type) }}
-                                                    </span>
-                                                </div>
-                                            @endif
-                                            @if($stage->duration)
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-muted-foreground w-36">Duur:</span>
-                                                    <span class="text-foreground">{{ $stage->duration }} minuten</span>
-                                                </div>
-                                            @endif
-                                            @if($stage->notes)
-                                                <div class="flex items-start gap-2">
-                                                    <span class="text-muted-foreground w-36">Notities:</span>
-                                                    <span class="text-foreground">{{ $stage->notes }}</span>
-                                                </div>
-                                            @endif
-                                            @php
-                                                $statusLabels = [
-                                                    'PENDING' => 'In afwachting',
-                                                    'SCHEDULED' => 'Ingepland',
-                                                    'IN_PROGRESS' => 'Bezig',
-                                                    'COMPLETED' => 'Voltooid',
-                                                    'SKIPPED' => 'Overgeslagen',
-                                                    'CANCELED' => 'Geannuleerd',
-                                                ];
-                                                $statusLabel = $statusLabels[$stage->status] ?? $stage->status;
-                                                $statusColors = [
-                                                    'PENDING' => 'secondary',
-                                                    'SCHEDULED' => 'info',
-                                                    'IN_PROGRESS' => 'warning',
-                                                    'COMPLETED' => 'success',
-                                                    'SKIPPED' => 'muted',
-                                                    'CANCELED' => 'danger',
-                                                ];
-                                                $statusColor = $statusColors[$stage->status] ?? 'secondary';
-                                            @endphp
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-muted-foreground w-36">Status:</span>
-                                                <span class="kt-badge kt-badge-sm kt-badge-{{ $statusColor }}">{{ $statusLabel }}</span>
+                                    </h4>
+                                </div>
+                                <div class="text-secondary-foreground text-base">
+                                    <div class="space-y-2 text-sm">
+                                        @if($stage->scheduled_at)
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-muted-foreground w-36">Datum & Tijd:</span>
+                                                <span class="text-foreground">{{ $stage->scheduled_at->format('d-m-Y H:i') }}</span>
                                             </div>
+                                        @endif
+                                        @if($stage->location)
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-muted-foreground w-36">Locatie:</span>
+                                                <span class="text-foreground">
+                                                    @php
+                                                        $locationParts = explode(' - ', $stage->location, 2);
+                                                        $locationName = $locationParts[0];
+                                                        $locationAddress = isset($locationParts[1]) ? $locationParts[1] : '';
+                                                    @endphp
+                                                    {{ $locationName }}
+                                                    @if($locationAddress)
+                                                        <br><span class="text-xs text-muted-foreground">{{ $locationAddress }}</span>
+                                                    @endif
+                                                </span>
+                                            </div>
+                                        @endif
+                                        @if($stage->interviewer_name)
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-muted-foreground w-36">Interviewer:</span>
+                                                <span class="text-foreground">{{ $stage->interviewer_name }}</span>
+                                            </div>
+                                        @endif
+                                        @if($stage->type)
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-muted-foreground w-36">Type:</span>
+                                                <span class="text-foreground">
+                                                    @php
+                                                        $typeMap = [
+                                                            'phone' => 'Telefoon',
+                                                            'video' => 'Microsoft Teams / Zoom',
+                                                            'onsite' => 'Op locatie',
+                                                            'assessment' => 'Assessment',
+                                                            'final' => 'Eindgesprek',
+                                                        ];
+                                                    @endphp
+                                                    {{ $typeMap[$stage->type] ?? ucfirst($stage->type) }}
+                                                </span>
+                                            </div>
+                                        @endif
+                                        @if($stage->duration)
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-muted-foreground w-36">Duur:</span>
+                                                <span class="text-foreground">{{ $stage->duration }} minuten</span>
+                                            </div>
+                                        @endif
+                                        @if($stage->notes)
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-muted-foreground w-36">Notities:</span>
+                                                <span class="text-foreground">{{ $stage->notes }}</span>
+                                            </div>
+                                        @endif
+                                        @php
+                                            $statusLabels = [
+                                                'PENDING' => 'In afwachting',
+                                                'SCHEDULED' => 'Ingepland',
+                                                'IN_PROGRESS' => 'Bezig',
+                                                'COMPLETED' => 'Voltooid',
+                                                'SKIPPED' => 'Overgeslagen',
+                                                'CANCELED' => 'Geannuleerd',
+                                            ];
+                                            $statusLabel = $statusLabels[$stage->status] ?? $stage->status;
+                                            $statusColors = [
+                                                'PENDING' => 'secondary',
+                                                'SCHEDULED' => 'info',
+                                                'IN_PROGRESS' => 'warning',
+                                                'COMPLETED' => 'success',
+                                                'SKIPPED' => 'muted',
+                                                'CANCELED' => 'danger',
+                                            ];
+                                            $statusColor = $statusColors[$stage->status] ?? 'secondary';
+                                        @endphp
+                                        <div class="flex items-start gap-2">
+                                            <span class="text-muted-foreground w-36">Status:</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-{{ $statusColor }}">{{ $statusLabel }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2442,8 +2411,129 @@ document.addEventListener('DOMContentLoaded', function() {
     initAppointmentAccordion();
     setTimeout(initAppointmentAccordion, 200);
     setTimeout(initAppointmentAccordion, 500);
+
+    // Chat functionality is now in chat.js (loaded globally)
+    // Only chat history functions remain here
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function openChatHistory() {
+        const matchId = @json($match ? $match->id : null);
+        const applicationId = @json($application ? $application->id : null);
+        
+        let url = '{{ route("admin.chat.history") }}?';
+        if (matchId) {
+            url += `match_id=${matchId}`;
+        } else if (applicationId) {
+            url += `application_id=${applicationId}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                renderChatHistory(data);
+                const modal = document.getElementById('chat_history_modal');
+                const dialog = modal ? modal.querySelector('.kt-modal-dialog') : null;
+                if (modal && dialog) {
+                    modal.style.display = 'block';
+                    dialog.style.display = 'block';
+                    modal.classList.add('open');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading chat history:', error);
+            });
+    }
+
+    function renderChatHistory(data) {
+        const container = document.getElementById('chat_history_messages');
+        if (!container) return;
+
+        if (!data.messages || data.messages.length === 0) {
+            container.innerHTML = '<div class="p-4 text-center text-muted-foreground">Geen chat historie beschikbaar</div>';
+            return;
+        }
+
+        container.innerHTML = data.messages.map(msg => {
+            const isFromUser = msg.is_from_user;
+            return `
+                <div class="flex ${isFromUser ? 'justify-end' : 'justify-start'} mb-4">
+                    <div class="flex items-start gap-2 ${isFromUser ? 'flex-row-reverse' : ''} max-w-[70%]">
+                        <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span class="text-primary text-xs font-semibold">${msg.sender_name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div class="${isFromUser ? 'bg-primary text-white' : 'bg-muted'} rounded-lg p-3">
+                            <div class="text-sm">${escapeHtml(msg.message)}</div>
+                            <div class="text-xs mt-1 ${isFromUser ? 'text-primary-foreground/70' : 'text-muted-foreground'}">${msg.time}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Scroll to bottom
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    // Chat button event listener
+    const chatButton = document.getElementById('chat_with_candidate_btn');
+    console.log('🔍 Chat button element:', chatButton);
+    
+    if (chatButton) {
+        chatButton.addEventListener('click', function(e) {
+            console.log('🔍 Chat button clicked!');
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const candidateId = this.getAttribute('data-candidate-id');
+            const matchId = this.getAttribute('data-match-id');
+            const applicationId = this.getAttribute('data-application-id');
+            const type = this.getAttribute('data-type');
+            
+            console.log('🔍 Button data:', { candidateId, matchId, applicationId, type });
+            
+            const matchOrAppId = matchId || applicationId || null;
+            const chatType = type || null;
+            
+            console.log('🔍 Calling openChatWithCandidate:', { candidateId, matchOrAppId, chatType });
+            console.log('🔍 Function exists?', typeof window.openChatWithCandidate);
+            
+            if (window.openChatWithCandidate) {
+                window.openChatWithCandidate(candidateId, matchOrAppId, chatType);
+            } else {
+                console.error('❌ openChatWithCandidate function not found!');
+            }
+        });
+        console.log('✅ Chat button event listener attached');
+    } else {
+        console.error('❌ Chat button not found!');
+    }
 });
 </script>
 @endpush
+
+
+<!-- Chat History Modal -->
+<div class="kt-modal" data-kt-modal="true" id="chat_history_modal" tabindex="-1" style="display: none; z-index: 9999;">
+    <div class="kt-modal-dialog kt-modal-dialog-centered" style="max-width: 800px; display: none;">
+        <div class="kt-modal-content">
+            <div class="kt-modal-header">
+                <h2 class="kt-modal-title">Chat Historie</h2>
+                <button type="button" class="kt-btn kt-btn-icon kt-btn-sm" data-kt-modal-dismiss="true">
+                    <i class="ki-filled ki-cross"></i>
+                </button>
+            </div>
+            <div class="kt-modal-body">
+                <div id="chat_history_messages" class="max-h-[600px] overflow-y-auto p-4">
+                    <!-- Chat history will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 @endsection

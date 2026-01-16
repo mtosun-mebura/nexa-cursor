@@ -4,35 +4,51 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ChatMessage extends Model
 {
     protected $fillable = [
-        'chat_room_id',
-        'user_id',
+        'chat_id',
+        'sender_id',
+        'sender_type',
         'message',
-        'is_read',
         'read_at',
     ];
 
     protected $casts = [
-        'is_read' => 'boolean',
         'read_at' => 'datetime',
     ];
 
     /**
-     * Get the chat room this message belongs to
+     * Get the chat this message belongs to
      */
-    public function chatRoom(): BelongsTo
+    public function chat(): BelongsTo
     {
-        return $this->belongsTo(ChatRoom::class);
+        return $this->belongsTo(Chat::class);
     }
 
     /**
-     * Get the user who sent this message
+     * Get the sender (user or candidate)
      */
-    public function user(): BelongsTo
+    public function sender(): MorphTo
     {
-        return $this->belongsTo(User::class);
+        return $this->morphTo();
+    }
+
+    /**
+     * Check if message is from a user
+     */
+    public function isFromUser(): bool
+    {
+        return $this->sender_type === User::class;
+    }
+
+    /**
+     * Check if message is from a candidate
+     */
+    public function isFromCandidate(): bool
+    {
+        return $this->sender_type === Candidate::class;
     }
 }

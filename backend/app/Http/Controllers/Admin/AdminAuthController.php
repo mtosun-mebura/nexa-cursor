@@ -63,10 +63,17 @@ class AdminAuthController extends Controller
             ])->withInput($request->only('email'));
         }
         
-        // Debug: Check role - allow all admin roles
+        // Debug: Check role - allow all admin roles only (exclude candidates)
         if (!$user->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
             return back()->withErrors([
-                'email' => 'Je hebt geen toegang tot het admin panel.',
+                'email' => 'Je hebt geen toegang tot het admin panel. Gebruik de frontend login voor kandidaat toegang.',
+            ]);
+        }
+        
+        // Explicitly prevent candidates from logging into admin panel
+        if ($user->hasRole('candidate')) {
+            return back()->withErrors([
+                'email' => 'Kandidaten kunnen niet inloggen in het admin panel. Gebruik de frontend login.',
             ]);
         }
         

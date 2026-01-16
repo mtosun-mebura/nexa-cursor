@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\AdminInterviewController;
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminCandidateController;
+use App\Http\Controllers\Admin\ChatController;
 
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminPermissionController;
@@ -293,6 +294,18 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::post('vacancies/{vacancy}/candidate/{candidate}/reject', [AdminVacancyController::class, 'rejectCandidate'])->name('vacancies.candidate.reject');
     Route::post('vacancies/{vacancy}/candidate/{candidate}/accept', [AdminVacancyController::class, 'acceptCandidate'])->name('vacancies.candidate.accept');
     
+    // Chat routes
+    Route::post('chat/start', [ChatController::class, 'startChat'])->name('chat.start');
+    Route::get('chat/active', [ChatController::class, 'getActiveChats'])->name('chat.active');
+    Route::get('chat/candidates', [ChatController::class, 'getCandidatesWithMatches'])->name('chat.candidates');
+    Route::get('chat/unread-count', [ChatController::class, 'getUnreadCount'])->name('chat.unread-count');
+    Route::get('chat/{chat}/messages', [ChatController::class, 'getChatMessages'])->name('chat.messages');
+    Route::post('chat/{chat}/message', [ChatController::class, 'sendChatMessage'])->name('chat.message.send');
+    Route::post('chat/{chat}/end', [ChatController::class, 'endChat'])->name('chat.end');
+    Route::get('chat/history', [ChatController::class, 'getChatHistory'])->name('chat.history');
+    Route::post('chat/{chat}/typing', [ChatController::class, 'setChatTyping'])->name('chat.typing');
+    Route::get('chat/{chat}/typing', [ChatController::class, 'getChatTyping'])->name('chat.typing.get');
+    
     // Matches
     Route::resource('matches', AdminMatchController::class);
     Route::get('matches/vacancy/{vacancy}/candidates', [AdminMatchController::class, 'candidates'])->name('matches.candidates');
@@ -387,6 +400,15 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         
+        // General Settings (Super Admin only)
+        Route::get('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
+        Route::post('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
+        Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
+        Route::post('settings/upload-favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadFavicon'])->name('settings.upload-favicon');
+        Route::post('settings/logo-size', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateLogoSize'])->name('settings.logo-size.update');
+        Route::get('settings/logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogo'])->name('settings.logo');
+        Route::get('settings/favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getFavicon'])->name('settings.favicon');
+        
         // Postcode lookup (for address autocomplete)
         Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');
     });
@@ -469,6 +491,13 @@ Route::post('/login', function () {
         ])->withInput(request()->only('email'));
     }
     
+    // Check if user has candidate role or super-admin role (frontend users)
+    if (!$user->hasAnyRole(['candidate', 'super-admin'])) {
+        return redirect()->back()->withErrors([
+            'email' => 'Je hebt geen toegang tot het frontend. Gebruik de admin login voor backend toegang.',
+        ])->withInput(request()->only('email'));
+    }
+    
     // Check if this is the first login (no previous login recorded)
     $isFirstLogin = !session()->has('has_logged_in_before');
     
@@ -510,6 +539,12 @@ Route::post('/register', function () {
         'email_verified_at' => now(),
     ]);
     
+    // Assign candidate role to new frontend users
+    $candidateRole = \Spatie\Permission\Models\Role::firstOrCreate(
+        ['name' => 'candidate', 'guard_name' => 'web']
+    );
+    $user->assignRole($candidateRole);
+    
     Auth::guard('web')->login($user);
     
     return redirect()->route('dashboard');
@@ -538,6 +573,17 @@ if (app()->environment('local', 'development')) {
 // User dashboard routes
 Route::middleware(['auth:web'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Frontend chat routes
+    Route::get('/chat/active', [App\Http\Controllers\Frontend\ChatController::class, 'getActiveChats'])->name('frontend.chat.active');
+    Route::get('/chat/{chat}/messages', [App\Http\Controllers\Frontend\ChatController::class, 'getChatMessages'])->name('frontend.chat.messages');
+    Route::post('/chat/{chat}/message', [App\Http\Controllers\Frontend\ChatController::class, 'sendChatMessage'])->name('frontend.chat.message.send');
+    Route::post('/chat/{chat}/end', [App\Http\Controllers\Frontend\ChatController::class, 'endChat'])->name('frontend.chat.end');
+    Route::get('/chat/unread-count', [App\Http\Controllers\Frontend\ChatController::class, 'getUnreadCount'])->name('frontend.chat.unread-count');
+    Route::get('/notifications/unread-count', function() {
+        $unreadCount = auth()->user()->notifications()->whereNull('read_at')->count();
+        return response()->json(['unread_count' => $unreadCount]);
+    })->name('frontend.notifications.unread-count');
     
     Route::get('/matches', [MatchController::class, 'index'])->name('matches');
     

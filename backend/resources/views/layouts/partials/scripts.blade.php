@@ -17,6 +17,9 @@
 <!-- KT-Select Placeholder Styling (for consistent dropdown styling) -->
 <script src="{{ asset('assets/js/kt-select-placeholder-styling.js') }}"></script>
 
+<!-- Backend Header Badges -->
+<script src="{{ asset('js/backend-header-badges.js') }}"></script>
+
 <!-- Stack for page-specific scripts -->
 @stack('scripts')
 <!-- End of Scripts -->
