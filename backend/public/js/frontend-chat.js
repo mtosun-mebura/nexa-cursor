@@ -106,11 +106,13 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         chats.forEach(chat => {
             const previousChat = activeChats.find(c => c.id === chat.id);
             if (previousChat && previousChat.unread_count !== undefined) {
-                // Only preserve unread count if it's higher than the server value
-                // This ensures new unread messages are still shown
-                if (previousChat.unread_count > (chat.unread_count || 0)) {
-                    chat.unread_count = previousChat.unread_count;
-                    console.log('📌 Preserved unread count for chat', chat.id, ':', previousChat.unread_count);
+                // Always use the higher value (either previous or server)
+                // This ensures unread counts don't disappear unexpectedly
+                const serverUnreadCount = chat.unread_count || 0;
+                const previousUnreadCount = previousChat.unread_count || 0;
+                chat.unread_count = Math.max(serverUnreadCount, previousUnreadCount);
+                if (previousUnreadCount > serverUnreadCount) {
+                    console.log('📌 Preserved unread count for chat', chat.id, ':', previousUnreadCount, '(server had:', serverUnreadCount, ')');
                 }
             }
         });
@@ -161,6 +163,49 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
     });
 };
 
+// Update unread counts in existing chat list without re-rendering
+function updateChatListUnreadCounts(chats) {
+    const chatList = document.getElementById('chat_list');
+    if (!chatList) return;
+    
+    chats.forEach(chat => {
+        const chatItem = chatList.querySelector(`.chat-item[data-chat-id="${chat.id}"]`);
+        if (!chatItem) return;
+        
+        const unreadCount = chat.unread_count || 0;
+        const avatarWrapper = chatItem.querySelector('.relative.shrink-0');
+        if (!avatarWrapper) return;
+        
+        // Remove existing badge
+        const existingBadge = avatarWrapper.querySelector('.absolute.top-0.end-0');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+        
+        // Add new badge if there are unread messages
+        if (unreadCount > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'absolute top-0 end-0 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none z-10';
+            badge.style.boxSizing = 'border-box';
+            badge.style.backgroundColor = 'rgb(239, 68, 68)';
+            badge.style.color = 'white';
+            badge.style.display = 'flex';
+            badge.style.visibility = 'visible';
+            badge.style.opacity = '1';
+            badge.style.position = 'absolute';
+            badge.style.top = '-2px';
+            badge.style.right = '-2px';
+            badge.style.zIndex = '10';
+            badge.style.width = '18px';
+            badge.style.height = '18px';
+            badge.style.borderRadius = '50%';
+            badge.style.transform = 'none';
+            badge.textContent = unreadCount > 9 ? '9+' : unreadCount.toString();
+            avatarWrapper.appendChild(badge);
+        }
+    });
+}
+
 // Render chat list (frontend - show company name and contact person)
 function renderChatList(chats) {
     console.log('📋 renderChatList called with chats:', chats);
@@ -192,6 +237,16 @@ function renderChatList(chats) {
 
     const existingChatItems = chatList.querySelectorAll('.chat-item');
     const existingCount = existingChatItems.length;
+    
+    // Check if we can just update unread counts instead of re-rendering
+    if (existingCount > 0 && existingCount === chats.length) {
+        // All chats exist, just update unread counts
+        console.log('📋 Updating unread counts for existing chat items');
+        updateChatListUnreadCounts(chats);
+        return;
+    }
+    
+    // Need to re-render - remove existing items
     existingChatItems.forEach(item => item.remove());
     if (existingCount > 0) {
         console.log(`🗑️ Removed ${existingCount} existing chat item(s) from DOM`);
@@ -217,6 +272,7 @@ function renderChatList(chats) {
     sortedChats.forEach((chat, index) => {
         const chatItem = document.createElement('div');
         chatItem.className = `chat-item p-3 border-b border-border cursor-pointer hover:bg-muted/50 ${chat.id === currentChatId ? 'bg-muted/30' : ''}`;
+        chatItem.setAttribute('data-chat-id', chat.id);
         chatItem.onclick = () => selectChat(chat.id);
         
         // Frontend: show company name and contact person name
@@ -231,13 +287,15 @@ function renderChatList(chats) {
         
         chatItem.innerHTML = `
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 relative">
-                    ${userAvatar ? 
-                        `<img src="${escapeHtml(userAvatar)}" alt="${escapeHtml(contactPersonName)}" class="w-10 h-10 rounded-full object-cover" onerror="this.parentElement.innerHTML='<span class=\\'text-primary font-semibold\\'>${companyName.charAt(0).toUpperCase()}</span>'">` :
-                        `<span class="text-primary font-semibold">${companyName.charAt(0).toUpperCase()}</span>`
-                    }
+                <div class="relative shrink-0">
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border-2" style="border-color: rgb(156, 163, 175); box-sizing: border-box; overflow: hidden; position: relative;">
+                        ${userAvatar ? 
+                            `<img src="${escapeHtml(userAvatar)}" alt="${escapeHtml(contactPersonName)}" class="w-full h-full rounded-full object-cover" style="z-index: 0; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%;" onerror="this.parentElement.innerHTML='<span class=\\'text-primary font-semibold\\' style=\\'position: relative; z-index: 1;\\'>${companyName.charAt(0).toUpperCase()}</span>'">` :
+                            `<span class="text-primary font-semibold" style="z-index: 1; position: relative;">${companyName.charAt(0).toUpperCase()}</span>`
+                        }
+                    </div>
                     ${unreadCount > 0 ? `
-                        <span class="absolute top-0 end-0 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none z-10 transform translate-x-1/2 -translate-y-1/2">
+                        <span class="absolute top-0 end-0 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none z-10" style="box-sizing: border-box; background-color: rgb(239, 68, 68) !important; color: white !important; display: flex !important; visibility: visible !important; opacity: 1 !important; position: absolute !important; top: -2px !important; right: -2px !important; z-index: 10 !important; width: 18px !important; height: 18px !important; border-radius: 50% !important; transform: none !important;">
                             ${unreadCount > 9 ? '9+' : unreadCount}
                         </span>
                     ` : ''}
@@ -408,7 +466,55 @@ function updateChatViews(chat) {
             chatHeaderName.textContent = displayName;
         }
         if (chatHeaderAvatar) {
-            chatHeaderAvatar.textContent = companyName.charAt(0).toUpperCase();
+            // Update chat header avatar - use the same avatar as shown in chat list (user.avatar)
+            // For frontend: user.avatar is the company contact person's avatar
+            const avatarContainer = chatHeaderAvatar.parentElement;
+            const avatarUrl = chat && chat.user && chat.user.avatar ? chat.user.avatar : null;
+            
+            if (avatarUrl && !avatarUrl.includes('/assets/media/avatars/300-5.png') && !avatarUrl.includes('/assets/media/avatars/300-2.png')) {
+                // Replace text with image
+                if (chatHeaderAvatar.tagName === 'SPAN') {
+                    // Ensure container has overflow hidden
+                    if (avatarContainer) {
+                        avatarContainer.style.overflow = 'hidden';
+                    }
+                    const img = document.createElement('img');
+                    img.src = avatarUrl;
+                    img.alt = contactPersonName || companyName;
+                    img.className = 'w-full h-full rounded-full object-cover';
+                    img.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; border-radius: 50%; object-fit: cover;';
+                    img.onerror = function() {
+                        // Fallback to initial if image fails
+                        this.remove();
+                        chatHeaderAvatar.textContent = companyName.charAt(0).toUpperCase();
+                        chatHeaderAvatar.style.display = 'block';
+                    };
+                    chatHeaderAvatar.style.display = 'none';
+                    avatarContainer.appendChild(img);
+                } else if (chatHeaderAvatar.tagName === 'IMG') {
+                    // Ensure container has overflow hidden
+                    if (avatarContainer) {
+                        avatarContainer.style.overflow = 'hidden';
+                    }
+                    chatHeaderAvatar.src = avatarUrl;
+                    chatHeaderAvatar.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; border-radius: 50%; object-fit: cover;';
+                    chatHeaderAvatar.onerror = function() {
+                        // Fallback to initial if image fails
+                        const parent = this.parentElement;
+                        parent.innerHTML = `<span class="text-primary font-semibold text-sm" id="chat_header_avatar" style="position: relative; z-index: 1;">${companyName.charAt(0).toUpperCase()}</span>`;
+                    };
+                }
+            } else {
+                // Show company initial
+                if (chatHeaderAvatar.tagName === 'SPAN') {
+                    chatHeaderAvatar.textContent = companyName.charAt(0).toUpperCase();
+                    chatHeaderAvatar.style.display = 'block';
+                } else {
+                    // Replace img with span
+                    const parent = chatHeaderAvatar.parentElement;
+                    parent.innerHTML = `<span class="text-primary font-semibold text-sm" id="chat_header_avatar" style="position: relative; z-index: 1;">${companyName.charAt(0).toUpperCase()}</span>`;
+                }
+            }
         }
         if (chatUserAvatar) {
             // Use candidate's own avatar from chat data or from user dropdown
@@ -1268,10 +1374,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Update chat list periodically - only if user is authenticated
+    // Update chat list periodically - only if user is authenticated and not viewing a chat
+    // This ensures unread counts stay accurate
     chatListUpdateInterval = setInterval(() => {
         if (isUserAuthenticated() && !currentChatId) {
-            loadActiveChats();
+            // Only update if we're showing the chat list, not a specific chat
+            const chatListView = document.getElementById('chat_list_view');
+            const isListViewVisible = chatListView && 
+                window.getComputedStyle(chatListView).display !== 'none' &&
+                window.getComputedStyle(chatListView).visibility !== 'hidden';
+            
+            if (isListViewVisible) {
+                loadActiveChats(true, false); // Refresh list view without opening drawer
+            }
         }
     }, 10000);
 });

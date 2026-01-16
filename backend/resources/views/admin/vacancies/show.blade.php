@@ -178,7 +178,7 @@
                                             <div class="flex items-start gap-3">
                                                 @if($contactPhoto)
                                                     @if($contactUser)
-                                                        <img src="{{ route('admin.users.photo', $contactUser) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                                        <img src="{{ $contactUser && $contactUser->photo_blob ? route('secure.photo', ['token' => $contactUser->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
                                                     @else
                                                         <img src="{{ route('admin.vacancies.contact-photo', $vacancy) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
                                                     @endif

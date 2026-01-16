@@ -232,7 +232,7 @@
                             @foreach($companyUsers as $user)
                                 <div class="flex items-center gap-3">
                                     @if($user->photo_blob)
-                                        <img class="rounded-full h-[36px] w-[36px] object-cover shrink-0" src="{{ route('admin.users.photo', $user) }}" alt="{{ $user->first_name }} {{ $user->last_name }}"/>
+                                        <img class="rounded-full h-[36px] w-[36px] object-cover shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="{{ $user->first_name }} {{ $user->last_name }}"/>
                                     @else
                                         <div class="rounded-full h-[36px] w-[36px] bg-accent/60 border border-input flex items-center justify-center shrink-0">
                                             <span class="text-xs font-semibold text-secondary-foreground">

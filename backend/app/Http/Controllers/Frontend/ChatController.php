@@ -87,7 +87,7 @@ class ChatController extends Controller
                             $sender = \App\Models\User::find($message->sender->id);
                             if ($sender && $sender->photo_blob) {
                                 try {
-                                    $avatarUrl = route('user.photo', $sender->id);
+                                    $avatarUrl = route('secure.photo', ['token' => $sender->getPhotoToken()]);
                                 } catch (\Exception $e) {
                                     // Route error, use default
                                     $avatarUrl = asset('assets/media/avatars/300-2.png');
@@ -108,7 +108,7 @@ class ChatController extends Controller
                                 $candidateUserForPhoto = \App\Models\User::where('email', $candidateEmail)->first();
                                 if ($candidateUserForPhoto && $candidateUserForPhoto->photo_blob) {
                                     try {
-                                        $avatarUrl = route('user.photo', $candidateUserForPhoto->id);
+                                        $avatarUrl = route('secure.photo', ['token' => $candidateUserForPhoto->getPhotoToken()]);
                                     } catch (\Exception $e) {
                                         // Route error, use default
                                         $avatarUrl = asset('assets/media/avatars/300-5.png');
@@ -308,7 +308,7 @@ class ChatController extends Controller
                 $user = \App\Models\User::find($chat->user->id);
                 if ($user && $user->photo_blob) {
                     try {
-                        $userAvatarUrl = route('user.photo', $user->id);
+                        $userAvatarUrl = route('secure.photo', ['token' => $user->getPhotoToken()]);
                     } catch (\Exception $e) {
                         // Fallback to default
                         Log::error('Error getting user avatar URL in formatChat: ' . $e->getMessage());
@@ -319,10 +319,20 @@ class ChatController extends Controller
             $candidateAvatarUrl = asset('assets/media/avatars/300-5.png');
             if ($candidate) {
                 // Try to get candidate's user record for photo
-                $candidateUser = \App\Models\User::where('email', $candidate->email)->first();
+                // Find User that matches candidate by email AND name (to ensure correct match)
+                $candidateUser = \App\Models\User::where('email', $candidate->email)
+                    ->where('first_name', $candidate->first_name)
+                    ->where('last_name', $candidate->last_name)
+                    ->first();
+                
+                // If no exact match, try email only (fallback)
+                if (!$candidateUser) {
+                    $candidateUser = \App\Models\User::where('email', $candidate->email)->first();
+                }
+                
                 if ($candidateUser && $candidateUser->photo_blob) {
                     try {
-                        $candidateAvatarUrl = route('user.photo', $candidateUser->id);
+                        $candidateAvatarUrl = route('secure.photo', ['token' => $candidateUser->getPhotoToken()]);
                     } catch (\Exception $e) {
                         // Fallback to default
                     }

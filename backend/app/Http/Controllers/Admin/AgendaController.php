@@ -90,6 +90,8 @@ class AgendaController extends Controller
                 'extendedProps' => [
                     'candidate_id' => $candidate ? $candidate->id : null,
                     'candidate_name' => $candidateName,
+                    'user_id' => $userId,
+                    'user_photo_token' => $userPhotoToken,
                     'location' => $interview->location ?? 'Locatie niet opgegeven',
                     'type' => $interview->type ?? 'interview',
                     'status' => $interview->status ?? 'scheduled',

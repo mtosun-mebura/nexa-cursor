@@ -167,21 +167,60 @@
             line-height: 1.4 !important;
             resize: none !important;
         }
-        /* Shake animation for icons with unread messages */
+        /* Shake animation for icons with unread messages - fast vibrating bell effect */
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-2px) rotate(-1deg); }
-            75% { transform: translateX(2px) rotate(1deg); }
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            10% { transform: translateX(-2px) rotate(-2deg); }
+            20% { transform: translateX(2px) rotate(2deg); }
+            30% { transform: translateX(-2px) rotate(-2deg); }
+            40% { transform: translateX(2px) rotate(2deg); }
+            50% { transform: translateX(-1px) rotate(-1deg); }
+            60% { transform: translateX(1px) rotate(1deg); }
+            70% { transform: translateX(-1px) rotate(-1deg); }
+            80% { transform: translateX(1px) rotate(1deg); }
+            90% { transform: translateX(0) rotate(0deg); }
         }
         .chat-icon-button.shake,
         .notification-icon-button.shake {
-            animation: shake 0.5s ease-in-out;
+            animation: shake 0.5s ease-in-out !important;
+            animation-iteration-count: 1 !important;
         }
         .chat-icon-button.has-unread .chat-icon,
         .notification-icon-button.has-unread .notification-icon {
             color: rgb(239 68 68) !important; /* text-red-500 */
         }
-        
+
+        /* Avatar container in chat list - add border */
+        #chat_drawer #chat_list .w-10.h-10.rounded-full {
+            border: 2px solid rgb(156, 163, 175) !important; /* gray-400 */
+            box-sizing: border-box !important;
+            overflow: visible !important; /* Ensure badge is visible */
+            position: relative !important; /* Ensure positioning context */
+            z-index: 1 !important; /* Border should be above avatar */
+        }
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > img,
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > span {
+            position: relative !important;
+            z-index: 0 !important; /* Avatar should be below border */
+        }
+        .dark #chat_drawer #chat_list .w-10.h-10.rounded-full {
+            border-color: rgb(75, 85, 99) !important; /* gray-600 */
+        }
+
+        /* Chat badge styling - ensure visibility in light mode */
+        .chat-icon-button .chat-badge,
+        .notification-icon-button .notification-badge {
+            background-color: rgb(239, 68, 68) !important; /* red-500 */
+            color: white !important;
+            z-index: 10 !important;
+            border: 2px solid white !important;
+            box-sizing: border-box !important;
+        }
+        .dark .chat-icon-button .chat-badge,
+        .dark .notification-icon-button .notification-badge {
+            border-color: rgb(17, 24, 39) !important; /* gray-900 for dark mode */
+        }
+
         /* Darker borders - apply to all borders including outer drawer border */
         #chat_drawer,
         #chat_drawer.border-border,
@@ -197,7 +236,7 @@
         .dark #chat_drawer [class*="border-border"] {
             border-color: rgb(75, 85, 99) !important; /* gray-600 */
         }
-        
+
         /* Message balloon styling - own messages (blue balloon with rounded corners, no tail) */
         #chat_drawer .kt-card.bg-primary {
             background-color: rgb(0, 122, 255) !important; /* iOS blue */
@@ -210,7 +249,7 @@
         #chat_drawer .flex.items-end.justify-end .kt-card.bg-primary::after {
             display: none !important;
         }
-        
+
         /* Other messages - white/gray balloon with rounded corners, no tail */
         #chat_drawer .kt-card.bg-accent\/60 {
             background-color: rgb(255, 255, 255) !important; /* white */
@@ -229,7 +268,7 @@
         #chat_drawer .flex.items-end:not(.justify-end) .kt-card.bg-accent\/60::before {
             display: none !important;
         }
-        
+
         /* Larger avatars */
         #chat_drawer .kt-avatar.size-9,
         #chat_drawer img.size-9 {
@@ -240,7 +279,7 @@
             width: 3rem !important;
             height: 3rem !important;
         }
-        
+
         /* Online/Offline status indicator - like screenshot (green dot bottom-right) */
         #chat_drawer .kt-avatar {
             position: relative !important;
@@ -250,8 +289,8 @@
             bottom: 0 !important;
             right: 0 !important;
             z-index: 10 !important;
-            width: 0.875rem !important;
-            height: 0.875rem !important;
+            width: 1rem !important; /* 16px - larger */
+            height: 1rem !important; /* 16px - larger */
         }
         #chat_drawer .kt-avatar-status {
             width: 100% !important;
@@ -270,7 +309,7 @@
         #chat_drawer .kt-avatar-status-offline {
             background-color: rgb(156, 163, 175) !important; /* gray-400 */
         }
-        
+
         /* Message input container with border and less rounded corners */
         #chat_drawer #chat_messages_view > div.pb-1 {
             margin: 0.5rem 0.75rem !important;
@@ -283,13 +322,69 @@
             border-color: rgb(55, 65, 81) !important; /* gray-700 */
             background-color: rgb(31, 41, 55) !important; /* gray-800 */
         }
-        
+
         /* Avatar in input field - now inline */
         #chat_drawer #chat_messages_view #chat_user_avatar {
             width: 2.5rem !important; /* 40px */
             height: 2.5rem !important; /* 40px */
         }
-        
+
+        /* Avatar container in chat list - add border */
+        #chat_drawer #chat_list .relative.shrink-0 {
+            position: relative !important;
+        }
+        #chat_drawer #chat_list .w-10.h-10.rounded-full {
+            border: 2px solid rgb(156, 163, 175) !important; /* gray-400 */
+            box-sizing: border-box !important;
+            overflow: hidden !important; /* Clip image to border */
+            position: relative !important;
+        }
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > img {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 0 !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+        }
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > span.text-primary {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        /* Badge positioning - above avatar, not inside */
+        #chat_drawer #chat_list .relative.shrink-0 > span.absolute {
+            position: absolute !important;
+            top: -2px !important;
+            right: -2px !important;
+            z-index: 10 !important;
+            transform: none !important;
+        }
+        .dark #chat_drawer #chat_list .w-10.h-10.rounded-full {
+            border-color: rgb(75, 85, 99) !important; /* gray-600 */
+        }
+
+        /* Chat header avatar container - ensure image stays within bounds */
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 {
+            overflow: hidden !important; /* Clip image to container */
+            position: relative !important;
+        }
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 > img {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 0 !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+        }
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 > span.text-primary {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
         /* Better send button styling */
         #chat_drawer #chat_send_button {
             background-color: rgb(0, 122, 255) !important; /* iOS blue */
@@ -335,20 +430,20 @@
             outline: none !important;
             box-shadow: none !important;
         }
-        
+
         /* Remove old margin styles from inner div */
         #chat_drawer #chat_messages_view > div.pb-1 > div {
             margin-left: 0 !important;
             margin-right: 0 !important;
         }
-        
+
         /* Ensure input container uses flex layout with center alignment */
         #chat_drawer #chat_messages_view > div.pb-1 > div {
             display: flex !important;
             align-items: center !important;
             gap: 0.5rem !important;
         }
-        
+
         /* Chat drawer menu dropdown styles */
         #chat_drawer .kt-menu-item {
             position: relative !important;
@@ -410,10 +505,10 @@
             flex: 1 !important;
         }
     </style>
-    
+
     <!-- Chat Drawer Backdrop -->
     <div id="chat_drawer_backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden" data-kt-drawer-dismiss="true" onclick="if(event.target === this) handleDrawerClose();"></div>
-    
+
     <!--Chat Drawer-->
     <div class="kt-drawer kt-drawer-end card bottom-5 end-5 top-5 hidden w-[450px] max-w-[90%] flex-col rounded-xl border border-border bg-background"
         data-kt-drawer="true" data-kt-drawer-container="body" id="chat_drawer">
@@ -508,7 +603,7 @@
             <div class="pb-1 pt-0.5 shrink-0">
                 <div class="relative grow flex items-center gap-2">
                     <div class="flex-shrink-0 size-[40px] rounded-full overflow-hidden">
-                        <img alt="" class="size-[40px] rounded-full object-cover" id="chat_user_avatar" src="{{ auth()->user() && auth()->user()->photo_blob ? route('user.photo', auth()->user()->id) : asset('assets/media/avatars/300-2.png') }}">
+                        <img alt="" class="size-[40px] rounded-full object-cover" id="chat_user_avatar" src="{{ auth()->user() && auth()->user()->photo_blob ? route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}">
                     </div>
                     <div class="relative flex-1 flex items-center gap-2">
                         <textarea class="kt-input h-auto bg-transparent px-4 resize-none overflow-hidden flex-1" placeholder="Schrijf een bericht..." id="chat_message_input" rows="1"></textarea>

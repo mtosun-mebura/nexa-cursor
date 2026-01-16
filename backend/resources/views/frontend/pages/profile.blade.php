@@ -2002,7 +2002,7 @@ function showDefaultAvatar() {
 // Update header photos after profile photo upload
 function updateHeaderPhotos() {
   const userId = {{ auth()->id() }};
-  const photoUrl = '{{ route("user.photo", auth()->id()) }}';
+  const photoUrl = '{{ route("secure.photo", ["token" => auth()->user()->getPhotoToken()]) }}';
   const timestamp = Date.now();
   const newPhotoUrl = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 't=' + timestamp;
   

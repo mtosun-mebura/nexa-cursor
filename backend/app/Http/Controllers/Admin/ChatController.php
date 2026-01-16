@@ -634,7 +634,7 @@ class ChatController extends Controller
             ->with(['sender'])
             ->orderBy('created_at', 'asc')
             ->get()
-            ->map(function($message) use ($user) {
+            ->map(function($message) use ($user, $chat) {
                 $senderName = 'Unknown';
                 if ($message->sender) {
                     $senderName = $message->sender->first_name . ' ' . $message->sender->last_name;
@@ -650,7 +650,7 @@ class ChatController extends Controller
                             $sender = \App\Models\User::find($message->sender->id);
                             if ($sender && $sender->photo_blob) {
                                 try {
-                                    $avatarUrl = route('user.photo', $sender->id);
+                                    $avatarUrl = route('secure.photo', ['token' => $sender->getPhotoToken()]);
                                 } catch (\Exception $e) {
                                     // Route error, use default
                                     $avatarUrl = asset('assets/media/avatars/300-2.png');
@@ -669,7 +669,7 @@ class ChatController extends Controller
                             $candidateUser = \App\Models\User::where('email', $message->sender->email)->first();
                             if ($candidateUser && $candidateUser->photo_blob) {
                                 try {
-                                    $avatarUrl = route('user.photo', $candidateUser->id);
+                                    $avatarUrl = route('secure.photo', ['token' => $candidateUser->getPhotoToken()]);
                                 } catch (\Exception $e) {
                                     // Fallback to default
                                     $avatarUrl = asset('assets/media/avatars/300-5.png');
@@ -687,6 +687,22 @@ class ChatController extends Controller
                     \Log::error('Error getting avatar URL in Admin getChatMessages: ' . $e->getMessage());
                 }
                 
+                // Determine online status for candidate messages
+                $isOnline = false;
+                if (!$message->isFromUser()) {
+                    // For candidate messages, check if their last message in this chat was recent (within 3 minutes)
+                    $lastCandidateMessage = $chat->messages()
+                        ->where('sender_type', \App\Models\Candidate::class)
+                        ->where('sender_id', $message->sender_id)
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+                    
+                    if ($lastCandidateMessage && $lastCandidateMessage->created_at) {
+                        $minutesSinceLastMessage = $lastCandidateMessage->created_at->diffInMinutes(now());
+                        $isOnline = $minutesSinceLastMessage <= 3;
+                    }
+                }
+                
                 return [
                     'id' => $message->id,
                     'message' => $message->message,
@@ -697,6 +713,9 @@ class ChatController extends Controller
                     'is_own' => $message->isFromUser() && $message->sender_id === $user->id,
                     'read_at' => $message->read_at ? $message->read_at->format('Y-m-d H:i:s') : null,
                     'is_read' => $message->read_at !== null,
+                    'user' => [
+                        'is_online' => $isOnline
+                    ],
                     'created_at' => $message->created_at->format('Y-m-d H:i:s'),
                     'time' => $message->created_at->format('H:i'),
                 ];
@@ -1005,7 +1024,7 @@ class ChatController extends Controller
                 $user = \App\Models\User::find($chat->user->id);
                 if ($user && $user->photo_blob) {
                     try {
-                        $userAvatarUrl = route('user.photo', $user->id);
+                        $userAvatarUrl = route('secure.photo', ['token' => $user->getPhotoToken()]);
                     } catch (\Exception $e) {
                         // Fallback to default
                         \Log::error('Error getting user avatar URL in formatChat: ' . $e->getMessage());
@@ -1016,11 +1035,20 @@ class ChatController extends Controller
             $candidateAvatarUrl = asset('assets/media/avatars/300-5.png');
             if ($chat->candidate) {
                 try {
-                    // Candidates share email with Users, so get the User record for photo
-                    $candidateUser = \App\Models\User::where('email', $chat->candidate->email)->first();
+                    // Find User that matches candidate by email AND name (to ensure correct match)
+                    $candidateUser = \App\Models\User::where('email', $chat->candidate->email)
+                        ->where('first_name', $chat->candidate->first_name)
+                        ->where('last_name', $chat->candidate->last_name)
+                        ->first();
+                    
+                    // If no exact match, try email only (fallback)
+                    if (!$candidateUser) {
+                        $candidateUser = \App\Models\User::where('email', $chat->candidate->email)->first();
+                    }
+                    
                     if ($candidateUser && $candidateUser->photo_blob) {
                         try {
-                            $candidateAvatarUrl = route('user.photo', $candidateUser->id);
+                            $candidateAvatarUrl = route('secure.photo', ['token' => $candidateUser->getPhotoToken()]);
                         } catch (\Exception $e) {
                             // Fallback to default
                             \Log::error('Error getting candidate user avatar URL in formatChat: ' . $e->getMessage());
@@ -1030,6 +1058,18 @@ class ChatController extends Controller
                     // If route doesn't exist or user doesn't have access, keep default avatar
                     \Log::error('Error getting candidate avatar URL in formatChat: ' . $e->getMessage());
                 }
+            }
+            
+            // Count unread messages from candidates in this chat
+            // For admin users: count messages from candidates (Candidate::class)
+            $unreadCount = 0;
+            try {
+                $unreadCount = \App\Models\ChatMessage::where('chat_id', $chat->id)
+                    ->where('sender_type', \App\Models\Candidate::class)
+                    ->whereNull('read_at')
+                    ->count();
+            } catch (\Exception $e) {
+                \Log::error('Error counting unread messages in Admin formatChat: ' . $e->getMessage());
             }
             
             return [
@@ -1056,6 +1096,7 @@ class ChatController extends Controller
                     'time' => $latestMessage->created_at->format('H:i'),
                 ] : null,
                 'updated_at' => $chat->updated_at ? $chat->updated_at->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
+                'unread_count' => $unreadCount,
             ];
         } catch (\Exception $e) {
             \Log::error('Error formatting chat: ' . $e->getMessage(), [

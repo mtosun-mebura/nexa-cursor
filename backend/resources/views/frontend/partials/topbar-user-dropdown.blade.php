@@ -7,7 +7,7 @@
         @if(auth()->user()->photo_blob)
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
                 class="w-full h-full object-cover"
-                src="{{ route('user.photo', auth()->id()) }}" />
+                src="{{ route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) }}" />
         @else
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
                 class="w-full h-full object-cover"
@@ -20,7 +20,7 @@
                 <div class="shrink-0 rounded-full border-2 border-green-500 overflow-hidden" style="width: 36px; height: 36px;">
                     <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
                         class="w-full h-full object-cover"
-                        src="{{ route('user.photo', auth()->id()) }}" />
+                        src="{{ route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) }}" />
                 </div>
             @else
                 <div class="shrink-0 rounded-full border-2 border-green-500 overflow-hidden" style="width: 36px; height: 36px;">

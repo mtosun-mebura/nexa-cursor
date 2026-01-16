@@ -39,10 +39,7 @@ function updateChatBadge() {
                 chatBadge.style.display = 'flex';
             }
             
-            // Add shake animation
-            if (!chatButton.classList.contains('shake')) {
-                chatButton.classList.add('shake');
-            }
+            // Don't add shake class here - let startShakeAnimation handle it
         } else {
             chatButton.classList.remove('has-unread', 'shake');
             chatIcon?.classList.remove('text-red-500');
@@ -92,10 +89,7 @@ function updateNotificationBadge() {
                 notificationBadge.style.display = 'flex';
             }
             
-            // Add shake animation
-            if (!notificationButton.classList.contains('shake')) {
-                notificationButton.classList.add('shake');
-            }
+            // Don't add shake class here - let startShakeAnimation handle it
         } else {
             notificationButton.classList.remove('has-unread', 'shake');
             notificationIcon?.classList.remove('text-red-500');
@@ -111,27 +105,85 @@ function updateNotificationBadge() {
 }
 
 // Shake animation every 5 seconds if there are unread messages
+// The animation lasts 2 seconds (multiple 0.5s cycles), then stops for 3 seconds before repeating
 function startShakeAnimation() {
     if (shakeInterval) clearInterval(shakeInterval);
     
-    shakeInterval = setInterval(() => {
+    // Trigger immediately if there are unread messages
+    const triggerShake = () => {
         const chatButton = document.querySelector('#frontend_chat_toggle, [data-kt-drawer-toggle="#chat_drawer"]');
         const notificationButton = document.querySelector('.notification-icon-button');
         
         if (chatButton?.classList.contains('has-unread')) {
+            // Remove any existing shake class
             chatButton.classList.remove('shake');
-            setTimeout(() => {
-                chatButton.classList.add('shake');
-            }, 10);
+            
+            // Trigger shake animation 4 times (4 * 0.5s = 2s total)
+            let shakeCount = 0;
+            const maxShakes = 4;
+            
+            const doShake = () => {
+                if (shakeCount < maxShakes && chatButton.classList.contains('has-unread')) {
+                    // Force reflow by removing and re-adding the class
+                    chatButton.classList.remove('shake');
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            chatButton.classList.add('shake');
+                            shakeCount++;
+                            // After 0.5s (animation duration), trigger next shake or stop
+                            setTimeout(() => {
+                                chatButton.classList.remove('shake');
+                                if (shakeCount < maxShakes) {
+                                    setTimeout(doShake, 50); // Small delay between shakes
+                                }
+                            }, 500);
+                        });
+                    });
+                }
+            };
+            
+            // Start shaking
+            setTimeout(doShake, 10);
         }
         
         if (notificationButton?.classList.contains('has-unread')) {
+            // Remove any existing shake class
             notificationButton.classList.remove('shake');
-            setTimeout(() => {
-                notificationButton.classList.add('shake');
-            }, 10);
+            
+            // Trigger shake animation 4 times (4 * 0.5s = 2s total)
+            let shakeCount = 0;
+            const maxShakes = 4;
+            
+            const doShake = () => {
+                if (shakeCount < maxShakes && notificationButton.classList.contains('has-unread')) {
+                    // Force reflow by removing and re-adding the class
+                    notificationButton.classList.remove('shake');
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            notificationButton.classList.add('shake');
+                            shakeCount++;
+                            // After 0.5s (animation duration), trigger next shake or stop
+                            setTimeout(() => {
+                                notificationButton.classList.remove('shake');
+                                if (shakeCount < maxShakes) {
+                                    setTimeout(doShake, 50); // Small delay between shakes
+                                }
+                            }, 500);
+                        });
+                    });
+                }
+            };
+            
+            // Start shaking
+            setTimeout(doShake, 10);
         }
-    }, 5000);
+    };
+    
+    // Trigger immediately
+    triggerShake();
+    
+    // Then trigger every 5 seconds
+    shakeInterval = setInterval(triggerShake, 5000); // Trigger every 5 seconds (2s shake + 3s pause)
 }
 
 // Initialize badge updates

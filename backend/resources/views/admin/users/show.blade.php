@@ -18,7 +18,7 @@
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($user->photo_blob)
-                <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ route('admin.users.photo', $user) }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
+                <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
             @elseif($user->photo)
                 <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ asset('storage/' . $user->photo) }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
             @else

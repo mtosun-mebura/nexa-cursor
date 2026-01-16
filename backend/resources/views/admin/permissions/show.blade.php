@@ -289,7 +289,7 @@
                                 <td>
                                     <div class="flex items-center gap-2.5">
                                         @if($user->photo_blob)
-                                            <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ route('admin.users.photo', $user) }}"/>
+                                            <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}"/>
                                         @else
                                             <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
                                                 <span class="text-xs font-semibold text-secondary-foreground">

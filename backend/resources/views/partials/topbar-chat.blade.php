@@ -141,19 +141,154 @@
             white-space: pre-wrap;
             padding-right: 70px !important; /* Space for Send button */
         }
-        /* Shake animation for icons with unread messages */
+        /* Shake animation for icons with unread messages - fast vibrating bell effect */
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-2px) rotate(-1deg); }
-            75% { transform: translateX(2px) rotate(1deg); }
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            10% { transform: translateX(-2px) rotate(-2deg); }
+            20% { transform: translateX(2px) rotate(2deg); }
+            30% { transform: translateX(-2px) rotate(-2deg); }
+            40% { transform: translateX(2px) rotate(2deg); }
+            50% { transform: translateX(-1px) rotate(-1deg); }
+            60% { transform: translateX(1px) rotate(1deg); }
+            70% { transform: translateX(-1px) rotate(-1deg); }
+            80% { transform: translateX(1px) rotate(1deg); }
+            90% { transform: translateX(0) rotate(0deg); }
         }
         .chat-icon-button.shake,
         .notification-icon-button.shake {
-            animation: shake 0.5s ease-in-out;
+            animation: shake 0.5s ease-in-out !important;
+            animation-iteration-count: 1 !important;
         }
         .chat-icon-button.has-unread .chat-icon,
         .notification-icon-button.has-unread .notification-icon {
             color: rgb(239 68 68) !important; /* text-red-500 */
+        }
+
+        /* Chat badge styling - ensure visibility in light mode */
+        .chat-icon-button .chat-badge,
+        .notification-icon-button .notification-badge {
+            background-color: rgb(239, 68, 68) !important; /* red-500 */
+            color: white !important;
+            z-index: 10 !important;
+            border: 2px solid white !important;
+            box-sizing: border-box !important;
+        }
+        .dark .chat-icon-button .chat-badge,
+        .dark .notification-icon-button .notification-badge {
+            border-color: rgb(17, 24, 39) !important; /* gray-900 for dark mode */
+        }
+
+        /* Avatar container in chat list - match header avatar styling */
+        #chat_drawer #chat_list .bg-accent\/60.size-11,
+        #chat_drawer #chat_list .w-10.h-10.rounded-full {
+            overflow: visible !important; /* Ensure badge is visible */
+            position: relative !important;
+        }
+        #chat_drawer #chat_list .bg-accent\/60.size-11 > img,
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > img {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 0 !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+        }
+        #chat_drawer #chat_list .bg-accent\/60.size-11 > span.text-primary,
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > span.text-primary {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        /* Badge positioning - above avatar, not inside */
+        #chat_drawer #chat_list .bg-accent\/60.size-11 > span.absolute,
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > span.absolute {
+            position: absolute !important;
+            top: -2px !important;
+            right: -2px !important;
+            z-index: 10 !important;
+            transform: none !important;
+        }
+
+        /* Chat header avatar container - ensure image stays within bounds */
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 {
+            overflow: hidden !important; /* Clip image to container */
+            position: relative !important;
+        }
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 > img {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 0 !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+        }
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 > span.text-primary {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+
+        /* Unread count badge in chat list - ensure visibility */
+        #chat_drawer #chat_list .w-10.h-10.rounded-full > span.absolute,
+        #chat_drawer #chat_list .w-10.h-10.rounded-full span[class*="absolute"][class*="top-0"][class*="end-0"] {
+            background-color: rgb(239, 68, 68) !important; /* red-500 */
+            color: white !important;
+            z-index: 10 !important;
+            border: 2px solid white !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: absolute !important;
+            top: 0 !important;
+            right: 0 !important;
+        }
+        .dark #chat_drawer #chat_list .w-10.h-10.rounded-full > span.absolute,
+        .dark #chat_drawer #chat_list .w-10.h-10.rounded-full span[class*="absolute"][class*="top-0"][class*="end-0"] {
+            border-color: rgb(17, 24, 39) !important; /* gray-900 for dark mode */
+        }
+
+        /* Larger avatars */
+        #chat_drawer .kt-avatar.size-9,
+        #chat_drawer img.size-9 {
+            width: 3rem !important; /* 48px */
+            height: 3rem !important; /* 48px */
+        }
+        #chat_drawer .kt-avatar-image img.size-9 {
+            width: 3rem !important;
+            height: 3rem !important;
+        }
+
+        /* Online/Offline status indicator - larger size */
+        #chat_drawer .kt-avatar {
+            position: relative !important;
+        }
+        #chat_drawer .kt-avatar-indicator {
+            position: absolute !important;
+            bottom: 0 !important;
+            right: 0 !important;
+            z-index: 10 !important;
+            width: 1rem !important; /* 16px - larger */
+            height: 1rem !important; /* 16px - larger */
+        }
+        #chat_drawer .kt-avatar-status {
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 50% !important;
+            border: 2px solid white !important;
+            display: block !important;
+            box-sizing: border-box !important;
+        }
+        .dark #chat_drawer .kt-avatar-status {
+            border-color: rgb(17, 24, 39) !important; /* gray-900 */
+        }
+        #chat_drawer .kt-avatar-status-online {
+            background-color: rgb(34, 197, 94) !important; /* green-500 */
+        }
+        #chat_drawer .kt-avatar-status-offline {
+            background-color: rgb(156, 163, 175) !important; /* gray-400 */
         }
     </style>
     <!-- Chat -->
@@ -279,7 +414,7 @@
             <div class="pb-1.5 pt-0 shrink-0" style="padding-top: 3px;">
                 <div class="relative grow" style="margin-left: 5px !important; margin-right: 5px !important;">
                     <div class="absolute start-0 top-2/4 ms-2.5 size-[30px] -translate-y-2/4 rounded-full overflow-hidden">
-                        <img alt="" class="size-[30px] rounded-full object-cover" id="chat_user_avatar" src="{{ auth()->user() && auth()->user()->photo_blob ? route('user.photo', auth()->user()->id) : asset('assets/media/avatars/300-2.png') }}">
+                        <img alt="" class="size-[30px] rounded-full object-cover" id="chat_user_avatar" src="{{ auth()->user() && auth()->user()->photo_blob ? route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}">
                     </div>
                     <textarea class="kt-input h-auto bg-transparent py-4 ps-12 pe-20 resize-none overflow-hidden" placeholder="Schrijf een bericht..." id="chat_message_input" rows="1"></textarea>
                     <div class="absolute end-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">

@@ -941,8 +941,8 @@ window.openDayModal = function(year, month, day) {
         
         const avatar = document.createElement('div');
         avatar.className = 'modal-event-avatar';
-        if (event.extendedProps.user_id) {
-            avatar.innerHTML = `<img src="/user-photo/${event.extendedProps.user_id}" alt="" onerror="this.parentElement.innerHTML='${getInitials(event.extendedProps.candidate_name)}'">`;
+        if (event.extendedProps.user_photo_token) {
+            avatar.innerHTML = `<img src="/secure-photo/${event.extendedProps.user_photo_token}" alt="" onerror="this.parentElement.innerHTML='${getInitials(event.extendedProps.candidate_name)}'">`;
         } else {
             avatar.textContent = getInitials(event.extendedProps.candidate_name);
         }

@@ -91,7 +91,7 @@
                                     <div class="flex items-center gap-3">
                                         @if($application->user->photo_blob)
                                             <div class="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                                                <img src="{{ route('user.photo', $application->user->id) }}" 
+                                                <img src="{{ $application->user && $application->user->photo_blob ? route('secure.photo', ['token' => $application->user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" 
                                                      alt="{{ $application->user->first_name }} {{ $application->user->last_name }}"
                                                      class="w-full h-full object-cover">
                                             </div>
