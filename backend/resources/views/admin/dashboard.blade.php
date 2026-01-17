@@ -37,7 +37,7 @@
     @endphp
 
     <!-- Hero + Revenue -->
-    <div class="grid gap-5 grid-cols-1 xl:grid-cols-5">
+    <div class="grid gap-5 grid-cols-1">
         <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-slate-50 via-slate-100 to-slate-50 dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1324] text-foreground dark:text-white w-full">
             <div class="kt-card-body p-7 lg:p-10">
                 <div class="flex flex-col gap-6">
@@ -107,6 +107,8 @@
                 </div>
             </div>
         </div>
+    </div>
+    <div class="grid gap-5 grid-cols-1">
         <div class="kt-card h-full w-full">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
@@ -138,7 +140,7 @@
     </div>
 
     <!-- KPI Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-5">
         <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
@@ -235,7 +237,7 @@
                 </h3>
             </div>
             <div class="kt-card-body">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-4 m-[10px]">
                     <div class="flex items-center justify-between p-4 rounded-lg border border-input">
                         <div class="flex items-center gap-3">
                             <span class="size-10 rounded-full bg-warning/10 flex items-center justify-center">
@@ -303,7 +305,7 @@
                     Interviews Overzicht
                 </h3>
             </div>
-            <div class="kt-card-body space-y-4">
+            <div class="kt-card-body space-y-4 m-[10px]">
                 <div class="flex items-center justify-between p-4 rounded-lg border border-input">
                     <div class="flex items-center gap-3">
                         <span class="size-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -694,15 +696,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const revenueData = @json($revenue_trend->map(function($point) {
         return $point['total'];
     })->values()->all());
-    
+
     const revenueCategories = @json($revenue_trend->map(function($point) {
         return $point['label'];
     })->values()->all());
-    
+
     // Calculate max value for y-axis
     const maxRevenue = Math.max(...(revenueData.length > 0 ? revenueData : [1]));
     const yAxisMax = Math.ceil(maxRevenue * 1.2 / 1000) * 1000; // Round up to nearest 1000
-    
+
     // Initialize Earnings Chart
     const earningsChartElement = document.querySelector('#earnings_chart');
     if (earningsChartElement && typeof ApexCharts !== 'undefined') {
@@ -784,7 +786,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         style: 'currency',
                         currency: 'EUR'
                     }).format(value);
-                    
+
                     return `
                         <div class="flex flex-col gap-2 p-3.5">
                             <div class="font-medium text-2sm text-white">${monthName}, {{ now()->year }} Inkomsten</div>
@@ -831,7 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         };
-        
+
         const chart = new ApexCharts(earningsChartElement, options);
         chart.render();
     }
@@ -843,10 +845,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const invoicesData = @json(($stats['invoices_per_year'] ?? [])->pluck('invoice_count')->values()->all());
         const revenueDataYear = @json(($stats['invoices_per_year'] ?? [])->pluck('total_revenue')->values()->all());
         const yearCategories = @json(($stats['invoices_per_year'] ?? [])->pluck('year')->values()->all());
-        
+
         const maxRevenueYear = Math.max(...(revenueDataYear.length > 0 ? revenueDataYear : [1]));
         const yAxisMaxYear = Math.ceil(maxRevenueYear * 1.2 / 1000) * 1000;
-        
+
         const optionsYear = {
             series: [
                 {
@@ -948,7 +950,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         style: 'currency',
                         currency: 'EUR'
                     }).format(revenue);
-                    
+
                     return `
                         <div class="flex flex-col gap-2 p-3.5">
                             <div class="font-medium text-2sm text-white">Jaar ${year}</div>
@@ -980,7 +982,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         };
-        
+
         const chartYear = new ApexCharts(invoicesRevenueChartElement, optionsYear);
         chartYear.render();
     }

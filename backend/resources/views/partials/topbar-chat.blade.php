@@ -3,20 +3,37 @@
         /* Ensure chat drawer is always on top and hidden by default */
         #chat_drawer,
         #chat_drawer.kt-drawer,
+        #chat_drawer.kt-drawer-end,
         #chat_drawer[data-kt-drawer="true"],
-        #chat_drawer[data-kt-drawer-initialized="true"] {
+        #chat_drawer[data-kt-drawer-initialized="true"],
+        #chat_drawer[data-chat-active="true"],
+        #chat_drawer[data-user-opened="true"] {
             z-index: 99999 !important;
             position: fixed !important;
             right: 1.25rem !important; /* end-5 = 1.25rem */
             top: 1.25rem !important; /* top-5 = 1.25rem */
             bottom: 1.25rem !important; /* bottom-5 = 1.25rem */
-            left: unset !important;
+            left: auto !important;
             width: 450px !important;
             max-width: 90% !important;
             transform: translateX(0) !important; /* Reset any transform that might hide the drawer */
             transition: none !important; /* Disable transitions to prevent animation */
             animation: none !important; /* Disable animations */
             margin-left: 0 !important; /* Ensure no left margin */
+            margin-right: 0 !important;
+        }
+        /* Override any KT Drawer library positioning */
+        .kt-drawer-end#chat_drawer,
+        .kt-drawer-end#chat_drawer[data-kt-drawer="true"],
+        .kt-drawer-end#chat_drawer[data-kt-drawer-initialized="true"],
+        .kt-drawer-end#chat_drawer.open,
+        .kt-drawer-end#chat_drawer.open[data-kt-drawer-initialized] {
+            left: auto !important;
+            right: 1.25rem !important;
+            transform: translateX(0) !important;
+            translate: 0 0 !important;
+            --tw-translate-x: 0 !important;
+            inset-inline-start: auto !important;
         }
         #chat_drawer.hidden {
             display: none !important;
@@ -39,17 +56,24 @@
             opacity: 1 !important;
         }
         /* Force visibility when data-chat-active is set, even if hidden class is present, but NOT when explicitly closed */
-        #chat_drawer[data-chat-active="true"]:not([data-drawer-closed="true"]) {
+        #chat_drawer[data-chat-active="true"]:not([data-drawer-closed="true"]),
+        #chat_drawer[data-user-opened="true"]:not([data-drawer-closed="true"]) {
             display: flex !important;
             visibility: visible !important;
             opacity: 1 !important;
             z-index: 99999 !important;
             transform: translateX(0) !important; /* Ensure drawer is fully visible */
             right: 1.25rem !important; /* Ensure right positioning */
-            left: unset !important; /* Force left to unset to prevent positioning issues */
+            left: auto !important; /* Force left to auto to prevent positioning issues */
+            top: 1.25rem !important;
+            bottom: 1.25rem !important;
+            width: 450px !important;
+            max-width: 90% !important;
+            position: fixed !important;
             transition: none !important; /* Disable transitions */
             animation: none !important; /* Disable animations */
             margin-left: 0 !important; /* Ensure no left margin */
+            margin-right: 0 !important;
         }
         #chat_drawer_backdrop {
             z-index: 99998 !important;
@@ -178,6 +202,21 @@
             border-color: rgb(17, 24, 39) !important; /* gray-900 for dark mode */
         }
 
+        /* Remove background from back button in chat header */
+        #chat_drawer #chat_messages_view button.kt-btn-icon[onclick="showChatList()"],
+        #chat_drawer #chat_messages_view button.kt-btn-icon.kt-btn-sm[title="Terug naar chat lijst"] {
+            background-color: transparent !important;
+            background: transparent !important;
+        }
+        #chat_drawer #chat_messages_view button.kt-btn-icon[onclick="showChatList()"]:hover,
+        #chat_drawer #chat_messages_view button.kt-btn-icon.kt-btn-sm[title="Terug naar chat lijst"]:hover {
+            background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+        .dark #chat_drawer #chat_messages_view button.kt-btn-icon[onclick="showChatList()"]:hover,
+        .dark #chat_drawer #chat_messages_view button.kt-btn-icon.kt-btn-sm[title="Terug naar chat lijst"]:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        
         /* Avatar container in chat list - match header avatar styling */
         #chat_drawer #chat_list .bg-accent\/60.size-11,
         #chat_drawer #chat_list .w-10.h-10.rounded-full {
@@ -212,7 +251,7 @@
 
         /* Chat header avatar container - ensure image stays within bounds */
         #chat_drawer #chat_messages_view .bg-accent\/60.size-11 {
-            overflow: hidden !important; /* Clip image to container */
+            overflow: visible !important; /* Allow status indicator to be visible */
             position: relative !important;
         }
         #chat_drawer #chat_messages_view .bg-accent\/60.size-11 > img {
@@ -228,6 +267,17 @@
         #chat_drawer #chat_messages_view .bg-accent\/60.size-11 > span.text-primary {
             position: relative !important;
             z-index: 1 !important;
+        }
+        /* Status indicator in chat header */
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 .kt-avatar-indicator {
+            position: absolute !important;
+            bottom: -2px !important;
+            right: -2px !important;
+            z-index: 10 !important;
+        }
+        #chat_drawer #chat_messages_view .bg-accent\/60.size-11 .kt-avatar-status {
+            width: 1rem !important;
+            height: 1rem !important;
         }
 
         /* Unread count badge in chat list - ensure visibility */
@@ -290,6 +340,123 @@
         #chat_drawer .kt-avatar-status-offline {
             background-color: rgb(156, 163, 175) !important; /* gray-400 */
         }
+        
+        /* Message balloon styling - own messages (blue balloon with white text) */
+        #chat_drawer .kt-card.bg-primary {
+            background-color: rgb(0, 122, 255) !important; /* iOS blue */
+            border: none !important;
+            position: relative !important;
+            border-radius: 1.125rem !important; /* 18px - rounded corners */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+        }
+        /* Text color in blue balloon - white in both light and dark mode */
+        #chat_drawer .kt-card.bg-primary .text-primary-foreground,
+        #chat_drawer .kt-card.bg-primary p {
+            color: white !important;
+        }
+        /* Remove tail */
+        #chat_drawer .flex.items-end.justify-end .kt-card.bg-primary::after {
+            display: none !important;
+        }
+        
+        /* Loading indicator styling */
+        #chat_drawer #chat_messages_loader {
+            background-color: var(--kt-body-bg, #ffffff) !important;
+        }
+        .dark #chat_drawer #chat_messages_loader {
+            background-color: var(--kt-body-bg-dark, #0f172a) !important; /* slate-900 - matching drawer background */
+        }
+        #chat_drawer #chat_messages_loader .ki-loader-2 {
+            animation: spin 1s linear infinite !important;
+        }
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Dropdown menu styling - ensure hover background stays within modal */
+        #chat_drawer .kt-menu-dropdown {
+            overflow: hidden !important;
+            border-radius: 0.5rem !important;
+            padding: 0.25rem !important;
+        }
+        #chat_drawer .kt-menu-item {
+            overflow: hidden !important;
+            border-radius: 0.375rem !important;
+            margin: 0.125rem 0 !important;
+        }
+        #chat_drawer .kt-menu-link {
+            overflow: hidden !important;
+            border-radius: 0.375rem !important;
+            padding: 0.5rem 0.75rem !important;
+            position: relative !important;
+            background-color: transparent !important;
+            transition: background-color 0.2s ease !important;
+        }
+        #chat_drawer .kt-menu-link:hover {
+            background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+        .dark #chat_drawer .kt-menu-link:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        #chat_drawer .kt-menu-link.text-red-600:hover,
+        #chat_drawer .kt-menu-link.dark\:text-red-400:hover {
+            background-color: rgba(220, 38, 38, 0.1) !important;
+        }
+        .dark #chat_drawer .kt-menu-link.text-red-600:hover,
+        .dark #chat_drawer .kt-menu-link.dark\:text-red-400:hover {
+            background-color: rgba(220, 38, 38, 0.2) !important;
+        }
+        /* Ensure text and icons are visible above background */
+        #chat_drawer .kt-menu-link .kt-menu-icon,
+        #chat_drawer .kt-menu-link .kt-menu-title {
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        /* Styling for ended chats - gray out avatar and text */
+        #chat_drawer .chat-item.chat-ended {
+            opacity: 0.6 !important;
+        }
+        #chat_drawer .chat-item.chat-ended .font-semibold,
+        #chat_drawer .chat-item.chat-ended .text-xs,
+        #chat_drawer .chat-item.chat-ended .text-muted-foreground {
+            color: rgb(156, 163, 175) !important; /* gray-400 */
+        }
+        .dark #chat_drawer .chat-item.chat-ended .font-semibold,
+        .dark #chat_drawer .chat-item.chat-ended .text-xs,
+        .dark #chat_drawer .chat-item.chat-ended .text-muted-foreground {
+            color: rgb(107, 114, 128) !important; /* gray-500 */
+        }
+        /* Gray out avatar for ended chats */
+        #chat_drawer .chat-item.chat-ended img,
+        #chat_drawer .chat-item.chat-ended .w-10.h-10,
+        #chat_drawer .chat-item.chat-ended .bg-accent\/60.size-11 {
+            filter: grayscale(100%) !important;
+            opacity: 0.6 !important;
+        }
+        #chat_drawer .chat-item.chat-ended .text-primary {
+            color: rgb(156, 163, 175) !important; /* gray-400 */
+        }
+        .dark #chat_drawer .chat-item.chat-ended .text-primary {
+            color: rgb(107, 114, 128) !important; /* gray-500 */
+        }
+        
+        /* Force red color for delete icon in backend */
+        .kt-menu-link.text-red-600 .kt-menu-icon .ki-filled.ki-trash,
+        .kt-menu-link.text-red-600 .kt-menu-icon .ki-filled.ki-trash.text-red-600,
+        .kt-menu-link.text-red-600 .kt-menu-icon i.ki-filled.ki-trash {
+            color: rgb(220, 38, 38) !important; /* red-600 */
+        }
+        .dark .kt-menu-link.text-red-400 .kt-menu-icon .ki-filled.ki-trash,
+        .dark .kt-menu-link.text-red-400 .kt-menu-icon .ki-filled.ki-trash.text-red-400,
+        .dark .kt-menu-link.text-red-400 .kt-menu-icon i.ki-filled.ki-trash {
+            color: rgb(248, 113, 113) !important; /* red-400 */
+        }
     </style>
     <!-- Chat -->
     @php
@@ -304,7 +471,7 @@
         }
     @endphp
     <button class="kt-btn kt-btn-ghost kt-btn-icon hover:bg-primary/10 hover:[&_i]:text-primary size-9 rounded-full relative chat-icon-button {{ $unreadChatCount > 0 ? 'has-unread' : '' }}"
-        data-kt-drawer-toggle="#chat_drawer" onclick="loadActiveChats()" id="backend_chat_toggle">
+        data-kt-drawer-toggle="#chat_drawer" onclick="if(typeof window.loadActiveChats === 'function') { window.loadActiveChats(false, true); }" id="backend_chat_toggle">
         <i class="ki-filled {{ $unreadChatCount > 0 ? 'ki-messages text-red-500' : 'ki-messages' }} text-lg chat-icon">
         </i>
         @if($unreadChatCount > 0)
@@ -345,7 +512,7 @@
             <!-- Chat Header with Back Button and Close Button -->
             <div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-3.5 border-b border-border">
                 <div class="flex items-center gap-2.5">
-                    <button type="button" class="kt-btn kt-btn-icon kt-btn-sm" onclick="showChatList()" title="Terug naar chat lijst">
+                    <button type="button" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost" onclick="showChatList()" title="Terug naar chat lijst">
                         <i class="ki-filled ki-arrow-left"></i>
                     </button>
                     <span>Chat</span>
@@ -387,6 +554,12 @@
                                             </span>
                                             <span class="kt-menu-title">Chat beëindigen</span>
                                         </button>
+                                        <button type="button" class="kt-menu-link w-full text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" onclick="deleteChat()">
+                                            <span class="kt-menu-icon text-red-600 dark:text-red-400">
+                                                <i class="ki-filled ki-trash text-red-600 dark:text-red-400" style="color: rgb(220, 38, 38) !important;"></i>
+                                            </span>
+                                            <span class="kt-menu-title text-red-600 dark:text-red-400">Chat verwijderen</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -398,6 +571,13 @@
             <!-- Messages Area -->
             <div class="kt-scrollable-y-auto grow relative" data-kt-scrollable="true" data-kt-scrollable-dependencies="#header"
                 data-kt-scrollable-max-height="auto" data-kt-scrollable-offset="230px">
+                <!-- Loading indicator -->
+                <div id="chat_messages_loader" class="absolute inset-0 flex items-center justify-center z-10" style="display: none;">
+                    <div class="flex flex-col items-center gap-4">
+                        <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-primary"></div>
+                        <span class="text-sm text-muted-foreground">Berichten laden...</span>
+                    </div>
+                </div>
                 <div class="flex flex-col gap-5" id="chat_messages" style="padding-top: 0.5rem; padding-bottom: 0;">
                     <!-- Messages will be loaded here -->
                 </div>

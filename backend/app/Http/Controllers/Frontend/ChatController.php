@@ -30,10 +30,10 @@ class ChatController extends Controller
                 return response()->json([]);
             }
 
-            // Load chats where this candidate is the recipient
+            // Load all chats where this candidate is the recipient (active and ended - show archive)
+            // Eager load all necessary relationships including nested company from user
             $chats = Chat::where('candidate_id', $candidateRecord->id)
-                ->where('is_active', true)
-                ->with(['candidate', 'user', 'company', 'latestMessage'])
+                ->with(['candidate', 'user.company', 'company', 'latestMessage'])
                 ->orderBy('updated_at', 'desc')
                 ->get()
                 ->map(function($chat) use ($candidateUser) {
@@ -62,9 +62,9 @@ class ChatController extends Controller
             return response()->json(['error' => 'Candidate not found'], 404);
         }
         
+        // Allow viewing messages even if chat is ended (for archive)
         $chat = Chat::where('id', $chatId)
             ->where('candidate_id', $candidateRecord->id)
-            ->where('is_active', true)
             ->firstOrFail();
 
         $messages = $chat->messages()
@@ -177,7 +177,16 @@ class ChatController extends Controller
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
-        return response()->json($messages);
+        // Check if company admin (user) is present (viewing the chat)
+        $presenceKey = "chat_presence_{$chatId}_user_{$chat->user_id}";
+        $isUserOnline = cache()->has($presenceKey);
+
+        return response()->json([
+            'messages' => $messages,
+            'presence' => [
+                'is_online' => $isUserOnline
+            ]
+        ]);
     }
 
     /**
@@ -199,8 +208,17 @@ class ChatController extends Controller
         
         $chat = Chat::where('id', $chatId)
             ->where('candidate_id', $candidateRecord->id)
-            ->where('is_active', true)
             ->firstOrFail();
+        
+        // If chat is ended, reactivate it when sending a message
+        if (!$chat->is_active) {
+            $chat->update([
+                'is_active' => true,
+                'ended_at' => null,
+                'ended_by_type' => null,
+                'ended_by_id' => null,
+            ]);
+        }
 
         $message = ChatMessage::create([
             'chat_id' => $chat->id,
@@ -250,18 +268,62 @@ class ChatController extends Controller
 
             $chat = Chat::where('id', $chatId)
                 ->where('candidate_id', $candidateRecord->id)
-                ->where('is_active', true)
                 ->firstOrFail();
+
+            // Only allow ending if chat is active
+            if (!$chat->is_active) {
+                return response()->json(['error' => 'Chat is already ended'], 400);
+            }
 
             $chat->update([
                 'is_active' => false,
                 'ended_at' => now(),
+                'ended_by_type' => Candidate::class,
+                'ended_by_id' => $candidateRecord->id,
             ]);
 
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
             Log::error('Error ending chat: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to end chat'], 500);
+        }
+    }
+
+    /**
+     * Delete a chat (frontend - candidate perspective)
+     */
+    public function deleteChat(Request $request, $chatId)
+    {
+        try {
+            $candidateUser = auth()->user();
+            if (!$candidateUser) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            // Get candidate record by email
+            $candidateRecord = \App\Models\Candidate::where('email', $candidateUser->email)->first();
+            if (!$candidateRecord) {
+                return response()->json(['error' => 'Candidate not found'], 404);
+            }
+
+            $chat = Chat::where('id', $chatId)
+                ->where('candidate_id', $candidateRecord->id)
+                ->firstOrFail();
+
+            // Soft delete the chat
+            $chat->update([
+                'deleted_at' => now(),
+                'deleted_by_type' => Candidate::class,
+                'deleted_by_id' => $candidateRecord->id,
+            ]);
+
+            // Actually delete using soft delete
+            $chat->delete();
+
+            return response()->json(['success' => true, 'message' => 'Chat deleted successfully']);
+        } catch (\Exception $e) {
+            \Log::error('Error deleting chat: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to delete chat'], 500);
         }
     }
 
@@ -288,6 +350,61 @@ class ChatController extends Controller
             ->count();
         
         return response()->json(['unread_count' => $unreadCount]);
+    }
+
+    /**
+     * Set chat presence (candidate is viewing the chat)
+     */
+    public function setChatPresence(Request $request, $chatId)
+    {
+        $candidateUser = auth()->user();
+        if (!$candidateUser) {
+            return response()->json(['error' => 'User not authenticated'], 401);
+        }
+
+        // Get candidate record by email
+        $candidateRecord = Candidate::where('email', $candidateUser->email)->first();
+        if (!$candidateRecord) {
+            return response()->json(['error' => 'Candidate not found'], 404);
+        }
+
+        // Allow setting presence even if chat is ended (for archive)
+        $chat = Chat::where('id', $chatId)
+            ->where('candidate_id', $candidateRecord->id)
+            ->firstOrFail();
+
+        // Store presence in cache - expires after 10 seconds (user must send heartbeat)
+        cache()->put("chat_presence_{$chatId}_candidate_{$candidateRecord->id}", now(), 10);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Get chat presence (check if company admin is viewing the chat)
+     */
+    public function getChatPresence(Request $request, $chatId)
+    {
+        $candidateUser = auth()->user();
+        if (!$candidateUser) {
+            return response()->json(['error' => 'User not authenticated'], 401);
+        }
+
+        // Get candidate record by email
+        $candidateRecord = Candidate::where('email', $candidateUser->email)->first();
+        if (!$candidateRecord) {
+            return response()->json(['error' => 'Candidate not found'], 404);
+        }
+
+        // Allow checking presence even if chat is ended (for archive)
+        $chat = Chat::where('id', $chatId)
+            ->where('candidate_id', $candidateRecord->id)
+            ->firstOrFail();
+
+        // Check if company admin (user) is present
+        $presenceKey = "chat_presence_{$chatId}_user_{$chat->user_id}";
+        $isOtherPartyOnline = cache()->has($presenceKey);
+
+        return response()->json(['is_online' => $isOtherPartyOnline]);
     }
 
     /**
@@ -352,6 +469,81 @@ class ChatController extends Controller
                 Log::error('Error counting unread messages in formatChat: ' . $e->getMessage());
             }
             
+            // Check if chat is ended by the other party (user/company admin)
+            $isEndedByOtherParty = $chat->is_active === false && 
+                                   $chat->ended_by_type === User::class;
+            $isEndedByCurrentUser = $chat->is_active === false && 
+                                    $chat->ended_by_type === Candidate::class;
+
+            // Ensure user data is available with proper fallbacks
+            // Try to load user if not already loaded
+            if (!$chat->relationLoaded('user') && $chat->user_id) {
+                $chat->load('user');
+            }
+            
+            $userData = null;
+            if ($chat->user) {
+                $userName = trim(($chat->user->first_name ?? '') . ' ' . ($chat->user->last_name ?? ''));
+                $userData = [
+                    'id' => $chat->user->id,
+                    'name' => $userName ?: 'Onbekend contact',
+                    'email' => $chat->user->email ?? '',
+                    'avatar' => $userAvatarUrl,
+                ];
+            } else {
+                // Log warning if user is missing
+                Log::warning('Chat missing user relationship', [
+                    'chat_id' => $chat->id, 
+                    'user_id' => $chat->user_id,
+                    'user_loaded' => $chat->relationLoaded('user')
+                ]);
+                // Still return user data with fallback
+                $userData = [
+                    'id' => $chat->user_id,
+                    'name' => 'Onbekend contact',
+                    'email' => '',
+                    'avatar' => $userAvatarUrl,
+                ];
+            }
+            
+            // Ensure company data is available with fallbacks
+            // Try to load company if not already loaded
+            if (!$chat->relationLoaded('company') && $chat->company_id) {
+                $chat->load('company');
+            }
+            
+            // Also try to load user's company if user is loaded
+            if ($chat->user && !$chat->user->relationLoaded('company') && $chat->user->company_id) {
+                $chat->user->load('company');
+            }
+            
+            $companyData = null;
+            if ($chat->company) {
+                $companyData = [
+                    'id' => $chat->company->id,
+                    'name' => $chat->company->name ?? 'Onbekend bedrijf',
+                ];
+            } elseif ($chat->user && $chat->user->company) {
+                // Fallback: get company from user relationship
+                $companyData = [
+                    'id' => $chat->user->company->id,
+                    'name' => $chat->user->company->name ?? 'Onbekend bedrijf',
+                ];
+            } else {
+                // Ensure we always return company data, even if null
+                $companyData = [
+                    'id' => $chat->company_id ?? null,
+                    'name' => 'Onbekend bedrijf',
+                ];
+                Log::warning('Chat missing company relationship', [
+                    'chat_id' => $chat->id, 
+                    'user_id' => $chat->user_id,
+                    'company_id' => $chat->company_id,
+                    'user_has_company' => $chat->user && $chat->user->company ? 'yes' : 'no',
+                    'company_loaded' => $chat->relationLoaded('company')
+                ]);
+            }
+
             return [
                 'id' => $chat->id,
                 'candidate' => $chat->candidate ? [
@@ -360,16 +552,8 @@ class ChatController extends Controller
                     'email' => $chat->candidate->email ?? '',
                     'avatar' => $candidateAvatarUrl,
                 ] : null,
-                'user' => $chat->user ? [
-                    'id' => $chat->user->id,
-                    'name' => $chat->user->first_name . ' ' . $chat->user->last_name,
-                    'email' => $chat->user->email ?? '',
-                    'avatar' => $userAvatarUrl,
-                ] : null,
-                'company' => $chat->company ? [
-                    'id' => $chat->company->id,
-                    'name' => $chat->company->name ?? '',
-                ] : null,
+                'user' => $userData,
+                'company' => $companyData,
                 'last_message' => $latestMessage ? [
                     'message' => $latestMessage->message ?? '',
                     'created_at' => $latestMessage->created_at->format('Y-m-d H:i:s'),
@@ -377,6 +561,10 @@ class ChatController extends Controller
                 ] : null,
                 'updated_at' => $chat->updated_at ? $chat->updated_at->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
                 'unread_count' => $unreadCount,
+                'is_active' => $chat->is_active,
+                'is_ended_by_other_party' => $isEndedByOtherParty,
+                'is_ended_by_current_user' => $isEndedByCurrentUser,
+                'ended_at' => $chat->ended_at ? $chat->ended_at->format('Y-m-d H:i:s') : null,
             ];
         } catch (\Exception $e) {
             Log::error('Error formatting chat: ' . $e->getMessage(), [

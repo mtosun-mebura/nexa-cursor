@@ -4,7 +4,7 @@
     @include('layouts.partials.head')
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') - Nexa Skillmatching</title>
-    
+
     <!-- Theme Mode -->
     <script data-navigate-once>
     (function() {
@@ -33,9 +33,9 @@
     })();
     </script>
     <!-- End of Theme Mode -->
-    
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    
+
     <style>
         /* Maak menu heading borders grijs - voeg border-top toe aan menu items met headings */
         .kt-menu-item.pt-2\.25 {
@@ -49,12 +49,12 @@
             background-color: var(--border) !important;
             border-color: var(--border) !important;
         }
-        
+
         /* Globale checkbox border-width: 1px voor consistentie */
         .kt-checkbox {
             border-width: 1px !important;
         }
-        
+
         /* Consistente badge styling voor het hele systeem */
         .kt-badge {
             display: inline-flex !important;
@@ -65,71 +65,71 @@
             font-weight: 500 !important;
             border: 1px solid transparent !important;
         }
-        
+
         .kt-badge-sm {
             padding: 0.125rem 0.5rem !important;
             font-size: 0.75rem !important;
         }
-        
+
         /* Success badge - groen */
         .kt-badge-success {
             background-color: rgba(16, 185, 129, 0.1) !important;
             color: rgb(2, 101, 66) !important;
             border-color: rgba(16, 185, 129, 0.3) !important;
         }
-        
+
         .dark .kt-badge-success {
             background-color: rgba(16, 185, 129, 0.2) !important;
             color: rgb(16, 185, 129) !important;
             border-color: rgba(16, 185, 129, 0.4) !important;
         }
-        
+
         /* Warning badge - geel/oranje */
         .kt-badge-warning {
             background-color: rgba(251, 146, 60, 0.1) !important;
             color: rgb(154, 52, 18) !important;
             border-color: rgba(251, 146, 60, 0.3) !important;
         }
-        
+
         .dark .kt-badge-warning {
             background-color: rgba(251, 146, 60, 0.2) !important;
             color: rgb(251, 146, 60) !important;
             border-color: rgba(251, 146, 60, 0.4) !important;
         }
-        
+
         /* Danger badge - rood */
         .kt-badge-danger {
             background-color: rgba(239, 68, 68, 0.1) !important;
             color: rgb(153, 27, 27) !important;
             border-color: rgba(239, 68, 68, 0.3) !important;
         }
-        
+
         .dark .kt-badge-danger {
             background-color: rgba(239, 68, 68, 0.2) !important;
             color: rgb(239, 68, 68) !important;
             border-color: rgba(239, 68, 68, 0.4) !important;
         }
-        
+
         /* Info badge - blauw */
         .kt-badge-info {
             background-color: rgba(59, 130, 246, 0.1) !important;
             color: rgb(30, 64, 175) !important;
             border-color: rgba(59, 130, 246, 0.3) !important;
         }
-        
+
         .dark .kt-badge-info {
             background-color: rgba(59, 130, 246, 0.2) !important;
             color: rgb(96, 165, 250) !important;
             border-color: rgba(59, 130, 246, 0.4) !important;
         }
-        
+
         /* Secondary badge - grijs */
         .kt-badge-secondary {
             background-color: rgba(107, 114, 128, 0.1) !important;
             color: rgb(55, 65, 81) !important;
             border-color: rgba(107, 114, 128, 0.3) !important;
         }
-        
+
         .dark .kt-badge-secondary {
             background-color: rgba(107, 114, 128, 0.2) !important;
             color: rgb(156, 163, 175) !important;
@@ -194,25 +194,25 @@
             vertical-align: top !important;
             padding-top: 14px;
         }
-        
+
         /* Zorg dat alle dropdown opties volledig zichtbaar zijn in filter dropdowns */
         .kt-select-dropdown {
             min-width: max-content !important;
             width: auto !important;
             max-width: 500px !important;
         }
-        
+
         /* Zorg dat de dropdown breder kan zijn dan de select button */
         .kt-select-wrapper .kt-select-dropdown {
             min-width: max-content !important;
             width: auto !important;
         }
-        
+
         .kt-select-options {
             min-width: max-content !important;
             width: 100% !important;
         }
-        
+
         /* Zorg dat de optie tekst volledig zichtbaar is (geen ellipsis) */
         .kt-select-option-text {
             overflow: visible !important;
@@ -221,7 +221,7 @@
             word-wrap: break-word !important;
             word-break: break-word !important;
         }
-        
+
         /* Zorg dat de optie zelf ook volledig zichtbaar is */
         .kt-select-option {
             white-space: normal !important;
@@ -229,17 +229,17 @@
             word-break: break-word !important;
             min-width: max-content !important;
         }
-        
+
         /* Zorg dat de dropdown container de volledige breedte kan gebruiken */
         .kt-select-wrapper {
             position: relative !important;
         }
-        
+
         .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown] {
             min-width: max-content !important;
             width: auto !important;
         }
-        
+
         /* Fix for passive event listener warnings in responsive mode */
         /* Allow touch-action to be controlled for elements that need preventDefault */
         .kt-drawer,
@@ -248,12 +248,43 @@
         [data-kt-drawer] {
             touch-action: pan-y;
         }
-        
+
         /* Prevent passive event listener warnings for draggable elements */
         [draggable="true"],
         .photo-container,
         #photo-container {
             touch-action: none;
+        }
+
+        /* Ensure background stays consistent - white in light mode, black in dark mode */
+        body {
+            background-color: #ffffff !important; /* White in light mode */
+        }
+        .kt-wrapper,
+        main#content,
+        .kt-container-fixed,
+        #header,
+        .kt-header,
+        .kt-footer,
+        footer {
+            background-color: #ffffff !important; /* White in light mode */
+        }
+        /* Dark mode - black background */
+        .dark body,
+        .dark .kt-wrapper,
+        .dark main#content,
+        .dark .kt-container-fixed,
+        .dark #header,
+        .dark .kt-header,
+        .dark .kt-footer,
+        .dark footer {
+            background-color: #000000 !important; /* Black in dark mode */
+        }
+        
+        /* Make kt-container-fixed full width */
+        .kt-container-fixed {
+            max-width: 100% !important;
+            width: 100% !important;
         }
     </style>
 </head>
@@ -311,7 +342,7 @@
     <!-- End of Page -->
 
     @include('layouts.partials.scripts')
-    
+
     <!-- Ensure Cmd+A / Ctrl+A works in input fields -->
     <script>
     (function() {
@@ -352,7 +383,7 @@
         }, true);
     })();
     </script>
-    
+
     <!-- Success Banner Auto-Dismiss -->
     <script>
     (function() {
@@ -368,7 +399,7 @@
         }
     })();
     </script>
-    
+
     <!-- Session Expiry Handler -->
     <script>
     (function() {
@@ -376,14 +407,14 @@
         if (window.location.pathname.includes('/admin/login')) {
             return;
         }
-        
+
         // Helper function to check if URL is login-related
         function isLoginUrl(url) {
             if (!url) return false;
             const urlStr = typeof url === 'string' ? url : (url.url || '');
             return urlStr.includes('/admin/login') || urlStr.includes('admin.login.post');
         }
-        
+
         // Wait for jQuery to be available
         function initAjaxErrorHandler() {
             if (typeof jQuery === 'undefined' && typeof $ === 'undefined') {
@@ -391,9 +422,9 @@
                 setTimeout(initAjaxErrorHandler, 100);
                 return;
             }
-            
+
             const $ = window.jQuery || window.$;
-        
+
         // Wait for jQuery to be available
         function initAjaxErrorHandler() {
             const $ = window.jQuery || window.$;
@@ -402,19 +433,19 @@
                 setTimeout(initAjaxErrorHandler, 100);
                 return;
             }
-        
+
         // Global AJAX error handler for expired sessions
         $(document).ajaxError(function(event, xhr, settings, thrownError) {
             // Skip handling for login-related requests
             if (isLoginUrl(settings.url)) {
                 return;
             }
-            
+
             // Skip if already on login page
             if (window.location.pathname.includes('/admin/login')) {
                 return;
             }
-            
+
             // Check for 401 (Unauthorized), 403 (Forbidden), or 419 (CSRF token mismatch) responses
             if (xhr.status === 401 || xhr.status === 419) {
                 // Only redirect if not already on login page
@@ -443,7 +474,7 @@
                 }
             }
         });
-        
+
         // Also handle fetch API errors
         const originalFetch = window.fetch;
         window.fetch = function(...args) {
@@ -451,14 +482,14 @@
             if (window.location.pathname.includes('/admin/login')) {
                 return originalFetch.apply(this, args);
             }
-            
+
             const url = args[0];
-            
+
             // Skip handling for login-related requests
             if (isLoginUrl(url)) {
                 return originalFetch.apply(this, args);
             }
-            
+
             return originalFetch.apply(this, args)
                 .then(response => {
                     // Check for 401, 403, or 419 status
@@ -494,7 +525,7 @@
                     throw error;
                 });
         };
-        
+
         // Initialize when DOM is ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initAjaxErrorHandler);
@@ -503,7 +534,7 @@
         }
     })();
     </script>
-    
+
     <!-- Ensure chat functions are available -->
     <script>
         // Fallback: ensure chat functions are available

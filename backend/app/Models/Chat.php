@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Chat extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'user_id',
         'candidate_id',
@@ -18,11 +21,17 @@ class Chat extends Model
         'application_id',
         'is_active',
         'ended_at',
+        'ended_by_type',
+        'ended_by_id',
+        'deleted_at',
+        'deleted_by_type',
+        'deleted_by_id',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'ended_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

@@ -1,10 +1,15 @@
 // Global chat functionality
-console.log('📦 chat.js loaded!');
+// Performance: Only log in development
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+if (isDevelopment) {
+    console.log('📦 chat.js loaded!');
+}
 
 let activeChats = [];
 let currentChatId = null;
 let typingInterval = null;
 let messagesInterval = null;
+let presenceInterval = null; // Interval for sending presence heartbeat
 let chatListUpdateInterval = null; // Interval for updating chat list
 let currentChat = null; // Store current chat data including user avatar
 let isOpeningChat = false; // Flag to prevent observer interference when opening a chat
@@ -14,6 +19,7 @@ let pendingOptimisticMessages = new Map(); // Store optimistic messages by messa
 let isWaitingForMessage = false; // Flag to prevent polling from interfering during message retry
 let userHasScrolled = false; // Track if user has manually scrolled
 let isAutoScrolling = false; // Track if we're auto-scrolling to prevent scroll event from interfering
+let isLoadingChats = false; // Flag to prevent multiple simultaneous loadActiveChats calls
 
 // Open chat with candidate
 window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
@@ -119,15 +125,23 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
                     drawer.setAttribute('data-chat-active', 'true');
                     drawer.setAttribute('data-ignore-observer', 'true');
                     
+                    // Temporarily disconnect observer to reduce triggers
+                    if (window.chatDrawerObserver) {
+                        window.chatDrawerObserver.disconnect();
+                    }
+                    
                     // Force transform reset to ensure correct positioning
                     const forceTransformReset = () => {
                         // Set flag to prevent observer from triggering
                         isUpdatingStyles = true;
                         
                         try {
-                            drawer.style.setProperty('transform', 'translateX(0)', 'important');
-                            drawer.style.setProperty('right', '1.25rem', 'important');
-                            drawer.style.setProperty('left', 'unset', 'important');
+            drawer.style.setProperty('transform', 'translateX(0)', 'important');
+            drawer.style.setProperty('translate', '0 0', 'important');
+            drawer.style.setProperty('right', '1.25rem', 'important');
+            drawer.style.setProperty('left', 'auto', 'important');
+            drawer.style.setProperty('--tw-translate-x', '0', 'important');
+            drawer.style.setProperty('inset-inline-start', 'auto', 'important');
                             drawer.style.setProperty('display', 'flex', 'important');
                             drawer.style.setProperty('transition', 'none', 'important');
                             drawer.style.setProperty('animation', 'none', 'important');
@@ -145,7 +159,7 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
                                 }
                             }
                             
-                            drawer.style.setProperty('left', 'unset', 'important');
+                            drawer.style.setProperty('left', 'auto', 'important');
                         } finally {
                             setTimeout(() => {
                                 isUpdatingStyles = false;
@@ -196,6 +210,14 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
                     if (drawer) {
                         drawer.removeAttribute('data-ignore-observer');
                         console.log('✅ Removed ignore-observer flag');
+                        
+                        // Reconnect observer after flag is removed
+                        if (window.chatDrawerObserver && drawer) {
+                            window.chatDrawerObserver.observe(drawer, {
+                                attributes: true,
+                                attributeFilter: ['class']
+                            });
+                        }
                     }
                 }, 2000);
                 
@@ -215,14 +237,16 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
                 
                 // Load active chats in background to update last_message in all chats
                 setTimeout(() => {
-                    loadActiveChats(false).then(() => {
-                        // Re-render chat list if it's visible to update last_message
-                        const chatListView = document.getElementById('chat_list_view');
-                        if (chatListView && window.getComputedStyle(chatListView).display !== 'none') {
-                            renderChatList(activeChats);
-                        }
-                    });
-                }, 500);
+                    if (!isLoadingChats) {
+                        loadActiveChats(false).then(() => {
+                            // Re-render chat list if it's visible to update last_message
+                            const chatListView = document.getElementById('chat_list_view');
+                            if (chatListView && !currentChatId && window.getComputedStyle(chatListView).display !== 'none') {
+                                renderChatList(activeChats);
+                            }
+                        });
+                    }
+                }, 600);
                 
                 // Clear flag after everything is set up
                 setTimeout(() => {
@@ -243,7 +267,14 @@ function getCsrfToken() {
 }
 
 // Load active chats
-window.loadActiveChats = function(showListView = false) {
+window.loadActiveChats = function(showListView = false, openDrawer = false) {
+    // Prevent multiple simultaneous calls
+    if (isLoadingChats) {
+        console.log('⏭️ loadActiveChats already in progress, skipping...');
+        return Promise.resolve(activeChats);
+    }
+    
+    isLoadingChats = true;
     console.log('📋 loadActiveChats called, showListView:', showListView);
     return fetch('/admin/chat/active', {
         headers: {
@@ -338,13 +369,35 @@ window.loadActiveChats = function(showListView = false) {
         
         // Always render the list to ensure it's up to date
         renderChatList(activeChats);
+        isLoadingChats = false;
         return activeChats;
     })
     .catch(error => {
         console.error('❌ Error loading chats:', error);
+        isLoadingChats = false;
         return activeChats;
     });
 };
+
+// Update chat list item after reactivation (remove gray styling and icon)
+function updateChatListItemAfterReactivation(chatId) {
+    const chatList = document.getElementById('chat_list');
+    if (!chatList) return;
+    
+    const chatItem = chatList.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+    if (!chatItem) return;
+    
+    // Remove chat-ended class
+    chatItem.classList.remove('chat-ended');
+    
+    // Remove the ended icon
+    const endedIcon = chatItem.querySelector('.ki-cross-circle');
+    if (endedIcon) {
+        endedIcon.remove();
+    }
+    
+    console.log('✅ Removed ended styling from chat', chatId);
+}
 
 // Update unread counts in existing chat list without re-rendering
 function updateChatListUnreadCounts(chats) {
@@ -430,10 +483,51 @@ function renderChatList(chats) {
     const existingCount = existingChatItems.length;
     
     // Check if we can just update unread counts instead of re-rendering
-    if (existingCount > 0 && existingCount === chats.length) {
-        // All chats exist, just update unread counts
-        console.log('📋 Updating unread counts for existing chat items');
+    // Only do this if the chat IDs match exactly (same chats, no additions/removals)
+    const existingChatIds = Array.from(existingChatItems).map(item => parseInt(item.getAttribute('data-chat-id')));
+    const newChatIds = chats.map(c => c.id).sort((a, b) => a - b);
+    const existingChatIdsSorted = existingChatIds.sort((a, b) => a - b);
+    const chatIdsMatch = existingCount > 0 && 
+                         existingCount === chats.length && 
+                         JSON.stringify(existingChatIdsSorted) === JSON.stringify(newChatIds);
+    
+    if (chatIdsMatch) {
+        // All chats already exist in DOM with matching IDs, just update unread counts and last messages
+        console.log('📋 Updating unread counts for existing chat items (no re-render needed)');
         updateChatListUnreadCounts(chats);
+        
+        // Also update last message text and time for each chat
+        chats.forEach(chat => {
+            const chatItem = chatList.querySelector(`.chat-item[data-chat-id="${chat.id}"]`);
+            if (chatItem && chat.last_message) {
+                const lastMessageEl = chatItem.querySelector('.text-xs.text-muted-foreground');
+                const lastMessageTimeEl = chatItem.querySelector('.text-xs.text-gray-500');
+                if (lastMessageEl && chat.last_message.message) {
+                    lastMessageEl.textContent = chat.last_message.message;
+                }
+                if (lastMessageTimeEl && chat.last_message.time) {
+                    lastMessageTimeEl.textContent = chat.last_message.time;
+                }
+            }
+        });
+        
+        // Also update ended status for each chat item
+        chats.forEach(chat => {
+            const chatItem = chatList.querySelector(`.chat-item[data-chat-id="${chat.id}"]`);
+            if (!chatItem) return;
+            
+            const isEnded = !chat.is_active;
+            if (isEnded && !chatItem.classList.contains('chat-ended')) {
+                chatItem.classList.add('chat-ended');
+            } else if (!isEnded && chatItem.classList.contains('chat-ended')) {
+                chatItem.classList.remove('chat-ended');
+                // Remove the ended icon if chat is now active
+                const endedIcon = chatItem.querySelector('.ki-cross-circle');
+                if (endedIcon) {
+                    endedIcon.remove();
+                }
+            }
+        });
         return;
     }
     
@@ -482,6 +576,15 @@ function renderChatList(chats) {
             console.log('❌ No badge for chat', chat.id, 'unread_count is:', unreadCount);
         }
         
+        const isEndedByOtherParty = chat.is_ended_by_other_party === true;
+        const isEndedByCurrentUser = chat.is_ended_by_current_user === true;
+        const isEnded = !chat.is_active;
+        
+        // Add chat-ended class if chat is ended
+        if (isEnded) {
+            chatItem.classList.add('chat-ended');
+        }
+        
         chatItem.innerHTML = `
             <div class="flex items-center gap-3">
                 <div class="bg-accent/60 flex size-11 shrink-0 items-center justify-center rounded-full border border-border relative" style="position: relative; overflow: visible;">
@@ -496,7 +599,10 @@ function renderChatList(chats) {
                     ` : ''}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-sm">${escapeHtml(candidateName)}</div>
+                    <div class="font-semibold text-sm flex items-center gap-2">
+                        ${escapeHtml(candidateName)}
+                        ${isEnded ? `<i class="ki-filled ki-cross-circle text-base ${isEndedByOtherParty ? 'text-gray-400' : 'text-gray-500'}" title="${isEndedByOtherParty ? 'Chat beëindigd door kandidaat' : 'Chat beëindigd door jou'}" style="font-size: 1rem !important;"></i>` : ''}
+                    </div>
                     ${lastMessage ? `<div class="text-xs text-muted-foreground truncate">${escapeHtml(lastMessage)}</div>` : '<div class="text-xs text-muted-foreground">Geen berichten</div>'}
                 </div>
                 <div class="flex flex-col items-end gap-1 shrink-0">
@@ -562,7 +668,8 @@ window.selectChat = function(chatId) {
     }
     
     console.log('🔵 selectChat called with chatId:', chatId);
-    currentChatId = chatId;
+    
+    // Find chat in activeChats array
     let chat = activeChats.find(c => c.id === chatId);
     console.log('🔵 Found chat in activeChats:', chat ? 'Yes' : 'No');
     
@@ -591,13 +698,21 @@ window.selectChat = function(chatId) {
             drawer.setAttribute('data-chat-active', 'true');
             drawer.setAttribute('data-ignore-observer', 'true');
             
+            // Temporarily disconnect observer to reduce triggers
+            if (window.chatDrawerObserver) {
+                window.chatDrawerObserver.disconnect();
+            }
+            
             // Force transform reset multiple times to ensure it sticks
             const forceTransformReset = () => {
                 isUpdatingStyles = true;
                 try {
-                    drawer.style.setProperty('transform', 'translateX(0)', 'important');
-                    drawer.style.setProperty('right', '1.25rem', 'important');
-                    drawer.style.setProperty('left', 'unset', 'important');
+            drawer.style.setProperty('transform', 'translateX(0)', 'important');
+            drawer.style.setProperty('translate', '0 0', 'important');
+            drawer.style.setProperty('right', '1.25rem', 'important');
+            drawer.style.setProperty('left', 'auto', 'important');
+            drawer.style.setProperty('--tw-translate-x', '0', 'important');
+            drawer.style.setProperty('inset-inline-start', 'auto', 'important');
                     drawer.style.setProperty('display', 'flex', 'important');
                     drawer.style.setProperty('transition', 'none', 'important');
                     drawer.style.setProperty('animation', 'none', 'important');
@@ -653,25 +768,24 @@ window.selectChat = function(chatId) {
             }
         } else {
             // Reload active chats to get the chat data
-            loadActiveChats().then(() => {
+            return loadActiveChats(false, false).then(() => {
                 chat = activeChats.find(c => c.id === chatId);
                 if (chat) {
+                    currentChatId = chatId;
                     currentChat = chat;
                     updateChatViews(chat);
-                    loadChatMessages(chatId);
+                    loadChatMessages(chatId, true); // Show loader when opening a new chat
                     startChatPolling(chatId);
                 } else {
-                    // If still not found, show basic view with just the chat ID
-                    updateChatViews({ id: chatId, candidate: { name: 'Loading...' } });
-                    loadChatMessages(chatId);
-                    startChatPolling(chatId);
+                    console.error('❌ Chat not found after reload:', chatId);
                 }
             });
-            return;
         }
     }
     
-    currentChat = chat; // Store current chat data
+    // Set current chat
+    currentChatId = chatId;
+    currentChat = chat;
     
     // Clear messages container before switching chats to prevent mixing messages
     const messagesContainer = document.getElementById('chat_messages');
@@ -683,8 +797,8 @@ window.selectChat = function(chatId) {
     // Update views with chat data
     updateChatViews(chat);
     
-    // Load messages and start polling
-    loadChatMessages(chatId);
+    // Load messages and start polling (show loader when opening a new chat)
+    loadChatMessages(chatId, true);
     startChatPolling(chatId);
 };
 
@@ -766,9 +880,9 @@ function updateChatViews(chat) {
             // Update chat header avatar - show image if available, otherwise show initial
             const avatarContainer = chatHeaderAvatar.parentElement;
             if (chat.candidate.avatar && !chat.candidate.avatar.includes('/assets/media/avatars/300-5.png')) {
-                // Ensure container has overflow hidden to clip image
+                // Ensure container has overflow visible to allow status indicator
                 if (avatarContainer) {
-                    avatarContainer.style.overflow = 'hidden';
+                    avatarContainer.style.overflow = 'visible';
                 }
                 // Replace text with image
                 if (chatHeaderAvatar.tagName === 'SPAN') {
@@ -805,6 +919,9 @@ function updateChatViews(chat) {
                     parent.innerHTML = `<span class="text-primary font-semibold text-sm" id="chat_header_avatar" style="position: relative; z-index: 1;">${chat.candidate.name.charAt(0).toUpperCase()}</span>`;
                 }
             }
+            
+            // Update online status indicator in header
+            updateChatHeaderStatus(chat);
         }
         if (chatUserAvatar && chat.user && chat.user.avatar) {
             chatUserAvatar.src = chat.user.avatar;
@@ -822,6 +939,34 @@ function updateChatViews(chat) {
             chatInput.focus();
         }
     }, 100);
+}
+
+// Update chat header status indicator
+function updateChatHeaderStatus(chat, presenceData = null) {
+    if (!chat || !chat.id) return;
+    
+    const avatarContainer = document.getElementById('chat_header_avatar')?.parentElement;
+    if (!avatarContainer) return;
+    
+    // Remove existing status indicator
+    const existingIndicator = avatarContainer.querySelector('.kt-avatar-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    // Use presence data if provided (from message response), otherwise use cached value
+    let isOnline = false;
+    if (presenceData && presenceData.is_online !== undefined) {
+        isOnline = presenceData.is_online;
+    } else if (chat.candidate && chat.candidate.is_online !== undefined) {
+        isOnline = chat.candidate.is_online;
+    }
+    
+    // Add status indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'kt-avatar-indicator -bottom-2 -end-2';
+    indicator.innerHTML = `<div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>`;
+    avatarContainer.appendChild(indicator);
 }
 
 // Setup scroll listener to detect manual scrolling
@@ -861,33 +1006,81 @@ function handleScroll() {
 // Show chat list
 window.showChatList = function() {
     console.log('📋 showChatList called');
-    const chatListView = document.getElementById('chat_list_view');
-    const chatMessagesView = document.getElementById('chat_messages_view');
+    const drawer = document.getElementById('chat_drawer');
+    console.log('📋 showChatList - drawer BEFORE:', {
+        exists: !!drawer,
+        hidden: drawer?.classList.contains('hidden'),
+        'data-user-opened': drawer?.getAttribute('data-user-opened'),
+        'data-drawer-closed': drawer?.getAttribute('data-drawer-closed'),
+        'data-chat-active': drawer?.getAttribute('data-chat-active'),
+        display: drawer ? window.getComputedStyle(drawer).display : 'N/A',
+        visibility: drawer ? window.getComputedStyle(drawer).visibility : 'N/A'
+    });
     
-    // Clear current chat selection to show list view
     currentChatId = null;
     currentChat = null;
     
-    // Stop polling
-    if (typingInterval) clearInterval(typingInterval);
-    if (messagesInterval) clearInterval(messagesInterval);
-    
-    // Hide messages view completely
-    if (chatMessagesView) {
-        chatMessagesView.style.display = 'none';
-        chatMessagesView.style.visibility = 'hidden';
+    // If drawer should stay open (e.g., after delete), ensure it stays visible
+    if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
+        drawer.setAttribute('data-chat-active', 'true');
+        drawer.removeAttribute('data-drawer-closed');
+        drawer.classList.remove('hidden');
+        drawer.style.setProperty('display', 'flex', 'important');
+        drawer.style.setProperty('visibility', 'visible', 'important');
+        drawer.style.setProperty('opacity', '1', 'important');
+        drawer.style.setProperty('z-index', '99999', 'important');
+        drawer.style.setProperty('transform', 'translateX(0)', 'important');
+        drawer.style.setProperty('right', '1.25rem', 'important');
+        drawer.style.setProperty('left', 'unset', 'important');
+        drawer.style.setProperty('top', '1.25rem', 'important');
+        drawer.style.setProperty('bottom', '1.25rem', 'important');
+        drawer.style.setProperty('width', '450px', 'important');
+        drawer.style.setProperty('max-width', '90%', 'important');
+        drawer.style.setProperty('position', 'fixed', 'important');
+        drawer.style.setProperty('margin-left', '0', 'important');
     }
     
-    // Show list view
-    if (chatListView) {
-        chatListView.style.display = 'flex';
-        chatListView.style.visibility = 'visible';
-        chatListView.style.opacity = '1';
-    }
-    
-    // Load and render chat list when going back
-    loadActiveChats().then(() => {
-        renderChatList(activeChats);
+    console.log('📋 showChatList - calling loadActiveChats(true)');
+    loadActiveChats(true).then(() => {
+        console.log('📋 showChatList - loadActiveChats completed');
+        
+        // Ensure drawer stays open after loadActiveChats
+        if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
+            drawer.setAttribute('data-chat-active', 'true');
+            drawer.removeAttribute('data-drawer-closed');
+            drawer.classList.remove('hidden');
+            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('visibility', 'visible', 'important');
+            drawer.style.setProperty('opacity', '1', 'important');
+            drawer.style.setProperty('z-index', '99999', 'important');
+            drawer.style.setProperty('transform', 'translateX(0)', 'important');
+            drawer.style.setProperty('right', '1.25rem', 'important');
+            drawer.style.setProperty('left', 'unset', 'important');
+            drawer.style.setProperty('top', '1.25rem', 'important');
+            drawer.style.setProperty('bottom', '1.25rem', 'important');
+            drawer.style.setProperty('width', '450px', 'important');
+            drawer.style.setProperty('max-width', '90%', 'important');
+            drawer.style.setProperty('position', 'fixed', 'important');
+            drawer.style.setProperty('margin-left', '0', 'important');
+            
+            const backdrop = document.getElementById('chat_drawer_backdrop');
+            if (backdrop) {
+                backdrop.classList.remove('hidden');
+                backdrop.style.setProperty('display', 'block', 'important');
+                backdrop.style.setProperty('visibility', 'visible', 'important');
+            }
+        }
+        
+        if (drawer) {
+            console.log('📋 showChatList - drawer AFTER loadActiveChats:', {
+                hidden: drawer.classList.contains('hidden'),
+                'data-user-opened': drawer.getAttribute('data-user-opened'),
+                'data-drawer-closed': drawer.getAttribute('data-drawer-closed'),
+                'data-chat-active': drawer.getAttribute('data-chat-active'),
+                display: window.getComputedStyle(drawer).display,
+                visibility: window.getComputedStyle(drawer).visibility
+            });
+        }
     });
 };
 
@@ -965,8 +1158,16 @@ function initializeChatInput() {
 }
 
 // Load chat messages
-function loadChatMessages(chatId) {
-    console.log('📥 Loading messages for chat:', chatId);
+function loadChatMessages(chatId, showLoader = false) {
+    console.log('📥 Loading messages for chat:', chatId, 'showLoader:', showLoader);
+    
+    // Show loader only if explicitly requested (e.g., when opening a new chat)
+    if (showLoader) {
+        const loader = document.getElementById('chat_messages_loader');
+        if (loader) {
+            loader.style.display = 'flex';
+        }
+    }
     
     // Clear messages container if switching to a different chat
     if (currentChatId !== chatId) {
@@ -990,10 +1191,29 @@ function loadChatMessages(chatId) {
     })
     .then(messages => {
         console.log('✅ Messages loaded:', messages);
+        let presenceData = null;
+        
+        // Handle both old format (array) and new format (object with messages and presence)
+        if (Array.isArray(messages)) {
+            // Old format - just messages array
+            messages = messages;
+        } else if (messages && messages.messages) {
+            // New format - object with messages and presence
+            presenceData = messages.presence;
+            messages = messages.messages;
+        }
+        
         if (Array.isArray(messages)) {
             // Only render if this is still the current chat (prevent race conditions)
             if (currentChatId === chatId) {
                 renderMessages(messages, chatId);
+                
+                // Hide loader after messages are rendered
+                const loader = document.getElementById('chat_messages_loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+                
                 // Use setTimeout to ensure DOM is updated before scrolling
                 setTimeout(() => {
                     scrollToBottom();
@@ -1005,17 +1225,40 @@ function loadChatMessages(chatId) {
                     activeChats[chatIndex].unread_count = 0;
                     // Update the badge in the chat list
                     updateChatListUnreadCounts([activeChats[chatIndex]]);
+                    
+                    // Update chat header status with presence data from server
+                    const chat = activeChats[chatIndex];
+                    if (presenceData) {
+                        chat.candidate = chat.candidate || {};
+                        chat.candidate.is_online = presenceData.is_online || false;
+                    }
+                    updateChatHeaderStatus(chat, presenceData);
                 }
             } else {
                 console.log('⏭️ Skipping render - chat changed from', chatId, 'to', currentChatId);
+                // Hide loader if chat changed
+                const loader = document.getElementById('chat_messages_loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
             }
         } else {
             console.error('❌ Messages is not an array:', messages);
+            // Hide loader on error
+            const loader = document.getElementById('chat_messages_loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
         }
         return messages;
     })
     .catch(error => {
         console.error('❌ Error loading messages:', error);
+        // Hide loader on error
+        const loader = document.getElementById('chat_messages_loader');
+        if (loader) {
+            loader.style.display = 'none';
+        }
         throw error;
     });
 }
@@ -1084,6 +1327,15 @@ function renderMessages(messages, expectedChatId = null) {
         console.log('⏭️ Skipping render - chat mismatch. Expected:', expectedChatId, 'Current:', currentChatId);
         return;
     }
+    
+    // Remove status indicators from own messages that might already exist in DOM
+    const existingOwnMessages = messagesContainer.querySelectorAll('.flex.items-end.justify-end');
+    existingOwnMessages.forEach(msgEl => {
+        const indicator = msgEl.querySelector('.kt-avatar-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    });
     
     // Clear all existing real messages (but keep optimistic messages if they match the current chat)
     const existingRealMessages = messagesContainer.querySelectorAll('[data-optimistic="false"]');
@@ -1273,9 +1525,6 @@ function renderMessages(messages, expectedChatId = null) {
                             <div class="kt-avatar-image">
                                 <img alt="${msg.sender_name}" class="size-9 rounded-full object-cover" src="${userAvatar}" />
                             </div>
-                            <div class="kt-avatar-indicator -bottom-2 -end-2">
-                                <div class="kt-avatar-status kt-avatar-status-online size-2.5"></div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1296,9 +1545,6 @@ function renderMessages(messages, expectedChatId = null) {
                         <div class="kt-avatar size-9">
                             <div class="kt-avatar-image">
                                 <img alt="${escapeHtml(msg.sender_name)}" class="size-9 rounded-full object-cover" src="${escapeHtml(avatarUrl)}" onerror="this.src='/assets/media/avatars/300-5.png'" />
-                            </div>
-                            <div class="kt-avatar-indicator -bottom-2 -end-2">
-                                <div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>
                             </div>
                         </div>
                     </div>
@@ -1460,9 +1706,6 @@ function addMessageToUI(messageText, isOptimistic = false) {
                 <div class="kt-avatar-image">
                     <img alt="You" class="size-9 rounded-full object-cover" src="${userAvatar}" />
                 </div>
-                <div class="kt-avatar-indicator -bottom-2 -end-2">
-                    <div class="kt-avatar-status kt-avatar-status-online size-2.5"></div>
-                </div>
             </div>
         </div>
     `;
@@ -1579,15 +1822,17 @@ window.sendMessage = function() {
                                     <div class="kt-avatar-image">
                                         <img alt="${data.message.sender_name}" class="size-9 rounded-full object-cover" src="${userAvatar}" />
                                     </div>
-                                    <div class="kt-avatar-indicator -bottom-2 -end-2">
-                                        <div class="kt-avatar-status kt-avatar-status-online size-2.5"></div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     `;
                     messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
                     realMessageAdded = true;
+                    
+                    // Update chat header status
+                    if (currentChat) {
+                        updateChatHeaderStatus(currentChat);
+                    }
                     
                     // Sort messages immediately (synchronously) after adding
                     sortMessagesInDOM();
@@ -1642,14 +1887,22 @@ window.sendMessage = function() {
                 if (chatIndex !== -1) {
                     activeChats[chatIndex].last_message = currentChat.last_message;
                     activeChats[chatIndex].updated_at = data.message.created_at || new Date().toISOString();
+                    // Mark chat as active after sending message
+                    activeChats[chatIndex].is_active = true;
+                    activeChats[chatIndex].is_ended_by_other_party = false;
+                    activeChats[chatIndex].is_ended_by_current_user = false;
+                    activeChats[chatIndex].ended_at = null;
                 }
             }
+            
+            // Update chat list item to remove gray styling and icon
+            updateChatListItemAfterReactivation(currentChatId);
             
             // Reload messages once to sync with server (but don't wait for it)
             // Only reload if we successfully added the message, to avoid race conditions
             if (realMessageAdded) {
                 setTimeout(() => {
-                    loadChatMessages(currentChatId);
+                    loadChatMessages(currentChatId, false); // Don't show loader on retry
                 }, 500); // Increased delay to ensure message is stable
                 
                 // Update chat list to refresh last_message (only if list view is visible)
@@ -1694,6 +1947,18 @@ window.handleDrawerClose = function() {
     const backdrop = document.getElementById('chat_drawer_backdrop');
     
     if (!drawer) return;
+    
+    // Don't close if drawer should stay open (e.g., after delete)
+    if (drawer.getAttribute('data-user-opened') === 'true') {
+        console.log('🔒 handleDrawerClose called but drawer should stay open (data-user-opened=true)');
+        // Ensure drawer stays visible
+        drawer.classList.remove('hidden');
+        drawer.removeAttribute('data-drawer-closed');
+        drawer.style.setProperty('display', 'flex', 'important');
+        drawer.style.setProperty('visibility', 'visible', 'important');
+        drawer.style.setProperty('opacity', '1', 'important');
+        return;
+    }
     
     console.log('🔒 handleDrawerClose called - closing drawer');
     
@@ -1790,31 +2055,399 @@ window.handleDrawerClose = function() {
 window.endChat = function() {
     if (!currentChatId) return;
 
-    if (!confirm('Weet je zeker dat je deze chat wilt beëindigen?')) return;
-
-    fetch(`/admin/chat/${currentChatId}/end`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': getCsrfToken(),
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            currentChatId = null;
-            currentChat = null;
-            const drawer = document.getElementById('chat_drawer');
-            if (drawer) {
-                drawer.removeAttribute('data-chat-active');
+    // Create custom confirmation dialog with proper dark/light mode styling
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: ${isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)'};
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    // Create modal dialog
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background-color: ${isDarkMode ? '#1e293b' : '#ffffff'};
+        color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+        border: 1px solid ${isDarkMode ? '#334155' : '#e2e8f0'};
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: ${isDarkMode ? '0 20px 25px -5px rgba(0, 0, 0, 0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1)'};
+    `;
+    
+    modal.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};">
+                Chat beëindigen
+            </h3>
+            <p style="color: ${isDarkMode ? '#cbd5e1' : '#64748b'};">
+                Weet je zeker dat je deze chat wilt beëindigen?
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button id="end-cancel-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: 1px solid ${isDarkMode ? '#475569' : '#cbd5e1'};
+                background-color: ${isDarkMode ? '#334155' : '#f1f5f9'};
+                color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Annuleren
+            </button>
+            <button id="end-confirm-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: none;
+                background-color: #dc2626;
+                color: white;
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Beëindigen
+            </button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Add hover effects
+    const cancelBtn = modal.querySelector('#end-cancel-btn');
+    const confirmBtn = modal.querySelector('#end-confirm-btn');
+    
+    cancelBtn.addEventListener('mouseenter', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#475569' : '#e2e8f0';
+    });
+    cancelBtn.addEventListener('mouseleave', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#334155' : '#f1f5f9';
+    });
+    
+    confirmBtn.addEventListener('mouseenter', () => {
+        confirmBtn.style.backgroundColor = '#b91c1c';
+    });
+    confirmBtn.addEventListener('mouseleave', () => {
+        confirmBtn.style.backgroundColor = '#dc2626';
+    });
+    
+    // Handle button clicks
+    return new Promise((resolve) => {
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        });
+        
+        confirmBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        });
+        
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(false);
             }
-            loadActiveChats();
-            const messagesContainer = document.getElementById('chat_messages');
-            if (messagesContainer) messagesContainer.innerHTML = '';
-            showChatList();
+        });
+    }).then((confirmed) => {
+        if (!confirmed) return;
+
+        fetch(`/admin/chat/${currentChatId}/end`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': getCsrfToken(),
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentChatId = null;
+                currentChat = null;
+                const drawer = document.getElementById('chat_drawer');
+                if (drawer) {
+                    drawer.removeAttribute('data-chat-active');
+                }
+                loadActiveChats();
+            }
+        })
+        .catch(error => {
+            console.error('Error ending chat:', error);
+        });
+    });
+};
+
+// Delete chat (backend)
+window.deleteChat = function() {
+    if (!currentChatId) return;
+
+    // Create custom confirmation dialog with proper dark/light mode styling
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: ${isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)'};
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    // Create modal dialog
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background-color: ${isDarkMode ? '#1e293b' : '#ffffff'};
+        color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+        border: 1px solid ${isDarkMode ? '#334155' : '#e2e8f0'};
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: ${isDarkMode ? '0 20px 25px -5px rgba(0, 0, 0, 0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1)'};
+    `;
+    
+    modal.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};">
+                Chat verwijderen
+            </h3>
+            <p style="color: ${isDarkMode ? '#cbd5e1' : '#64748b'};">
+                Weet je zeker dat je deze chat wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button id="delete-cancel-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: 1px solid ${isDarkMode ? '#475569' : '#cbd5e1'};
+                background-color: ${isDarkMode ? '#334155' : '#f1f5f9'};
+                color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Annuleren
+            </button>
+            <button id="delete-confirm-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: none;
+                background-color: #dc2626;
+                color: white;
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Verwijderen
+            </button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Add hover effects
+    const cancelBtn = modal.querySelector('#delete-cancel-btn');
+    const confirmBtn = modal.querySelector('#delete-confirm-btn');
+    
+    cancelBtn.addEventListener('mouseenter', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#475569' : '#e2e8f0';
+    });
+    cancelBtn.addEventListener('mouseleave', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#334155' : '#f1f5f9';
+    });
+    
+    confirmBtn.addEventListener('mouseenter', () => {
+        confirmBtn.style.backgroundColor = '#b91c1c';
+    });
+    confirmBtn.addEventListener('mouseleave', () => {
+        confirmBtn.style.backgroundColor = '#dc2626';
+    });
+    
+    // Handle button clicks
+    return new Promise((resolve) => {
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        });
+        
+        confirmBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        });
+        
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(false);
+            }
+        });
+    }).then((confirmed) => {
+        if (!confirmed) return;
+
+        // Store the chat ID before deletion
+        const chatIdToDelete = currentChatId;
+        if (!chatIdToDelete) {
+            console.error('❌ Cannot delete chat: currentChatId is null');
+            return;
         }
-    })
-    .catch(error => {
-        console.error('Error ending chat:', error);
+
+        fetch(`/admin/chat/${chatIdToDelete}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': getCsrfToken(),
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('🗑️ Delete chat response:', data);
+            if (data.success) {
+                console.log('✅ Chat deleted successfully, deletedChatId:', chatIdToDelete);
+                
+                // Remove chat from activeChats array
+                activeChats = activeChats.filter(c => c.id !== chatIdToDelete);
+                console.log('📋 Active chats after filter:', activeChats.length);
+                
+                // Clear current chat selection if it was the deleted chat
+                if (currentChatId === chatIdToDelete) {
+                    currentChatId = null;
+                    currentChat = null;
+                    console.log('🧹 Cleared currentChatId (was:', chatIdToDelete, ')');
+                }
+                
+                // Clear messages container
+                const messagesContainer = document.getElementById('chat_messages');
+                if (messagesContainer) messagesContainer.innerHTML = '';
+                console.log('🧹 Cleared messages container');
+                
+                // Ensure drawer stays open - don't remove data-chat-active
+                const drawer = document.getElementById('chat_drawer');
+                console.log('📂 Drawer element found:', !!drawer);
+                if (drawer) {
+                    console.log('📂 Drawer BEFORE update:', {
+                        hidden: drawer.classList.contains('hidden'),
+                        'data-user-opened': drawer.getAttribute('data-user-opened'),
+                        'data-drawer-closed': drawer.getAttribute('data-drawer-closed'),
+                        'data-chat-active': drawer.getAttribute('data-chat-active'),
+                        display: window.getComputedStyle(drawer).display,
+                        visibility: window.getComputedStyle(drawer).visibility
+                    });
+                    
+                    // Disconnect observer temporarily to prevent interference
+                    if (window.chatDrawerObserver) {
+                        window.chatDrawerObserver.disconnect();
+                    }
+                    
+                    // Keep drawer open, just show list view
+                    drawer.setAttribute('data-user-opened', 'true');
+                    drawer.setAttribute('data-chat-active', 'true');
+                    drawer.removeAttribute('data-drawer-closed');
+                    drawer.classList.remove('hidden');
+                    
+                    // Force drawer to be visible with inline styles
+                    drawer.style.setProperty('display', 'flex', 'important');
+                    drawer.style.setProperty('visibility', 'visible', 'important');
+                    drawer.style.setProperty('opacity', '1', 'important');
+                    drawer.style.setProperty('z-index', '99999', 'important');
+            drawer.style.setProperty('transform', 'translateX(0)', 'important');
+            drawer.style.setProperty('translate', '0 0', 'important');
+            drawer.style.setProperty('right', '1.25rem', 'important');
+            drawer.style.setProperty('left', 'auto', 'important');
+            drawer.style.setProperty('--tw-translate-x', '0', 'important');
+            drawer.style.setProperty('inset-inline-start', 'auto', 'important');
+                    drawer.style.setProperty('top', '1.25rem', 'important');
+                    drawer.style.setProperty('bottom', '1.25rem', 'important');
+                    drawer.style.setProperty('width', '450px', 'important');
+                    drawer.style.setProperty('max-width', '90%', 'important');
+                    drawer.style.setProperty('position', 'fixed', 'important');
+                    drawer.style.setProperty('margin-left', '0', 'important');
+                    
+                    // Ensure backdrop is visible
+                    const backdrop = document.getElementById('chat_drawer_backdrop');
+                    if (backdrop) {
+                        backdrop.classList.remove('hidden');
+                        backdrop.style.setProperty('display', 'block', 'important');
+                        backdrop.style.setProperty('visibility', 'visible', 'important');
+                        backdrop.style.setProperty('z-index', '99998', 'important');
+                    }
+                    
+                    console.log('📂 Drawer AFTER update:', {
+                        hidden: drawer.classList.contains('hidden'),
+                        'data-user-opened': drawer.getAttribute('data-user-opened'),
+                        'data-drawer-closed': drawer.getAttribute('data-drawer-closed'),
+                        'data-chat-active': drawer.getAttribute('data-chat-active'),
+                        display: window.getComputedStyle(drawer).display,
+                        visibility: window.getComputedStyle(drawer).visibility
+                    });
+                    
+                    // Reconnect observer after a delay
+                    setTimeout(() => {
+                        if (window.chatDrawerObserver && drawer && drawer.getAttribute('data-user-opened') === 'true') {
+                            window.chatDrawerObserver.observe(drawer, {
+                                attributes: true,
+                                attributeFilter: ['class']
+                            });
+                        }
+                    }, 500);
+                }
+                
+                // Show chat list (drawer stays open) - update DOM directly without full re-render
+                const chatList = document.getElementById('chat_list');
+                if (chatList) {
+                    // Remove only the deleted chat item from DOM
+                    const deletedChatItem = chatList.querySelector(`.chat-item[data-chat-id="${chatIdToDelete}"]`);
+                    if (deletedChatItem) {
+                        deletedChatItem.remove();
+                        console.log('🗑️ Removed deleted chat item from DOM, chatId:', chatIdToDelete);
+                    } else {
+                        console.log('⚠️ Chat item not found in DOM for chatId:', chatIdToDelete, '- will be removed on next render');
+                        // If not found, re-render the list to ensure it's updated
+                        renderChatList(activeChats);
+                    }
+                }
+                
+                // Switch to list view without full re-render
+                const chatListView = document.getElementById('chat_list_view');
+                const chatMessagesView = document.getElementById('chat_messages_view');
+                if (chatListView) {
+                    chatListView.style.setProperty('display', 'flex', 'important');
+                    chatListView.style.setProperty('visibility', 'visible', 'important');
+                    chatListView.style.setProperty('opacity', '1', 'important');
+                }
+                if (chatMessagesView) {
+                    chatMessagesView.style.setProperty('display', 'none', 'important');
+                    chatMessagesView.style.setProperty('visibility', 'hidden', 'important');
+                    chatMessagesView.style.setProperty('opacity', '0', 'important');
+                }
+                
+                // Update activeChats array to remove deleted chat (already done above)
+                // Don't call loadActiveChats immediately to avoid flicker
+                // The periodic update will refresh the list naturally
+            } else {
+                console.error('❌ Delete chat failed:', data);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting chat:', error);
+        });
     });
 };
 
@@ -1822,19 +2455,60 @@ window.endChat = function() {
 function startChatPolling(chatId) {
     if (messagesInterval) clearInterval(messagesInterval);
     if (typingInterval) clearInterval(typingInterval);
+    if (presenceInterval) clearInterval(presenceInterval);
+
+    // Send initial presence when chat is opened
+    if (isPageVisible()) {
+        sendChatPresence(chatId);
+    }
 
     // Poll every 500ms for faster updates
+    // Presence is included in the messages response, so no separate request needed
     messagesInterval = setInterval(() => {
-        if (currentChatId && !isWaitingForMessage) {
+        if (currentChatId && !isWaitingForMessage && isPageVisible()) {
             loadChatMessages(currentChatId);
         }
     }, 500);
 
     typingInterval = setInterval(() => {
-        if (currentChatId) {
+        if (currentChatId && isPageVisible()) {
             checkTyping(currentChatId);
         }
     }, 1000);
+
+    // Send presence heartbeat every 8 seconds (combined with message polling)
+    // Only send if page is visible to save resources
+    presenceInterval = setInterval(() => {
+        if (currentChatId && isPageVisible()) {
+            sendChatPresence(currentChatId);
+        }
+    }, 8000);
+}
+
+// Check if page is visible (using Page Visibility API)
+function isPageVisible() {
+    if (typeof document.hidden !== 'undefined') {
+        return !document.hidden;
+    }
+    return true; // Fallback to true if API not supported
+}
+
+// Send chat presence (heartbeat) - lightweight request
+function sendChatPresence(chatId) {
+    // Use fetch with keepalive for better performance
+    fetch(`/admin/chat/${chatId}/presence`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        keepalive: true // Allows request to complete even if page is closed
+    })
+    .catch(error => {
+        // Silently fail - presence is not critical
+        if (console && console.error) {
+            console.error('Error sending presence:', error);
+        }
+    });
 }
 
 // Check typing indicators
@@ -1961,28 +2635,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (drawer) {
         // Listen for drawer open events
-        const observer = new MutationObserver(function(mutations) {
+        let observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     // Don't interfere if drawer is marked to ignore observer
                     if (drawer && drawer.getAttribute('data-ignore-observer') === 'true') {
-                        console.log('⏭️ Observer skipped - ignore flag set');
+                        // Silently skip - no logging to reduce console spam
                         return;
                     }
                     
                     // Don't interfere if drawer was explicitly closed
                     if (isDrawerExplicitlyClosed || (drawer && drawer.getAttribute('data-drawer-closed') === 'true')) {
-                        console.log('⏭️ Observer skipped - drawer explicitly closed');
+                        // Silently skip - no logging to reduce console spam
                         return;
                     }
                     
                     const isOpen = !drawer.classList.contains('hidden');
-                    console.log('👁️ Observer detected drawer state change, isOpen:', isOpen, 'currentChatId:', currentChatId);
+                    // Only log when state actually changes (not on every mutation)
+                    // Removed frequent logging to reduce console spam
                     
                     if (isOpen) {
                         // Don't interfere if we're opening a chat programmatically
                         if (isOpeningChat) {
-                            console.log('⏭️ Observer skipped - isOpeningChat flag set');
+                            // Silently skip - no logging to reduce console spam
                             return;
                         }
                         
@@ -2002,7 +2677,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             drawer.style.setProperty('z-index', '99999', 'important');
                             drawer.style.setProperty('transform', 'translateX(0)', 'important'); // Reset transform to ensure drawer is fully visible
                             drawer.style.setProperty('right', '1.25rem', 'important'); // Ensure right positioning
-                            drawer.style.setProperty('left', 'unset', 'important'); // Force left to unset
+                            drawer.style.setProperty('left', 'auto', 'important'); // Force left to unset
                             backdrop.style.setProperty('display', 'block', 'important');
                             backdrop.style.setProperty('visibility', 'visible', 'important');
                             backdrop.style.setProperty('z-index', '99998', 'important');
@@ -2044,7 +2719,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 chatMessagesView.style.setProperty('opacity', '0', 'important');
                             }
                         }
-                        loadActiveChats().then(() => {
+                        // Load chats when drawer opens (always load, like frontend)
+                        loadActiveChats(false, false).then(() => {
                             // Ensure chat list is rendered when drawer opens
                             if (!currentChatId) {
                                 renderChatList(activeChats);
@@ -2061,11 +2737,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         // Drawer is being closed - check if we should keep it open
                         const hasActiveChat = currentChatId || isOpeningChat || drawer?.getAttribute('data-chat-active') === 'true';
+                        const hasUserOpened = drawer?.getAttribute('data-user-opened') === 'true';
+                        const shouldKeepOpen = hasActiveChat || hasUserOpened;
                         
-                        if (hasActiveChat) {
-                            // Keep drawer open if chat is active
+                        console.log('👁️ Observer: Drawer closing detected:', {
+                            hasActiveChat: hasActiveChat,
+                            hasUserOpened: hasUserOpened,
+                            shouldKeepOpen: shouldKeepOpen,
+                            currentChatId: currentChatId,
+                            isOpeningChat: isOpeningChat,
+                            'data-chat-active': drawer?.getAttribute('data-chat-active'),
+                            'data-user-opened': drawer?.getAttribute('data-user-opened'),
+                            'data-drawer-closed': drawer?.getAttribute('data-drawer-closed'),
+                            isDrawerExplicitlyClosed: isDrawerExplicitlyClosed
+                        });
+                        
+                        if (shouldKeepOpen) {
+                            // Keep drawer open if chat is active or user opened it
+                            console.log('👁️ Observer: Keeping drawer open because shouldKeepOpen is true');
                             if (drawer) {
                                 drawer.classList.remove('hidden');
+                                drawer.removeAttribute('data-drawer-closed');
                                 
                                 // Skip if we're currently updating styles to prevent infinite loop
                                 if (!isUpdatingStyles) {
@@ -2077,8 +2769,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                         drawer.style.setProperty('z-index', '99999', 'important');
                                         drawer.style.setProperty('transform', 'translateX(0)', 'important'); // Reset transform to ensure drawer is fully visible
                                         drawer.style.setProperty('right', '1.25rem', 'important'); // Ensure right positioning
-                                        drawer.style.setProperty('left', 'unset', 'important'); // Force left to unset
-                                        drawer.setAttribute('data-chat-active', 'true');
+                                        drawer.style.setProperty('left', 'auto', 'important'); // Force left to unset
+                                        
+                                        // Set data-chat-active if user opened it, even if no currentChatId
+                                        if (hasUserOpened) {
+                                            drawer.setAttribute('data-chat-active', 'true');
+                                        }
                                     } finally {
                                         setTimeout(() => {
                                             isUpdatingStyles = false;
@@ -2092,9 +2788,19 @@ document.addEventListener('DOMContentLoaded', function() {
                                 backdrop.style.visibility = 'visible';
                             }
                         } else {
-                            // Hide drawer and backdrop only if no chat is active
+                            // Hide drawer and backdrop only if no chat is active and user didn't open it
+                            // BUT: Don't set data-drawer-closed if data-user-opened is true (e.g., after delete)
+                            if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
+                                // User explicitly opened drawer (e.g., after delete), keep it open
+                                console.log('👁️ Observer: Keeping drawer open because data-user-opened is true');
+                                return;
+                            }
+                            
+                            console.log('👁️ Observer: Hiding drawer because shouldKeepOpen is false');
                             if (drawer) {
                                 drawer.removeAttribute('data-chat-active');
+                                drawer.removeAttribute('data-user-opened');
+                                drawer.setAttribute('data-drawer-closed', 'true');
                                 drawer.style.display = 'none';
                                 drawer.style.visibility = 'hidden';
                                 drawer.style.opacity = '0';
@@ -2109,6 +2815,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+        
+        // Store observer reference globally so we can disconnect/reconnect it
+        window.chatDrawerObserver = observer;
         
         observer.observe(drawer, {
             attributes: true,
@@ -2176,7 +2885,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 }
                                 
                                 // Finally, force unset with !important
-                                drawer.style.setProperty('left', 'unset', 'important');
+                                drawer.style.setProperty('left', 'auto', 'important');
                             }
                         } finally {
                             // Reset flag after a short delay to allow any triggered mutations to settle
@@ -2200,15 +2909,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Periodically check and ensure drawer stays open if a chat is selected
         // This prevents the drawer from closing automatically when a chat is active
-        // Run every 10ms to catch KT Drawer library style changes immediately
-        setInterval(function() {
+        // Performance: Run every 200ms instead of 10ms to reduce CPU usage
+        let drawerCheckInterval = setInterval(function() {
             // Skip if we're currently updating styles to prevent observer interference
             if (isUpdatingStyles) {
                 return;
             }
             
             // If drawer was explicitly closed, actively hide it
-            if (isDrawerExplicitlyClosed || (drawer && drawer.getAttribute('data-drawer-closed') === 'true')) {
+            // BUT: Don't close if data-user-opened is true (e.g., after delete)
+            const hasUserOpened = drawer && drawer.getAttribute('data-user-opened') === 'true';
+            if ((isDrawerExplicitlyClosed || (drawer && drawer.getAttribute('data-drawer-closed') === 'true')) && !hasUserOpened) {
                 if (drawer) {
                     drawer.setAttribute('data-drawer-closed', 'true');
                     drawer.classList.add('hidden');
@@ -2231,6 +2942,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            // If drawer should stay open (e.g., after delete), ensure it stays visible
+            if (hasUserOpened && drawer) {
+                drawer.setAttribute('data-chat-active', 'true');
+                drawer.removeAttribute('data-drawer-closed');
+                drawer.classList.remove('hidden');
+                drawer.style.setProperty('display', 'flex', 'important');
+                drawer.style.setProperty('visibility', 'visible', 'important');
+                drawer.style.setProperty('opacity', '1', 'important');
+                drawer.style.setProperty('z-index', '99999', 'important');
+                drawer.style.setProperty('transform', 'translateX(0)', 'important');
+                drawer.style.setProperty('right', '1.25rem', 'important');
+                drawer.style.setProperty('left', 'unset', 'important');
+                drawer.style.setProperty('top', '1.25rem', 'important');
+                drawer.style.setProperty('bottom', '1.25rem', 'important');
+                drawer.style.setProperty('width', '450px', 'important');
+                drawer.style.setProperty('max-width', '90%', 'important');
+                drawer.style.setProperty('position', 'fixed', 'important');
+                drawer.style.setProperty('margin-left', '0', 'important');
+                
+                if (backdrop) {
+                    backdrop.classList.remove('hidden');
+                    backdrop.style.setProperty('display', 'block', 'important');
+                    backdrop.style.setProperty('visibility', 'visible', 'important');
+                    backdrop.style.setProperty('z-index', '99998', 'important');
+                }
+            }
+            
             const hasActiveChat = currentChatId || isOpeningChat || (drawer && drawer.getAttribute('data-chat-active') === 'true');
             
             if (hasActiveChat && drawer) {
@@ -2239,7 +2977,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const computedDisplay = window.getComputedStyle(drawer).display;
                 
                 if (isMarkedHidden || computedDisplay === 'none') {
-                    console.log('🔄 Interval: Drawer was hidden, reopening...', { isMarkedHidden, computedDisplay });
+                    if (isDevelopment) {
+                        console.log('🔄 Interval: Drawer was hidden, reopening...', { isMarkedHidden, computedDisplay });
+                    }
                     drawer.classList.remove('hidden');
                 }
                 
@@ -2253,7 +2993,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     drawer.style.setProperty('opacity', '1', 'important');
                     drawer.style.setProperty('z-index', '99999', 'important');
                     drawer.style.setProperty('transform', 'translateX(0)', 'important'); // Reset transform to ensure drawer is fully visible
+                    drawer.style.setProperty('translate', '0 0', 'important'); // Reset translate property (used by KT Drawer)
                     drawer.style.setProperty('right', '1.25rem', 'important'); // Ensure right positioning
+                    drawer.style.setProperty('left', 'auto', 'important');
+                    drawer.style.setProperty('top', '1.25rem', 'important');
+                    drawer.style.setProperty('bottom', '1.25rem', 'important');
+                    drawer.style.setProperty('width', '450px', 'important');
+                    drawer.style.setProperty('max-width', '90%', 'important');
+                    drawer.style.setProperty('position', 'fixed', 'important');
+                    drawer.style.setProperty('margin-left', '0', 'important');
+                    drawer.style.setProperty('inset-inline-start', 'auto', 'important');
+                    // Reset CSS custom properties used by KT Drawer
+                    drawer.style.setProperty('--tw-translate-x', '0', 'important');
                     drawer.setAttribute('data-chat-active', 'true');
                     
                     // Always aggressively reset left property, regardless of current value
@@ -2261,6 +3012,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (drawer.style.left) {
                         drawer.style.removeProperty('left');
                     }
+                    // Force left to auto to prevent drawer from moving to the right
+                    drawer.style.setProperty('left', 'auto', 'important');
                     
                     // Then check and clean inline style attribute
                     const inlineStyle = drawer.getAttribute('style');
@@ -2272,7 +3025,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Finally, force unset with !important
-                    drawer.style.setProperty('left', 'unset', 'important');
+                    drawer.style.setProperty('left', 'auto', 'important');
                     drawer.style.setProperty('transition', 'none', 'important'); // Disable transitions
                     drawer.style.setProperty('animation', 'none', 'important'); // Disable animations
                 } finally {
@@ -2305,7 +3058,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             drawer.setAttribute('style', cleanedStyle2);
                         }
                     }
-                    drawer.style.setProperty('left', 'unset', 'important');
+                    drawer.style.setProperty('left', 'auto', 'important');
                 }
                 
                 // Ensure backdrop is visible
@@ -2320,12 +3073,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('🔄 Interval: No active chat, removing active flag');
                 drawer.removeAttribute('data-chat-active');
             }
-        }, 10); // Check every 10ms to catch KT Drawer library style changes immediately
+        }, 200); // Performance: Check every 200ms instead of 10ms to reduce CPU usage
     }
     
     // Handle backdrop click to close drawer
     if (backdrop) {
         backdrop.addEventListener('click', function() {
+            const drawer = document.getElementById('chat_drawer');
+            // Don't close if drawer should stay open (e.g., after delete)
+            if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
+                console.log('🖱️ Backdrop clicked but drawer should stay open (data-user-opened=true)');
+                return;
+            }
             if (window.handleDrawerClose) {
                 window.handleDrawerClose();
             }
@@ -2384,7 +3143,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     drawer.style.setProperty('z-index', '99999', 'important');
                     drawer.style.setProperty('transform', 'translateX(0)', 'important'); // Reset transform to ensure drawer is fully visible
                     drawer.style.setProperty('right', '1.25rem', 'important'); // Ensure right positioning
-                    drawer.style.setProperty('left', 'unset', 'important'); // Force left to auto
+                    drawer.style.setProperty('left', 'auto', 'important'); // Force left to auto
                     drawer.style.setProperty('transition', 'none', 'important'); // Disable transitions
                     drawer.style.setProperty('animation', 'none', 'important'); // Disable animations
                 }
@@ -2442,7 +3201,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update chat list periodically - only if not viewing a chat
     // This ensures unread counts stay accurate
     chatListUpdateInterval = setInterval(() => {
-        if (!currentChatId) {
+        if (!currentChatId && !isLoadingChats) {
             // Only update if we're showing the chat list, not a specific chat
             const chatListView = document.getElementById('chat_list_view');
             const isListViewVisible = chatListView && 
@@ -2450,10 +3209,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.getComputedStyle(chatListView).visibility !== 'hidden';
             
             if (isListViewVisible) {
-                loadActiveChats(false); // Refresh list view without opening drawer
+                loadActiveChats(true, false); // Refresh list view without opening drawer
             }
         }
-    }, 10000); // Update every 10 seconds
+    }, 30000); // Performance: Update every 30 seconds instead of 10 to reduce server load
     
     // Handle ESC key to close drawer
     document.addEventListener('keydown', function(e) {
@@ -2510,6 +3269,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Close drawer if click is outside (on backdrop or outside both drawer and backdrop)
         // But don't close if clicking on the toggle button (it will handle its own toggle)
         if (!isClickInsideDrawer && !isClickOnToggle) {
+            // Don't close if drawer should stay open (e.g., after delete)
+            if (drawer.getAttribute('data-user-opened') === 'true') {
+                console.log('🖱️ Click outside drawer but drawer should stay open (data-user-opened=true)');
+                return;
+            }
             console.log('🖱️ Click outside drawer - closing drawer');
             if (window.handleDrawerClose) {
                 window.handleDrawerClose();

@@ -299,12 +299,18 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::get('chat/active', [ChatController::class, 'getActiveChats'])->name('chat.active');
     Route::get('chat/candidates', [ChatController::class, 'getCandidatesWithMatches'])->name('chat.candidates');
     Route::get('chat/unread-count', [ChatController::class, 'getUnreadCount'])->name('chat.unread-count');
+    
+    // Notification routes
+    Route::get('notifications/unread-count', [AdminNotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
     Route::get('chat/{chat}/messages', [ChatController::class, 'getChatMessages'])->name('chat.messages');
     Route::post('chat/{chat}/message', [ChatController::class, 'sendChatMessage'])->name('chat.message.send');
     Route::post('chat/{chat}/end', [ChatController::class, 'endChat'])->name('chat.end');
+    Route::delete('chat/{chat}', [ChatController::class, 'deleteChat'])->name('chat.delete');
     Route::get('chat/history', [ChatController::class, 'getChatHistory'])->name('chat.history');
     Route::post('chat/{chat}/typing', [ChatController::class, 'setChatTyping'])->name('chat.typing');
     Route::get('chat/{chat}/typing', [ChatController::class, 'getChatTyping'])->name('chat.typing.get');
+    Route::post('chat/{chat}/presence', [ChatController::class, 'setChatPresence'])->name('chat.presence');
+    Route::get('chat/{chat}/presence', [ChatController::class, 'getChatPresence'])->name('chat.presence.get');
     
     // Matches
     Route::resource('matches', AdminMatchController::class);
@@ -579,7 +585,10 @@ Route::middleware(['auth:web'])->group(function () {
     Route::get('/chat/{chat}/messages', [App\Http\Controllers\Frontend\ChatController::class, 'getChatMessages'])->name('frontend.chat.messages');
     Route::post('/chat/{chat}/message', [App\Http\Controllers\Frontend\ChatController::class, 'sendChatMessage'])->name('frontend.chat.message.send');
     Route::post('/chat/{chat}/end', [App\Http\Controllers\Frontend\ChatController::class, 'endChat'])->name('frontend.chat.end');
+    Route::delete('/chat/{chat}', [App\Http\Controllers\Frontend\ChatController::class, 'deleteChat'])->name('frontend.chat.delete');
     Route::get('/chat/unread-count', [App\Http\Controllers\Frontend\ChatController::class, 'getUnreadCount'])->name('frontend.chat.unread-count');
+    Route::post('/chat/{chat}/presence', [App\Http\Controllers\Frontend\ChatController::class, 'setChatPresence'])->name('frontend.chat.presence');
+    Route::get('/chat/{chat}/presence', [App\Http\Controllers\Frontend\ChatController::class, 'getChatPresence'])->name('frontend.chat.presence.get');
     Route::get('/notifications/unread-count', function() {
         $unreadCount = auth()->user()->notifications()->whereNull('read_at')->count();
         return response()->json(['unread_count' => $unreadCount]);

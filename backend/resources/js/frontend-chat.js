@@ -1,11 +1,16 @@
 // Frontend chat functionality (candidate perspective)
-console.log('📦 frontend-chat.js loaded!');
+// Performance: Only log in development
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+if (isDevelopment) {
+    console.log('📦 frontend-chat.js loaded!');
+}
 
 let activeChats = [];
 let currentChatId = null;
 let typingInterval = null;
 let messagesInterval = null;
 let readStatusInterval = null;
+let presenceInterval = null; // Interval for sending presence heartbeat
 let chatListUpdateInterval = null;
 let currentChat = null;
 let isOpeningChat = false;
@@ -163,6 +168,26 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
     });
 };
 
+// Update chat list item after reactivation (remove gray styling and icon)
+function updateChatListItemAfterReactivation(chatId) {
+    const chatList = document.getElementById('chat_list');
+    if (!chatList) return;
+    
+    const chatItem = chatList.querySelector(`.chat-item[data-chat-id="${chatId}"]`);
+    if (!chatItem) return;
+    
+    // Remove chat-ended class
+    chatItem.classList.remove('chat-ended');
+    
+    // Remove the ended icon
+    const endedIcon = chatItem.querySelector('.ki-cross-circle');
+    if (endedIcon) {
+        endedIcon.remove();
+    }
+    
+    console.log('✅ Removed ended styling from chat', chatId);
+}
+
 // Update unread counts in existing chat list without re-rendering
 function updateChatListUnreadCounts(chats) {
     const chatList = document.getElementById('chat_list');
@@ -240,9 +265,27 @@ function renderChatList(chats) {
     
     // Check if we can just update unread counts instead of re-rendering
     if (existingCount > 0 && existingCount === chats.length) {
-        // All chats exist, just update unread counts
+        // All chats exist, just update unread counts and ended status
         console.log('📋 Updating unread counts for existing chat items');
         updateChatListUnreadCounts(chats);
+        
+        // Also update ended status for each chat item
+        chats.forEach(chat => {
+            const chatItem = chatList.querySelector(`.chat-item[data-chat-id="${chat.id}"]`);
+            if (!chatItem) return;
+            
+            const isEnded = !chat.is_active;
+            if (isEnded && !chatItem.classList.contains('chat-ended')) {
+                chatItem.classList.add('chat-ended');
+            } else if (!isEnded && chatItem.classList.contains('chat-ended')) {
+                chatItem.classList.remove('chat-ended');
+                // Remove the ended icon if chat is now active
+                const endedIcon = chatItem.querySelector('.ki-cross-circle');
+                if (endedIcon) {
+                    endedIcon.remove();
+                }
+            }
+        });
         return;
     }
     
@@ -284,6 +327,14 @@ function renderChatList(chats) {
         
         const userAvatar = chat.user && chat.user.avatar ? chat.user.avatar : null;
         const unreadCount = chat.unread_count || 0;
+        const isEndedByOtherParty = chat.is_ended_by_other_party === true;
+        const isEndedByCurrentUser = chat.is_ended_by_current_user === true;
+        const isEnded = !chat.is_active;
+        
+        // Add chat-ended class if chat is ended
+        if (isEnded) {
+            chatItem.classList.add('chat-ended');
+        }
         
         chatItem.innerHTML = `
             <div class="flex items-center gap-3">
@@ -301,7 +352,10 @@ function renderChatList(chats) {
                     ` : ''}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-sm">${escapeHtml(displayName)}</div>
+                    <div class="font-semibold text-sm flex items-center gap-2">
+                        ${escapeHtml(displayName)}
+                        ${isEnded ? `<i class="ki-filled ki-cross-circle text-base ${isEndedByOtherParty ? 'text-gray-400' : 'text-gray-500'}" title="${isEndedByOtherParty ? 'Chat beëindigd door bedrijf' : 'Chat beëindigd door jou'}" style="font-size: 1rem !important;"></i>` : ''}
+                    </div>
                     ${lastMessage ? `<div class="text-xs text-muted-foreground truncate">${escapeHtml(lastMessage)}</div>` : '<div class="text-xs text-muted-foreground">Geen berichten</div>'}
                 </div>
                 <div class="flex flex-col items-end gap-1 shrink-0">
@@ -374,7 +428,7 @@ window.selectChat = function(chatId) {
             if (chat) {
                 currentChat = chat;
                 updateChatViews(chat);
-                loadChatMessages(chatId);
+                loadChatMessages(chatId, true); // Show loader when opening a new chat
                 startChatPolling(chatId);
             }
         });
@@ -390,7 +444,7 @@ window.selectChat = function(chatId) {
     }
     
     updateChatViews(chat);
-    loadChatMessages(chatId);
+    loadChatMessages(chatId, true); // Show loader when opening a new chat
     startChatPolling(chatId);
 };
 
@@ -515,6 +569,9 @@ function updateChatViews(chat) {
                     parent.innerHTML = `<span class="text-primary font-semibold text-sm" id="chat_header_avatar" style="position: relative; z-index: 1;">${companyName.charAt(0).toUpperCase()}</span>`;
                 }
             }
+            
+            // Update online status indicator in header
+            updateChatHeaderStatus(chat);
         }
         if (chatUserAvatar) {
             // Use candidate's own avatar from chat data or from user dropdown
@@ -555,15 +612,51 @@ function updateChatViews(chat) {
     }, 100);
 }
 
+// Update chat header status indicator
+function updateChatHeaderStatus(chat, presenceData = null) {
+    if (!chat || !chat.id) return;
+    
+    const avatarContainer = document.getElementById('chat_header_avatar')?.parentElement;
+    if (!avatarContainer) return;
+    
+    // Remove existing status indicator
+    const existingIndicator = avatarContainer.querySelector('.kt-avatar-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    // Use presence data if provided (from message response), otherwise use cached value
+    let isOnline = false;
+    if (presenceData && presenceData.is_online !== undefined) {
+        isOnline = presenceData.is_online;
+    } else if (chat.user && chat.user.is_online !== undefined) {
+        isOnline = chat.user.is_online;
+    }
+    
+    // Add status indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'kt-avatar-indicator -bottom-2 -end-2';
+    indicator.innerHTML = `<div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>`;
+    avatarContainer.appendChild(indicator);
+}
+
 // Load chat messages (frontend route)
-function loadChatMessages(chatId) {
-    console.log('📥 loadChatMessages called with chatId:', chatId);
+function loadChatMessages(chatId, showLoader = false) {
+    console.log('📥 loadChatMessages called with chatId:', chatId, 'showLoader:', showLoader);
     console.log('📥 currentChatId:', currentChatId);
     console.log('📥 activeChats:', activeChats.map(c => ({ id: c.id, company: c.company?.name })));
     
     if (!chatId) {
         console.error('❌ loadChatMessages: No chatId provided!');
         return Promise.reject(new Error('No chatId provided'));
+    }
+    
+    // Show loader only if explicitly requested (e.g., when opening a new chat)
+    if (showLoader) {
+        const loader = document.getElementById('chat_messages_loader');
+        if (loader) {
+            loader.style.display = 'flex';
+        }
     }
     
     if (currentChatId !== chatId) {
@@ -596,11 +689,30 @@ function loadChatMessages(chatId) {
     })
     .then(messages => {
         console.log('✅ Messages loaded successfully:', messages);
+        let presenceData = null;
+        
+        // Handle both old format (array) and new format (object with messages and presence)
+        if (Array.isArray(messages)) {
+            // Old format - just messages array
+            messages = messages;
+        } else if (messages && messages.messages) {
+            // New format - object with messages and presence
+            presenceData = messages.presence;
+            messages = messages.messages;
+        }
+        
         console.log('✅ Messages count:', Array.isArray(messages) ? messages.length : 'Not an array');
         if (Array.isArray(messages)) {
             if (currentChatId === chatId) {
                 console.log('✅ Rendering messages for chat:', chatId);
                 renderMessages(messages, chatId);
+                
+                // Hide loader after messages are rendered
+                const loader = document.getElementById('chat_messages_loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+                
                 setTimeout(() => {
                     scrollToBottom();
                 }, 100);
@@ -611,19 +723,42 @@ function loadChatMessages(chatId) {
                     // Messages have been marked as read, so unread count should be 0
                     activeChats[chatIndex].unread_count = 0;
                     console.log('🔄 Updated unread count for chat', chatId, 'to 0');
+                    
+                    // Update chat header status with presence data from server
+                    const chat = activeChats[chatIndex];
+                    if (presenceData) {
+                        chat.user = chat.user || {};
+                        chat.user.is_online = presenceData.is_online || false;
+                    }
+                    updateChatHeaderStatus(chat, presenceData);
                 }
             } else {
                 console.log('⏭️ Skipping render - chat changed from', chatId, 'to', currentChatId);
+                // Hide loader if chat changed
+                const loader = document.getElementById('chat_messages_loader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
             }
         } else {
             console.error('❌ Messages is not an array:', messages);
             console.error('❌ Messages type:', typeof messages);
+            // Hide loader on error
+            const loader = document.getElementById('chat_messages_loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
         }
         return messages;
     })
     .catch(error => {
         console.error('❌ Error loading messages:', error);
         console.error('❌ Error stack:', error.stack);
+        // Hide loader on error
+        const loader = document.getElementById('chat_messages_loader');
+        if (loader) {
+            loader.style.display = 'none';
+        }
         throw error;
     });
 }
@@ -682,7 +817,27 @@ window.sendMessage = function() {
             }
             addMessageToUI(data.message, currentChatId, false);
             scrollToBottom();
-            loadActiveChats(false, false); // Refresh chat list without opening drawer
+            
+            // Update chat in activeChats array to mark as active
+            const chatIndex = activeChats.findIndex(c => c.id === currentChatId);
+            if (chatIndex !== -1) {
+                activeChats[chatIndex].is_active = true;
+                activeChats[chatIndex].is_ended_by_other_party = false;
+                activeChats[chatIndex].is_ended_by_current_user = false;
+                activeChats[chatIndex].ended_at = null;
+            }
+            
+            // Update chat list item to remove gray styling and icon
+            updateChatListItemAfterReactivation(currentChatId);
+            
+            // Refresh chat list to get updated data from server
+            loadActiveChats(false, false).then(() => {
+                // Update chat header status
+                const chat = activeChats.find(c => c.id === currentChatId);
+                if (chat) {
+                    updateChatHeaderStatus(chat);
+                }
+            });
             
             // Check read status after a short delay (to allow backend to process)
             setTimeout(() => {
@@ -750,6 +905,15 @@ function renderMessages(messages, chatId) {
         return;
     }
     
+    // Remove status indicators from own messages that might already exist in DOM
+    const existingOwnMessages = messagesContainer.querySelectorAll('.flex.items-end.justify-end');
+    existingOwnMessages.forEach(msgEl => {
+        const indicator = msgEl.querySelector('.kt-avatar-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    });
+    
     // Render new messages (exact backend HTML structure)
     const newMessagesHTML = newMessages.map(msg => {
         const isOwn = msg.is_own;
@@ -779,9 +943,6 @@ function renderMessages(messages, chatId) {
                             <div class="kt-avatar-image">
                                 <img alt="${msg.sender_name || 'You'}" class="size-9 rounded-full object-cover" src="${escapeHtml(userAvatar)}" onerror="this.src='/assets/media/avatars/300-5.png'" />
                             </div>
-                            <div class="kt-avatar-indicator -bottom-2 -end-2">
-                                <div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -801,9 +962,6 @@ function renderMessages(messages, chatId) {
                         <div class="kt-avatar size-9">
                             <div class="kt-avatar-image">
                                 <img alt="${msg.sender_name || 'Unknown'}" class="size-9 rounded-full object-cover" src="${escapeHtml(avatarUrl)}" onerror="this.src='/assets/media/avatars/300-2.png'" />
-                            </div>
-                            <div class="kt-avatar-indicator -bottom-2 -end-2">
-                                <div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>
                             </div>
                         </div>
                     </div>
@@ -905,9 +1063,6 @@ function addMessageToUI(message, chatId, isOptimistic) {
                     <div class="kt-avatar-image">
                         <img alt="${escapeHtml(senderName)}" class="size-9 rounded-full object-cover" src="${escapeHtml(userAvatar)}" onerror="this.src='/assets/media/avatars/300-5.png'" />
                     </div>
-                    <div class="kt-avatar-indicator -bottom-2 -end-2">
-                        <div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>
-                    </div>
                 </div>
             </div>
         `;
@@ -921,9 +1076,6 @@ function addMessageToUI(message, chatId, isOptimistic) {
                 <div class="kt-avatar size-9">
                     <div class="kt-avatar-image">
                         <img alt="${escapeHtml(senderName)}" class="size-9 rounded-full object-cover" src="${escapeHtml(senderAvatar)}" onerror="this.src='/assets/media/avatars/300-2.png'" />
-                    </div>
-                    <div class="kt-avatar-indicator -bottom-2 -end-2">
-                        <div class="kt-avatar-status ${isOnline ? 'kt-avatar-status-online' : 'kt-avatar-status-offline'}"></div>
                     </div>
                 </div>
             </div>
@@ -1077,6 +1229,18 @@ function updateReadStatus(chatId) {
                 checkmarkIcon.classList.add('text-gray-400');
             }
         });
+        
+        // Update chat header status based on latest message from other party
+        const otherMessages = messages.filter(m => !m.is_own);
+        if (otherMessages.length > 0) {
+            const latestOtherMessage = otherMessages[otherMessages.length - 1];
+            const chat = activeChats.find(c => c.id === chatId);
+            if (chat && latestOtherMessage.user) {
+                chat.user = chat.user || {};
+                chat.user.is_online = latestOtherMessage.user.is_online || false;
+                updateChatHeaderStatus(chat);
+            }
+        }
     })
     .catch(error => {
         console.error('Error updating read status:', error);
@@ -1091,20 +1255,63 @@ function startChatPolling(chatId) {
     if (readStatusInterval) {
         clearInterval(readStatusInterval);
     }
+    if (presenceInterval) {
+        clearInterval(presenceInterval);
+    }
     
-    // Poll for new messages every 3 seconds
+    // Send initial presence when chat is opened
+    if (isPageVisible()) {
+        sendChatPresence(chatId);
+    }
+    
+    // Poll for new messages every 5 seconds (reduced from 3s for better performance)
+    // Presence is included in the messages response, so no separate request needed
     messagesInterval = setInterval(() => {
-        if (currentChatId === chatId) {
-            loadChatMessages(chatId);
+        if (currentChatId === chatId && isPageVisible()) {
+            loadChatMessages(chatId, false); // Don't show loader on polling updates
         }
-    }, 3000);
+    }, 5000);
     
-    // Poll for read status updates every 1 second (faster for read receipts)
+    // Poll for read status updates every 2 seconds (reduced from 1s for better performance)
     readStatusInterval = setInterval(() => {
-        if (currentChatId === chatId) {
+        if (currentChatId === chatId && isPageVisible()) {
             updateReadStatus(chatId);
         }
-    }, 1000);
+    }, 2000);
+    
+    // Send presence heartbeat every 8 seconds (combined with message polling)
+    // Only send if page is visible to save resources
+    presenceInterval = setInterval(() => {
+        if (currentChatId === chatId && isPageVisible()) {
+            sendChatPresence(chatId);
+        }
+    }, 8000);
+}
+
+// Check if page is visible (using Page Visibility API)
+function isPageVisible() {
+    if (typeof document.hidden !== 'undefined') {
+        return !document.hidden;
+    }
+    return true; // Fallback to true if API not supported
+}
+
+// Send chat presence (heartbeat) - lightweight request
+function sendChatPresence(chatId) {
+    // Use fetch with keepalive for better performance
+    fetch(`/chat/${chatId}/presence`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': getCsrfToken(),
+        },
+        keepalive: true // Allows request to complete even if page is closed
+    })
+    .catch(error => {
+        // Silently fail - presence is not critical
+        if (console && console.error) {
+            console.error('Error sending presence:', error);
+        }
+    });
 }
 
 // Show chat list
@@ -1118,31 +1325,293 @@ window.showChatList = function() {
 window.endChat = function() {
     if (!currentChatId) return;
 
-    if (!confirm('Weet je zeker dat je deze chat wilt beëindigen?')) return;
-
-    fetch(`/chat/${currentChatId}/end`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': getCsrfToken(),
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            currentChatId = null;
-            currentChat = null;
-            const drawer = document.getElementById('chat_drawer');
-            if (drawer) {
-                drawer.removeAttribute('data-chat-active');
+    // Create custom confirmation dialog with proper dark/light mode styling
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: ${isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)'};
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    // Create modal dialog
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background-color: ${isDarkMode ? '#1e293b' : '#ffffff'};
+        color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+        border: 1px solid ${isDarkMode ? '#334155' : '#e2e8f0'};
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: ${isDarkMode ? '0 20px 25px -5px rgba(0, 0, 0, 0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1)'};
+    `;
+    
+    modal.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};">
+                Chat beëindigen
+            </h3>
+            <p style="color: ${isDarkMode ? '#cbd5e1' : '#64748b'};">
+                Weet je zeker dat je deze chat wilt beëindigen?
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button id="end-cancel-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: 1px solid ${isDarkMode ? '#475569' : '#cbd5e1'};
+                background-color: ${isDarkMode ? '#334155' : '#f1f5f9'};
+                color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Annuleren
+            </button>
+            <button id="end-confirm-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: none;
+                background-color: #dc2626;
+                color: white;
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Beëindigen
+            </button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Add hover effects
+    const cancelBtn = modal.querySelector('#end-cancel-btn');
+    const confirmBtn = modal.querySelector('#end-confirm-btn');
+    
+    cancelBtn.addEventListener('mouseenter', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#475569' : '#e2e8f0';
+    });
+    cancelBtn.addEventListener('mouseleave', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#334155' : '#f1f5f9';
+    });
+    
+    confirmBtn.addEventListener('mouseenter', () => {
+        confirmBtn.style.backgroundColor = '#b91c1c';
+    });
+    confirmBtn.addEventListener('mouseleave', () => {
+        confirmBtn.style.backgroundColor = '#dc2626';
+    });
+    
+    // Handle button clicks
+    return new Promise((resolve) => {
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        });
+        
+        confirmBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        });
+        
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(false);
             }
-            loadActiveChats();
-            const messagesContainer = document.getElementById('chat_messages');
-            if (messagesContainer) messagesContainer.innerHTML = '';
-            showChatList();
-        }
-    })
-    .catch(error => {
-        console.error('Error ending chat:', error);
+        });
+    }).then((confirmed) => {
+        if (!confirmed) return;
+
+        fetch(`/chat/${currentChatId}/end`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': getCsrfToken(),
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentChatId = null;
+                currentChat = null;
+                const drawer = document.getElementById('chat_drawer');
+                if (drawer) {
+                    drawer.removeAttribute('data-chat-active');
+                }
+                loadActiveChats();
+            }
+        })
+        .catch(error => {
+            console.error('Error ending chat:', error);
+        });
+    });
+};
+
+// Delete chat (frontend)
+window.deleteChat = function() {
+    if (!currentChatId) return;
+
+    // Create custom confirmation dialog with proper dark/light mode styling
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: ${isDarkMode ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)'};
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    
+    // Create modal dialog
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background-color: ${isDarkMode ? '#1e293b' : '#ffffff'};
+        color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+        border: 1px solid ${isDarkMode ? '#334155' : '#e2e8f0'};
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: ${isDarkMode ? '0 20px 25px -5px rgba(0, 0, 0, 0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1)'};
+    `;
+    
+    modal.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};">
+                Chat verwijderen
+            </h3>
+            <p style="color: ${isDarkMode ? '#cbd5e1' : '#64748b'};">
+                Weet je zeker dat je deze chat wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button id="delete-cancel-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: 1px solid ${isDarkMode ? '#475569' : '#cbd5e1'};
+                background-color: ${isDarkMode ? '#334155' : '#f1f5f9'};
+                color: ${isDarkMode ? '#f1f5f9' : '#1e293b'};
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Annuleren
+            </button>
+            <button id="delete-confirm-btn" style="
+                padding: 0.5rem 1rem;
+                border-radius: 0.375rem;
+                border: none;
+                background-color: #dc2626;
+                color: white;
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            ">
+                Verwijderen
+            </button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    // Add hover effects
+    const cancelBtn = modal.querySelector('#delete-cancel-btn');
+    const confirmBtn = modal.querySelector('#delete-confirm-btn');
+    
+    cancelBtn.addEventListener('mouseenter', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#475569' : '#e2e8f0';
+    });
+    cancelBtn.addEventListener('mouseleave', () => {
+        cancelBtn.style.backgroundColor = isDarkMode ? '#334155' : '#f1f5f9';
+    });
+    
+    confirmBtn.addEventListener('mouseenter', () => {
+        confirmBtn.style.backgroundColor = '#b91c1c';
+    });
+    confirmBtn.addEventListener('mouseleave', () => {
+        confirmBtn.style.backgroundColor = '#dc2626';
+    });
+    
+    // Handle button clicks
+    return new Promise((resolve) => {
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        });
+        
+        confirmBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        });
+        
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+                resolve(false);
+            }
+        });
+    }).then((confirmed) => {
+        if (!confirmed) return;
+
+        fetch(`/chat/${currentChatId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': getCsrfToken(),
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove chat from activeChats array
+                activeChats = activeChats.filter(c => c.id !== currentChatId);
+                
+                // Clear current chat selection
+                currentChatId = null;
+                currentChat = null;
+                
+                // Clear messages container
+                const messagesContainer = document.getElementById('chat_messages');
+                if (messagesContainer) messagesContainer.innerHTML = '';
+                
+                // Ensure drawer stays open - don't remove data-chat-active
+                const drawer = document.getElementById('chat_drawer');
+                if (drawer) {
+                    // Keep drawer open, just show list view
+                    drawer.setAttribute('data-user-opened', 'true');
+                    drawer.removeAttribute('data-drawer-closed');
+                    drawer.classList.remove('hidden');
+                }
+                
+                // Show chat list (drawer stays open)
+                showChatList();
+                
+                // Refresh chat list from server to remove deleted chat
+                loadActiveChats(false, false);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting chat:', error);
+        });
     });
 };
 
@@ -1188,6 +1657,11 @@ window.handleDrawerClose = function() {
     if (readStatusInterval) {
         clearInterval(readStatusInterval);
         readStatusInterval = null;
+    }
+    
+    if (presenceInterval) {
+        clearInterval(presenceInterval);
+        presenceInterval = null;
     }
     
     if (typingInterval) {
@@ -1388,6 +1862,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadActiveChats(true, false); // Refresh list view without opening drawer
             }
         }
-    }, 10000);
+    }, 30000); // Performance: Update every 30 seconds instead of 10 to reduce server load
 });
 
