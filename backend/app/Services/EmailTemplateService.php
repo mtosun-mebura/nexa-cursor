@@ -225,5 +225,128 @@ class EmailTemplateService
 
         return true;
     }
+
+    /**
+     * Send interview confirmation email to candidate when interview is scheduled
+     */
+    public function sendInterviewScheduledEmail(Candidate $candidate, Vacancy $vacancy, $interview)
+    {
+        // Try to find template specific to interview type (e.g., interview_phone, interview_video)
+        $interviewTypeTemplate = 'interview_' . $interview->type;
+        $template = EmailTemplate::where('type', $interviewTypeTemplate)
+            ->where('is_active', true)
+            ->where(function($q) use ($vacancy) {
+                $q->whereNull('company_id')
+                  ->orWhere('company_id', $vacancy->company_id);
+            })
+            ->orderBy('company_id', 'desc') // Prefer company-specific template
+            ->first();
+
+        // Fallback to general interview template if type-specific template doesn't exist
+        if (!$template) {
+            $template = EmailTemplate::where('type', 'interview')
+                ->where('is_active', true)
+                ->where(function($q) use ($vacancy) {
+                    $q->whereNull('company_id')
+                      ->orWhere('company_id', $vacancy->company_id);
+                })
+                ->orderBy('company_id', 'desc') // Prefer company-specific template
+                ->first();
+        }
+
+        // If still no template, use interview_confirmed as fallback
+        if (!$template) {
+            $template = EmailTemplate::where('type', 'interview_confirmed')
+                ->where('is_active', true)
+                ->where(function($q) use ($vacancy) {
+                    $q->whereNull('company_id')
+                      ->orWhere('company_id', $vacancy->company_id);
+                })
+                ->orderBy('company_id', 'desc')
+                ->first();
+        }
+
+        // If no template exists at all, create a default message
+        if (!$template) {
+            \Log::warning('No active interview email template found', [
+                'interview_type' => $interview->type,
+                'company_id' => $vacancy->company_id,
+            ]);
+            return false;
+        }
+
+        // Prepare interview details
+        $interviewDate = $interview->scheduled_at ? $interview->scheduled_at->format('d-m-Y') : 'Niet opgegeven';
+        $interviewTime = $interview->scheduled_at ? $interview->scheduled_at->format('H:i') : 'Niet opgegeven';
+        
+        $typeMap = [
+            'phone' => 'Telefoon',
+            'video' => 'Video',
+            'onsite' => 'Op locatie',
+            'assessment' => 'Assessment',
+            'final' => 'Eindgesprek',
+        ];
+        $interviewType = $typeMap[$interview->type] ?? ucfirst($interview->type);
+
+        // Determine location display
+        $locationDisplay = $interview->location ?? 'Niet opgegeven';
+        if (empty($interview->location) && $interview->type === 'phone') {
+            $locationDisplay = 'Op afstand';
+        }
+
+        // Prepare variables
+        $variables = [
+            'CANDIDATE_NAME' => $candidate->first_name . ' ' . $candidate->last_name,
+            'CANDIDATE_FIRST_NAME' => $candidate->first_name,
+            'CANDIDATE_LAST_NAME' => $candidate->last_name,
+            'CANDIDATE_EMAIL' => $candidate->email,
+            'COMPANY_NAME' => $vacancy->company->name ?? 'Ons bedrijf',
+            'VACANCY_TITLE' => $vacancy->title,
+            'INTERVIEW_DATE' => $interviewDate,
+            'INTERVIEW_TIME' => $interviewTime,
+            'INTERVIEW_TYPE' => $interviewType,
+            'INTERVIEW_LOCATION' => $locationDisplay,
+            'INTERVIEW_DURATION' => $interview->duration ?? 60,
+            'INTERVIEWER_NAME' => $interview->interviewer_name ?? 'Niet opgegeven',
+            'INTERVIEWER_EMAIL' => $interview->interviewer_email ?? 'Niet opgegeven',
+            'VACANCY_REFERENCE' => $vacancy->reference_number ?? '',
+        ];
+
+        // Parse template
+        $subject = $this->parseTemplate($template->subject, $variables);
+        $htmlContent = $this->parseTemplate($template->html_content, $variables);
+        $textContent = $template->text_content ? $this->parseTemplate($template->text_content, $variables) : strip_tags($htmlContent);
+
+        // Send email to candidate
+        try {
+            Mail::send([], [], function ($message) use ($candidate, $subject, $htmlContent, $textContent) {
+                $message->to($candidate->email, $candidate->first_name . ' ' . $candidate->last_name)
+                        ->subject($subject);
+                
+                if ($htmlContent) {
+                    $message->html($htmlContent);
+                }
+                
+                if ($textContent) {
+                    $message->text($textContent);
+                }
+            });
+
+            \Log::info('Interview scheduled email sent to candidate', [
+                'candidate_email' => $candidate->email,
+                'interview_id' => $interview->id,
+                'template_type' => $template->type,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Failed to send interview scheduled email', [
+                'candidate_email' => $candidate->email,
+                'interview_id' => $interview->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
 }
 

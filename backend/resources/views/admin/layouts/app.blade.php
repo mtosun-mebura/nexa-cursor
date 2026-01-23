@@ -158,20 +158,39 @@
             position: relative;
             width: 100%;
             z-index: 10;
-            background-color: #10b981;
-            color: white;
+            background-color: #10b981 !important;
+            background: #10b981 !important;
+            color: white !important;
             padding: 12px 0;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: opacity 0.3s ease-out, transform 0.3s ease-out;
             transform: translateY(0);
             margin-bottom: 1.25rem;
         }
+        .success-banner-bar * {
+            background-color: transparent !important;
+            background: transparent !important;
+        }
+        .success-banner-bar .kt-container-fixed,
+        .success-banner-bar .flex,
+        .success-banner-bar .kt-container-fixed *,
+        .success-banner-bar .flex *,
+        .success-banner-bar .kt-container-fixed div,
+        .success-banner-bar .flex div {
+            background-color: transparent !important;
+            background: transparent !important;
+        }
+        .success-banner-bar i,
+        .success-banner-bar span {
+            color: white !important;
+        }
         .success-banner-bar.fade-out {
             opacity: 0;
             transform: translateY(-20px);
         }
         .dark .success-banner-bar {
-            background-color: #059669;
+            background-color: #059669 !important;
+            background: #059669 !important;
         }
         /* Rejection Banner (Red) */
         .success-banner-bar.rejection {
@@ -181,6 +200,36 @@
             background-color: #b91c1c;
         }
 
+        /* Notification drawer border colors */
+        #notifications_drawer .border-b,
+        #notifications_drawer .border-t,
+        #notifications_drawer .border-border {
+            border-color: var(--border) !important;
+        }
+        
+        /* Notification drawer visibility */
+        #notifications_drawer.hidden {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        #notifications_drawer:not(.hidden),
+        #notifications_drawer[data-notifications-active="true"]:not(.hidden) {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            z-index: 99999 !important;
+        }
+        
+        /* Align checkbox and avatar container to top - target the flex container with checkbox and avatar */
+        #notifications_drawer .notification-item > div > div.flex.items-start {
+            align-self: flex-start !important;
+        }
+        /* Center checkbox vertically within its container */
+        #notifications_drawer .notification-item .notification-checkbox {
+            align-self: center !important;
+        }
+        
         /* UI rule: labels next to textarea should be top-aligned */
         .kt-table.kt-table-border-dashed.align-middle td.align-top {
             vertical-align: top !important;

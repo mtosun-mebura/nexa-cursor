@@ -1,9 +1,4 @@
 // Global chat functionality
-// Performance: Only log in development
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-if (isDevelopment) {
-    console.log('📦 chat.js loaded!');
-}
 
 let activeChats = [];
 let currentChatId = null;
@@ -23,10 +18,8 @@ let isLoadingChats = false; // Flag to prevent multiple simultaneous loadActiveC
 
 // Open chat with candidate
 window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
-    console.log('🚀 openChatWithCandidate called!', { candidateId, matchOrAppId, type });
     
     if (!candidateId) {
-        console.error('❌ No candidateId provided!');
         return;
     }
     
@@ -101,7 +94,6 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('✅ Chat started successfully:', data.chat_id);
                 
                 // Set flag to prevent observer interference
                 isOpeningChat = true;
@@ -116,7 +108,6 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
                         activeChats[existingIndex] = data.chat;
                     }
                     currentChat = data.chat;
-                    console.log('✅ Chat added to activeChats:', data.chat);
                 }
                 
                 // Ensure drawer is open and positioned correctly
@@ -202,14 +193,12 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
                 }
                 
                 // Immediately select the chat and update views
-                console.log('✅ Selecting chat:', data.chat_id);
                 selectChat(data.chat_id);
             
                 // Remove ignore flag after a delay to allow normal operation
                 setTimeout(() => {
                     if (drawer) {
                         drawer.removeAttribute('data-ignore-observer');
-                        console.log('✅ Removed ignore-observer flag');
                         
                         // Reconnect observer after flag is removed
                         if (window.chatDrawerObserver && drawer) {
@@ -255,7 +244,6 @@ window.openChatWithCandidate = function(candidateId, matchOrAppId, type) {
             }
         })
         .catch(error => {
-            console.error('Error starting chat:', error);
             isOpeningChat = false;
         });
     }, 100); // Wait 100ms for drawer to open before starting chat
@@ -270,12 +258,10 @@ function getCsrfToken() {
 window.loadActiveChats = function(showListView = false, openDrawer = false) {
     // Prevent multiple simultaneous calls
     if (isLoadingChats) {
-        console.log('⏭️ loadActiveChats already in progress, skipping...');
         return Promise.resolve(activeChats);
     }
     
     isLoadingChats = true;
-    console.log('📋 loadActiveChats called, showListView:', showListView);
     return fetch('/admin/chat/active', {
         headers: {
             'X-CSRF-TOKEN': getCsrfToken(),
@@ -289,18 +275,14 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         return response.json();
     })
     .then(chats => {
-        console.log('✅ Active chats loaded from server:', chats);
-        console.log('📊 Server returned', chats.length, 'chats');
         
         // Validate that chats is an array
         if (!Array.isArray(chats)) {
-            console.error('❌ Server response is not an array:', chats);
             return activeChats;
         }
         
         // If there's an error in the response, log it
         if (chats.error) {
-            console.error('❌ Server returned error:', chats.error);
             return activeChats;
         }
         
@@ -309,8 +291,6 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         const serverChatIds = chats.map(c => c.id);
         const previousChatIds = activeChats.map(c => c.id);
         
-        console.log('📊 Previous chats:', previousChatIds);
-        console.log('📊 Server chats:', serverChatIds);
         
         // Preserve unread counts from previous activeChats if they exist
         // This prevents the badge from disappearing when the list refreshes
@@ -323,7 +303,6 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
                 const previousUnreadCount = previousChat.unread_count || 0;
                 chat.unread_count = Math.max(serverUnreadCount, previousUnreadCount);
                 if (previousUnreadCount > serverUnreadCount) {
-                    console.log('📌 Preserved unread count for chat', chat.id, ':', previousUnreadCount, '(server had:', serverUnreadCount, ')');
                 }
             }
         });
@@ -332,15 +311,12 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         const currentChatInArray = activeChats.find(c => c.id === currentChatId);
         if (currentChatId && currentChatInArray && !serverChatIds.includes(currentChatId)) {
             chats.push(currentChatInArray);
-            console.log('📌 Preserved current chat that is not in server response');
         }
         
         // Replace the entire array with server data (don't merge)
         const oldLength = activeChats.length;
         activeChats = [...chats]; // Create a new array from server data
         
-        console.log(`🔄 Replaced ${oldLength} chats with ${activeChats.length} chats from server`);
-        console.log('📋 New activeChats array:', activeChats.map(c => ({ id: c.id, candidate: c.candidate?.name || 'Unknown' })));
         
         // If no chat is selected, or explicitly asked to show list view (e.g., from header button), ensure it's visible
         const chatListView = document.getElementById('chat_list_view');
@@ -352,18 +328,15 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
                 chatListView.style.setProperty('display', 'flex', 'important');
                 chatListView.style.setProperty('visibility', 'visible', 'important');
                 chatListView.style.setProperty('opacity', '1', 'important');
-                console.log('📋 Chat list view shown via loadActiveChats.');
             }
             if (chatMessagesView) {
                 chatMessagesView.style.setProperty('display', 'none', 'important');
                 chatMessagesView.style.setProperty('visibility', 'hidden', 'important');
                 chatMessagesView.style.setProperty('opacity', '0', 'important');
-                console.log('📋 Chat messages view hidden via loadActiveChats.');
             }
             if (showListView) {
                 currentChatId = null; // Clear current chat when explicitly showing list view
                 currentChat = null;
-                console.log('📋 Switched to chat list view, currentChatId cleared.');
             }
         }
         
@@ -373,7 +346,6 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         return activeChats;
     })
     .catch(error => {
-        console.error('❌ Error loading chats:', error);
         isLoadingChats = false;
         return activeChats;
     });
@@ -396,7 +368,6 @@ function updateChatListItemAfterReactivation(chatId) {
         endedIcon.remove();
     }
     
-    console.log('✅ Removed ended styling from chat', chatId);
 }
 
 // Update unread counts in existing chat list without re-rendering
@@ -438,20 +409,17 @@ function updateChatListUnreadCounts(chats) {
             badge.style.transform = 'none';
             badge.textContent = unreadCount > 9 ? '9+' : unreadCount.toString();
             avatarContainer.appendChild(badge);
-            console.log('✅ Added badge to chat', chat.id, 'with unread count:', unreadCount);
         }
     });
 }
 
 // Render chat list
 function renderChatList(chats) {
-    console.log('📋 renderChatList called with chats:', chats);
     const chatList = document.getElementById('chat_list');
     const emptyState = document.getElementById('chat_list_empty');
     const chatListView = document.getElementById('chat_list_view');
     
     if (!chatList) {
-        console.error('❌ chat_list element not found!');
         return;
     }
     
@@ -460,14 +428,12 @@ function renderChatList(chats) {
         chatListView.style.setProperty('display', 'flex', 'important');
         chatListView.style.setProperty('visibility', 'visible', 'important');
         chatListView.style.setProperty('opacity', '1', 'important');
-        console.log('✅ chat_list_view is now visible');
     } else if (chatListView && currentChatId) {
         // If a chat is selected, ensure list view is hidden
         chatListView.style.setProperty('display', 'none', 'important');
         chatListView.style.setProperty('visibility', 'hidden', 'important');
         chatListView.style.setProperty('opacity', '0', 'important');
     } else {
-        console.error('❌ chat_list_view element not found!');
     }
 
     // Always load candidates for dropdown (even if there are chats)
@@ -493,7 +459,6 @@ function renderChatList(chats) {
     
     if (chatIdsMatch) {
         // All chats already exist in DOM with matching IDs, just update unread counts and last messages
-        console.log('📋 Updating unread counts for existing chat items (no re-render needed)');
         updateChatListUnreadCounts(chats);
         
         // Also update last message text and time for each chat
@@ -534,16 +499,13 @@ function renderChatList(chats) {
     // Need to re-render - remove existing items
     existingChatItems.forEach(item => item.remove());
     if (existingCount > 0) {
-        console.log(`🗑️ Removed ${existingCount} existing chat item(s) from DOM`);
     }
     
     if (chats.length === 0) {
-        console.log('📋 No chats to display, showing empty state');
         // Show empty state with candidate dropdown
         return;
     }
 
-    console.log('📋 Rendering', chats.length, 'chats');
     
     // Sort chats by latest message timestamp (descending)
     const sortedChats = [...chats].sort((a, b) => {
@@ -553,7 +515,6 @@ function renderChatList(chats) {
         return timeB - timeA; // Latest first
     });
     
-    console.log('📋 Sorted chats:', sortedChats.map(c => ({ id: c.id, latest: c.last_message?.created_at || c.updated_at || 'none' })));
     
     // Render all chats (use sorted array)
     sortedChats.forEach((chat, index) => {
@@ -569,11 +530,8 @@ function renderChatList(chats) {
         const candidateAvatar = chat.candidate && chat.candidate.avatar ? chat.candidate.avatar : null;
         const unreadCount = chat.unread_count !== undefined && chat.unread_count !== null ? parseInt(chat.unread_count) : 0;
         
-        console.log('🔴 Backend Chat', chat.id, 'candidate:', candidateName, 'unread_count:', unreadCount, 'chat.unread_count:', chat.unread_count, 'chat keys:', Object.keys(chat));
         if (unreadCount > 0) {
-            console.log('✅ Will add badge for chat', chat.id, 'with count:', unreadCount);
         } else {
-            console.log('❌ No badge for chat', chat.id, 'unread_count is:', unreadCount);
         }
         
         const isEndedByOtherParty = chat.is_ended_by_other_party === true;
@@ -611,16 +569,10 @@ function renderChatList(chats) {
             </div>
         `;
         chatList.appendChild(chatItem);
-        console.log(`✅ Added chat item ${index + 1} for chat ${chat.id} (${candidateName})`);
     });
     
     // Verify items are in DOM
     const renderedItems = chatList.querySelectorAll('.chat-item');
-    console.log('✅ Chat list rendered with', chats.length, 'items. DOM contains', renderedItems.length, 'items');
-    console.log('📋 Chat list container after render:', {
-        children: chatList.children.length,
-        innerHTML: chatList.innerHTML.substring(0, 200) + '...'
-    });
 }
 
 // Load candidates for dropdown
@@ -641,7 +593,6 @@ function loadCandidatesForDropdown() {
         }
     })
     .catch(error => {
-        console.error('Error loading candidates:', error);
     });
 }
 
@@ -663,22 +614,18 @@ window.handleCandidateSelect = function() {
 // Select a chat
 window.selectChat = function(chatId) {
     if (!chatId) {
-        console.error('❌ selectChat called without chatId');
         return;
     }
     
-    console.log('🔵 selectChat called with chatId:', chatId);
     
     // Find chat in activeChats array
     let chat = activeChats.find(c => c.id === chatId);
-    console.log('🔵 Found chat in activeChats:', chat ? 'Yes' : 'No');
     
     // Mark drawer as active and ensure it's open
     const drawer = document.getElementById('chat_drawer');
     const backdrop = document.getElementById('chat_drawer_backdrop');
     
     if (drawer) {
-        console.log('🔵 Setting drawer attributes...');
         // Reset closed flag and attribute
         isDrawerExplicitlyClosed = false;
         drawer.removeAttribute('data-drawer-closed');
@@ -744,9 +691,7 @@ window.selectChat = function(chatId) {
             }, 150);
         }
         
-        console.log('🔵 Drawer should be visible now, computed display:', window.getComputedStyle(drawer).display);
     } else {
-        console.error('❌ Drawer element not found in selectChat!');
     }
     
     if (backdrop) {
@@ -777,7 +722,6 @@ window.selectChat = function(chatId) {
                     loadChatMessages(chatId, true); // Show loader when opening a new chat
                     startChatPolling(chatId);
                 } else {
-                    console.error('❌ Chat not found after reload:', chatId);
                 }
             });
         }
@@ -790,7 +734,6 @@ window.selectChat = function(chatId) {
     // Clear messages container before switching chats to prevent mixing messages
     const messagesContainer = document.getElementById('chat_messages');
     if (messagesContainer) {
-        console.log('🧹 Clearing messages container before switching to chat:', chatId);
         messagesContainer.innerHTML = '';
     }
     
@@ -804,7 +747,6 @@ window.selectChat = function(chatId) {
 
 // Helper function to update chat views
 function updateChatViews(chat) {
-    console.log('🟢 updateChatViews called with chat:', chat);
     
     const chatListView = document.getElementById('chat_list_view');
     const chatMessagesView = document.getElementById('chat_messages_view');
@@ -841,7 +783,6 @@ function updateChatViews(chat) {
             }, 10);
         }
         
-        console.log('🟢 Drawer made visible in updateChatViews, computed display:', window.getComputedStyle(drawer).display);
     }
     
     if (backdrop) {
@@ -856,9 +797,7 @@ function updateChatViews(chat) {
         chatListView.style.setProperty('display', 'none', 'important');
         chatListView.style.setProperty('visibility', 'hidden', 'important');
         chatListView.style.setProperty('opacity', '0', 'important');
-        console.log('🟢 Chat list view hidden');
     } else {
-        console.error('❌ chat_list_view element not found!');
     }
     
     if (chatMessagesView) {
@@ -867,9 +806,7 @@ function updateChatViews(chat) {
         chatMessagesView.style.setProperty('opacity', '1', 'important');
         // Ensure messages view is visible
         chatMessagesView.classList.remove('hidden');
-        console.log('🟢 Chat messages view shown');
     } else {
-        console.error('❌ chat_messages_view element not found!');
     }
     
     if (chat) {
@@ -1005,17 +942,7 @@ function handleScroll() {
 
 // Show chat list
 window.showChatList = function() {
-    console.log('📋 showChatList called');
     const drawer = document.getElementById('chat_drawer');
-    console.log('📋 showChatList - drawer BEFORE:', {
-        exists: !!drawer,
-        hidden: drawer?.classList.contains('hidden'),
-        'data-user-opened': drawer?.getAttribute('data-user-opened'),
-        'data-drawer-closed': drawer?.getAttribute('data-drawer-closed'),
-        'data-chat-active': drawer?.getAttribute('data-chat-active'),
-        display: drawer ? window.getComputedStyle(drawer).display : 'N/A',
-        visibility: drawer ? window.getComputedStyle(drawer).visibility : 'N/A'
-    });
     
     currentChatId = null;
     currentChat = null;
@@ -1040,9 +967,7 @@ window.showChatList = function() {
         drawer.style.setProperty('margin-left', '0', 'important');
     }
     
-    console.log('📋 showChatList - calling loadActiveChats(true)');
     loadActiveChats(true).then(() => {
-        console.log('📋 showChatList - loadActiveChats completed');
         
         // Ensure drawer stays open after loadActiveChats
         if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
@@ -1072,14 +997,6 @@ window.showChatList = function() {
         }
         
         if (drawer) {
-            console.log('📋 showChatList - drawer AFTER loadActiveChats:', {
-                hidden: drawer.classList.contains('hidden'),
-                'data-user-opened': drawer.getAttribute('data-user-opened'),
-                'data-drawer-closed': drawer.getAttribute('data-drawer-closed'),
-                'data-chat-active': drawer.getAttribute('data-chat-active'),
-                display: window.getComputedStyle(drawer).display,
-                visibility: window.getComputedStyle(drawer).visibility
-            });
         }
     });
 };
@@ -1088,7 +1005,6 @@ window.showChatList = function() {
 function initializeChatInput() {
     const chatInput = document.getElementById('chat_message_input');
     if (!chatInput) {
-        console.warn('⚠️ Chat input not found, will retry...');
         return;
     }
     
@@ -1106,11 +1022,9 @@ function initializeChatInput() {
     newInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            console.log('⌨️ Enter key pressed, calling sendMessage');
             if (window.sendMessage) {
                 window.sendMessage();
             } else {
-                console.error('❌ sendMessage function not found!');
             }
         } else {
             if (onChatMessageInput) {
@@ -1142,24 +1056,18 @@ function initializeChatInput() {
         sendButton.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔵 Send button clicked via event listener');
             if (window.sendMessage) {
                 window.sendMessage();
             } else {
-                console.error('❌ sendMessage function not found!');
             }
         });
-        console.log('✅ Send button event listener added');
     } else if (!sendButton) {
-        console.warn('⚠️ Send button not found!');
     }
     
-    console.log('✅ Chat input event listeners initialized');
 }
 
 // Load chat messages
 function loadChatMessages(chatId, showLoader = false) {
-    console.log('📥 Loading messages for chat:', chatId, 'showLoader:', showLoader);
     
     // Show loader only if explicitly requested (e.g., when opening a new chat)
     if (showLoader) {
@@ -1173,7 +1081,6 @@ function loadChatMessages(chatId, showLoader = false) {
     if (currentChatId !== chatId) {
         const messagesContainer = document.getElementById('chat_messages');
         if (messagesContainer) {
-            console.log('🧹 Clearing messages container for new chat');
             messagesContainer.innerHTML = '';
         }
     }
@@ -1190,7 +1097,6 @@ function loadChatMessages(chatId, showLoader = false) {
         return response.json();
     })
     .then(messages => {
-        console.log('✅ Messages loaded:', messages);
         let presenceData = null;
         
         // Handle both old format (array) and new format (object with messages and presence)
@@ -1235,7 +1141,6 @@ function loadChatMessages(chatId, showLoader = false) {
                     updateChatHeaderStatus(chat, presenceData);
                 }
             } else {
-                console.log('⏭️ Skipping render - chat changed from', chatId, 'to', currentChatId);
                 // Hide loader if chat changed
                 const loader = document.getElementById('chat_messages_loader');
                 if (loader) {
@@ -1243,7 +1148,6 @@ function loadChatMessages(chatId, showLoader = false) {
                 }
             }
         } else {
-            console.error('❌ Messages is not an array:', messages);
             // Hide loader on error
             const loader = document.getElementById('chat_messages_loader');
             if (loader) {
@@ -1253,7 +1157,6 @@ function loadChatMessages(chatId, showLoader = false) {
         return messages;
     })
     .catch(error => {
-        console.error('❌ Error loading messages:', error);
         // Hide loader on error
         const loader = document.getElementById('chat_messages_loader');
         if (loader) {
@@ -1315,16 +1218,13 @@ function sortMessagesInDOM() {
 
 // Render messages
 function renderMessages(messages, expectedChatId = null) {
-    console.log('🎨 Rendering messages:', messages, 'for chat:', expectedChatId || currentChatId);
     const messagesContainer = document.getElementById('chat_messages');
     if (!messagesContainer) {
-        console.error('❌ Messages container not found!');
         return;
     }
     
     // If expectedChatId is provided and doesn't match currentChatId, don't render
     if (expectedChatId !== null && expectedChatId !== currentChatId) {
-        console.log('⏭️ Skipping render - chat mismatch. Expected:', expectedChatId, 'Current:', currentChatId);
         return;
     }
     
@@ -1339,7 +1239,6 @@ function renderMessages(messages, expectedChatId = null) {
     
     // Clear all existing real messages (but keep optimistic messages if they match the current chat)
     const existingRealMessages = messagesContainer.querySelectorAll('[data-optimistic="false"]');
-    console.log('🧹 Removing', existingRealMessages.length, 'existing real messages');
     existingRealMessages.forEach(msg => msg.remove());
 
     // Preserve optimistic messages with their unique IDs and timestamps (only for current chat)
@@ -1351,7 +1250,6 @@ function renderMessages(messages, expectedChatId = null) {
         const chatIdAttr = el.getAttribute('data-chat-id');
         // Only preserve optimistic messages that belong to the current chat
         if (chatIdAttr && chatIdAttr !== String(currentChatId)) {
-            console.log('🗑️ Removing optimistic message from different chat:', chatIdAttr, 'current:', currentChatId);
             el.remove();
             return null;
         }
@@ -1428,7 +1326,6 @@ function renderMessages(messages, expectedChatId = null) {
     // Only add new ones from the server response
     
     if (newMessages.length === 0) {
-        console.log('✅ No new messages to render, all messages already exist or are optimistic');
         // Still check if we need to remove optimistic messages that now have real counterparts
         // Match by timestamp proximity, not just text (to handle duplicate messages)
         optimisticMessagesData.forEach(({ element, text, timestamp: optimisticTimestamp }) => {
@@ -1457,13 +1354,11 @@ function renderMessages(messages, expectedChatId = null) {
                 const realMessageInDOM = messagesContainer.querySelector(`[data-optimistic="false"][data-message-id="${closestMessage.id}"]`);
                 if (realMessageInDOM && realMessageInDOM.offsetParent !== null) {
                     // This specific real message exists in DOM, safe to remove this optimistic one
-                    console.log('🔄 Removing optimistic message, matching real message exists in DOM:', text, 'ID:', closestMessage.id);
                     element.remove();
                     // Sort immediately after removing optimistic message
                     sortMessagesInDOM();
                 } else {
                     // Real message not yet in DOM or not visible, keep optimistic one
-                    console.log('⏳ Keeping optimistic message, real message not yet in DOM or visible:', text);
                 }
             }
         });
@@ -1585,7 +1480,6 @@ function renderMessages(messages, expectedChatId = null) {
         // Find the real message with the same text that is closest in time to this optimistic message
         const matchingMessages = messages.filter(msg => msg.message === text);
         if (matchingMessages.length === 0) {
-            console.log('⏳ Keeping optimistic message, no matching message in response yet:', text);
             return;
         }
         
@@ -1611,24 +1505,20 @@ function renderMessages(messages, expectedChatId = null) {
                     const realMessageInDOM = messagesContainer.querySelector(`[data-optimistic="false"][data-message-id="${closestMessage.id}"]`);
                     if (realMessageInDOM && realMessageInDOM.offsetParent !== null) {
                         // This specific real message exists in DOM and is visible, safe to remove this optimistic one
-                        console.log('🔄 Removing optimistic message, matching real message exists in DOM:', text, 'ID:', closestMessage.id, 'timeDiff:', closestTimeDiff);
                         element.remove();
                         // Sort again immediately after removing optimistic message
                         sortMessagesInDOM();
                         scrollToBottom();
                     } else {
                         // Real message not yet in DOM or not visible, keep optimistic one
-                        console.log('⏳ Keeping optimistic message, real message not yet visible:', text);
                     }
                 }
             }, 150); // Increased delay to ensure DOM is fully updated
         } else {
             // Keep optimistic message if no close match found
-            console.log('⏳ Keeping optimistic message, no close timestamp match found:', text, 'closestTimeDiff:', closestTimeDiff);
         }
     });
     
-    console.log('✅ Messages rendered, count:', messages.length, 'new messages:', newMessages.length, 'optimistic preserved:', optimisticMessagesData.length, 'container:', messagesContainer);
     
     // After rendering, check if we have any messages and update empty message visibility
     // Use requestAnimationFrame to ensure DOM is updated
@@ -1661,7 +1551,6 @@ function renderMessages(messages, expectedChatId = null) {
 function addMessageToUI(messageText, isOptimistic = false) {
     const messagesContainer = document.getElementById('chat_messages');
     if (!messagesContainer) {
-        console.error('❌ Messages container not found!');
         return null;
     }
     
@@ -1721,25 +1610,20 @@ function addMessageToUI(messageText, isOptimistic = false) {
 
 // Send message
 window.sendMessage = function() {
-    console.log('🔵 sendMessage called');
     const input = document.getElementById('chat_message_input');
     if (!input) {
-        console.error('❌ Chat input element not found!');
         return;
     }
     
     if (!input.value || !input.value.trim()) {
-        console.warn('⚠️ Cannot send message: input is empty');
         return;
     }
     
     if (!currentChatId) {
-        console.warn('⚠️ Cannot send message: no chat selected, currentChatId:', currentChatId);
         return;
     }
 
     const message = input.value.trim();
-    console.log('📤 Sending message:', message, 'to chat:', currentChatId);
     
     // Add message to UI immediately (optimistic update)
     const optimisticMessageElement = addMessageToUI(message, true);
@@ -1756,7 +1640,6 @@ window.sendMessage = function() {
 
     const csrfToken = getCsrfToken();
     if (!csrfToken) {
-        console.error('❌ CSRF token not found!');
         // Remove optimistic message on error
         if (optimisticMessageElement) {
             optimisticMessageElement.remove();
@@ -1774,17 +1657,14 @@ window.sendMessage = function() {
         body: formData
     })
     .then(response => {
-        console.log('📡 Response status:', response.status);
         if (!response.ok) {
             return response.text().then(text => {
-                console.error('❌ Response error:', text);
                 throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
             });
         }
         return response.json();
     })
     .then(data => {
-        console.log('✅ Message sent successfully:', data);
         if (data.success && data.message) {
             // Add the real message directly from the response FIRST
             const messagesContainer = document.getElementById('chat_messages');
@@ -1845,7 +1725,6 @@ window.sendMessage = function() {
                         if (realMsgInDOM && realMsgInDOM.offsetParent !== null) {
                             // Real message is confirmed in DOM and visible, safe to remove optimistic
                             if (optimisticMessageElement && optimisticMessageElement.parentNode) {
-                                console.log('🔄 Removing optimistic message, real message confirmed in DOM');
                                 optimisticMessageElement.remove();
                                 // Sort again immediately after removing optimistic
                                 sortMessagesInDOM();
@@ -1853,7 +1732,6 @@ window.sendMessage = function() {
                             }
                         } else {
                             // Real message not yet visible, keep optimistic for now
-                            console.log('⏳ Keeping optimistic message, real message not yet visible');
                             // Try again after a short delay
                             setTimeout(() => {
                                 const realMsgInDOM2 = messagesContainer.querySelector(`[data-optimistic="false"][data-message-id="${data.message.id || ''}"]`);
@@ -1922,7 +1800,6 @@ window.sendMessage = function() {
                 }, 600);
             }
         } else {
-            console.error('❌ Message send failed:', data);
             // Remove optimistic message on failure
             if (optimisticMessageElement) {
                 optimisticMessageElement.remove();
@@ -1931,7 +1808,6 @@ window.sendMessage = function() {
         }
     })
     .catch(error => {
-        console.error('❌ Error sending message:', error);
         // Remove optimistic message on error
         if (optimisticMessageElement) {
             optimisticMessageElement.remove();
@@ -1950,7 +1826,6 @@ window.handleDrawerClose = function() {
     
     // Don't close if drawer should stay open (e.g., after delete)
     if (drawer.getAttribute('data-user-opened') === 'true') {
-        console.log('🔒 handleDrawerClose called but drawer should stay open (data-user-opened=true)');
         // Ensure drawer stays visible
         drawer.classList.remove('hidden');
         drawer.removeAttribute('data-drawer-closed');
@@ -1960,7 +1835,6 @@ window.handleDrawerClose = function() {
         return;
     }
     
-    console.log('🔒 handleDrawerClose called - closing drawer');
     
     // Set flag to prevent drawer from reopening
     isDrawerExplicitlyClosed = true;
@@ -2003,7 +1877,6 @@ window.handleDrawerClose = function() {
             try {
                 drawerInstance.hide();
             } catch (e) {
-                console.log('⚠️ Error hiding drawer instance:', e);
             }
         }
     }
@@ -2018,7 +1891,6 @@ window.handleDrawerClose = function() {
             try {
                 drawerToggle.click();
             } catch (e) {
-                console.log('⚠️ Error clicking toggle:', e);
             }
         }
     }
@@ -2184,7 +2056,6 @@ window.endChat = function() {
             }
         })
         .catch(error => {
-            console.error('Error ending chat:', error);
         });
     });
 };
@@ -2306,7 +2177,6 @@ window.deleteChat = function() {
         // Store the chat ID before deletion
         const chatIdToDelete = currentChatId;
         if (!chatIdToDelete) {
-            console.error('❌ Cannot delete chat: currentChatId is null');
             return;
         }
 
@@ -2318,39 +2188,24 @@ window.deleteChat = function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('🗑️ Delete chat response:', data);
             if (data.success) {
-                console.log('✅ Chat deleted successfully, deletedChatId:', chatIdToDelete);
                 
                 // Remove chat from activeChats array
                 activeChats = activeChats.filter(c => c.id !== chatIdToDelete);
-                console.log('📋 Active chats after filter:', activeChats.length);
                 
                 // Clear current chat selection if it was the deleted chat
                 if (currentChatId === chatIdToDelete) {
                     currentChatId = null;
                     currentChat = null;
-                    console.log('🧹 Cleared currentChatId (was:', chatIdToDelete, ')');
                 }
                 
                 // Clear messages container
                 const messagesContainer = document.getElementById('chat_messages');
                 if (messagesContainer) messagesContainer.innerHTML = '';
-                console.log('🧹 Cleared messages container');
                 
                 // Ensure drawer stays open - don't remove data-chat-active
                 const drawer = document.getElementById('chat_drawer');
-                console.log('📂 Drawer element found:', !!drawer);
                 if (drawer) {
-                    console.log('📂 Drawer BEFORE update:', {
-                        hidden: drawer.classList.contains('hidden'),
-                        'data-user-opened': drawer.getAttribute('data-user-opened'),
-                        'data-drawer-closed': drawer.getAttribute('data-drawer-closed'),
-                        'data-chat-active': drawer.getAttribute('data-chat-active'),
-                        display: window.getComputedStyle(drawer).display,
-                        visibility: window.getComputedStyle(drawer).visibility
-                    });
-                    
                     // Disconnect observer temporarily to prevent interference
                     if (window.chatDrawerObserver) {
                         window.chatDrawerObserver.disconnect();
@@ -2367,12 +2222,12 @@ window.deleteChat = function() {
                     drawer.style.setProperty('visibility', 'visible', 'important');
                     drawer.style.setProperty('opacity', '1', 'important');
                     drawer.style.setProperty('z-index', '99999', 'important');
-            drawer.style.setProperty('transform', 'translateX(0)', 'important');
-            drawer.style.setProperty('translate', '0 0', 'important');
-            drawer.style.setProperty('right', '1.25rem', 'important');
-            drawer.style.setProperty('left', 'auto', 'important');
-            drawer.style.setProperty('--tw-translate-x', '0', 'important');
-            drawer.style.setProperty('inset-inline-start', 'auto', 'important');
+                    drawer.style.setProperty('transform', 'translateX(0)', 'important');
+                    drawer.style.setProperty('translate', '0 0', 'important');
+                    drawer.style.setProperty('right', '1.25rem', 'important');
+                    drawer.style.setProperty('left', 'auto', 'important');
+                    drawer.style.setProperty('--tw-translate-x', '0', 'important');
+                    drawer.style.setProperty('inset-inline-start', 'auto', 'important');
                     drawer.style.setProperty('top', '1.25rem', 'important');
                     drawer.style.setProperty('bottom', '1.25rem', 'important');
                     drawer.style.setProperty('width', '450px', 'important');
@@ -2388,15 +2243,6 @@ window.deleteChat = function() {
                         backdrop.style.setProperty('visibility', 'visible', 'important');
                         backdrop.style.setProperty('z-index', '99998', 'important');
                     }
-                    
-                    console.log('📂 Drawer AFTER update:', {
-                        hidden: drawer.classList.contains('hidden'),
-                        'data-user-opened': drawer.getAttribute('data-user-opened'),
-                        'data-drawer-closed': drawer.getAttribute('data-drawer-closed'),
-                        'data-chat-active': drawer.getAttribute('data-chat-active'),
-                        display: window.getComputedStyle(drawer).display,
-                        visibility: window.getComputedStyle(drawer).visibility
-                    });
                     
                     // Reconnect observer after a delay
                     setTimeout(() => {
@@ -2416,9 +2262,7 @@ window.deleteChat = function() {
                     const deletedChatItem = chatList.querySelector(`.chat-item[data-chat-id="${chatIdToDelete}"]`);
                     if (deletedChatItem) {
                         deletedChatItem.remove();
-                        console.log('🗑️ Removed deleted chat item from DOM, chatId:', chatIdToDelete);
                     } else {
-                        console.log('⚠️ Chat item not found in DOM for chatId:', chatIdToDelete, '- will be removed on next render');
                         // If not found, re-render the list to ensure it's updated
                         renderChatList(activeChats);
                     }
@@ -2441,12 +2285,9 @@ window.deleteChat = function() {
                 // Update activeChats array to remove deleted chat (already done above)
                 // Don't call loadActiveChats immediately to avoid flicker
                 // The periodic update will refresh the list naturally
-            } else {
-                console.error('❌ Delete chat failed:', data);
             }
         })
         .catch(error => {
-            console.error('Error deleting chat:', error);
         });
     });
 };
@@ -2505,9 +2346,6 @@ function sendChatPresence(chatId) {
     })
     .catch(error => {
         // Silently fail - presence is not critical
-        if (console && console.error) {
-            console.error('Error sending presence:', error);
-        }
     });
 }
 
@@ -2532,7 +2370,6 @@ function checkTyping(chatId) {
         }
     })
     .catch(error => {
-        console.error('Error checking typing:', error);
     });
 }
 
@@ -2740,21 +2577,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         const hasUserOpened = drawer?.getAttribute('data-user-opened') === 'true';
                         const shouldKeepOpen = hasActiveChat || hasUserOpened;
                         
-                        console.log('👁️ Observer: Drawer closing detected:', {
-                            hasActiveChat: hasActiveChat,
-                            hasUserOpened: hasUserOpened,
-                            shouldKeepOpen: shouldKeepOpen,
-                            currentChatId: currentChatId,
-                            isOpeningChat: isOpeningChat,
-                            'data-chat-active': drawer?.getAttribute('data-chat-active'),
-                            'data-user-opened': drawer?.getAttribute('data-user-opened'),
-                            'data-drawer-closed': drawer?.getAttribute('data-drawer-closed'),
-                            isDrawerExplicitlyClosed: isDrawerExplicitlyClosed
-                        });
-                        
                         if (shouldKeepOpen) {
                             // Keep drawer open if chat is active or user opened it
-                            console.log('👁️ Observer: Keeping drawer open because shouldKeepOpen is true');
                             if (drawer) {
                                 drawer.classList.remove('hidden');
                                 drawer.removeAttribute('data-drawer-closed');
@@ -2792,11 +2616,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             // BUT: Don't set data-drawer-closed if data-user-opened is true (e.g., after delete)
                             if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
                                 // User explicitly opened drawer (e.g., after delete), keep it open
-                                console.log('👁️ Observer: Keeping drawer open because data-user-opened is true');
                                 return;
                             }
                             
-                            console.log('👁️ Observer: Hiding drawer because shouldKeepOpen is false');
                             if (drawer) {
                                 drawer.removeAttribute('data-chat-active');
                                 drawer.removeAttribute('data-user-opened');
@@ -2861,15 +2683,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         try {
                             // If transform is not translateX(0) or right is not correct, reset it
                             if (needsTransformReset) {
-                                console.log('🔄 Style observer: Resetting transform from', computedTransform);
                                 drawer.style.setProperty('transform', 'translateX(0)', 'important');
                             }
                             if (needsRightReset) {
-                                console.log('🔄 Style observer: Resetting right from', computedRight);
                                 drawer.style.setProperty('right', '1.25rem', 'important');
                             }
                             if (needsLeftReset) {
-                                console.log('🔄 Style observer: Resetting left from', computedLeft);
                                 // First, remove left property directly from style object
                                 if (drawer.style.left) {
                                     drawer.style.removeProperty('left');
@@ -2977,9 +2796,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const computedDisplay = window.getComputedStyle(drawer).display;
                 
                 if (isMarkedHidden || computedDisplay === 'none') {
-                    if (isDevelopment) {
-                        console.log('🔄 Interval: Drawer was hidden, reopening...', { isMarkedHidden, computedDisplay });
-                    }
                     drawer.classList.remove('hidden');
                 }
                 
@@ -3070,7 +2886,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else if (!hasActiveChat && drawer && drawer.getAttribute('data-chat-active') === 'true') {
                 // Remove active flag if no chat is active
-                console.log('🔄 Interval: No active chat, removing active flag');
                 drawer.removeAttribute('data-chat-active');
             }
         }, 200); // Performance: Check every 200ms instead of 10ms to reduce CPU usage
@@ -3082,7 +2897,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const drawer = document.getElementById('chat_drawer');
             // Don't close if drawer should stay open (e.g., after delete)
             if (drawer && drawer.getAttribute('data-user-opened') === 'true') {
-                console.log('🖱️ Backdrop clicked but drawer should stay open (data-user-opened=true)');
                 return;
             }
             if (window.handleDrawerClose) {
@@ -3105,7 +2919,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (drawer) {
                     drawer.removeAttribute('data-drawer-closed');
                 }
-                console.log('🔓 Toggle button clicked - resetting close flag to allow drawer to open');
             } else {
                 // Drawer is currently open, so clicking will CLOSE it
                 // Set flag to mark as explicitly closed
@@ -3113,7 +2926,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (drawer) {
                     drawer.setAttribute('data-drawer-closed', 'true');
                 }
-                console.log('🔒 Toggle button clicked - setting close flag');
             }
             
             // Use setTimeout to check drawer state after toggle (as backup)
@@ -3225,7 +3037,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
-                    console.log('⌨️ ESC key pressed - closing drawer');
                     if (window.handleDrawerClose) {
                         window.handleDrawerClose();
                     } else {
@@ -3271,10 +3082,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!isClickInsideDrawer && !isClickOnToggle) {
             // Don't close if drawer should stay open (e.g., after delete)
             if (drawer.getAttribute('data-user-opened') === 'true') {
-                console.log('🖱️ Click outside drawer but drawer should stay open (data-user-opened=true)');
                 return;
             }
-            console.log('🖱️ Click outside drawer - closing drawer');
             if (window.handleDrawerClose) {
                 window.handleDrawerClose();
             }

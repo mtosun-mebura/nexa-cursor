@@ -92,6 +92,7 @@
     <!-- Frontend Header Badges -->
     <script src="{{ asset('js/frontend-header-badges.js') }}"></script>
     <script src="{{ asset('js/frontend-chat.js') }}"></script>
+    <script src="{{ asset('js/notifications-drawer.js') }}"></script>
     
     <!-- Hide user dropdown if not authenticated -->
     <script>

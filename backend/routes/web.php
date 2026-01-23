@@ -254,6 +254,8 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::put('stage-instances/{stageInstance}', [App\Http\Controllers\Admin\StageInstanceController::class, 'update'])->name('stage-instances.update');
     
     // Company Locations
+    Route::get('companies/{company}/users/json', [AdminCompanyController::class, 'getUsersJson'])->name('companies.users.json');
+    Route::get('companies/{company}/locations/json', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'getLocationsJson'])->name('companies.locations.json');
     Route::get('companies/{company}/locations/create', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'create'])->name('companies.locations.create');
     Route::post('companies/{company}/locations', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'store'])->name('companies.locations.store');
     Route::get('companies/{company}/locations/{location}', [App\Http\Controllers\Admin\AdminCompanyLocationController::class, 'show'])->name('companies.locations.show');
@@ -337,9 +339,15 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::delete('profile/experiences/{experienceId}', [AdminProfileController::class, 'removeExperience'])->name('profile.experiences.remove');
     
     // Notifications
-    Route::resource('notifications', AdminNotificationController::class);
-    Route::post('notifications/{notification}/mark-read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    // Specific routes must come BEFORE resource route to avoid route conflicts
+    Route::get('notifications/list', [AdminNotificationController::class, 'getNotifications'])->name('notifications.list');
+    Route::get('notifications/unread-count', [AdminNotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
     Route::post('notifications/mark-all-read', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::post('notifications/mark-selected-read', [AdminNotificationController::class, 'markSelectedAsRead'])->name('notifications.mark-selected-read');
+    Route::post('notifications/archive-selected', [AdminNotificationController::class, 'archiveSelected'])->name('notifications.archive-selected');
+    Route::post('notifications/{notification}/mark-read', [AdminNotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::post('notifications/{notification}/respond-interview', [AdminNotificationController::class, 'respondToInterview'])->name('notifications.respond-interview');
+    Route::resource('notifications', AdminNotificationController::class);
     
     // Email Templates
     Route::resource('email-templates', AdminEmailTemplateController::class);
@@ -590,9 +598,35 @@ Route::middleware(['auth:web'])->group(function () {
     Route::post('/chat/{chat}/presence', [App\Http\Controllers\Frontend\ChatController::class, 'setChatPresence'])->name('frontend.chat.presence');
     Route::get('/chat/{chat}/presence', [App\Http\Controllers\Frontend\ChatController::class, 'getChatPresence'])->name('frontend.chat.presence.get');
     Route::get('/notifications/unread-count', function() {
-        $unreadCount = auth()->user()->notifications()->whereNull('read_at')->count();
-        return response()->json(['unread_count' => $unreadCount]);
+        $unreadCount = auth()->user()->notifications()->whereNull('read_at')->whereNull('archived_at')->count();
+        
+        // Get highest priority of unread notifications
+        $highestPriority = \App\Models\Notification::where('user_id', auth()->id())
+            ->whereNull('read_at')
+            ->whereNull('archived_at')
+            ->orderByRaw("CASE priority 
+                WHEN 'urgent' THEN 1 
+                WHEN 'high' THEN 2 
+                WHEN 'normal' THEN 3 
+                WHEN 'low' THEN 4 
+                ELSE 5 
+            END")
+            ->value('priority');
+        
+        return response()->json([
+            'unread_count' => $unreadCount,
+            'highest_priority' => $highestPriority ?? 'normal'
+        ]);
     })->name('frontend.notifications.unread-count');
+    
+    // Frontend notification routes
+    // Specific routes must come first to avoid route conflicts
+    Route::get('/notifications/list', [App\Http\Controllers\Admin\AdminNotificationController::class, 'getNotifications'])->name('frontend.notifications.list');
+    Route::post('/notifications/mark-all-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markAllAsRead'])->name('frontend.notifications.mark-all-read');
+    Route::post('/notifications/mark-selected-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markSelectedAsRead'])->name('frontend.notifications.mark-selected-read');
+    Route::post('/notifications/archive-selected', [App\Http\Controllers\Admin\AdminNotificationController::class, 'archiveSelected'])->name('frontend.notifications.archive-selected');
+    Route::post('/notifications/{notification}/mark-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markAsRead'])->name('frontend.notifications.mark-read');
+    Route::post('/notifications/{notification}/respond-interview', [App\Http\Controllers\Admin\AdminNotificationController::class, 'respondToInterview'])->name('frontend.notifications.respond-interview');
     
     Route::get('/matches', [MatchController::class, 'index'])->name('matches');
     

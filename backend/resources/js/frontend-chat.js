@@ -1,9 +1,5 @@
 // Frontend chat functionality (candidate perspective)
 // Performance: Only log in development
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-if (isDevelopment) {
-    console.log('📦 frontend-chat.js loaded!');
-}
 
 let activeChats = [];
 let currentChatId = null;
@@ -40,12 +36,10 @@ function escapeHtml(text) {
 window.loadActiveChats = function(showListView = false, openDrawer = false) {
     // Prevent infinite loops
     if (isLoadingChats) {
-        console.log('⏭️ loadActiveChats already in progress, skipping...');
         return Promise.resolve(activeChats);
     }
     
     isLoadingChats = true;
-    console.log('📋 loadActiveChats called (frontend), showListView:', showListView, 'openDrawer:', openDrawer);
     
     const backdrop = document.getElementById('chat_drawer_backdrop');
     const drawer = document.getElementById('chat_drawer');
@@ -87,24 +81,18 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         return response.json();
     })
     .then(chats => {
-        console.log('✅ Active chats loaded from server:', chats);
-        console.log('📊 Server returned', chats.length, 'chats');
         
         if (!Array.isArray(chats)) {
-            console.error('❌ Server response is not an array:', chats);
             return activeChats;
         }
         
         if (chats.error) {
-            console.error('❌ Server returned error:', chats.error);
             return activeChats;
         }
         
         const serverChatIds = chats.map(c => c.id);
         const previousChatIds = activeChats.map(c => c.id);
         
-        console.log('📊 Previous chats:', previousChatIds);
-        console.log('📊 Server chats:', serverChatIds);
         
         // Preserve unread counts from previous activeChats if they exist
         // This prevents the badge from disappearing when the list refreshes
@@ -117,7 +105,6 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
                 const previousUnreadCount = previousChat.unread_count || 0;
                 chat.unread_count = Math.max(serverUnreadCount, previousUnreadCount);
                 if (previousUnreadCount > serverUnreadCount) {
-                    console.log('📌 Preserved unread count for chat', chat.id, ':', previousUnreadCount, '(server had:', serverUnreadCount, ')');
                 }
             }
         });
@@ -125,14 +112,11 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         const currentChatInArray = activeChats.find(c => c.id === currentChatId);
         if (currentChatId && currentChatInArray && !serverChatIds.includes(currentChatId)) {
             chats.push(currentChatInArray);
-            console.log('📌 Preserved current chat that is not in server response');
         }
         
         const oldLength = activeChats.length;
         activeChats = [...chats];
         
-        console.log(`🔄 Replaced ${oldLength} chats with ${activeChats.length} chats from server`);
-        console.log('📋 New activeChats array:', activeChats.map(c => ({ id: c.id, company: c.company?.name || 'Unknown', user: c.user?.name || 'Unknown' })));
         
         const chatListView = document.getElementById('chat_list_view');
         const chatMessagesView = document.getElementById('chat_messages_view');
@@ -142,18 +126,15 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
                 chatListView.style.setProperty('display', 'flex', 'important');
                 chatListView.style.setProperty('visibility', 'visible', 'important');
                 chatListView.style.setProperty('opacity', '1', 'important');
-                console.log('📋 Chat list view shown via loadActiveChats.');
             }
             if (chatMessagesView) {
                 chatMessagesView.style.setProperty('display', 'none', 'important');
                 chatMessagesView.style.setProperty('visibility', 'hidden', 'important');
                 chatMessagesView.style.setProperty('opacity', '0', 'important');
-                console.log('📋 Chat messages view hidden via loadActiveChats.');
             }
             if (showListView) {
                 currentChatId = null;
                 currentChat = null;
-                console.log('📋 Switched to chat list view, currentChatId cleared.');
             }
         }
         
@@ -162,7 +143,6 @@ window.loadActiveChats = function(showListView = false, openDrawer = false) {
         return activeChats;
     })
     .catch(error => {
-        console.error('❌ Error loading chats:', error);
         isLoadingChats = false;
         return activeChats;
     });
@@ -185,7 +165,6 @@ function updateChatListItemAfterReactivation(chatId) {
         endedIcon.remove();
     }
     
-    console.log('✅ Removed ended styling from chat', chatId);
 }
 
 // Update unread counts in existing chat list without re-rendering
@@ -233,13 +212,11 @@ function updateChatListUnreadCounts(chats) {
 
 // Render chat list (frontend - show company name and contact person)
 function renderChatList(chats) {
-    console.log('📋 renderChatList called with chats:', chats);
     const chatList = document.getElementById('chat_list');
     const emptyState = document.getElementById('chat_list_empty');
     const chatListView = document.getElementById('chat_list_view');
     
     if (!chatList) {
-        console.error('❌ chat_list element not found!');
         return;
     }
     
@@ -247,13 +224,11 @@ function renderChatList(chats) {
         chatListView.style.setProperty('display', 'flex', 'important');
         chatListView.style.setProperty('visibility', 'visible', 'important');
         chatListView.style.setProperty('opacity', '1', 'important');
-        console.log('✅ chat_list_view is now visible');
     } else if (chatListView && currentChatId) {
         chatListView.style.setProperty('display', 'none', 'important');
         chatListView.style.setProperty('visibility', 'hidden', 'important');
         chatListView.style.setProperty('opacity', '0', 'important');
     } else {
-        console.error('❌ chat_list_view element not found!');
     }
 
     if (emptyState) {
@@ -266,7 +241,6 @@ function renderChatList(chats) {
     // Check if we can just update unread counts instead of re-rendering
     if (existingCount > 0 && existingCount === chats.length) {
         // All chats exist, just update unread counts and ended status
-        console.log('📋 Updating unread counts for existing chat items');
         updateChatListUnreadCounts(chats);
         
         // Also update ended status for each chat item
@@ -292,15 +266,12 @@ function renderChatList(chats) {
     // Need to re-render - remove existing items
     existingChatItems.forEach(item => item.remove());
     if (existingCount > 0) {
-        console.log(`🗑️ Removed ${existingCount} existing chat item(s) from DOM`);
     }
     
     if (chats.length === 0) {
-        console.log('📋 No chats to display, showing empty state');
         return;
     }
 
-    console.log('📋 Rendering', chats.length, 'chats');
     
     // Sort chats by latest message timestamp (descending)
     const sortedChats = [...chats].sort((a, b) => {
@@ -309,7 +280,6 @@ function renderChatList(chats) {
         return timeB - timeA;
     });
     
-    console.log('📋 Sorted chats:', sortedChats.map(c => ({ id: c.id, latest: c.last_message?.created_at || c.updated_at || 'none' })));
     
     // Render all chats (frontend perspective: show company name and contact person)
     sortedChats.forEach((chat, index) => {
@@ -364,30 +334,24 @@ function renderChatList(chats) {
             </div>
         `;
         chatList.appendChild(chatItem);
-        console.log(`✅ Added chat item ${index + 1} for chat ${chat.id} (${displayName})`);
     });
     
     const renderedItems = chatList.querySelectorAll('.chat-item');
-    console.log('✅ Chat list rendered with', chats.length, 'items. DOM contains', renderedItems.length, 'items');
 }
 
 // Select a chat
 window.selectChat = function(chatId) {
     if (!chatId) {
-        console.error('❌ selectChat called without chatId');
         return;
     }
     
-    console.log('🔵 selectChat called with chatId:', chatId);
     currentChatId = chatId;
     let chat = activeChats.find(c => c.id === chatId);
-    console.log('🔵 Found chat in activeChats:', chat ? 'Yes' : 'No');
     
     const drawer = document.getElementById('chat_drawer');
     const backdrop = document.getElementById('chat_drawer_backdrop');
     
     if (drawer) {
-        console.log('🔵 Setting drawer attributes...');
         isDrawerExplicitlyClosed = false;
         drawer.removeAttribute('data-drawer-closed');
         drawer.classList.remove('hidden');
@@ -410,7 +374,6 @@ window.selectChat = function(chatId) {
             }, 10);
         }
         
-        console.log('🔵 Drawer should be visible now, computed display:', window.getComputedStyle(drawer).display);
     }
     
     if (backdrop) {
@@ -439,7 +402,6 @@ window.selectChat = function(chatId) {
     
     const messagesContainer = document.getElementById('chat_messages');
     if (messagesContainer) {
-        console.log('🧹 Clearing messages container before switching to chat:', chatId);
         messagesContainer.innerHTML = '';
     }
     
@@ -450,7 +412,6 @@ window.selectChat = function(chatId) {
 
 // Update chat views (frontend - show company and contact person)
 function updateChatViews(chat) {
-    console.log('🟢 updateChatViews called with chat:', chat);
     
     const chatListView = document.getElementById('chat_list_view');
     const chatMessagesView = document.getElementById('chat_messages_view');
@@ -483,7 +444,6 @@ function updateChatViews(chat) {
             }, 10);
         }
         
-        console.log('🟢 Drawer made visible in updateChatViews, computed display:', window.getComputedStyle(drawer).display);
     }
     
     if (backdrop) {
@@ -499,7 +459,6 @@ function updateChatViews(chat) {
         chatListView.style.setProperty('display', 'none', 'important');
         chatListView.style.setProperty('visibility', 'hidden', 'important');
         chatListView.style.setProperty('opacity', '0', 'important');
-        console.log('🟢 Chat list view hidden');
     }
     
     if (chatMessagesView) {
@@ -507,7 +466,6 @@ function updateChatViews(chat) {
         chatMessagesView.style.setProperty('visibility', 'visible', 'important');
         chatMessagesView.style.setProperty('opacity', '1', 'important');
         chatMessagesView.classList.remove('hidden');
-        console.log('🟢 Chat messages view shown');
     }
     
     if (chat) {
@@ -642,12 +600,8 @@ function updateChatHeaderStatus(chat, presenceData = null) {
 
 // Load chat messages (frontend route)
 function loadChatMessages(chatId, showLoader = false) {
-    console.log('📥 loadChatMessages called with chatId:', chatId, 'showLoader:', showLoader);
-    console.log('📥 currentChatId:', currentChatId);
-    console.log('📥 activeChats:', activeChats.map(c => ({ id: c.id, company: c.company?.name })));
     
     if (!chatId) {
-        console.error('❌ loadChatMessages: No chatId provided!');
         return Promise.reject(new Error('No chatId provided'));
     }
     
@@ -662,14 +616,11 @@ function loadChatMessages(chatId, showLoader = false) {
     if (currentChatId !== chatId) {
         const messagesContainer = document.getElementById('chat_messages');
         if (messagesContainer) {
-            console.log('🧹 Clearing messages container for new chat');
             messagesContainer.innerHTML = '';
         }
     }
     
     const url = `/chat/${chatId}/messages`;
-    console.log('📥 Fetching messages from:', url);
-    console.log('📥 CSRF Token:', getCsrfToken() ? 'Present' : 'Missing');
     
     return fetch(url, {
         headers: {
@@ -677,18 +628,14 @@ function loadChatMessages(chatId, showLoader = false) {
         }
     })
     .then(response => {
-        console.log('📥 Response status:', response.status, response.statusText);
         if (!response.ok) {
-            console.error('❌ HTTP error! status:', response.status, 'statusText:', response.statusText);
             return response.text().then(text => {
-                console.error('❌ Response body:', text);
                 throw new Error(`HTTP error! status: ${response.status}, body: ${text.substring(0, 200)}`);
             });
         }
         return response.json();
     })
     .then(messages => {
-        console.log('✅ Messages loaded successfully:', messages);
         let presenceData = null;
         
         // Handle both old format (array) and new format (object with messages and presence)
@@ -701,10 +648,8 @@ function loadChatMessages(chatId, showLoader = false) {
             messages = messages.messages;
         }
         
-        console.log('✅ Messages count:', Array.isArray(messages) ? messages.length : 'Not an array');
         if (Array.isArray(messages)) {
             if (currentChatId === chatId) {
-                console.log('✅ Rendering messages for chat:', chatId);
                 renderMessages(messages, chatId);
                 
                 // Hide loader after messages are rendered
@@ -722,7 +667,6 @@ function loadChatMessages(chatId, showLoader = false) {
                 if (chatIndex !== -1) {
                     // Messages have been marked as read, so unread count should be 0
                     activeChats[chatIndex].unread_count = 0;
-                    console.log('🔄 Updated unread count for chat', chatId, 'to 0');
                     
                     // Update chat header status with presence data from server
                     const chat = activeChats[chatIndex];
@@ -733,7 +677,6 @@ function loadChatMessages(chatId, showLoader = false) {
                     updateChatHeaderStatus(chat, presenceData);
                 }
             } else {
-                console.log('⏭️ Skipping render - chat changed from', chatId, 'to', currentChatId);
                 // Hide loader if chat changed
                 const loader = document.getElementById('chat_messages_loader');
                 if (loader) {
@@ -741,8 +684,6 @@ function loadChatMessages(chatId, showLoader = false) {
                 }
             }
         } else {
-            console.error('❌ Messages is not an array:', messages);
-            console.error('❌ Messages type:', typeof messages);
             // Hide loader on error
             const loader = document.getElementById('chat_messages_loader');
             if (loader) {
@@ -752,8 +693,6 @@ function loadChatMessages(chatId, showLoader = false) {
         return messages;
     })
     .catch(error => {
-        console.error('❌ Error loading messages:', error);
-        console.error('❌ Error stack:', error.stack);
         // Hide loader on error
         const loader = document.getElementById('chat_messages_loader');
         if (loader) {
@@ -848,7 +787,6 @@ window.sendMessage = function() {
         }
     })
     .catch(error => {
-        console.error('❌ Error sending message:', error);
         // Remove optimistic message on error
         const optimisticMsg = document.querySelector(`[data-optimistic-id="${optimisticId}"]`);
         if (optimisticMsg) {
@@ -859,10 +797,8 @@ window.sendMessage = function() {
 
 // Render messages (exact backend style)
 function renderMessages(messages, chatId) {
-    console.log('🎨 renderMessages called with:', { messagesCount: messages.length, chatId });
     const messagesContainer = document.getElementById('chat_messages');
     if (!messagesContainer) {
-        console.error('❌ chat_messages container not found!');
         return;
     }
     
@@ -881,7 +817,6 @@ function renderMessages(messages, chatId) {
         return msg.id && !existingMessageIds.has(String(msg.id));
     });
     
-    console.log('🎨 Existing messages:', existingMessageIds.size, 'New messages:', newMessages.length, 'Total messages:', messages.length);
     
     // If no new messages, just ensure empty state is correct
     if (newMessages.length === 0) {
@@ -1008,7 +943,6 @@ function renderMessages(messages, chatId) {
         }
     });
     
-    console.log('✅ Messages rendered, count:', messages.length, 'new messages:', newMessages.length);
 }
 
 // Add message to UI
@@ -1243,7 +1177,6 @@ function updateReadStatus(chatId) {
         }
     })
     .catch(error => {
-        console.error('Error updating read status:', error);
     });
 }
 
@@ -1308,8 +1241,6 @@ function sendChatPresence(chatId) {
     })
     .catch(error => {
         // Silently fail - presence is not critical
-        if (console && console.error) {
-            console.error('Error sending presence:', error);
         }
     });
 }
@@ -1454,7 +1385,6 @@ window.endChat = function() {
             }
         })
         .catch(error => {
-            console.error('Error ending chat:', error);
         });
     });
 };
@@ -1610,7 +1540,6 @@ window.deleteChat = function() {
             }
         })
         .catch(error => {
-            console.error('Error deleting chat:', error);
         });
     });
 };
@@ -1680,11 +1609,9 @@ function isUserAuthenticated() {
 document.addEventListener('DOMContentLoaded', function() {
     // Only initialize if user is authenticated
     if (!isUserAuthenticated()) {
-        console.log('⏭️ Frontend chat skipped - user not authenticated');
         return;
     }
     
-    console.log('📦 Frontend chat initialized');
     
     // Show backdrop when drawer is opened via KT Drawer
     const drawer = document.getElementById('chat_drawer');
@@ -1781,7 +1708,6 @@ document.addEventListener('DOMContentLoaded', function() {
         chatToggle.addEventListener('click', (e) => {
             // Only proceed if user is authenticated
             if (!isUserAuthenticated()) {
-                console.log('⏭️ Chat toggle clicked but user not authenticated');
                 return;
             }
             

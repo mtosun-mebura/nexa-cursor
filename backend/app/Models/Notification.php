@@ -10,7 +10,7 @@ class Notification extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'company_id', 'type', 'title', 'message', 'priority', 'read_at', 'action_url', 'data', 'scheduled_at'
+        'user_id', 'company_id', 'type', 'category', 'title', 'message', 'priority', 'read_at', 'action_url', 'data', 'scheduled_at', 'location_id', 'file_path', 'file_name', 'file_size', 'original_notification_id'
     ];
 
     protected $casts = [

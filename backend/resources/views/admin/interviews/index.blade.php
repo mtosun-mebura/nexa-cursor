@@ -294,15 +294,31 @@
                                             @endif
                                         </td>
                                         <td>
-                                            @if($interview->scheduled_at)
-                                                @if(\Carbon\Carbon::parse($interview->scheduled_at)->isPast())
-                                                    <span class="kt-badge kt-badge-sm kt-badge-secondary">Afgelopen</span>
-                                                @else
-                                                    <span class="kt-badge kt-badge-sm kt-badge-success">Ingepland</span>
-                                                @endif
-                                            @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Niet gepland</span>
-                                            @endif
+                                            @php
+                                                $statusMap = [
+                                                    'scheduled' => 'Gepland',
+                                                    'confirmed' => 'Bevestigd',
+                                                    'completed' => 'Voltooid',
+                                                    'cancelled' => 'Geannuleerd',
+                                                    'rescheduled' => 'Herpland',
+                                                ];
+                                                $statusLabel = $statusMap[$interview->status] ?? 'Onbekend';
+                                                $badgeClass = 'warning';
+                                                if ($interview->status == 'scheduled') {
+                                                    $badgeClass = 'info';
+                                                } elseif ($interview->status == 'confirmed') {
+                                                    $badgeClass = 'warning';
+                                                } elseif ($interview->status == 'completed') {
+                                                    $badgeClass = 'success';
+                                                } elseif ($interview->status == 'cancelled') {
+                                                    $badgeClass = 'danger';
+                                                } elseif ($interview->status == 'rescheduled') {
+                                                    $badgeClass = 'info';
+                                                }
+                                            @endphp
+                                            <span class="kt-badge kt-badge-sm kt-badge-{{ $badgeClass }}">
+                                                {{ $statusLabel }}
+                                            </span>
                                         </td>
                                         <td class="w-[60px]" onclick="event.stopPropagation();">
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">

@@ -34,26 +34,34 @@ class AdminCompanyLocationController extends Controller
             ->where('is_active', true)
             ->orderBy('is_main', 'desc')
             ->orderBy('name')
-            ->get(['id', 'name', 'city']);
+            ->get(['id', 'name', 'city', 'street', 'house_number', 'house_number_extension', 'postal_code']);
 
         // Add main company address as first option
+        // Always use id: 0 for main address (location_id 0 = hoofdadres)
         $mainAddress = null;
-        if ($company->city || $company->street) {
-            $mainAddressText = $company->city;
-            if ($company->street) {
-                $mainAddressText = $company->street;
-                if ($company->house_number) {
-                    $mainAddressText .= ' ' . $company->house_number;
-                    if ($company->house_number_extension) {
-                        $mainAddressText .= $company->house_number_extension;
-                    }
-                }
-                if ($company->city && $company->city != $company->street) {
-                    $mainAddressText .= ', ' . $company->city;
-                }
+        $company = $company->load('mainLocation');
+        
+        if ($company->mainLocation) {
+            // Use mainLocation if available
+            $mainLoc = $company->mainLocation;
+            $mainAddressText = $mainLoc->name;
+            if ($mainLoc->city) {
+                $mainAddressText .= ' - ' . $mainLoc->city;
             }
             $mainAddress = [
-                'id' => 0,
+                'id' => 0, // Always use 0 for main address
+                'name' => $mainAddressText,
+                'city' => $mainLoc->city,
+                'is_main_address' => true
+            ];
+        } elseif ($company->city || $company->street) {
+            // Use company address fields
+            $mainAddressText = $company->name;
+            if ($company->city) {
+                $mainAddressText .= ' - ' . $company->city;
+            }
+            $mainAddress = [
+                'id' => 0, // Always use 0 for main address
                 'name' => $mainAddressText,
                 'city' => $company->city,
                 'is_main_address' => true

@@ -412,6 +412,7 @@
   
       <!-- Frontend Header Badges -->
       <script src="{{ asset('js/frontend-header-badges.js') }}"></script>
+      <script src="{{ asset('js/notifications-drawer.js') }}"></script>
       
       <!-- Frontend Chat -->
       <script src="{{ asset('js/frontend-chat.js') }}"></script>

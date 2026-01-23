@@ -10,8 +10,8 @@
 		<i class="ki-filled {{ $unreadCount > 0 ? 'ki-notification-on text-red-500' : 'ki-notification' }} text-lg notification-icon">
 		</i>
 		@if($unreadCount > 0)
-		<span class="absolute top-0 end-0 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white notification-badge">
-			{{ $unreadCount > 9 ? '9+' : $unreadCount }}
+		<span class="absolute -top-1 -end-1 flex size-5 items-center justify-center rounded-full bg-danger text-[11px] font-semibold leading-none text-white notification-badge" style="min-width: 20px; min-height: 20px;">
+			{{ $unreadCount }}
 		</span>
 		@endif
 	</button>

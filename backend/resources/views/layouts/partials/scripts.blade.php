@@ -20,6 +20,9 @@
 <!-- Backend Header Badges -->
 <script src="{{ asset('js/backend-header-badges.js') }}"></script>
 
+<!-- Notifications Drawer -->
+<script src="{{ asset('js/notifications-drawer.js') }}"></script>
+
 <!-- Stack for page-specific scripts -->
 @stack('scripts')
 <!-- End of Scripts -->

@@ -69,9 +69,11 @@
                 <div class="flex gap-1.25 items-center">
                     @php
                         $statusMap = [
-                            'scheduled' => 'Ingepland',
+                            'scheduled' => 'Gepland',
+                            'confirmed' => 'Bevestigd',
                             'completed' => 'Voltooid',
                             'cancelled' => 'Geannuleerd',
+                            'rescheduled' => 'Herpland',
                         ];
                         $statusLabel = $statusMap[$interview->status] ?? ucfirst($interview->status ?? 'Onbekend');
                     @endphp
@@ -165,9 +167,11 @@
                         <td class="text-foreground font-normal">
                             @php
                                 $statusMap = [
-                                    'scheduled' => 'Ingepland',
+                                    'scheduled' => 'Gepland',
+                                    'confirmed' => 'Bevestigd',
                                     'completed' => 'Voltooid',
                                     'cancelled' => 'Geannuleerd',
+                                    'rescheduled' => 'Herpland',
                                 ];
                                 $statusLabel = $statusMap[$interview->status] ?? ucfirst($interview->status ?? 'Onbekend');
                             @endphp

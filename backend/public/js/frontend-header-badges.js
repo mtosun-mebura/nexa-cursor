@@ -71,29 +71,53 @@ function updateNotificationBadge() {
     .then(response => response.json())
     .then(data => {
         const unreadCount = data.unread_count || 0;
+        const highestPriority = data.highest_priority || 'normal';
+        
+        // Remove all priority color classes
+        notificationIcon?.classList.remove('text-red-500', 'text-orange-500', 'text-blue-500', 'text-gray-500', 'text-gray-600', 'text-gray-300', 'text-foreground');
         
         // Update icon color
         if (unreadCount > 0) {
             notificationButton.classList.add('has-unread');
-            notificationIcon?.classList.add('text-red-500');
-            notificationIcon?.classList.remove('text-foreground');
+            
+            // Set icon color based on priority
+            // urgent = red, high = orange, normal = blue, low = gray
+            switch(highestPriority) {
+                case 'urgent':
+                    notificationIcon?.classList.add('text-red-500');
+                    break;
+                case 'high':
+                    notificationIcon?.classList.add('text-orange-500');
+                    break;
+                case 'normal':
+                    notificationIcon?.classList.add('text-blue-500');
+                    break;
+                case 'low':
+                    notificationIcon?.classList.add('text-gray-500');
+                    break;
+                default:
+                    notificationIcon?.classList.add('text-blue-500');
+            }
             
             // Update or create badge
             if (!notificationBadge) {
                 const badge = document.createElement('span');
-                badge.className = 'absolute top-0 end-0 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white notification-badge';
-                badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                // Use size-5 (20px) with min-width/height for double-digit numbers
+                // Position: top-0 end-0 (right top corner) for frontend
+                badge.className = 'absolute top-0 end-0 flex size-5 items-center justify-center rounded-full bg-danger text-[11px] font-semibold leading-none text-white notification-badge';
+                badge.style.minWidth = '20px';
+                badge.style.minHeight = '20px';
+                badge.textContent = unreadCount.toString();
                 notificationButton.appendChild(badge);
             } else {
-                notificationBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                notificationBadge.textContent = unreadCount.toString();
                 notificationBadge.style.display = 'flex';
             }
             
             // Don't add shake class here - let startShakeAnimation handle it
         } else {
             notificationButton.classList.remove('has-unread', 'shake');
-            notificationIcon?.classList.remove('text-red-500');
-            notificationIcon?.classList.add('text-foreground');
+            notificationIcon?.classList.add('text-gray-600', 'dark:text-gray-300');
             if (notificationBadge) {
                 notificationBadge.style.display = 'none';
             }

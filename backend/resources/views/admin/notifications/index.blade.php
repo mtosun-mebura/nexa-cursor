@@ -98,9 +98,9 @@
                             @endif
                             <label class="kt-input w-full sm:w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek notificaties..." 
-                                       type="text" 
-                                       name="search" 
+                                <input placeholder="Zoek notificaties..."
+                                       type="text"
+                                       name="search"
                                        value="{{ request('search') }}"
                                        id="search-input"
                                        data-kt-datatable-search="#notifications_table"/>
@@ -113,20 +113,20 @@
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
                             @endif
-                            
-                            <select class="kt-select w-full sm:w-36" 
-                                    name="status" 
-                                    data-kt-select="true" 
+
+                            <select class="kt-select w-full sm:w-36"
+                                    name="status"
+                                    data-kt-select="true"
                                     data-kt-select-placeholder="Status"
                                     id="status-filter">
                                 <option value="">Alle statussen</option>
                                 <option value="unread" {{ request('status') == 'unread' ? 'selected' : '' }}>Ongelezen</option>
                                 <option value="read" {{ request('status') == 'read' ? 'selected' : '' }}>Gelezen</option>
                             </select>
-                            
-                            <select class="kt-select w-full sm:w-36" 
-                                    name="type" 
-                                    data-kt-select="true" 
+
+                            <select class="kt-select w-full sm:w-36"
+                                    name="type"
+                                    data-kt-select="true"
                                     data-kt-select-placeholder="Type"
                                     id="type-filter">
                                 <option value="">Alle types</option>
@@ -135,11 +135,11 @@
                                 <option value="error" {{ request('type') == 'error' ? 'selected' : '' }}>Fout</option>
                                 <option value="success" {{ request('type') == 'success' ? 'selected' : '' }}>Succes</option>
                             </select>
-                            
+
                             @if(auth()->user()->hasRole('super-admin'))
-                            <select class="kt-select w-full sm:w-36" 
-                                    name="priority" 
-                                    data-kt-select="true" 
+                            <select class="kt-select w-full sm:w-36"
+                                    name="priority"
+                                    data-kt-select="true"
                                     data-kt-select-placeholder="Prioriteit"
                                     id="priority-filter">
                                 <option value="">Alle prioriteiten</option>
@@ -148,10 +148,10 @@
                                 <option value="high" {{ request('priority') == 'high' ? 'selected' : '' }}>Hoog</option>
                             </select>
                             @endif
-                            
-                            <select class="kt-select w-full sm:w-36" 
-                                    name="sort" 
-                                    data-kt-select="true" 
+
+                            <select class="kt-select w-full sm:w-36"
+                                    name="sort"
+                                    data-kt-select="true"
                                     data-kt-select-placeholder="Sortering"
                                     id="sort-filter">
                                 <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
@@ -161,8 +161,8 @@
                             </select>
                         </form>
                         @if(request('status') || request('type') || request('priority') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
-                        <a href="{{ route('admin.notifications.index') }}" 
-                           class="kt-btn kt-btn-outline kt-btn-icon" 
+                        <a href="{{ route('admin.notifications.index') }}"
+                           class="kt-btn kt-btn-outline kt-btn-icon"
                            title="Filters resetten"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
@@ -172,7 +172,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="kt-card-content">
                 @if($notifications->count() > 0)
                     <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="notifications_table">
@@ -183,6 +183,12 @@
                                     <th class="min-w-[250px]">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Gebruiker</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[200px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Afzender</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
@@ -205,7 +211,7 @@
                                                         $nextDirection = 'asc';
                                                     }
                                                 @endphp
-                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'direction' => $nextDirection]) }}" 
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'direction' => $nextDirection]) }}"
                                                    class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
@@ -223,7 +229,7 @@
                                                         $nextDirection = 'desc';
                                                     }
                                                 @endphp
-                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => $nextDirection]) }}" 
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => $nextDirection]) }}"
                                                    class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
@@ -240,12 +246,26 @@
                                                     <span class="text-sm font-medium text-mono mb-px">
                                                         {{ $notification->user->first_name }} {{ $notification->user->last_name }}
                                                     </span>
-                                                    <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $notification->user->email }}">
+                                                    <span class="text-xs text-muted-foreground font-normal">
                                                         {{ $notification->user->email }}
-                                                    </a>
+                                                    </span>
                                                 </div>
                                             @else
                                                 <span class="text-sm text-muted-foreground">Gebruiker niet gevonden</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($notification->sender)
+                                                <div class="flex flex-col">
+                                                    <span class="text-sm font-medium text-mono mb-px">
+                                                        {{ $notification->sender->first_name }} {{ $notification->sender->last_name }}
+                                                    </span>
+                                                    <span class="text-xs text-muted-foreground font-normal">
+                                                        {{ $notification->sender->email }}
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <span class="text-sm text-muted-foreground">Systeem</span>
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
@@ -253,7 +273,19 @@
                                                 @if($notification->title)
                                                     <span class="text-sm font-medium mb-1">{{ $notification->title }}</span>
                                                 @endif
-                                                <span class="text-sm text-secondary-foreground">{{ Str::limit($notification->message, 80) }}</span>
+                                                @php
+                                                    $messageText = $notification->message;
+                                                    // Extract only the message part after "Bericht:"
+                                                    if (stripos($messageText, 'Bericht:') !== false) {
+                                                        $berichtIndex = stripos($messageText, 'Bericht:');
+                                                        $messageText = substr($messageText, $berichtIndex + strlen('Bericht:'));
+                                                        $messageText = trim($messageText);
+                                                        // Remove any trailing "Datum:" or other prefixes that might be in the message
+                                                        $messageText = preg_replace('/\s*(?:Datum:|Locatie:|Afspraakdetails:).*$/s', '', $messageText);
+                                                        $messageText = trim($messageText);
+                                                    }
+                                                @endphp
+                                                <span class="text-sm text-secondary-foreground">{{ Str::limit($messageText, 80) }}</span>
                                             </div>
                                         </td>
                                         <td>
@@ -266,7 +298,7 @@
                                         <td class="text-foreground font-normal">
                                             <span class="text-sm">{{ $notification->created_at->format('d-m-Y H:i') }}</span>
                                         </td>
-                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                        <td class="w-[60px]" onclick="event.stopPropagation(); event.preventDefault();">
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
@@ -298,8 +330,8 @@
                                                         @endif
                                                         @can('delete-notifications')
                                                         <div class="kt-menu-item">
-                                                            <form action="{{ route('admin.notifications.destroy', $notification) }}" 
-                                                                  method="POST" 
+                                                            <form action="{{ route('admin.notifications.destroy', $notification) }}"
+                                                                  method="POST"
                                                                   style="display: inline;"
                                                                   onsubmit="return confirm('Weet je zeker dat je deze notificatie wilt verwijderen?')">
                                                                 @csrf
@@ -322,7 +354,7 @@
                             </tbody>
                         </table>
                         </div>
-                    
+
                     <!-- Pagination -->
                     <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
                         <div class="flex items-center gap-2 order-2 md:order-1">
@@ -360,10 +392,10 @@
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
             }
         }
-        
+
         // Initial replacement
         replaceOfWithVan();
-        
+
         // Watch for changes in the info span
         const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
         if (infoSpan) {
@@ -374,45 +406,45 @@
                     }
                 });
             });
-            
+
             observer.observe(infoSpan, {
                 childList: true,
                 characterData: true,
                 subtree: true
             });
         }
-        
+
         // Filter form submission (server-side filters)
         const filterForm = document.getElementById('filters-form');
         const statusFilter = document.getElementById('status-filter');
         const typeFilter = document.getElementById('type-filter');
         const priorityFilter = document.getElementById('priority-filter');
         const sortFilter = document.getElementById('sort-filter');
-        
+
         if (statusFilter && filterForm) {
             statusFilter.addEventListener('change', function() {
                 filterForm.submit();
             });
         }
-        
+
         if (typeFilter && filterForm) {
             typeFilter.addEventListener('change', function() {
                 filterForm.submit();
             });
         }
-        
+
         if (priorityFilter && filterForm) {
             priorityFilter.addEventListener('change', function() {
                 filterForm.submit();
             });
         }
-        
+
         if (sortFilter && filterForm) {
             sortFilter.addEventListener('change', function() {
                 filterForm.submit();
             });
         }
-        
+
         // Auto-dismiss success alert after 3 seconds
         const successAlert = document.getElementById('success-alert');
         if (successAlert) {
@@ -424,22 +456,156 @@
                 }, 300);
             }, 3000);
         }
-        
-        // Make table rows clickable (except actions column)
-        document.querySelectorAll('tbody tr.notification-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
-                // Don't navigate if clicking on actions column or menu
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+
+        // Make table rows clickable - use both event delegation and direct handlers
+        let rowClickHandler = null;
+        const attachedRows = new WeakSet();
+
+        function setupRowClicks() {
+            const notificationsTable = document.getElementById('notifications_table');
+            if (!notificationsTable) {
+                return;
+            }
+
+            // Try to find tbody - check multiple possible locations
+            let tbody = notificationsTable.querySelector('table tbody');
+            if (!tbody) {
+                tbody = notificationsTable.querySelector('tbody');
+            }
+            if (!tbody) {
+                tbody = document.querySelector('[data-kt-datatable-table="true"] tbody');
+            }
+
+            if (!tbody) {
+                return;
+            }
+
+            // Remove existing handler if it exists (for event delegation)
+            if (rowClickHandler) {
+                tbody.removeEventListener('click', rowClickHandler, true);
+            }
+
+            // Create event delegation handler
+            rowClickHandler = function(e) {
+                const row = e.target.closest('tr.notification-row');
+                if (!row) {
                     return;
                 }
-                
-                // Get notification ID
-                const notificationId = this.getAttribute('data-notification-id');
-                if (notificationId) {
+
+                // Don't navigate if clicking on actions column or menu
+                const clickedElement = e.target;
+                const actionsTd = row.querySelector('td:last-child');
+                const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+
+                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                    return;
+                }
+
+                // Get notification ID - try multiple methods since datatable might remove data attributes
+                let notificationId = row.getAttribute('data-notification-id');
+
+                // If not found, try to get it from the "Bekijken" link in the actions menu
+                if (!notificationId || notificationId === 'null' || notificationId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/notifications/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/notifications\/(\d+)/);
+                        if (match && match[1]) {
+                            notificationId = match[1];
+                        }
+                    }
+                }
+
+                if (notificationId && notificationId !== 'null' && notificationId !== '' && notificationId !== null && notificationId !== undefined) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
                     window.location.href = '/admin/notifications/' + notificationId;
                 }
+            };
+
+            // Add event delegation listener
+            tbody.addEventListener('click', rowClickHandler, true);
+
+            // Also attach direct handlers to each row (backup method)
+            const rows = tbody.querySelectorAll('tr.notification-row');
+
+            rows.forEach(function(row, index) {
+                // Skip if already attached
+                if (attachedRows.has(row)) {
+                    return;
+                }
+
+                // Get notification ID - try multiple methods
+                let notificationId = row.getAttribute('data-notification-id');
+
+                // If not found, try to get it from the "Bekijken" link
+                if (!notificationId || notificationId === 'null' || notificationId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/notifications/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/notifications\/(\d+)/);
+                        if (match && match[1]) {
+                            notificationId = match[1];
+                            // Store it in the row for future use
+                            row.setAttribute('data-notification-id', notificationId);
+                        }
+                    }
+                }
+
+                row.style.cursor = 'pointer';
+                attachedRows.add(row);
+
+                // Store notification ID in closure for this row
+                const rowNotificationId = notificationId;
+
+                // Add direct click handler as backup
+                row.addEventListener('click', function(e) {
+                    // Don't navigate if clicking on actions column or menu
+                    const clickedElement = e.target;
+                    const actionsTd = this.querySelector('td:last-child');
+                    const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                    const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                    const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                    const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+
+                    if (isInActionsColumn || isInMenu || isButton || isLink) {
+                        return;
+                    }
+
+                    // Use stored ID or try to get it again
+                    let notificationId = rowNotificationId || this.getAttribute('data-notification-id');
+                    if (!notificationId || notificationId === 'null' || notificationId === '') {
+                        const viewLink = this.querySelector('a[href*="/admin/notifications/"]');
+                        if (viewLink) {
+                            const href = viewLink.getAttribute('href');
+                            const match = href.match(/\/admin\/notifications\/(\d+)/);
+                            if (match && match[1]) {
+                                notificationId = match[1];
+                            }
+                        }
+                    }
+
+                    if (notificationId && notificationId !== 'null' && notificationId !== '' && notificationId !== null && notificationId !== undefined) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        e.preventDefault();
+                        window.location.href = '/admin/notifications/' + notificationId;
+                    }
+                }, true);
             });
-        });
+        }
+
+        // Try immediately
+        setupRowClicks();
+
+        // Also try after delays in case datatable initializes later
+        setTimeout(setupRowClicks, 100);
+        setTimeout(setupRowClicks, 500);
+        setTimeout(setupRowClicks, 1000);
     });
 </script>
 @endpush
@@ -456,7 +622,7 @@
     .kt-table-col-sort {
         margin-left: auto !important;
     }
-    
+
     /* Reset button visibility */
     a[title="Filters resetten"] {
         display: inline-flex !important;
@@ -479,10 +645,11 @@
         visibility: visible !important;
         opacity: 1 !important;
     }
-    
+
     /* Table row hover styling */
     .notification-row {
         cursor: pointer !important;
+        transition: background-color 0.2s ease;
     }
     .notification-row:hover {
         background-color: var(--muted) !important;
@@ -500,21 +667,21 @@
 <script>
     (function() {
         'use strict';
-        
+
         let openDropdown = null;
         let closingTimeout = null;
-        
+
         function closeAllDropdowns(exceptElement) {
             if (closingTimeout) {
                 clearTimeout(closingTimeout);
                 closingTimeout = null;
             }
-            
+
             const displays = document.querySelectorAll('.kt-select-display');
-            
+
             displays.forEach(function(display) {
                 if (display === exceptElement) return;
-                
+
                 if (display.getAttribute('aria-expanded') === 'true') {
                     const select = display.parentElement?.querySelector('select.kt-select[data-kt-select="true"]');
                     if (select && typeof window.KTSelect !== 'undefined') {
@@ -526,9 +693,9 @@
                         } catch (e) {
                         }
                     }
-                    
+
                     display.setAttribute('aria-expanded', 'false');
-                    
+
                     const parent = display.closest('.kt-select-wrapper, [data-kt-select-wrapper]') || display.parentElement;
                     if (parent) {
                         const dropdowns = parent.querySelectorAll('.kt-menu-dropdown, .kt-select-dropdown, [data-kt-select-dropdown], [data-kt-menu-dropdown]');
@@ -542,7 +709,7 @@
                 }
             });
         }
-        
+
         function initSelectExclusive() {
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
@@ -554,20 +721,20 @@
                                     node.classList.contains('kt-select-dropdown') ||
                                     node.hasAttribute('data-kt-select-dropdown')
                                 );
-                                
+
                                 if (isDropdown) {
                                     setTimeout(function() {
                                         const computedStyle = window.getComputedStyle(node);
-                                        const isVisible = computedStyle.display !== 'none' && 
-                                                         computedStyle.visibility !== 'hidden' && 
+                                        const isVisible = computedStyle.display !== 'none' &&
+                                                         computedStyle.visibility !== 'hidden' &&
                                                          computedStyle.opacity !== '0';
-                                        
+
                                         if (isVisible) {
                                             const allDisplays = document.querySelectorAll('.kt-select-display[aria-expanded="true"]');
                                             allDisplays.forEach(function(display) {
                                                 const parent = display.closest('.kt-select-wrapper, [data-kt-select-wrapper]') || display.parentElement;
                                                 const relatedDropdown = parent && parent.querySelector('.kt-menu-dropdown, .kt-select-dropdown, [data-kt-select-dropdown]');
-                                                
+
                                                 if (relatedDropdown !== node) {
                                                     closeAllDropdowns(display);
                                                 } else {
@@ -582,27 +749,27 @@
                     }
                 });
             });
-            
+
             observer.observe(document.body, {
                 childList: true,
                 subtree: true
             });
-            
+
             document.addEventListener('click', function(e) {
                 const clickedSelect = e.target.closest('select.kt-select[data-kt-select="true"]');
                 const clickedDisplay = e.target.closest('.kt-select-display');
                 const clickedDropdown = e.target.closest('.kt-menu-dropdown, .kt-select-dropdown, [data-kt-select-dropdown]');
                 const clickedOption = e.target.closest('.kt-menu-item, [data-kt-select-option]');
-                
+
                 if (clickedSelect || clickedDisplay || clickedDropdown || clickedOption) {
                     return;
                 }
-                
+
                 closeAllDropdowns(null);
                 openDropdown = null;
             });
         }
-        
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
                 setTimeout(initSelectExclusive, 200);
@@ -620,7 +787,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Voorkom dat de sidebar drawer sluit wanneer je binnen de content area klikt
     const contentArea = document.getElementById('content');
     const sidebar = document.getElementById('sidebar');
-    
+
     if (contentArea && sidebar) {
         const observer = new MutationObserver(function(mutations) {
             const backdrop = document.querySelector('.kt-drawer-backdrop');
@@ -629,12 +796,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 backdrop.addEventListener('click', preventBackdropClose, true);
             }
         });
-        
+
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
-        
+
         function preventBackdropClose(e) {
             if (contentArea.contains(e.target)) {
                 e.preventDefault();
@@ -642,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
         }
-        
+
         setTimeout(function() {
             const backdrop = document.querySelector('.kt-drawer-backdrop');
             if (backdrop) {

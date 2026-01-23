@@ -11,7 +11,7 @@
             top: 1.25rem !important; /* top-5 = 1.25rem */
             bottom: 1.25rem !important; /* bottom-5 = 1.25rem */
             left: unset !important;
-            width: 450px !important;
+            width: 500px !important;
             max-width: 90% !important;
             transform: translateX(0) !important; /* Reset any transform that might hide the drawer */
             transition: none !important; /* Disable transitions to prevent animation */
@@ -589,7 +589,7 @@
     <div id="chat_drawer_backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden" data-kt-drawer-dismiss="true" onclick="if(event.target === this) handleDrawerClose();"></div>
 
     <!--Chat Drawer-->
-    <div class="kt-drawer kt-drawer-end card bottom-5 end-5 top-5 hidden w-[450px] max-w-[90%] flex-col rounded-xl border border-border bg-background"
+    <div class="kt-drawer kt-drawer-end card bottom-5 end-5 top-5 hidden w-[500px] max-w-[90%] flex-col rounded-xl border border-border bg-background"
         data-kt-drawer="true" data-kt-drawer-container="body" id="chat_drawer">
 
         <!-- Chat List View -->

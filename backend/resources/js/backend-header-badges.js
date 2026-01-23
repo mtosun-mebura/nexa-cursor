@@ -1,5 +1,4 @@
 // Backend header badge updates and shake animation
-console.log('📦 backend-header-badges.js loaded!');
 
 let badgeUpdateInterval = null;
 let shakeInterval = null;
@@ -50,7 +49,6 @@ function updateChatBadge() {
         }
     })
     .catch(error => {
-        console.error('Error updating chat badge:', error);
     });
 }
 
@@ -62,33 +60,67 @@ function updateNotificationBadge() {
     
     if (!notificationButton) return;
     
-    // Get unread count from existing PHP variable or fetch
-    const unreadCount = parseInt(notificationBadge?.textContent || '0');
-    
-    if (unreadCount > 0) {
-        notificationButton.classList.add('has-unread');
-        notificationIcon?.classList.add('text-red-500');
-        notificationIcon?.classList.remove('text-foreground');
-        
-        if (!notificationBadge) {
-            const badge = document.createElement('span');
-            badge.className = 'absolute top-0 end-0 flex size-4 items-center justify-center rounded-full bg-danger text-[10px] font-semibold leading-none text-white notification-badge';
-            badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
-            notificationButton.appendChild(badge);
-        } else {
-            notificationBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
-            notificationBadge.style.display = 'flex';
+    fetch('/admin/notifications/unread-count', {
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+            'Accept': 'application/json',
         }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const unreadCount = data.unread_count || 0;
+        const highestPriority = data.highest_priority || 'normal';
         
+        // Remove all priority color classes
+        notificationIcon?.classList.remove('text-red-500', 'text-orange-500', 'text-blue-500', 'text-gray-500', 'text-foreground');
+        
+        if (unreadCount > 0) {
+            notificationButton.classList.add('has-unread');
+            
+            // Set icon color based on priority
+            // urgent = red, high = orange, normal = blue, low = gray
+            switch(highestPriority) {
+                case 'urgent':
+                    notificationIcon?.classList.add('text-red-500');
+                    break;
+                case 'high':
+                    notificationIcon?.classList.add('text-orange-500');
+                    break;
+                case 'normal':
+                    notificationIcon?.classList.add('text-blue-500');
+                    break;
+                case 'low':
+                    notificationIcon?.classList.add('text-gray-500');
+                    break;
+                default:
+                    notificationIcon?.classList.add('text-blue-500');
+            }
+            
+            // Update or create badge
+            if (!notificationBadge) {
+                const badge = document.createElement('span');
+                // Use size-5 (20px) with min-width/height for double-digit numbers, positioned slightly higher and to the right
+                badge.className = 'absolute -top-1 -end-1 flex size-5 items-center justify-center rounded-full bg-danger text-[11px] font-semibold leading-none text-white notification-badge';
+                badge.style.minWidth = '20px';
+                badge.style.minHeight = '20px';
+                badge.textContent = unreadCount.toString();
+                notificationButton.appendChild(badge);
+            } else {
+                notificationBadge.textContent = unreadCount.toString();
+                notificationBadge.style.display = 'flex';
+            }
+            
             // Don't add shake class here - let startShakeAnimation handle it
-    } else {
-        notificationButton.classList.remove('has-unread', 'shake');
-        notificationIcon?.classList.remove('text-red-500');
-        notificationIcon?.classList.add('text-foreground');
-        if (notificationBadge) {
-            notificationBadge.style.display = 'none';
+        } else {
+            notificationButton.classList.remove('has-unread', 'shake');
+            notificationIcon?.classList.add('text-foreground');
+            if (notificationBadge) {
+                notificationBadge.style.display = 'none';
+            }
         }
-    }
+    })
+    .catch(error => {
+    });
 }
 
 // Shake animation every 5 seconds if there are unread messages
