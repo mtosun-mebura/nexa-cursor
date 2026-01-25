@@ -68,11 +68,15 @@ class AgendaController extends Controller
         $appointments = [];
 
         foreach ($interviews as $interview) {
+            // Format times without timezone conversion - use local server time
+            $startTime = $interview->scheduled_at->format('Y-m-d\TH:i:s');
+            $endTime = $interview->scheduled_at->copy()->addMinutes($interview->duration ?? 60)->format('Y-m-d\TH:i:s');
+            
             $appointments[] = [
                 'id' => $interview->id,
                 'title' => $this->getInterviewTitle($interview),
-                'start' => $interview->scheduled_at->toISOString(),
-                'end' => $interview->scheduled_at->copy()->addMinutes($interview->duration ?? 60)->toISOString(),
+                'start' => $startTime,
+                'end' => $endTime,
                 'color' => $this->getEventColor($interview->type ?? 'interview'),
                 'extendedProps' => [
                     'candidate_name' => $interview->match->candidate->full_name ?? 'Onbekend',

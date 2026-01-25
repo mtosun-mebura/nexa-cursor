@@ -1021,21 +1021,21 @@ class AdminVacancyController extends Controller
             }
         }
         
-        // Determine interviewer info and user_id
+        // Determine interviewer info and interviewer_user_id
         $interviewerName = null;
         $interviewerEmail = null;
-        $userId = null;
+        $interviewerUserId = null;
         
         if ($request->filled('interviewer_id')) {
             if ($request->interviewer_id === 'other') {
                 // Custom interviewer name entered
                 $interviewerName = $request->interviewer_name_custom;
-                $userId = null;
+                $interviewerUserId = null;
             } else {
                 // User selected from dropdown
                 $interviewer = \App\Models\User::find($request->interviewer_id);
                 if ($interviewer) {
-                    $userId = $interviewer->id;
+                    $interviewerUserId = $interviewer->id;
                     $interviewerName = trim(($interviewer->first_name ?? '') . ' ' . ($interviewer->last_name ?? ''));
                     $interviewerEmail = $interviewer->email;
                 }
@@ -1054,7 +1054,7 @@ class AdminVacancyController extends Controller
                 'company_location_id' => $companyLocationId,
                 'interviewer_name' => $interviewerName,
                 'interviewer_email' => $interviewerEmail,
-                'user_id' => $userId,
+                'interviewer_user_id' => $interviewerUserId,
             ]);
             
             $interview = Interview::create([
@@ -1068,7 +1068,8 @@ class AdminVacancyController extends Controller
                 'company_location_id' => $companyLocationId,
                 'interviewer_name' => $interviewerName,
                 'interviewer_email' => $interviewerEmail,
-                'user_id' => $userId,
+                'interviewer_user_id' => $interviewerUserId,
+                'user_id' => $interviewerUserId, // Keep for backward compatibility
                 'notes' => $request->notes,
             ]);
             
@@ -1090,7 +1091,7 @@ class AdminVacancyController extends Controller
                     'company_location_id' => $companyLocationId,
                     'interviewer_name' => $interviewerName,
                     'interviewer_email' => $interviewerEmail,
-                    'user_id' => $userId,
+                    'interviewer_user_id' => $interviewerUserId,
                 ]
             ]);
             return redirect()->back()->withErrors(['error' => 'Er is een fout opgetreden bij het opslaan van het interview: ' . $e->getMessage()]);
@@ -1143,7 +1144,8 @@ class AdminVacancyController extends Controller
             'company_location_id' => $interview->company_location_id,
             'interviewer_name' => $interview->interviewer_name,
             'interviewer_email' => $interview->interviewer_email,
-            'user_id' => $interview->user_id,
+            'interviewer_user_id' => $interview->interviewer_user_id,
+            'user_id' => $interview->user_id, // Keep for comparison
         ];
 
         // Same validation as scheduleInterview
@@ -1270,20 +1272,20 @@ class AdminVacancyController extends Controller
             }
         }
         
-        // Determine interviewer info and user_id (same logic as scheduleInterview)
+        // Determine interviewer info and interviewer_user_id (same logic as scheduleInterview)
         $interviewerName = null;
         $interviewerEmail = null;
-        $userId = null;
+        $interviewerUserId = null;
         
         if ($request->filled('interviewer_id')) {
             if ($request->interviewer_id === 'other') {
                 $interviewerName = $request->interviewer_name_custom;
                 $interviewerEmail = $request->interviewer_email;
-                $userId = null;
+                $interviewerUserId = null;
             } else {
                 $interviewer = \App\Models\User::find($request->interviewer_id);
                 if ($interviewer) {
-                    $userId = $interviewer->id;
+                    $interviewerUserId = $interviewer->id;
                     $interviewerName = trim(($interviewer->first_name ?? '') . ' ' . ($interviewer->last_name ?? ''));
                     $interviewerEmail = $interviewer->email;
                 }
@@ -1302,7 +1304,8 @@ class AdminVacancyController extends Controller
             'company_location_id' => $companyLocationId,
             'interviewer_name' => $interviewerName,
             'interviewer_email' => $interviewerEmail,
-            'user_id' => $userId,
+            'interviewer_user_id' => $interviewerUserId,
+            'user_id' => $interviewerUserId, // Keep for backward compatibility
             'notes' => $request->notes,
         ];
         
@@ -1323,7 +1326,8 @@ class AdminVacancyController extends Controller
             'company_location_id' => $interview->company_location_id,
             'interviewer_name' => $interviewerName,
             'interviewer_email' => $interviewerEmail,
-            'user_id' => $userId,
+            'interviewer_user_id' => $interviewerUserId,
+            'user_id' => $interviewerUserId, // Keep for comparison
         ];
 
         $typeMap = [

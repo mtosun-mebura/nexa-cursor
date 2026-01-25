@@ -111,8 +111,7 @@
                                         required>
                                     <option value="">Selecteer type</option>
                                     <option value="match" {{ old('type', $notification->type) == 'match' ? 'selected' : '' }}>Match</option>
-                                    <option value="interview" {{ old('type', $notification->type) == 'interview' ? 'selected' : '' }}>Interview</option>
-                                    <option value="application" {{ old('type', $notification->type) == 'application' ? 'selected' : '' }}>Sollicitatie</option>
+                                    <option value="interview" {{ old('type', $notification->type) == 'interview' ? 'selected' : '' }}>Sollicitatie</option>
                                     <option value="system" {{ old('type', $notification->type) == 'system' ? 'selected' : '' }}>Systeem</option>
                                     <option value="email" {{ old('type', $notification->type) == 'email' ? 'selected' : '' }}>E-mail</option>
                                     <option value="reminder" {{ old('type', $notification->type) == 'reminder' ? 'selected' : '' }}>Herinnering</option>

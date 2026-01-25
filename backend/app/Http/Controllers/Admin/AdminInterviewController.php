@@ -216,6 +216,7 @@ class AdminInterviewController extends Controller
             'location' => 'nullable|string|max:255',
             'interviewer_name' => 'required|string|max:255',
             'interviewer_email' => 'required|email|max:255',
+            'interviewer_user_id' => 'nullable|exists:users,id',
             'notes' => 'nullable|string',
             'feedback' => 'nullable|string',
             'notification_id' => 'nullable|exists:notifications,id',
@@ -291,12 +292,18 @@ class AdminInterviewController extends Controller
             }
         }
         
+        // Ensure interviewer_user_id is also set in user_id for backward compatibility
+        if (isset($data['interviewer_user_id']) && !isset($data['user_id'])) {
+            $data['user_id'] = $data['interviewer_user_id'];
+        }
+        
         // Log interviewer data before saving
         \Log::info('Saving interview with final data', [
             'company_location_id' => $data['company_location_id'] ?? null,
             'location' => $data['location'] ?? null,
             'interviewer_name' => $data['interviewer_name'] ?? null,
             'interviewer_email' => $data['interviewer_email'] ?? null,
+            'interviewer_user_id' => $data['interviewer_user_id'] ?? null,
         ]);
         
         $interview = Interview::create($data);
@@ -560,6 +567,7 @@ class AdminInterviewController extends Controller
             'location' => 'nullable|string|max:255',
             'interviewer_name' => 'required|string|max:255',
             'interviewer_email' => 'required|email|max:255',
+            'interviewer_user_id' => 'nullable|exists:users,id',
             'notes' => 'nullable|string',
             'feedback' => 'nullable|string',
         ]);
@@ -624,12 +632,18 @@ class AdminInterviewController extends Controller
             }
         }
         
+        // Ensure interviewer_user_id is also set in user_id for backward compatibility
+        if (isset($data['interviewer_user_id']) && !isset($data['user_id'])) {
+            $data['user_id'] = $data['interviewer_user_id'];
+        }
+        
         // Log interviewer data before updating
         \Log::info('Updating interview with final data', [
             'company_location_id' => $data['company_location_id'] ?? null,
             'location' => $data['location'] ?? null,
             'interviewer_name' => $data['interviewer_name'] ?? null,
             'interviewer_email' => $data['interviewer_email'] ?? null,
+            'interviewer_user_id' => $data['interviewer_user_id'] ?? null,
         ]);
         
         $interview->update($data);

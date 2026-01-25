@@ -374,7 +374,8 @@ function createNotificationElement(notification) {
                                 let hasReason = false;
                                 
                                 if (messageText.includes('Datum:')) {
-                                    const dateMatch = messageText.match(/Datum:\s*([^,]+)/);
+                                    // Match date until comma, "Bericht:", "Locatie:", or end of string
+                                    const dateMatch = messageText.match(/Datum:\s*([^,]+?)(?=\s*(?:Bericht:|Locatie:|,|$))/);
                                     if (dateMatch) {
                                         dateText = dateMatch[1].trim();
                                     }
@@ -384,7 +385,7 @@ function createNotificationElement(notification) {
                                     const berichtIndex = messageText.indexOf('Bericht:');
                                     if (berichtIndex !== -1) {
                                         let extractedText = messageText.substring(berichtIndex + 8).trim();
-                                        extractedText = extractedText.replace(/Datum:\s*[^,]+/g, '').trim();
+                                        extractedText = extractedText.replace(/Datum:\s*[^,]+?(?=\s*(?:Bericht:|Locatie:|,|$))/g, '').trim();
                                         extractedText = extractedText.replace(/Locatie:\s*[^,]+/g, '').trim();
                                         extractedText = extractedText.replace(/\s+/g, ' ').replace(/^,\s*|\s*,$/g, '').trim();
                                         reasonText = extractedText;
@@ -851,7 +852,8 @@ function showNotificationDetail(notification) {
                         let hasReason = false;
                         
                         if (messageText.includes('Datum:')) {
-                            const dateMatch = messageText.match(/Datum:\s*([^,]+)/);
+                            // Match date until comma, "Bericht:", "Locatie:", or end of string
+                            const dateMatch = messageText.match(/Datum:\s*([^,]+?)(?=\s*(?:Bericht:|Locatie:|,|$))/);
                             if (dateMatch) {
                                 dateText = dateMatch[1].trim();
                             }
@@ -861,7 +863,7 @@ function showNotificationDetail(notification) {
                             const berichtIndex = messageText.indexOf('Bericht:');
                             if (berichtIndex !== -1) {
                                 let extractedText = messageText.substring(berichtIndex + 8).trim();
-                                extractedText = extractedText.replace(/Datum:\s*[^,]+/g, '').trim();
+                                extractedText = extractedText.replace(/Datum:\s*[^,]+?(?=\s*(?:Bericht:|Locatie:|,|$))/g, '').trim();
                                 extractedText = extractedText.replace(/Locatie:\s*[^,]+/g, '').trim();
                                 extractedText = extractedText.replace(/\s+/g, ' ').replace(/^,\s*|\s*,$/g, '').trim();
                                 reasonText = extractedText;

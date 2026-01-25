@@ -110,8 +110,7 @@
                                         required>
                                     <option value="">Selecteer type</option>
                                     <option value="match" {{ old('type') == 'match' ? 'selected' : '' }}>Match</option>
-                                    <option value="interview" {{ old('type') == 'interview' ? 'selected' : '' }}>Interview</option>
-                                    <option value="application" {{ old('type') == 'application' ? 'selected' : '' }}>Sollicitatie</option>
+                                    <option value="interview" {{ old('type') == 'interview' ? 'selected' : '' }}>Sollicitatie</option>
                                     <option value="system" {{ old('type') == 'system' ? 'selected' : '' }}>Systeem</option>
                                     <option value="email" {{ old('type') == 'email' ? 'selected' : '' }}>E-mail</option>
                                     <option value="reminder" {{ old('type') == 'reminder' ? 'selected' : '' }}>Herinnering</option>

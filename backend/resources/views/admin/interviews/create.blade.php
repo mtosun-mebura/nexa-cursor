@@ -24,11 +24,9 @@
 </div>
 
 @if(session('success'))
-    <div class="kt-container-fixed">
-        <div class="kt-alert kt-alert-success mb-5 auto-dismiss" role="alert" id="success-alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
-        </div>
+    <div class="mb-5 flex items-center justify-center gap-2 py-3 px-4" id="success-alert" role="alert" style="background-color: #10b981; color: white;">
+        <i class="ki-filled ki-check-circle"></i>
+        <span>{{ session('success') }}</span>
     </div>
 @endif
 
@@ -397,6 +395,7 @@
                                             @foreach($companyUsers ?? [] as $user)
                                                 <option value="{{ $user->first_name }} {{ $user->last_name }}" 
                                                         data-email="{{ $user->email }}"
+                                                        data-user-id="{{ $user->id }}"
                                                         {{ old('interviewer_name') == ($user->first_name . ' ' . $user->last_name) ? 'selected' : '' }}>
                                                     {{ $user->first_name }} {{ $user->last_name }}
                                                 </option>
@@ -424,14 +423,15 @@
                             <div class="flex flex-col" style="flex: 1;">
                                 <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
                                     <div style="position: relative; display: inline-block; width: auto; min-width: 400px;">
-                                        <input type="email"
-                                               class="kt-input @error('interviewer_email') border-destructive @enderror"
-                                               id="interviewer_email" name="interviewer_email"
-                                               value="{{ old('interviewer_email') }}"
-                                               style="width: auto; min-width: 400px; max-width: 100%;"
-                                               readonly
-                                               required>
+                                    <input type="email"
+                                           class="kt-input @error('interviewer_email') border-destructive @enderror"
+                                           id="interviewer_email" name="interviewer_email"
+                                           value="{{ old('interviewer_email') }}"
+                                           style="width: auto; min-width: 400px; max-width: 100%;"
+                                           readonly
+                                           required>
                                     </div>
+                                    <input type="hidden" id="interviewer_user_id" name="interviewer_user_id" value="{{ old('interviewer_user_id') }}">
                                     @error('interviewer_email')
                                         <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                             <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -1052,12 +1052,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             option.value = fullName;
                             option.textContent = fullName;
                             option.setAttribute('data-email', user.email || '');
+                            option.setAttribute('data-user-id', user.id || '');
                             // Restore selection if it matches
                             if (currentValue === fullName) {
                                 option.selected = true;
-                                // Set email immediately if this option is selected
+                                // Set email and user_id immediately if this option is selected
                                 if (emailInput && user.email) {
                                     emailInput.value = user.email;
+                                }
+                                const interviewerUserIdInput = document.getElementById('interviewer_user_id');
+                                if (interviewerUserIdInput && user.id) {
+                                    interviewerUserIdInput.value = user.id;
                                 }
                             }
                             interviewerSelect.appendChild(option);
@@ -1098,10 +1103,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!interviewerSelect || !emailInput) return;
             
             const selectedOption = interviewerSelect.options[interviewerSelect.selectedIndex];
+            const interviewerUserIdInput = document.getElementById('interviewer_user_id');
+            
             if (selectedOption && selectedOption.hasAttribute('data-email')) {
                 emailInput.value = selectedOption.getAttribute('data-email');
+                
+                // Also set interviewer_user_id if available
+                if (selectedOption.hasAttribute('data-user-id') && interviewerUserIdInput) {
+                    interviewerUserIdInput.value = selectedOption.getAttribute('data-user-id');
+                }
             } else {
                 emailInput.value = '';
+                if (interviewerUserIdInput) {
+                    interviewerUserIdInput.value = '';
+                }
             }
         }
         

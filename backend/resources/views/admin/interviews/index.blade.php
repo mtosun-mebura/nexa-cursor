@@ -19,9 +19,9 @@
 
     <!-- Success Alert -->
     @if(session('success'))
-        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
-            <i class="ki-filled ki-check-circle me-2"></i>
-            {{ session('success') }}
+        <div class="mb-5 flex items-center justify-center gap-2 py-3 px-4 rounded-lg" id="success-alert" role="alert" style="background-color: #10b981; color: white;">
+            <i class="ki-filled ki-check-circle"></i>
+            <span>{{ session('success') }}</span>
         </div>
     @endif
 

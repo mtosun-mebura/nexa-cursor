@@ -297,8 +297,7 @@
                             @php
                                 $typeLabels = [
                                     'match' => 'Match',
-                                    'interview' => 'Interview',
-                                    'application' => 'Sollicitatie',
+                                    'interview' => 'Sollicitatie',
                                     'system' => 'Systeem',
                                     'email' => 'E-mail',
                                     'reminder' => 'Herinnering',
