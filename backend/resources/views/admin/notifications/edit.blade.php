@@ -502,114 +502,51 @@
 
 @push('styles')
 <style>
-    /* Ensure optgroups are visible in KT Select dropdowns - specific for user_id dropdown */
-    #user_id + .kt-select-wrapper .kt-select-group-header,
-    #user_id + .kt-select-wrapper [data-kt-select-group-header],
-    .kt-select-wrapper:has(#user_id) .kt-select-group-header,
-    .kt-select-wrapper:has(#user_id) [data-kt-select-group-header] {
+    /* Optgroup header styling - must be very specific to override KT Select styles */
+    [data-kt-select-dropdown] .kt-select-group-header,
+    [data-kt-select-dropdown] [data-kt-select-group-header],
+    ul .kt-select-group-header,
+    ul [data-kt-select-group-header] {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
         font-weight: 600 !important;
-        color: var(--muted-foreground) !important;
-        background-color: var(--muted) !important;
         text-transform: uppercase !important;
         padding: 0.5rem 0.75rem !important;
         font-size: 0.75rem !important;
-        border-bottom: 1px solid var(--border) !important;
-        margin-top: 0.5rem !important;
-        margin-bottom: 0.25rem !important;
-    }
-    
-    #user_id + .kt-select-wrapper .kt-select-group,
-    #user_id + .kt-select-wrapper [data-kt-select-group],
-    .kt-select-wrapper:has(#user_id) .kt-select-group,
-    .kt-select-wrapper:has(#user_id) [data-kt-select-group] {
-        display: block !important;
-        visibility: visible !important;
-    }
-    
-    #user_id + .kt-select-wrapper .kt-select-group:first-child .kt-select-group-header,
-    .kt-select-wrapper:has(#user_id) .kt-select-group:first-child .kt-select-group-header {
-        margin-top: 0 !important;
-    }
-    
-    /* Indent options within optgroups to show they belong to that group */
-    #user_id + .kt-select-wrapper .kt-select-group .kt-select-option,
-    .kt-select-wrapper:has(#user_id) .kt-select-group .kt-select-option {
-        padding-left: 1.5rem !important;
-        margin-left: 0.5rem !important;
-    }
-    
-    /* General optgroup styling for all KT Select dropdowns */
-    .kt-select-group-header,
-    [data-kt-select-group-header] {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        font-weight: 600 !important;
-        color: #6b7280 !important; /* gray-500 fallback */
-        background-color: #f3f4f6 !important; /* gray-100 fallback */
-        text-transform: uppercase !important;
-        padding: 0.5rem 0.75rem !important;
-        font-size: 0.75rem !important;
-        border-bottom: 1px solid #e5e7eb !important; /* gray-200 fallback */
         margin-top: 0.5rem !important;
         margin-bottom: 0.25rem !important;
         letter-spacing: 0.05em !important;
+        cursor: default !important;
+        pointer-events: none !important;
+        user-select: none !important;
+        color: #6b7280 !important;
+        background-color: #f3f4f6 !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        list-style: none !important;
     }
     
-    .dark .kt-select-group-header,
-    .dark [data-kt-select-group-header] {
-        color: #9ca3af !important; /* gray-400 for dark mode */
-        background-color: #374151 !important; /* gray-700 for dark mode */
-        border-bottom-color: #4b5563 !important; /* gray-600 for dark mode */
-    }
-    
-    .kt-select-group,
-    [data-kt-select-group] {
-        display: block !important;
-        visibility: visible !important;
-    }
-    
-    .kt-select-group:first-child .kt-select-group-header,
-    .kt-select-group:first-child [data-kt-select-group-header] {
+    [data-kt-select-dropdown] .kt-select-group-header:first-child,
+    [data-kt-select-dropdown] [data-kt-select-group-header]:first-child,
+    ul .kt-select-group-header:first-child,
+    ul [data-kt-select-group-header]:first-child {
         margin-top: 0 !important;
     }
     
-    .kt-select-group .kt-select-option,
-    [data-kt-select-group] .kt-select-option {
-        padding-left: 1.5rem !important;
-        margin-left: 0.5rem !important;
-    }
-    
-    /* Fallback for browsers that don't support :has() */
-    .kt-select-wrapper[data-user-select] .kt-select-group-header,
-    .kt-select-wrapper[data-user-select] [data-kt-select-group-header] {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        font-weight: 600 !important;
-        color: #6b7280 !important;
-        background-color: #f3f4f6 !important;
-        text-transform: uppercase !important;
-        padding: 0.5rem 0.75rem !important;
-        font-size: 0.75rem !important;
-        border-bottom: 1px solid #e5e7eb !important;
-        margin-top: 0.5rem !important;
-        margin-bottom: 0.25rem !important;
-    }
-    
-    .dark .kt-select-wrapper[data-user-select] .kt-select-group-header,
-    .dark .kt-select-wrapper[data-user-select] [data-kt-select-group-header] {
+    /* Dark mode styling */
+    .dark [data-kt-select-dropdown] .kt-select-group-header,
+    .dark [data-kt-select-dropdown] [data-kt-select-group-header],
+    .dark ul .kt-select-group-header,
+    .dark ul [data-kt-select-group-header] {
         color: #9ca3af !important;
         background-color: #374151 !important;
         border-bottom-color: #4b5563 !important;
     }
     
-    .kt-select-wrapper[data-user-select] .kt-select-group .kt-select-option {
+    /* Indent options that are in optgroups - JavaScript will add inline styles, but this is a fallback */
+    [data-kt-select-dropdown] [data-kt-select-option][style*="padding-left"],
+    [data-kt-select-dropdown] li[data-kt-select-option][style*="padding-left"] {
         padding-left: 1.5rem !important;
-        margin-left: 0.5rem !important;
     }
     
     /* Validation icon wrapper styling - positioned next to fields, not inside */
@@ -838,35 +775,457 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Ensure optgroups are properly rendered in KT Select
-    // Reinitialize KT Select after a short delay to ensure optgroups are visible
-    setTimeout(function() {
-        const userSelect = document.getElementById('user_id');
-        if (userSelect) {
-            // Add data attribute for fallback CSS
-            const wrapper = userSelect.closest('.kt-select-wrapper') || userSelect.parentElement;
-            if (wrapper) {
-                wrapper.setAttribute('data-user-select', 'true');
-            }
-            
-            if (window.KTSelect) {
-                try {
-                    // Get or create KT Select instance
-                    let instance = window.KTSelect.getInstance(userSelect);
-                    if (!instance) {
-                        window.KTSelect.init(userSelect);
-                        instance = window.KTSelect.getInstance(userSelect);
-                    }
-                    
-                    // Force update to ensure optgroups are rendered
-                    if (instance && typeof instance.update === 'function') {
-                        instance.update();
-                    }
-                } catch (e) {
-                    console.warn('KT Select optgroup rendering:', e);
+    // Manually render optgroups from native HTML select to KT Select dropdown
+    let optgroupRenderingInProgress = false;
+    let optgroupObserver = null;
+    let optgroupIntervalId = null;
+    
+    function findKtSelectElements(selectElement) {
+        // Find the display element (the button that opens the dropdown)
+        // It should be near the select element
+        let display = selectElement.parentElement?.querySelector('[data-kt-select-display]');
+        if (!display) {
+            // Try finding it in a wider search
+            const parent = selectElement.closest('div');
+            display = parent?.querySelector('[data-kt-select-display]');
+        }
+        if (!display) {
+            // Last resort: search from the select's position
+            const allDisplays = document.querySelectorAll('[data-kt-select-display]');
+            // Find the one closest to our select
+            for (const d of allDisplays) {
+                const dSelect = d.closest('div')?.querySelector('select#user_id');
+                if (dSelect === selectElement) {
+                    display = d;
+                    break;
                 }
             }
         }
-    }, 500);
+        
+        if (!display) return null;
+        
+        // Find the dropdown - it's usually appended to body or near the display
+        // KT Select often appends dropdowns to body
+        let dropdown = null;
+        
+        // First try: find dropdown associated with this select by data attribute
+        const allDropdowns = document.querySelectorAll('[data-kt-select-dropdown]');
+        for (const dd of allDropdowns) {
+            // Check if this dropdown is related to our select
+            // KT Select usually stores a reference or we can check by position
+            const ddOptions = dd.querySelectorAll('[data-kt-select-option]');
+            if (ddOptions.length > 0) {
+                // Check if any option matches our select's options
+                const selectOptions = Array.from(selectElement.querySelectorAll('option'));
+                let matchCount = 0;
+                ddOptions.forEach(opt => {
+                    const optValue = opt.getAttribute('data-value') || opt.getAttribute('data-kt-select-value') || '';
+                    if (selectOptions.some(so => so.value === optValue)) {
+                        matchCount++;
+                    }
+                });
+                if (matchCount > 0) {
+                    dropdown = dd;
+                    break;
+                }
+            }
+        }
+        
+        // Fallback: if we have display, try to find dropdown that appears when display is clicked
+        if (!dropdown && display) {
+            // Try finding by proximity or by checking which dropdown opens
+            const tempDropdown = document.querySelector('[data-kt-select-dropdown].open');
+            if (tempDropdown) {
+                dropdown = tempDropdown;
+            }
+        }
+        
+        // Find the options list inside the dropdown
+        const optionsList = dropdown?.querySelector('ul') || dropdown?.querySelector('[data-kt-select-options]');
+        
+        return { display, wrapper: display?.parentElement, dropdown, optionsList };
+    }
+    
+    function renderOptgroups() {
+        if (optgroupRenderingInProgress) return;
+        optgroupRenderingInProgress = true;
+        
+        try {
+            const userSelect = document.getElementById('user_id');
+            if (!userSelect) {
+                optgroupRenderingInProgress = false;
+                return;
+            }
+            
+            // Find KT Select elements using improved method
+            const ktElements = findKtSelectElements(userSelect);
+            if (!ktElements || !ktElements.dropdown || !ktElements.optionsList) {
+                optgroupRenderingInProgress = false;
+                return;
+            }
+            
+            const { dropdown, optionsList } = ktElements;
+            
+            // Only render if dropdown is open or we're initializing
+            if (!dropdown.classList.contains('open') && !dropdown.hasAttribute('data-initialized')) {
+                optgroupRenderingInProgress = false;
+                return;
+            }
+            
+            // Get all optgroups from the native select
+            const optgroups = userSelect.querySelectorAll('optgroup');
+            if (optgroups.length === 0) {
+                optgroupRenderingInProgress = false;
+                return;
+            }
+            
+            // Get all existing options (KT Select has already rendered them)
+            // Try multiple selectors to find all options
+            let allOptions = Array.from(optionsList.querySelectorAll('li[data-kt-select-option]'));
+            if (allOptions.length === 0) {
+                allOptions = Array.from(optionsList.querySelectorAll('li.kt-select-option'));
+            }
+            if (allOptions.length === 0) {
+                allOptions = Array.from(optionsList.querySelectorAll('[data-kt-select-option]'));
+            }
+            if (allOptions.length === 0) {
+                allOptions = Array.from(optionsList.querySelectorAll('[role="option"]'));
+            }
+            if (allOptions.length === 0) {
+                // Last resort: get all li elements that are not headers
+                allOptions = Array.from(optionsList.querySelectorAll('li:not(.kt-select-group-header):not([data-kt-select-group-header])'));
+            }
+            
+            if (allOptions.length === 0) {
+                optgroupRenderingInProgress = false;
+                return;
+            }
+            
+            // Remove existing headers first to avoid duplicates
+            const existingHeaders = optionsList.querySelectorAll('.kt-select-group-header, [data-kt-select-group-header]');
+            existingHeaders.forEach(h => h.remove());
+            
+            // Create a map of rendered options by their value and text
+            const optionsByValue = new Map();
+            const optionsByText = new Map();
+            
+            allOptions.forEach(opt => {
+                // Try multiple ways to get the value
+                const value = opt.getAttribute('data-value') || 
+                            opt.getAttribute('value') || 
+                            opt.getAttribute('data-kt-select-value') ||
+                            opt.closest('[data-kt-select-option]')?.getAttribute('data-value') ||
+                            '';
+                
+                // Get text content - try multiple ways
+                let text = opt.textContent?.trim() || '';
+                if (!text) {
+                    const textEl = opt.querySelector('.kt-select-option-text, [data-kt-select-option-text]');
+                    text = textEl?.textContent?.trim() || '';
+                }
+                
+                if (value) {
+                    optionsByValue.set(value, opt);
+                }
+                if (text) {
+                    // Store multiple text variations
+                    optionsByText.set(text, opt);
+                    // Also try without extra spaces
+                    optionsByText.set(text.replace(/\s+/g, ' '), opt);
+                }
+            });
+            
+            // Process each optgroup and insert headers before the relevant options
+            optgroups.forEach((optgroup, groupIndex) => {
+                const label = optgroup.getAttribute('label');
+                const groupOptions = Array.from(optgroup.querySelectorAll('option'));
+                
+                if (groupOptions.length === 0) return;
+                
+                // Find the first option from this group in the rendered list
+                let firstOptionInGroup = null;
+                for (const groupOption of groupOptions) {
+                    const optionValue = groupOption.value;
+                    const optionText = groupOption.textContent?.trim() || '';
+                    
+                    // Try to find by value first (most reliable)
+                    if (optionValue) {
+                        const renderedOption = optionsByValue.get(optionValue);
+                        if (renderedOption) {
+                            firstOptionInGroup = renderedOption;
+                            break;
+                        }
+                    }
+                    
+                    // Fallback: try to find by text content (exact match)
+                    if (optionText) {
+                        let renderedOption = optionsByText.get(optionText);
+                        if (renderedOption) {
+                            firstOptionInGroup = renderedOption;
+                            break;
+                        }
+                        
+                        // Try normalized text (remove extra spaces)
+                        const normalizedText = optionText.replace(/\s+/g, ' ');
+                        renderedOption = optionsByText.get(normalizedText);
+                        if (renderedOption) {
+                            firstOptionInGroup = renderedOption;
+                            break;
+                        }
+                        
+                        // Try partial match - check if any rendered option contains this text
+                        for (const [text, opt] of optionsByText.entries()) {
+                            if (text.includes(optionText) || optionText.includes(text)) {
+                                firstOptionInGroup = opt;
+                                break;
+                            }
+                        }
+                        if (firstOptionInGroup) break;
+                    }
+                }
+                
+                if (!firstOptionInGroup) {
+                    return; // Skip if we can't find the option
+                }
+                
+                // Create group header
+                const groupHeader = document.createElement('li');
+                groupHeader.className = 'kt-select-group-header';
+                groupHeader.setAttribute('data-kt-select-group-header', 'true');
+                groupHeader.setAttribute('role', 'presentation');
+                groupHeader.textContent = label;
+                
+                // Apply styles with !important to override any KT Select styles
+                const isDark = document.documentElement.classList.contains('dark');
+                groupHeader.style.cssText = `
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    font-weight: 600 !important;
+                    text-transform: uppercase !important;
+                    padding: 0.5rem 0.75rem !important;
+                    font-size: 0.75rem !important;
+                    margin-top: ${groupIndex === 0 ? '0' : '0.5rem'} !important;
+                    margin-bottom: 0.25rem !important;
+                    letter-spacing: 0.05em !important;
+                    cursor: default !important;
+                    pointer-events: none !important;
+                    color: ${isDark ? '#9ca3af' : '#6b7280'} !important;
+                    background-color: ${isDark ? '#374151' : '#f3f4f6'} !important;
+                    border-bottom: 1px solid ${isDark ? '#4b5563' : '#e5e7eb'} !important;
+                `;
+                
+                // Insert header before the first option of this group
+                optionsList.insertBefore(groupHeader, firstOptionInGroup);
+                
+                // Add indentation to all options in this group
+                groupOptions.forEach(groupOption => {
+                    const optionValue = groupOption.value;
+                    const optionText = groupOption.textContent?.trim() || '';
+                    
+                    let renderedOption = null;
+                    
+                    // Try by value first
+                    if (optionValue) {
+                        renderedOption = optionsByValue.get(optionValue);
+                    }
+                    
+                    // Fallback: try by text
+                    if (!renderedOption && optionText) {
+                        renderedOption = optionsByText.get(optionText);
+                        if (!renderedOption) {
+                            const normalizedText = optionText.replace(/\s+/g, ' ');
+                            renderedOption = optionsByText.get(normalizedText);
+                        }
+                    }
+                    
+                    if (renderedOption) {
+                        // Apply indentation with !important via setProperty
+                        renderedOption.style.setProperty('padding-left', '1.5rem', 'important');
+                        renderedOption.style.setProperty('margin-left', '0.5rem', 'important');
+                    }
+                });
+            });
+            
+            // Mark as initialized
+            dropdown.setAttribute('data-initialized', 'true');
+        } catch (e) {
+            console.error('Error rendering optgroups:', e);
+        } finally {
+            optgroupRenderingInProgress = false;
+        }
+    }
+    
+    // Function to observe and re-render optgroups when dropdown content changes
+    function setupOptgroupObserver() {
+        const userSelect = document.getElementById('user_id');
+        if (!userSelect) return;
+        
+        const ktElements = findKtSelectElements(userSelect);
+        if (!ktElements || !ktElements.optionsList) return;
+        
+        // Stop existing observer if any
+        if (optgroupObserver) {
+            optgroupObserver.disconnect();
+        }
+        
+        // Observe changes to the options list
+        optgroupObserver = new MutationObserver(function(mutations) {
+            let shouldRender = false;
+            mutations.forEach(function(mutation) {
+                // Check if options were added or removed
+                if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
+                    // Check if it's not our own header being added
+                    const addedHeaders = Array.from(mutation.addedNodes).filter(node => 
+                        node.nodeType === 1 && 
+                        (node.classList?.contains('kt-select-group-header') || node.hasAttribute('data-kt-select-group-header'))
+                    );
+                    if (addedHeaders.length === 0) {
+                        shouldRender = true;
+                    }
+                }
+            });
+            
+            if (shouldRender) {
+                // Wait a bit for KT Select to finish rendering, then render optgroups
+                setTimeout(renderOptgroups, 50);
+            }
+        });
+        
+        optgroupObserver.observe(ktElements.optionsList, {
+            childList: true,
+            subtree: false
+        });
+    }
+    
+    // Function to start monitoring when dropdown opens
+    function startOptgroupMonitoring() {
+        if (optgroupIntervalId) clearInterval(optgroupIntervalId);
+        
+        optgroupIntervalId = setInterval(function() {
+            const userSelect = document.getElementById('user_id');
+            if (!userSelect) {
+                if (optgroupIntervalId) clearInterval(optgroupIntervalId);
+                return;
+            }
+            
+            const ktElements = findKtSelectElements(userSelect);
+            if (!ktElements || !ktElements.dropdown) return;
+            
+            // Only check when dropdown is open
+            if (ktElements.dropdown.classList.contains('open')) {
+                const optgroups = userSelect.querySelectorAll('optgroup');
+                const existingHeaders = ktElements.optionsList?.querySelectorAll('.kt-select-group-header, [data-kt-select-group-header]') || [];
+                
+                // If dropdown is open but headers are missing, re-render immediately
+                if (optgroups.length > 0 && existingHeaders.length < optgroups.length) {
+                    renderOptgroups();
+                }
+            }
+        }, 100);
+    }
+    
+    // Wait for KT Select to initialize, then render optgroups
+    function initializeOptgroups() {
+        const userSelect = document.getElementById('user_id');
+        if (!userSelect) return;
+        
+        const ktElements = findKtSelectElements(userSelect);
+        if (!ktElements) {
+            // Retry after a short delay
+            setTimeout(initializeOptgroups, 200);
+            return;
+        }
+        
+        // Setup observer
+        setupOptgroupObserver();
+        
+        // Render optgroups after initial delay
+        setTimeout(function() {
+            renderOptgroups();
+            setupOptgroupObserver();
+        }, 300);
+        
+        // Listen for dropdown open events on the display button
+        if (ktElements.display) {
+            const clickHandler = function() {
+                startOptgroupMonitoring();
+                // Multiple timeouts to catch the dropdown at different stages of opening
+                setTimeout(function() {
+                    renderOptgroups();
+                }, 10);
+                setTimeout(function() {
+                    renderOptgroups();
+                }, 50);
+                setTimeout(function() {
+                    renderOptgroups();
+                }, 150);
+                setTimeout(function() {
+                    renderOptgroups();
+                }, 300);
+                setTimeout(function() {
+                    renderOptgroups();
+                }, 500);
+            };
+            ktElements.display.addEventListener('click', clickHandler);
+            // Also listen for focus events
+            ktElements.display.addEventListener('focus', clickHandler);
+        }
+        
+        // Listen for dropdown open/close via class changes
+        if (ktElements.dropdown) {
+            const dropdownObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        if (ktElements.dropdown.classList.contains('open')) {
+                            startOptgroupMonitoring();
+                            // Multiple timeouts to ensure headers are added
+                            setTimeout(function() {
+                                renderOptgroups();
+                            }, 10);
+                            setTimeout(function() {
+                                renderOptgroups();
+                            }, 50);
+                            setTimeout(function() {
+                                renderOptgroups();
+                            }, 150);
+                            setTimeout(function() {
+                                renderOptgroups();
+                            }, 300);
+                            setTimeout(function() {
+                                renderOptgroups();
+                            }, 500);
+                        } else {
+                            if (optgroupIntervalId) {
+                                clearInterval(optgroupIntervalId);
+                                optgroupIntervalId = null;
+                            }
+                        }
+                    }
+                });
+            });
+            dropdownObserver.observe(ktElements.dropdown, { 
+                attributes: true, 
+                attributeFilter: ['class'] 
+            });
+            
+            // Also observe child list changes (when options are added/removed)
+            if (ktElements.optionsList) {
+                const optionsObserver = new MutationObserver(function() {
+                    if (ktElements.dropdown.classList.contains('open')) {
+                        setTimeout(renderOptgroups, 50);
+                    }
+                });
+                optionsObserver.observe(ktElements.optionsList, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        }
+    }
+    
+    // Start initialization after DOM is ready
+    setTimeout(initializeOptgroups, 500);
 });
 </script>
 @endpush
