@@ -344,7 +344,17 @@ class AdminNotificationController extends Controller
             'action_url' => 'nullable|url',
             'data' => 'nullable|string',
             'scheduled_at' => 'nullable|date',
-            'scheduled_time' => ['nullable', 'string', 'regex:#^([0-1][0-9]|2[0-3]):[0-5][0-9]$#'],
+            'scheduled_time' => [
+                'nullable',
+                'string',
+                'regex:#^([0-1][0-9]|2[0-3]):[0-5][0-9]$#',
+                function ($attribute, $value, $fail) use ($request) {
+                    // If scheduled_at is filled, scheduled_time is required
+                    if ($request->filled('scheduled_at') && empty($value)) {
+                        $fail('Tijd is verplicht wanneer een datum is ingevuld.');
+                    }
+                },
+            ],
             'location_id' => ['nullable', function ($attribute, $value, $fail) {
                 // Allow "company_main" (will be converted to 0), "remote" or -1 (will be converted to -1), 0, null, or empty
                 // Only validate numeric values that are not 0 or -1
@@ -725,7 +735,17 @@ class AdminNotificationController extends Controller
             'action_url' => 'nullable|url',
             'data' => 'nullable|string',
             'scheduled_at' => 'nullable|date',
-            'scheduled_time' => ['nullable', 'string', 'regex:#^([0-1][0-9]|2[0-3]):[0-5][0-9]$#'],
+            'scheduled_time' => [
+                'nullable',
+                'string',
+                'regex:#^([0-1][0-9]|2[0-3]):[0-5][0-9]$#',
+                function ($attribute, $value, $fail) use ($request) {
+                    // If scheduled_at is filled, scheduled_time is required
+                    if ($request->filled('scheduled_at') && empty($value)) {
+                        $fail('Tijd is verplicht wanneer een datum is ingevuld.');
+                    }
+                },
+            ],
             'location_id' => ['nullable', function ($attribute, $value, $fail) {
                 // Allow "company_main" (will be converted to 0), "remote" or -1 (will be converted to -1), 0, null, or empty
                 // Only validate numeric values that are not 0 or -1
@@ -1204,6 +1224,14 @@ class AdminNotificationController extends Controller
                 }
             }
             
+            // Calculate end time if we have an interview with duration
+            $scheduledEndTime = null;
+            $duration = null;
+            if ($interview && $notification->scheduled_at) {
+                $duration = $interview->duration ?? 60; // Default 60 minutes if not set
+                $scheduledEndTime = $notification->scheduled_at->copy()->addMinutes($duration)->format('H:i');
+            }
+            
             // If no locationInfo yet and we have an interview, try to get location from interview
             if (!$locationInfo && $interview) {
                 if ($interview->location) {
@@ -1269,6 +1297,8 @@ class AdminNotificationController extends Controller
                 'scheduled_at_formatted' => $scheduledAtFormatted,
                 'scheduled_date' => $scheduledDate,
                 'scheduled_time' => $scheduledTime,
+                'scheduled_end_time' => $scheduledEndTime,
+                'duration' => $duration,
                 'location' => $locationInfo,
                 'location_id' => $notification->location_id !== null ? (int)$notification->location_id : null, // Include location_id for prefilling (preserve 0 as 0, -1 as -1, not null)
                 'match_id' => $matchId,
@@ -1365,14 +1395,70 @@ class AdminNotificationController extends Controller
             $sender = \App\Models\User::find($senderId);
             $companyId = $sender ? $sender->company_id : $this->getTenantId();
             
+            // Check if this is a response to a changed appointment notification
+            $isChangeNotification = ($notification->title === 'Interview gewijzigd') || 
+                                    (isset($notificationData['is_change_notification']) && $notificationData['is_change_notification']);
+            $interviewId = $notificationData['interview_id'] ?? null;
+            
+            // Try to get vacancy title from match_id
+            $vacancyTitle = null;
+            $matchIdFromData = $notificationData['match_id'] ?? null;
+            if ($matchIdFromData) {
+                $match = \App\Models\JobMatch::with('vacancy')->find($matchIdFromData);
+                if ($match && $match->vacancy) {
+                    $vacancyTitle = $match->vacancy->title;
+                }
+            }
+            
             // Build response message with appointment details
             $responseMessage = $request->response === 'accept' 
-                ? 'Heeft je interview uitnodiging geaccepteerd.'
-                : 'Heeft je interview uitnodiging afgewezen.';
+                ? ($isChangeNotification ? 'Heeft de gewijzigde afspraak geaccepteerd.' : 'Heeft je interview uitnodiging geaccepteerd.')
+                : ($isChangeNotification ? 'Heeft de gewijzigde afspraak afgewezen.' : 'Heeft je interview uitnodiging afgewezen.');
             
-            // Add appointment details to message
+            // Add vacancy title if available
+            if ($vacancyTitle) {
+                $responseMessage .= "\nVacature: " . $vacancyTitle;
+            }
+            
+            // For change notifications, extract and include ALL change details from original message
+            if ($isChangeNotification && $notification->message) {
+                $originalMessage = $notification->message;
+                
+                // Extract all change lines (lines containing →)
+                $changeLines = [];
+                
+                // Look for date/time change (Datum/tijd: X → Y)
+                if (preg_match('/Datum\/tijd:\s*[^\n]*→[^\n]*/u', $originalMessage, $matches)) {
+                    $changeLines[] = trim($matches[0]);
+                }
+                
+                // Look for duration change (Duur: X → Y)
+                if (preg_match('/Duur:\s*[^\n]*→[^\n]*/u', $originalMessage, $matches)) {
+                    $changeLines[] = trim($matches[0]);
+                }
+                
+                // Look for location change (Locatie: X → Y) - only if it contains →
+                if (preg_match('/Locatie:\s*[^\n]*→[^\n]*/u', $originalMessage, $matches)) {
+                    $changeLines[] = trim($matches[0]);
+                }
+                
+                // Add change lines to response message
+                if (!empty($changeLines)) {
+                    $responseMessage .= "\n\n" . implode("\n", $changeLines);
+                }
+                
+                // Extract the entire "Nieuwe afspraak:" section (everything from "Nieuwe afspraak:" to the end)
+                if (preg_match('/Nieuwe afspraak:\s*\n(.+)/su', $originalMessage, $matches)) {
+                    $nieuweAfspraakContent = trim($matches[1]);
+                    if (!empty($nieuweAfspraakContent)) {
+                        $responseMessage .= "\n\nNieuwe afspraak:\n" . $nieuweAfspraakContent;
+                    }
+                }
+            }
+            
+            // Add appointment details to message (for non-change notifications or as fallback)
             $appointmentDetails = [];
-            if ($notification->scheduled_at) {
+            if (!$isChangeNotification && $notification->scheduled_at) {
                 $appointmentDetails[] = 'Datum: ' . $notification->scheduled_at->format('d-m-Y H:i');
             }
             
@@ -1381,29 +1467,31 @@ class AdminNotificationController extends Controller
             $notificationData = json_decode($notification->data, true);
             $locationOrType = $notificationData['location_or_type'] ?? null;
             
-            if ($locationOrType === 'Op afstand' || $notification->location_id == -1 || $notification->location_id === -1) {
-                $appointmentDetails[] = 'Locatie: Op afstand';
-            } elseif ($notification->location_id && $notification->location_id != -1) {
-                $location = \App\Models\CompanyLocation::find($notification->location_id);
-                if ($location) {
-                    $locationAddress = trim(($location->street ?? '') . ' ' . ($location->house_number ?? '') . ($location->house_number_extension ? '-' . $location->house_number_extension : ''));
-                    $locationAddress = trim($locationAddress . ' ' . ($location->postal_code ?? '') . ' ' . ($location->city ?? ''));
-                    $appointmentDetails[] = 'Locatie: ' . ($location->name ?? '') . ($locationAddress ? ' - ' . $locationAddress : '');
-                } elseif ($notification->location_id == 0) {
-                    // Main company address
-                    $company = \App\Models\Company::find($companyId);
-                    if ($company) {
-                        $appointmentDetails[] = 'Locatie: ' . ($company->name ?? '') . ' - Hoofdadres';
+            if (!$isChangeNotification) {
+                if ($locationOrType === 'Op afstand' || $notification->location_id == -1 || $notification->location_id === -1) {
+                    $appointmentDetails[] = 'Locatie: Op afstand';
+                } elseif ($notification->location_id && $notification->location_id != -1) {
+                    $location = \App\Models\CompanyLocation::find($notification->location_id);
+                    if ($location) {
+                        $locationAddress = trim(($location->street ?? '') . ' ' . ($location->house_number ?? '') . ($location->house_number_extension ? '-' . $location->house_number_extension : ''));
+                        $locationAddress = trim($locationAddress . ' ' . ($location->postal_code ?? '') . ' ' . ($location->city ?? ''));
+                        $appointmentDetails[] = 'Locatie: ' . ($location->name ?? '') . ($locationAddress ? ' - ' . $locationAddress : '');
+                    } elseif ($notification->location_id == 0) {
+                        // Main company address
+                        $company = \App\Models\Company::find($companyId);
+                        if ($company) {
+                            $appointmentDetails[] = 'Locatie: ' . ($company->name ?? '') . ' - Hoofdadres';
+                        }
                     }
                 }
             }
             
             if (!empty($appointmentDetails)) {
-                $responseMessage .= ' ' . implode(', ', $appointmentDetails);
+                $responseMessage .= "\n" . implode("\n", $appointmentDetails);
             }
             
             if ($request->message) {
-                $responseMessage .= ' Bericht: ' . $request->message;
+                $responseMessage .= "\n\nBericht: " . $request->message;
             }
             
             // Prepare response notification data
@@ -1413,7 +1501,16 @@ class AdminNotificationController extends Controller
                 'responder_id' => auth()->id(),
                 'scheduled_at' => $notification->scheduled_at ? $notification->scheduled_at->toIso8601String() : null,
                 'location_id' => $notification->location_id,
+                'is_change_notification' => $isChangeNotification,
+                'interview_id' => $interviewId,
+                'vacancy_title' => $vacancyTitle,
+                'match_id' => $matchIdFromData,
             ];
+            
+            // For change notifications, store original change details in data
+            if ($isChangeNotification && $notification->message) {
+                $responseNotificationData['original_change_message'] = $notification->message;
+            }
             
             // If accepted, add match_id and set requires_response for "Inplannen" button
             $matchId = null;
@@ -1462,12 +1559,17 @@ class AdminNotificationController extends Controller
                 }
             }
             
+            // Determine title based on whether it's a change notification response
+            $responseTitle = $isChangeNotification 
+                ? 'Gewijzigde afspraak reactie' 
+                : 'Interview reactie';
+            
             Notification::create([
                 'user_id' => $senderId,
                 'company_id' => $companyId,
                 'type' => 'interview',
                 'category' => $request->response === 'accept' ? 'success' : 'warning',
-                'title' => 'Interview reactie',
+                'title' => $responseTitle,
                 'message' => auth()->user()->first_name . ' ' . auth()->user()->last_name . ' ' . $responseMessage,
                 'priority' => 'normal',
                 'scheduled_at' => $notification->scheduled_at,

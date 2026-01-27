@@ -190,10 +190,25 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal align-top">
-                            Duur (minuten)
+                            Duur
                         </td>
                         <td class="text-foreground font-normal">
-                            {{ $interview->duration ?? 'Niet opgegeven' }}
+                            @if($interview->duration)
+                                @php
+                                    $hours = floor($interview->duration / 60);
+                                    $mins = $interview->duration % 60;
+                                    if ($hours == 0) {
+                                        $duurLabel = '0:' . str_pad($mins, 2, '0', STR_PAD_LEFT);
+                                    } elseif ($mins == 0) {
+                                        $duurLabel = $hours . ' uur';
+                                    } else {
+                                        $duurLabel = $hours . ':' . str_pad($mins, 2, '0', STR_PAD_LEFT);
+                                    }
+                                @endphp
+                                {{ $duurLabel }}
+                            @else
+                                Niet opgegeven
+                            @endif
                         </td>
                     </tr>
                     <tr>

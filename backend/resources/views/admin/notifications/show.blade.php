@@ -107,7 +107,25 @@
             </a>
         </div>
         <div class="flex items-center gap-2.5">
-            @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-notifications'))
+            @php
+                // Check if this is a change notification
+                $notificationData = $notification->data ? json_decode($notification->data, true) : [];
+                $isChangeNotification = ($notification->title === 'Interview gewijzigd') || 
+                                       (isset($notificationData['is_change_notification']) && $notificationData['is_change_notification']);
+                
+                // Check if there's a scheduled interview
+                $hasScheduledInterview = false;
+                if (isset($notificationData['interview_id']) && $notificationData['interview_id']) {
+                    $interview = \App\Models\Interview::find($notificationData['interview_id']);
+                    if ($interview && $interview->status === 'scheduled') {
+                        $hasScheduledInterview = true;
+                    }
+                }
+                
+                // Hide edit button if it's a change notification or if there's a scheduled interview
+                $showEditButton = !$isChangeNotification && !$hasScheduledInterview;
+            @endphp
+            @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-notifications')) && $showEditButton)
             <a href="{{ route('admin.notifications.edit', $notification) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
                 Bewerken

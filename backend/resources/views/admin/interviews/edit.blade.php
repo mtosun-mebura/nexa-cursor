@@ -66,11 +66,15 @@
                                                 style="width: auto; min-width: 400px; max-width: 100%;"
                                                 required>
                                             <option value="">Selecteer match</option>
-                                            @foreach(\App\Models\JobMatch::with(['candidate', 'vacancy'])->get() as $match)
-                                                <option value="{{ $match->id }}" {{ old('match_id', $interview->match_id) == $match->id ? 'selected' : '' }}>
-                                                    {{ trim(($match->candidate->first_name ?? '') . ' ' . ($match->candidate->last_name ?? '')) ?: 'Onbekend' }} - {{ $match->vacancy->title }}
-                                                </option>
-                                            @endforeach
+                                            @if(isset($matches) && $matches->count() > 0)
+                                                <optgroup label="Kandidaten">
+                                                    @foreach($matches as $match)
+                                                        <option value="{{ $match->id }}" {{ old('match_id', $interview->match_id) == $match->id ? 'selected' : '' }}>
+                                                            {{ trim(($match->candidate->first_name ?? '') . ' ' . ($match->candidate->last_name ?? '')) ?: 'Onbekend' }} - {{ $match->vacancy->title }}
+                                                        </option>
+                                                    @endforeach
+                                                </optgroup>
+                                            @endif
                                         </select>
                                     </div>
                                     @error('match_id')
@@ -135,7 +139,12 @@
                                                    data-kt-date-picker="true"
                                                    data-kt-date-picker-input-mode="true"
                                                    data-kt-date-picker-position-to-input="left"
-                                                   data-kt-date-picker-format="dd-mm-yyyy"
+                                                   data-kt-date-picker-date-format="DD-MM-YYYY"
+                                                   @if($interview->scheduled_at)
+                                                   data-kt-date-picker-selected-dates='["{{ $interview->scheduled_at->format('Y-m-d') }}"]'
+                                                   data-kt-date-picker-selected-month="{{ $interview->scheduled_at->format('n') - 1 }}"
+                                                   data-kt-date-picker-selected-year="{{ $interview->scheduled_at->format('Y') }}"
+                                                   @endif
                                                    placeholder="Selecteer datum"
                                                    readonly
                                                    type="text"
@@ -143,7 +152,7 @@
                                             <input type="hidden"
                                                    name="scheduled_at"
                                                    id="scheduled_at_hidden"
-                                                   value="{{ old('scheduled_at', $interview->scheduled_at ? $interview->scheduled_at->format('Y-m-d') : '') }}"/>
+                                                   value="{{ old('scheduled_at', $interview->scheduled_at ? $interview->scheduled_at->format('Y-m-d H:i') : '') }}"/>
                                         </div>
                                         @error('scheduled_at')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
@@ -152,15 +161,15 @@
                                         @enderror
                                     </div>
                                     <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <input type="text"
-                                               name="scheduled_time"
-                                               id="scheduled_time"
-                                               class="kt-input @error('scheduled_time') border-destructive @enderror"
-                                               placeholder="hh:mm"
-                                               maxlength="5"
-                                               pattern="[0-9]{2}:[0-9]{2}"
-                                               style="width: auto; min-width: 100px;"
-                                               value="{{ old('scheduled_time', $interview->scheduled_at ? $interview->scheduled_at->format('H:i') : '') }}">
+                                        <div class="kt-input @error('scheduled_time') border-destructive @enderror" style="width: auto; min-width: 120px;">
+                                            <i class="ki-outline ki-time"></i>
+                                            <input type="time"
+                                                   name="scheduled_time"
+                                                   id="scheduled_time"
+                                                   class="grow"
+                                                   required
+                                                   value="{{ old('scheduled_time', $interview->scheduled_at ? $interview->scheduled_at->format('H:i') : '') }}">
+                                        </div>
                                         @error('scheduled_time')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -182,14 +191,31 @@
                     <div class="w-full">
                         <div class="flex items-start py-3">
                             <label class="kt-form-label flex items-center gap-1 max-w-56 pt-2">
-                                Duur (minuten)
+                                Duur
                             </label>
-                            <input type="number" 
-                                   class="kt-input @error('duration') border-destructive @enderror" 
-                                   id="duration" name="duration" 
-                                   value="{{ old('duration', $interview->duration ?? 60) }}" 
-                                   style="width: auto; min-width: 100px;"
-                                   min="15" max="480">
+                            <select class="kt-select @error('duration') border-destructive @enderror"
+                                    id="duration" name="duration"
+                                    style="width: auto; min-width: 120px;">
+                                @php
+                                    $selectedDuration = old('duration', $interview->duration ?? 60);
+                                    $durations = [];
+                                    for ($min = 15; $min <= 480; $min += 15) {
+                                        $hours = floor($min / 60);
+                                        $mins = $min % 60;
+                                        if ($hours == 0) {
+                                            $label = '0:' . str_pad($mins, 2, '0', STR_PAD_LEFT);
+                                        } elseif ($mins == 0) {
+                                            $label = $hours . ' uur';
+                                        } else {
+                                            $label = $hours . ':' . str_pad($mins, 2, '0', STR_PAD_LEFT);
+                                        }
+                                        $durations[$min] = $label;
+                                    }
+                                @endphp
+                                @foreach($durations as $value => $label)
+                                    <option value="{{ $value }}" {{ $selectedDuration == $value ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
                             @error('duration')
                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                             @enderror
@@ -341,14 +367,18 @@
                                                 style="width: auto; min-width: 400px; max-width: 100%;"
                                                 required>
                                             <option value="">Selecteer interviewer</option>
-                                            @foreach($companyUsers ?? [] as $user)
-                                                <option value="{{ $user->first_name }} {{ $user->last_name }}" 
-                                                        data-email="{{ $user->email }}"
-                                                        data-user-id="{{ $user->id }}"
-                                                        {{ old('interviewer_name', $interview->interviewer_name) == ($user->first_name . ' ' . $user->last_name) ? 'selected' : '' }}>
-                                                    {{ $user->first_name }} {{ $user->last_name }}
-                                                </option>
-                                            @endforeach
+                                            @if(isset($companyUsers) && $companyUsers->count() > 0)
+                                                <optgroup label="Gebruikers van het bedrijf">
+                                                    @foreach($companyUsers as $user)
+                                                        <option value="{{ $user->first_name }} {{ $user->last_name }}" 
+                                                                data-email="{{ $user->email }}"
+                                                                data-user-id="{{ $user->id }}"
+                                                                {{ old('interviewer_name', $interview->interviewer_name) == ($user->first_name . ' ' . $user->last_name) ? 'selected' : '' }}>
+                                                            {{ $user->first_name }} {{ $user->last_name }}
+                                                        </option>
+                                                    @endforeach
+                                                </optgroup>
+                                            @endif
                                         </select>
                                     </div>
                                     @error('interviewer_name')
@@ -453,6 +483,37 @@
 
 @push('styles')
 <style>
+    /* Ensure optgroups are visible in KT Select dropdowns */
+    .kt-select-group-header {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+        color: var(--muted-foreground) !important;
+        background-color: var(--muted) !important;
+        text-transform: uppercase !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.75rem !important;
+        border-bottom: 1px solid var(--border) !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    
+    .kt-select-group {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    .kt-select-group:first-child .kt-select-group-header {
+        margin-top: 0 !important;
+    }
+    
+    /* Indent options within optgroups to show they belong to that group */
+    .kt-select-group .kt-select-option {
+        padding-left: 1.5rem !important;
+        margin-left: 0.5rem !important;
+    }
+    
     /* Prevent kt-select from expanding to full width */
     #basis-informatie .kt-select-wrapper,
     #interviewer-informatie .kt-select-wrapper {
@@ -563,239 +624,178 @@
     .kt-select-wrapper .kt-select-dropdown[data-kt-select-dropdown].open {
         z-index: 100000 !important;
     }
+    
+    /* Time input styling for dark mode - make clock icon visible */
+    input[type="time"].kt-input,
+    input[type="time"].grow {
+        color-scheme: light dark;
+    }
+    
+    .dark input[type="time"].kt-input,
+    .dark input[type="time"].grow {
+        color-scheme: dark;
+    }
+    
+    /* Ensure the time picker icon is visible in both modes */
+    input[type="time"].kt-input::-webkit-calendar-picker-indicator,
+    input[type="time"].grow::-webkit-calendar-picker-indicator {
+        filter: invert(0);
+        opacity: 1;
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+    }
+    
+    .dark input[type="time"].kt-input::-webkit-calendar-picker-indicator,
+    .dark input[type="time"].grow::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        opacity: 1;
+    }
+    
+    /* Make the time icon in kt-input visible */
+    .kt-input:has(input[type="time"]) .ki-time {
+        color: var(--kt-text-muted);
+        opacity: 0.7;
+    }
+    
+    .dark .kt-input:has(input[type="time"]) .ki-time {
+        color: var(--kt-text-muted);
+        opacity: 0.8;
+    }
 </style>
 @endpush
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize datepicker
+    // Initialize datepicker elements
     const dateInput = document.getElementById('scheduled_at_display');
     const hiddenInput = document.getElementById('scheduled_at_hidden');
     const timeInput = document.getElementById('scheduled_time');
 
-    // Function to update hidden input with combined date and time
-    function updateHiddenInputFromDatepicker() {
-        if (!hiddenInput) return;
+    // Function to convert DD-MM-YYYY to YYYY-MM-DD
+    function convertToISODate(displayDate) {
+        if (!displayDate) return '';
+        const parts = displayDate.split('-');
+        if (parts.length !== 3) return displayDate;
+        return parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
 
-        // Get the selected date from flatpickr instance
-        let dateValue = '';
-        if (window.flatpickrInstance && window.flatpickrInstance.selectedDates && window.flatpickrInstance.selectedDates.length > 0) {
-            const selectedDate = window.flatpickrInstance.selectedDates[0];
-            dateValue = selectedDate.getFullYear() + '-' +
-                       String(selectedDate.getMonth() + 1).padStart(2, '0') + '-' +
-                       String(selectedDate.getDate()).padStart(2, '0');
+    // Function to update hidden input with date and time combined
+    function updateHiddenInput() {
+        if (!hiddenInput || !dateInput) return;
+
+        // Get date from display input (DD-MM-YYYY format) and convert to YYYY-MM-DD
+        let dateValue = convertToISODate(dateInput.value);
+        
+        // Fallback: get date from current hidden input value
+        if (!dateValue) {
+            const currentHiddenValue = hiddenInput.value.trim();
+            if (currentHiddenValue) {
+                dateValue = currentHiddenValue.split(' ')[0];
+            }
         }
 
         // Get current time value
         const currentTime = timeInput ? timeInput.value.trim() : '';
 
-        // Update hidden input
+        // Update hidden input with date and time
         if (dateValue) {
             if (currentTime) {
-                const timeWithSeconds = currentTime.length === 5 ? currentTime + ':00' : currentTime;
-                hiddenInput.value = dateValue + ' ' + timeWithSeconds;
+                hiddenInput.value = dateValue + ' ' + currentTime;
             } else {
                 hiddenInput.value = dateValue;
             }
         }
     }
 
-    if (dateInput && typeof flatpickr !== 'undefined') {
-        // Get initial date value from interview
-        let initialDateStr = null;
-        @if($interview->scheduled_at)
-            const interviewDate = @json($interview->scheduled_at->format('Y-m-d'));
-            initialDateStr = interviewDate;
-        @endif
+    // Watch for date input value changes
+    if (dateInput) {
+        let lastDateValue = dateInput.value;
         
-        const fpConfig = {
-            dateFormat: 'Y-m-d',
-            altInput: true,
-            altFormat: 'd-m-Y',
-            onChange: function(selectedDates, dateStr, instance) {
-                // Immediately update hidden input when date is selected
-                if (hiddenInput && selectedDates && selectedDates.length > 0) {
-                    const selectedDate = selectedDates[0];
-                    const formattedDate = selectedDate.getFullYear() + '-' +
-                                        String(selectedDate.getMonth() + 1).padStart(2, '0') + '-' +
-                                        String(selectedDate.getDate()).padStart(2, '0');
-                    const currentTime = timeInput ? timeInput.value.trim() : '';
-
-                    if (currentTime) {
-                        const timeWithSeconds = currentTime.length === 5 ? currentTime + ':00' : currentTime;
-                        hiddenInput.value = formattedDate + ' ' + timeWithSeconds;
-                    } else {
-                        hiddenInput.value = formattedDate;
-                    }
-                }
-            },
-            onOpen: function(selectedDates, dateStr, instance) {
-                // When datepicker opens, ensure prefilled date is selected if not already selected
-                if (initialDateStr) {
-                    // Check if the date is already selected
-                    const isDateSelected = selectedDates && selectedDates.length > 0 && 
-                                         dateStr === initialDateStr;
-                    if (!isDateSelected) {
-                        instance.setDate(initialDateStr, false);
-                    }
-                }
-            },
-            onClose: function(selectedDates, dateStr, instance) {
-                updateHiddenInputFromDatepicker();
-            },
-            onReady: function(selectedDates, dateStr, instance) {
-                window.flatpickrInstance = instance;
-                // Set initial date if available
-                if (initialDateStr) {
-                    instance.setDate(initialDateStr, false);
-                }
-                updateHiddenInputFromDatepicker();
+        // Poll for value changes (KT datepicker may update value without firing change event)
+        setInterval(() => {
+            if (dateInput.value !== lastDateValue) {
+                lastDateValue = dateInput.value;
+                updateHiddenInput();
             }
-        };
+        }, 200);
         
-        // Only set defaultDate if we have a valid initial date string
-        if (initialDateStr) {
-            fpConfig.defaultDate = initialDateStr;
+        // Also listen for change events
+        dateInput.addEventListener('change', updateHiddenInput);
+        
+        // Watch for clicks on the datepicker calendar and update after selection
+        document.addEventListener('click', function(e) {
+            // Check if click was on a datepicker day cell (vanilla-calendar uses vc-date__btn class)
+            if (e.target.classList.contains('vc-date__btn') || 
+                e.target.closest('.vc-date__btn') ||
+                e.target.closest('.vc')) {
+                // Wait for the datepicker to update the input
+                setTimeout(() => {
+                    if (dateInput.value !== lastDateValue) {
+                        lastDateValue = dateInput.value;
+                        updateHiddenInput();
+                    }
+                }, 100);
+            }
+        });
+    }
+
+    // Update hidden input when time changes
+    if (timeInput) {
+        timeInput.addEventListener('change', updateHiddenInput);
+        timeInput.addEventListener('input', updateHiddenInput);
+        
+        // Always show the time picker dropdown when clicking on the input or icon
+        const timeInputWrapper = timeInput.closest('.kt-input');
+        if (timeInputWrapper) {
+            // Click on the wrapper (including icon) should open the picker
+            timeInputWrapper.addEventListener('click', function(e) {
+                // Only if not clicking directly on the input itself (to avoid double trigger)
+                if (e.target !== timeInput) {
+                    e.preventDefault();
+                    timeInput.focus();
+                    // Use showPicker() if available (modern browsers)
+                    if (timeInput.showPicker) {
+                        try {
+                            timeInput.showPicker();
+                        } catch (err) {
+                            // Fallback: just focus
+                            timeInput.focus();
+                        }
+                    }
+                }
+            });
         }
         
-        const fp = flatpickr(dateInput, fpConfig);
-
-        // Store instance globally
-        window.flatpickrInstance = fp;
-    }
-
-    // Update hidden input when time changes - improved cursor handling
-    if (timeInput) {
-        let lastValue = timeInput.value || '';
-        let cursorPosition = 0;
-        
-        timeInput.addEventListener('keydown', function(e) {
-            // Store cursor position before changes
-            cursorPosition = this.selectionStart || 0;
-            
-            // Handle arrow keys for navigation
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                // Allow default behavior for arrow keys
-                return;
-            }
-            
-            // Handle backspace and delete
-            if (e.key === 'Backspace' || e.key === 'Delete') {
-                const currentPos = this.selectionStart || 0;
-                const currentValue = this.value;
-                
-                // If deleting the colon, move cursor back
-                if (currentPos === 3 && e.key === 'Backspace') {
-                    e.preventDefault();
-                    this.setSelectionRange(2, 2);
-                    return;
-                }
-                
-                // If deleting after colon, just delete the digit
-                if (currentPos > 3 && e.key === 'Backspace') {
-                    e.preventDefault();
-                    const newValue = currentValue.substring(0, currentPos - 1) + currentValue.substring(currentPos);
-                    this.value = newValue;
-                    this.setSelectionRange(currentPos - 1, currentPos - 1);
-                    updateHiddenInputFromDatepicker();
-                    return;
-                }
-            }
-        });
-        
-        timeInput.addEventListener('input', function(e) {
-            const currentPos = this.selectionStart || 0;
-            let value = e.target.value.replace(/[^\d]/g, '');
-            
-            // Limit to 4 digits
-            if (value.length > 4) {
-                value = value.slice(0, 4);
-            }
-            
-            // Format with colon
-            let formattedValue = '';
-            if (value.length > 0) {
-                formattedValue = value.slice(0, 2);
-                if (value.length > 2) {
-                    formattedValue += ':' + value.slice(2, 4);
-                }
-            }
-            
-            const oldValue = lastValue;
-            lastValue = formattedValue;
-            e.target.value = formattedValue;
-            
-            // Smart cursor positioning
-            let newCursorPos = currentPos;
-            
-            // If we just added a colon (went from 2 to 3 chars), move cursor past colon
-            if (oldValue.length === 2 && formattedValue.length === 3) {
-                newCursorPos = 3; // Position after colon
-            }
-            // If we're typing in the hour section (position 0-2), keep cursor there
-            else if (currentPos <= 2 && formattedValue.length >= 2) {
-                newCursorPos = Math.min(currentPos, 2);
-            }
-            // If we're typing in the minute section (position 3-5), keep cursor there
-            else if (currentPos >= 3 && formattedValue.length >= 3) {
-                // Adjust position based on how many characters were added
-                const addedChars = formattedValue.length - oldValue.length;
-                newCursorPos = Math.min(currentPos + addedChars, formattedValue.length);
-            }
-            
-            // Set cursor position
-            setTimeout(() => {
-                this.setSelectionRange(newCursorPos, newCursorPos);
-            }, 0);
-
-            // Update hidden input with combined date and time
-            updateHiddenInputFromDatepicker();
-        });
-        
+        // Also open picker when clicking directly on the input
         timeInput.addEventListener('click', function(e) {
-            // On click, position cursor intelligently
-            const clickPos = e.target.selectionStart || 0;
-            if (clickPos <= 2) {
-                // Clicked in hour section
-                this.setSelectionRange(0, 2);
-            } else if (clickPos >= 3) {
-                // Clicked in minute section
-                this.setSelectionRange(3, 5);
-            }
-        });
-        
-        timeInput.addEventListener('focus', function(e) {
-            // On focus, select the hour part if empty, or position cursor at start
-            if (!this.value || this.value.length === 0) {
-                this.setSelectionRange(0, 0);
-            } else {
-                // Position cursor at the start of the focused section
-                const pos = this.selectionStart || 0;
-                if (pos <= 2) {
-                    this.setSelectionRange(0, 2);
-                } else {
-                    this.setSelectionRange(3, 5);
+            // Use showPicker() if available (modern browsers)
+            if (timeInput.showPicker) {
+                try {
+                    timeInput.showPicker();
+                } catch (err) {
+                    // Fallback: just focus (browser will show picker on focus)
                 }
             }
         });
-
-        timeInput.addEventListener('blur', function() {
-            // Validate and format on blur
-            const value = this.value.trim();
-            if (value && value.length === 4 && !value.includes(':')) {
-                // If user entered 4 digits without colon, add it
-                this.value = value.slice(0, 2) + ':' + value.slice(2, 4);
-            } else if (value && value.length === 2 && !value.includes(':')) {
-                // If user entered 2 digits, add colon
-                this.value = value + ':';
+        
+        // Open picker on focus as well
+        timeInput.addEventListener('focus', function() {
+            if (timeInput.showPicker) {
+                try {
+                    timeInput.showPicker();
+                } catch (err) {
+                    // Fallback: browser will show picker on focus
+                }
             }
-            updateHiddenInputFromDatepicker();
         });
     }
 
-    // Get company ID from interview
+    // Get company ID and location ID from interview
     const companyId = @json($interview->company_id);
+    const interviewLocationId = @json($interview->company_location_id);
+    const interviewLocation = @json($interview->location);
     const interviewerSelect = document.getElementById('interviewer_name');
     const emailInput = document.getElementById('interviewer_email');
     const locationSelect = document.getElementById('company_location_id');
@@ -922,19 +922,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load users and locations for the interview's company
     if (companyId) {
         loadUsersForCompany(companyId);
-        // Get current location_id from the select or interview data
-        const currentLocationId = locationSelect ? locationSelect.value : null;
-        loadLocationsForCompany(companyId, currentLocationId);
+        // Use interview's location_id directly from PHP data
+        // If location is "Op afstand", use 'remote' as the ID
+        let currentLocationId = interviewLocationId;
+        if (interviewLocation === 'Op afstand' || interviewLocationId === -1) {
+            currentLocationId = 'remote';
+        }
+        loadLocationsForCompany(companyId, currentLocationId, interviewLocation);
     }
     
     // Function to load locations for a company (if company can be changed in future)
-    function loadLocationsForCompany(companyId, selectedLocationId = null) {
+    function loadLocationsForCompany(companyId, selectedLocationId = null, savedLocationText = null) {
         if (!locationSelect || !companyId) {
             return;
         }
         
         // Clear location options
         locationSelect.innerHTML = '<option value="">Selecteer locatie</option>';
+        
+        // Track if we found a match by text (for when selectedLocationId is null)
+        let matchedByText = null;
         
         // Fetch locations from API
         fetch(`/admin/companies/${companyId}/locations/json`)
@@ -950,9 +957,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     mainText += ' (Hoofdadres)';
                     option.textContent = mainText;
+                    
                     // Check if selectedLocationId is 0 or '0' for main address
                     const selectedLocationIdStr = selectedLocationId !== null && selectedLocationId !== undefined ? String(selectedLocationId) : null;
-                    if (selectedLocationIdStr === '0') {
+                    let shouldSelect = selectedLocationIdStr === '0';
+                    
+                    // If no selectedLocationId, try to match by text (check if saved location contains main address info)
+                    if (!shouldSelect && selectedLocationId === null && savedLocationText) {
+                        const mainName = data.mainAddress.name || '';
+                        const mainStreet = data.mainAddress.street || '';
+                        const mainCity = data.mainAddress.city || '';
+                        if ((mainName && savedLocationText.includes(mainName)) || 
+                            (mainStreet && savedLocationText.includes(mainStreet)) ||
+                            (mainCity && savedLocationText.includes(mainCity))) {
+                            shouldSelect = true;
+                            matchedByText = '0';
+                        }
+                    }
+                    
+                    if (shouldSelect) {
                         option.selected = true;
                     }
                     locationSelect.appendChild(option);
@@ -963,15 +986,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     data.locations.forEach(location => {
                         const option = document.createElement('option');
                         option.value = location.id;
-                        let locationText = location.name;
+                        let locText = location.name;
                         if (location.city) {
-                            locationText += ' - ' + location.city;
+                            locText += ' - ' + location.city;
                         }
-                        option.textContent = locationText;
-                        // Check if this location should be selected
+                        option.textContent = locText;
+                        
+                        // Check if this location should be selected by ID
                         const selectedLocationIdStr = selectedLocationId !== null && selectedLocationId !== undefined ? String(selectedLocationId) : null;
                         const locationIdStr = String(location.id);
-                        if (selectedLocationIdStr === locationIdStr) {
+                        let shouldSelect = selectedLocationIdStr === locationIdStr;
+                        
+                        // If no selectedLocationId and not already matched, try to match by text
+                        if (!shouldSelect && selectedLocationId === null && savedLocationText && !matchedByText) {
+                            if (savedLocationText.includes(location.name)) {
+                                shouldSelect = true;
+                                matchedByText = locationIdStr;
+                            }
+                        }
+                        
+                        if (shouldSelect) {
                             option.selected = true;
                         }
                         locationSelect.appendChild(option);
@@ -984,29 +1018,54 @@ document.addEventListener('DOMContentLoaded', function() {
                 remoteOption.textContent = 'Op afstand';
                 const selectedLocationIdStr = selectedLocationId !== null && selectedLocationId !== undefined ? String(selectedLocationId) : null;
                 // Check if selectedLocationId is -1, '-1', or 'remote' for "Op afstand"
-                if (selectedLocationIdStr === 'remote' || selectedLocationIdStr === '-1' || selectedLocationId === -1) {
+                let shouldSelectRemote = selectedLocationIdStr === 'remote' || selectedLocationIdStr === '-1' || selectedLocationId === -1;
+                
+                // If no selectedLocationId and not matched, check if location text is "Op afstand"
+                if (!shouldSelectRemote && selectedLocationId === null && savedLocationText && !matchedByText) {
+                    if (savedLocationText === 'Op afstand') {
+                        shouldSelectRemote = true;
+                        matchedByText = 'remote';
+                    }
+                }
+                
+                if (shouldSelectRemote) {
                     remoteOption.selected = true;
                 }
                 locationSelect.appendChild(remoteOption);
                 
                 // Set selected value after options are added
-                if (selectedLocationId !== null && selectedLocationId !== undefined) {
+                const effectiveLocationId = matchedByText || selectedLocationId;
+                if (effectiveLocationId !== null && effectiveLocationId !== undefined) {
                     // Convert -1 or '-1' to 'remote' for the form
-                    let locationIdStr = String(selectedLocationId);
-                    if (locationIdStr === '-1' || selectedLocationId === -1) {
+                    let locationIdStr = String(effectiveLocationId);
+                    if (locationIdStr === '-1' || effectiveLocationId === -1) {
                         locationIdStr = 'remote';
                     }
                     // Set value immediately
                     locationSelect.value = locationIdStr;
+                    
+                    // Find the selected option text for display
+                    const selectedOption = locationSelect.querySelector(`option[value="${locationIdStr}"]`);
+                    if (selectedOption) {
+                        selectedOption.selected = true;
+                    }
                 }
                 
-                // Reinitialize kt-select
+                // Reinitialize kt-select with proper initialization
                 if (typeof KTComponents !== 'undefined' && KTComponents.Select) {
                     const selectInstance = KTComponents.getInstance(locationSelect);
                     if (selectInstance) {
                         selectInstance.destroy();
                     }
-                    new KTComponents.Select(locationSelect);
+                    // Small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        new KTComponents.Select(locationSelect);
+                        // Update display after reinitialization
+                        const newInstance = KTComponents.getInstance(locationSelect);
+                        if (newInstance && newInstance.update) {
+                            newInstance.update();
+                        }
+                    }, 50);
                 }
             })
             .catch(error => {

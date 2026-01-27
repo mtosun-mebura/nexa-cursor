@@ -5,6 +5,18 @@ let notifications = [];
 let notificationsPollingInterval = null;
 let lastNotificationCount = 0;
 
+// Helper function to format message labels as bold
+function formatMessageWithBoldLabels(message) {
+    if (!message) return '';
+    // Make specific labels bold: Datum/tijd:, Locatie:, Nieuwe afspraak:, Duur:, Vacature:
+    return message
+        .replace(/(Datum\/tijd:)/g, '<strong>$1</strong>')
+        .replace(/(Locatie:)/g, '<strong>$1</strong>')
+        .replace(/(Nieuwe afspraak:)/g, '<strong>$1</strong>')
+        .replace(/(Duur:)/g, '<strong>$1</strong>')
+        .replace(/(Vacature:)/g, '<strong>$1</strong>');
+}
+
 // Detect if we're on admin or frontend
 function getNotificationBaseUrl() {
     // Check if we're on admin pages
@@ -358,7 +370,9 @@ function createNotificationElement(notification) {
                                     if (notification.scheduled_at_formatted || notification.scheduled_date) {
                                         const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
                                         const timeStr = notification.scheduled_time || (notification.scheduled_at_formatted && notification.scheduled_at_formatted.includes(' ') ? notification.scheduled_at_formatted.split(' ')[1] : '');
-                                        html += `<div class="text-sm text-muted-foreground">${dateStr}${timeStr ? ' om ' + timeStr : ''}</div>`;
+                                        const endTimeStr = notification.scheduled_end_time || '';
+                                        const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
+                                        html += `<div class="text-sm text-muted-foreground">${dateStr}${timeDisplay ? ' ' + timeDisplay : ''}</div>`;
                                     }
                                     if (notification.location) {
                                         html += `<div class="text-sm text-muted-foreground">${notification.location.name}${notification.location.city ? ' - ' + notification.location.city : ''}</div>`;
@@ -367,6 +381,11 @@ function createNotificationElement(notification) {
                                     }
                                     html += `</div>`;
                                 }
+                            } else if (messageText.includes('wijziging') || messageText.includes('Nieuwe afspraak:') || messageText.includes('gewijzigde afspraak') || messageText.includes('→') || notification.title === 'Gewijzigde afspraak reactie') {
+                                // Changed appointment notification or response to change - show full message content
+                                console.log('📅 Rendering changed appointment notification for:', notification.id);
+                                html += `<div class="text-sm text-muted-foreground whitespace-pre-wrap">${formatMessageWithBoldLabels(messageText)}</div>`;
+                                // Don't show separate Afspraakdetails - all info is in the message
                             } else if (notification.has_response) {
                                 // Old format - parse date, message, and location (for response notifications)
                                 let dateText = '';
@@ -410,8 +429,13 @@ function createNotificationElement(notification) {
                                 // Appointment details (only for old format response notifications)
                                 if (notification.scheduled_at_formatted || notification.location) {
                                     html += `<div class="flex flex-col gap-0.5 ${hasReason ? '' : 'mt-1'}">`;
+                                    html += `<div class="text-sm font-semibold text-foreground">Afspraakdetails:</div>`;
                                     if (notification.scheduled_at_formatted) {
-                                        html += `<div class="text-sm text-muted-foreground">Afspraakdetails: ${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${notification.scheduled_time ? ' ' + notification.scheduled_time : ''}</div>`;
+                                        const dateStr = notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0];
+                                        const timeStr = notification.scheduled_time || '';
+                                        const endTimeStr = notification.scheduled_end_time || '';
+                                        const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
+                                        html += `<div class="text-sm text-muted-foreground">${dateStr}${timeDisplay ? ' ' + timeDisplay : ''}</div>`;
                                     }
                                     if (notification.location) {
                                         html += `<div class="text-sm text-muted-foreground">${notification.location.name}${notification.location.city ? ' - ' + notification.location.city : ''}</div>`;
@@ -421,49 +445,56 @@ function createNotificationElement(notification) {
                             } else {
                                 // New interview notification (not yet accepted/declined) - show message and appointment details
                                 console.log('📅 Rendering new interview notification (no response yet) for:', notification.id);
-                                html += `<div class="text-sm text-muted-foreground">${messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText}</div>`;
+                                html += `<div class="text-sm text-muted-foreground whitespace-pre-wrap">${formatMessageWithBoldLabels(messageText)}</div>`;
                                 
-                                // Always show appointment details for new interview notifications (even if no response yet)
-                                // Add border before appointment details - always show if we have any appointment data
-                                const hasAppointmentData = notification.scheduled_at_formatted || notification.scheduled_at || notification.location || notification.location_or_type || notification.scheduled_date;
+                                // Check if this is a changed appointment notification (already contains "Nieuwe afspraak:")
+                                const isChangedAppointment = messageText.includes('Nieuwe afspraak:') || messageText.includes('wijziging');
                                 
-                                console.log('📅 Appointment data check:', {
-                                    hasAppointmentData: hasAppointmentData,
-                                    scheduled_at_formatted: notification.scheduled_at_formatted,
-                                    scheduled_at: notification.scheduled_at,
-                                    location: notification.location,
-                                    location_or_type: notification.location_or_type,
-                                    scheduled_date: notification.scheduled_date
-                                });
-                                
-                                if (hasAppointmentData) {
-                                    html += `<div class="border-t border-border mt-2 pt-2"></div>`;
-                                }
-                                
-                                // Appointment details for new interview notifications - always show if available
-                                if (hasAppointmentData) {
-                                    html += `<div class="flex flex-col gap-0.5 mt-1">`;
-                                    html += `<div class="text-sm font-semibold text-foreground">Afspraakdetails:</div>`;
-                                    if (notification.scheduled_at_formatted || notification.scheduled_date) {
-                                        const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
-                                        const timeStr = notification.scheduled_time || (notification.scheduled_at_formatted && notification.scheduled_at_formatted.includes(' ') ? notification.scheduled_at_formatted.split(' ')[1] : '');
-                                        html += `<div class="text-sm text-muted-foreground">${dateStr}${timeStr ? ' om ' + timeStr : ''}</div>`;
+                                // Only show appointment details for new interview notifications if NOT a changed appointment
+                                // (changed appointments already show the new time in "Nieuwe afspraak:" line)
+                                if (!isChangedAppointment) {
+                                    const hasAppointmentData = notification.scheduled_at_formatted || notification.scheduled_at || notification.location || notification.location_or_type || notification.scheduled_date;
+                                    
+                                    console.log('📅 Appointment data check:', {
+                                        hasAppointmentData: hasAppointmentData,
+                                        scheduled_at_formatted: notification.scheduled_at_formatted,
+                                        scheduled_at: notification.scheduled_at,
+                                        location: notification.location,
+                                        location_or_type: notification.location_or_type,
+                                        scheduled_date: notification.scheduled_date
+                                    });
+                                    
+                                    if (hasAppointmentData) {
+                                        html += `<div class="border-t border-border mt-2 pt-2"></div>`;
                                     }
-                                    if (notification.location) {
-                                        html += `<div class="text-sm text-muted-foreground">${notification.location.name}${notification.location.city ? ' - ' + notification.location.city : ''}</div>`;
-                                    } else if (notification.location_or_type) {
-                                        html += `<div class="text-sm text-muted-foreground">${notification.location_or_type}</div>`;
+                                    
+                                    // Appointment details for new interview notifications - always show if available
+                                    if (hasAppointmentData) {
+                                        html += `<div class="flex flex-col gap-0.5 mt-1">`;
+                                        html += `<div class="text-sm font-semibold text-foreground">Afspraakdetails:</div>`;
+                                        if (notification.scheduled_at_formatted || notification.scheduled_date) {
+                                            const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
+                                            const timeStr = notification.scheduled_time || (notification.scheduled_at_formatted && notification.scheduled_at_formatted.includes(' ') ? notification.scheduled_at_formatted.split(' ')[1] : '');
+                                            const endTimeStr = notification.scheduled_end_time || '';
+                                            const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
+                                            html += `<div class="text-sm text-muted-foreground">${dateStr}${timeDisplay ? ' ' + timeDisplay : ''}</div>`;
+                                        }
+                                        if (notification.location) {
+                                            html += `<div class="text-sm text-muted-foreground">${notification.location.name}${notification.location.city ? ' - ' + notification.location.city : ''}</div>`;
+                                        } else if (notification.location_or_type) {
+                                            html += `<div class="text-sm text-muted-foreground">${notification.location_or_type}</div>`;
+                                        }
+                                        html += `</div>`;
+                                    } else {
+                                        console.log('⚠️ No appointment data available for notification:', notification.id);
                                     }
-                                    html += `</div>`;
-                                } else {
-                                    console.log('⚠️ No appointment data available for notification:', notification.id);
                                 }
                             }
                             
                             return html;
                         })()}
                     ` : `
-                        <div class="text-sm text-muted-foreground">
+                        <div class="text-sm text-muted-foreground whitespace-pre-wrap">
                             ${(() => {
                                 // Check if this is a confirmation notification (new format without response)
                                 if (notification.message && notification.message.includes('heeft de status') && notification.message.includes('gekregen')) {
@@ -473,8 +504,8 @@ function createNotificationElement(notification) {
                                         return `Je geaccepteerde afspraak heeft de status <span class="font-semibold">${statusMatch[1].trim()}</span> gekregen.`;
                                     }
                                 }
-                                // Default: show full message
-                                return `Bericht: ${notification.message.length > 100 ? notification.message.substring(0, 100) + '...' : notification.message}`;
+                                // Default: show full message with bold labels
+                                return `Bericht: ${formatMessageWithBoldLabels(notification.message)}`;
                             })()}
                         </div>
                         ${isInterviewNotification ? `
@@ -482,13 +513,17 @@ function createNotificationElement(notification) {
                                 // Only show Afspraakdetails for new format confirmation notifications
                                 if (notification.message && notification.message.includes('heeft de status') && notification.message.includes('gekregen')) {
                                     if (notification.scheduled_at_formatted || notification.location_or_type) {
+                                        const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
+                                        const timeStr = notification.scheduled_time || '';
+                                        const endTimeStr = notification.scheduled_end_time || '';
+                                        const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
                                         return `
                                             <div class="border-t border-border mt-2 pt-2"></div>
                                             <div class="flex flex-col gap-0.5 mt-1">
                                                 <div class="text-sm font-semibold text-foreground">Afspraakdetails:</div>
                                                 ${notification.scheduled_at_formatted ? `
                                                     <div class="text-sm text-muted-foreground">
-                                                        ${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${notification.scheduled_time ? ' ' + notification.scheduled_time : ''}
+                                                        ${dateStr}${timeDisplay ? ' ' + timeDisplay : ''}
                                                     </div>
                                                 ` : ''}
                                                 ${notification.location_or_type ? `
@@ -500,12 +535,17 @@ function createNotificationElement(notification) {
                                         `;
                                     }
                                 } else if (notification.scheduled_at_formatted || notification.location) {
-                                    // Old format - show as before
+                                    // Old format - show with van ... tot format
+                                    const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
+                                    const timeStr = notification.scheduled_time || '';
+                                    const endTimeStr = notification.scheduled_end_time || '';
+                                    const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
                                     return `
                                         <div class="flex flex-col gap-0.5 mt-1">
+                                            <div class="text-sm font-semibold text-foreground">Afspraakdetails:</div>
                                             ${notification.scheduled_at_formatted ? `
                                                 <div class="text-sm text-muted-foreground">
-                                                    Afspraakdetails: ${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${notification.scheduled_time ? ' ' + notification.scheduled_time : ''}
+                                                    ${dateStr}${timeDisplay ? ' ' + timeDisplay : ''}
                                                 </div>
                                             ` : ''}
                                             ${notification.location ? `
@@ -531,31 +571,84 @@ function createNotificationElement(notification) {
                     // Show button for accepted interviews - check if match_id exists in data or notification
                     // This applies to response notifications (when candidate accepts) that have match_id
                     let matchId = notification.match_id;
+                    let isChangeNotification = false;
+                    let interviewId = null;
+                    let interviewDeleted = false;
                     
-                    // Try to get match_id from data object if not directly available
-                    if (!matchId && notification.data) {
-                        if (typeof notification.data === 'object' && notification.data.match_id) {
-                            matchId = notification.data.match_id;
+                    // Try to get match_id, is_change_notification, interview_id, and interview_deleted from data object
+                    if (notification.data) {
+                        if (typeof notification.data === 'object') {
+                            matchId = matchId || notification.data.match_id;
+                            isChangeNotification = notification.data.is_change_notification || false;
+                            interviewId = notification.data.interview_id || null;
+                            interviewDeleted = notification.data.interview_deleted || false;
                         } else if (typeof notification.data === 'string') {
                             try {
                                 const parsedData = JSON.parse(notification.data);
-                                matchId = parsedData.match_id || null;
+                                matchId = matchId || parsedData.match_id || null;
+                                isChangeNotification = parsedData.is_change_notification || false;
+                                interviewId = parsedData.interview_id || null;
+                                interviewDeleted = parsedData.interview_deleted || false;
                             } catch (e) {
                                 // Ignore parse errors
                             }
                         }
                     }
                     
-                    // Check if this is an accepted interview response notification
-                    // Response notifications have:
-                    // - title === 'Interview reactie'
-                    // - response_type === 'accept' OR category === 'success' (green checkmark)
-                    // - match_id in data
-                    const isResponseNotification = notification.title === 'Interview reactie';
+                    // Also check title for change notification response
+                    if (notification.title === 'Gewijzigde afspraak reactie') {
+                        isChangeNotification = true;
+                    }
+                    
+                    // Check if this is an accepted/declined interview response notification
+                    const isResponseNotification = notification.title === 'Interview reactie' || notification.title === 'Gewijzigde afspraak reactie';
                     const isAccepted = notification.response_type === 'accept' || 
                                       notification.category === 'success' ||
                                       (notification.data && typeof notification.data === 'object' && notification.data.response === 'accept') ||
                                       (notification.data && typeof notification.data === 'string' && notification.data.includes('"response":"accept"'));
+                    const isDeclined = notification.response_type === 'decline' || 
+                                      notification.category === 'warning' ||
+                                      (notification.data && typeof notification.data === 'object' && notification.data.response === 'decline') ||
+                                      (notification.data && typeof notification.data === 'string' && notification.data.includes('"response":"decline"'));
+                    
+                    // Handle change notification responses
+                    if (isInterviewNotification && isResponseNotification && isChangeNotification) {
+                        if (isAccepted) {
+                            // Show green success message for accepted changed appointment
+                            return `
+                                <div class="mt-2">
+                                    <div class="flex items-center gap-2 text-green-500">
+                                        <i class="ki-filled ki-check-circle"></i>
+                                        <span class="font-medium">Gewijzigde afspraak geaccepteerd</span>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (isDeclined) {
+                            // Check if interview has already been deleted
+                            if (interviewDeleted) {
+                                // Show red message that interview has been deleted
+                                return `
+                                    <div class="mt-2">
+                                        <div class="flex items-center gap-2 text-red-500">
+                                            <i class="ki-filled ki-check-circle"></i>
+                                            <span class="font-medium">Afspraak verwijderd</span>
+                                        </div>
+                                    </div>
+                                `;
+                            } else if (interviewId) {
+                                // Show red button to delete interview for declined changed appointment
+                                return `
+                                    <div class="mt-2">
+                                        <button class="kt-btn kt-btn-danger kt-btn-sm delete-interview-btn" data-notification-id="${notification.id}" data-interview-id="${interviewId}">
+                                            <i class="ki-filled ki-trash me-2"></i>
+                                            Afspraak verwijderen uit interviews
+                                        </button>
+                                    </div>
+                                `;
+                            }
+                        }
+                        return '';
+                    }
                     
                     // Debug: log notification details to help troubleshoot
                     if (isInterviewNotification && isResponseNotification && isAccepted && !matchId) {
@@ -633,6 +726,18 @@ function createNotificationElement(notification) {
         });
     }
     
+    // Add click handler for "Afspraak verwijderen uit interviews" button
+    const deleteInterviewBtn = div.querySelector('.delete-interview-btn');
+    if (deleteInterviewBtn) {
+        deleteInterviewBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const interviewId = deleteInterviewBtn.dataset.interviewId;
+            if (interviewId) {
+                deleteInterviewFromNotification(interviewId, notification.id);
+            }
+        });
+    }
+    
     // Add checkbox handler
     div.querySelector('.notification-checkbox')?.addEventListener('change', function(e) {
         e.stopPropagation(); // Prevent triggering click on notification item
@@ -667,11 +772,11 @@ function showNotificationDetail(notification) {
     
     if (!listView || !detailView || !detailContent) return;
     
-    // Hide list view and footer, show detail view
-    listView.style.display = 'none';
+    // Hide list view, footer, and bulk action buttons, show detail view
+    listView.classList.add('hidden');
     const footer = document.getElementById('notifications_all_footer');
     if (footer) {
-        footer.style.display = 'none';
+        footer.classList.add('hidden');
     }
     detailView.style.display = 'flex';
     
@@ -832,9 +937,12 @@ function showNotificationDetail(notification) {
                             html += `<div class="flex flex-col gap-2">`;
                             html += `<div class="text-sm font-semibold text-foreground mb-1">Afspraakdetails</div>`;
                             if (notification.scheduled_at_formatted) {
+                                const timeStr = notification.scheduled_time || '';
+                                const endTimeStr = notification.scheduled_end_time || '';
+                                const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
                                 html += `<div class="flex items-center gap-2 text-sm text-foreground">
                                     <i class="ki-filled ki-calendar text-primary"></i>
-                                    <span>${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${notification.scheduled_time ? ' om ' + notification.scheduled_time : ''}</span>
+                                    <span>${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${timeDisplay ? ' ' + timeDisplay : ''}</span>
                                 </div>`;
                             }
                             if (notification.location_or_type) {
@@ -845,6 +953,14 @@ function showNotificationDetail(notification) {
                             }
                             html += `</div>`;
                         }
+                    } else if (messageText.includes('wijziging') || messageText.includes('Nieuwe afspraak:') || messageText.includes('gewijzigde afspraak') || messageText.includes('→') || notification.title === 'Gewijzigde afspraak reactie') {
+                        // Changed appointment notification or response to change - show full message content
+                        console.log('📅 Rendering changed appointment notification (detail view) for:', notification.id);
+                        html += `<div class="border-t border-border pt-4">
+                            <div class="text-sm font-medium text-muted-foreground mb-2">Bericht</div>
+                            <div class="text-sm text-foreground whitespace-pre-wrap mb-4">${formatMessageWithBoldLabels(notification.message)}</div>
+                        </div>`;
+                        // Don't show separate Afspraakdetails - all info is in the message
                     } else if (notification.has_response) {
                         // Old format - parse date, message, and location (for response notifications)
                         let dateText = '';
@@ -890,9 +1006,12 @@ function showNotificationDetail(notification) {
                             html += `<div class="flex flex-col gap-2 ${hasReason ? '' : 'mt-2'}">`;
                             html += `<div class="text-sm font-semibold text-foreground mb-1">Afspraakdetails</div>`;
                             if (notification.scheduled_at_formatted) {
+                                const timeStr = notification.scheduled_time || '';
+                                const endTimeStr = notification.scheduled_end_time || '';
+                                const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
                                 html += `<div class="flex items-center gap-2 text-sm text-foreground">
                                     <i class="ki-filled ki-calendar text-primary"></i>
-                                    <span>${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${notification.scheduled_time ? ' om ' + notification.scheduled_time : ''}</span>
+                                    <span>${notification.scheduled_date || notification.scheduled_at_formatted.split(' ')[0]}${timeDisplay ? ' ' + timeDisplay : ''}</span>
                                 </div>`;
                             }
                             if (notification.location) {
@@ -907,34 +1026,41 @@ function showNotificationDetail(notification) {
                         // New interview notification (not yet accepted/declined) - show message and appointment details
                         html += `<div class="border-t border-border pt-4">
                             <div class="text-sm font-medium text-muted-foreground mb-2">Bericht</div>
-                            <div class="text-sm text-foreground whitespace-pre-wrap mb-4">${notification.message}</div>
+                            <div class="text-sm text-foreground whitespace-pre-wrap mb-4">${formatMessageWithBoldLabels(notification.message)}</div>
                         </div>`;
                         
-                        // Always show appointment details for new interview notifications (even if no response yet)
-                        const hasAppointmentData = notification.scheduled_at_formatted || notification.scheduled_at || notification.location || notification.location_or_type || notification.scheduled_date;
-                        if (hasAppointmentData) {
-                            html += `<div class="flex flex-col gap-2 p-3 rounded-lg bg-muted/50 border border-border mt-4">`;
-                            html += `<div class="text-sm font-semibold text-foreground mb-1">Afspraakdetails</div>`;
-                            if (notification.scheduled_at_formatted || notification.scheduled_date) {
-                                const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
-                                const timeStr = notification.scheduled_time || (notification.scheduled_at_formatted && notification.scheduled_at_formatted.includes(' ') ? notification.scheduled_at_formatted.split(' ')[1] : '');
-                                html += `<div class="flex items-center gap-2 text-sm text-foreground">
-                                    <i class="ki-filled ki-calendar text-primary"></i>
-                                    <span>${dateStr}${timeStr ? ' om ' + timeStr : ''}</span>
-                                </div>`;
+                        // Check if this is a changed appointment notification (already contains "Nieuwe afspraak:")
+                        const isChangedAppointment = messageText.includes('Nieuwe afspraak:') || messageText.includes('wijziging');
+                        
+                        // Only show appointment details if NOT a changed appointment (changed appointments already show the new time in "Nieuwe afspraak:" line)
+                        if (!isChangedAppointment) {
+                            const hasAppointmentData = notification.scheduled_at_formatted || notification.scheduled_at || notification.location || notification.location_or_type || notification.scheduled_date;
+                            if (hasAppointmentData) {
+                                html += `<div class="flex flex-col gap-2 p-3 rounded-lg bg-muted/50 border border-border mt-4">`;
+                                html += `<div class="text-sm font-semibold text-foreground mb-1">Afspraakdetails</div>`;
+                                if (notification.scheduled_at_formatted || notification.scheduled_date) {
+                                    const dateStr = notification.scheduled_date || (notification.scheduled_at_formatted ? notification.scheduled_at_formatted.split(' ')[0] : '');
+                                    const timeStr = notification.scheduled_time || (notification.scheduled_at_formatted && notification.scheduled_at_formatted.includes(' ') ? notification.scheduled_at_formatted.split(' ')[1] : '');
+                                    const endTimeStr = notification.scheduled_end_time || '';
+                                    const timeDisplay = timeStr ? (endTimeStr ? `van ${timeStr} tot ${endTimeStr}` : `om ${timeStr}`) : '';
+                                    html += `<div class="flex items-center gap-2 text-sm text-foreground">
+                                        <i class="ki-filled ki-calendar text-primary"></i>
+                                        <span>${dateStr}${timeDisplay ? ' ' + timeDisplay : ''}</span>
+                                    </div>`;
+                                }
+                                if (notification.location) {
+                                    html += `<div class="flex items-center gap-2 text-sm text-foreground">
+                                        <i class="ki-filled ki-geolocation text-primary"></i>
+                                        <span>${notification.location.name}${notification.location.city ? ' - ' + notification.location.city : ''}</span>
+                                    </div>`;
+                                } else if (notification.location_or_type) {
+                                    html += `<div class="flex items-center gap-2 text-sm text-foreground">
+                                        <i class="ki-filled ki-geolocation text-primary"></i>
+                                        <span>${notification.location_or_type}</span>
+                                    </div>`;
+                                }
+                                html += `</div>`;
                             }
-                            if (notification.location) {
-                                html += `<div class="flex items-center gap-2 text-sm text-foreground">
-                                    <i class="ki-filled ki-geolocation text-primary"></i>
-                                    <span>${notification.location.name}${notification.location.city ? ' - ' + notification.location.city : ''}</span>
-                                </div>`;
-                            } else if (notification.location_or_type) {
-                                html += `<div class="flex items-center gap-2 text-sm text-foreground">
-                                    <i class="ki-filled ki-geolocation text-primary"></i>
-                                    <span>${notification.location_or_type}</span>
-                                </div>`;
-                            }
-                            html += `</div>`;
                         }
                     }
                     
@@ -943,7 +1069,7 @@ function showNotificationDetail(notification) {
             ` : `
                 <div class="border-t border-border pt-4">
                     <div class="text-sm font-medium text-muted-foreground mb-2">Bericht</div>
-                    <div class="text-sm text-foreground whitespace-pre-wrap">${notification.message}</div>
+                    <div class="text-sm text-foreground whitespace-pre-wrap">${formatMessageWithBoldLabels(notification.message)}</div>
                 </div>
             `}
             ${fileSection}
@@ -952,35 +1078,88 @@ function showNotificationDetail(notification) {
                 // Show button for accepted interviews - check if match_id exists in data or notification
                 // This applies to response notifications (when candidate accepts) that have match_id
                 let matchId = notification.match_id;
+                let isChangeNotification = false;
+                let interviewId = null;
+                let interviewDeleted = false;
                 
-                // Try to get match_id from data object if not directly available
-                if (!matchId && notification.data) {
-                    if (typeof notification.data === 'object' && notification.data.match_id) {
-                        matchId = notification.data.match_id;
+                // Try to get match_id, is_change_notification, interview_id, and interview_deleted from data object
+                if (notification.data) {
+                    if (typeof notification.data === 'object') {
+                        matchId = matchId || notification.data.match_id;
+                        isChangeNotification = notification.data.is_change_notification || false;
+                        interviewId = notification.data.interview_id || null;
+                        interviewDeleted = notification.data.interview_deleted || false;
                     } else if (typeof notification.data === 'string') {
                         try {
                             const parsedData = JSON.parse(notification.data);
-                            matchId = parsedData.match_id || null;
+                            matchId = matchId || parsedData.match_id || null;
+                            isChangeNotification = parsedData.is_change_notification || false;
+                            interviewId = parsedData.interview_id || null;
+                            interviewDeleted = parsedData.interview_deleted || false;
                         } catch (e) {
                             // Ignore parse errors
                         }
                     }
                 }
                 
-                // Check if this is an accepted interview response notification
-                // Response notifications have:
-                // - title === 'Interview reactie'
-                // - response_type === 'accept' OR category === 'success' (green checkmark)
-                // - match_id in data
-                const isResponseNotification = notification.title === 'Interview reactie';
+                // Also check title for change notification response
+                if (notification.title === 'Gewijzigde afspraak reactie') {
+                    isChangeNotification = true;
+                }
+                
+                // Check if this is an accepted/declined interview response notification
+                const isResponseNotification = notification.title === 'Interview reactie' || notification.title === 'Gewijzigde afspraak reactie';
                 const isAccepted = notification.response_type === 'accept' || 
                                   notification.category === 'success' ||
                                   (notification.data && typeof notification.data === 'object' && notification.data.response === 'accept') ||
                                   (notification.data && typeof notification.data === 'string' && notification.data.includes('"response":"accept"'));
+                const isDeclined = notification.response_type === 'decline' || 
+                                  notification.category === 'warning' ||
+                                  (notification.data && typeof notification.data === 'object' && notification.data.response === 'decline') ||
+                                  (notification.data && typeof notification.data === 'string' && notification.data.includes('"response":"decline"'));
                 
-                    // Show button if it's an interview response notification that was accepted
-                    // Only show if match_id is available AND interview doesn't exist yet
-                    if (isInterviewNotification && isResponseNotification && isAccepted && matchId && !notification.interview_exists) {
+                // Handle change notification responses
+                if (isInterviewNotification && isResponseNotification && isChangeNotification) {
+                    if (isAccepted) {
+                        // Show green success message for accepted changed appointment
+                        return `
+                            <div class="mt-4">
+                                <div class="flex items-center gap-2 text-green-500">
+                                    <i class="ki-filled ki-check-circle"></i>
+                                    <span class="font-medium">Gewijzigde afspraak geaccepteerd</span>
+                                </div>
+                            </div>
+                        `;
+                    } else if (isDeclined) {
+                        // Check if interview has already been deleted
+                        if (interviewDeleted) {
+                            // Show red message that interview has been deleted
+                            return `
+                                <div class="mt-4">
+                                    <div class="flex items-center gap-2 text-red-500">
+                                        <i class="ki-filled ki-check-circle"></i>
+                                        <span class="font-medium">Afspraak verwijderd</span>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (interviewId) {
+                            // Show red button to delete interview for declined changed appointment
+                            return `
+                                <div class="mt-4">
+                                    <button class="kt-btn kt-btn-danger kt-btn-sm delete-interview-btn" data-notification-id="${notification.id}" data-interview-id="${interviewId}">
+                                        <i class="ki-filled ki-trash me-2"></i>
+                                        Afspraak verwijderen uit interviews
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    }
+                    return '';
+                }
+                
+                // Show button if it's an interview response notification that was accepted
+                // Only show if match_id is available AND interview doesn't exist yet
+                if (isInterviewNotification && isResponseNotification && isAccepted && matchId && !notification.interview_exists) {
                     return `
                         <div class="mt-4">
                             <button class="kt-btn kt-btn-primary kt-btn-sm create-interview-btn" data-notification-id="${notification.id}" data-match-id="${matchId}" data-scheduled-at="${notification.scheduled_at || ''}" data-location-id="${notification.location_id || ''}" data-scheduled-date="${notification.scheduled_date || ''}" data-scheduled-time="${notification.scheduled_time || ''}">
@@ -1001,6 +1180,18 @@ function showNotificationDetail(notification) {
         createInterviewBtnDetail.addEventListener('click', (e) => {
             e.stopPropagation();
             createInterviewFromNotification(notification);
+        });
+    }
+    
+    // Add click handler for "Afspraak verwijderen uit interviews" button in detail view
+    const deleteInterviewBtnDetail = detailContent.querySelector('.delete-interview-btn');
+    if (deleteInterviewBtnDetail) {
+        deleteInterviewBtnDetail.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const interviewId = deleteInterviewBtnDetail.dataset.interviewId;
+            if (interviewId) {
+                deleteInterviewFromNotification(interviewId, notification.id);
+            }
         });
     }
     
@@ -1114,11 +1305,11 @@ function backToListView() {
     const footer = document.getElementById('notifications_all_footer');
     
     if (listView && detailView) {
-        listView.style.display = 'flex';
+        listView.classList.remove('hidden');
         detailView.style.display = 'none';
         // Show footer again when returning to list
         if (footer) {
-            footer.style.display = 'grid';
+            footer.classList.remove('hidden');
         }
     }
 }
@@ -1564,6 +1755,196 @@ function createInterviewFromNotification(notification) {
     }
     
     window.location.href = url;
+}
+
+// Show confirmation modal for deleting interview
+function showDeleteConfirmationModal(callback) {
+    // Create or get modal
+    let modal = document.getElementById('delete-interview-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'delete-interview-modal';
+        modal.className = 'fixed inset-0 hidden items-center justify-center';
+        modal.style.zIndex = '100000';
+        modal.style.setProperty('z-index', '100000', 'important');
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        modal.style.backdropFilter = 'blur(8px)';
+        modal.style.webkitBackdropFilter = 'blur(8px)';
+        modal.innerHTML = `
+            <div class="bg-background rounded-lg w-full max-w-md mx-4 relative border border-border shadow-xl overflow-hidden" style="background-color: var(--kt-body-bg, #ffffff);">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border" style="background-color: var(--kt-body-bg, #ffffff);">
+                    <h3 class="text-lg font-semibold text-foreground flex items-center gap-2" style="color: var(--kt-body-color, #1f2937);">
+                        <i class="ki-filled ki-notification-status text-red-500"></i>
+                        Afspraak verwijderen
+                    </h3>
+                    <button type="button" id="delete-interview-modal-close" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" style="background: transparent; border: none;">
+                        <i class="ki-filled ki-cross text-muted-foreground hover:text-foreground"></i>
+                    </button>
+                </div>
+                <div class="p-6" style="background-color: var(--kt-body-bg, #ffffff);">
+                    <div class="flex items-start gap-4 mb-6">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                            <i class="ki-filled ki-trash text-red-500 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-foreground mb-2" style="color: var(--kt-body-color, #374151);">
+                                Weet je zeker dat je deze afspraak wilt verwijderen uit de interviews?
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                De kandidaat ontvangt een notificatie dat de afspraak is geannuleerd.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2.5">
+                        <button type="button" id="delete-interview-modal-cancel" class="kt-btn kt-btn-outline flex-1 justify-center" style="height: 38px; border-radius: 0.5rem; border: 1px solid var(--border, #e5e7eb);">
+                            Annuleren
+                        </button>
+                        <button type="button" id="delete-interview-modal-confirm" class="kt-btn kt-btn-danger flex-1 justify-center" style="height: 38px; border-radius: 0.5rem;">
+                            <i class="ki-filled ki-trash me-2"></i>
+                            Verwijderen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Close handlers
+        const closeModal = (confirmed) => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler, true);
+                delete modal._escHandler;
+            }
+            if (modal._callback) {
+                modal._callback(confirmed);
+            }
+        };
+        
+        modal.querySelector('#delete-interview-modal-close').addEventListener('click', () => closeModal(false));
+        modal.querySelector('#delete-interview-modal-cancel').addEventListener('click', () => closeModal(false));
+        modal.querySelector('#delete-interview-modal-confirm').addEventListener('click', () => closeModal(true));
+        
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(false);
+            }
+        });
+    }
+    
+    // Store callback
+    modal._callback = callback;
+    
+    // Add ESC key handler
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.removeEventListener('keydown', escHandler, true);
+            delete modal._escHandler;
+            if (modal._callback) {
+                modal._callback(false);
+            }
+        }
+    };
+    modal._escHandler = escHandler;
+    document.addEventListener('keydown', escHandler, true);
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+// Delete interview from notification (when user clicks "Afspraak verwijderen uit interviews")
+async function deleteInterviewFromNotification(interviewId, notificationId) {
+    // Show confirmation modal
+    showDeleteConfirmationModal(async (confirmed) => {
+        if (!confirmed) {
+            return;
+        }
+        
+        try {
+            const baseUrl = getNotificationBaseUrl();
+            const isAdmin = baseUrl.includes('/admin');
+            
+            // Determine the correct delete URL
+            const deleteUrl = isAdmin ? `/admin/interviews/${interviewId}` : `/interviews/${interviewId}`;
+            
+            const response = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Fout bij verwijderen van interview');
+            }
+            
+            // Update the local notifications array to mark interview as deleted
+            const notificationIndex = notifications.findIndex(n => n.id === parseInt(notificationId));
+            if (notificationIndex !== -1) {
+                // Update the data to include interview_deleted flag
+                let notifData = notifications[notificationIndex].data;
+                if (typeof notifData === 'string') {
+                    try {
+                        notifData = JSON.parse(notifData);
+                    } catch (e) {
+                        notifData = {};
+                    }
+                }
+                notifData = notifData || {};
+                notifData.interview_deleted = true;
+                notifications[notificationIndex].data = notifData;
+            }
+            
+            // Update the button to show success message
+            const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
+            if (notificationElement) {
+                const deleteBtn = notificationElement.querySelector('.delete-interview-btn');
+                if (deleteBtn) {
+                    deleteBtn.parentElement.innerHTML = `
+                        <div class="flex items-center gap-2 text-red-500">
+                            <i class="ki-filled ki-check-circle"></i>
+                            <span class="font-medium">Afspraak verwijderd</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Also update detail view if open
+            const detailView = document.getElementById('notification_detail_view');
+            if (detailView && detailView.style.display !== 'none') {
+                const detailDeleteBtn = detailView.querySelector('.delete-interview-btn');
+                if (detailDeleteBtn) {
+                    detailDeleteBtn.parentElement.innerHTML = `
+                        <div class="flex items-center gap-2 text-red-500">
+                            <i class="ki-filled ki-check-circle"></i>
+                            <span class="font-medium">Afspraak verwijderd</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            // If we're on the interviews page, refresh after a short delay to update the list
+            if (window.location.pathname.includes('/interviews')) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+            
+        } catch (error) {
+            console.error('Error deleting interview:', error);
+            alert('Fout bij verwijderen van interview: ' + error.message);
+        }
+    });
 }
 
 // Store original event handlers

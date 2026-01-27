@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.notifications.update', $notification) }}" method="POST" enctype="multipart/form-data" data-validate="true">
+    <form action="{{ route('admin.notifications.update', $notification) }}" method="POST" enctype="multipart/form-data" novalidate>
         @csrf
         @method('PUT')
 
@@ -40,41 +40,54 @@
                                 Ontvanger *
                             </td>
                             <td class="min-w-48 w-full">
-                                <select class="kt-select @error('user_id') border-destructive @enderror" 
-                                        id="user_id" 
-                                        name="user_id" 
-                                        required>
-                                    <option value="">Selecteer ontvanger</option>
-                                    
-                                    @if($backendUsers->count() > 0)
-                                        <optgroup label="Backend Gebruikers">
-                                            @foreach($backendUsers as $user)
-                                                <option value="{{ $user->id }}" {{ old('user_id', $notification->user_id) == $user->id ? 'selected' : '' }}>
-                                                    {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
-                                                </option>
-                                            @endforeach
-                                        </optgroup>
-                                    @endif
-                                    
-                                    @if($candidates->count() > 0)
-                                        <optgroup label="Kandidaten">
-                                            @foreach($candidates as $candidate)
-                                                @php
-                                                    $vacancies = $candidateVacancies[$candidate->email] ?? [];
-                                                    $vacancyText = !empty($vacancies) ? ' - ' . implode(', ', array_unique($vacancies)) : '';
-                                                @endphp
-                                                <option value="{{ $candidate->id }}" {{ old('user_id', $notification->user_id) == $candidate->id ? 'selected' : '' }}>
-                                                    {{ $candidate->first_name }} {{ $candidate->last_name }} ({{ $candidate->email }}){{ $vacancyText }}
-                                                </option>
-                                            @endforeach
-                                        </optgroup>
-                                    @endif
-                                </select>
-                                @error('user_id')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                                <div class="text-xs text-muted-foreground mt-1">
-                                    Selecteer een backend gebruiker van je bedrijf of een kandidaat die heeft gesolliciteerd op je vacatures
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <div style="position: relative; display: inline-block; width: auto; min-width: 300px;">
+                                            <select class="kt-select @error('user_id') border-destructive @enderror" 
+                                                    id="user_id" 
+                                                    name="user_id" 
+                                                    data-kt-select="true"
+                                                    style="width: auto; min-width: 300px; max-width: 100%;"
+                                                    required>
+                                                <option value="">Selecteer ontvanger</option>
+                                                
+                                                @if($backendUsers->count() > 0)
+                                                    <optgroup label="Gebruikers van het bedrijf">
+                                                        @foreach($backendUsers as $user)
+                                                            <option value="{{ $user->id }}" {{ old('user_id', $notification->user_id) == $user->id ? 'selected' : '' }}>
+                                                                {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
+                                                            </option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                                
+                                                @if($candidates->count() > 0)
+                                                    <optgroup label="Kandidaten">
+                                                        @foreach($candidates as $candidate)
+                                                            @php
+                                                                $vacancies = $candidateVacancies[$candidate->email] ?? [];
+                                                                $vacancyText = !empty($vacancies) ? ' - ' . implode(', ', array_unique($vacancies)) : '';
+                                                            @endphp
+                                                            <option value="{{ $candidate->id }}" {{ old('user_id', $notification->user_id) == $candidate->id ? 'selected' : '' }}>
+                                                                {{ $candidate->first_name }} {{ $candidate->last_name }} ({{ $candidate->email }}){{ $vacancyText }}
+                                                            </option>
+                                                        @endforeach
+                                                    </optgroup>
+                                                @endif
+                                            </select>
+                                        </div>
+                                        @error('user_id')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('user_id')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Selecteer een backend gebruiker van je bedrijf of een kandidaat die heeft gesolliciteerd op je vacatures
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -83,21 +96,34 @@
                                 Categorie *
                             </td>
                             <td>
-                                <select class="kt-select @error('category') border-destructive @enderror" 
-                                        id="category" 
-                                        name="category" 
-                                        required>
-                                    <option value="">Selecteer categorie</option>
-                                    <option value="info" {{ old('category', $notification->category ?? 'info') == 'info' ? 'selected' : '' }}>Informatie</option>
-                                    <option value="warning" {{ old('category', $notification->category ?? '') == 'warning' ? 'selected' : '' }}>Waarschuwing</option>
-                                    <option value="success" {{ old('category', $notification->category ?? '') == 'success' ? 'selected' : '' }}>Succes</option>
-                                    <option value="error" {{ old('category', $notification->category ?? '') == 'error' ? 'selected' : '' }}>Fout</option>
-                                    <option value="reminder" {{ old('category', $notification->category ?? '') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                    <option value="update" {{ old('category', $notification->category ?? '') == 'update' ? 'selected' : '' }}>Update</option>
-                                </select>
-                                @error('category')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <div style="position: relative; display: inline-block; width: auto; min-width: 200px;">
+                                            <select class="kt-select @error('category') border-destructive @enderror" 
+                                                    id="category" 
+                                                    name="category" 
+                                                    data-kt-select="true"
+                                                    style="width: auto; min-width: 200px; max-width: 100%;"
+                                                    required>
+                                                <option value="">Selecteer categorie</option>
+                                                <option value="info" {{ old('category', $notification->category ?? 'info') == 'info' ? 'selected' : '' }}>Informatie</option>
+                                                <option value="warning" {{ old('category', $notification->category ?? '') == 'warning' ? 'selected' : '' }}>Waarschuwing</option>
+                                                <option value="success" {{ old('category', $notification->category ?? '') == 'success' ? 'selected' : '' }}>Succes</option>
+                                                <option value="error" {{ old('category', $notification->category ?? '') == 'error' ? 'selected' : '' }}>Fout</option>
+                                                <option value="reminder" {{ old('category', $notification->category ?? '') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
+                                                <option value="update" {{ old('category', $notification->category ?? '') == 'update' ? 'selected' : '' }}>Update</option>
+                                            </select>
+                                        </div>
+                                        @error('category')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('category')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                </div>
                             </td>
                         </tr>
                         <tr>
@@ -105,21 +131,34 @@
                                 Type *
                             </td>
                             <td>
-                                <select class="kt-select @error('type') border-destructive @enderror" 
-                                        id="type" 
-                                        name="type" 
-                                        required>
-                                    <option value="">Selecteer type</option>
-                                    <option value="match" {{ old('type', $notification->type) == 'match' ? 'selected' : '' }}>Match</option>
-                                    <option value="interview" {{ old('type', $notification->type) == 'interview' ? 'selected' : '' }}>Sollicitatie</option>
-                                    <option value="system" {{ old('type', $notification->type) == 'system' ? 'selected' : '' }}>Systeem</option>
-                                    <option value="email" {{ old('type', $notification->type) == 'email' ? 'selected' : '' }}>E-mail</option>
-                                    <option value="reminder" {{ old('type', $notification->type) == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                    <option value="file" {{ old('type', $notification->type) == 'file' ? 'selected' : '' }}>Bestand</option>
-                                </select>
-                                @error('type')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <div style="position: relative; display: inline-block; width: auto; min-width: 200px;">
+                                            <select class="kt-select @error('type') border-destructive @enderror" 
+                                                    id="type" 
+                                                    name="type" 
+                                                    data-kt-select="true"
+                                                    style="width: auto; min-width: 200px; max-width: 100%;"
+                                                    required>
+                                                <option value="">Selecteer type</option>
+                                                <option value="match" {{ old('type', $notification->type) == 'match' ? 'selected' : '' }}>Match</option>
+                                                <option value="interview" {{ old('type', $notification->type) == 'interview' ? 'selected' : '' }}>Sollicitatie</option>
+                                                <option value="system" {{ old('type', $notification->type) == 'system' ? 'selected' : '' }}>Systeem</option>
+                                                <option value="email" {{ old('type', $notification->type) == 'email' ? 'selected' : '' }}>E-mail</option>
+                                                <option value="reminder" {{ old('type', $notification->type) == 'reminder' ? 'selected' : '' }}>Herinnering</option>
+                                                <option value="file" {{ old('type', $notification->type) == 'file' ? 'selected' : '' }}>Bestand</option>
+                                            </select>
+                                        </div>
+                                        @error('type')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('type')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                </div>
                             </td>
                         </tr>
                         <tr>
@@ -127,16 +166,25 @@
                                 Titel *
                             </td>
                             <td>
-                                <input type="text" 
-                                       class="kt-input @error('title') border-destructive @enderror" 
-                                       name="title" 
-                                       id="title"
-                                       value="{{ old('title', $notification->title) }}" 
-                                       required
-                                       placeholder="Bijv. Nieuwe match gevonden">
-                                @error('title')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <input type="text" 
+                                               class="kt-input @error('title') border-destructive @enderror" 
+                                               name="title" 
+                                               id="title"
+                                               value="{{ old('title', $notification->title) }}" 
+                                               required
+                                               placeholder="Bijv. Nieuwe match gevonden">
+                                        @error('title')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('title')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                </div>
                             </td>
                         </tr>
                         <tr>
@@ -144,15 +192,24 @@
                                 Bericht *
                             </td>
                             <td>
-                                <textarea class="kt-input pt-1 @error('message') border-destructive @enderror" 
-                                          id="message" 
-                                          name="message" 
-                                          rows="4" 
-                                          required
-                                          placeholder="Voer hier het bericht in...">{{ old('message', $notification->message) }}</textarea>
-                                @error('message')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: flex-start;">
+                                        <textarea class="kt-input pt-1 @error('message') border-destructive @enderror" 
+                                                  id="message" 
+                                                  name="message" 
+                                                  rows="4" 
+                                                  required
+                                                  placeholder="Voer hier het bericht in...">{{ old('message', $notification->message) }}</textarea>
+                                        @error('message')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: flex-start; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0; padding-top: 0.5rem;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('message')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                </div>
                             </td>
                         </tr>
                         <tr>
@@ -160,19 +217,32 @@
                                 Prioriteit
                             </td>
                             <td>
-                                <select class="kt-select @error('priority') border-destructive @enderror" 
-                                        id="priority" 
-                                        name="priority">
-                                    <option value="low" {{ old('priority', $notification->priority) == 'low' ? 'selected' : '' }}>Laag</option>
-                                    <option value="normal" {{ old('priority', $notification->priority ?? 'normal') == 'normal' ? 'selected' : '' }}>Normaal</option>
-                                    <option value="high" {{ old('priority', $notification->priority) == 'high' ? 'selected' : '' }}>Hoog</option>
-                                    <option value="urgent" {{ old('priority', $notification->priority) == 'urgent' ? 'selected' : '' }}>Urgent</option>
-                                </select>
-                                @error('priority')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                                <div class="text-xs text-muted-foreground mt-1">
-                                    De prioriteit bepaalt de kleur van het notificatie icoon (Laag: grijs, Normaal: blauw, Hoog: oranje, Urgent: rood)
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <div style="position: relative; display: inline-block; width: auto; min-width: 200px;">
+                                            <select class="kt-select @error('priority') border-destructive @enderror" 
+                                                    id="priority" 
+                                                    name="priority"
+                                                    data-kt-select="true"
+                                                    style="width: auto; min-width: 200px; max-width: 100%;">
+                                                <option value="low" {{ old('priority', $notification->priority) == 'low' ? 'selected' : '' }}>Laag</option>
+                                                <option value="normal" {{ old('priority', $notification->priority ?? 'normal') == 'normal' ? 'selected' : '' }}>Normaal</option>
+                                                <option value="high" {{ old('priority', $notification->priority) == 'high' ? 'selected' : '' }}>Hoog</option>
+                                                <option value="urgent" {{ old('priority', $notification->priority) == 'urgent' ? 'selected' : '' }}>Urgent</option>
+                                            </select>
+                                        </div>
+                                        @error('priority')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('priority')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        De prioriteit bepaalt de kleur van het notificatie icoon (Laag: grijs, Normaal: blauw, Hoog: oranje, Urgent: rood)
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -181,17 +251,26 @@
                                 Actie URL
                             </td>
                             <td>
-                                <input type="url" 
-                                       class="kt-input @error('action_url') border-destructive @enderror" 
-                                       name="action_url" 
-                                       id="action_url"
-                                       value="{{ old('action_url', $notification->action_url) }}" 
-                                       placeholder="https://example.com/action">
-                                @error('action_url')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                                <div class="text-xs text-muted-foreground mt-1">
-                                    Optionele URL waar de gebruiker naartoe wordt geleid bij klikken op de notificatie
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <input type="url" 
+                                               class="kt-input @error('action_url') border-destructive @enderror" 
+                                               name="action_url" 
+                                               id="action_url"
+                                               value="{{ old('action_url', $notification->action_url) }}" 
+                                               placeholder="https://example.com/action">
+                                        @error('action_url')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('action_url')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Optionele URL waar de gebruiker naartoe wordt geleid bij klikken op de notificatie
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -200,41 +279,61 @@
                                 Gepland op
                             </td>
                             <td>
-                                <div class="flex items-center gap-2.5">
-                                    <div class="kt-input" style="max-width: 200px;">
-                                        <i class="ki-outline ki-calendar"></i>
-                                        <input class="grow"
-                                               id="scheduled_at_display"
-                                               data-kt-date-picker="true"
-                                               data-kt-date-picker-input-mode="true"
-                                               data-kt-date-picker-position-to-input="left"
-                                               data-kt-date-picker-format="dd-mm-yyyy"
-                                               placeholder="Selecteer datum"
-                                               readonly
-                                               type="text"
-                                               value="{{ old('scheduled_at', $notification->scheduled_at ? $notification->scheduled_at->format('d-m-Y') : '') }}"/>
-                                        <input type="hidden"
-                                               name="scheduled_at"
-                                               id="scheduled_at_hidden"
-                                               value="{{ old('scheduled_at', $notification->scheduled_at ? $notification->scheduled_at->format('Y-m-d') : '') }}"/>
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                            <div class="kt-input @error('scheduled_at') border-destructive @enderror" style="max-width: 200px;">
+                                                <i class="ki-outline ki-calendar"></i>
+                                                <input class="grow"
+                                                       id="scheduled_at_display"
+                                                       data-kt-date-picker="true"
+                                                       data-kt-date-picker-input-mode="true"
+                                                       data-kt-date-picker-position-to-input="left"
+                                                       data-kt-date-picker-date-format="DD-MM-YYYY"
+                                                       @if($notification->scheduled_at)
+                                                       data-kt-date-picker-selected-dates='["{{ $notification->scheduled_at->format('Y-m-d') }}"]'
+                                                       data-kt-date-picker-selected-month="{{ $notification->scheduled_at->format('n') - 1 }}"
+                                                       data-kt-date-picker-selected-year="{{ $notification->scheduled_at->format('Y') }}"
+                                                       @endif
+                                                       placeholder="Selecteer datum"
+                                                       readonly
+                                                       type="text"
+                                                       value="{{ old('scheduled_at', $notification->scheduled_at ? $notification->scheduled_at->format('d-m-Y') : '') }}"/>
+                                                <input type="hidden"
+                                                       name="scheduled_at"
+                                                       id="scheduled_at_hidden"
+                                                       value="{{ old('scheduled_at', $notification->scheduled_at ? $notification->scheduled_at->format('Y-m-d H:i') : '') }}"/>
+                                            </div>
+                                            @error('scheduled_at')
+                                                <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                    <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @enderror
+                                        </div>
+                                        <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                            <div class="kt-input @error('scheduled_time') border-destructive @enderror" style="max-width: 120px;">
+                                                <i class="ki-outline ki-time"></i>
+                                                <input type="time"
+                                                       name="scheduled_time"
+                                                       id="scheduled_time"
+                                                       class="grow"
+                                                       value="{{ old('scheduled_time', $notification->scheduled_at ? $notification->scheduled_at->format('H:i') : '') }}">
+                                            </div>
+                                            @error('scheduled_time')
+                                                <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                    <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                                </div>
+                                            @enderror
+                                        </div>
                                     </div>
-                                    <input type="text"
-                                           name="scheduled_time"
-                                           id="scheduled_time"
-                                           class="kt-input @error('scheduled_time') border-destructive @enderror"
-                                           placeholder="hh:mm"
-                                           maxlength="5"
-                                           pattern="[0-9]{2}:[0-9]{2}"
-                                           style="max-width: 100px;"
-                                           value="{{ old('scheduled_time', $notification->scheduled_at ? $notification->scheduled_at->format('H:i') : '') }}">
+                                    @error('scheduled_at')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                    @error('scheduled_time')
+                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                    @enderror
+                                    <small class="text-muted-foreground text-xs mt-1 block">Voer tijd in als hh:mm (bijv. 14:30) of gebruik het klok icoon</small>
                                 </div>
-                                @error('scheduled_at')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                                @error('scheduled_time')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                                <small class="text-muted-foreground text-xs mt-1 block">Voer tijd in als hh:mm (bijv. 14:30)</small>
                             </td>
                         </tr>
                         <tr>
@@ -245,10 +344,15 @@
                                 @php
                                     $notificationData = json_decode($notification->data, true) ?? [];
                                 @endphp
-                                <select class="kt-select @error('location_id') border-destructive @enderror" 
-                                        id="location_id" 
-                                        name="location_id">
-                                    <option value="">Selecteer locatie</option>
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <div style="position: relative; display: inline-block; width: auto; min-width: 300px;">
+                                            <select class="kt-select @error('location_id') border-destructive @enderror" 
+                                                    id="location_id" 
+                                                    name="location_id"
+                                                    data-kt-select="true"
+                                                    style="width: auto; min-width: 300px; max-width: 100%;">
+                                                <option value="">Selecteer locatie</option>
                                     @if($company)
                                         @php
                                             $mainLocation = $company->mainLocation;
@@ -310,23 +414,31 @@
                                                              $notification->location_id === -1 ||
                                                              (isset($notificationData['location_or_type']) && $notificationData['location_or_type'] === 'Op afstand'));
                                     @endphp
-                                    <option value="remote" {{ $isRemoteSelected ? 'selected' : '' }}>
-                                        Op afstand
-                                    </option>
-                                </select>
-                                @error('location_id')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                                <div class="text-xs text-muted-foreground mt-1">
-                                    Optioneel: selecteer een locatie van je bedrijf
+                                                <option value="remote" {{ $isRemoteSelected ? 'selected' : '' }}>
+                                                    Op afstand
+                                                </option>
+                                            </select>
+                                        </div>
+                                        @error('location_id')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('location_id')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Optioneel: selecteer een locatie van je bedrijf
+                                    </div>
                                 </div>
                             </td>
                         </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">
+                        <tr class="border-b-0">
+                            <td class="text-secondary-foreground font-normal border-b-0">
                                 Bestand
                             </td>
-                            <td>
+                            <td class="border-b-0">
                                 @if($notification->file_path)
                                     <div class="mb-2">
                                         <a href="{{ \Storage::url($notification->file_path) }}" target="_blank" class="text-sm text-primary hover:underline">
@@ -351,7 +463,8 @@
                                 </div>
                             </td>
                         </tr>
-                        <tr>
+                        {{-- Extra Data (JSON) field hidden - only used internally --}}
+                        <tr style="display: none;">
                             <td class="text-secondary-foreground font-normal align-top">
                                 Extra Data (JSON)
                             </td>
@@ -387,458 +500,373 @@
     </form>
 </div>
 
+@push('styles')
+<style>
+    /* Ensure optgroups are visible in KT Select dropdowns - specific for user_id dropdown */
+    #user_id + .kt-select-wrapper .kt-select-group-header,
+    #user_id + .kt-select-wrapper [data-kt-select-group-header],
+    .kt-select-wrapper:has(#user_id) .kt-select-group-header,
+    .kt-select-wrapper:has(#user_id) [data-kt-select-group-header] {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+        color: var(--muted-foreground) !important;
+        background-color: var(--muted) !important;
+        text-transform: uppercase !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.75rem !important;
+        border-bottom: 1px solid var(--border) !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    
+    #user_id + .kt-select-wrapper .kt-select-group,
+    #user_id + .kt-select-wrapper [data-kt-select-group],
+    .kt-select-wrapper:has(#user_id) .kt-select-group,
+    .kt-select-wrapper:has(#user_id) [data-kt-select-group] {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    #user_id + .kt-select-wrapper .kt-select-group:first-child .kt-select-group-header,
+    .kt-select-wrapper:has(#user_id) .kt-select-group:first-child .kt-select-group-header {
+        margin-top: 0 !important;
+    }
+    
+    /* Indent options within optgroups to show they belong to that group */
+    #user_id + .kt-select-wrapper .kt-select-group .kt-select-option,
+    .kt-select-wrapper:has(#user_id) .kt-select-group .kt-select-option {
+        padding-left: 1.5rem !important;
+        margin-left: 0.5rem !important;
+    }
+    
+    /* General optgroup styling for all KT Select dropdowns */
+    .kt-select-group-header,
+    [data-kt-select-group-header] {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+        color: #6b7280 !important; /* gray-500 fallback */
+        background-color: #f3f4f6 !important; /* gray-100 fallback */
+        text-transform: uppercase !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.75rem !important;
+        border-bottom: 1px solid #e5e7eb !important; /* gray-200 fallback */
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+        letter-spacing: 0.05em !important;
+    }
+    
+    .dark .kt-select-group-header,
+    .dark [data-kt-select-group-header] {
+        color: #9ca3af !important; /* gray-400 for dark mode */
+        background-color: #374151 !important; /* gray-700 for dark mode */
+        border-bottom-color: #4b5563 !important; /* gray-600 for dark mode */
+    }
+    
+    .kt-select-group,
+    [data-kt-select-group] {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    .kt-select-group:first-child .kt-select-group-header,
+    .kt-select-group:first-child [data-kt-select-group-header] {
+        margin-top: 0 !important;
+    }
+    
+    .kt-select-group .kt-select-option,
+    [data-kt-select-group] .kt-select-option {
+        padding-left: 1.5rem !important;
+        margin-left: 0.5rem !important;
+    }
+    
+    /* Fallback for browsers that don't support :has() */
+    .kt-select-wrapper[data-user-select] .kt-select-group-header,
+    .kt-select-wrapper[data-user-select] [data-kt-select-group-header] {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+        color: #6b7280 !important;
+        background-color: #f3f4f6 !important;
+        text-transform: uppercase !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.75rem !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    
+    .dark .kt-select-wrapper[data-user-select] .kt-select-group-header,
+    .dark .kt-select-wrapper[data-user-select] [data-kt-select-group-header] {
+        color: #9ca3af !important;
+        background-color: #374151 !important;
+        border-bottom-color: #4b5563 !important;
+    }
+    
+    .kt-select-wrapper[data-user-select] .kt-select-group .kt-select-option {
+        padding-left: 1.5rem !important;
+        margin-left: 0.5rem !important;
+    }
+    
+    /* Validation icon wrapper styling - positioned next to fields, not inside */
+    .validation-icon-wrapper {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        flex-shrink: 0 !important;
+    }
+    
+    /* Time input styling for dark mode - make clock icon visible */
+    input[type="time"].kt-input,
+    input[type="time"].grow {
+        color-scheme: light dark;
+    }
+    
+    .dark input[type="time"].kt-input,
+    .dark input[type="time"].grow {
+        color-scheme: dark;
+    }
+    
+    /* Ensure the time picker icon is visible in both modes */
+    input[type="time"].kt-input::-webkit-calendar-picker-indicator,
+    input[type="time"].grow::-webkit-calendar-picker-indicator {
+        filter: invert(0);
+        opacity: 1;
+        cursor: pointer;
+        width: 20px;
+        height: 20px;
+    }
+    
+    .dark input[type="time"].kt-input::-webkit-calendar-picker-indicator,
+    .dark input[type="time"].grow::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        opacity: 1;
+    }
+    
+    /* Make the time icon in kt-input visible */
+    .kt-input:has(input[type="time"]) .ki-time {
+        color: var(--kt-text-muted);
+        opacity: 0.7;
+    }
+    
+    .dark .kt-input:has(input[type="time"]) .ki-time {
+        color: var(--kt-text-muted);
+        opacity: 0.8;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize datepicker
+    // Initialize datepicker elements
     const dateInput = document.getElementById('scheduled_at_display');
     const hiddenInput = document.getElementById('scheduled_at_hidden');
     const timeInput = document.getElementById('scheduled_time');
-    
-    // Function to update hidden input with combined date and time
-    function updateHiddenInput() {
-        if (!hiddenInput) return;
+
+    // Function to toggle time input required state based on date
+    function toggleTimeRequired() {
+        if (!timeInput) return;
         
-        let dateValue = '';
-        let timeValue = timeInput ? timeInput.value.trim() : '';
+        // Check if date input has a value
+        const hasDate = dateInput && dateInput.value.trim() !== '';
         
-        // Get date value from flatpickr or display input
-        if (dateInput) {
-            // Try to get the actual date from flatpickr instance if available
-            if (window.flatpickrInstance && window.flatpickrInstance.selectedDates.length > 0) {
-                const selectedDate = window.flatpickrInstance.selectedDates[0];
-                dateValue = selectedDate.getFullYear() + '-' + 
-                           String(selectedDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                           String(selectedDate.getDate()).padStart(2, '0');
-            } else {
-                // Fallback: parse from display value
-                const displayValue = dateInput.value.trim();
-                if (displayValue) {
-                    const parts = displayValue.split('-');
-                    if (parts.length === 3 && parts[0].length === 2) {
-                        // Format is d-m-Y, convert to Y-m-d
-                        dateValue = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    } else if (parts.length === 3 && parts[0].length === 4) {
-                        // Already in Y-m-d format
-                        dateValue = displayValue;
-                    } else {
-                        // Try to use hidden input value if available
-                        dateValue = hiddenInput.value.split(' ')[0] || '';
-                    }
-                } else {
-                    // Use existing hidden input date if available
-                    dateValue = hiddenInput.value.split(' ')[0] || '';
-                }
-            }
+        if (hasDate) {
+            // If date is filled, time is required
+            timeInput.setAttribute('required', 'required');
         } else {
-            // Use existing hidden input date if available
-            dateValue = hiddenInput.value.split(' ')[0] || '';
+            // If no date, time is not required
+            timeInput.removeAttribute('required');
         }
+    }
+
+    // Initialize on page load
+    toggleTimeRequired();
+
+    // Function to convert DD-MM-YYYY to YYYY-MM-DD
+    function convertToISODate(displayDate) {
+        if (!displayDate) return '';
+        const parts = displayDate.split('-');
+        if (parts.length !== 3) return displayDate;
+        return parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+
+    // Function to update hidden input with date and time combined
+    function updateHiddenInput() {
+        if (!hiddenInput || !dateInput) return;
+
+        // Get date from display input (DD-MM-YYYY format) and convert to YYYY-MM-DD
+        let dateValue = convertToISODate(dateInput.value);
         
-        // Combine date and time: Y-m-d H:i:s
-        if (dateValue) {
-            if (timeValue) {
-                // Ensure time has seconds
-                if (timeValue.length === 5) {
-                    timeValue = timeValue + ':00';
-                }
-                hiddenInput.value = dateValue + ' ' + timeValue;
-            } else {
-                // Only date, no time yet
-                hiddenInput.value = dateValue;
+        // Fallback: get date from current hidden input value
+        if (!dateValue) {
+            const currentHiddenValue = hiddenInput.value.trim();
+            if (currentHiddenValue) {
+                dateValue = currentHiddenValue.split(' ')[0];
             }
-        } else if (timeValue) {
-            // Only time, keep existing date if any
-            const existingDate = hiddenInput.value.split(' ')[0];
-            if (existingDate) {
-                if (timeValue.length === 5) {
-                    timeValue = timeValue + ':00';
-                }
-                hiddenInput.value = existingDate + ' ' + timeValue;
+        }
+
+        // Get current time value
+        const currentTime = timeInput ? timeInput.value.trim() : '';
+
+        // Update hidden input with date and time
+        if (dateValue) {
+            if (currentTime) {
+                hiddenInput.value = dateValue + ' ' + currentTime;
+            } else {
+                hiddenInput.value = dateValue;
             }
         }
     }
-    
-    // Update hidden input immediately on page load
-    updateHiddenInput();
-    
+
+    // Watch for date input value changes
     if (dateInput) {
-        // Function to update hidden input with current date and time (defined first so it's available for event listeners)
-        function updateHiddenInputFromDatepicker() {
-            if (!hiddenInput) {
-                return;
-            }
-            
-            // Get the selected date from flatpickr instance
-            let dateValue = '';
-            if (window.flatpickrInstance && window.flatpickrInstance.selectedDates && window.flatpickrInstance.selectedDates.length > 0) {
-                const selectedDate = window.flatpickrInstance.selectedDates[0];
-                dateValue = selectedDate.getFullYear() + '-' + 
-                           String(selectedDate.getMonth() + 1).padStart(2, '0') + '-' + 
-                           String(selectedDate.getDate()).padStart(2, '0');
-            } else {
-                // Fallback: parse from display value if flatpickr instance not ready or no selected dates
-                const displayValue = dateInput ? dateInput.value.trim() : '';
-                if (displayValue) {
-                    const parts = displayValue.split('-');
-                    if (parts.length === 3 && parts[0].length === 2) { // d-m-Y format
-                        dateValue = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    } else if (parts.length === 3 && parts[0].length === 4) { // Y-m-d format
-                        dateValue = displayValue;
-                    }
-                }
-            }
-            
-            // Get current time value
-            const currentTime = timeInput ? timeInput.value.trim() : '';
-            
-            // Update hidden input
-            if (dateValue) {
-                if (currentTime) {
-                    const timeWithSeconds = currentTime.length === 5 ? currentTime + ':00' : currentTime;
-                    hiddenInput.value = dateValue + ' ' + timeWithSeconds;
-                } else {
-                    hiddenInput.value = dateValue;
-                }
-            } else {
-            }
-        }
+        let lastDateValue = dateInput.value;
         
-        // Monitor the date input value for changes - this catches all date changes including from calendar
-        let lastDateValue = dateInput.value || '';
-        const checkDateChange = function() {
-            const currentValue = dateInput.value || '';
-            if (currentValue !== lastDateValue && currentValue.trim() !== '') {
-                lastDateValue = currentValue;
-                // Update hidden input immediately when date value changes
-                setTimeout(function() {
-                    updateHiddenInputFromDatepicker();
+        // Poll for value changes (KT datepicker may update value without firing change event)
+        setInterval(() => {
+            if (dateInput.value !== lastDateValue) {
+                lastDateValue = dateInput.value;
+                updateHiddenInput();
+                toggleTimeRequired(); // Update time required state when date changes
+            }
+        }, 200);
+        
+        // Also listen for change events
+        dateInput.addEventListener('change', function() {
+            updateHiddenInput();
+            toggleTimeRequired(); // Update time required state when date changes
+        });
+        
+        // Watch for clicks on the datepicker calendar and update after selection
+        document.addEventListener('click', function(e) {
+            // Check if click was on a datepicker day cell (vanilla-calendar uses vc-date__btn class)
+            if (e.target.classList.contains('vc-date__btn') || 
+                e.target.closest('.vc-date__btn') ||
+                e.target.closest('.vc')) {
+                // Wait for the datepicker to update the input
+                setTimeout(() => {
+                    if (dateInput.value !== lastDateValue) {
+                        lastDateValue = dateInput.value;
+                        updateHiddenInput();
+                        toggleTimeRequired(); // Update time required state when date is selected
+                    }
                 }, 100);
             }
-        };
-        
-        // Check for date changes every 200ms
-        const dateCheckInterval = setInterval(checkDateChange, 200);
-        
-        // Also monitor input events
-        dateInput.addEventListener('input', function() {
-            checkDateChange();
         });
+    }
+
+    // Update hidden input when time changes
+    if (timeInput) {
+        timeInput.addEventListener('change', updateHiddenInput);
+        timeInput.addEventListener('input', updateHiddenInput);
         
-        // Add multiple event listeners to catch clicks - use capture phase and multiple event types
-        const clickHandler = function(e) {
-            // Update after a short delay to allow flatpickr to process
-            setTimeout(function() {
-                checkDateChange();
-                updateHiddenInputFromDatepicker();
-            }, 200);
-        };
-        
-        // Try multiple event types
-        dateInput.addEventListener('click', clickHandler, true);
-        dateInput.addEventListener('mousedown', clickHandler, true);
-        dateInput.addEventListener('pointerdown', clickHandler, true);
-        dateInput.addEventListener('focus', function(e) {
-        }, true);
-        
-        // Also use event delegation on document level to catch all clicks on the input
-        document.addEventListener('click', function(e) {
-            // Check if click is on the input or its parent container
-            const clickedElement = e.target;
-            const isOnInput = clickedElement === dateInput;
-            const isOnParent = dateInputParent && (clickedElement === dateInputParent || dateInputParent.contains(clickedElement));
-            
-            if (isOnInput || isOnParent) {
-                setTimeout(function() {
-                    updateHiddenInputFromDatepicker();
-                }, 200);
-            }
-        }, true);
-        
-        // Also use event delegation on parent element to catch clicks
-        const dateInputParent = dateInput.closest('.kt-input');
-        if (dateInputParent) {
-            dateInputParent.addEventListener('click', function(e) {
-                // Update after a short delay
-                setTimeout(function() {
-                    updateHiddenInputFromDatepicker();
-                }, 200);
-            }, true);
-        } else {
-        }
-        
-        // Wait for KTDatePicker to initialize, then hook into the flatpickr instance
-        let setupAttempts = 0;
-        const maxSetupAttempts = 50; // Stop after 5 seconds (50 * 100ms)
-        
-        function setupDatePickerListeners() {
-            setupAttempts++;
-            
-            // Check multiple ways flatpickr instance might be stored
-            let fp = dateInput._flatpickr || 
-                    (window.flatpickr && window.flatpickr.getInstance && window.flatpickr.getInstance(dateInput)) ||
-                    null;
-            
-            // Also check if KTDatePicker has initialized it
-            if (!fp && typeof KTDatePicker !== 'undefined') {
-                // Try to get instance from KTDatePicker
-                try {
-                    const instances = KTDatePicker.getInstance && KTDatePicker.getInstance(dateInput);
-                    if (instances && instances._flatpickr) {
-                        fp = instances._flatpickr;
-                    }
-                } catch(e) {
-                    // Ignore errors
-                }
-            }
-            
-            if (!fp && setupAttempts < maxSetupAttempts) {
-                // If KTDatePicker hasn't initialized yet, wait a bit and try again
-                setTimeout(setupDatePickerListeners, 100);
-                return;
-            }
-            
-            if (fp) {
-                
-                // Store instance globally
-                window.flatpickrInstance = fp;
-                
-                // Hook into flatpickr's onChange callback
-                const originalOnChange = fp.config.onChange || function() {};
-                fp.config.onChange = function(selectedDates, dateStr, instance) {
-                    // Call original onChange if it exists
-                    if (originalOnChange) {
-                        originalOnChange(selectedDates, dateStr, instance);
-                    }
-                    // Update hidden input immediately
-                    updateHiddenInputFromDatepicker();
-                };
-                
-                // Hook into onClose callback
-                const originalOnClose = fp.config.onClose || function() {};
-                fp.config.onClose = function(selectedDates, dateStr, instance) {
-                    if (originalOnClose) {
-                        originalOnClose(selectedDates, dateStr, instance);
-                    }
-                    // Update hidden input when calendar closes
-                    updateHiddenInputFromDatepicker();
-                };
-                
-                // Also listen to clicks on the calendar days directly - use MutationObserver to wait for calendar to appear
-                function setupCalendarListeners() {
-                    if (fp.calendarContainer) {
-                        fp.calendarContainer.addEventListener('click', function(e) {
-                            const dayElement = e.target.closest('.flatpickr-day');
-                            if (dayElement && !dayElement.classList.contains('flatpickr-disabled')) {
-                                // Small delay to ensure flatpickr has processed the selection
-                                setTimeout(function() {
-                                    updateHiddenInputFromDatepicker();
-                                }, 50);
-                            }
-                        }, true);
-                    } else {
-                        // Calendar not ready yet, try again
-                        setTimeout(setupCalendarListeners, 100);
-                    }
-                }
-                setupCalendarListeners();
-            } else {
-            }
-        }
-        
-        // Fallback: if KTDatePicker didn't initialize after 2 seconds, initialize flatpickr ourselves
-        setTimeout(function() {
-            if (!dateInput._flatpickr && typeof flatpickr !== 'undefined') {
-                const fp = flatpickr(dateInput, {
-                    dateFormat: 'Y-m-d',
-                    altInput: true,
-                    altFormat: 'd-m-Y',
-                    defaultDate: hiddenInput ? hiddenInput.value.split(' ')[0] : null,
-                    onChange: function(selectedDates, dateStr, instance) {
-                        updateHiddenInputFromDatepicker();
-                    },
-                    onClose: function(selectedDates, dateStr, instance) {
-                        updateHiddenInputFromDatepicker();
-                    },
-                    onReady: function(selectedDates, dateStr, instance) {
-                        window.flatpickrInstance = instance;
-                        updateHiddenInputFromDatepicker();
-                    }
-                });
-                window.flatpickrInstance = fp;
-            }
-        }, 2000);
-        
-        // Start waiting for KTDatePicker
-        setupDatePickerListeners();
-        
-        // Also listen to any changes on the date input field directly
-        dateInput.addEventListener('change', function() {
-            updateHiddenInputFromDatepicker();
-        });
-        
-        // Update hidden input when date field loses focus (blur)
-        dateInput.addEventListener('blur', function() {
-            
-            // Small delay to ensure flatpickr has processed any changes
-            setTimeout(function() {
-                updateHiddenInputFromDatepicker();
-                
-                // Also try to get date from display value if flatpickr doesn't have it
-                if (hiddenInput && dateInput.value) {
-                    const displayValue = dateInput.value.trim();
-                    if (displayValue) {
-                        const parts = displayValue.split('-');
-                        if (parts.length === 3 && parts[0].length === 2) {
-                            // Format is d-m-Y, convert to Y-m-d
-                            const formattedDate = parts[2] + '-' + parts[1] + '-' + parts[0];
-                            const currentTime = timeInput ? timeInput.value.trim() : '';
-                            
-                            
-                            if (currentTime) {
-                                const timeWithSeconds = currentTime.length === 5 ? currentTime + ':00' : currentTime;
-                                hiddenInput.value = formattedDate + ' ' + timeWithSeconds;
-                            } else {
-                                hiddenInput.value = formattedDate;
-                            }
+        // Always show the time picker dropdown when clicking on the input or icon
+        const timeInputWrapper = timeInput.closest('.kt-input');
+        if (timeInputWrapper) {
+            // Click on the wrapper (including icon) should open the picker
+            timeInputWrapper.addEventListener('click', function(e) {
+                // Only if not clicking directly on the input itself (to avoid double trigger)
+                if (e.target !== timeInput) {
+                    e.preventDefault();
+                    timeInput.focus();
+                    // Use showPicker() if available (modern browsers)
+                    if (timeInput.showPicker) {
+                        try {
+                            timeInput.showPicker();
+                        } catch (err) {
+                            // Fallback: just focus
+                            timeInput.focus();
                         }
                     }
                 }
-            }, 100);
-        });
-    }
-    
-    // Auto-format time input with colon
-    if (timeInput) {
-        timeInput.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/[^\d]/g, ''); // Remove all non-digits
-            
-            // Auto-add colon after 2 digits
-            if (value.length >= 2) {
-                value = value.substring(0, 2) + ':' + value.substring(2, 4);
-            }
-            
-            // Limit to 5 characters (hh:mm)
-            if (value.length > 5) {
-                value = value.substring(0, 5);
-            }
-            
-            e.target.value = value;
-            
-            // Update hidden input immediately when time changes
-            updateHiddenInput();
-        });
+            });
+        }
         
-        // Also update on keyup for immediate feedback
-        timeInput.addEventListener('keyup', function() {
-            updateHiddenInput();
-        });
-        
-        // Validate format on blur
-        timeInput.addEventListener('blur', function(e) {
-            const value = e.target.value;
-            const timePattern = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
-            
-            if (value && !timePattern.test(value)) {
-                // If invalid, try to fix it
-                const digits = value.replace(/[^\d]/g, '');
-                if (digits.length >= 2) {
-                    const hours = digits.substring(0, 2);
-                    const minutes = digits.substring(2, 4) || '00';
-                    const fixedValue = hours + ':' + minutes;
-                    if (timePattern.test(fixedValue)) {
-                        e.target.value = fixedValue;
-                    } else {
-                        e.target.value = '';
-                    }
-                } else {
-                    e.target.value = '';
+        // Also open picker when clicking directly on the input
+        timeInput.addEventListener('click', function(e) {
+            // Use showPicker() if available (modern browsers)
+            if (timeInput.showPicker) {
+                try {
+                    timeInput.showPicker();
+                } catch (err) {
+                    // Fallback: just focus (browser will show picker on focus)
                 }
             }
-            
-            // Update hidden input when time changes
-            updateHiddenInput();
         });
         
-        // Also update on change
-        timeInput.addEventListener('change', function() {
-            updateHiddenInput();
-        });
-        
-        // Update on paste
-        timeInput.addEventListener('paste', function() {
-            setTimeout(function() {
-                updateHiddenInput();
-            }, 10);
+        // Open picker on focus as well
+        timeInput.addEventListener('focus', function() {
+            if (timeInput.showPicker) {
+                try {
+                    timeInput.showPicker();
+                } catch (err) {
+                    // Fallback: browser will show picker on focus
+                }
+            }
         });
     }
-    
-    // Ensure date and time are sent correctly (controller will combine them)
-    const form = document.querySelector('form[data-validate="true"]');
+
+    // Prevent native browser validation popups and rely on server-side validation
+    const form = document.querySelector('form[action*="notifications"]');
     if (form) {
         form.addEventListener('submit', function(e) {
-            // First, ensure hidden input has the correct date value
-            if (hiddenInput && dateInput) {
-                const displayValue = dateInput.value.trim();
-                if (displayValue && !hiddenInput.value) {
-                    // Convert d-m-Y to Y-m-d if needed
-                    const parts = displayValue.split('-');
-                    if (parts.length === 3 && parts[0].length === 2) {
-                        hiddenInput.value = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    } else {
-                        hiddenInput.value = displayValue;
-                    }
-                }
-            }
+            // Remove any native validation messages
+            const invalidFields = form.querySelectorAll(':invalid');
+            invalidFields.forEach(field => {
+                field.setCustomValidity('');
+            });
             
-            const dateValue = hiddenInput ? hiddenInput.value.trim() : '';
-            const timeValue = timeInput ? timeInput.value.trim() : '';
-            
-            // Ensure hidden input only has date (Y-m-d format), not datetime
-            if (hiddenInput && dateValue) {
-                // Extract just the date part if it contains time
-                const dateOnly = dateValue.split(' ')[0];
-                hiddenInput.value = dateOnly;
-            }
-            
-            // Ensure time input has a default value if date is set but time is empty
-            if (timeInput && dateValue && !timeValue) {
-                timeInput.value = '00:00';
-            }
-            
-            // If date is filled but hidden input is still empty, try to set it from display
-            if (dateInput && dateInput.value && (!hiddenInput || !hiddenInput.value)) {
-                const displayValue = dateInput.value.trim();
-                const parts = displayValue.split('-');
-                if (parts.length === 3 && parts[0].length === 2) {
-                    // Format is d-m-Y, convert to Y-m-d
-                    if (hiddenInput) {
-                        hiddenInput.value = parts[2] + '-' + parts[1] + '-' + parts[0];
-                    }
-                }
-            }
-            
-            // Ensure location_id is always sent (even if empty)
-            const locationSelect = document.getElementById('location_id');
-            if (locationSelect) {
-                // If location is empty, ensure it's sent as empty string
-                if (!locationSelect.value) {
-                    // Create a hidden input to ensure empty value is sent
-                    let hiddenLocation = document.getElementById('location_id_hidden');
-                    if (!hiddenLocation) {
-                        hiddenLocation = document.createElement('input');
-                        hiddenLocation.type = 'hidden';
-                        hiddenLocation.name = 'location_id';
-                        hiddenLocation.id = 'location_id_hidden';
-                        form.appendChild(hiddenLocation);
-                    }
-                    hiddenLocation.value = '';
-                }
-            }
-            
-            // Debug logging (remove in production)
+            // Let the form submit normally - server-side validation will show errors
+            // The novalidate attribute should already prevent native popups
+        });
+
+        // Also prevent invalid event from showing native tooltips
+        form.querySelectorAll('input, select, textarea').forEach(field => {
+            field.addEventListener('invalid', function(e) {
+                e.preventDefault();
+                // Remove any custom validity message
+                this.setCustomValidity('');
+            });
         });
     }
+
+    // Ensure optgroups are properly rendered in KT Select
+    // Reinitialize KT Select after a short delay to ensure optgroups are visible
+    setTimeout(function() {
+        const userSelect = document.getElementById('user_id');
+        if (userSelect) {
+            // Add data attribute for fallback CSS
+            const wrapper = userSelect.closest('.kt-select-wrapper') || userSelect.parentElement;
+            if (wrapper) {
+                wrapper.setAttribute('data-user-select', 'true');
+            }
+            
+            if (window.KTSelect) {
+                try {
+                    // Get or create KT Select instance
+                    let instance = window.KTSelect.getInstance(userSelect);
+                    if (!instance) {
+                        window.KTSelect.init(userSelect);
+                        instance = window.KTSelect.getInstance(userSelect);
+                    }
+                    
+                    // Force update to ensure optgroups are rendered
+                    if (instance && typeof instance.update === 'function') {
+                        instance.update();
+                    }
+                } catch (e) {
+                    console.warn('KT Select optgroup rendering:', e);
+                }
+            }
+        }
+    }, 500);
 });
 </script>
 @endpush

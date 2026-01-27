@@ -349,25 +349,6 @@
 
             <!-- Content -->
             <main class="grow pt-5" id="content" role="content">
-                <!-- Success Banner -->
-                @if(session('success'))
-                    @php
-                        $isRejection = str_contains(strtolower(session('success')), 'afgewezen') || str_contains(strtolower(session('success')), 'afwijzing');
-                    @endphp
-                    <div id="success-banner" class="success-banner-bar {{ $isRejection ? 'rejection' : '' }}">
-                        <div class="kt-container-fixed">
-                            <div class="flex items-center justify-center gap-2">
-                                @if($isRejection)
-                                    <i class="ki-filled ki-cross-circle text-lg"></i>
-                                @else
-                                    <i class="ki-filled ki-check-circle text-lg"></i>
-                                @endif
-                                <span>{{ session('success') }}</span>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
                 <!-- Container -->
                 <div class="kt-container-fixed">
                     @if(session('error'))

@@ -102,11 +102,17 @@
         flex-direction: column !important;
         min-height: 0 !important;
     }
+    #notifications_tab_all.hidden {
+        display: none !important;
+    }
     #notifications_all_footer {
         margin-top: auto !important;
         display: grid !important;
         grid-template-columns: 1fr 1fr !important;
         gap: 0.625rem !important;
+    }
+    #notifications_all_footer.hidden {
+        display: none !important;
     }
     /* Make footer buttons smaller like backend */
     #notifications_drawer #notifications_all_footer .kt-btn-sm {

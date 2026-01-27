@@ -224,14 +224,27 @@ class AdminInterviewController extends Controller
         
         // Combine scheduled_at date and time if both are provided
         $data = $request->all();
-        if ($request->filled('scheduled_at') && $request->filled('scheduled_time')) {
-            $date = $request->input('scheduled_at');
+        if ($request->filled('scheduled_at')) {
+            $scheduledAt = $request->input('scheduled_at');
             $time = $request->input('scheduled_time');
-            // Combine date and time: Y-m-d H:i:s
-            $data['scheduled_at'] = $date . ' ' . $time . ':00';
-        } elseif ($request->filled('scheduled_at')) {
-            // If only date is provided, set time to 00:00:00
-            $data['scheduled_at'] = $request->input('scheduled_at') . ' 00:00:00';
+            
+            // Check if scheduled_at already contains time (format: Y-m-d H:i or Y-m-d H:i:s)
+            $alreadyHasTime = preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/', $scheduledAt);
+            
+            if ($alreadyHasTime) {
+                // scheduled_at already has time, use it directly (add seconds if needed)
+                if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/', $scheduledAt)) {
+                    $data['scheduled_at'] = $scheduledAt . ':00';
+                } else {
+                    $data['scheduled_at'] = $scheduledAt;
+                }
+            } elseif ($time) {
+                // scheduled_at is date only, combine with scheduled_time
+                $data['scheduled_at'] = $scheduledAt . ' ' . $time . ':00';
+            } else {
+                // No time provided, use midnight
+                $data['scheduled_at'] = $scheduledAt . ' 00:00:00';
+            }
         }
         
         // Handle company_location_id - location_id 0 = hoofdadres, "remote" = Op afstand
@@ -506,6 +519,16 @@ class AdminInterviewController extends Controller
         $companies = $companyQuery->get();
         $interview->load(['match.vacancy.company', 'company']);
         
+        // Get matches for the match dropdown (with tenant filtering)
+        $matchQuery = \App\Models\JobMatch::with(['candidate', 'vacancy.company']);
+        if (!auth()->user()->hasRole('super-admin') || session('selected_tenant')) {
+            $tenantId = $this->getTenantId();
+            $matchQuery->whereHas('vacancy', function($q) use ($tenantId) {
+                $q->where('company_id', $tenantId);
+            });
+        }
+        $matches = $matchQuery->get();
+        
         // Get company users for interviewer dropdown
         $companyUsers = collect();
         $companyLocations = collect();
@@ -530,7 +553,7 @@ class AdminInterviewController extends Controller
             }
         }
         
-        return view('admin.interviews.edit', compact('interview', 'companies', 'companyUsers', 'companyLocations', 'selectedCompany'));
+        return view('admin.interviews.edit', compact('interview', 'companies', 'matches', 'companyUsers', 'companyLocations', 'selectedCompany'));
     }
 
     public function update(Request $request, Interview $interview)
@@ -543,6 +566,11 @@ class AdminInterviewController extends Controller
         if (!$this->canAccessResource($interview)) {
             abort(403, 'Je hebt geen toegang tot dit interview.');
         }
+        
+        // Store original values before update for change detection
+        $originalScheduledAt = $interview->scheduled_at ? $interview->scheduled_at->format('Y-m-d H:i') : null;
+        $originalLocation = $interview->location;
+        $originalDuration = $interview->duration;
         
         $request->validate([
             'match_id' => 'required|exists:matches,id',
@@ -575,12 +603,27 @@ class AdminInterviewController extends Controller
         $data = $request->all();
         
         // Combine scheduled_at date and time if both are provided
-        if ($request->filled('scheduled_at') && $request->filled('scheduled_time')) {
-            $date = $request->input('scheduled_at');
+        if ($request->filled('scheduled_at')) {
+            $scheduledAt = $request->input('scheduled_at');
             $time = $request->input('scheduled_time');
-            $data['scheduled_at'] = $date . ' ' . $time . ':00';
-        } elseif ($request->filled('scheduled_at')) {
-            $data['scheduled_at'] = $request->input('scheduled_at') . ' 00:00:00';
+            
+            // Check if scheduled_at already contains time (format: Y-m-d H:i or Y-m-d H:i:s)
+            $alreadyHasTime = preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/', $scheduledAt);
+            
+            if ($alreadyHasTime) {
+                // scheduled_at already has time, use it directly (add seconds if needed)
+                if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}$/', $scheduledAt)) {
+                    $data['scheduled_at'] = $scheduledAt . ':00';
+                } else {
+                    $data['scheduled_at'] = $scheduledAt;
+                }
+            } elseif ($time) {
+                // scheduled_at is date only, combine with scheduled_time
+                $data['scheduled_at'] = $scheduledAt . ' ' . $time . ':00';
+            } else {
+                // No time provided, use midnight
+                $data['scheduled_at'] = $scheduledAt . ' 00:00:00';
+            }
         }
         
         // Handle company_location_id - location_id 0 = hoofdadres, "remote" = Op afstand
@@ -654,21 +697,229 @@ class AdminInterviewController extends Controller
             'interviewer_name' => $interview->interviewer_name,
             'interviewer_email' => $interview->interviewer_email,
         ]);
+        
+        // Refresh the model to get updated values
+        $interview->refresh();
+        
+        // Check if date/time, location or duration changed and send notification to candidate
+        $newScheduledAt = $interview->scheduled_at ? $interview->scheduled_at->format('Y-m-d H:i') : null;
+        $newLocation = $interview->location;
+        $newDuration = $interview->duration;
+        
+        $dateTimeChanged = $originalScheduledAt !== $newScheduledAt;
+        $locationChanged = $originalLocation !== $newLocation;
+        $durationChanged = $originalDuration != $newDuration; // Use != for type coercion
+        
+        \Log::info('Interview change detection', [
+            'interview_id' => $interview->id,
+            'original_scheduled_at' => $originalScheduledAt,
+            'new_scheduled_at' => $newScheduledAt,
+            'dateTimeChanged' => $dateTimeChanged,
+            'original_location' => $originalLocation,
+            'new_location' => $newLocation,
+            'locationChanged' => $locationChanged,
+            'original_duration' => $originalDuration,
+            'new_duration' => $newDuration,
+            'durationChanged' => $durationChanged,
+        ]);
+        
+        if ($dateTimeChanged || $locationChanged || $durationChanged) {
+            // Get the candidate user from the match (lookup by email)
+            $match = $interview->match;
+            if ($match && $match->candidate) {
+                $candidateUser = \App\Models\User::where('email', $match->candidate->email)->first();
+                
+                \Log::info('Looking for candidate user', [
+                    'match_id' => $match->id,
+                    'candidate_email' => $match->candidate->email,
+                    'candidate_user_found' => $candidateUser ? true : false,
+                ]);
+                
+                if ($candidateUser) {
+                    // Format duration nicely
+                    $formatDuration = function($mins) {
+                        if (!$mins) return 'Niet opgegeven';
+                        $hours = floor($mins / 60);
+                        $minutes = $mins % 60;
+                        if ($hours == 0) return "0:" . str_pad($minutes, 2, '0', STR_PAD_LEFT);
+                        if ($minutes == 0) return "{$hours} uur";
+                        return "{$hours}:" . str_pad($minutes, 2, '0', STR_PAD_LEFT);
+                    };
+                    
+                    // Build the change message
+                    $changes = [];
+                    
+                    if ($dateTimeChanged) {
+                        $oldDateTime = $originalScheduledAt ? \Carbon\Carbon::parse($originalScheduledAt)->format('d-m-Y H:i') : 'Niet gepland';
+                        $newDateTime = $newScheduledAt ? \Carbon\Carbon::parse($newScheduledAt)->format('d-m-Y H:i') : 'Niet gepland';
+                        $changes[] = "Datum/tijd: {$oldDateTime} → {$newDateTime}";
+                    }
+                    
+                    if ($locationChanged) {
+                        $oldLoc = $originalLocation ?: 'Niet opgegeven';
+                        $newLoc = $newLocation ?: 'Niet opgegeven';
+                        $changes[] = "Locatie: {$oldLoc} → {$newLoc}";
+                    }
+                    
+                    if ($durationChanged) {
+                        $changes[] = "Duur: {$formatDuration($originalDuration)} → {$formatDuration($newDuration)}";
+                    }
+                    
+                    $changesText = implode("\n", $changes);
+                    
+                    // Calculate the new appointment time (from-to)
+                    $duration = $interview->duration ?? 60;
+                    $startTime = $interview->scheduled_at ? $interview->scheduled_at->format('H:i') : null;
+                    $endTime = $interview->scheduled_at ? $interview->scheduled_at->copy()->addMinutes($duration)->format('H:i') : null;
+                    $appointmentDate = $interview->scheduled_at ? $interview->scheduled_at->format('d-m-Y') : null;
+                    
+                    // Get location info for notification - use the location text field from interview
+                    $locationText = $newLocation ?: '';
+                    $locationOrType = $locationText ?: null;
+                    
+                    // Build the appointment info lines (with extra line break before for separation)
+                    $appointmentInfo = '';
+                    if ($appointmentDate && $startTime && $endTime) {
+                        $appointmentInfo = "\n\nNieuwe afspraak:";
+                        $appointmentInfo .= "\nDatum/tijd: {$appointmentDate} van {$startTime} tot {$endTime}";
+                        if ($locationText) {
+                            $appointmentInfo .= "\nLocatie: {$locationText}";
+                        }
+                    }
+                    
+                    // Create notification for candidate with accept/decline capability
+                    $notification = \App\Models\Notification::create([
+                        'user_id' => $candidateUser->id,
+                        'company_id' => $interview->company_id,
+                        'type' => 'interview',
+                        'category' => 'warning',
+                        'title' => 'Interview gewijzigd',
+                        'message' => "Er is een wijziging in je interview afspraak.\n\n{$changesText}{$appointmentInfo}",
+                        'priority' => 'high',
+                        'action_url' => '/agenda',
+                        'scheduled_at' => $interview->scheduled_at,
+                        'location_id' => $interview->company_location_id,
+                        'requires_response' => true, // Enable accept/decline buttons
+                        'data' => json_encode([
+                            'sender_id' => auth()->id(), // Admin who made the change
+                            'interview_id' => $interview->id,
+                            'match_id' => $interview->match_id,
+                            'location_or_type' => $locationOrType,
+                            'is_change_notification' => true,
+                        ]),
+                    ]);
+                    
+                    \Log::info('Interview change notification sent to candidate', [
+                        'interview_id' => $interview->id,
+                        'notification_id' => $notification->id,
+                        'candidate_user_id' => $candidateUser->id,
+                        'changes' => $changes,
+                    ]);
+                }
+            } else {
+                \Log::warning('Could not find match or candidate for interview notification', [
+                    'interview_id' => $interview->id,
+                    'match_id' => $interview->match_id,
+                    'match_found' => $match ? true : false,
+                    'candidate_found' => ($match && $match->candidate) ? true : false,
+                ]);
+            }
+        }
+        
         return redirect()->route('admin.interviews.index')->with('success', 'Interview succesvol bijgewerkt.');
     }
 
     public function destroy(Interview $interview)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-interviews')) {
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om interviews te verwijderen.'], 403);
+            }
             abort(403, 'Je hebt geen rechten om interviews te verwijderen.');
         }
         
         // Check if user can access this resource
         if (!$this->canAccessResource($interview)) {
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Je hebt geen toegang tot dit interview.'], 403);
+            }
             abort(403, 'Je hebt geen toegang tot dit interview.');
         }
         
+        // Store interview details before deletion for notification
+        $scheduledAt = $interview->scheduled_at;
+        $location = $interview->location;
+        $companyId = $interview->company_id;
+        $matchId = $interview->match_id;
+        
+        // Try to find the candidate to send notification
+        $candidateUser = null;
+        if ($matchId) {
+            $match = \App\Models\JobMatch::with('candidate')->find($matchId);
+            if ($match && $match->candidate) {
+                $candidateUser = \App\Models\User::where('email', $match->candidate->email)->first();
+            }
+        }
+        
+        $interviewId = $interview->id;
+        
         $interview->delete();
+        
+        // Update any notifications that reference this interview to mark it as deleted
+        // This prevents the "Afspraak verwijderen" button from appearing again
+        $notificationsToUpdate = \App\Models\Notification::where('data', 'like', '%"interview_id":' . $interviewId . '%')
+            ->orWhere('data', 'like', '%"interview_id":"' . $interviewId . '"%')
+            ->get();
+        
+        foreach ($notificationsToUpdate as $notif) {
+            $notifData = json_decode($notif->data, true) ?? [];
+            $notifData['interview_deleted'] = true;
+            $notif->update(['data' => json_encode($notifData)]);
+        }
+        
+        // Send notification to candidate that their interview has been cancelled
+        if ($candidateUser) {
+            $message = "Je interview afspraak is geannuleerd.";
+            
+            // Add details if available
+            $details = [];
+            if ($scheduledAt) {
+                $details[] = "Datum/tijd: " . $scheduledAt->format('d-m-Y H:i');
+            }
+            if ($location) {
+                $details[] = "Locatie: " . $location;
+            }
+            
+            if (!empty($details)) {
+                $message .= "\n\n" . implode("\n", $details);
+            }
+            
+            \App\Models\Notification::create([
+                'user_id' => $candidateUser->id,
+                'company_id' => $companyId,
+                'type' => 'interview',
+                'category' => 'danger',
+                'title' => 'Interview geannuleerd',
+                'message' => $message,
+                'priority' => 'high',
+                'action_url' => '/agenda',
+                'data' => json_encode([
+                    'sender_id' => auth()->id(),
+                    'cancelled_by' => auth()->user()->first_name . ' ' . auth()->user()->last_name,
+                ]),
+            ]);
+            
+            \Log::info('Interview cancellation notification sent to candidate', [
+                'candidate_user_id' => $candidateUser->id,
+                'cancelled_by' => auth()->id(),
+            ]);
+        }
+        
+        // Return JSON response for AJAX requests
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Interview succesvol verwijderd.']);
+        }
+        
         return redirect()->route('admin.interviews.index')->with('success', 'Interview succesvol verwijderd.');
     }
 }
