@@ -24,6 +24,14 @@ class EmailTemplate extends Model
     {
         return $this->belongsTo(Company::class);
     }
+
+    /**
+     * Get the notifications that use this email template.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
 }
 
 

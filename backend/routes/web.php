@@ -341,6 +341,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     
     // Email Templates
     Route::resource('email-templates', AdminEmailTemplateController::class);
+    Route::post('email-templates/{emailTemplate}/toggle-status', [AdminEmailTemplateController::class, 'toggleStatus'])->name('email-templates.toggle-status');
     
     // Candidates (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {

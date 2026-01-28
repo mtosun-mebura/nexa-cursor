@@ -163,6 +163,44 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
+                                E-mail Template
+                            </td>
+                            <td>
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                        <div style="position: relative; display: inline-block; width: auto; min-width: 300px;">
+                                            <select class="kt-select @error('email_template_id') border-destructive @enderror" 
+                                                    id="email_template_id" 
+                                                    name="email_template_id" 
+                                                    data-kt-select="true"
+                                                    style="width: auto; min-width: 300px; max-width: 100%;">
+                                                <option value="">Geen template (alleen notificatie)</option>
+                                                @if(isset($emailTemplates) && $emailTemplates->count() > 0)
+                                                    @foreach($emailTemplates as $template)
+                                                        <option value="{{ $template->id }}" {{ old('email_template_id', $notification->email_template_id) == $template->id ? 'selected' : '' }}>
+                                                            {{ $template->name }} ({{ ucfirst(str_replace('_', ' ', $template->type)) }})
+                                                        </option>
+                                                    @endforeach
+                                                @endif
+                                            </select>
+                                        </div>
+                                        @error('email_template_id')
+                                            <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
+                                                <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
+                                            </div>
+                                        @enderror
+                                    </div>
+                                    @error('email_template_id')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                    <div class="text-xs text-muted-foreground mt-1">
+                                        Selecteer een e-mail template om automatisch een e-mail te versturen bij deze notificatie
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
                                 Titel *
                             </td>
                             <td>

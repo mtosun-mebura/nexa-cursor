@@ -254,37 +254,47 @@
                             <tbody>
                                 @foreach($emailTemplates as $template)
                                     <tr class="template-row" data-template-id="{{ $template->id }}">
-                                        <td>
-                                            <div class="flex flex-col">
-                                                <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.email-templates.show', $template) }}">
-                                                    {{ $template->name }}
-                                                </a>
-                                                @if($template->description)
-                                                    <span class="text-xs text-muted-foreground">{{ Str::limit($template->description, 60) }}</span>
+                                        <td class="email-template-cell-link">
+                                            <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
+                                                <div class="flex flex-col">
+                                                    <span class="text-sm font-medium text-mono mb-px">
+                                                        {{ $template->name }}{{ auth()->user()->hasRole('super-admin') && $template->company ? ' - ' . $template->company->name : '' }}
+                                                    </span>
+                                                    @if($template->description)
+                                                        <span class="text-xs text-muted-foreground">{{ Str::limit($template->description, 60) }}</span>
+                                                    @endif
+                                                </div>
+                                            </a>
+                                        </td>
+                                        <td class="text-foreground font-normal email-template-cell-link">
+                                            <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
+                                                <span class="text-sm">{{ ucfirst($template->type) }}</span>
+                                            </a>
+                                        </td>
+                                        <td class="text-foreground font-normal email-template-cell-link">
+                                            <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
+                                                @if($template->company)
+                                                    <span class="text-sm">{{ $template->company->name }}</span>
+                                                @else
+                                                    <span class="text-sm text-muted-foreground">Algemeen</span>
                                                 @endif
-                                            </div>
+                                            </a>
                                         </td>
-                                        <td class="text-foreground font-normal">
-                                            <span class="text-sm">{{ ucfirst($template->type) }}</span>
+                                        <td class="email-template-cell-link">
+                                            <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
+                                                @if($template->is_active)
+                                                    <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                @else
+                                                    <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                @endif
+                                            </a>
                                         </td>
-                                        <td class="text-foreground font-normal">
-                                            @if($template->company)
-                                                <span class="text-sm">{{ $template->company->name }}</span>
-                                            @else
-                                                <span class="text-sm text-muted-foreground">Algemeen</span>
-                                            @endif
+                                        <td class="text-foreground font-normal email-template-cell-link">
+                                            <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
+                                                <span class="text-sm">{{ $template->created_at->format('d-m-Y') }}</span>
+                                            </a>
                                         </td>
-                                        <td>
-                                            @if($template->is_active)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
-                                            @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
-                                            @endif
-                                        </td>
-                                        <td class="text-foreground font-normal">
-                                            <span class="text-sm">{{ $template->created_at->format('d-m-Y') }}</span>
-                                        </td>
-                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                        <td class="w-[60px] email-templates-actions-col" onclick="event.stopPropagation();">
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
@@ -443,21 +453,29 @@
             }, 3000);
         }
         
-        // Make table rows clickable (except actions column)
-        document.querySelectorAll('tbody tr.template-row').forEach(function(row) {
-            row.addEventListener('click', function(e) {
-                // Don't navigate if clicking on actions column or menu
-                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
-                    return;
-                }
-                
-                // Get template ID
-                const templateId = this.getAttribute('data-template-id');
+        // Rij-klik naar detailpagina: alleen op deze pagina, gebruik tr[data-template-id] (onafhankelijk van container)
+        function initEmailTemplatesRowClick() {
+            if (!document.getElementById('email_templates_table')) return;
+            document.addEventListener('click', function handleEmailTemplateRowClick(e) {
+                var row = e.target.closest('tr[data-template-id]');
+                var inActions = !!e.target.closest('.email-templates-actions-col');
+                var inMenu = !!e.target.closest('.kt-menu');
+                var isBtn = !!e.target.closest('button');
+                var inLink = !!e.target.closest('a[href*="/admin/email-templates/"]');
+                console.log('[EmailTemplates] click', { tag: e.target.tagName, class: e.target.className?.slice(0, 50), row: !!row, templateId: row ? row.getAttribute('data-template-id') : null, inActions: inActions, inMenu: inMenu, isButton: isBtn, inLink: inLink });
+                if (!row) return;
+                if (inActions || inMenu || isBtn) return;
+                if (inLink) return;
+                var templateId = row.getAttribute('data-template-id');
                 if (templateId) {
+                    console.log('[EmailTemplates] navigate to', templateId);
+                    e.preventDefault();
+                    e.stopPropagation();
                     window.location.href = '/admin/email-templates/' + templateId;
                 }
-            });
-        });
+            }, true);
+        }
+        initEmailTemplatesRowClick();
     });
 </script>
 @endpush
@@ -498,6 +516,11 @@
         opacity: 1 !important;
     }
     
+    /* Klikbare cellen: link vult hele cel */
+    .email-template-cell-link a {
+        cursor: pointer;
+        min-height: 100%;
+    }
     /* Table row hover styling */
     .template-row {
         cursor: pointer !important;

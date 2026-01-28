@@ -348,5 +348,114 @@ class EmailTemplateService
             return false;
         }
     }
+
+    /**
+     * Send email based on notification with email template
+     */
+    public function sendNotificationEmail(\App\Models\Notification $notification)
+    {
+        if (!$notification->email_template_id) {
+            return false; // No email template selected
+        }
+
+        $template = EmailTemplate::find($notification->email_template_id);
+        if (!$template || !$template->is_active) {
+            \Log::warning('Email template not found or inactive', [
+                'notification_id' => $notification->id,
+                'email_template_id' => $notification->email_template_id,
+            ]);
+            return false;
+        }
+
+        $user = $notification->user;
+        if (!$user || !$user->email) {
+            \Log::warning('User not found or no email address', [
+                'notification_id' => $notification->id,
+                'user_id' => $notification->user_id,
+            ]);
+            return false;
+        }
+
+        // Prepare variables from notification and user data
+        $variables = [
+            'USER_NAME' => $user->first_name . ' ' . $user->last_name,
+            'USER_FIRST_NAME' => $user->first_name,
+            'USER_LAST_NAME' => $user->last_name,
+            'USER_EMAIL' => $user->email,
+            'NOTIFICATION_TITLE' => $notification->title,
+            'NOTIFICATION_MESSAGE' => $notification->message,
+            'NOTIFICATION_TYPE' => $notification->type,
+            'NOTIFICATION_CATEGORY' => $notification->category,
+            'ACTION_URL' => $notification->action_url ?? '',
+            'COMPANY_NAME' => $notification->company->name ?? 'Ons bedrijf',
+        ];
+
+        // Add company name if available
+        if ($notification->company) {
+            $variables['COMPANY_NAME'] = $notification->company->name;
+        }
+
+        // Try to get additional context from notification data
+        if ($notification->data) {
+            $data = json_decode($notification->data, true);
+            if (is_array($data)) {
+                // Add match_id related info if available
+                if (isset($data['match_id']) && $data['match_id']) {
+                    $match = \App\Models\JobMatch::with(['vacancy', 'candidate'])->find($data['match_id']);
+                    if ($match) {
+                        if ($match->vacancy) {
+                            $variables['VACANCY_TITLE'] = $match->vacancy->title;
+                            $variables['VACANCY_REFERENCE'] = $match->vacancy->reference_number ?? '';
+                            if ($match->vacancy->company) {
+                                $variables['COMPANY_NAME'] = $match->vacancy->company->name;
+                            }
+                        }
+                        if ($match->candidate) {
+                            $variables['CANDIDATE_NAME'] = $match->candidate->first_name . ' ' . $match->candidate->last_name;
+                            $variables['CANDIDATE_FIRST_NAME'] = $match->candidate->first_name;
+                            $variables['CANDIDATE_LAST_NAME'] = $match->candidate->last_name;
+                            $variables['CANDIDATE_EMAIL'] = $match->candidate->email;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Parse template
+        $subject = $this->parseTemplate($template->subject, $variables);
+        $htmlContent = $this->parseTemplate($template->html_content, $variables);
+        $textContent = $template->text_content ? $this->parseTemplate($template->text_content, $variables) : strip_tags($htmlContent);
+
+        // Send email
+        try {
+            Mail::send([], [], function ($message) use ($user, $subject, $htmlContent, $textContent) {
+                $message->to($user->email, $user->first_name . ' ' . $user->last_name)
+                        ->subject($subject);
+                
+                if ($htmlContent) {
+                    $message->html($htmlContent);
+                }
+                
+                if ($textContent) {
+                    $message->text($textContent);
+                }
+            });
+
+            \Log::info('Notification email sent', [
+                'notification_id' => $notification->id,
+                'user_email' => $user->email,
+                'template_type' => $template->type,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Failed to send notification email', [
+                'notification_id' => $notification->id,
+                'user_email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
 }
 

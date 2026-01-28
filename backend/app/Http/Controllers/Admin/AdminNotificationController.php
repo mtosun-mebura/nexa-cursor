@@ -324,7 +324,17 @@ class AdminNotificationController extends Controller
             ->orderBy('name')
             ->get();
         
-        return view('admin.notifications.create', compact('backendUsers', 'candidates', 'companyLocations', 'company', 'candidateVacancies'));
+        // Get active email templates for this company
+        $emailTemplates = \App\Models\EmailTemplate::where('is_active', true)
+            ->where(function($q) use ($companyId) {
+                $q->whereNull('company_id')
+                  ->orWhere('company_id', $companyId);
+            })
+            ->orderBy('company_id', 'desc') // Prefer company-specific templates
+            ->orderBy('name')
+            ->get();
+        
+        return view('admin.notifications.create', compact('backendUsers', 'candidates', 'companyLocations', 'company', 'candidateVacancies', 'emailTemplates'));
     }
 
     public function store(Request $request)
@@ -337,6 +347,7 @@ class AdminNotificationController extends Controller
             'user_id' => 'required|exists:users,id',
             'category' => 'required|in:info,warning,success,error,reminder,update',
             'type' => 'required|in:match,interview,application,system,email,reminder,file',
+            'email_template_id' => 'nullable|exists:email_templates,id',
             'title' => 'required|string|max:255',
             'message' => 'required|string',
             'priority' => 'nullable|in:low,normal,high,urgent',
@@ -471,7 +482,22 @@ class AdminNotificationController extends Controller
             $data['file_size'] = $file->getSize();
         }
         
-        Notification::create($data);
+        $notification = Notification::create($data);
+        
+        // Send email if email template is selected
+        if ($notification->email_template_id) {
+            try {
+                $emailService = app(\App\Services\EmailTemplateService::class);
+                $emailService->sendNotificationEmail($notification);
+            } catch (\Exception $e) {
+                \Log::error('Failed to send notification email', [
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Don't fail the request if email sending fails
+            }
+        }
+        
         return redirect()->route('admin.notifications.index')->with('success', 'Notificatie succesvol aangemaakt.');
     }
 
@@ -710,7 +736,17 @@ class AdminNotificationController extends Controller
             ->orderBy('name')
             ->get();
         
-        return view('admin.notifications.edit', compact('notification', 'backendUsers', 'candidates', 'companyLocations', 'company', 'candidateVacancies'));
+        // Get active email templates for this company
+        $emailTemplates = \App\Models\EmailTemplate::where('is_active', true)
+            ->where(function($q) use ($companyId) {
+                $q->whereNull('company_id')
+                  ->orWhere('company_id', $companyId);
+            })
+            ->orderBy('company_id', 'desc') // Prefer company-specific templates
+            ->orderBy('name')
+            ->get();
+        
+        return view('admin.notifications.edit', compact('notification', 'backendUsers', 'candidates', 'companyLocations', 'company', 'candidateVacancies', 'emailTemplates'));
     }
 
     public function update(Request $request, Notification $notification)
@@ -728,6 +764,7 @@ class AdminNotificationController extends Controller
             'user_id' => 'required|exists:users,id',
             'category' => 'required|in:info,warning,success,error,reminder,update',
             'type' => 'required|in:match,interview,application,system,email,reminder,file',
+            'email_template_id' => 'nullable|exists:email_templates,id',
             'title' => 'required|string|max:255',
             'message' => 'required|string',
             'priority' => 'nullable|in:low,normal,high,urgent',
@@ -846,6 +883,24 @@ class AdminNotificationController extends Controller
         }
         
         $notification->update($data);
+        
+        // Refresh notification to get updated email_template_id
+        $notification->refresh();
+        
+        // Send email if email template is selected and was just added or changed
+        if ($notification->email_template_id && $request->has('email_template_id')) {
+            try {
+                $emailService = app(\App\Services\EmailTemplateService::class);
+                $emailService->sendNotificationEmail($notification);
+            } catch (\Exception $e) {
+                \Log::error('Failed to send notification email', [
+                    'notification_id' => $notification->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Don't fail the request if email sending fails
+            }
+        }
+        
         return redirect()->route('admin.notifications.index')->with('success', 'Notificatie succesvol bijgewerkt.');
     }
 

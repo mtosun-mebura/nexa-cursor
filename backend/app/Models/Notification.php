@@ -10,7 +10,7 @@ class Notification extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'company_id', 'type', 'category', 'title', 'message', 'priority', 'read_at', 'action_url', 'data', 'scheduled_at', 'location_id', 'file_path', 'file_name', 'file_size', 'original_notification_id'
+        'user_id', 'company_id', 'type', 'category', 'title', 'message', 'priority', 'read_at', 'action_url', 'data', 'scheduled_at', 'location_id', 'file_path', 'file_name', 'file_size', 'original_notification_id', 'email_template_id'
     ];
 
     protected $casts = [
@@ -32,6 +32,14 @@ class Notification extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Get the email template associated with the notification.
+     */
+    public function emailTemplate()
+    {
+        return $this->belongsTo(EmailTemplate::class);
     }
 }
 
