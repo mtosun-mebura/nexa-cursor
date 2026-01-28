@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\AdminPaymentProviderController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
 use App\Http\Controllers\Admin\AdminProfileController;
+use App\Http\Controllers\Admin\AdminModuleController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Http\Controllers\Frontend\DashboardController;
@@ -361,6 +362,17 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     });
     
 
+    
+    // Modules Management (Super Admin only)
+    Route::middleware('role:super-admin')->group(function () {
+        Route::get('modules', [AdminModuleController::class, 'index'])->name('modules.index');
+        Route::get('modules/{module}/config', [AdminModuleController::class, 'config'])->name('modules.config');
+        Route::post('modules/{module}/config', [AdminModuleController::class, 'saveConfig'])->name('modules.config.store');
+        Route::post('modules/{module}/install', [AdminModuleController::class, 'install'])->name('modules.install');
+        Route::post('modules/{module}/activate', [AdminModuleController::class, 'activate'])->name('modules.activate');
+        Route::post('modules/{module}/deactivate', [AdminModuleController::class, 'deactivate'])->name('modules.deactivate');
+        Route::post('modules/{module}/uninstall', [AdminModuleController::class, 'uninstall'])->name('modules.uninstall');
+    });
     
     // Roles & Permissions (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {

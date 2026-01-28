@@ -138,69 +138,63 @@
                 </div>
                 @endif
 
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-branches'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.branches.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
-                        href="{{ route('admin.branches.index') }}" tabindex="0">
-                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-tag text-lg">
-                            </i>
-                        </span>
-                        <span
-                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Branches
-                        </span>
-                    </a>
-                </div>
-                @endif
-
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-vacancies'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.vacancies.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
-                        href="{{ route('admin.vacancies.index') }}" tabindex="0">
-                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-briefcase text-lg">
-                            </i>
-                        </span>
-                        <span
-                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Vacatures
-                        </span>
-                    </a>
-                </div>
-                @endif
-
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-matches'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.matches.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
-                        href="{{ route('admin.matches.index') }}" tabindex="0">
-                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-abstract-38 text-lg">
-                            </i>
-                        </span>
-                        <span
-                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Matches
-                        </span>
-                    </a>
-                </div>
-                @endif
-
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-interviews'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.interviews.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
-                        href="{{ route('admin.interviews.index') }}" tabindex="0">
-                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                            <i class="ki-filled ki-calendar text-lg">
-                            </i>
-                        </span>
-                        <span
-                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Interviews
-                        </span>
-                    </a>
-                </div>
-                @endif
+                {{-- Module Menu Items (alleen van actieve modules; Branches kan hierbij zitten) --}}
+                @php
+                    try {
+                        $menuService = app(\App\Services\MenuService::class);
+                        $moduleMenuItems = $menuService->getModuleMenuItems();
+                    } catch (\Exception $e) {
+                        // Log error but don't break the page
+                        \Log::error('Error loading module menu items: ' . $e->getMessage());
+                        $moduleMenuItems = [];
+                    }
+                @endphp
+                @foreach($moduleMenuItems as $menuItem)
+                    @php
+                        // Try to check if route exists
+                        $routeExists = false;
+                        $routeUrl = '#';
+                        
+                        try {
+                            if (Route::has($menuItem['route'])) {
+                                $routeExists = true;
+                                $routeUrl = route($menuItem['route']);
+                            }
+                        } catch (\Exception $e) {
+                            // Route doesn't exist or can't be generated
+                            $routeExists = false;
+                        }
+                        
+                        // If route doesn't exist, try to construct URL manually
+                        if (!$routeExists) {
+                            try {
+                                $routeUrl = url('/admin/' . $menuItem['module'] . '/' . str_replace('admin.' . $menuItem['module'] . '.', '', $menuItem['route']));
+                                $routeExists = true; // Assume it exists if we can construct URL
+                            } catch (\Exception $e) {
+                                $routeExists = false;
+                            }
+                        }
+                        
+                        // Alleen dit menuitem actief als de huidige route bij deze resource hoort (niet heel de module).
+                        $routePrefix = str_replace('.index', '', $menuItem['route']);
+                        $isActive = request()->routeIs($menuItem['route']) || request()->routeIs($routePrefix . '.*');
+                    @endphp
+                    @if($routeExists)
+                        <div class="kt-menu-item {{ $isActive ? 'active' : '' }}">
+                            <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                                href="{{ $routeUrl }}" tabindex="0">
+                                <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                                    <i class="{{ $menuItem['icon'] }} text-lg">
+                                    </i>
+                                </span>
+                                <span
+                                    class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                                    {{ $menuItem['title'] }}
+                                </span>
+                            </a>
+                        </div>
+                    @endif
+                @endforeach
 
                 @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-agenda'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.agenda.*') ? 'active' : '' }}">
@@ -314,7 +308,7 @@
                         Systeem
                     </span>
                 </div>
-                <div class="kt-menu-item {{ request()->routeIs('admin.roles.*') || request()->routeIs('admin.permissions.*') ? 'here show' : '' }}" 
+                <div class="kt-menu-item {{ request()->routeIs('admin.roles.*') || request()->routeIs('admin.permissions.*') || request()->routeIs('admin.modules.*') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -355,6 +349,16 @@
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
                                     Permissies
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.modules.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                href="{{ route('admin.modules.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
+                                </span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                    Modules
                                 </span>
                             </a>
                         </div>

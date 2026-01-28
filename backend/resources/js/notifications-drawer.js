@@ -76,7 +76,6 @@ async function checkForNewNotifications() {
 
 // Load notifications (full reload)
 async function loadNotifications() {
-    console.log('📥 Loading notifications...');
     try {
         const baseUrl = getNotificationBaseUrl();
         const response = await fetch(`${baseUrl}/list`, {
@@ -161,9 +160,7 @@ function renderNotifications() {
         return;
     }
     
-    console.log('📋 Rendering notifications:', notifications.length);
     notifications.forEach((notification, index) => {
-        console.log(`📋 Processing notification ${index + 1}/${notifications.length}:`, notification.id, notification.title);
         const notificationEl = createNotificationElement(notification);
         container.appendChild(notificationEl);
         
@@ -219,15 +216,7 @@ function createNotificationElement(notification) {
     // Show action buttons for interview notifications if no response has been given yet
     // Simply check if it's an interview notification and there's no response
     if (isInterviewNotification) {
-        console.log('[Notifications Drawer] Interview notification status check:', {
-            notificationId: notification.id,
-            hasResponse: notification.has_response,
-            responseType: notification.response_type,
-            matchId: notification.match_id,
-            interviewExists: notification.interview_exists,
-            location: notification.location,
-            locationOrType: notification.location_or_type
-        });
+        // Interview notification status check
     }
     
     // Show buttons only if no response has been given yet AND no interview exists yet
@@ -383,7 +372,6 @@ function createNotificationElement(notification) {
                                 }
                             } else if (messageText.includes('wijziging') || messageText.includes('Nieuwe afspraak:') || messageText.includes('gewijzigde afspraak') || messageText.includes('→') || notification.title === 'Gewijzigde afspraak reactie') {
                                 // Changed appointment notification or response to change - show full message content
-                                console.log('📅 Rendering changed appointment notification for:', notification.id);
                                 html += `<div class="text-sm text-muted-foreground whitespace-pre-wrap">${formatMessageWithBoldLabels(messageText)}</div>`;
                                 // Don't show separate Afspraakdetails - all info is in the message
                             } else if (notification.has_response) {
@@ -444,7 +432,6 @@ function createNotificationElement(notification) {
                                 }
                             } else {
                                 // New interview notification (not yet accepted/declined) - show message and appointment details
-                                console.log('📅 Rendering new interview notification (no response yet) for:', notification.id);
                                 html += `<div class="text-sm text-muted-foreground whitespace-pre-wrap">${formatMessageWithBoldLabels(messageText)}</div>`;
                                 
                                 // Check if this is a changed appointment notification (already contains "Nieuwe afspraak:")
@@ -455,14 +442,6 @@ function createNotificationElement(notification) {
                                 if (!isChangedAppointment) {
                                     const hasAppointmentData = notification.scheduled_at_formatted || notification.scheduled_at || notification.location || notification.location_or_type || notification.scheduled_date;
                                     
-                                    console.log('📅 Appointment data check:', {
-                                        hasAppointmentData: hasAppointmentData,
-                                        scheduled_at_formatted: notification.scheduled_at_formatted,
-                                        scheduled_at: notification.scheduled_at,
-                                        location: notification.location,
-                                        location_or_type: notification.location_or_type,
-                                        scheduled_date: notification.scheduled_date
-                                    });
                                     
                                     if (hasAppointmentData) {
                                         html += `<div class="border-t border-border mt-2 pt-2"></div>`;
@@ -486,7 +465,6 @@ function createNotificationElement(notification) {
                                         }
                                         html += `</div>`;
                                     } else {
-                                        console.log('⚠️ No appointment data available for notification:', notification.id);
                                     }
                                 }
                             }
@@ -652,14 +630,6 @@ function createNotificationElement(notification) {
                     
                     // Debug: log notification details to help troubleshoot
                     if (isInterviewNotification && isResponseNotification && isAccepted && !matchId) {
-                        console.log('Accepted interview notification without match_id:', {
-                            id: notification.id,
-                            title: notification.title,
-                            category: notification.category,
-                            response_type: notification.response_type,
-                            match_id: notification.match_id,
-                            data: notification.data
-                        });
                     }
                     
                     // Show button if it's an interview response notification that was accepted
@@ -685,33 +655,12 @@ function createNotificationElement(notification) {
         const acceptBtn = div.querySelector('.accept-interview');
         const declineBtn = div.querySelector('.decline-interview');
         
-        console.log('[Notifications Drawer] Setting up interview button handlers:', {
-            notificationId: notification.id,
-            acceptBtnFound: !!acceptBtn,
-            declineBtnFound: !!declineBtn,
-            acceptBtnElement: acceptBtn,
-            declineBtnElement: declineBtn,
-            hasResponse: notification.has_response,
-            interviewHasStatus: notification.interview_has_status
-        });
         
         acceptBtn?.addEventListener('click', (e) => {
-            console.log('[Notifications Drawer] Accept button clicked!', {
-                notificationId: notification.id,
-                event: e,
-                target: e.target,
-                currentTarget: e.currentTarget
-            });
             e.stopPropagation();
             respondToInterview(notification.id, 'accept');
         });
         declineBtn?.addEventListener('click', (e) => {
-            console.log('[Notifications Drawer] Decline button clicked!', {
-                notificationId: notification.id,
-                event: e,
-                target: e.target,
-                currentTarget: e.currentTarget
-            });
             e.stopPropagation();
             respondToInterview(notification.id, 'decline');
         });
@@ -955,7 +904,6 @@ function showNotificationDetail(notification) {
                         }
                     } else if (messageText.includes('wijziging') || messageText.includes('Nieuwe afspraak:') || messageText.includes('gewijzigde afspraak') || messageText.includes('→') || notification.title === 'Gewijzigde afspraak reactie') {
                         // Changed appointment notification or response to change - show full message content
-                        console.log('📅 Rendering changed appointment notification (detail view) for:', notification.id);
                         html += `<div class="border-t border-border pt-4">
                             <div class="text-sm font-medium text-muted-foreground mb-2">Bericht</div>
                             <div class="text-sm text-foreground whitespace-pre-wrap mb-4">${formatMessageWithBoldLabels(notification.message)}</div>
@@ -1200,33 +1148,12 @@ function showNotificationDetail(notification) {
         const acceptBtn = detailContent.querySelector('.accept-interview');
         const declineBtn = detailContent.querySelector('.decline-interview');
         
-        console.log('[Notifications Drawer] Setting up detail view interview button handlers:', {
-            notificationId: notification.id,
-            acceptBtnFound: !!acceptBtn,
-            declineBtnFound: !!declineBtn,
-            acceptBtnElement: acceptBtn,
-            declineBtnElement: declineBtn,
-            hasResponse: notification.has_response,
-            interviewHasStatus: notification.interview_has_status
-        });
         
         acceptBtn?.addEventListener('click', (e) => {
-            console.log('[Notifications Drawer] Detail view - Accept button clicked!', {
-                notificationId: notification.id,
-                event: e,
-                target: e.target,
-                currentTarget: e.currentTarget
-            });
             e.stopPropagation();
             respondToInterview(notification.id, 'accept');
         });
         declineBtn?.addEventListener('click', (e) => {
-            console.log('[Notifications Drawer] Detail view - Decline button clicked!', {
-                notificationId: notification.id,
-                event: e,
-                target: e.target,
-                currentTarget: e.currentTarget
-            });
             e.stopPropagation();
             respondToInterview(notification.id, 'decline');
         });
@@ -1493,11 +1420,6 @@ async function respondToInterview(notificationId, response) {
         // Use actualResponse from callback if provided, otherwise fall back to response parameter
         const responseToUse = actualResponse || response;
         
-        console.log('[Notifications Drawer] Submitting interview response:', {
-            notificationId: notificationId,
-            response: responseToUse,
-            message: message
-        });
         
         try {
             const baseUrl = getNotificationBaseUrl();
@@ -1589,12 +1511,6 @@ async function respondToInterview(notificationId, response) {
                 // Find the notification in the reloaded data
                 const reloadedNotification = notifications.find(n => n.id === parseInt(notificationId));
                 if (reloadedNotification) {
-                    console.log('[Notifications Drawer] Reloaded notification data:', {
-                        notificationId: notificationId,
-                        hasResponse: reloadedNotification.has_response,
-                        responseType: reloadedNotification.response_type,
-                        expectedResponse: responseToUse
-                    });
                     
                     // Update status based on reloaded data
                     const actionButtonsContainer = notificationElementAfterReload.querySelector('div.flex.flex-wrap');
@@ -2241,7 +2157,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // If drawer just became visible/open, load notifications and start polling
         if ((isOpen || isVisible) && (!lastDrawerState.isOpen && !lastDrawerState.isVisible)) {
-            console.log('[Notifications Drawer] Drawer opened, loading notifications...');
             loadNotifications();
             // Start polling when drawer opens
             startNotificationPolling();
@@ -2405,12 +2320,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const notificationId = button.getAttribute('data-notification-id');
             const buttonType = acceptBtn ? 'accept' : 'decline';
             
-            console.log('[Notifications Drawer] Global click listener handling interview button click:', {
-                buttonType: buttonType,
-                notificationId: notificationId,
-                target: e.target,
-                buttonElement: button
-            });
             
             // Call respondToInterview function to open the modal
             if (notificationId && typeof respondToInterview === 'function') {
@@ -2474,7 +2383,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const container = document.querySelector('#notifications_list');
                 // Always load when drawer becomes visible (not just when empty)
                 // This ensures fresh data when drawer is opened
-                console.log('[Notifications Drawer] Drawer became visible, loading notifications...');
                 loadNotifications();
                 // Start polling when drawer becomes visible
                 startNotificationPolling();
@@ -2495,7 +2403,6 @@ document.addEventListener('DOMContentLoaded', function() {
                          drawer.style.visibility !== 'hidden' && 
                          drawer.getAttribute('data-notifications-active') === 'true';
         if (isOpen || isVisible) {
-            console.log('[Notifications Drawer] Window focused with drawer open, loading notifications...');
             loadNotifications();
             // Make sure polling is running when window gets focus
             if (!notificationsPollingInterval) {

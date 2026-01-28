@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\PermissionSetService;
+use App\Services\MenuService;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -184,8 +185,12 @@ class AdminRoleController extends Controller
             });
 
         $permissionSets = PermissionSetService::getSets();
+        
+        // Get module permissions
+        $menuService = app(MenuService::class);
+        $modulePermissions = $menuService->getModulePermissionsGrouped();
 
-        return view('admin.roles.edit', compact('role', 'permissions', 'permissionSets'));
+        return view('admin.roles.edit', compact('role', 'permissions', 'permissionSets', 'modulePermissions'));
     }
 
     public function update(Request $request, Role $role)

@@ -33,5 +33,8 @@ class AppServiceProvider extends ServiceProvider
         Notification::extend('sms', function ($app) {
             return new SmsChannel();
         });
+        
+        // Register ModuleServiceProvider
+        $this->app->register(\App\Providers\ModuleServiceProvider::class);
     }
 }

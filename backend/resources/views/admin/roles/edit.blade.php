@@ -375,7 +375,33 @@
 
                     <div class="field-feedback hidden" data-field="permissions"></div>
 
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3 w-full -mx-5" style="border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1);" data-required-checkbox-group="permissions[]">
+                    {{-- Module Permissions Info Section --}}
+                    @php
+                        $menuService = app(\App\Services\MenuService::class);
+                        $modulePermissionsInfo = $menuService->getModulePermissionsGrouped();
+                    @endphp
+                    @if(isset($modulePermissionsInfo) && count($modulePermissionsInfo) > 0)
+                        <div class="px-5 mb-5">
+                            <div class="p-4 bg-primary/5 border border-border rounded-lg">
+                                <h4 class="font-semibold mb-3 text-primary flex items-center gap-2">
+                                    <x-heroicon-s-puzzle-piece class="w-5 h-5 text-primary flex-shrink-0" />
+                                    <span>Module Permissies (Alleen van actieve modules)</span>
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    @foreach($modulePermissionsInfo as $moduleDisplayName => $moduleData)
+                                        <div class="text-sm">
+                                            <span class="font-medium text-foreground">{{ $moduleDisplayName }}:</span>
+                                            <span class="text-muted-foreground">
+                                                {{ count($moduleData['permissions']) }} permissies
+                                            </span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="kt-card-table kt-scrollable-x-auto pb-3" style="border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1);" data-required-checkbox-group="permissions[]">
 
                     @php
                         // Get currently selected permissions (from old input or role)
@@ -383,36 +409,9 @@
 
                         // Flatten all permissions from grouped structure
                         $allPermissions = collect($permissions)->flatten();
-
-                        // Parse permissions: structure is "action-module" (e.g., "view-users", "create-vacancies")
-                        // Group by module (the part after the action)
-                        $permissionModules = $allPermissions->groupBy(function($permission) {
-                            $parts = explode('-', $permission->name);
-                            if (count($parts) > 1) {
-                                array_shift($parts);
-                                return implode('-', $parts);
-                            }
-                            return 'other';
-                        });
-
-                        // Get all unique actions
-                        $allActions = $allPermissions->map(function($permission) {
-                            $parts = explode('-', $permission->name);
-                            return $parts[0] ?? 'other';
-                        })->unique()->sort()->values();
-
-                        // Create a map of module => [permissions by action]
+                        
+                        // Initialize collections and maps (will be built after all permissions are collected)
                         $permissionMap = [];
-                        foreach ($allPermissions as $permission) {
-                            $parts = explode('-', $permission->name);
-                            $action = $parts[0] ?? 'other';
-                            array_shift($parts);
-                            $module = implode('-', $parts) ?: 'other';
-                            if (!isset($permissionMap[$module])) {
-                                $permissionMap[$module] = [];
-                            }
-                            $permissionMap[$module][$action] = $permission;
-                        }
 
                         // Module display names
                         $moduleNames = [
@@ -433,6 +432,259 @@
                             'permissions' => 'Permissies',
                             'dashboard' => 'Dashboard',
                         ];
+                        
+                        // Add module permissions from active modules
+                        if (isset($modulePermissions) && count($modulePermissions) > 0) {
+                            foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
+                                $moduleKey = $moduleData['module'];
+                                
+                                // Add to moduleNames
+                                if (!isset($moduleNames[$moduleKey])) {
+                                    $moduleNames[$moduleKey] = $moduleDisplayName;
+                                }
+                                
+                                // Get ALL permissions from database that match this module pattern
+                                // Not just the ones in registerPermissions(), but all that exist
+                                $allModulePermissions = \Spatie\Permission\Models\Permission::where('guard_name', 'web')
+                                    ->where('name', 'like', $moduleKey . '.%')
+                                    ->get();
+                                
+                                // Also include the ones from registerPermissions (in case they don't exist yet)
+                                foreach ($moduleData['permissions'] as $permName) {
+                                    $existing = $allModulePermissions->firstWhere('name', $permName);
+                                    if (!$existing) {
+                                        $permission = \Spatie\Permission\Models\Permission::firstOrCreate(
+                                            ['name' => $permName, 'guard_name' => 'web']
+                                        );
+                                        $allModulePermissions->push($permission);
+                                    }
+                                }
+                                
+                                // Process all module permissions
+                                foreach ($allModulePermissions as $permission) {
+                                    $permName = $permission->name;
+                                    
+                                    // Parse permission name (e.g., "skillmatching.vacancies.view")
+                                    $parts = explode('.', $permName);
+                                    if (count($parts) >= 3 && $parts[0] === $moduleKey) {
+                                        $action = $parts[2]; // "view", "create", etc.
+                                        $resource = $parts[1]; // "vacancies", "matches", etc.
+                                        
+                                        // Use resource as module key for grouping (e.g., "vacancies" under "skillmatching")
+                                        // But we want to show them grouped by the actual module
+                                        $displayModuleKey = $moduleKey . '-' . $resource;
+                                        
+                                        // Add to moduleNames
+                                        if (!isset($moduleNames[$displayModuleKey])) {
+                                            $moduleNames[$displayModuleKey] = ucfirst($resource);
+                                        }
+                                        
+                                        // Add to permission map
+                                        if (!isset($permissionMap[$displayModuleKey])) {
+                                            $permissionMap[$displayModuleKey] = [];
+                                        }
+                                        $permissionMap[$displayModuleKey][$action] = $permission;
+                                        
+                                        // Add to allPermissions (if not already there)
+                                        if (!$allPermissions->contains('id', $permission->id)) {
+                                            $allPermissions->push($permission);
+                                        }
+                                        
+                                        // Note: permissionModules will be built later from allPermissions
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Build resource to module mapping first
+                        $resourceToModuleMap = [];
+                        if (isset($modulePermissions) && is_array($modulePermissions)) {
+                            foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
+                                $moduleKey = $moduleData['module'];
+                                // Get all permissions for this module to find resources
+                                $allModulePerms = \Spatie\Permission\Models\Permission::where('guard_name', 'web')
+                                    ->where('name', 'like', $moduleKey . '.%')
+                                    ->get();
+                                
+                                foreach ($allModulePerms as $perm) {
+                                    $parts = explode('.', $perm->name);
+                                    if (count($parts) >= 3 && $parts[0] === $moduleKey) {
+                                        $resource = $parts[1];
+                                        // Map resource to module (e.g., "matches" -> "skillmatching")
+                                        if (!isset($resourceToModuleMap[$resource])) {
+                                            $resourceToModuleMap[$resource] = $moduleKey;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // NOW build the structure AFTER all permissions are collected
+                        // Parse permissions: can be either "action-module" (e.g., "view-users") or "module.resource.action" (e.g., "skillmatching.vacancies.view")
+                        // Group by module (the part after the action)
+                        $permissionModules = $allPermissions->groupBy(function($permission) use ($resourceToModuleMap) {
+                            $name = $permission->name;
+                            
+                            // Check if it's module format (module.resource.action)
+                            if (strpos($name, '.') !== false) {
+                                $parts = explode('.', $name);
+                                if (count($parts) >= 3) {
+                                    // Format: module.resource.action -> group by "module-resource"
+                                    return $parts[0] . '-' . $parts[1];
+                                }
+                            }
+                            
+                            // Old format: action-module
+                            $parts = explode('-', $name);
+                            if (count($parts) > 1) {
+                                $action = array_shift($parts);
+                                $resource = implode('-', $parts);
+                                
+                                // Check if this resource belongs to an active module
+                                if (isset($resourceToModuleMap[$resource])) {
+                                    // Group under module-resource (e.g., "skillmatching-matches")
+                                    return $resourceToModuleMap[$resource] . '-' . $resource;
+                                }
+                                
+                                return $resource;
+                            }
+                            return 'other';
+                        });
+                        
+                        // Create structure to group by main module for ordering and display
+                        $permissionsByMainModule = [];
+                        $moduleOrder = [];
+                        
+                        foreach ($permissionModules as $moduleKey => $perms) {
+                            $mainModule = 'other';
+                            $resource = null;
+                            
+                            // Check if it's module format (module.resource.action)
+                            if (strpos($moduleKey, '-') !== false) {
+                                $parts = explode('-', $moduleKey, 2);
+                                $mainModule = $parts[0];
+                                $resource = $parts[1] ?? null;
+                            } else {
+                                // This is old format (e.g., "matches", "vacancies")
+                                // Check if this resource belongs to an active module
+                                $resource = $moduleKey;
+                                if (isset($resourceToModuleMap[$resource])) {
+                                    $mainModule = $resourceToModuleMap[$resource];
+                                } else {
+                                    // Try to find module from permission names
+                                    $firstPerm = $perms->first();
+                                    if ($firstPerm) {
+                                        $name = $firstPerm->name;
+                                        if (strpos($name, '.') !== false) {
+                                            $nameParts = explode('.', $name);
+                                            if (count($nameParts) >= 3) {
+                                                $mainModule = $nameParts[0];
+                                                $resource = $nameParts[1];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!isset($permissionsByMainModule[$mainModule])) {
+                                $permissionsByMainModule[$mainModule] = [];
+                                $moduleOrder[] = $mainModule;
+                            }
+                            
+                            // If this is an old format permission for a module resource, merge with module key
+                            $displayKey = $moduleKey;
+                            if ($mainModule !== 'other' && strpos($moduleKey, '-') === false) {
+                                // This is old format, but belongs to a module - use module-resource format
+                                $displayKey = $mainModule . '-' . $resource;
+                                
+                                // Merge with existing module permissions if they exist
+                                $existingIndex = null;
+                                foreach ($permissionsByMainModule[$mainModule] as $idx => $group) {
+                                    if ($group['key'] === $displayKey) {
+                                        $existingIndex = $idx;
+                                        break;
+                                    }
+                                }
+                                
+                                if ($existingIndex !== null) {
+                                    // Merge permissions
+                                    $permissionsByMainModule[$mainModule][$existingIndex]['permissions'] = 
+                                        $permissionsByMainModule[$mainModule][$existingIndex]['permissions']
+                                        ->merge($perms)
+                                        ->unique('id');
+                                } else {
+                                    // Add new group
+                                    $permissionsByMainModule[$mainModule][] = [
+                                        'key' => $displayKey,
+                                        'resource' => $resource,
+                                        'permissions' => $perms
+                                    ];
+                                }
+                            } else {
+                                // Normal case - add as is
+                                $permissionsByMainModule[$mainModule][] = [
+                                    'key' => $displayKey,
+                                    'resource' => $resource,
+                                    'permissions' => $perms
+                                ];
+                            }
+                        }
+
+                        // Get all unique actions
+                        $allActions = $allPermissions->map(function($permission) {
+                            $name = $permission->name;
+                            
+                            // Check if it's module format (module.resource.action)
+                            if (strpos($name, '.') !== false) {
+                                $parts = explode('.', $name);
+                                if (count($parts) >= 3) {
+                                    return $parts[2]; // action is last part
+                                }
+                            }
+                            
+                            // Old format: action-module
+                            $parts = explode('-', $name);
+                            return $parts[0] ?? 'other';
+                        })->unique()->sort()->values();
+
+                        // Create a map of module => [permissions by action]
+                        $permissionMap = [];
+                        foreach ($allPermissions as $permission) {
+                            $name = $permission->name;
+                            $action = 'other';
+                            $module = 'other';
+                            
+                            // Check if it's module format (module.resource.action)
+                            if (strpos($name, '.') !== false) {
+                                $parts = explode('.', $name);
+                                if (count($parts) >= 3) {
+                                    $action = $parts[2];
+                                    $module = $parts[0] . '-' . $parts[1];
+                                }
+                            } else {
+                                // Old format: action-module
+                                $parts = explode('-', $name);
+                                $action = $parts[0] ?? 'other';
+                                array_shift($parts);
+                                $oldModule = implode('-', $parts) ?: 'other';
+                                
+                                // Check if this old format permission belongs to an active module
+                                if (isset($resourceToModuleMap[$oldModule])) {
+                                    // Map to module-resource format (e.g., "matches" -> "skillmatching-matches")
+                                    $module = $resourceToModuleMap[$oldModule] . '-' . $oldModule;
+                                } else {
+                                    $module = $oldModule;
+                                }
+                            }
+                            
+                            if (!isset($permissionMap[$module])) {
+                                $permissionMap[$module] = [];
+                            }
+                            // Only add if not already exists (prefer new format over old if both exist)
+                            if (!isset($permissionMap[$module][$action])) {
+                                $permissionMap[$module][$action] = $permission;
+                            }
+                        }
 
                         // Action display names
                         $actionNames = [
@@ -451,7 +703,7 @@
                     <table class="kt-table kt-table-border align-middle text-sm w-full" data-required-checkbox-group="permissions[]">
                         <thead>
                             <tr>
-                                <th class="min-w-[200px] text-left text-secondary-foreground font-normal">Module</th>
+                                <th class="min-w-[250px] text-left text-secondary-foreground font-normal">Module / Resource</th>
                                 @foreach($allActions as $action)
                                     <th class="min-w-[100px] text-center text-secondary-foreground font-normal">
                                         {{ $actionNames[$action] ?? ucfirst($action) }}
@@ -460,30 +712,100 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($permissionModules as $module => $modulePermissions)
-                                <tr>
-                                    <td class="text-foreground font-medium">
-                                        {{ $moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)) }}
-                                    </td>
-                                    @foreach($allActions as $action)
-                                        <td class="text-center">
-                                            @if(isset($permissionMap[$module][$action]))
-                                                @php
-                                                    $permission = $permissionMap[$module][$action];
-                                                @endphp
-                                                <label class="kt-label flex items-center justify-center cursor-pointer">
-                                                    <input type="checkbox"
-                                                           class="kt-checkbox"
-                                                           name="permissions[]"
-                                                           value="{{ $permission->name }}"
-                                                           id="permission_{{ $permission->id }}"
-                                                           data-checkbox-group="permissions[]"
-                                                           {{ in_array($permission->name, $rolePermissionNames) ? 'checked' : '' }}>
-                                                </label>
+                            @php
+                                // Sort modules: first active modules (from $modulePermissions), then others
+                                $sortedModuleOrder = [];
+                                if (isset($modulePermissions) && is_array($modulePermissions)) {
+                                    foreach ($modulePermissions as $modDisplayName => $modData) {
+                                        $modKey = $modData['module'];
+                                        if (isset($permissionsByMainModule[$modKey])) {
+                                            $sortedModuleOrder[] = $modKey;
+                                        }
+                                    }
+                                }
+                                // Add remaining modules
+                                foreach ($moduleOrder as $modKey) {
+                                    if (!in_array($modKey, $sortedModuleOrder)) {
+                                        $sortedModuleOrder[] = $modKey;
+                                    }
+                                }
+                            @endphp
+                            
+                            @foreach($sortedModuleOrder as $mainModule)
+                                @if(isset($permissionsByMainModule[$mainModule]))
+                                    @php
+                                        $mainModuleDisplayName = $moduleNames[$mainModule] ?? ucfirst(str_replace(['-', '_'], ' ', $mainModule));
+                                        
+                                        // Check if this module is in modulePermissions
+                                        $moduleInfo = null;
+                                        $isActiveModule = false;
+                                        if (isset($modulePermissions) && is_array($modulePermissions)) {
+                                            foreach ($modulePermissions as $modDisplayName => $modData) {
+                                                if (isset($modData['module']) && $modData['module'] === $mainModule) {
+                                                    $moduleInfo = $modData;
+                                                    $mainModuleDisplayName = $modDisplayName;
+                                                    $isActiveModule = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Determine display name
+                                        if (!$isActiveModule && $mainModule === 'other') {
+                                            $headerDisplayName = 'Algemeen';
+                                        } else {
+                                            $headerDisplayName = $mainModuleDisplayName;
+                                        }
+                                    @endphp
+                                    
+                                    {{-- Module Header Row --}}
+                                    <tr class="bg-muted/30">
+                                        <td colspan="{{ count($allActions) + 1 }}" class="py-2 px-4">
+                                            @if($isActiveModule)
+                                                <span class="font-semibold text-foreground text-sm flex items-center gap-1">
+                                                    <x-heroicon-s-puzzle-piece class="w-4 h-4 text-primary flex-shrink-0" />
+                                                    {{ $headerDisplayName }}
+                                                </span>
+                                            @else
+                                                <span class="font-semibold text-foreground text-sm">
+                                                    {{ $headerDisplayName }}
+                                                </span>
                                             @endif
                                         </td>
+                                    </tr>
+                                    
+                                    @foreach($permissionsByMainModule[$mainModule] as $moduleGroup)
+                                        @php
+                                            $moduleKey = $moduleGroup['key'];
+                                            $resource = $moduleGroup['resource'];
+                                        @endphp
+                                        <tr>
+                                            <td class="text-foreground pl-6">
+                                                <span class="font-medium text-sm">
+                                                    {{ $moduleNames[$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey)) }}
+                                                </span>
+                                            </td>
+                                            @foreach($allActions as $action)
+                                                <td class="text-center">
+                                                    @if(isset($permissionMap[$moduleKey][$action]))
+                                                        @php
+                                                            $permission = $permissionMap[$moduleKey][$action];
+                                                        @endphp
+                                                        <label class="kt-label flex items-center justify-center cursor-pointer">
+                                                            <input type="checkbox"
+                                                                   class="kt-checkbox"
+                                                                   name="permissions[]"
+                                                                   value="{{ $permission->name }}"
+                                                                   id="permission_{{ $permission->id }}"
+                                                                   data-checkbox-group="permissions[]"
+                                                                   {{ in_array($permission->name, $rolePermissionNames) ? 'checked' : '' }}>
+                                                        </label>
+                                                    @endif
+                                                </td>
+                                            @endforeach
+                                        </tr>
                                     @endforeach
-                                </tr>
+                                @endif
                             @endforeach
                         </tbody>
                     </table>

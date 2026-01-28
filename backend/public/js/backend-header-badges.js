@@ -1,5 +1,4 @@
 // Backend header badge updates and shake animation
-console.log('📦 backend-header-badges.js loaded!');
 
 let badgeUpdateInterval = null;
 let shakeInterval = null;
@@ -50,7 +49,6 @@ function updateChatBadge() {
         }
     })
     .catch(error => {
-        console.error('Error updating chat badge:', error);
     });
 }
 
@@ -122,7 +120,6 @@ function updateNotificationBadge() {
         }
     })
     .catch(error => {
-        console.error('Error updating notification badge:', error);
     });
 }
 
