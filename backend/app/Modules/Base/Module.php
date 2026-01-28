@@ -57,7 +57,11 @@ abstract class Module
     {
         $reflection = new \ReflectionClass($this);
         $modulePath = dirname($reflection->getFileName());
-        $viewsPath = $modulePath . '/Views';
+        // Try Resources/views first (Laravel convention), then Views (legacy)
+        $viewsPath = $modulePath . '/Resources/views';
+        if (!is_dir($viewsPath)) {
+            $viewsPath = $modulePath . '/Views';
+        }
         
         return is_dir($viewsPath) ? $viewsPath : null;
     }

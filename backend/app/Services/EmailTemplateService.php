@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\EmailTemplate;
 use App\Models\Candidate;
-use App\Models\Vacancy;
+use App\Modules\Skillmatching\Models\Vacancy;
 use Illuminate\Support\Facades\Mail;
 
 class EmailTemplateService

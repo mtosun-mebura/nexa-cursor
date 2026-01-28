@@ -6,12 +6,11 @@ use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminCompanyController;
 use App\Http\Controllers\Admin\AdminUserController;
-use App\Http\Controllers\Admin\AdminVacancyController;
+// AdminVacancyController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminBranchController;
 use App\Http\Controllers\Admin\AdminBranchFunctionController;
 use App\Http\Controllers\Admin\AdminBranchFunctionSkillController;
-use App\Http\Controllers\Admin\AdminMatchController;
-use App\Http\Controllers\Admin\AdminInterviewController;
+// AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminNotificationController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
 use App\Http\Controllers\Admin\AdminCandidateController;
@@ -286,16 +285,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::post('branches/{branch}/functions/{function}/skills', [AdminBranchFunctionSkillController::class, 'store'])->name('branches.functions.skills.store');
     Route::delete('branches/{branch}/functions/{function}/skills/{skill}', [AdminBranchFunctionSkillController::class, 'destroy'])->name('branches.functions.skills.destroy');
     
-    // Vacancies
-    Route::resource('vacancies', AdminVacancyController::class);
-    Route::get('vacancies/{vacancy}/contact-photo', [AdminVacancyController::class, 'getContactPhoto'])->name('vacancies.contact-photo');
-    Route::get('vacancies/{vacancy}/candidate/{candidate}', [AdminVacancyController::class, 'showCandidate'])->name('vacancies.candidate');
-    Route::get('vacancies/{vacancy}/candidate/{candidate}/timeline', [AdminVacancyController::class, 'getTimeline'])->name('vacancies.candidate.timeline');
-    Route::post('vacancies/{vacancy}/candidate/{candidate}/interview', [AdminVacancyController::class, 'scheduleInterview'])->name('vacancies.candidate.interview');
-    Route::put('vacancies/{vacancy}/candidate/{candidate}/interview/{interview}', [AdminVacancyController::class, 'updateInterview'])->name('vacancies.candidate.interview.update');
-    Route::put('vacancies/{vacancy}/candidate/{candidate}/interview/{interview}/cancel', [AdminVacancyController::class, 'cancelInterview'])->name('vacancies.candidate.interview.cancel');
-    Route::post('vacancies/{vacancy}/candidate/{candidate}/reject', [AdminVacancyController::class, 'rejectCandidate'])->name('vacancies.candidate.reject');
-    Route::post('vacancies/{vacancy}/candidate/{candidate}/accept', [AdminVacancyController::class, 'acceptCandidate'])->name('vacancies.candidate.accept');
+    // Vacancies - Moved to Skillmatching module
     
     // Chat routes
     Route::post('chat/start', [ChatController::class, 'startChat'])->name('chat.start');
@@ -316,11 +306,10 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::get('chat/{chat}/presence', [ChatController::class, 'getChatPresence'])->name('chat.presence.get');
     
     // Matches
-    Route::resource('matches', AdminMatchController::class);
-    Route::get('matches/vacancy/{vacancy}/candidates', [AdminMatchController::class, 'candidates'])->name('matches.candidates');
+    // Matches - Moved to Skillmatching module
     
     // Interviews
-    Route::resource('interviews', AdminInterviewController::class);
+    // Interviews - Moved to Skillmatching module
     
     // Agenda
     Route::get('agenda', [App\Http\Controllers\Admin\AgendaController::class, 'index'])->name('agenda.index');

@@ -1,9 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\AdminVacancyController;
-use App\Http\Controllers\Admin\AdminMatchController;
-use App\Http\Controllers\Admin\AdminInterviewController;
+use App\Modules\Skillmatching\Controllers\Admin\VacancyController;
+use App\Modules\Skillmatching\Controllers\Admin\MatchController;
+use App\Modules\Skillmatching\Controllers\Admin\InterviewController;
+use App\Modules\Skillmatching\Models\Vacancy;
+use App\Modules\Skillmatching\Models\JobMatch;
+use App\Modules\Skillmatching\Models\Interview;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,10 +33,28 @@ Route::get('/test', function() {
 })->name('test');
 
 // Vacancies
-Route::resource('vacancies', AdminVacancyController::class);
+Route::bind('vacancy', function ($value) {
+    return Vacancy::findOrFail($value);
+});
+Route::resource('vacancies', VacancyController::class);
+Route::get('vacancies/{vacancy}/contact-photo', [VacancyController::class, 'getContactPhoto'])->name('vacancies.contact-photo');
+Route::get('vacancies/{vacancy}/candidate/{candidate}', [VacancyController::class, 'showCandidate'])->name('vacancies.candidate');
+Route::get('vacancies/{vacancy}/candidate/{candidate}/timeline', [VacancyController::class, 'getTimeline'])->name('vacancies.candidate.timeline');
+Route::post('vacancies/{vacancy}/candidate/{candidate}/interview', [VacancyController::class, 'scheduleInterview'])->name('vacancies.candidate.interview');
+Route::put('vacancies/{vacancy}/candidate/{candidate}/interview/{interview}', [VacancyController::class, 'updateInterview'])->name('vacancies.candidate.interview.update');
+Route::put('vacancies/{vacancy}/candidate/{candidate}/interview/{interview}/cancel', [VacancyController::class, 'cancelInterview'])->name('vacancies.candidate.interview.cancel');
+Route::post('vacancies/{vacancy}/candidate/{candidate}/reject', [VacancyController::class, 'rejectCandidate'])->name('vacancies.candidate.reject');
+Route::post('vacancies/{vacancy}/candidate/{candidate}/accept', [VacancyController::class, 'acceptCandidate'])->name('vacancies.candidate.accept');
 
-// Matches  
-Route::resource('matches', AdminMatchController::class);
+// Matches
+Route::bind('match', function ($value) {
+    return JobMatch::findOrFail($value);
+});
+Route::resource('matches', MatchController::class);
+Route::get('matches/vacancy/{vacancy}/candidates', [MatchController::class, 'candidates'])->name('matches.candidates');
 
 // Interviews
-Route::resource('interviews', AdminInterviewController::class);
+Route::bind('interview', function ($value) {
+    return Interview::findOrFail($value);
+});
+Route::resource('interviews', InterviewController::class);

@@ -267,9 +267,15 @@
                         </div>
                         @endif
                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-vacancies'))
+                        @php
+                            $vacanciesRoute = Route::has('admin.skillmatching.vacancies.index') 
+                                ? route('admin.skillmatching.vacancies.index') 
+                                : (Route::has('admin.vacancies.index') ? route('admin.vacancies.index') : '#');
+                            $vacanciesActive = request()->routeIs('admin.skillmatching.vacancies.*') || request()->routeIs('admin.vacancies.*');
+                        @endphp
                         <div class="kt-menu-item">
-                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg {{ request()->routeIs('admin.vacancies.*') ? 'kt-menu-item-active' : '' }}"
-                                href="{{ route('admin.vacancies.index') }}" tabindex="0">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg {{ $vacanciesActive ? 'kt-menu-item-active' : '' }}"
+                                href="{{ $vacanciesRoute }}" tabindex="0">
                                 <span
                                     class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
                                 </span>
@@ -281,9 +287,15 @@
                         </div>
                         @endif
                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-matches'))
+                        @php
+                            $matchesRoute = Route::has('admin.skillmatching.matches.index') 
+                                ? route('admin.skillmatching.matches.index') 
+                                : (Route::has('admin.matches.index') ? route('admin.matches.index') : '#');
+                            $matchesActive = request()->routeIs('admin.skillmatching.matches.*') || request()->routeIs('admin.matches.*');
+                        @endphp
                         <div class="kt-menu-item">
-                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg {{ request()->routeIs('admin.matches.*') ? 'kt-menu-item-active' : '' }}"
-                                href="{{ route('admin.matches.index') }}" tabindex="0">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg {{ $matchesActive ? 'kt-menu-item-active' : '' }}"
+                                href="{{ $matchesRoute }}" tabindex="0">
                                 <span
                                     class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
                                 </span>
@@ -295,9 +307,15 @@
                         </div>
                         @endif
                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-interviews'))
+                        @php
+                            $interviewsRoute = Route::has('admin.skillmatching.interviews.index') 
+                                ? route('admin.skillmatching.interviews.index') 
+                                : (Route::has('admin.interviews.index') ? route('admin.interviews.index') : '#');
+                            $interviewsActive = request()->routeIs('admin.skillmatching.interviews.*') || request()->routeIs('admin.interviews.*');
+                        @endphp
                         <div class="kt-menu-item">
-                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg {{ request()->routeIs('admin.interviews.*') ? 'kt-menu-item-active' : '' }}"
-                                href="{{ route('admin.interviews.index') }}" tabindex="0">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg {{ $interviewsActive ? 'kt-menu-item-active' : '' }}"
+                                href="{{ $interviewsRoute }}" tabindex="0">
                                 <span
                                     class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
                                 </span>

@@ -10,7 +10,7 @@ use App\Models\TypingIndicator;
 use App\Models\Chat;
 use App\Models\Candidate;
 use App\Models\User;
-use App\Models\JobMatch;
+use App\Modules\Skillmatching\Models\JobMatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -40,7 +40,7 @@ class ChatController extends Controller
             // Company admin: only candidates with matches to their company's vacancies
             $companyId = $user->company_id;
             if ($companyId) {
-                $candidateIds = \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
+                $candidateIds = JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
                     $vq->where('company_id', $companyId);
                 })->pluck('user_id')->unique();
                 

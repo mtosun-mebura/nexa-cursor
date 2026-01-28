@@ -499,7 +499,12 @@
                 <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
                         <span class="font-semibold text-foreground">Recente matches</span>
-                        <a href="{{ route('admin.matches.index') }}" class="kt-btn kt-btn-xs kt-btn-outline">Alle matches</a>
+                        @php
+                            $matchesRoute = Route::has('admin.skillmatching.matches.index') 
+                                ? route('admin.skillmatching.matches.index') 
+                                : (Route::has('admin.matches.index') ? route('admin.matches.index') : '#');
+                        @endphp
+                        <a href="{{ $matchesRoute }}" class="kt-btn kt-btn-xs kt-btn-outline">Alle matches</a>
                     </div>
                     <div class="divide-y divide-border">
                         @forelse($recent_matches as $match)
@@ -524,7 +529,12 @@
                 <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
                         <span class="font-semibold text-foreground">Aankomende interviews</span>
-                        <a href="{{ route('admin.interviews.index') }}" class="kt-btn kt-btn-xs kt-btn-outline">Alle interviews</a>
+                        @php
+                            $interviewsRoute = Route::has('admin.skillmatching.interviews.index') 
+                                ? route('admin.skillmatching.interviews.index') 
+                                : (Route::has('admin.interviews.index') ? route('admin.interviews.index') : '#');
+                        @endphp
+                        <a href="{{ $interviewsRoute }}" class="kt-btn kt-btn-xs kt-btn-outline">Alle interviews</a>
                     </div>
                     <div class="divide-y divide-border">
                         @forelse($upcoming_interviews as $interview)
@@ -558,7 +568,12 @@
                     <i class="ki-filled ki-briefcase me-2"></i>
                     Vacatures & bedrijven
                 </h3>
-                <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">
+                @php
+                    $vacanciesRoute = Route::has('admin.skillmatching.vacancies.index') 
+                        ? route('admin.skillmatching.vacancies.index') 
+                        : (Route::has('admin.vacancies.index') ? route('admin.vacancies.index') : '#');
+                @endphp
+                <a href="{{ $vacanciesRoute }}" class="kt-btn kt-btn-sm kt-btn-outline">
                     Bekijk alle
                 </a>
             </div>

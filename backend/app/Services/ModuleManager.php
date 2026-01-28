@@ -32,7 +32,49 @@ class ModuleManager
             $modules = array_merge($modules, $this->scanDirectory($modulesPath, 'external'));
         }
 
+        // 3. Clean up database records for modules that no longer exist
+        $this->cleanupOrphanedModules($modules);
+
         return $modules;
+    }
+
+    /**
+     * Remove database records for modules that no longer exist on disk
+     */
+    protected function cleanupOrphanedModules(array $discoveredModules): void
+    {
+        if (!Schema::hasTable('modules')) {
+            return;
+        }
+
+        $discoveredNames = array_column($discoveredModules, 'name');
+        
+        // Find modules in database that are not in discovered modules
+        $orphanedModules = ModuleModel::whereNotIn('name', $discoveredNames)->get();
+        
+        foreach ($orphanedModules as $orphaned) {
+            // Only remove if the directory doesn't exist
+            $possiblePaths = [
+                app_path('Modules/' . $orphaned->name),
+                app_path('Modules/' . ucfirst($orphaned->name)),
+                base_path('modules/' . $orphaned->name),
+                base_path('modules/' . ucfirst($orphaned->name)),
+            ];
+            
+            $exists = false;
+            foreach ($possiblePaths as $path) {
+                if (File::exists($path) && File::exists($path . '/Module.php')) {
+                    $exists = true;
+                    break;
+                }
+            }
+            
+            // If directory doesn't exist, remove from database
+            if (!$exists) {
+                $orphaned->delete();
+                Log::info("Removed orphaned module record: {$orphaned->name}");
+            }
+        }
     }
 
     /**

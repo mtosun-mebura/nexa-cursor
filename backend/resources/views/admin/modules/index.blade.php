@@ -123,8 +123,8 @@
                                 <td>
                                     <div class="flex flex-wrap gap-1">
                                         @if($module['installed'])
-                                            <span class="text-xs px-2 py-1 rounded bg-success/10 text-success">
-                                                <i class="ki-filled ki-check me-1"></i> Geïnstalleerd
+                                            <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #2563eb !important; color: #ffffff !important;">
+                                                <i class="ki-filled ki-check me-1" style="color: #ffffff !important;"></i> Geïnstalleerd
                                             </span>
                                         @else
                                             <span class="text-xs px-2 py-1 rounded bg-muted/50 text-foreground border border-border">
@@ -132,8 +132,8 @@
                                             </span>
                                         @endif
                                         @if($module['active'])
-                                            <span class="text-xs px-2 py-1 rounded bg-primary/10 text-primary">
-                                                <i class="ki-filled ki-check-circle me-1"></i> Actief
+                                            <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #16a34a !important; color: #ffffff !important;">
+                                                <i class="ki-filled ki-check-circle me-1" style="color: #ffffff !important;"></i> Actief
                                             </span>
                                         @endif
                                     </div>
@@ -246,7 +246,7 @@
         <!-- Info Card -->
         <div class="kt-card min-w-full bg-primary/5 border border-primary/20">
             <div class="kt-card-body">
-                <div class="flex items-start gap-3">
+                <div class="flex items-start gap-3 p-2">
                     <i class="ki-filled ki-information-5 text-2xl text-primary"></i>
                     <div>
                         <h4 class="font-semibold mb-1">Hoe werken modules?</h4>

@@ -555,6 +555,16 @@
                         $permissionsByMainModule = [];
                         $moduleOrder = [];
                         
+                        // Get list of active module keys
+                        $activeModuleKeys = [];
+                        if (isset($modulePermissions) && is_array($modulePermissions)) {
+                            foreach ($modulePermissions as $modDisplayName => $modData) {
+                                if (isset($modData['module'])) {
+                                    $activeModuleKeys[] = $modData['module'];
+                                }
+                            }
+                        }
+                        
                         foreach ($permissionModules as $moduleKey => $perms) {
                             $mainModule = 'other';
                             $resource = null;
@@ -584,6 +594,12 @@
                                         }
                                     }
                                 }
+                            }
+                            
+                            // Only add if module is active or is 'other' (non-module permissions)
+                            // Skip if this is a module that is not active
+                            if ($mainModule !== 'other' && !in_array($mainModule, $activeModuleKeys)) {
+                                continue; // Skip inactive modules
                             }
                             
                             if (!isset($permissionsByMainModule[$mainModule])) {
@@ -653,6 +669,7 @@
                             $name = $permission->name;
                             $action = 'other';
                             $module = 'other';
+                            $mainModuleKey = 'other';
                             
                             // Check if it's module format (module.resource.action)
                             if (strpos($name, '.') !== false) {
@@ -660,6 +677,7 @@
                                 if (count($parts) >= 3) {
                                     $action = $parts[2];
                                     $module = $parts[0] . '-' . $parts[1];
+                                    $mainModuleKey = $parts[0];
                                 }
                             } else {
                                 // Old format: action-module
@@ -672,9 +690,16 @@
                                 if (isset($resourceToModuleMap[$oldModule])) {
                                     // Map to module-resource format (e.g., "matches" -> "skillmatching-matches")
                                     $module = $resourceToModuleMap[$oldModule] . '-' . $oldModule;
+                                    $mainModuleKey = $resourceToModuleMap[$oldModule];
                                 } else {
                                     $module = $oldModule;
+                                    $mainModuleKey = 'other';
                                 }
+                            }
+                            
+                            // Only add if module is active or is 'other' (non-module permissions)
+                            if ($mainModuleKey !== 'other' && !in_array($mainModuleKey, $activeModuleKeys)) {
+                                continue; // Skip inactive modules
                             }
                             
                             if (!isset($permissionMap[$module])) {
