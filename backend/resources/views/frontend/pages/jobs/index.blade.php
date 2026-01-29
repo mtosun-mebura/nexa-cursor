@@ -212,47 +212,68 @@
   <!-- Desktop tabel - alleen op tablets en desktop (>= 768px) -->
   <section class="jobs-desktop-table hidden md:block card overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full" data-jobs-table>
+      <table class="w-full" data-jobs-table data-default-sort-column="5" data-default-sort-direction="desc">
       <thead class="bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
         <tr>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(0)">
-            Vacature
-            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-            </svg>
+            <span class="flex items-center justify-between w-full">
+              <span>Vacature</span>
+              <span class="kt-table-col-sort inline-flex flex-shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9"></path>
+                </svg>
+              </span>
+            </span>
           </th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(1)">
-            Bedrijf
-            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-            </svg>
+            <span class="flex items-center justify-between w-full">
+              <span>Bedrijf</span>
+              <span class="kt-table-col-sort inline-flex flex-shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9"></path>
+                </svg>
+              </span>
+            </span>
           </th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(2)">
-            Locatie
-            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-            </svg>
+            <span class="flex items-center justify-between w-full">
+              <span>Locatie</span>
+              <span class="kt-table-col-sort inline-flex flex-shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9"></path>
+                </svg>
+              </span>
+            </span>
           </th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(3)">
-            Type
-            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-            </svg>
+            <span class="flex items-center justify-between w-full">
+              <span>Type</span>
+              <span class="kt-table-col-sort inline-flex flex-shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9"></path>
+                </svg>
+              </span>
+            </span>
           </th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(4)">
-            Salaris
-            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-            </svg>
+            <span class="flex items-center justify-between w-full">
+              <span>Salaris</span>
+              <span class="kt-table-col-sort inline-flex flex-shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9"></path>
+                </svg>
+              </span>
+            </span>
           </th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(5)">
-            Publicatiedatum
-            <svg class="inline-block w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
-            </svg>
-          </th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Acties
+            <span class="flex items-center justify-between w-full">
+              <span>Publicatiedatum</span>
+              <span class="kt-table-col-sort inline-flex flex-shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9"></path>
+                </svg>
+              </span>
+            </span>
           </th>
         </tr>
       </thead>
@@ -319,20 +340,6 @@
               {{ $job->publication_date ? $job->publication_date->format('d-m-Y') : 'Niet gepubliceerd' }}
             </div>
           </td>
-          <td class="px-4 py-4" data-actions-cell>
-            <div class="flex items-center gap-2">
-              @auth
-              <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}#solliciteer"
-                 class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors">
-                Solliciteer
-              </a>
-              @else
-              <a href="{{ route('login') }}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors">
-                Log in
-              </a>
-              @endauth
-            </div>
-          </td>
         </tr>
         @endforeach
       </tbody>
@@ -350,33 +357,31 @@
 
 <script>
 let sortDirection = {};
-
+var SORT_ICON_PATHS = {
+  up: 'M5 15l7-7 7 7',
+  down: 'M19 9l-7 7-7-7',
+  upDown: 'M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9'
+};
+function updateSortIcons(table, sortDirection) {
+  var headers = table.querySelectorAll('thead th');
+  headers.forEach(function(th, i) {
+    var path = th.querySelector('.kt-table-col-sort path');
+    if (!path) return;
+    var state = sortDirection[i] === 'desc' ? 'up' : (sortDirection[i] === 'asc' ? 'down' : 'upDown');
+    path.setAttribute('d', SORT_ICON_PATHS[state]);
+  });
+}
 function sortTable(columnIndex) {
   const table = document.querySelector('table[data-jobs-table]');
   if (!table) return;
   const tbody = table.querySelector('tbody');
   const rows = Array.from(tbody.querySelectorAll('tr'));
   
-  // Toggle sort direction
-  sortDirection[columnIndex] = sortDirection[columnIndex] === 'asc' ? 'desc' : 'asc';
-  const direction = sortDirection[columnIndex];
-  
-  // Remove existing sort indicators
-  table.querySelectorAll('th svg').forEach(svg => {
-    svg.style.display = 'none';
-  });
-  
-  // Add sort indicator to current column
-  const currentHeader = table.querySelectorAll('th')[columnIndex];
-  const currentSvg = currentHeader.querySelector('svg');
-  currentSvg.style.display = 'inline-block';
-  
-  // Rotate arrow based on direction
-  if (direction === 'asc') {
-    currentSvg.style.transform = 'rotate(180deg)';
-  } else {
-    currentSvg.style.transform = 'rotate(0deg)';
-  }
+  // Toggle sort direction; only one column is sorted at a time
+  const direction = sortDirection[columnIndex] === 'asc' ? 'desc' : 'asc';
+  sortDirection = {};
+  sortDirection[columnIndex] = direction;
+  updateSortIcons(table, sortDirection);
   
   // Sort rows
   rows.sort((a, b) => {
@@ -430,17 +435,17 @@ function sortTable(columnIndex) {
   rows.forEach(row => tbody.appendChild(row));
 }
 
-// Row click: navigate to vacancy detail (except when clicking Acties column)
+// Row click: navigate to vacancy detail
 document.addEventListener('DOMContentLoaded', function() {
   const table = document.querySelector('table[data-jobs-table]');
   if (table) {
-    table.querySelectorAll('th svg').forEach(svg => {
-      svg.style.display = 'none';
-    });
+    var defaultCol = parseInt(table.dataset.defaultSortColumn, 10) || 5;
+    var defaultDir = (table.dataset.defaultSortDirection || 'desc');
+    sortDirection[defaultCol] = defaultDir;
+    updateSortIcons(table, sortDirection);
     table.addEventListener('click', function(e) {
       const row = e.target.closest('tbody tr[data-href]');
       if (!row) return;
-      if (e.target.closest('[data-actions-cell]')) return;
       window.location.href = row.dataset.href;
     });
   }
@@ -454,13 +459,33 @@ function changeItemsPerPage(perPage) {
   window.location.href = url.toString();
 }
 
-// Auto-submit form on sort change
+// Auto-submit form on sort change + debounced search on type
 document.addEventListener('DOMContentLoaded', function() {
-  const sortSelect = document.querySelector('select[name="sort"]');
+  const form = document.getElementById('searchForm');
+  if (!form) return;
+
+  const sortSelect = form.querySelector('select[name="sort"]');
   if (sortSelect) {
     sortSelect.addEventListener('change', function() {
-      document.getElementById('searchForm').submit();
+      form.submit();
     });
+  }
+
+  const searchInput = form.querySelector('input[name="q"]');
+  if (searchInput) {
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(function() {
+        form.submit();
+      }, 400);
+    });
+    // Na laden (incl. na filter-submit) cursor weer in het zoekveld, achteraan de tekst
+    setTimeout(function() {
+      searchInput.focus();
+      var len = searchInput.value.length;
+      searchInput.setSelectionRange(len, len);
+    }, 0);
   }
 });
 </script>

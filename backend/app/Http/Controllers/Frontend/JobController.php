@@ -137,12 +137,14 @@ class JobController extends Controller
             if ($sortBy === 'title') {
                 $sortDirection = 'asc'; // A-Z for titles
             } elseif ($sortBy === 'salary_min') {
-                $sortDirection = 'desc'; // High to low for salary
+                $sortDirection = 'desc'; // High to low for salary; NULL/geen salaris onderaan
+                $query->orderByRaw('salary_min IS NULL ASC')->orderBy('salary_min', $sortDirection);
             } elseif ($sortBy === 'created_at') {
                 $sortDirection = 'asc'; // Oldest first
             }
-            
-            $query->orderBy($sortBy, $sortDirection);
+            if ($sortBy !== 'salary_min') {
+                $query->orderBy($sortBy, $sortDirection);
+            }
         } else {
             $query->orderBy('published_at', 'desc');
         }
