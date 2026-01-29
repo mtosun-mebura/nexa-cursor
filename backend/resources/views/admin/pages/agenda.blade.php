@@ -760,7 +760,7 @@
                         <i class="ki-filled ki-arrow-right"></i>
                     </button>
                 </div>
-                <a href="{{ route('admin.interviews.create') }}" class="kt-btn kt-btn-primary">
+                <a href="{{ route('admin.skillmatching.interviews.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
                     Nieuwe interview
                 </a>
@@ -809,8 +809,8 @@ const monthNames = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'jul
 const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
 const dayNamesShort = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 
-// Interview base URL
-const interviewBaseUrl = '/admin/interviews/';
+// Interview base URL (Skillmatching module)
+const interviewBaseUrl = '{{ route("admin.skillmatching.interviews.index") }}'.replace(/\/$/, '') + '/';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {

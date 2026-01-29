@@ -684,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function () {
     async function loadDefaultSkillsForFunction(branchId, functionId) {
         if (!branchId || !functionId) return [];
         try {
-            const url = `{{ url('admin/branches') }}/${encodeURIComponent(branchId)}/functions/${encodeURIComponent(functionId)}/skills`;
+            const url = `{{ url('admin/skillmatching/branches') }}/${encodeURIComponent(branchId)}/functions/${encodeURIComponent(functionId)}/skills`;
             const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' });
             const json = await res.json();
             return (json?.skills || []).map(x => x.display_name || x.name).map(normalizeSkill).filter(Boolean);
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!canSaveDefaults) return;
         if (!saveSkillAsDefaultToggle || !saveSkillAsDefaultToggle.checked) return;
         try {
-            const url = `{{ url('admin/branches') }}/${encodeURIComponent(branchId)}/functions/${encodeURIComponent(functionId)}/skills`;
+            const url = `{{ url('admin/skillmatching/branches') }}/${encodeURIComponent(branchId)}/functions/${encodeURIComponent(functionId)}/skills`;
             await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -1077,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', function () {
         lastBranchId = branchId;
 
         try {
-            const url = `{{ url('admin/branches') }}/${encodeURIComponent(branchId)}/data`;
+            const url = `{{ url('admin/skillmatching/branches') }}/${encodeURIComponent(branchId)}/data`;
             const res = await fetch(url, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -1108,7 +1108,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (existing) return existing.id;
 
         try {
-            const res = await fetch(`{{ url('admin/branches') }}/${encodeURIComponent(branchId)}/functions`, {
+            const res = await fetch(`{{ url('admin/skillmatching/branches') }}/${encodeURIComponent(branchId)}/functions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

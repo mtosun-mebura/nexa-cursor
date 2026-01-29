@@ -12,14 +12,14 @@
             </h1>
         </div>
         <div class="flex items-center">
-            <a href="{{ route('admin.branches.index') }}" class="kt-btn kt-btn-outline">
+            <a href="{{ route('admin.skillmatching.branches.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
         </div>
     </div>
 
-    <form action="{{ route('admin.branches.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.skillmatching.branches.store') }}" method="POST" data-validate="true">
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -112,7 +112,7 @@
             </div>
 
             <div class="flex items-center justify-end gap-2.5">
-                <a href="{{ route('admin.branches.index') }}" class="kt-btn kt-btn-outline">
+                <a href="{{ route('admin.skillmatching.branches.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren
                 </a>

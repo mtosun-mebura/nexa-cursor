@@ -23,8 +23,8 @@
   })()
   </script>
 </head>
-<body class="bg-surface dark:bg-surface-dark text-text dark:text-text-dark antialiased">
-  <header class="sticky top-0 z-40 border-b border-border dark:border-border-dark bg-surface/90 dark:bg-surface-dark/90 backdrop-blur">
+<body class="bg-white dark:bg-surface-dark text-text dark:text-text-dark antialiased">
+  <header class="sticky top-0 z-40 border-b border-border dark:border-border-dark bg-white/90 dark:bg-surface-dark/90 backdrop-blur">
     <div class="w-full px-4 py-3 flex items-center gap-4">
       <a href="/" class="flex items-center gap-3">
         <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="NEXA" class="h-7 w-auto">
@@ -101,7 +101,7 @@
 
       <section class="card overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="w-full">
+          <table class="w-full" id="vacature_matching_table">
             <thead class="bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-700" onclick="sortTable(0)">
@@ -147,7 +147,7 @@
             </thead>
             <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
               @forelse($vacancies as $vacancy)
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" data-href="{{ route('frontend.vacancy-details', ['companySlug' => $vacancy->company->slug, 'vacancyId' => $vacancy->id]) }}">
                 <td class="px-4 py-4">
                   <div class="flex flex-col">
                     <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -209,13 +209,13 @@
                     </span>
                   </div>
                 </td>
-                <td class="px-4 py-4">
+                <td class="px-4 py-4" data-actions-cell>
                   <div class="flex items-center gap-2">
-                    <a href="{{ route('frontend.vacancy-details', ['company' => $vacancy->company->slug, 'vacancy' => $vacancy->id]) }}" 
+                    <a href="{{ route('frontend.vacancy-details', ['companySlug' => $vacancy->company->slug, 'vacancyId' => $vacancy->id]) }}" 
                        class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       Details
                     </a>
-                    <button class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                    <button class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors">
                       Solliciteer
                     </button>
                   </div>
@@ -315,6 +315,14 @@
       rows.forEach(row => tbody.appendChild(row));
     }
     
+    // Row click: navigate to detail (except when clicking Acties column)
+    document.getElementById('vacature_matching_table').addEventListener('click', function(e) {
+      const row = e.target.closest('tbody tr[data-href]');
+      if (!row) return;
+      if (e.target.closest('[data-actions-cell]')) return;
+      window.location.href = row.dataset.href;
+    });
+
     // Initialize table
     document.addEventListener('DOMContentLoaded', function() {
       // Hide all sort arrows initially

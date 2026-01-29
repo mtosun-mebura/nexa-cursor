@@ -52,8 +52,8 @@ class AdminBranchFunctionController extends Controller
                     'id' => $function->id,
                     'name' => $function->name,
                     'display_name' => $function->display_name,
-                    'update_url' => route('admin.branches.functions.update', [$branch, $function]),
-                    'destroy_url' => route('admin.branches.functions.destroy', [$branch, $function]),
+                    'update_url' => route('admin.skillmatching.branches.functions.update', [$branch, $function]),
+                    'destroy_url' => route('admin.skillmatching.branches.functions.destroy', [$branch, $function]),
                 ],
             ]);
         }

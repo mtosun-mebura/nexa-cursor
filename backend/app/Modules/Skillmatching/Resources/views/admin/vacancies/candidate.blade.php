@@ -1877,7 +1877,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Function to refresh timeline
         function refreshTimeline() {
-            const url = new URL('{{ route("admin.vacancies.candidate.timeline", ["vacancy" => $vacancy->id, "candidate" => $candidate->id]) }}', window.location.origin);
+            const url = new URL('{{ route("admin.skillmatching.vacancies.candidate.timeline", ["vacancy" => $vacancy->id, "candidate" => $candidate->id]) }}', window.location.origin);
             if (matchId) {
                 url.searchParams.append('match_id', matchId);
             } else if (applicationId) {

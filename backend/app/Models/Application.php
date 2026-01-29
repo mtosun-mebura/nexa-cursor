@@ -11,6 +11,7 @@ class Application extends Model
 
     protected $fillable = [
         'candidate_id',
+        'user_id',
         'vacancy_id',
         'status',
     ];
@@ -33,6 +34,14 @@ class Application extends Model
     public function vacancy()
     {
         return $this->belongsTo(Vacancy::class);
+    }
+
+    /**
+     * Relatie naar de gebruiker (frontend applicant)
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }
 

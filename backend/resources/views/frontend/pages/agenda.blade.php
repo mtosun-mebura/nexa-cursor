@@ -56,7 +56,7 @@
     border-color: #1d4ed8;
   }
 
-  /* Clean event styling with proper height and no margins - more compact */
+  /* Event styling: hoogte volgt duur in week/dag-view (geen vaste max) */
   .fc-event {
     border-radius: 0.25rem;
     border: 1px solid #ffffff !important;
@@ -66,15 +66,15 @@
     margin: 0 !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease;
-    min-height: 2.5rem !important;
-    max-height: 2.5rem !important;
+    min-height: 2rem;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     overflow: hidden !important;
     position: relative;
     top: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: 100% !important;
     background: #3b82f6 !important;
     color: white !important;
   }
@@ -102,14 +102,23 @@
     top: 0 !important;
   }
 
+  /* Time grid: hoogte door FullCalendar op basis van start/end (zoals backend) */
   .fc-timegrid-event {
     margin: 0 !important;
-    min-height: 2.5rem !important;
-    max-height: 2.5rem !important;
     top: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: 100% !important;
+    min-height: 2rem !important;
     overflow: hidden !important;
+  }
+  .fc-timegrid-event .fc-event {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+  .fc-timegrid-event .fc-event-title {
+    white-space: normal;
+    word-break: break-word;
   }
 
   /* Clean event colors */
@@ -151,14 +160,44 @@
     padding: 0.375rem;
   }
 
-  /* Clean headers */
+  /* Clean headers – rij dubbel zo hoog, teksten met Hoofdletter */
   .fc-col-header-cell {
     background: #f8fafc;
     color: #374151;
     font-weight: 600;
-    padding: 0.5rem 0.375rem;
+    padding: 0.75rem 0.5rem;
     font-size: 0.8rem;
     border-bottom: 1px solid #e5e7eb;
+    min-height: 5.5rem;
+    text-align: center;
+    text-transform: capitalize;
+  }
+  .fc-col-header .fc-scrollgrid-sync-inner {
+    min-height: 4rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.25rem;
+    text-transform: capitalize;
+  }
+  .fc-col-header-day,
+  .fc-col-header-line {
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.2;
+    text-transform: capitalize;
+    padding-bottom: 0.25rem;
+  }
+  .fc-col-header-date {
+    font-size: 0.75rem;
+    color: #6b7280;
+    line-height: 1.2;
+    text-transform: capitalize;
+  }
+  .dark .fc-col-header-date {
+    color: #9ca3af;
   }
 
   /* Clean time slots with proper height for events */
@@ -166,6 +205,7 @@
     height: 3rem !important;
     border-bottom: 1px solid #f1f5f9;
     min-height: 3rem !important;
+    vertical-align: top !important;
   }
 
   .fc-timegrid-slot-label {
@@ -173,6 +213,8 @@
     color: #6b7280;
     font-weight: 500;
     padding: 0.5rem;
+    vertical-align: top !important;
+    display: block;
   }
 
   .fc-timegrid-axis {
@@ -1134,10 +1176,8 @@
     min-height: 4rem !important;
   }
 
-  /* Ensure events fit properly in time slots */
+  /* Event harness: geen vaste hoogte – FullCalendar zet hoogte via inline style op basis van start/end */
   .fc-timegrid-event-harness {
-    height: 3rem !important;
-    min-height: 3rem !important;
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
@@ -1146,12 +1186,11 @@
   }
   
   .fc-timegrid-event-harness-inset {
-    height: 3rem !important;
-    min-height: 3rem !important;
     margin: 4px 0 0 4px !important;
     padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    min-height: 100% !important;
     overflow: hidden !important;
   }
 
@@ -1166,20 +1205,19 @@
     padding: 0 !important;
   }
   
-  /* Day grid event harness with side margins, border and rounded corners */
+  /* Day grid event harness –zelfde border als timegrid (wit, afgerond) */
   .fc-daygrid-event-harness {
     margin-left: 4px !important;
     margin-right: 4px !important;
     margin-bottom: 2px !important;
-    border: 1px solid #000000 !important;
-    border-radius: 0.375rem !important;
+    border: 1px solid #ffffff !important;
+    border-radius: 0.25rem !important;
     width: calc(100% - 8px) !important;
   }
   
-  /* Dark mode border for day grid event harness */
   .dark .fc-daygrid-event-harness {
     border: 1px solid #ffffff !important;
-    border-radius: 0.375rem !important;
+    border-radius: 0.25rem !important;
     width: calc(100% - 8px) !important;
   }
 
@@ -1234,8 +1272,7 @@
     .fc-event {
       font-size: 0.75rem;
       padding: 0.25rem 0.5rem;
-      min-height: 2.5rem !important;
-      max-height: 2.5rem !important;
+      min-height: 2rem;
     }
 
     .fc-event-title {
@@ -1289,8 +1326,7 @@
     .fc-event {
       font-size: 0.7rem;
       padding: 0.2rem 0.4rem;
-      min-height: 2rem !important;
-      max-height: 2rem !important;
+      min-height: 2rem;
     }
 
     .fc-event-title {
@@ -1354,8 +1390,7 @@
     .fc-event {
       font-size: 0.65rem;
       padding: 0.15rem 0.3rem;
-      min-height: 1.8rem !important;
-      max-height: 1.8rem !important;
+      min-height: 1.5rem;
     }
 
     .fc-event-title {
@@ -1503,22 +1538,118 @@
 </style>
 
 @section('content')
-<section class="flex flex-wrap items-center justify-between gap-3">
-  <div>
-    <h1 class="text-2xl font-semibold leading-tight">Agenda</h1>
-    <p class="text-sm text-muted dark:text-muted-dark">Bekijk al je afspraken en interviews in een overzichtelijke kalender.</p>
-  </div>
-</section>
-
 <!-- FullCalendar CSS -->
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
 
-<!-- FullCalendar Container -->
-<div class="card p-8">
-  <div id="calendar" class="modern-calendar"></div>
+<style>
+  /* Agenda layout zoals backend */
+  .agenda-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .agenda-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .dark .agenda-header {
+    border-bottom-color: #4b5563;
+  }
+  .agenda-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .dark .agenda-title {
+    color: #f9fafb;
+  }
+  .agenda-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .view-buttons-container {
+    display: flex;
+    gap: 0.5rem;
+    min-width: 180px;
+    justify-content: center;
+  }
+  .agenda-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    border: 1px solid #e5e7eb;
+    background: white;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .dark .agenda-btn {
+    border-color: #4b5563;
+    background: #1f2937;
+    color: #f9fafb;
+  }
+  .agenda-btn:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+  .dark .agenda-btn:hover {
+    border-color: #6b7280;
+    background: #374151;
+  }
+  .agenda-btn.active {
+    border-color: #3b82f6;
+    background: #3b82f6;
+    color: white;
+  }
+  .dark .agenda-btn.active {
+    border-color: #3b82f6;
+    background: #3b82f6;
+    color: white;
+  }
+  .agenda-nav-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+</style>
 
+<div class="agenda-container">
+  <div class="agenda-header">
+    <div>
+      <h1 class="agenda-title" id="agenda-title">Agenda</h1>
+    </div>
+    <div class="agenda-actions">
+      <div class="view-buttons-container">
+        <button type="button" class="agenda-btn view-btn active" data-view="dayGridMonth" id="btn-month">Maand</button>
+        <button type="button" class="agenda-btn view-btn" data-view="timeGridWeek" id="btn-week">Week</button>
+        <button type="button" class="agenda-btn view-btn" data-view="timeGridDay" id="btn-day">Dag</button>
+      </div>
+      <div class="agenda-nav-group">
+        <button type="button" class="agenda-btn" id="btn-prev" title="Vorige"><i class="ki-filled ki-arrow-left"></i></button>
+        <button type="button" class="agenda-btn" id="btn-today">Vandaag</button>
+        <button type="button" class="agenda-btn" id="btn-next" title="Volgende"><i class="ki-filled ki-arrow-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-6">
+    <div id="calendar" class="modern-calendar"></div>
+  </div>
 </div>
 
+<script>var currentAppointment = null;</script>
 <!-- FullCalendar JavaScript -->
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 <script>
@@ -1533,22 +1664,21 @@ document.addEventListener('DOMContentLoaded', function() {
     return;
   }
 
+  function getWeekNumber(date) {
+    var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    var dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+
   const calendar = new FullCalendar.Calendar(calendarEl, {
-    // Locale settings
     locale: 'nl',
-    firstDay: 1, // Start week on Monday
+    firstDay: 1,
 
-    // Initial view - responsive
-    initialView: window.innerWidth < 768 ? 'dayGridMonth' : 'timeGridWeek',
+    initialView: 'dayGridMonth',
+    headerToolbar: false,
 
-    // Header toolbar - responsive
-    headerToolbar: {
-      left: window.innerWidth < 480 ? 'prev,next' : 'prev,next today',
-      center: 'title',
-      right: window.innerWidth < 480 ? 'dayGridMonth,timeGridWeek' : 'dayGridMonth,timeGridWeek,timeGridDay'
-    },
-
-    // Button text
     buttonText: {
       today: 'Vandaag',
       month: 'Maand',
@@ -1556,48 +1686,39 @@ document.addEventListener('DOMContentLoaded', function() {
       day: 'Dag'
     },
 
-    // Time grid settings
-    slotMinTime: '08:00:00',
+    slotMinTime: '07:00:00',
     slotMaxTime: '20:00:00',
     slotDuration: '01:00:00',
     slotLabelInterval: '01:00:00',
+    slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-    // Event settings
+    dayHeaderContent: function(arg) {
+      var dayName = arg.date.toLocaleDateString('nl-NL', { weekday: 'short' });
+      var dayNum = arg.date.getDate();
+      return { html: '<div class="fc-col-header-line fc-col-header-day">' + dayName + '</div><div class="fc-col-header-date">' + dayNum + '</div>' };
+    },
+
+    datesSet: function(arg) {
+      var titleEl = document.getElementById('agenda-title');
+      if (!titleEl) return;
+      if (arg.view.type === 'timeGridWeek') {
+        var start = arg.view.currentStart;
+        var weekNum = getWeekNumber(start);
+        var monthName = start.toLocaleDateString('nl-NL', { month: 'long' });
+        var year = start.getFullYear();
+        titleEl.textContent = 'Week ' + weekNum + ', ' + monthName + ' ' + year;
+      } else {
+        titleEl.textContent = arg.view.title;
+      }
+    },
+
+    // Event settings - afspraken uit backend (geen dummy data)
     events: function(info, successCallback, failureCallback) {
-      console.log('Fetching events for:', info.start, 'to', info.end);
+      const startStr = info.start instanceof Date ? info.start.toISOString() : (info.startStr || String(info.start));
+      const endStr = info.end instanceof Date ? info.end.toISOString() : (info.endStr || String(info.end));
+      const url = '{{ route("agenda.events") }}?start=' + encodeURIComponent(startStr) + '&end=' + encodeURIComponent(endStr);
 
-      // Fallback events if API fails
-      const fallbackEvents = [
-        {
-          id: 1,
-          title: 'Interview met Jan de Vries',
-          start: new Date().toISOString(),
-          end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          color: '#3b82f6',
-          extendedProps: {
-            candidate_name: 'Jan de Vries',
-            location: 'Kantoor Amsterdam',
-            type: 'interview',
-            status: 'scheduled'
-          }
-        },
-        {
-          id: 2,
-          title: 'Uren inleveren',
-          start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          end: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          color: '#10b981',
-          extendedProps: {
-            candidate_name: 'Sarah van Dijk',
-            location: 'Online',
-            type: 'meeting',
-            status: 'scheduled'
-          }
-        }
-      ];
-
-      // Try to fetch events from Laravel backend
-      fetch('{{ route("agenda.events") }}', {
+      fetch(url, {
         method: 'GET',
         headers: {
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -1605,25 +1726,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       })
       .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
+        if (!response.ok) throw new Error('Network response was not ok');
         return response.json();
       })
       .then(data => {
-        console.log('Events received:', data);
-        if (Array.isArray(data) && data.length > 0) {
-          successCallback(data);
-        } else {
-          console.log('No events from API, using fallback');
-          successCallback(fallbackEvents);
-        }
+        const events = Array.isArray(data) ? data : (data && data.error ? [] : []);
+        successCallback(events);
       })
       .catch(error => {
-        console.error('Error fetching events:', error);
-        console.log('Using fallback events');
-        successCallback(fallbackEvents);
+        console.error('Error fetching agenda events:', error);
+        successCallback([]);
       });
     },
 
@@ -1666,34 +1778,54 @@ document.addEventListener('DOMContentLoaded', function() {
     weekends: true,
 
     // All day slot
-    allDaySlot: true,
+    allDaySlot: false,
 
     // Event overlap
     eventOverlap: false,
 
     // Event constraint
     eventConstraint: {
-      start: '08:00',
+      start: '07:00',
       end: '20:00'
     }
   });
 
-  console.log('Calendar created, rendering...');
   calendar.render();
-  console.log('Calendar rendered successfully');
-
-  // Test if calendar is working
-  setTimeout(() => {
-    const calendarContainer = document.querySelector('.fc');
-    if (calendarContainer) {
-      console.log('✅ Calendar container found and rendered');
-    } else {
-      console.error('❌ Calendar container not found');
-    }
-  }, 1000);
-
-  // Global calendar reference
   window.calendar = calendar;
+
+  // Titel bij eerste render
+  var titleEl = document.getElementById('agenda-title');
+  if (titleEl && calendar.view) titleEl.textContent = calendar.view.title;
+
+  // Knoppen zoals backend: Maand / Week / Dag
+  document.getElementById('btn-month').addEventListener('click', function() {
+    calendar.changeView('dayGridMonth');
+    document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+  });
+  document.getElementById('btn-week').addEventListener('click', function() {
+    calendar.changeView('timeGridWeek');
+    document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+  });
+  document.getElementById('btn-day').addEventListener('click', function() {
+    calendar.changeView('timeGridDay');
+    document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
+    this.classList.add('active');
+  });
+
+  document.getElementById('btn-prev').addEventListener('click', function() { calendar.prev(); });
+  document.getElementById('btn-next').addEventListener('click', function() { calendar.next(); });
+  document.getElementById('btn-today').addEventListener('click', function() { calendar.today(); });
+
+  // Bij view change actieve knop bijwerken
+  calendar.on('datesSet', function(arg) {
+    var v = arg.view.type;
+    document.querySelectorAll('.view-btn').forEach(function(b) {
+      var want = b.getAttribute('data-view');
+      b.classList.toggle('active', (want === 'dayGridMonth' && v === 'dayGridMonth') || (want === 'timeGridWeek' && v === 'timeGridWeek') || (want === 'timeGridDay' && v === 'timeGridDay'));
+    });
+  });
 });
 
 // Appointment details modal
@@ -1703,8 +1835,9 @@ function showAppointmentDetails(event) {
     title: event.title,
     start: event.start,
     end: event.end,
-    extendedProps: event.extendedProps
+    extendedProps: event.extendedProps || {}
   };
+  currentAppointment = appointment;
 
   const content = `
     <div class="mb-4">
@@ -1731,9 +1864,10 @@ function showAppointmentDetails(event) {
         </div>
       </div>
     </div>
-    <div class="flex space-x-3">
-      <button onclick="viewAppointmentDetails('${appointment.id}')" class="btn btn-primary flex-1">Details</button>
+    <div id="appointment-summary-actions" class="flex space-x-3">
+      <button type="button" onclick="expandAppointmentDetails()" class="btn btn-primary flex-1 flex items-center justify-center text-center">Details</button>
     </div>
+    <div id="appointment-details-expanded" class="hidden mt-4"></div>
   `;
 
   document.getElementById('appointment-content').innerHTML = content;
@@ -1744,13 +1878,68 @@ function showAppointmentDetails(event) {
 function hideAppointmentModal() {
   document.getElementById('appointment-modal').classList.add('hidden');
   document.getElementById('appointment-modal').classList.remove('flex');
+  currentAppointment = null;
+}
+
+// Details uitklappen in dezelfde popup (popup niet sluiten)
+function expandAppointmentDetails() {
+  if (!currentAppointment) return;
+  const appointment = currentAppointment;
+  const startDate = appointment.start instanceof Date ? appointment.start : new Date(appointment.start);
+  const endDate = appointment.end instanceof Date ? appointment.end : new Date(appointment.end);
+  const ext = appointment.extendedProps || {};
+
+  const detailsHtml = `
+    <div class="border-t border-gray-200 dark:border-gray-600 pt-4 mt-4 space-y-4">
+      <h4 class="font-medium text-base">Afspraak &amp; adres</h4>
+      <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Datum:</span><span class="text-left min-w-0">${startDate.toLocaleDateString('nl-NL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Tijd:</span><span class="text-left min-w-0">${startDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })} – ${endDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span></div>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Status:</span><span class="text-left text-green-600 min-w-0">${ext.status || 'Gepland'}</span></div>
+      </div>
+      <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
+        <h5 class="font-medium mb-1">Bedrijf &amp; adres</h5>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Bedrijf:</span><span class="text-left min-w-0">${ext.company_name || '—'}</span></div>
+        <div class="flex gap-2">
+          <span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Adres:</span>
+          <span class="text-left min-w-0">${(function(){ var br = '<br>'; var p = [ext.company_street || '', ext.company_postal_code || '', ext.company_city || ''].filter(Boolean); if (p.length) return p.join(br); var a = (ext.company_address || '—').trim(); if (typeof a !== 'string' || !a) return a; if (a.indexOf(',') !== -1){ var parts = a.split(/,\\s*/).map(function(s){ return s.trim(); }); if (parts.length === 3) return parts[0] + br + parts[2] + br + parts[1]; return parts.join(br); } var m = a.match(/^(.+?)\\s*(\\d{4}\\s*[A-Za-z]{2})\\s*(.+)$/); if (m) return m[1].trim() + br + m[2].replace(/\\s+/g,' ') + br + m[3].trim(); return a; })()}</span>
+        </div>
+      </div>
+      <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2 text-sm">
+        <h5 class="font-medium mb-1">Contact</h5>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Contactpersoon:</span><span class="text-left min-w-0">${ext.interviewer_name || '—'}</span></div>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Telefoon:</span><span class="text-left min-w-0">${ext.company_phone || '—'}</span></div>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">E-mail:</span><span class="text-left min-w-0">${ext.interviewer_email || '—'}</span></div>
+        <div class="flex gap-2"><span class="text-gray-600 dark:text-gray-400 shrink-0 w-[7.5rem]">Functie:</span><span class="text-left min-w-0">${ext.vacancy_title || '—'}</span></div>
+      </div>
+      ${(ext.notes && ext.notes.trim()) ? `<div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg"><h5 class="font-medium mb-1">Notities</h5><p class="text-sm text-gray-600 dark:text-gray-400">${ext.notes}</p></div>` : ''}
+      <div class="flex justify-end pt-2">
+        <button type="button" onclick="hideAppointmentModal()" class="btn btn-primary px-5 py-2.5 font-medium shadow-sm">Sluiten</button>
+      </div>
+    </div>
+  `;
+
+  const expandedEl = document.getElementById('appointment-details-expanded');
+  const summaryActions = document.getElementById('appointment-summary-actions');
+  if (expandedEl) {
+    expandedEl.innerHTML = detailsHtml;
+    expandedEl.classList.remove('hidden');
+  }
+  if (summaryActions) summaryActions.classList.add('hidden');
 }
 
 </script>
 
-<!-- Appointment Detail Modal -->
-<div id="appointment-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
+<!-- Appointment Detail Modal - blur achtergrond -->
+<style>
+  #appointment-modal {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background-color: rgba(0, 0, 0, 0.25);
+  }
+</style>
+<div id="appointment-modal" class="fixed inset-0 hidden items-center justify-center z-50">
+  <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative shadow-xl">
     <button onclick="hideAppointmentModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1762,235 +1951,6 @@ function hideAppointmentModal() {
     </div>
   </div>
 </div>
-
-<!-- FullCalendar JavaScript -->
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, initializing calendar...');
-
-  const calendarEl = document.getElementById('calendar');
-  console.log('Calendar element:', calendarEl);
-
-  if (!calendarEl) {
-    console.error('Calendar element not found!');
-    return;
-  }
-
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    // Locale settings
-    locale: 'nl',
-    firstDay: 1, // Start week on Monday
-
-    // Initial view - responsive
-    initialView: window.innerWidth < 768 ? 'dayGridMonth' : 'timeGridWeek',
-
-    // Header toolbar - responsive
-    headerToolbar: {
-      left: window.innerWidth < 480 ? 'prev,next' : 'prev,next today',
-      center: 'title',
-      right: window.innerWidth < 480 ? 'dayGridMonth,timeGridWeek' : 'dayGridMonth,timeGridWeek,timeGridDay'
-    },
-
-    // Button text
-    buttonText: {
-      today: 'Vandaag',
-      month: 'Maand',
-      week: 'Week',
-      day: 'Dag'
-    },
-
-    // Time grid settings
-    slotMinTime: '08:00:00',
-    slotMaxTime: '20:00:00',
-    slotDuration: '01:00:00',
-    slotLabelInterval: '01:00:00',
-
-    // Event settings
-    events: function(info, successCallback, failureCallback) {
-      console.log('Fetching events for:', info.start, 'to', info.end);
-
-      // Fallback events if API fails
-      const fallbackEvents = [
-        {
-          id: 1,
-          title: 'Interview met Jan de Vries',
-          start: new Date().toISOString(),
-          end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          color: '#3b82f6',
-          extendedProps: {
-            candidate_name: 'Jan de Vries',
-            location: 'Kantoor Amsterdam',
-            type: 'interview',
-            status: 'scheduled'
-          }
-        },
-        {
-          id: 2,
-          title: 'Uren inleveren',
-          start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          end: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          color: '#10b981',
-          extendedProps: {
-            candidate_name: 'Sarah van Dijk',
-            location: 'Online',
-            type: 'meeting',
-            status: 'scheduled'
-          }
-        }
-      ];
-
-      // Try to fetch events from Laravel backend
-      fetch('{{ route("agenda.events") }}', {
-        method: 'GET',
-        headers: {
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-          'Accept': 'application/json',
-        }
-      })
-      .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Events received:', data);
-        if (Array.isArray(data) && data.length > 0) {
-          successCallback(data);
-        } else {
-          console.log('No events from API, using fallback');
-          successCallback(fallbackEvents);
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching events:', error);
-        console.log('Using fallback events');
-        successCallback(fallbackEvents);
-      });
-    },
-
-    // Event click handler
-    eventClick: function(info) {
-      console.log('Event clicked:', info.event);
-      showAppointmentDetails(info.event);
-    },
-
-    // Date click handler (for creating new events)
-    dateClick: function(info) {
-      console.log('Date clicked:', info.dateStr);
-    },
-
-    // Event display settings
-    eventDisplay: 'block',
-    eventTimeFormat: {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    },
-
-    // Height settings
-    height: 'auto',
-
-    // Responsive settings
-    aspectRatio: 1.8,
-
-    // Event colors
-    eventColor: '#3b82f6',
-
-    // Business hours
-    businessHours: {
-      daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
-      startTime: '09:00',
-      endTime: '17:00'
-    },
-
-    // Weekends
-    weekends: true,
-
-    // All day slot
-    allDaySlot: true,
-
-    // Event overlap
-    eventOverlap: false,
-
-    // Event constraint
-    eventConstraint: {
-      start: '08:00',
-      end: '20:00'
-    }
-  });
-
-  console.log('Calendar created, rendering...');
-  calendar.render();
-  console.log('Calendar rendered successfully');
-
-  // Test if calendar is working
-  setTimeout(() => {
-    const calendarContainer = document.querySelector('.fc');
-    if (calendarContainer) {
-      console.log('✅ Calendar container found and rendered');
-    } else {
-      console.error('❌ Calendar container not found');
-    }
-  }, 1000);
-
-  // Global calendar reference
-  window.calendar = calendar;
-});
-
-// Appointment details modal
-function showAppointmentDetails(event) {
-  const appointment = {
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    extendedProps: event.extendedProps
-  };
-
-  const content = `
-    <div class="mb-4">
-      <h3 class="text-lg font-semibold mb-2">${appointment.title}</h3>
-      <div class="space-y-2 text-sm text-muted dark:text-muted-dark">
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          ${appointment.start.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - ${appointment.end.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})}
-        </div>
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          ${appointment.extendedProps.location || 'Locatie niet opgegeven'}
-        </div>
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-          </svg>
-          ${appointment.extendedProps.candidate_name || 'Kandidaat niet opgegeven'}
-        </div>
-      </div>
-    </div>
-    <div class="flex space-x-3">
-      <button onclick="viewAppointmentDetails('${appointment.id}')" class="btn btn-primary flex-1">Details</button>
-    </div>
-  `;
-
-  document.getElementById('appointment-content').innerHTML = content;
-  document.getElementById('appointment-modal').classList.remove('hidden');
-  document.getElementById('appointment-modal').classList.add('flex');
-}
-
-function hideAppointmentModal() {
-  document.getElementById('appointment-modal').classList.add('hidden');
-  document.getElementById('appointment-modal').classList.remove('flex');
-}
-
-</script>
 
 <!-- Responsive JavaScript for real-time updates -->
 <script>
@@ -2024,24 +1984,8 @@ function handleResponsiveUpdate() {
   }
   calendar.setOption('eventMaxStack', eventMaxStack);
   
-  // Update header toolbar based on screen size
-  let headerToolbar = {
-    left: 'prev,next today',
-    center: 'title',
-    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-  };
+  // Geen headerToolbar – we gebruiken eigen header zoals backend
   
-  if (width < 480) {
-    headerToolbar = {
-      left: 'prev,next',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek'
-    };
-  }
-  
-  calendar.setOption('headerToolbar', headerToolbar);
-  
-  // Force calendar to re-render with new settings
   calendar.render();
   
   console.log('Responsive update applied:', {
@@ -2100,110 +2044,6 @@ setTimeout(function() {
     };
   }
 }, 1000);
-
-// Appointment action functions
-function viewAppointmentDetails(appointmentId) {
-  console.log('Viewing details for appointment:', appointmentId);
-  
-  // Close the current modal
-  hideAppointmentModal();
-  
-  // Show detailed modal with more information
-  showDetailsModal(appointmentId);
-}
-
-
-// Show details modal with more information
-function showDetailsModal(appointmentId) {
-  const detailsContent = `
-    <div class="mb-4">
-      <h3 class="text-lg font-semibold mb-4">Afspraak Details</h3>
-      <div class="space-y-4">
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Afspraak Details</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Datum:</span>
-              <span>${new Date(appointment.start).toLocaleDateString('nl-NL', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Tijd:</span>
-              <span>${new Date(appointment.start).toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - ${new Date(appointment.end).toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Status:</span>
-              <span class="text-green-600">${appointment.extendedProps.status || 'Gepland'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Bedrijfsinformatie</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Bedrijf:</span>
-              <span>${appointment.extendedProps.company_name || 'Onbekend bedrijf'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Adres:</span>
-              <span>${appointment.extendedProps.company_address || 'Adres niet beschikbaar'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Contactpersoon:</span>
-              <span>${appointment.extendedProps.interviewer_name || 'Onbekend'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Telefoon:</span>
-              <span>${appointment.extendedProps.company_phone || 'Niet beschikbaar'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Afspraak Contact</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Jouw contactpersoon:</span>
-              <span>${appointment.extendedProps.interviewer_name || 'Onbekend'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Email:</span>
-              <span>${appointment.extendedProps.interviewer_email || 'Niet beschikbaar'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Functie:</span>
-              <span>${appointment.extendedProps.vacancy_title || 'Onbekende functie'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Locatie:</span>
-              <span>${appointment.extendedProps.location || 'Locatie niet opgegeven'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Notities</h4>
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            ${appointment.extendedProps.notes || 'Geen notities beschikbaar.'}
-          </p>
-        </div>
-      </div>
-    </div>
-    <div class="flex space-x-3">
-      <button onclick="hideDetailsModal()" class="btn btn-primary flex-1">Sluiten</button>
-    </div>
-  `;
-  
-  document.getElementById('appointment-content').innerHTML = detailsContent;
-  document.getElementById('appointment-modal').classList.remove('hidden');
-  document.getElementById('appointment-modal').classList.add('flex');
-}
-
-// Hide details modal
-function hideDetailsModal() {
-  document.getElementById('appointment-modal').classList.add('hidden');
-  document.getElementById('appointment-modal').classList.remove('flex');
-}
 
 // Add ESC key functionality to close modal
 document.addEventListener('keydown', function(event) {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Branch extends Model
 {
@@ -20,6 +21,23 @@ class Branch extends Model
         'sort_order' => 'integer',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($branch) {
+            if (empty($branch->slug)) {
+                $branch->slug = Str::slug($branch->name);
+            }
+        });
+
+        static::updating(function ($branch) {
+            if ($branch->isDirty('name') && empty($branch->slug)) {
+                $branch->slug = Str::slug($branch->name);
+            }
+        });
+    }
+
     /**
      * Get the vacancies for this branch.
      */
@@ -34,6 +52,14 @@ class Branch extends Model
     public function functions()
     {
         return $this->hasMany(BranchFunction::class, 'branch_id');
+    }
+
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName()
+    {
+        return 'slug';
     }
 }
 

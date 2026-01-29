@@ -25,9 +25,9 @@
                                 $backUrl = route('admin.dashboard'); // Default fallback
                                 
                                 // Determine where to go back based on current URL
-                                if (str_contains($currentUrl, '/admin/vacancies/')) {
-                                    if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-vacancies')) {
-                                        $backUrl = route('admin.vacancies.index');
+                                if (str_contains($currentUrl, '/admin/vacancies/') || str_contains($currentUrl, '/admin/skillmatching/vacancies/')) {
+                                    if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-vacancies') || auth()->user()->can('skillmatching.vacancies.view')) {
+                                        $backUrl = \Illuminate\Support\Facades\Route::has('admin.skillmatching.vacancies.index') ? route('admin.skillmatching.vacancies.index') : route('admin.dashboard');
                                     }
                                 } elseif (str_contains($currentUrl, '/admin/companies/')) {
                                     if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-companies')) {
@@ -45,13 +45,13 @@
                                     if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-notifications')) {
                                         $backUrl = route('admin.notifications.index');
                                     }
-                                } elseif (str_contains($currentUrl, '/admin/matches/')) {
-                                    if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-matches')) {
-                                        $backUrl = route('admin.matches.index');
+                                } elseif (str_contains($currentUrl, '/admin/matches/') || str_contains($currentUrl, '/admin/skillmatching/matches/')) {
+                                    if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-matches') || auth()->user()->can('skillmatching.matches.view')) {
+                                        $backUrl = \Illuminate\Support\Facades\Route::has('admin.skillmatching.matches.index') ? route('admin.skillmatching.matches.index') : route('admin.dashboard');
                                     }
-                                } elseif (str_contains($currentUrl, '/admin/interviews/')) {
-                                    if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-interviews')) {
-                                        $backUrl = route('admin.interviews.index');
+                                } elseif (str_contains($currentUrl, '/admin/interviews/') || str_contains($currentUrl, '/admin/skillmatching/interviews/')) {
+                                    if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-interviews') || auth()->user()->can('skillmatching.interviews.view')) {
+                                        $backUrl = \Illuminate\Support\Facades\Route::has('admin.skillmatching.interviews.index') ? route('admin.skillmatching.interviews.index') : route('admin.dashboard');
                                     }
                                 } elseif (str_contains($currentUrl, '/admin/roles/')) {
                                     if (auth()->user()->hasRole('super-admin') || auth()->user()->can('view-roles')) {

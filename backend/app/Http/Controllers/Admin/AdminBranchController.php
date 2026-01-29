@@ -105,7 +105,7 @@ class AdminBranchController extends Controller
 
         $branch = Branch::create($branchData);
 
-        return redirect()->route('admin.branches.show', $branch)->with('success', 'Branch succesvol aangemaakt.');
+        return redirect()->route('admin.skillmatching.branches.show', $branch)->with('success', 'Branch succesvol aangemaakt.');
     }
 
     public function show(Branch $branch)
@@ -160,7 +160,7 @@ class AdminBranchController extends Controller
 
         $branch->update($branchData);
 
-        return redirect()->route('admin.branches.show', $branch)->with('success', 'Branch succesvol bijgewerkt.');
+        return redirect()->route('admin.skillmatching.branches.show', $branch)->with('success', 'Branch succesvol bijgewerkt.');
     }
 
     public function destroy(Branch $branch)
@@ -174,7 +174,7 @@ class AdminBranchController extends Controller
         }
 
         $branch->delete();
-        return redirect()->route('admin.branches.index')->with('success', 'Branch succesvol verwijderd.');
+        return redirect()->route('admin.skillmatching.branches.index')->with('success', 'Branch succesvol verwijderd.');
     }
 
     public function toggleStatus(Request $request, Branch $branch)

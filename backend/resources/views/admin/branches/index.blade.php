@@ -10,7 +10,7 @@
             Branches Beheer
         </h1>
         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-branches'))
-        <a href="{{ route('admin.branches.create') }}" class="kt-btn kt-btn-primary">
+        <a href="{{ route('admin.skillmatching.branches.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
             Nieuwe Branch
         </a>
@@ -68,7 +68,7 @@
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
                     <!-- Search -->
                     <div class="flex w-full sm:w-auto justify-center sm:justify-start">
-                        <form method="GET" action="{{ route('admin.branches.index') }}" class="flex gap-2" id="search-form">
+                        <form method="GET" action="{{ route('admin.skillmatching.branches.index') }}" class="flex gap-2" id="search-form">
                             @if(request('status'))
                                 <input type="hidden" name="status" value="{{ request('status') }}">
                             @endif
@@ -91,7 +91,7 @@
                     </div>
                     <!-- Filters -->
                     <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-center justify-center sm:justify-start w-full sm:w-auto">
-                        <form method="GET" action="{{ route('admin.branches.index') }}" id="filters-form" class="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-center sm:items-stretch">
+                        <form method="GET" action="{{ route('admin.skillmatching.branches.index') }}" id="filters-form" class="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-center sm:items-stretch">
                             @if(request('search'))
                                 <input type="hidden" name="search" value="{{ request('search') }}">
                             @endif
@@ -118,7 +118,7 @@
                             </select>
                             
                             @if(request('status') || request('sort_by') || request('search'))
-                            <a href="{{ route('admin.branches.index') }}" 
+                            <a href="{{ route('admin.skillmatching.branches.index') }}" 
                                class="kt-btn kt-btn-outline kt-btn-icon" 
                                title="Filters resetten"
                                id="reset-filter-btn"
@@ -200,9 +200,9 @@
                             </thead>
                             <tbody>
                                 @foreach($branches as $branch)
-                                    <tr class="branch-row" data-branch-id="{{ $branch->id }}" data-branch-url="{{ route('admin.branches.show', $branch) }}">
+                                    <tr class="branch-row" data-branch-id="{{ $branch->id }}" data-branch-url="{{ route('admin.skillmatching.branches.show', $branch) }}">
                                         <td>
-                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                            <a href="{{ route('admin.skillmatching.branches.show', $branch) }}" class="branch-row-link">
                                                 <div class="flex items-center gap-2.5">
                                                     <span class="size-9 rounded-full shrink-0 bg-accent/60 border border-input flex items-center justify-center">
                                                         @if($branch->icon)
@@ -224,7 +224,7 @@
                                             </a>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                            <a href="{{ route('admin.skillmatching.branches.show', $branch) }}" class="branch-row-link">
                                                 @if($branch->description)
                                                     {{ Str::limit($branch->description, 50) }}
                                                 @else
@@ -233,12 +233,12 @@
                                             </a>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                            <a href="{{ route('admin.skillmatching.branches.show', $branch) }}" class="branch-row-link">
                                                 {{ $branch->used_count ?? 0 }}
                                             </a>
                                         </td>
                                         <td>
-                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                            <a href="{{ route('admin.skillmatching.branches.show', $branch) }}" class="branch-row-link">
                                                 @if($branch->is_active)
                                                     <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
                                                 @else
@@ -247,7 +247,7 @@
                                             </a>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            <a href="{{ route('admin.branches.show', $branch) }}" class="branch-row-link">
+                                            <a href="{{ route('admin.skillmatching.branches.show', $branch) }}" class="branch-row-link">
                                                 {{ $branch->created_at->format('d-m-Y') }}
                                             </a>
                                         </td>
@@ -272,7 +272,7 @@
                                                         <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
                                                             @if($canViewBranch)
                                                                 <div class="kt-menu-item">
-                                                                    <a class="kt-menu-link" href="{{ route('admin.branches.show', $branch) }}">
+                                                                    <a class="kt-menu-link" href="{{ route('admin.skillmatching.branches.show', $branch) }}">
                                                                         <span class="kt-menu-icon">
                                                                             <i class="ki-filled ki-eye"></i>
                                                                         </span>
@@ -282,7 +282,7 @@
                                                             @endif
                                                             @if($canEditBranch)
                                                                 <div class="kt-menu-item">
-                                                                    <a class="kt-menu-link" href="{{ route('admin.branches.edit', $branch) }}">
+                                                                    <a class="kt-menu-link" href="{{ route('admin.skillmatching.branches.edit', $branch) }}">
                                                                         <span class="kt-menu-icon">
                                                                             <i class="ki-filled ki-pencil"></i>
                                                                         </span>
@@ -295,7 +295,7 @@
                                                                     <div class="kt-menu-separator"></div>
                                                                 @endif
                                                                 <div class="kt-menu-item">
-                                                                    <form action="{{ route('admin.branches.toggle-status', $branch) }}"
+                                                                    <form action="{{ route('admin.skillmatching.branches.toggle-status', $branch) }}"
                                                                           method="POST"
                                                                           style="display: inline;"
                                                                           class="branch-toggle-status-form"
@@ -313,7 +313,7 @@
                                                             @endif
                                                             @if($canDeleteBranch)
                                                                 <div class="kt-menu-item">
-                                                                    <form action="{{ route('admin.branches.destroy', $branch) }}"
+                                                                    <form action="{{ route('admin.skillmatching.branches.destroy', $branch) }}"
                                                                           method="POST"
                                                                           style="display: inline;"
                                                                           onsubmit="return confirm('Weet je zeker dat je deze branch wilt verwijderen?')">
@@ -360,7 +360,7 @@
                         <h4 class="text-lg font-semibold text-mono mb-2">Geen branches gevonden</h4>
                         <p class="text-sm text-secondary-foreground mb-6">Er zijn nog geen branches aangemaakt.</p>
                         @can('create-branches')
-                        <a href="{{ route('admin.branches.create') }}" class="kt-btn kt-btn-primary">
+                        <a href="{{ route('admin.skillmatching.branches.create') }}" class="kt-btn kt-btn-primary">
                             <i class="ki-filled ki-plus me-2"></i> Nieuwe Branch
                         </a>
                         @endcan

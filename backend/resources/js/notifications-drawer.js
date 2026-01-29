@@ -1598,7 +1598,7 @@ async function scheduleInterview(notificationId, matchId) {
         // Determine the correct URL based on current path
         const isAdmin = window.location.pathname.startsWith('/admin');
         const url = isAdmin 
-            ? `/admin/interviews/create?${params.toString()}`
+            ? `/admin/skillmatching/interviews/create?${params.toString()}`
             : `/interviews/create?${params.toString()}`;
         
         window.location.href = url;
@@ -1607,7 +1607,7 @@ async function scheduleInterview(notificationId, matchId) {
         // Fallback: redirect to interviews create page with at least match_id
         const isAdmin = window.location.pathname.startsWith('/admin');
         const url = isAdmin 
-            ? `/admin/interviews/create?match_id=${matchId}&notification_id=${notificationId}`
+            ? `/admin/skillmatching/interviews/create?match_id=${matchId}&notification_id=${notificationId}`
             : `/interviews/create?match_id=${matchId}&notification_id=${notificationId}`;
         window.location.href = url;
     }
@@ -1665,7 +1665,7 @@ function createInterviewFromNotification(notification) {
     // Determine the correct URL based on baseUrl
     let url = '';
     if (baseUrl.includes('/admin')) {
-        url = `/admin/interviews/create?${params.toString()}`;
+        url = `/admin/skillmatching/interviews/create?${params.toString()}`;
     } else {
         url = `/interviews/create?${params.toString()}`;
     }
@@ -1788,7 +1788,7 @@ async function deleteInterviewFromNotification(interviewId, notificationId) {
             const isAdmin = baseUrl.includes('/admin');
             
             // Determine the correct delete URL
-            const deleteUrl = isAdmin ? `/admin/interviews/${interviewId}` : `/interviews/${interviewId}`;
+            const deleteUrl = isAdmin ? `/admin/skillmatching/interviews/${interviewId}` : `/interviews/${interviewId}`;
             
             const response = await fetch(deleteUrl, {
                 method: 'DELETE',

@@ -174,13 +174,13 @@ class JobController extends Controller
         
         $job->load(['company', 'category']);
         
-        // Get related jobs
+        // Get related jobs (branch_id replaced category_id in schema)
         $relatedJobs = Vacancy::with(['company', 'category'])
             ->where('id', '!=', $job->id)
             ->where('is_active', true)
             ->where('published_at', '<=', now())
             ->where(function($q) use ($job) {
-                $q->where('category_id', $job->category_id)
+                $q->where('branch_id', $job->branch_id)
                   ->orWhere('company_id', $job->company_id);
             })
             ->limit(4)

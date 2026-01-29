@@ -55,31 +55,17 @@
                     <h3 class="text-2xl font-semibold text-mono text-center mb-2">
                         Deze pagina is niet gevonden
                     </h3>
-                    <div class="text-base text-center text-secondary-foreground mb-10">
-                        De gevraagde pagina ontbreekt. Controleer de URL of
-                        @if(auth()->check())
-                            <a class="text-primary font-medium hover:text-primary" href="{{ route('admin.dashboard') }}">
-                                ga terug naar het Dashboard
-                            </a>
-                        @else
-                            <a class="text-primary font-medium hover:text-primary" href="{{ route('home') }}">
-                                ga terug naar Home
-                            </a>
-                        @endif
-                        .
+                    <div class="text-base text-center text-secondary-foreground mb-4">
+                        De gevraagde pagina ontbreekt of bestaat niet meer.
                     </div>
-                    <div class="flex gap-2.5">
-                        @if(auth()->check())
-                            <a href="{{ route('admin.dashboard') }}" class="kt-btn kt-btn-primary">
-                                <i class="ki-filled ki-home"></i>
-                                Dashboard
-                            </a>
-                        @else
-                            <a href="{{ route('home') }}" class="kt-btn kt-btn-primary">
-                                <i class="ki-filled ki-home"></i>
-                                Home
-                            </a>
-                        @endif
+                    @php
+                        $title = 'Pagina niet gevonden';
+                        $message = 'U wordt binnen 5 seconden automatisch doorgestuurd. U kunt ook direct op de onderstaande link klikken.';
+                        $redirectUrl = auth()->check() ? route('admin.dashboard') : route('home');
+                        $redirectLabel = auth()->check() ? 'Naar dashboard' : 'Naar home';
+                    @endphp
+                    @include('partials.redirect-message')
+                    <div class="mt-4">
                         <a href="{{ url()->previous() }}" class="kt-btn kt-btn-outline">
                             <i class="ki-filled ki-arrow-left"></i>
                             Terug

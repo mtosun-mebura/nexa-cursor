@@ -571,12 +571,20 @@
                 // Get match ID and navigate to match details
                 // First try to get it from the "Bekijken" link in the actions menu
                 let matchId = null;
-                const viewLink = row.querySelector('a[href*="/admin/matches/"]');
+                // Try new module route first: /admin/skillmatching/matches/{id}
+                const viewLink = row.querySelector('a[href*="/admin/skillmatching/matches/"]') || row.querySelector('a[href*="/admin/matches/"]');
                 if (viewLink) {
                     const href = viewLink.getAttribute('href');
-                    const match = href.match(/\/admin\/matches\/(\d+)/);
+                    // Try new module route first
+                    let match = href.match(/\/admin\/skillmatching\/matches\/(\d+)/);
                     if (match && match[1]) {
                         matchId = match[1];
+                    } else {
+                        // Fallback to old route
+                        match = href.match(/\/admin\/matches\/(\d+)/);
+                        if (match && match[1]) {
+                            matchId = match[1];
+                        }
                     }
                 }
                 
@@ -596,8 +604,8 @@
                     e.stopImmediatePropagation();
                     e.preventDefault();
                     
-                    // Navigate to match details
-                    window.location.href = '/admin/matches/' + matchId;
+                    // Navigate to match details using new module route
+                    window.location.href = '/admin/skillmatching/matches/' + matchId;
                 }
             }, true); // Use capture phase
             

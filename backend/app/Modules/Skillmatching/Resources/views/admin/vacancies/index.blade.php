@@ -458,12 +458,19 @@
                     if (link) {
                         vacancyId = link.getAttribute('data-vacancy-id');
                         if (!vacancyId) {
-                            // Try to get from href
+                            // Try to get from href - check for new module route
                             const href = link.getAttribute('href');
                             if (href) {
-                                const match = href.match(/\/admin\/vacancies\/(\d+)/);
+                                // Try new module route first: /admin/skillmatching/vacancies/{id}
+                                let match = href.match(/\/admin\/skillmatching\/vacancies\/(\d+)/);
                                 if (match && match[1]) {
                                     vacancyId = match[1];
+                                } else {
+                                    // Fallback to old route: /admin/vacancies/{id}
+                                    match = href.match(/\/admin\/vacancies\/(\d+)/);
+                                    if (match && match[1]) {
+                                        vacancyId = match[1];
+                                    }
                                 }
                             }
                         }
@@ -472,12 +479,19 @@
                 
                 // Method 3: Try to extract from any link in the row
                 if (!vacancyId || vacancyId === 'null' || vacancyId === '') {
-                    const viewLink = row.querySelector('a[href*="/admin/vacancies/"]');
+                    const viewLink = row.querySelector('a[href*="/admin/skillmatching/vacancies/"]') || row.querySelector('a[href*="/admin/vacancies/"]');
                     if (viewLink) {
                         const href = viewLink.getAttribute('href');
-                        const match = href.match(/\/admin\/vacancies\/(\d+)/);
+                        // Try new module route first
+                        let match = href.match(/\/admin\/skillmatching\/vacancies\/(\d+)/);
                         if (match && match[1]) {
                             vacancyId = match[1];
+                        } else {
+                            // Fallback to old route
+                            match = href.match(/\/admin\/vacancies\/(\d+)/);
+                            if (match && match[1]) {
+                                vacancyId = match[1];
+                            }
                         }
                     }
                 }
@@ -486,7 +500,8 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     e.preventDefault();
-                    window.location.href = '/admin/vacancies/' + vacancyId;
+                    // Use new module route
+                    window.location.href = '/admin/skillmatching/vacancies/' + vacancyId;
                 }
             };
             

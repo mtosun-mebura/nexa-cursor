@@ -1,4 +1,4 @@
-<footer class="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700">
+<footer class="bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700">
     <div class="w-full">
         <div class="py-8 container-custom">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -36,7 +36,7 @@
                             <li><a href="{{ route('home') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Home</a></li>
                             <li><a href="{{ route('jobs.index') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Vacatures</a></li>
                             <li><a href="{{ route('about') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Over Ons</a></li>
-                            <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Contact</a></li>
+                            <li><a href="{{ route('contact') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Contact</a></li>
                         </ul>
                     </div>
                     
@@ -44,10 +44,10 @@
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Ondersteuning</h3>
                         <ul class="space-y-3">
-                            <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Help & FAQ</a></li>
-                            <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Privacy</a></li>
-                            <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Voorwaarden</a></li>
-                            <li><a href="#" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Cookies</a></li>
+                            <li><a href="{{ route('help') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Help & FAQ</a></li>
+                            <li><a href="{{ route('privacy') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Privacy</a></li>
+                            <li><a href="{{ route('terms') }}" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Voorwaarden</a></li>
+                            <li><a href="{{ route('privacy') }}#cookies" class="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">Cookies</a></li>
                         </ul>
                     </div>
                 </div>

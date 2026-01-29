@@ -661,7 +661,7 @@ class VacancyController extends Controller
         }
 
         $vacancy->update($vacancyData);
-        return redirect()->route('admin.vacancies.index')->with('success', 'Vacature succesvol bijgewerkt.');
+        return redirect()->route('admin.skillmatching.vacancies.index')->with('success', 'Vacature succesvol bijgewerkt.');
     }
 
     public function destroy(Vacancy $vacancy)
@@ -676,7 +676,7 @@ class VacancyController extends Controller
         }
         
         $vacancy->delete();
-        return redirect()->route('admin.vacancies.index')->with('success', 'Vacature succesvol verwijderd.');
+        return redirect()->route('admin.skillmatching.vacancies.index')->with('success', 'Vacature succesvol verwijderd.');
     }
 
     public function getContactPhoto(Vacancy $vacancy)
@@ -1514,7 +1514,7 @@ class VacancyController extends Controller
             $redirectParams['application_id'] = $request->application_id;
         }
 
-        return redirect()->route('admin.vacancies.candidate', $redirectParams)
+        return redirect()->route('admin.skillmatching.vacancies.candidate', $redirectParams)
             ->with('success', 'Kandidaat afgewezen en e-mail verzonden.');
     }
 
@@ -1564,7 +1564,7 @@ class VacancyController extends Controller
             $redirectParams['application_id'] = $request->application_id;
         }
 
-        return redirect()->route('admin.vacancies.candidate', $redirectParams)
+        return redirect()->route('admin.skillmatching.vacancies.candidate', $redirectParams)
             ->with('success', 'Kandidaat geaccepteerd.');
     }
 

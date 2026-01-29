@@ -33,6 +33,40 @@
         @csrf
         
         <div class="grid gap-5 lg:gap-7.5">
+            @if(auth()->user()->hasRole('super-admin'))
+            <!-- Bedrijf Selectie (alleen voor Super Admin) -->
+            <div class="kt-card">
+                <div class="kt-card-header">
+                    <h5 class="kt-card-title">Bedrijf</h5>
+                </div>
+                <div class="kt-card-content">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Bedrijf</td>
+                            <td class="min-w-48 w-full">
+                                <select class="kt-select @error('company_id') border-destructive @enderror" 
+                                        id="company_id" 
+                                        name="company_id">
+                                    <option value="">Algemeen (geen specifiek bedrijf)</option>
+                                    @foreach($companies as $company)
+                                        <option value="{{ $company->id }}" {{ old('company_id', session('selected_tenant')) == $company->id ? 'selected' : '' }}>
+                                            {{ $company->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('company_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Selecteer een bedrijf om deze template alleen voor dat bedrijf beschikbaar te maken, of laat leeg voor algemeen gebruik.
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            @endif
+            
             <!-- Basic Information Card -->
             <div class="kt-card">
                 <div class="kt-card-header">
@@ -132,6 +166,9 @@
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                         @enderror
                     </div>
+                    <div class="text-xs text-muted-foreground mb-2">
+                        <strong>Tip:</strong> Gebruik de knoppen voor opmaak of wissel naar "Bewerk code" (knop &lt;/&gt;) om HTML en variabelen te bewerken.
+                    </div>
                     <div class="text-xs text-muted-foreground">
                         <p class="mb-2"><strong>Beschikbare variabelen:</strong></p>
                         <div class="space-y-1.5">
@@ -189,42 +226,23 @@
     </form>
 </div>
 
+@include('admin.email-templates.partials.tinymce-html-editor')
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const htmlContentTextarea = document.getElementById('html_content');
-    const textContentTextarea = document.getElementById('text_content');
-    
-    function autoResizeTextarea(textarea) {
-        if (!textarea) return;
-        
-        // Reset height to calculate scrollHeight correctly
-        textarea.style.height = 'auto';
-        
-        // Calculate height based on content; add small buffer so no scrollbar appears
-        const scrollHeight = textarea.scrollHeight;
-        const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight) || 20;
-        const minHeight = lineHeight * parseInt(textarea.getAttribute('rows') || 10);
-        const buffer = 12;
-        
-        // Set height to scrollHeight + buffer, but at least minHeight
-        textarea.style.height = Math.max(scrollHeight + buffer, minHeight) + 'px';
+    var textContentTextarea = document.getElementById('text_content');
+    if (!textContentTextarea) return;
+
+    function autoResizeTextarea(ta) {
+        ta.style.height = 'auto';
+        var sh = ta.scrollHeight;
+        var lh = parseInt(window.getComputedStyle(ta).lineHeight) || 20;
+        var minH = lh * parseInt(ta.getAttribute('rows') || 30);
+        ta.style.height = Math.max(sh + 12, minH) + 'px';
     }
-    
-    // Auto-resize on load
-    if (htmlContentTextarea) {
-        autoResizeTextarea(htmlContentTextarea);
-        htmlContentTextarea.addEventListener('input', function() {
-            autoResizeTextarea(this);
-        });
-    }
-    
-    if (textContentTextarea) {
-        autoResizeTextarea(textContentTextarea);
-        textContentTextarea.addEventListener('input', function() {
-            autoResizeTextarea(this);
-        });
-    }
+    autoResizeTextarea(textContentTextarea);
+    textContentTextarea.addEventListener('input', function() { autoResizeTextarea(this); });
 });
 </script>
 @endpush

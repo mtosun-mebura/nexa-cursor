@@ -479,9 +479,13 @@
             }, 3000);
         }
         
-        // Make table rows clickable - use both event delegation and direct handlers
-        let rowClickHandler = null;
-        const attachedRows = new WeakSet();
+        // Make table rows clickable (like vacancies) - event delegation on container
+        @php
+            $interviewsIndexUrl = \Illuminate\Support\Facades\Route::has('admin.skillmatching.interviews.index')
+                ? route('admin.skillmatching.interviews.index')
+                : (\Illuminate\Support\Facades\Route::has('admin.interviews.index') ? route('admin.interviews.index') : '/admin/interviews');
+        @endphp
+        var interviewsShowBaseUrl = '{{ $interviewsIndexUrl }}'.replace(/\/$/, '') + '/';
         
         function setupRowClicks() {
             const interviewsTable = document.getElementById('interviews_table');
@@ -489,32 +493,16 @@
                 return;
             }
             
-            // Try to find tbody - check multiple possible locations
-            let tbody = interviewsTable.querySelector('table tbody');
-            if (!tbody) {
-                tbody = interviewsTable.querySelector('tbody');
-            }
-            if (!tbody) {
-                tbody = document.querySelector('[data-kt-datatable-table="true"] tbody');
+            if (interviewsTable._rowClickHandler) {
+                interviewsTable.removeEventListener('click', interviewsTable._rowClickHandler, true);
             }
             
-            if (!tbody) {
-                return;
-            }
-            
-            // Remove existing handler if it exists (for event delegation)
-            if (rowClickHandler) {
-                tbody.removeEventListener('click', rowClickHandler, true);
-            }
-            
-            // Create event delegation handler
-            rowClickHandler = function(e) {
+            interviewsTable._rowClickHandler = function(e) {
                 const row = e.target.closest('tr.interview-row');
                 if (!row) {
                     return;
                 }
                 
-                // Don't navigate if clicking on actions column or menu
                 const clickedElement = e.target;
                 const actionsTd = row.querySelector('td:last-child');
                 const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
@@ -526,17 +514,19 @@
                     return;
                 }
                 
-                // Get interview ID - try multiple methods since datatable might remove data attributes
                 let interviewId = row.getAttribute('data-interview-id');
-                
-                // If not found, try to get it from the "Bekijken" link in the actions menu
                 if (!interviewId || interviewId === 'null' || interviewId === '') {
-                    const viewLink = row.querySelector('a[href*="/admin/interviews/"]');
+                    const viewLink = row.querySelector('a[href*="/admin/skillmatching/interviews/"]') || row.querySelector('a[href*="/admin/interviews/"]');
                     if (viewLink) {
                         const href = viewLink.getAttribute('href');
-                        const match = href.match(/\/admin\/interviews\/(\d+)/);
+                        let match = href.match(/\/admin\/skillmatching\/interviews\/(\d+)/);
                         if (match && match[1]) {
                             interviewId = match[1];
+                        } else {
+                            match = href.match(/\/admin\/interviews\/(\d+)/);
+                            if (match && match[1]) {
+                                interviewId = match[1];
+                            }
                         }
                     }
                 }
@@ -545,91 +535,18 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     e.preventDefault();
-                    window.location.href = '/admin/interviews/' + interviewId;
+                    window.location.href = interviewsShowBaseUrl + interviewId;
                 }
             };
             
-            // Add event delegation listener
-            tbody.addEventListener('click', rowClickHandler, true);
-            
-            // Also attach direct handlers to each row (backup method)
-            const rows = tbody.querySelectorAll('tr.interview-row');
-            
-            rows.forEach(function(row, index) {
-                // Skip if already attached
-                if (attachedRows.has(row)) {
-                    return;
-                }
-                
-                // Get interview ID - try multiple methods
-                let interviewId = row.getAttribute('data-interview-id');
-                
-                // If not found, try to get it from the "Bekijken" link
-                if (!interviewId || interviewId === 'null' || interviewId === '') {
-                    const viewLink = row.querySelector('a[href*="/admin/interviews/"]');
-                    if (viewLink) {
-                        const href = viewLink.getAttribute('href');
-                        const match = href.match(/\/admin\/interviews\/(\d+)/);
-                        if (match && match[1]) {
-                            interviewId = match[1];
-                            // Store it in the row for future use
-                            row.setAttribute('data-interview-id', interviewId);
-                        }
-                    }
-                }
-                
-                row.style.cursor = 'pointer';
-                attachedRows.add(row);
-                
-                // Store interview ID in closure for this row
-                const rowInterviewId = interviewId;
-                
-                // Add direct click handler as backup
-                row.addEventListener('click', function(e) {
-                    // Don't navigate if clicking on actions column or menu
-                    const clickedElement = e.target;
-                    const actionsTd = this.querySelector('td:last-child');
-                    const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
-                    const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
-                    const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
-                    const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
-                    
-                    if (isInActionsColumn || isInMenu || isButton || isLink) {
-                        return;
-                    }
-                    
-                    // Use stored ID or try to get it again
-                    let interviewId = rowInterviewId || this.getAttribute('data-interview-id');
-                    if (!interviewId || interviewId === 'null' || interviewId === '') {
-                        const viewLink = this.querySelector('a[href*="/admin/interviews/"]');
-                        if (viewLink) {
-                            const href = viewLink.getAttribute('href');
-                            const match = href.match(/\/admin\/interviews\/(\d+)/);
-                            if (match && match[1]) {
-                                interviewId = match[1];
-                            }
-                        }
-                    }
-                    
-                    if (interviewId && interviewId !== 'null' && interviewId !== '' && interviewId !== null && interviewId !== undefined) {
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        e.preventDefault();
-                        window.location.href = '/admin/interviews/' + interviewId;
-                    }
-                }, true);
-            });
+            interviewsTable.addEventListener('click', interviewsTable._rowClickHandler, true);
         }
         
-        // Try immediately
         setupRowClicks();
-        
-        // Also try after delays in case datatable initializes later
         setTimeout(setupRowClicks, 100);
         setTimeout(setupRowClicks, 500);
         setTimeout(setupRowClicks, 1000);
         
-        // Watch for table changes
         const interviewsTable = document.getElementById('interviews_table');
         if (interviewsTable) {
             const observer = new MutationObserver(function() {

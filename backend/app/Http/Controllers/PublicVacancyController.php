@@ -102,23 +102,23 @@ class PublicVacancyController extends Controller
     }
 
     /**
-     * Frontend vacature detail pagina
+     * Frontend vacature detail pagina (company slug + vacancy id uit URL)
      */
-    public function frontendShow($companySlug, $vacancyId)
+    public function frontendShow(string $companySlug, int $vacancyId)
     {
-        $vacancy = Vacancy::with(['company', 'category'])
-            ->whereHas('company', function($query) use ($companySlug) {
+        $vacancy = Vacancy::with(['company', 'branch'])
+            ->whereHas('company', function ($query) use ($companySlug) {
                 $query->where('slug', $companySlug);
             })
             ->where('id', $vacancyId)
             ->active()
             ->firstOrFail();
-        
-        // Gerelateerde vacatures
-        $relatedVacancies = Vacancy::with(['company', 'category'])
+
+        // Gerelateerde vacatures (branch_id i.p.v. category_id)
+        $relatedVacancies = Vacancy::with(['company', 'branch'])
             ->where('id', '!=', $vacancy->id)
             ->where(function($query) use ($vacancy) {
-                $query->where('category_id', $vacancy->category_id)
+                $query->where('branch_id', $vacancy->branch_id)
                       ->orWhere('location', $vacancy->location)
                       ->orWhere('company_id', $vacancy->company_id);
             })
@@ -126,7 +126,7 @@ class PublicVacancyController extends Controller
             ->latest()
             ->limit(6)
             ->get();
-        
+
         return view('frontend.pages.vacancy-details', compact('vacancy', 'relatedVacancies'));
     }
 

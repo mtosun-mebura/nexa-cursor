@@ -67,7 +67,7 @@
     
     @stack('styles')
 </head>
-<body class="min-h-screen bg-gray-50 text-gray-900 antialiased flex flex-col">
+<body class="min-h-screen bg-white text-gray-900 antialiased flex flex-col">
     <!-- Skip to main content for accessibility -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">
         Spring naar hoofdinhoud

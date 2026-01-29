@@ -56,13 +56,23 @@ class AgendaController extends Controller
             return [];
         }
 
-        // Get interviews for the logged-in user
-        // Note: This assumes candidate email matches user email - may need refactoring
+        // Parse date range (FullCalendar sends ISO strings)
+        try {
+            $startDate = $start ? Carbon::parse($start) : Carbon::now()->startOfMonth();
+            $endDate = $end ? Carbon::parse($end) : Carbon::now()->endOfMonth()->endOfDay();
+        } catch (\Exception $e) {
+            $startDate = Carbon::now()->startOfMonth();
+            $endDate = Carbon::now()->endOfMonth()->endOfDay();
+        }
+
+        // Interviews for the logged-in user (candidate email = user email)
         $interviews = Interview::with(['match.candidate', 'match.vacancy', 'company'])
             ->whereHas('match.candidate', function($query) use ($user) {
                 $query->where('email', $user->email);
             })
-            ->whereBetween('scheduled_at', [$start, $end])
+            ->whereNotNull('scheduled_at')
+            ->whereBetween('scheduled_at', [$startDate, $endDate])
+            ->orderBy('scheduled_at')
             ->get();
 
         $appointments = [];
@@ -87,6 +97,9 @@ class AgendaController extends Controller
                     'interviewer_email' => $interview->interviewer_email ?? '',
                     'company_name' => $interview->company->name ?? 'Onbekend bedrijf',
                     'company_address' => $this->getCompanyAddress($interview->company),
+                    'company_street' => $this->getCompanyStreetLine($interview->company),
+                    'company_postal_code' => $interview->company->postal_code ?? '',
+                    'company_city' => $interview->company->city ?? '',
                     'company_phone' => $interview->company->phone ?? '',
                     'vacancy_title' => $interview->match->vacancy->title ?? 'Onbekende functie',
                     'notes' => $interview->notes ?? '',
@@ -98,10 +111,16 @@ class AgendaController extends Controller
         return $appointments;
     }
 
+    /**
+     * Title for frontend agenda: candidate sees vacancy + company, not "met [zelf]".
+     */
     private function getInterviewTitle($interview)
     {
         $type = $interview->type ?? 'interview';
-        $candidateName = $interview->match->candidate->full_name ?? 'Onbekend';
+        $vacancyTitle = $interview->match && $interview->match->vacancy
+            ? $interview->match->vacancy->title
+            : 'Onbekende functie';
+        $companyName = $interview->company ? $interview->company->name : 'Onbekend bedrijf';
         
         $typeLabels = [
             'interview' => 'Interview',
@@ -109,10 +128,9 @@ class AgendaController extends Controller
             'call' => 'Telefoongesprek',
             'assessment' => 'Assessment'
         ];
-        
         $typeLabel = $typeLabels[$type] ?? 'Interview';
         
-        return "{$typeLabel} met {$candidateName}";
+        return "{$typeLabel} - {$vacancyTitle} bij {$companyName}";
     }
 
     private function getCompanyAddress($company)
@@ -121,12 +139,22 @@ class AgendaController extends Controller
             return 'Adres niet beschikbaar';
         }
         
-        $address = [];
-        if ($company->address) $address[] = $company->address;
-        if ($company->city) $address[] = $company->city;
-        if ($company->postal_code) $address[] = $company->postal_code;
-        
-        return implode(', ', $address) ?: 'Adres niet beschikbaar';
+        $streetLine = $this->getCompanyStreetLine($company);
+        $parts = array_filter([$streetLine, $company->city ?? null, $company->postal_code ?? null]);
+        return implode(', ', $parts) ?: 'Adres niet beschikbaar';
+    }
+
+    /** Straat + huisnummer (en toevoeging) op één regel voor weergave. */
+    private function getCompanyStreetLine($company)
+    {
+        if (!$company) {
+            return '';
+        }
+        $parts = array_filter([
+            $company->street ?? '',
+            trim(($company->house_number ?? '') . ' ' . ($company->house_number_extension ?? '')),
+        ]);
+        return implode(' ', $parts);
     }
     
     private function getEventColor($type)

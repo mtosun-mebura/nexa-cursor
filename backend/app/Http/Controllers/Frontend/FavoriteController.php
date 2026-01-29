@@ -7,13 +7,15 @@ use App\Models\Favorite;
 use App\Models\Vacancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class FavoriteController extends Controller
 {
     /**
      * Toggle favorite status for a vacancy.
+     * Route parameter {vacancy} can be vacancy id (int/string) or a Vacancy model (e.g. App\Modules\Skillmatching\Models\Vacancy).
      */
-    public function toggle(Request $request, Vacancy $vacancy)
+    public function toggle(Request $request, $vacancy)
     {
         try {
             $user = Auth::user();
@@ -25,27 +27,35 @@ class FavoriteController extends Controller
                 ], 401);
             }
 
-            if (!$vacancy) {
+            $vacancyId = $vacancy instanceof \Illuminate\Database\Eloquent\Model
+                ? (int) $vacancy->getKey()
+                : (int) $vacancy;
+
+            if ($vacancyId <= 0 || !DB::table('vacancies')->where('id', $vacancyId)->exists()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Vacature niet gevonden.'
                 ], 404);
             }
 
-            $favorite = Favorite::where('user_id', $user->id)
-                               ->where('vacancy_id', $vacancy->id)
-                               ->first();
+            $exists = DB::table('favorites')
+                ->where('user_id', $user->id)
+                ->where('vacancy_id', $vacancyId)
+                ->exists();
 
-            if ($favorite) {
-                // Remove from favorites
-                $favorite->delete();
+            if ($exists) {
+                DB::table('favorites')
+                    ->where('user_id', $user->id)
+                    ->where('vacancy_id', $vacancyId)
+                    ->delete();
                 $isFavorited = false;
                 $message = 'Vacature verwijderd uit je favorieten.';
             } else {
-                // Add to favorites
-                Favorite::create([
+                DB::table('favorites')->insert([
                     'user_id' => $user->id,
-                    'vacancy_id' => $vacancy->id,
+                    'vacancy_id' => $vacancyId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
                 $isFavorited = true;
                 $message = 'Vacature opgeslagen in je favorieten!';
@@ -56,8 +66,8 @@ class FavoriteController extends Controller
                 'isFavorited' => $isFavorited,
                 'message' => $message
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Favorite toggle error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            \Log::error('Favorite toggle error: ' . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'success' => false,
                 'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
@@ -67,8 +77,9 @@ class FavoriteController extends Controller
 
     /**
      * Check if a vacancy is favorited by the current user.
+     * Route parameter {vacancy} can be vacancy id (int/string) or a Vacancy model.
      */
-    public function check(Request $request, Vacancy $vacancy)
+    public function check(Request $request, $vacancy)
     {
         try {
             $user = Auth::user();
@@ -80,16 +91,21 @@ class FavoriteController extends Controller
                 ]);
             }
 
-            if (!$vacancy) {
+            $vacancyId = $vacancy instanceof \Illuminate\Database\Eloquent\Model
+                ? (int) $vacancy->getKey()
+                : (int) $vacancy;
+
+            if ($vacancyId <= 0) {
                 return response()->json([
                     'success' => false,
                     'isFavorited' => false
                 ]);
             }
 
-            $isFavorited = Favorite::where('user_id', $user->id)
-                                  ->where('vacancy_id', $vacancy->id)
-                                  ->exists();
+            $isFavorited = DB::table('favorites')
+                ->where('user_id', $user->id)
+                ->where('vacancy_id', $vacancyId)
+                ->exists();
 
             return response()->json([
                 'success' => true,

@@ -191,10 +191,6 @@
                 {{ $job->employment_type ?? 'Niet opgegeven' }}
               </span>
               <div class="flex items-center space-x-2">
-                <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}"
-                   class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium">
-                  Details
-                </a>
                 @auth
                   <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}#solliciteer"
                      class="btn btn-primary text-sm px-4 py-2">
@@ -262,7 +258,7 @@
       </thead>
       <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
         @foreach($jobs as $job)
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" data-href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}">
           <td class="px-4 py-4">
             <div class="flex flex-col">
               <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -323,19 +319,15 @@
               {{ $job->publication_date ? $job->publication_date->format('d-m-Y') : 'Niet gepubliceerd' }}
             </div>
           </td>
-          <td class="px-4 py-4">
+          <td class="px-4 py-4" data-actions-cell>
             <div class="flex items-center gap-2">
-              <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}" 
-                 class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                Details
-              </a>
               @auth
               <a href="{{ route('jobs.show', array_merge([$job], request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort']))) }}#solliciteer"
-                 class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                 class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors">
                 Solliciteer
               </a>
               @else
-              <a href="{{ route('login') }}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+              <a href="{{ route('login') }}" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors">
                 Log in
               </a>
               @endauth
@@ -438,12 +430,18 @@ function sortTable(columnIndex) {
   rows.forEach(row => tbody.appendChild(row));
 }
 
-// Initialize table
+// Row click: navigate to vacancy detail (except when clicking Acties column)
 document.addEventListener('DOMContentLoaded', function() {
   const table = document.querySelector('table[data-jobs-table]');
   if (table) {
     table.querySelectorAll('th svg').forEach(svg => {
       svg.style.display = 'none';
+    });
+    table.addEventListener('click', function(e) {
+      const row = e.target.closest('tbody tr[data-href]');
+      if (!row) return;
+      if (e.target.closest('[data-actions-cell]')) return;
+      window.location.href = row.dataset.href;
     });
   }
 });

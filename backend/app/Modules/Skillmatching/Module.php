@@ -61,7 +61,7 @@ class Module extends BaseModule
             [
                 'key' => 'branches',
                 'title' => 'Branches',
-                'route' => 'admin.branches.index',
+                'route' => 'admin.skillmatching.branches.index',
                 'icon' => 'ki-filled ki-tag',
                 'permission' => 'view-branches',
                 'order' => 5,

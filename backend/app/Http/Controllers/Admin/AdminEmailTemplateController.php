@@ -269,16 +269,17 @@ class AdminEmailTemplateController extends Controller
             'text_content' => 'nullable|string',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
 
         $emailTemplateData = $request->all();
         
-        // Als Super Admin en tenant geselecteerd, gebruik die tenant
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $emailTemplateData['company_id'] = session('selected_tenant');
+        // Als Super Admin: gebruik company_id uit formulier (kan null zijn voor algemeen)
+        if (auth()->user()->hasRole('super-admin')) {
+            $emailTemplateData['company_id'] = $request->filled('company_id') ? $request->company_id : null;
         } else {
-            // Als geen tenant geselecteerd, gebruik null (voor Super Admin) of huidige user's company
-            $emailTemplateData['company_id'] = auth()->user()->hasRole('super-admin') ? null : auth()->user()->company_id;
+            // Als geen Super Admin: gebruik altijd de user's company
+            $emailTemplateData['company_id'] = auth()->user()->company_id;
         }
 
         EmailTemplate::create($emailTemplateData);
@@ -381,20 +382,21 @@ class AdminEmailTemplateController extends Controller
             'text_content' => 'nullable|string',
             'description' => 'nullable|string',
             'is_active' => 'boolean',
+            'company_id' => 'nullable|exists:companies,id',
         ]);
 
         $emailTemplateData = $request->all();
         
-        // Als Super Admin en tenant geselecteerd, gebruik die tenant
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $emailTemplateData['company_id'] = session('selected_tenant');
+        // Als Super Admin: gebruik company_id uit formulier (kan null zijn voor algemeen)
+        if (auth()->user()->hasRole('super-admin')) {
+            $emailTemplateData['company_id'] = $request->filled('company_id') ? $request->company_id : null;
         } else {
-            // Als geen tenant geselecteerd, gebruik null (voor Super Admin) of huidige user's company
-            $emailTemplateData['company_id'] = auth()->user()->hasRole('super-admin') ? null : auth()->user()->company_id;
+            // Als geen Super Admin: gebruik altijd de user's company
+            $emailTemplateData['company_id'] = auth()->user()->company_id;
         }
 
         $emailTemplate->update($emailTemplateData);
-        return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol bijgewerkt.');
+        return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', 'E-mail template succesvol bijgewerkt.');
     }
 
     public function toggleStatus(EmailTemplate $emailTemplate)

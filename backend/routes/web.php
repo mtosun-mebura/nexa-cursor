@@ -212,8 +212,18 @@ Route::get('/vacatures', function() {
 })->name('vacatures.index');
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
-// Frontend vacancy details
-Route::get('/vacature/{company:slug}/{vacancy}', [PublicVacancyController::class, 'frontendShow'])->name('frontend.vacancy-details');
+// Frontend meld: sessie verlopen (toegankelijk zonder login)
+Route::get('/meld/sessie-verlopen', function () {
+    return view('meld.redirect', [
+        'title' => 'Sessie verlopen',
+        'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
+        'redirectUrl' => route('login'),
+        'redirectLabel' => 'Naar inlogpagina',
+    ]);
+})->name('meld.sessie-verlopen');
+
+// Frontend vacancy details (company slug + vacancy id; no model binding to avoid type confusion)
+Route::get('/vacature/{companySlug}/{vacancyId}', [PublicVacancyController::class, 'frontendShow'])->name('frontend.vacancy-details')->whereNumber('vacancyId');
 
 // Frontend job routes (publiek inzien)
 Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
@@ -223,6 +233,16 @@ Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, '
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+// Admin meld: sessie verlopen (toegankelijk zonder login)
+Route::get('/admin/meld/sessie-verlopen', function () {
+    return view('admin.meld.redirect', [
+        'title' => 'Sessie verlopen',
+        'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
+        'redirectUrl' => route('admin.login'),
+        'redirectLabel' => 'Naar inlogpagina',
+    ]);
+})->name('admin.meld.sessie-verlopen');
 
 // Password Reset Routes
 Route::get('/admin/password/reset', [AdminAuthController::class, 'showLinkRequestForm'])->name('admin.password.request');
@@ -273,17 +293,87 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::get('users/{user}/photo', [AdminUserController::class, 'photo'])->name('users.photo');
     Route::match(['get', 'post'], 'api/job-titles', [AdminUserController::class, 'getJobTitles'])->name('api.job-titles');
     
-    // Branches (voorheen Categories)
-    Route::resource('branches', AdminBranchController::class);
-    Route::post('branches/{branch}/toggle-status', [AdminBranchController::class, 'toggleStatus'])->name('branches.toggle-status');
-    Route::get('branches/{branch}/data', [AdminBranchController::class, 'getData'])->name('branches.data');
-    Route::get('branches/functions/all', [AdminBranchController::class, 'getAllFunctions'])->name('branches.functions.all');
-    Route::post('branches/{branch}/functions', [AdminBranchFunctionController::class, 'store'])->name('branches.functions.store');
-    Route::put('branches/{branch}/functions/{function}', [AdminBranchFunctionController::class, 'update'])->name('branches.functions.update');
-    Route::delete('branches/{branch}/functions/{function}', [AdminBranchFunctionController::class, 'destroy'])->name('branches.functions.destroy');
-    Route::get('branches/{branch}/functions/{function}/skills', [AdminBranchFunctionSkillController::class, 'index'])->name('branches.functions.skills.index');
-    Route::post('branches/{branch}/functions/{function}/skills', [AdminBranchFunctionSkillController::class, 'store'])->name('branches.functions.skills.store');
-    Route::delete('branches/{branch}/functions/{function}/skills/{skill}', [AdminBranchFunctionSkillController::class, 'destroy'])->name('branches.functions.skills.destroy');
+    // Branches routes zijn verplaatst naar Skillmatching module (admin/skillmatching/branches)
+    // Redirects voor backward compatibility - alleen GET routes redirecten
+    Route::get('branches', function() {
+        return redirect('/admin/skillmatching/branches');
+    });
+    Route::get('branches/create', function() {
+        return redirect('/admin/skillmatching/branches/create');
+    });
+    Route::get('branches/functions/all', function() {
+        return redirect('/admin/skillmatching/branches/functions/all');
+    });
+    Route::get('branches/{branch}', function($branch) {
+        // Probeer eerst slug, dan ID
+        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        if ($branchModel) {
+            // Genereer slug als die niet bestaat
+            if (empty($branchModel->slug)) {
+                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $baseSlug = $branchModel->slug;
+                $counter = 1;
+                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                    $branchModel->slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                $branchModel->save();
+            }
+            return redirect('/admin/skillmatching/branches/' . $branchModel->slug);
+        }
+        abort(404);
+    });
+    Route::get('branches/{branch}/edit', function($branch) {
+        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        if ($branchModel) {
+            if (empty($branchModel->slug)) {
+                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $baseSlug = $branchModel->slug;
+                $counter = 1;
+                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                    $branchModel->slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                $branchModel->save();
+            }
+            return redirect('/admin/skillmatching/branches/' . $branchModel->slug . '/edit');
+        }
+        abort(404);
+    });
+    Route::get('branches/{branch}/data', function($branch) {
+        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        if ($branchModel) {
+            if (empty($branchModel->slug)) {
+                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $baseSlug = $branchModel->slug;
+                $counter = 1;
+                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                    $branchModel->slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                $branchModel->save();
+            }
+            return redirect('/admin/skillmatching/branches/' . $branchModel->slug . '/data');
+        }
+        abort(404);
+    });
+    Route::get('branches/{branch}/functions/{function}/skills', function($branch, $function) {
+        $branchModel = \App\Models\Branch::where('slug', $branch)->orWhere('id', $branch)->first();
+        if ($branchModel) {
+            if (empty($branchModel->slug)) {
+                $branchModel->slug = \Illuminate\Support\Str::slug($branchModel->name);
+                $baseSlug = $branchModel->slug;
+                $counter = 1;
+                while (\App\Models\Branch::where('slug', $branchModel->slug)->where('id', '!=', $branchModel->id)->exists()) {
+                    $branchModel->slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                $branchModel->save();
+            }
+            return redirect('/admin/skillmatching/branches/' . $branchModel->slug . '/functions/' . $function . '/skills');
+        }
+        abort(404);
+    });
     
     // Vacancies - Moved to Skillmatching module
     
@@ -528,10 +618,11 @@ Route::post('/login', function () {
         if ($isFirstLogin) {
             return redirect()->route('dashboard');
         }
-        
-        return redirect()->route('dashboard');
+
+        // Anders doorgaan waar de gebruiker gebleven was (intended) of dashboard
+        return redirect()->intended(route('dashboard'));
     }
-    
+
     return redirect()->back()->withErrors(['email' => 'Ongeldige inloggegevens']);
 })->name('login.post');
 

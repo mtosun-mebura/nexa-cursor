@@ -32,7 +32,7 @@
     @if($favorites->count() > 0)
         <div class="card overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table class="w-full divide-y divide-gray-200 dark:divide-gray-700" id="favorites_table">
                     <thead class="bg-gray-50 dark:bg-gray-800">
                         <tr>
                             <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/4">
@@ -63,7 +63,7 @@
                     </thead>
                     <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                         @foreach($favorites as $favorite)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" data-href="{{ route('jobs.show', array_merge([$favorite], ['from' => 'favorites'])) }}">
                             <td class="px-6 py-4">
                                 <div class="flex flex-col">
                                     <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -133,12 +133,8 @@
                                     @endif
                                 </div>
                             </td>
-                            <td class="px-4 py-4">
+                            <td class="px-4 py-4" data-actions-cell>
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('jobs.show', $favorite) }}" 
-                                       class="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                        Details
-                                    </a>
                                     <button onclick="removeFavorite({{ $favorite->id }})" 
                                             class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
                                             title="Verwijder uit favorieten">
@@ -179,6 +175,18 @@
     </div>
 
 <script>
+(function() {
+  const table = document.getElementById('favorites_table');
+  if (table) {
+    table.addEventListener('click', function(e) {
+      const row = e.target.closest('tbody tr[data-href]');
+      if (!row) return;
+      if (e.target.closest('[data-actions-cell]')) return;
+      window.location.href = row.dataset.href;
+    });
+  }
+})();
+
 async function removeFavorite(vacancyId) {
     if (!confirm('Weet je zeker dat je deze vacature uit je favorieten wilt verwijderen?')) {
         return;

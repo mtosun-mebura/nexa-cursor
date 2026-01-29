@@ -21,9 +21,9 @@
   --color-brand-600: #ea580c;
   --color-brand-700: #c2410c;
 
-  /* UI-kleuren (light) */
+  /* UI-kleuren (light) – wit voor pagina en cards */
   --color-surface: #ffffff;
-  --color-card:    #f8fafc; /* slate-50-ish */
+  --color-card:    #ffffff;
   --color-border:  #e2e8f0; /* slate-200 */
   --color-text:    #0f172a; /* slate-900 */
   --color-muted:   #64748b; /* slate-500 */

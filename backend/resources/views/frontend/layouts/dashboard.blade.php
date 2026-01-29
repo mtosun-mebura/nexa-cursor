@@ -119,14 +119,14 @@
   })()
   </script>
 </head>
-<body class="bg-surface dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
+<body class="bg-white dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
   <!-- Header -->
   @include('frontend.layouts.partials.header')
   
   <div class="w-full py-6 flex-1">
     <div class="grid grid-cols-1 {{ (auth()->check() || request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details')) ? 'lg:grid-cols-12' : 'lg:grid-cols-1' }} gap-6 container-custom">
       @if(auth()->check() || request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details'))
-      <aside class="lg:col-span-2 card p-4 self-start">
+      <aside class="w-full min-w-0 lg:col-span-2 card p-3 sm:p-4 self-start lg:sticky lg:top-6">
       @auth
       <nav class="space-y-1 mb-6">
         <a href="{{ route('dashboard') }}" class="flex items-center justify-between rounded-xl px-3 py-2
@@ -190,19 +190,20 @@
              filtersOpen: false, 
              isDesktop: window.innerWidth >= 1024,
              init() {
-               this.isDesktop = window.innerWidth >= 1024;
-               if (this.isDesktop) this.filtersOpen = true;
-               window.addEventListener('resize', () => {
+               const check = () => {
                  this.isDesktop = window.innerWidth >= 1024;
                  if (this.isDesktop) this.filtersOpen = true;
-               });
+                 else this.filtersOpen = false;
+               };
+               check();
+               window.addEventListener('resize', check);
              }
            }"
            x-init="init()">
         <!-- Filters Header - klikbaar op mobiel -->
         <button @click="filtersOpen = !filtersOpen" 
                 type="button"
-                class="flex items-center justify-between w-full lg:hidden mb-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                class="flex items-center justify-between w-full lg:hidden mb-3 p-3 min-h-[44px] rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors touch-manipulation">
           <h3 class="text-lg font-semibold">Filters</h3>
           <svg x-show="!filtersOpen" 
                x-cloak
@@ -228,6 +229,7 @@
         <!-- Filters Form - verborgen op mobiel standaard, altijd zichtbaar op desktop -->
         <div x-show="filtersOpen || isDesktop"
              x-cloak
+             class="max-lg:max-h-[70vh] max-lg:overflow-y-auto max-lg:pb-2"
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0 transform scale-95"
              x-transition:enter-end="opacity-100 transform scale-100"
@@ -249,15 +251,15 @@
           @endif
         
         <!-- Locatie -->
-        <div>
+        <div class="min-w-0">
           <label class="text-sm text-muted dark:text-muted-dark">Locatie</label>
-          <input name="location" class="input mt-1" placeholder="Plaats of remote" value="{{ request('location') }}">
+          <input name="location" class="input mt-1 w-full min-w-0" placeholder="Plaats of remote" value="{{ request('location') }}">
         </div>
         
         <!-- Afstand -->
-        <div>
+        <div class="min-w-0">
           <label class="text-sm text-muted dark:text-muted-dark">Afstand</label>
-          <select name="distance" class="select mt-1">
+          <select name="distance" class="select mt-1 w-full min-w-0">
             <option value="">Alle afstanden</option>
             <option value="5" {{ request('distance') == '5' ? 'selected' : '' }}>Binnen 5 km</option>
             <option value="10" {{ request('distance') == '10' ? 'selected' : '' }}>Binnen 10 km</option>
@@ -268,10 +270,10 @@
         </div>
         
         <!-- Werktype -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
+        <div class="space-y-3 min-w-0">
+          <div class="min-w-0">
             <label class="text-sm text-muted dark:text-muted-dark">Werktype</label>
-            <select name="employment_type" class="select mt-1">
+            <select name="employment_type" class="select mt-1 w-full min-w-0">
               <option value="">Alle</option>
               <option value="Fulltime" {{ request('employment_type') == 'Fulltime' ? 'selected' : '' }}>Fulltime</option>
               <option value="Parttime" {{ request('employment_type') == 'Parttime' ? 'selected' : '' }}>Parttime</option>
@@ -281,9 +283,9 @@
               <option value="Traineeship" {{ request('employment_type') == 'Traineeship' ? 'selected' : '' }}>Traineeship</option>
             </select>
           </div>
-          <div>
+          <div class="min-w-0">
             <label class="text-sm text-muted dark:text-muted-dark">Ervaring</label>
-            <select name="experience_level" class="select mt-1">
+            <select name="experience_level" class="select mt-1 w-full min-w-0">
               <option value="">Alle niveaus</option>
               <option value="Junior" {{ request('experience_level') == 'Junior' ? 'selected' : '' }}>Junior</option>
               <option value="Medior" {{ request('experience_level') == 'Medior' ? 'selected' : '' }}>Medior</option>
@@ -294,43 +296,43 @@
         </div>
         
         <!-- Salaris range -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
+        <div class="space-y-3 min-w-0">
+          <div class="min-w-0">
             <label class="text-sm text-muted dark:text-muted-dark">Min. salaris</label>
-            <input name="salary_min" type="number" class="input mt-1" placeholder="€ 2500" value="{{ request('salary_min') }}">
+            <input name="salary_min" type="number" class="input mt-1 w-full min-w-0" placeholder="€ 2500" value="{{ request('salary_min') }}">
           </div>
-          <div>
+          <div class="min-w-0">
             <label class="text-sm text-muted dark:text-muted-dark">Max. salaris</label>
-            <input name="salary_max" type="number" class="input mt-1" placeholder="€ 8000" value="{{ request('salary_max') }}">
+            <input name="salary_max" type="number" class="input mt-1 w-full min-w-0" placeholder="€ 8000" value="{{ request('salary_max') }}">
           </div>
         </div>
         
         <!-- Remote werk -->
         <div>
-          <label class="flex items-center">
-            <input name="remote_work" type="checkbox" class="form-checkbox" {{ request('remote_work') ? 'checked' : '' }}>
+          <label class="flex items-center min-h-[44px] cursor-pointer touch-manipulation">
+            <input name="remote_work" type="checkbox" class="form-checkbox w-4 h-4" {{ request('remote_work') ? 'checked' : '' }}>
             <span class="ml-2 text-sm text-muted dark:text-muted-dark">Remote werk mogelijk</span>
           </label>
         </div>
         
         <!-- Reiskosten -->
         <div>
-          <label class="flex items-center">
-            <input name="travel_expenses" type="checkbox" class="form-checkbox" {{ request('travel_expenses') ? 'checked' : '' }}>
+          <label class="flex items-center min-h-[44px] cursor-pointer touch-manipulation">
+            <input name="travel_expenses" type="checkbox" class="form-checkbox w-4 h-4" {{ request('travel_expenses') ? 'checked' : '' }}>
             <span class="ml-2 text-sm text-muted dark:text-muted-dark">Reiskosten vergoed</span>
           </label>
         </div>
         
         <!-- Vaardigheden -->
-        <div>
+        <div class="min-w-0">
           <label class="text-sm text-muted dark:text-muted-dark">Vaardigheden</label>
-          <input name="skills" class="input mt-1" placeholder="bv. Laravel, React" value="{{ request('skills') }}">
+          <input name="skills" class="input mt-1 w-full min-w-0" placeholder="bv. Laravel, React" value="{{ request('skills') }}">
         </div>
         
-        <button class="btn btn-primary w-full" type="submit">Toon resultaten</button>
+        <button class="btn btn-primary w-full min-h-[44px] touch-manipulation" type="submit">Toon resultaten</button>
         
         @if(request()->hasAny(['location', 'distance', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills']))
-          <a href="{{ route('jobs.index', request()->only(['q', 'sort', 'per_page'])) }}" class="btn btn-outline w-full">Reset filters</a>
+          <a href="{{ route('jobs.index', request()->only(['q', 'sort', 'per_page'])) }}" class="btn btn-outline w-full min-h-[44px] touch-manipulation inline-flex items-center justify-center">Reset filters</a>
         @endif
           </form>
         </div>

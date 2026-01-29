@@ -38,7 +38,7 @@
   })()
   </script>
 </head>
-<body class="bg-surface dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
+<body class="bg-white dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
   <!-- Header -->
   @include('frontend.layouts.partials.header')
   

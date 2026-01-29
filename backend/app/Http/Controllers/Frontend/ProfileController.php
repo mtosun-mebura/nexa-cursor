@@ -268,19 +268,26 @@ class ProfileController extends Controller
                 ], 422);
             }
             
-            if ($photo->getSize() > 5 * 1024 * 1024) { // 5MB
+            if ($photo->getSize() > 15 * 1024 * 1024) { // 15MB (client resizes large images; server may resize further)
                 return response()->json([
                     'success' => false,
-                    'message' => 'De foto mag maximaal 5MB groot zijn.'
+                    'message' => 'De foto mag maximaal 15MB groot zijn.'
                 ], 422);
             }
 
             $user = Auth::user();
-            
-            // Get file content and MIME type
-            $fileContent = file_get_contents($photo->getRealPath());
+            $path = $photo->getRealPath();
             $mimeType = $photo->getMimeType();
-            
+
+            // Resize large images server-side to max 1200px (smaller storage, faster loading)
+            $resized = $this->resizeProfileImage($path, $mimeType, 1200);
+            if ($resized) {
+                $fileContent = $resized['content'];
+                $mimeType = $resized['mime'];
+            } else {
+                $fileContent = file_get_contents($path);
+            }
+
             // Store photo as BLOB in database
             try {
                 $user->update([
@@ -492,5 +499,58 @@ class ProfileController extends Controller
             'success' => true,
             'message' => 'Werkervaring verwijderd!'
         ]);
+    }
+
+    /**
+     * Resize image to max dimension (width/height) using GD. Returns ['content' => string, 'mime' => 'image/jpeg'] or null.
+     */
+    private function resizeProfileImage(string $path, string $mimeType, int $maxDim): ?array
+    {
+        if ($mimeType === 'image/svg+xml') {
+            return null;
+        }
+
+        $info = @getimagesize($path);
+        if (!$info || !isset($info[0], $info[1], $info[2])) {
+            return null;
+        }
+
+        $w = $info[0];
+        $h = $info[1];
+        if ($w <= $maxDim && $h <= $maxDim) {
+            return null;
+        }
+
+        $scale = min($maxDim / $w, $maxDim / $h, 1.0);
+        $nw = (int) round($w * $scale);
+        $nh = (int) round($h * $scale);
+
+        $src = match ($info[2]) {
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($path),
+            IMAGETYPE_PNG => @imagecreatefrompng($path),
+            IMAGETYPE_GIF => @imagecreatefromgif($path),
+            IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : null,
+            default => null,
+        };
+
+        if (!$src) {
+            return null;
+        }
+
+        $dest = imagecreatetruecolor($nw, $nh);
+        if (!$dest) {
+            imagedestroy($src);
+            return null;
+        }
+
+        imagecopyresampled($dest, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        imagedestroy($src);
+
+        ob_start();
+        imagejpeg($dest, null, 85);
+        $content = ob_get_clean();
+        imagedestroy($dest);
+
+        return ['content' => $content, 'mime' => 'image/jpeg'];
     }
 }

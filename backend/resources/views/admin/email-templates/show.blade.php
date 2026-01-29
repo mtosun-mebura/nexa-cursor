@@ -16,6 +16,36 @@
         background: #a3a3a3 !important;
         color: #1f2937 !important;
     }
+    /* Gehele e-mailpreview links uitlijnen (override centering uit template-HTML) */
+    .email-preview-content,
+    .email-preview-content .prose,
+    .email-preview-content .prose * {
+        text-align: left !important;
+    }
+    .email-preview-content [style*="auto"] {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    .email-preview-content table {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    /* Zelfde typografie als TinyMCE-editor (editor en detailweergave gelijk) */
+    .email-preview-content .prose {
+        font-family: Arial, sans-serif !important;
+        font-size: 14px !important;
+        line-height: 1.6 !important;
+        color: #333 !important;
+    }
+    .email-preview-content .prose p { margin: 0 0 0.75em 0 !important; }
+    .email-preview-content .prose h1 { font-size: 1.875em !important; font-weight: 700 !important; margin: 0 0 0.5em 0 !important; }
+    .email-preview-content .prose h2 { font-size: 1.5em !important; font-weight: 600 !important; margin: 0 0 0.5em 0 !important; }
+    .email-preview-content .prose h3 { font-size: 1.25em !important; font-weight: 600 !important; margin: 0 0 0.5em 0 !important; }
+    .email-preview-content .prose ul,
+    .email-preview-content .prose ol { margin: 0 0 0.75em 0 !important; padding-left: 1.5em !important; }
+    .email-preview-content .prose a { color: #2563eb !important; }
+    .dark .email-preview-content .prose { color: #e5e7eb !important; }
+    .dark .email-preview-content .prose a { color: #93c5fd !important; }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -164,7 +194,7 @@
                 <div class="mb-4">
                     <h6 class="text-sm font-semibold text-foreground mb-2">HTML Inhoud:</h6>
                     <div class="border border-border rounded-lg p-4 bg-muted/30 email-preview-content">
-                        <div class="prose prose-sm max-w-none dark:prose-invert">
+                        <div class="prose prose-sm max-w-none dark:prose-invert text-left">
                             {!! $emailTemplate->html_content !!}
                         </div>
                     </div>

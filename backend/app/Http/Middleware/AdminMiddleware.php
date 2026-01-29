@@ -24,11 +24,11 @@ class AdminMiddleware
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Je sessie is verlopen. Log opnieuw in.',
-                    'redirect' => route('admin.login')
+                    'redirect' => route('admin.meld.sessie-verlopen')
                 ], 401);
             }
             
-            return redirect()->route('admin.login')->with('error', 'Je moet ingelogd zijn om deze pagina te bekijken.');
+            return redirect()->route('admin.meld.sessie-verlopen');
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)

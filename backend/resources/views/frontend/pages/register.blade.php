@@ -83,9 +83,9 @@
                                class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600 rounded mt-1">
                         <label for="terms" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                             Ik ga akkoord met de 
-                            <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">algemene voorwaarden</a>
+                            <a href="{{ route('terms') }}" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300" target="_blank" rel="noopener">algemene voorwaarden</a>
                             en 
-                            <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">privacybeleid</a>
+                            <a href="{{ route('privacy') }}" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300" target="_blank" rel="noopener">privacybeleid</a>
                         </label>
                     </div>
 
