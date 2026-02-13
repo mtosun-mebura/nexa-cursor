@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Services\EnvService;
 use App\Models\GeneralSetting;
 use Illuminate\Http\Request;
@@ -341,6 +342,83 @@ class AdminSettingsController extends Controller
     }
 
     /**
+     * Update Coming Soon pagina-instellingen (getoond wanneer geen actieve module)
+     */
+    public function updateComingSoon(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $validator = Validator::make($request->all(), [
+            'coming_soon_title' => 'required|string|max:255',
+            'coming_soon_text' => 'required|string|max:1000',
+            'coming_soon_secondary_text' => 'nullable|string|max:500',
+            'coming_soon_show_email' => 'nullable|in:0,1',
+            'coming_soon_contact_email' => 'nullable|email|max:255',
+            'coming_soon_contact_label' => 'nullable|string|max:100',
+            'coming_soon_footer_text' => 'nullable|string|max:500',
+        ], [
+            'coming_soon_title.required' => 'Titel is verplicht.',
+            'coming_soon_text.required' => 'Tekst is verplicht.',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->route('admin.settings.frontend.index')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        GeneralSetting::set('coming_soon_title', $request->input('coming_soon_title'));
+        GeneralSetting::set('coming_soon_text', $request->input('coming_soon_text'));
+        GeneralSetting::set('coming_soon_secondary_text', $request->input('coming_soon_secondary_text', ''));
+        GeneralSetting::set('coming_soon_show_email', $request->has('coming_soon_show_email') && $request->input('coming_soon_show_email') ? '1' : '0');
+        GeneralSetting::set('coming_soon_contact_email', $request->input('coming_soon_contact_email', ''));
+        GeneralSetting::set('coming_soon_contact_label', $request->input('coming_soon_contact_label', 'E-mail'));
+        GeneralSetting::set('coming_soon_footer_text', $request->input('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'));
+
+        return redirect()->route('admin.settings.frontend.index')
+            ->with('success', 'Coming soon-instellingen opgeslagen. Deze pagina wordt getoond zolang er geen actieve module is.');
+    }
+
+    /**
+     * Front-end configuraties (Coming Soon en overige frontend-instellingen)
+     * Alleen toegankelijk voor super-admin
+     */
+    public function frontendIndex()
+    {
+        $this->ensureSuperAdmin();
+
+        $comingSoonSettings = [
+            'coming_soon_title' => GeneralSetting::get('coming_soon_title', 'We zijn bijna live'),
+            'coming_soon_text' => GeneralSetting::get('coming_soon_text', 'Onze website wordt op dit moment voor u klaargemaakt. Binnenkort vindt u hier alle informatie en mogelijkheden.'),
+            'coming_soon_secondary_text' => GeneralSetting::get('coming_soon_secondary_text', 'Heeft u vragen? Neem gerust contact met ons op.'),
+            'coming_soon_show_email' => GeneralSetting::get('coming_soon_show_email', '1'),
+            'coming_soon_contact_email' => GeneralSetting::get('coming_soon_contact_email', ''),
+            'coming_soon_contact_label' => GeneralSetting::get('coming_soon_contact_label', 'E-mail'),
+            'coming_soon_footer_text' => GeneralSetting::get('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'),
+        ];
+
+        return view('admin.settings.frontend', compact('comingSoonSettings'));
+    }
+
+    /**
+     * Preview van de Coming Soon-pagina zoals bezoekers die zien (super-admin only).
+     */
+    public function frontendComingSoonPreview()
+    {
+        $this->ensureSuperAdmin();
+
+        $settings = ComingSoonController::getSettings();
+        $showEmail = !empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0';
+        $contactEmail = $settings['coming_soon_contact_email'] ?? '';
+
+        return view('frontend.coming-soon', [
+            'settings' => $settings,
+            'showEmail' => $showEmail,
+            'contactEmail' => $contactEmail,
+        ]);
+    }
+
+    /**
      * Display general settings page
      * Alleen toegankelijk voor super-admin
      */
@@ -351,6 +429,9 @@ class AdminSettingsController extends Controller
         $logo = GeneralSetting::get('logo');
         $favicon = GeneralSetting::get('favicon');
         $logoSize = GeneralSetting::get('logo_size', '26');
+        $siteName = GeneralSetting::get('site_name', config('app.name'));
+        $siteDescription = GeneralSetting::get('site_description', '');
+        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
         
         // Verify files exist
         if ($logo && !Storage::disk('public')->exists($logo)) {
@@ -363,7 +444,7 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
         
-        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'siteName', 'siteDescription', 'dashboardLinkLabel'));
     }
 
     /**
@@ -375,6 +456,9 @@ class AdminSettingsController extends Controller
         $this->ensureSuperAdmin();
         
         $validator = Validator::make($request->all(), [
+            'site_name' => 'nullable|string|max:255',
+            'site_description' => 'nullable|string|max:1000',
+            'dashboard_link_label' => 'nullable|string|max:100',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
@@ -397,6 +481,17 @@ class AdminSettingsController extends Controller
         }
 
         try {
+            // Applicatienaam en omschrijving
+            if ($request->has('site_name')) {
+                GeneralSetting::set('site_name', $request->input('site_name', ''));
+            }
+            if ($request->has('site_description')) {
+                GeneralSetting::set('site_description', $request->input('site_description', ''));
+            }
+            if ($request->has('dashboard_link_label')) {
+                GeneralSetting::set('dashboard_link_label', $request->input('dashboard_link_label', ''));
+            }
+
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
             if (!file_exists($settingsDir)) {

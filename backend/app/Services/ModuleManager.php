@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Module as ModuleModel;
 use App\Modules\Base\Module;
+use App\Services\ModuleSchemaService;
+use App\Services\ThemeCopyService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -218,6 +220,15 @@ class ModuleManager
     }
 
     /**
+     * Of er minstens één actieve module is (frontend wordt dan getoond i.p.v. coming soon)
+     */
+    public function hasAnyActiveModule(): bool
+    {
+        $active = $this->getActiveModules();
+        return count($active) > 0;
+    }
+
+    /**
      * Check of module geïnstalleerd is
      */
     public function isInstalled(string $moduleName): bool
@@ -264,20 +275,35 @@ class ModuleManager
             }
         }
 
-        // Run migrations
+        // PostgreSQL: per-module schema met basis-tabellen en superadmin m.tosun@mebura.nl / wachtwoord !
+        $schemaService = app(ModuleSchemaService::class);
+        if ($schemaService->supportsModuleSchemas()) {
+            $schemaService->setupModuleSchema($moduleName);
+        }
+
+        // Thema's uit backend/themas/ kopiëren naar public en naar deze module (frontend direct zichtbaar bij activatie)
+        $themeCopy = app(ThemeCopyService::class);
+        if ($themeCopy->hasThemasSource()) {
+            $themeCopy->copyThemesToPublic();
+            $themeCopy->copyThemesToModule($moduleName);
+        }
+
+        // Run migrations (kopieer naar database/migrations/modules/{moduleName}/; module-migraties in schema bij pgsql)
         $migrationsPath = $module->getMigrationsPath();
         if ($migrationsPath && File::exists($migrationsPath)) {
+            $targetDir = database_path("migrations/modules/{$moduleName}");
+            if (!File::exists($targetDir)) {
+                File::makeDirectory($targetDir, 0755, true);
+            }
             $migrationFiles = File::glob($migrationsPath . '/*.php');
             foreach ($migrationFiles as $migrationFile) {
-                // Copy migration to database/migrations/modules/{moduleName}/
-                $targetDir = database_path("migrations/modules/{$moduleName}");
-                if (!File::exists($targetDir)) {
-                    File::makeDirectory($targetDir, 0755, true);
-                }
                 $targetFile = $targetDir . '/' . basename($migrationFile);
                 if (!File::exists($targetFile)) {
                     File::copy($migrationFile, $targetFile);
                 }
+            }
+            if ($schemaService->supportsModuleSchemas()) {
+                $this->runModuleMigrationsInSchema($moduleName);
             }
         }
 
@@ -375,6 +401,12 @@ class ModuleManager
         // Call module uninstall
         $module->uninstall();
 
+        // PostgreSQL: schema verwijderen
+        $schemaService = app(ModuleSchemaService::class);
+        if ($schemaService->supportsModuleSchemas()) {
+            $schemaService->dropSchema($moduleName);
+        }
+
         // Update database
         ModuleModel::where('name', $moduleName)->update([
             'installed' => false,
@@ -382,5 +414,31 @@ class ModuleManager
         ]);
 
         return true;
+    }
+
+    /**
+     * Run module-migraties (database/migrations/modules/{name}/*.php) binnen het module-schema (alleen pgsql).
+     */
+    protected function runModuleMigrationsInSchema(string $moduleName): void
+    {
+        $schemaService = app(ModuleSchemaService::class);
+        if (!$schemaService->supportsModuleSchemas()) {
+            return;
+        }
+        $targetDir = database_path("migrations/modules/{$moduleName}");
+        if (!File::exists($targetDir)) {
+            return;
+        }
+        $schema = $schemaService->getSchemaName($moduleName);
+        $files = File::glob($targetDir . '/*.php');
+        sort($files);
+        foreach ($files as $file) {
+            $schemaService->runInSchema($schema, function () use ($file) {
+                $migration = require $file;
+                if (is_object($migration) && method_exists($migration, 'up')) {
+                    $migration->up();
+                }
+            });
+        }
     }
 }

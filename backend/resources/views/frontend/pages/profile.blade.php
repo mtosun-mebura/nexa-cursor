@@ -5,7 +5,7 @@
 @section('content')
 <section class="flex flex-wrap items-center justify-between gap-3">
   <div>
-    <h1 class="text-2xl font-semibold leading-tight">Mijn Profiel</h1>
+    <h1 class="kt-page-title text-gray-900 dark:text-white">Mijn Profiel</h1>
     <p class="text-sm text-muted dark:text-muted-dark">Beheer je persoonlijke informatie en vaardigheden.</p>
   </div>
   <div class="flex items-center gap-2">

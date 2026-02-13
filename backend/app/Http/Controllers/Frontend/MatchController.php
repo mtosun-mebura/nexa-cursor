@@ -57,7 +57,10 @@ class MatchController extends Controller
         // Categorieën voor filters
         $categories = Category::orderBy('name')->get();
         
-        return view('frontend.pages.matches', compact('vacancies', 'categories'));
+        return view()->first(
+            ['skillmatching::frontend.pages.matches', 'frontend.pages.matches'],
+            compact('vacancies', 'categories')
+        );
     }
     
     /**

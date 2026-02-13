@@ -44,7 +44,7 @@
 
     <div class="grid gap-5 lg:gap-7.5">
         <!-- Mail Server Instellingen -->
-        <div class="kt-card min-w-full">
+        <div class="kt-card min-w-full" id="mail">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen
@@ -222,7 +222,7 @@
         </div>
 
         <!-- Google SEO Instellingen -->
-        <div class="kt-card min-w-full">
+        <div class="kt-card min-w-full" id="seo">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-abstract-26 me-2"></i> Google SEO Account Gegevens
@@ -344,7 +344,7 @@
         </div>
 
         <!-- Google Maps Instellingen -->
-        <div class="kt-card min-w-full">
+        <div class="kt-card min-w-full" id="maps">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-geolocation me-2"></i> Google Maps Configuratie
@@ -455,7 +455,7 @@
         </div>
 
         <!-- WhatsApp Business Instellingen -->
-        <div class="kt-card min-w-full">
+        <div class="kt-card min-w-full" id="whatsapp">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-chat me-2"></i> WhatsApp Business Configuratie
@@ -575,6 +575,7 @@
                 </form>
             </div>
         </div>
+
     </div>
 </div>
 

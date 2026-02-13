@@ -27,6 +27,8 @@ use App\Http\Controllers\PublicVacancyController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\ProfileController;
+use App\Http\Controllers\Frontend\WebsitePageController;
+use App\Services\WebsiteBuilderService;
 
 /*
 |--------------------------------------------------------------------------
@@ -235,12 +237,19 @@ Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
 // Admin meld: sessie verlopen (toegankelijk zonder login)
-Route::get('/admin/meld/sessie-verlopen', function () {
+Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
+    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's)
+    $intended = $request->query('intended');
+    if ($intended && \Illuminate\Support\Str::startsWith(parse_url($intended, PHP_URL_PATH) ?? '', '/admin')) {
+        session(['url.intended' => $intended]);
+    }
+    $appName = \App\Models\GeneralSetting::get('site_name', config('app.name'));
     return view('admin.meld.redirect', [
         'title' => 'Sessie verlopen',
         'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
         'redirectUrl' => route('admin.login'),
         'redirectLabel' => 'Naar inlogpagina',
+        'appName' => $appName ?: config('app.name'),
     ]);
 })->name('admin.meld.sessie-verlopen');
 
@@ -255,6 +264,11 @@ Route::get('/admin/password/changed', [AdminAuthController::class, 'showPassword
 Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
+
+    // Lightweight session check voor client-side redirect (alle adminpagina's)
+    Route::get('api/session-check', function () {
+        return response()->noContent();
+    })->name('api.session-check');
     
     // Companies
     Route::resource('companies', AdminCompanyController::class);
@@ -505,8 +519,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/seo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
+        Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
         
         // General Settings (Super Admin only)
+        Route::get('settings/frontend', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');
+        Route::get('settings/frontend/preview', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendComingSoonPreview'])->name('settings.frontend.preview');
         Route::get('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalIndex'])->name('settings.general.index');
         Route::post('settings/general', [App\Http\Controllers\Admin\AdminSettingsController::class, 'generalUpdate'])->name('settings.general.update');
         Route::post('settings/upload-logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadLogo'])->name('settings.upload-logo');
@@ -515,16 +532,46 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('settings/logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogo'])->name('settings.logo');
         Route::get('settings/favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getFavicon'])->name('settings.favicon');
         
+        // Website builder (Super Admin only)
+        Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
+        Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
+        Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
+        Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
+        Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
+        Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
+        Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
+        Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
+        Route::get('frontend-themes/preview', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
+        Route::get('frontend-themes/staging', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');
+        Route::post('frontend-themes/publish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'publish'])->name('frontend-themes.publish');
+        Route::get('frontend-themes/setup', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'showSetup'])->name('frontend-themes.setup');
+        Route::post('frontend-themes/module-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateModuleTheme'])->name('frontend-themes.update-module-theme');
+        Route::post('frontend-themes/{frontend_theme}/set-active', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'setActive'])->name('frontend-themes.set-active');
+        Route::get('frontend-themes/{frontend_theme}/edit', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'edit'])->name('frontend-themes.edit');
+        Route::put('frontend-themes/{frontend_theme}', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'update'])->name('frontend-themes.update');
+        Route::get('frontend-components', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'index'])->name('frontend-components.index');
+
         // Postcode lookup (for address autocomplete)
         Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');
     });
 });
 
-// Frontend home page
-Route::get('/', [App\Http\Controllers\Frontend\HomeController::class, 'index'])->name('home');
+// Frontend home page: coming soon als geen actieve module; anders website-builder home indien geconfigureerd; anders app home
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    $moduleManager = app(\App\Services\ModuleManager::class);
+    if (!$moduleManager->hasAnyActiveModule()) {
+        return app(\App\Http\Controllers\Frontend\ComingSoonController::class)->index();
+    }
+    $websiteBuilder = app(WebsiteBuilderService::class);
+    $homePage = $websiteBuilder->getHomePage();
+    if ($homePage) {
+        return app(WebsitePageController::class)->showHome($request);
+    }
+    return app(\App\Http\Controllers\Frontend\HomeController::class)->index($request);
+})->name('home');
 
-
-
+// Website media: encrypted afbeeldingen (decrypt on serve, publiek voor frontend)
+Route::get('website-media/{uuid}', [App\Http\Controllers\WebsiteMediaController::class, 'serve'])->name('website-media.serve')->where('uuid', '[\w\-]+');
 
 // Vacature matching demo page
 Route::get('/vacature-matching', [MatchController::class, 'demo'])->name('vacature-matching');
@@ -762,8 +809,13 @@ Route::post('/language/switch', function () {
     return response()->json(['success' => true, 'language' => $language]);
 })->name('language.switch');
 
-// Static pages
+// Static / website-builder pages: toon geconfigureerde website-pagina indien aanwezig
 Route::get('/about', function () {
+    $websiteBuilder = app(WebsiteBuilderService::class);
+    $page = $websiteBuilder->getAboutPage();
+    if ($page) {
+        return app(WebsitePageController::class)->showAbout();
+    }
     return view('frontend.pages.about');
 })->name('about');
 
@@ -771,7 +823,14 @@ Route::get('/help', function () {
     return view('frontend.pages.help');
 })->name('help');
 
-Route::get('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'index'])->name('contact');
+Route::get('/contact', function () {
+    $websiteBuilder = app(WebsiteBuilderService::class);
+    $page = $websiteBuilder->getContactPage();
+    if ($page) {
+        return app(WebsitePageController::class)->showContact();
+    }
+    return app(\App\Http\Controllers\Frontend\ContactController::class)->index();
+})->name('contact');
 Route::post('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'submit'])->name('contact.submit');
 
 Route::get('/privacy', function () {
@@ -781,6 +840,9 @@ Route::get('/privacy', function () {
 Route::get('/terms', function () {
     return view('frontend.pages.terms');
 })->name('terms');
+
+// Website-builder: custom/module pagina's op slug (moet na vaste paden staan)
+Route::get('/{slug}', [WebsitePageController::class, 'showBySlug'])->name('website.page')->where('slug', '[a-z0-9\-]+');
 
 // Fallback route for storage files (MUST be last)
 Route::fallback(function () {

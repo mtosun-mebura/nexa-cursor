@@ -27,7 +27,7 @@
 @section('content')
 <section class="flex flex-wrap items-center justify-between gap-3 mb-6">
   <div>
-    <h1 class="text-2xl font-semibold leading-tight">Mijn Sollicitaties</h1>
+    <h1 class="kt-page-title text-gray-900 dark:text-white">Mijn Sollicitaties</h1>
     <p class="text-sm text-muted dark:text-muted-dark">Overzicht van al je sollicitaties en hun status.</p>
   </div>
   @if($applications->isNotEmpty())

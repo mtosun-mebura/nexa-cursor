@@ -22,7 +22,7 @@
         <div class="card p-6 mb-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Mijn Favorieten</h1>
+                    <h1 class="kt-page-title text-gray-900 dark:text-white mb-2">Mijn Favorieten</h1>
                     <p class="text-muted dark:text-muted-dark">{{ $favorites->total() }} opgeslagen vacatures</p>
                 </div>
             </div>

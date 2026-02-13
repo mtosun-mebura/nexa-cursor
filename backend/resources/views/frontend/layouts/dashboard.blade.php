@@ -419,6 +419,33 @@
       <!-- Frontend Chat -->
       <script src="{{ asset('js/frontend-chat.js') }}"></script>
   
+  <!-- Ctrl+S / Cmd+S: opslaan op pagina's met een Opslaan-knop -->
+  <script>
+  (function() {
+    document.addEventListener('keydown', function(e) {
+      var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
+      if (!isSave) return;
+      e.preventDefault();
+      var content = document.querySelector('main');
+      if (!content) return;
+      var forms = content.querySelectorAll('form');
+      for (var i = 0; i < forms.length; i++) {
+        var form = forms[i];
+        if (form.closest('[role="dialog"]') || form.closest('.modal')) continue;
+        var btn = form.querySelector('button[type="submit"].btn-primary');
+        if (!btn) btn = form.querySelector('button[type="submit"][class*="btn-primary"]');
+        if (!btn) continue;
+        var text = (btn.textContent || btn.innerText || '').trim();
+        var isSaveBtn = /opslaan|opsla|save|toevoegen/i.test(text);
+        if (isSaveBtn) {
+          if (typeof form.requestSubmit === 'function') form.requestSubmit(btn);
+          else form.submit();
+          return;
+        }
+      }
+    });
+  })();
+  </script>
   <!-- Hide user dropdown if not authenticated -->
   <script>
     document.addEventListener('DOMContentLoaded', function() {

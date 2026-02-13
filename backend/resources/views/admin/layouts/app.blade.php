@@ -414,6 +414,38 @@
     })();
     </script>
 
+    <!-- Ctrl+S / Cmd+S: opslaan op pagina's met een Opslaan-knop -->
+    <script>
+    (function() {
+        document.addEventListener('keydown', function(e) {
+            var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
+            if (!isSave) return;
+            e.preventDefault();
+
+            var content = document.getElementById('content');
+            if (!content) return;
+            var forms = content.querySelectorAll('form');
+            for (var i = 0; i < forms.length; i++) {
+                var form = forms[i];
+                if (form.closest('[role="dialog"]') || form.closest('.modal')) continue;
+                var btn = form.querySelector('button[type="submit"].kt-btn-primary');
+                if (!btn) btn = form.querySelector('button[type="submit"][class*="btn-primary"]');
+                if (!btn) continue;
+                var text = (btn.textContent || btn.innerText || '').trim();
+                var isSaveBtn = /opslaan|opsla|save|wijzigingen opslaan|template opslaan|gebruiker opslaan|vestiging opslaan|match opslaan|toevoegen/i.test(text) || form.id === 'website-page-form' || form.id === 'general-settings-form' || form.id === 'coming-soon-form';
+                if (isSaveBtn) {
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit(btn);
+                    } else {
+                        form.submit();
+                    }
+                    return;
+                }
+            }
+        });
+    })();
+    </script>
+
     <!-- Success Banner Auto-Dismiss -->
     <script>
     (function() {
@@ -433,10 +465,27 @@
     <!-- Session Expiry Handler -->
     <script>
     (function() {
-        // Only run on admin pages (not on login page)
-        if (window.location.pathname.includes('/admin/login')) {
+        // Alleen op beveiligde adminpagina's (niet op login of meld)
+        var path = window.location.pathname || '';
+        if (path.includes('/admin/login') || path.includes('/admin/meld/sessie-verlopen')) {
             return;
         }
+        if (!path.startsWith('/admin')) {
+            return;
+        }
+
+        // Sessiecheck bij paginaload: als geen geldige sessie, redirect naar meld met intended
+        var sessionCheckUrl = '{{ url("/admin/api/session-check") }}';
+        fetch(sessionCheckUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function(response) {
+            if (response.status === 401 || response.status === 419) {
+                var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
+                window.location.href = meldUrl;
+            }
+        }).catch(function() { /* negeer netwerkfouten, AJAX-handler vangt later 401 */ });
 
         // Helper function to check if URL is login-related
         function isLoginUrl(url) {
@@ -447,24 +496,13 @@
 
         // Wait for jQuery to be available
         function initAjaxErrorHandler() {
-            if (typeof jQuery === 'undefined' && typeof $ === 'undefined') {
-                // jQuery not loaded yet, try again after a short delay
-                setTimeout(initAjaxErrorHandler, 100);
-                return;
-            }
-
-            const $ = window.jQuery || window.$;
-
-        // Wait for jQuery to be available
-        function initAjaxErrorHandler() {
             const $ = window.jQuery || window.$;
             if (!$) {
-                // jQuery not loaded yet, try again after a short delay
                 setTimeout(initAjaxErrorHandler, 100);
                 return;
             }
 
-        // Global AJAX error handler for expired sessions
+            // Global AJAX error handler for expired sessions
         $(document).ajaxError(function(event, xhr, settings, thrownError) {
             // Skip handling for login-related requests
             if (isLoginUrl(settings.url)) {
@@ -478,9 +516,10 @@
 
             // Check for 401 (Unauthorized), 403 (Forbidden), or 419 (CSRF token mismatch) responses
             if (xhr.status === 401 || xhr.status === 419) {
-                // Only redirect if not already on login page
+                // Redirect naar meld-pagina met huidige URL zodat na inloggen teruggegaan wordt
                 if (!window.location.pathname.includes('/admin/login')) {
-                    window.location.href = '{{ route("admin.login") }}';
+                    var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
+                    window.location.href = meldUrl;
                 }
                 return false;
             } else if (xhr.status === 403) {
@@ -524,9 +563,9 @@
                 .then(response => {
                     // Check for 401, 403, or 419 status
                     if (response.status === 401 || response.status === 419) {
-                        // Only redirect if not already on login page
                         if (!window.location.pathname.includes('/admin/login')) {
-                            window.location.href = '{{ route("admin.login") }}';
+                            var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
+                            window.location.href = meldUrl;
                         }
                         return Promise.reject(new Error('Session expired'));
                     } else if (response.status === 403) {
@@ -555,6 +594,8 @@
                     throw error;
                 });
         };
+
+        }
 
         // Initialize when DOM is ready
         if (document.readyState === 'loading') {

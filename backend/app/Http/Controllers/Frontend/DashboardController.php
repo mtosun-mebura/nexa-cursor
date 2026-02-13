@@ -36,6 +36,9 @@ class DashboardController extends Controller
             'profile_complete' => rand(70, 100), // Simulated for demo
         ];
 
-        return view('frontend.pages.dashboard', compact('vacancies', 'stats'));
+        return view()->first(
+            ['skillmatching::frontend.pages.dashboard', 'frontend.pages.dashboard'],
+            compact('vacancies', 'stats')
+        );
     }
 }

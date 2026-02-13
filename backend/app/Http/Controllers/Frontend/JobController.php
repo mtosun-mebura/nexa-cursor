@@ -164,7 +164,10 @@ class JobController extends Controller
             $q->where('is_active', true);
         })->orderBy('name')->get();
         
-        return view('frontend.pages.jobs.index', compact('jobs', 'categories', 'companies'));
+        return view()->first(
+            ['skillmatching::frontend.pages.jobs.index', 'frontend.pages.jobs.index'],
+            compact('jobs', 'categories', 'companies')
+        );
     }
     
     public function show(Vacancy $job)
@@ -188,7 +191,10 @@ class JobController extends Controller
             ->limit(4)
             ->get();
         
-        return view('frontend.pages.jobs.show', compact('job', 'relatedJobs'));
+        return view()->first(
+            ['skillmatching::frontend.pages.jobs.show', 'frontend.pages.jobs.show'],
+            compact('job', 'relatedJobs')
+        );
     }
 }
 

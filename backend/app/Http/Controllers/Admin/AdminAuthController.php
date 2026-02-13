@@ -92,7 +92,17 @@ class AdminAuthController extends Controller
         if ($isFirstLogin) {
             return redirect()->route('admin.dashboard');
         }
-        
+
+        // Redirect naar de pagina waar de gebruiker vandaan kwam (na sessie verlopen)
+        $intended = session('url.intended');
+        if ($intended) {
+            $path = parse_url($intended, PHP_URL_PATH);
+            if ($path && \Illuminate\Support\Str::startsWith($path, '/admin')) {
+                session()->forget('url.intended');
+                return redirect($intended);
+            }
+        }
+
         return redirect()->intended(route('admin.dashboard'));
     }
 

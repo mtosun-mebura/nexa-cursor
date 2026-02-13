@@ -37,6 +37,58 @@
             </div>
         @endif
 
+        <!-- Huidige logo en favicon bovenaan gecentreerd -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 py-8 mb-8 rounded-xl bg-muted/30 dark:bg-muted/10 border border-border">
+            <div class="flex flex-col items-center gap-2">
+                <span class="text-sm font-medium text-muted-foreground">Huidige logo</span>
+                @if($logo && Storage::disk('public')->exists($logo))
+                    <img alt="Logo" class="h-[35px] w-auto object-contain" src="{{ route('admin.settings.logo') }}?t={{ time() }}" id="logo-preview-top" />
+                @else
+                    <span class="text-sm text-muted-foreground italic py-2" id="logo-preview-placeholder">Geen logo geüpload</span>
+                    <img alt="Logo" class="h-[35px] w-auto object-contain hidden" src="" id="logo-preview-top" />
+                @endif
+            </div>
+            <div class="flex flex-col items-center gap-2">
+                <span class="text-sm font-medium text-muted-foreground">Huidige favicon</span>
+                @if($favicon && Storage::disk('public')->exists($favicon))
+                    <img alt="Favicon" class="w-12 h-12 object-contain" src="{{ route('admin.settings.favicon') }}?t={{ time() }}" id="favicon-preview-top" />
+                @else
+                    <span class="text-sm text-muted-foreground italic py-2" id="favicon-preview-placeholder">Geen favicon geüpload</span>
+                    <img alt="Favicon" class="w-12 h-12 object-contain hidden" src="" id="favicon-preview-top" />
+                @endif
+            </div>
+        </div>
+
+        <!-- Applicatienaam en omschrijving -->
+        <div class="kt-card mb-8">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Applicatie</h3>
+                <p class="text-sm text-muted-foreground mt-1">Naam en omschrijving van de applicatie (o.a. gebruikt op de coming soon-pagina).</p>
+            </div>
+            <div class="kt-card-content">
+                <form action="{{ route('admin.settings.general.update') }}" method="POST" class="mb-0">
+                    @csrf
+                    <div class="mb-6">
+                        <label for="site_name" class="kt-form-label mb-2">Naam van de applicatie</label>
+                        <input type="text" name="site_name" id="site_name" class="kt-input w-full max-w-md" value="{{ old('site_name', $siteName ?? '') }}" placeholder="{{ config('app.name') }}">
+                        <p class="text-xs text-muted-foreground mt-1">Wordt o.a. getoond in de footer en als alt-tekst bij het logo.</p>
+                    </div>
+                    <div class="mb-6">
+                        <label for="site_description" class="kt-form-label mb-2">Omschrijving</label>
+                        <textarea name="site_description" id="site_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('site_description', $siteDescription ?? '') }}</textarea>
+                    </div>
+                    <div class="mb-6">
+                        <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
+                        <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboardLinkLabel ?? 'Mijn Nexa') }}" placeholder="Mijn Nexa">
+                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header die naar het dashboard gaat (bijv. "Mijn Nexa", "Mijn omgeving").</p>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">Logo & Favicon</h3>
@@ -95,11 +147,9 @@
                         <label for="logo_size" class="kt-form-label mb-2">Logo grootte (px)</label>
                         <p class="text-sm text-muted-foreground mb-3">Stel de hoogte van het logo in pixels in.</p>
                         <select name="logo_size" id="logo_size" class="kt-input" required>
-                            <option value="26" {{ $logoSize == '26' ? 'selected' : '' }}>26px</option>
-                            <option value="30" {{ $logoSize == '30' ? 'selected' : '' }}>30px</option>
-                            <option value="34" {{ $logoSize == '34' ? 'selected' : '' }}>34px</option>
-                            <option value="38" {{ $logoSize == '38' ? 'selected' : '' }}>38px</option>
-                            <option value="40" {{ $logoSize == '40' ? 'selected' : '' }}>40px</option>
+                            @foreach(range(26, 50, 2) as $size)
+                                <option value="{{ $size }}" {{ $logoSize == (string)$size ? 'selected' : '' }}>{{ $size }}px</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -265,16 +315,19 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.success && logoPreview) {
-                    // Update preview with server URL (add timestamp to force refresh)
-                    logoPreview.src = data.logo_url;
+                    const logoUrl = data.logo_url + '?t=' + new Date().getTime();
+                    logoPreview.src = logoUrl;
                     logoPreview.classList.remove('hidden');
+                    const logoPreviewTop = document.getElementById('logo-preview-top');
+                    const logoPlaceholder = document.getElementById('logo-preview-placeholder');
+                    if (logoPreviewTop) {
+                        logoPreviewTop.src = logoUrl;
+                        logoPreviewTop.classList.remove('hidden');
+                    }
+                    if (logoPlaceholder) logoPlaceholder.classList.add('hidden');
                     console.log('Logo succesvol geüpload.');
-                    
-                    // Update sidebar logo immediately
                     const sidebarLogos = document.querySelectorAll('.default-logo, .small-logo');
-                    sidebarLogos.forEach(img => {
-                        img.src = data.logo_url + '?t=' + new Date().getTime();
-                    });
+                    sidebarLogos.forEach(img => { img.src = logoUrl; });
                 } else {
                     alert(data.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
                 }
@@ -396,9 +449,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Favicon upload response:', data);
                 if (data.success && faviconPreview) {
-                    // Update preview with server URL (add timestamp to force refresh)
-                    faviconPreview.src = data.favicon_url;
+                    const faviconUrl = data.favicon_url + '?t=' + new Date().getTime();
+                    faviconPreview.src = faviconUrl;
                     faviconPreview.classList.remove('hidden');
+                    const faviconPreviewTop = document.getElementById('favicon-preview-top');
+                    const faviconPlaceholder = document.getElementById('favicon-preview-placeholder');
+                    if (faviconPreviewTop) {
+                        faviconPreviewTop.src = faviconUrl;
+                        faviconPreviewTop.classList.remove('hidden');
+                    }
+                    if (faviconPlaceholder) faviconPlaceholder.classList.add('hidden');
                     console.log('Favicon succesvol geüpload.');
                 } else {
                     alert(data.message || 'Er is een fout opgetreden bij het uploaden van het favicon.');

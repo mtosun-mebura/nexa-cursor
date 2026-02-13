@@ -34,7 +34,7 @@
                 id="sidebar_menu">
 
                 <!-- Client API (Super Admin only) -->
-                @if(auth()->user()->hasRole('super-admin'))
+                @if(auth()->user()?->hasRole('super-admin'))
                 @php
                     $companies = \App\Models\Company::orderBy('name')->get();
                     $selectedTenant = session('selected_tenant');
@@ -106,7 +106,7 @@
                     </span>
                 </div>
 
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-companies'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-companies'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.companies.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.companies.index') }}" tabindex="0">
@@ -122,7 +122,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-users'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-users'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.users.index') }}" tabindex="0">
@@ -196,7 +196,7 @@
                     @endif
                 @endforeach
 
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-agenda'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-agenda'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.agenda.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.agenda.index') }}" tabindex="0">
@@ -212,7 +212,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-notifications'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-notifications'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.notifications.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.notifications.index') }}" tabindex="0">
@@ -228,7 +228,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-email-templates'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-email-templates'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         href="{{ route('admin.email-templates.index') }}" tabindex="0">
@@ -245,7 +245,7 @@
                 @endif
 
                 <!-- Job Configuraties (Super Admin only) -->
-                @if(auth()->user()->hasRole('super-admin'))
+                @if(auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
@@ -301,7 +301,7 @@
                 @endif
 
                 <!-- Systeem -->
-                @if(auth()->user()->hasRole('super-admin'))
+                @if(auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
@@ -444,7 +444,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.*') ? 'here show' : '' }}" 
+                <!-- Configuraties (Super Admin only) -->
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -490,6 +491,74 @@
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Systeem configuraties
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Front-end (Super Admin only): Coming Soon, Pagina's, Thema's, Componenten -->
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || request()->routeIs('admin.website-pages.*') || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-screen text-lg">
+                            </i>
+                        </span>
+                        <span
+                            class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Front-end
+                        </span>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden">
+                                <i class="ki-filled ki-plus text-[11px]">
+                                </i>
+                            </span>
+                            <span class="hidden kt-menu-item-show:inline-flex">
+                                <i class="ki-filled ki-minus text-[11px]">
+                                </i>
+                            </span>
+                        </span>
+                    </div>
+                    <div
+                        class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.index') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.settings.frontend.index') }}" tabindex="0">
+                                <span
+                                    class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
+                                </span>
+                                <span
+                                    class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Coming Soon
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.website-pages.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.website-pages.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Pagina's
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.frontend-themes.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.frontend-themes.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Thema's
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.frontend-components.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.frontend-components.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Componenten
                                 </span>
                             </a>
                         </div>

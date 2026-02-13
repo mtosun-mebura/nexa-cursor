@@ -20,7 +20,9 @@ class AgendaController extends Controller
             abort(403, 'Je hebt geen rechten om de agenda te bekijken.');
         }
         
-        return view('frontend.pages.agenda');
+        return view()->first(
+            ['skillmatching::frontend.pages.agenda', 'frontend.pages.agenda']
+        );
     }
     
     public function events(Request $request)

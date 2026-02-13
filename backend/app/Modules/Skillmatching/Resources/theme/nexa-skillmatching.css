@@ -1,0 +1,41 @@
+/**
+ * Nexa Skillmatching module – eigen thema / classes
+ * Dit bestand staat in de module en kan apart worden geladen
+ * zodat de module via eigen classes kan weergeven.
+ *
+ * Gebruik in Blade: class="nexa-skillmatching-page" of .nexa-skillmatching-card
+ * In layout: @stack('styles') of <link> naar dit bestand wanneer module actief is.
+ */
+
+/* Pagina-container voor module frontend (dashboard, vacatures, matches, agenda) */
+.nexa-skillmatching-page {
+  --nexa-skillmatching-primary: #ea580c;
+  --nexa-skillmatching-card-bg: var(--color-card, #ffffff);
+  --nexa-skillmatching-card-border: var(--color-border, #e2e8f0);
+}
+
+.dark .nexa-skillmatching-page,
+html.dark .nexa-skillmatching-page {
+  --nexa-skillmatching-card-bg: var(--color-card-dark, #111827);
+  --nexa-skillmatching-card-border: var(--color-border-dark, #334155);
+}
+
+/* Kaarten binnen de module */
+.nexa-skillmatching-card {
+  background-color: var(--nexa-skillmatching-card-bg);
+  border: 1px solid var(--nexa-skillmatching-card-border);
+  border-radius: 1rem;
+}
+
+/* Optioneel: titelstijl voor modulepagina's */
+.nexa-skillmatching-page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+  .nexa-skillmatching-page-title {
+    font-size: 2.25rem;
+  }
+}
