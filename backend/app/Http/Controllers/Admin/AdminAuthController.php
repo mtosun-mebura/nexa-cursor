@@ -19,11 +19,20 @@ class AdminAuthController extends Controller
     {
         // Middleware is now handled in routes/web.php
     }
-    public function showLoginForm()
+    public function showLoginForm(Request $request)
     {
         // Only redirect to dashboard if user is authenticated AND has admin role
         if (Auth::guard('web')->check() && Auth::user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
             return redirect()->route('admin.dashboard');
+        }
+
+        // Bewaar intended URL uit query (bijv. bij directe redirect naar login met ?intended=...)
+        $intended = $request->query('intended');
+        if ($intended && is_string($intended)) {
+            $path = parse_url($intended, PHP_URL_PATH);
+            if ($path && \Illuminate\Support\Str::startsWith($path, '/admin')) {
+                session(['url.intended' => $intended]);
+            }
         }
         
         // Always show login form for non-authenticated users or users without admin role
@@ -32,6 +41,9 @@ class AdminAuthController extends Controller
 
     public function login(Request $request)
     {
+        // Intended voor redirect: POST-parameter heeft voorrang (komt uit hidden field op loginpagina), anders session
+        $intendedUrl = $request->input('intended') ?: $request->session()->get('url.intended');
+
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
@@ -43,38 +55,31 @@ class AdminAuthController extends Controller
         
         // Debug: Check if user exists
         $user = User::where('email', $credentials['email'])->first();
+        $withInput = array_merge($request->only('email'), array_filter(['intended' => $intendedUrl]));
         if (!$user) {
-            return back()->withErrors([
-                'email' => 'Gebruiker niet gevonden.',
-            ]);
+            return back()->withErrors(['email' => 'Gebruiker niet gevonden.'])->withInput($withInput);
         }
         
-        // Debug: Check password
         if (!Hash::check($credentials['password'], $user->password)) {
-            return back()->withErrors([
-                'email' => 'Wachtwoord is incorrect.',
-            ]);
+            return back()->withErrors(['email' => 'Wachtwoord is incorrect.'])->withInput($withInput);
         }
         
-        // Check if email is verified
         if (!$user->email_verified_at) {
             return back()->withErrors([
                 'email' => 'Je e-mailadres is nog niet geverifieerd. Controleer je inbox voor de verificatielink of vraag een nieuwe aan via de beheerder.',
-            ])->withInput($request->only('email'));
+            ])->withInput($withInput);
         }
         
-        // Debug: Check role - allow all admin roles only (exclude candidates)
         if (!$user->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
             return back()->withErrors([
                 'email' => 'Je hebt geen toegang tot het admin panel. Gebruik de frontend login voor kandidaat toegang.',
-            ]);
+            ])->withInput($withInput);
         }
         
-        // Explicitly prevent candidates from logging into admin panel
         if ($user->hasRole('candidate')) {
             return back()->withErrors([
                 'email' => 'Kandidaten kunnen niet inloggen in het admin panel. Gebruik de frontend login.',
-            ]);
+            ])->withInput($withInput);
         }
         
         // Check if this is the first login (no previous login recorded)
@@ -88,22 +93,17 @@ class AdminAuthController extends Controller
         // Mark that user has logged in before
         $request->session()->put('has_logged_in_before', true);
         
-        // If first login, always redirect to dashboard
-        if ($isFirstLogin) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        // Redirect naar de pagina waar de gebruiker vandaan kwam (na sessie verlopen)
-        $intended = session('url.intended');
-        if ($intended) {
-            $path = parse_url($intended, PHP_URL_PATH);
+        // Als er een intended-parameter is (uit form of session), ga daarheen; anders dashboard
+        if ($intendedUrl && is_string($intendedUrl)) {
+            $path = parse_url($intendedUrl, PHP_URL_PATH);
+            $dashboardPath = parse_url(route('admin.dashboard'), PHP_URL_PATH);
             if ($path && \Illuminate\Support\Str::startsWith($path, '/admin')) {
                 session()->forget('url.intended');
-                return redirect($intended);
+                return redirect($intendedUrl);
             }
         }
 
-        return redirect()->intended(route('admin.dashboard'));
+        return redirect()->route('admin.dashboard');
     }
 
     public function logout(Request $request)

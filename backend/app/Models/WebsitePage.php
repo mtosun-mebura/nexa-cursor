@@ -124,19 +124,21 @@ class WebsitePage extends Model
                 'subtitle' => 'Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.',
             ],
             'features' => [
-                'section_title' => 'Wat Wij Bieden',
+                'section_title' => 'Kenmerken',
                 'items' => [
                     [
                         'title' => 'AI-Powered Matching',
                         'description' => 'Onze geavanceerde algoritmes analyseren je vaardigheden en vinden de perfecte match met 95% accuracy.',
                         'icon' => 'light-bulb',
                         'icon_size' => 'medium',
+                        'icon_align' => 'center',
                     ],
                     [
                         'title' => 'Snelle Resultaten',
                         'description' => 'Vind relevante vacatures in seconden. Ons platform filtert en rangschikt resultaten op basis van jouw profiel.',
                         'icon' => 'bolt',
                         'icon_size' => 'medium',
+                        'icon_align' => 'center',
                     ],
                 ],
             ],
@@ -159,7 +161,7 @@ class WebsitePage extends Model
             ],
             'cards_ronde_hoeken' => [
                 'items' => [
-                    ['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left'],
+                    ['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => ''],
                 ],
             ],
             'footer' => [
@@ -167,6 +169,8 @@ class WebsitePage extends Model
                 'logo_url' => '',
                 'logo_alt' => '',
                 'logo_height' => 12,
+                'logo_align' => 'left',
+                'quick_links_align' => 'left',
                 'quick_links_title' => 'Snelle Links',
                 'quick_links' => [
                     ['label' => 'Home', 'url' => '/'],
@@ -174,6 +178,7 @@ class WebsitePage extends Model
                     ['label' => 'Over Ons', 'url' => '/over-ons'],
                     ['label' => 'Contact', 'url' => '/contact'],
                 ],
+                'support_links_align' => 'left',
                 'support_links_title' => 'Ondersteuning',
                 'support_links' => [
                     ['label' => 'Help & FAQ', 'url' => '/help'],
@@ -181,6 +186,15 @@ class WebsitePage extends Model
                     ['label' => 'Voorwaarden', 'url' => '/voorwaarden'],
                     ['label' => 'Cookies', 'url' => '/privacy#cookies'],
                 ],
+                'map_postcode' => '',
+                'map_huisnummer' => '',
+                'map_street' => '',
+                'map_city' => '',
+                'map_lat' => null,
+                'map_lng' => null,
+                'map_size' => 'normal',
+                'map_zoom' => 17,
+                'map_show_address_balloon' => false,
             ],
             'copyright' => '© {year} Nexa Skillmatching. Alle rechten voorbehouden.',
             'section_order' => ['hero', 'stats', 'why_nexa', 'features', 'component:nexa.recente_vacatures', 'cta'],
@@ -210,6 +224,7 @@ class WebsitePage extends Model
                 'footer_logo' => true,
                 'footer_quick_links' => true,
                 'footer_support_links' => true,
+                'footer_map' => true,
             ],
         ];
     }
@@ -227,7 +242,7 @@ class WebsitePage extends Model
             'hero' => 'Hero (banner)',
             'stats' => 'Stats (4 cijfers)',
             'why_nexa' => 'Waarom Nexa',
-            'features' => 'Wat Wij Bieden',
+            'features' => 'Kenmerken',
             'cta' => 'CTA',
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
@@ -337,6 +352,7 @@ class WebsitePage extends Model
             'footer_logo' => true,
             'footer_quick_links' => true,
             'footer_support_links' => true,
+            'footer_map' => true,
         ];
 
         return $base;
@@ -484,12 +500,22 @@ class WebsitePage extends Model
                 if (! is_array($items)) {
                     $items = [];
                 }
-                $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left']];
+                $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
                 $out = array_values(array_map(function ($row) {
                     $fontSize = isset($row['font_size']) ? max(10, min(24, (int) $row['font_size'])) : 14;
                     $fontStyle = isset($row['font_style']) && in_array($row['font_style'], ['normal', 'bold', 'italic'], true) ? $row['font_style'] : 'normal';
-                    $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'max'], true) ? $row['card_size'] : 'normal';
+                    $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'max', 'total_width'], true) ? $row['card_size'] : 'normal';
                     $textAlign = isset($row['text_align']) && in_array($row['text_align'], ['left', 'center', 'right'], true) ? $row['text_align'] : 'left';
+                    $imagePadding = isset($row['image_padding']) ? max(0, min(30, (int) $row['image_padding'])) : 2;
+                    $imagePadding = (int) (round($imagePadding / 2) * 2);
+                    $imageBgColor = isset($row['image_bg_color']) ? trim((string) $row['image_bg_color']) : '';
+                    if ($imageBgColor !== '' && !preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $imageBgColor)) {
+                        $imageBgColor = '';
+                    }
+                    $textColor = isset($row['text_color']) ? trim((string) $row['text_color']) : '';
+                    if ($textColor !== '' && !preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $textColor)) {
+                        $textColor = '';
+                    }
                     return [
                         'image_url' => isset($row['image_url']) ? trim((string) $row['image_url']) : '',
                         'text' => isset($row['text']) ? trim((string) $row['text']) : '',
@@ -497,6 +523,9 @@ class WebsitePage extends Model
                         'font_style' => $fontStyle,
                         'card_size' => $cardSize,
                         'text_align' => $textAlign,
+                        'image_padding' => $imagePadding,
+                        'image_bg_color' => $imageBgColor,
+                        'text_color' => $textColor,
                     ];
                 }, $items));
                 if (empty($out)) {

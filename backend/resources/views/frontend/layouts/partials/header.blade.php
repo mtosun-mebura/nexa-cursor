@@ -1,5 +1,6 @@
 @php
     $dashboardLinkLabel = $dashboardLinkLabel ?? \App\Models\GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
+    $dashboardLinkVisible = $dashboardLinkVisible ?? (\App\Models\GeneralSetting::get('dashboard_link_visible', '1') === '1');
 @endphp
 <!-- Header -->
 <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50" 
@@ -135,13 +136,13 @@
                         </div>
                     </div>
                     
-                    <!-- Op ingelogde app-pagina's (dashboard, profiel, agenda, etc.): notificaties, chat, user dropdown; op website-pagina's (home, over ons, vacatures, etc.): alleen "Mijn Nexa" -->
+                    <!-- Op ingelogde app-pagina's (dashboard, profiel, agenda, etc.): notificaties, chat, user dropdown; op website-pagina's (home, over ons, vacatures, etc.): alleen "Mijn Nexa" (als ingeschakeld) -->
                     @if(auth()->check() && auth()->user())
                         @if(request()->routeIs('dashboard') || request()->routeIs('profile') || request()->routeIs('matches') || request()->routeIs('agenda') || request()->routeIs('applications') || request()->routeIs('applications.*') || request()->routeIs('settings'))
                             @include('frontend.partials.topbar-notification-dropdown')
                             @include('frontend.partials.topbar-chat')
                             @include('frontend.partials.topbar-user-dropdown')
-                        @else
+                        @elseif($dashboardLinkVisible)
                             <a href="{{ route('dashboard') }}" class="btn btn-primary text-sm font-medium px-4 py-2 rounded-lg">
                                 {{ $dashboardLinkLabel }}
                             </a>

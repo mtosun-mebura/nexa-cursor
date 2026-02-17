@@ -62,6 +62,7 @@ class WebsiteBuilderService
             'favicon_url' => $faviconUrl,
             'site_name' => GeneralSetting::get('site_name', config('app.name', 'Nexa')),
             'dashboard_link_label' => GeneralSetting::get('dashboard_link_label', 'Mijn Nexa'),
+            'dashboard_link_visible' => GeneralSetting::get('dashboard_link_visible', '1') === '1',
         ];
     }
 

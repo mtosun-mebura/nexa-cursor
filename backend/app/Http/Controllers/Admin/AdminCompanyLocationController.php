@@ -97,7 +97,7 @@ class AdminCompanyLocationController extends Controller
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
-        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
         $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
@@ -115,7 +115,7 @@ class AdminCompanyLocationController extends Controller
             abort(403, 'Je hebt geen toegang tot deze vestiging.');
         }
 
-        $googleMapsApiKey = $this->envService->get('GOOGLE_MAPS_API_KEY', '');
+        $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
         $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');

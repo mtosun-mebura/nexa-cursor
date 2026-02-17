@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
+use App\Services\EnvService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -117,9 +118,23 @@ class WebsitePageController extends Controller
         $useThemeHomeLayout = $themeHasHomeSections && (
             !empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
         );
-        $homeSections = $useThemeHomeLayout ? $page->getHomeSections() : [];
+        // Footer altijd van de home-pagina, zodat deze op elke pagina hetzelfde is (logo, kaart, links, copyright)
+        $homePage = $themeHasHomeSections ? $this->websiteBuilder->getHomePage() : null;
+        $homeSections = $homePage ? $homePage->getHomeSections() : ($useThemeHomeLayout ? $page->getHomeSections() : []);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
+        $env = app(EnvService::class);
+        $googleMapsApiKey = trim((string) (config('maps.api_key') ?? ''));
+        if ($googleMapsApiKey === '') {
+            $googleMapsApiKey = $env->getGoogleMapsApiKey();
+        }
+        if ($googleMapsApiKey === '') {
+            $googleMapsApiKey = trim((string) env('GOOGLE_MAPS_API_KEY', ''));
+        }
+        if ($googleMapsApiKey === '') {
+            $googleMapsApiKey = $this->readGoogleMapsApiKeyFromEnvFiles();
+        }
+        $googleMapsMapId = $env->getGoogleMapsMapId();
 
         return view('frontend.website.page', [
             'page' => $page,
@@ -133,6 +148,47 @@ class WebsitePageController extends Controller
             'useModernHomeLayout' => $useThemeHomeLayout,
             'homeSections' => $homeSections,
             'loadAtomV2Styles' => $loadAtomV2Styles,
+            'googleMapsApiKey' => $googleMapsApiKey,
+            'googleMapsMapId' => $googleMapsMapId,
         ]);
+    }
+
+    /**
+     * Lees GOOGLE_MAPS_API_KEY uit de root .env (projectroot).
+     * Fallback als EnvService niets geeft.
+     */
+    private function readGoogleMapsApiKeyFromEnvFiles(): string
+    {
+        $keyName = 'GOOGLE_MAPS_API_KEY';
+        $rootEnv = \App\Services\EnvService::getRootEnvPath();
+        $paths = [$rootEnv];
+        $backendEnv = base_path('.env');
+        if ($backendEnv !== $rootEnv && is_readable($backendEnv)) {
+            $paths[] = $backendEnv;
+        }
+        foreach ($paths as $path) {
+            if (!is_readable($path)) {
+                continue;
+            }
+            $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if (!is_array($lines)) {
+                continue;
+            }
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
+                    continue;
+                }
+                list($k, $value) = explode('=', $line, 2);
+                if (trim($k) === $keyName) {
+                    $value = trim($value);
+                    if (strlen($value) >= 2 && ($value[0] === '"' && $value[strlen($value) - 1] === '"' || $value[0] === "'" && $value[strlen($value) - 1] === "'")) {
+                        $value = substr($value, 1, -1);
+                    }
+                    return trim($value);
+                }
+            }
+        }
+        return '';
     }
 }

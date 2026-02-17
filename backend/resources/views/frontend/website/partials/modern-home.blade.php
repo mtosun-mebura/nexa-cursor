@@ -85,8 +85,14 @@
             @endif
             @if($v('_cta'))
             @php
-                $heroPrimaryStyle = (!empty($sectionData['cta_primary_bg']) || !empty($sectionData['cta_primary_border'])) ? 'background-color:' . ($sectionData['cta_primary_bg'] ?? 'inherit') . ';border-color:' . ($sectionData['cta_primary_border'] ?? 'transparent') . ';color:' . ($sectionData['cta_primary_border'] ?? 'inherit') . ';' : '';
-                $heroSecondaryStyle = (!empty($sectionData['cta_secondary_bg']) || !empty($sectionData['cta_secondary_border'])) ? 'background-color:' . ($sectionData['cta_secondary_bg'] ?? 'transparent') . ';border-color:' . ($sectionData['cta_secondary_border'] ?? 'currentColor') . ';color:' . ($sectionData['cta_secondary_border'] ?? 'inherit') . ';' : '';
+                $heroPrimaryStyle = '';
+                if (!empty($sectionData['cta_primary_bg']) || !empty($sectionData['cta_primary_border']) || !empty($sectionData['cta_primary_text_color'])) {
+                    $heroPrimaryStyle = 'background-color:' . ($sectionData['cta_primary_bg'] ?? 'inherit') . ';border: 2px solid ' . ($sectionData['cta_primary_border'] ?? 'transparent') . ';color:' . ($sectionData['cta_primary_text_color'] ?? 'inherit') . ';';
+                }
+                $heroSecondaryStyle = '';
+                if (!empty($sectionData['cta_secondary_bg']) || !empty($sectionData['cta_secondary_border']) || !empty($sectionData['cta_secondary_text_color'])) {
+                    $heroSecondaryStyle = 'background-color:' . ($sectionData['cta_secondary_bg'] ?? 'transparent') . ';border: 2px solid ' . ($sectionData['cta_secondary_border'] ?? 'currentColor') . ';color:' . ($sectionData['cta_secondary_text_color'] ?? 'inherit') . ';';
+                }
             @endphp
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold bg-white text-blue-600 hover:bg-blue-50 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5" @if($heroPrimaryStyle) style="{{ $heroPrimaryStyle }}" @endif>
@@ -197,11 +203,12 @@
         @if($v('_buttons'))
         @php
             $ctaPrimaryStyle = !empty($sectionData['cta_primary_bg']) ? 'background-color:' . $sectionData['cta_primary_bg'] . ';' : 'background-color: var(--theme-primary);';
-            $ctaPrimaryStyle .= 'color: #fff;';
+            $ctaPrimaryStyle .= !empty($sectionData['cta_primary_text_color']) ? 'color:' . $sectionData['cta_primary_text_color'] . ';' : 'color: #fff;';
             if (!empty($sectionData['cta_primary_border'])) { $ctaPrimaryStyle .= 'border: 2px solid ' . $sectionData['cta_primary_border'] . ';'; }
             $ctaSecondaryStyle = '';
             if (!empty($sectionData['cta_secondary_bg'])) { $ctaSecondaryStyle .= 'background-color:' . $sectionData['cta_secondary_bg'] . ';'; }
-            if (!empty($sectionData['cta_secondary_border'])) { $ctaSecondaryStyle .= 'border-color:' . $sectionData['cta_secondary_border'] . ';color:' . $sectionData['cta_secondary_border'] . ';'; }
+            if (!empty($sectionData['cta_secondary_border'])) { $ctaSecondaryStyle .= 'border: 2px solid ' . $sectionData['cta_secondary_border'] . ';'; }
+            if (!empty($sectionData['cta_secondary_text_color'])) { $ctaSecondaryStyle .= 'color:' . $sectionData['cta_secondary_text_color'] . ';'; }
         @endphp
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
             <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-white transition-all hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5" style="{{ $ctaPrimaryStyle }}">{{ $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken' }}</a>

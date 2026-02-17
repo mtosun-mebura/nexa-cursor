@@ -102,8 +102,10 @@
     <!-- Footer -->
     @include('frontend.layouts.partials.footer')
     
-    <!-- AI Chatbot -->
-    @include('frontend.components.ai-chatbot')
+    <!-- AI Chatbot (alleen tonen als ingeschakeld in Instellingen > Algemene configuraties) -->
+    @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')
+        @include('frontend.components.ai-chatbot')
+    @endif
     
     <!-- Frontend Header Badges -->
     <script src="{{ asset('js/frontend-header-badges.js') }}"></script>

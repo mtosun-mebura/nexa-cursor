@@ -77,6 +77,16 @@
                         <label for="site_description" class="kt-form-label mb-2">Omschrijving</label>
                         <textarea name="site_description" id="site_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('site_description', $siteDescription ?? '') }}</textarea>
                     </div>
+                    <div class="mb-6 flex flex-wrap items-center gap-3">
+                        <label class="kt-form-label mb-0">AI-assistent tonen</label>
+                        <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
+                        <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
+                    </div>
+                    <div class="mb-6 flex flex-wrap items-center gap-3">
+                        <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
+                        <input type="checkbox" name="dashboard_link_visible" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ old('dashboard_link_visible', $dashboardLinkVisible ?? '1') === '1' ? 'checked' : '' }}>
+                        <span class="text-sm text-muted-foreground">Toon de knop in de header die naar het dashboard gaat.</span>
+                    </div>
                     <div class="mb-6">
                         <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
                         <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboardLinkLabel ?? 'Mijn Nexa') }}" placeholder="Mijn Nexa">

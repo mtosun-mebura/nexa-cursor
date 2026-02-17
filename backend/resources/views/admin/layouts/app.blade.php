@@ -528,7 +528,7 @@
                     const response = JSON.parse(xhr.responseText);
                     if (response.redirect && response.redirect.includes('login')) {
                         if (!window.location.pathname.includes('/admin/login')) {
-                            window.location.href = '{{ route("admin.login") }}';
+                            window.location.href = '{{ route("admin.login") }}?intended=' + encodeURIComponent(window.location.href);
                         }
                         return false;
                     }
@@ -536,7 +536,7 @@
                     // If response is not JSON, check if it's a redirect response
                     if (xhr.responseText && xhr.responseText.includes('admin/login')) {
                         if (!window.location.pathname.includes('/admin/login')) {
-                            window.location.href = '{{ route("admin.login") }}';
+                            window.location.href = '{{ route("admin.login") }}?intended=' + encodeURIComponent(window.location.href);
                         }
                         return false;
                     }
@@ -573,7 +573,7 @@
                         return response.json().then(data => {
                             if (data.redirect && data.redirect.includes('login')) {
                                 if (!window.location.pathname.includes('/admin/login')) {
-                                    window.location.href = '{{ route("admin.login") }}';
+                                    window.location.href = '{{ route("admin.login") }}?intended=' + encodeURIComponent(window.location.href);
                                 }
                                 return Promise.reject(new Error('Session expired'));
                             }

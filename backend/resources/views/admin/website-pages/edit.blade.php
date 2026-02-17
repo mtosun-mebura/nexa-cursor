@@ -3,6 +3,9 @@
 @section('title', 'Pagina bewerken')
 
 @section('content')
+@if(session('success'))
+    <script>window.__websitePageSuccessMessage = @json(session('success'));</script>
+@endif
 <div class="kt-container-fixed">
     @if($errors->any())
     <script>
@@ -33,7 +36,7 @@
         </div>
     </div>
 
-    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}" method="POST">
+    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}" method="POST" data-success-url="{{ route('admin.website-pages.index') }}">
         @csrf
         @method('PUT')
 
@@ -225,7 +228,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Modern' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home'])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? ''])
                 </div>
             </div>
 
@@ -244,12 +247,65 @@
 </div>
 <script>
 (function() {
+    var autoCloseTimer = null;
+
+    function showSuccessModal(message) {
+        var existing = document.getElementById('success-modal-overlay');
+        if (existing) existing.remove();
+        var overlay = document.createElement('div');
+        overlay.id = 'success-modal-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'success-modal-title');
+        overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.6)';
+        overlay.innerHTML =
+            '<div class="relative w-[500px] rounded-xl border-2 border-border bg-background p-6 shadow-xl" id="success-modal">' +
+            '<button type="button" class="absolute right-2 top-2 rounded p-1 text-foreground/70 hover:bg-accent hover:text-foreground" id="success-modal-close-x" aria-label="Sluiten">' +
+            '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+            '</button>' +
+            '<div class="flex flex-col items-center gap-3 pt-1">' +
+            '<div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary">' +
+            '<i class="ki-filled ki-check-circle text-xl text-primary-foreground"></i>' +
+            '</div>' +
+            '<p id="success-modal-title" class="text-center text-xl font-semibold text-foreground"></p>' +
+            '<button type="button" class="mt-1 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90" id="success-modal-close-btn">Sluiten</button>' +
+            '</div></div>';
+        document.body.appendChild(overlay);
+        document.getElementById('success-modal-title').textContent = message || 'Pagina bijgewerkt.';
+
+        function closeModal() {
+            if (autoCloseTimer) clearTimeout(autoCloseTimer);
+            overlay.style.transition = 'opacity 0.2s ease-out';
+            overlay.style.opacity = '0';
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.remove();
+            }, 200);
+        }
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeModal();
+        });
+        overlay.querySelector('#success-modal-close-x').addEventListener('click', closeModal);
+        overlay.querySelector('#success-modal-close-btn').addEventListener('click', closeModal);
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+
+        autoCloseTimer = setTimeout(closeModal, 3000);
+    }
+
     // Fouten zichtbaar in console: bij submit via fetch loggen we foutrespons, na redirect loggen we Laravel-errors
     var form = document.getElementById('website-page-form');
     if (form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            if (typeof tinymce !== 'undefined' && tinymce.editors) { tinymce.triggerSave(); }
+            if (typeof tinymce !== 'undefined' && tinymce.editors) tinymce.triggerSave();
+            if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
             var formData = new FormData(form);
             var url = form.getAttribute('action');
             var submitBtn = form.querySelector('button[type="submit"]');
@@ -257,7 +313,8 @@
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Bezig met opslaan…';
             }
-            fetch(url, { method: 'POST', body: formData, redirect: 'manual' })
+            var indexUrl = (form.getAttribute('data-success-url') || (window.location.origin + '/admin/website-pages')).replace(/\/$/, '');
+            fetch(url, { method: 'POST', body: formData })
                 .then(function(res) {
                     if (res.status >= 400) {
                         return res.text().then(function(body) {
@@ -266,21 +323,17 @@
                             throw new Error('Server: ' + res.status);
                         });
                     }
-                    if (res.status === 302) {
-                        var loc = res.headers.get('Location');
-                        if (loc) {
-                            window.location.href = loc;
-                            return;
-                        }
+                    var resUrl = (res.url || '').replace(/\/$/, '');
+                    if (res.ok && resUrl && resUrl.indexOf(indexUrl) !== -1 && resUrl.indexOf('/edit') === -1) {
+                        window.location.href = indexUrl;
+                        return;
                     }
-                    if (res.status === 200) {
-                        res.text().then(function(html) {
-                            console.warn('[Website-pagina opslaan] Onverwachte 200-response; controleer of opslaan gelukt is.');
-                            if (html.indexOf('Er zijn fouten opgetreden') !== -1) {
-                                console.error('[Website-pagina opslaan] Pagina bevat foutenmelding.');
-                            }
-                            window.location.reload();
-                        });
+                    if (res.ok) {
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<i class="ki-filled ki-check me-2"></i>Opslaan';
+                        }
+                        showSuccessModal('Pagina bijgewerkt.');
                         return;
                     }
                     window.location.href = url;
@@ -347,6 +400,12 @@
                 setTimeout(function() { slugInput.value = slugify(titleInput.value); }, 0);
             }
         });
+    }
+
+    // Succesmelding na redirect (session) als modal tonen
+    if (window.__websitePageSuccessMessage) {
+        showSuccessModal(window.__websitePageSuccessMessage);
+        delete window.__websitePageSuccessMessage;
     }
 })();
 </script>

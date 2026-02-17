@@ -100,7 +100,7 @@
             'hero' => 'Hero (banner)',
             'stats' => 'Stats (4 cijfers)',
             'why_nexa' => 'Waarom Nexa',
-            'features' => 'Wat Wij Bieden',
+            'features' => 'Kenmerken',
             'cta' => 'CTA',
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
@@ -152,18 +152,18 @@
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
-            <div class="row-visibility-row flex flex-wrap items-start gap-2">
-                <div class="flex-1 min-w-0">
+            <div class="row-visibility-row flex flex-col gap-3">
+                <div class="w-full">
                     <div class="flex items-center gap-2 mb-1">
                         <label class="text-sm font-medium text-secondary-foreground">Titel</label>
                         <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
                         <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" title="Zichtbaar op website" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                     </div>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Vind je droombaan met AI') }}" placeholder="Vind je droombaan met AI">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-4xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Vind je droombaan met AI') }}" placeholder="Vind je droombaan met AI">
                 </div>
-                <div class="w-full md:w-auto">
+                <div class="w-full">
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Woord benadrukt (oranje)</label>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][title_highlight]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.title_highlight', $sectionData['title_highlight'] ?? 'droombaan') }}" placeholder="droombaan">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][title_highlight]" class="kt-input w-full max-w-xs" value="{{ old('home_sections.'.$sectionKey.'.title_highlight', $sectionData['title_highlight'] ?? 'droombaan') }}" placeholder="droombaan">
                 </div>
             </div>
             @if(($themeSlugForOrder ?? '') === 'atom-v2')
@@ -187,9 +187,9 @@
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Hero-afbeelding</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding naast de titel. @if(($themeSlugForOrder ?? '') === 'next-landing-vpn')Standaard: Illustration1.png.@else(Nextly thema)@endif</p>
                 <div class="flex flex-wrap items-start gap-2">
-                    <div class="relative shrink-0">
+                    <div class="shrink-0 flex flex-col items-center">
                         <img alt="Hero afbeelding" id="hero-{{ $sectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $heroPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($heroPreviewSrc) }}" data-default-src="{{ $defaultHeroImg ?? '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="author_image_url" style="width: 500px; min-width: 500px; height: 130px;">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
@@ -207,9 +207,9 @@
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrond banner</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de hero. (Modern thema)</p>
                 <div class="flex flex-wrap items-start gap-2">
-                    <div class="relative shrink-0">
+                    <div class="shrink-0 flex flex-col items-center">
                         <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_url" style="width: 500px; min-width: 500px; height: 130px;">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
@@ -227,9 +227,9 @@
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrond banner</label>
                     <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de gradient. (Atom-v2 thema)</p>
                     <div class="flex flex-wrap items-start gap-2">
-                        <div class="relative shrink-0">
+                        <div class="shrink-0 flex flex-col items-center">
                             <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
-                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_url" style="width: 500px; min-width: 500px; height: 130px;">
                             <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
@@ -243,9 +243,9 @@
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Foto in banner (ronde afbeelding)</label>
                     <p class="text-xs text-muted-foreground mb-2">Ronde foto naast de titel. (Atom-v2 thema)</p>
                     <div class="flex flex-wrap items-start gap-2">
-                        <div class="relative shrink-0">
+                        <div class="shrink-0 flex flex-col items-center">
                             <img alt="Hero foto" id="hero-{{ $sectionKey }}-author-preview" class="w-20 h-20 rounded-full object-cover border border-border {{ !empty($sectionData['author_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['author_image_url'] ?? '') }}">
-                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute -top-0.5 -right-0.5 rounded-full shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="author_image_url" style="width: 500px; min-width: 500px; height: 130px;">
                             <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
@@ -264,7 +264,7 @@
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" title="Zichtbaar op website" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <textarea name="home_sections[{{ $sectionKey }}][subtitle]" id="home-{{ $sectionKey }}-subtitle" class="kt-input w-full pt-1 home-section-tinymce" rows="10" placeholder="Ons geavanceerde AI-platform...">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ons geavanceerde AI-platform...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-2">
@@ -275,70 +275,76 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 tekst</label>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text', $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken') }}">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text', $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken') }}">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 URL</label>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_url]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_url', $sectionData['cta_primary_url'] ?? '/register') }}">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_url', $sectionData['cta_primary_url'] ?? '/register') }}">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 tekst</label>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text', $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken') }}">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text', $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken') }}">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 URL</label>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_url]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_url', $sectionData['cta_secondary_url'] ?? '/jobs') }}">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_url', $sectionData['cta_secondary_url'] ?? '/jobs') }}">
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 pt-3 border-t border-border">
-                <div class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 pt-3 border-t border-border">
+                <div class="space-y-2">
                     <label class="block text-sm font-medium text-secondary-foreground">Knop 1 kleuren</label>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">Achtergrond</label>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">Tekstkleur</label>
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#1e3a8a' }}" title="Tekstkleur">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e3a8a"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">Border</label>
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#1e40af' }}" title="Borderkleur">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="space-y-3">
+                <div class="space-y-2">
                     <label class="block text-sm font-medium text-secondary-foreground">Knop 2 kleuren</label>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">Achtergrond</label>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">Tekstkleur</label>
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#1e40af' }}" title="Tekstkleur">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-muted-foreground mb-1">Border</label>
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1e40af' }}" title="Borderkleur">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                     </div>
@@ -378,11 +384,11 @@
                 <div class="grid grid-cols-2 gap-3 flex-1 min-w-0">
                     <div>
                         <label class="block text-sm font-medium text-secondary-foreground mb-1">Waarde {{ $i + 1 }}</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][value]" class="kt-input w-full" value="{{ old("home_sections.{$sectionKey}.{$i}.value", ($sectionData[$i]['value'] ?? '')) }}" placeholder="10,000+">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][value]" class="kt-input home-section-input-400" value="{{ old("home_sections.{$sectionKey}.{$i}.value", ($sectionData[$i]['value'] ?? '')) }}" placeholder="10,000+">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-secondary-foreground mb-1">Label {{ $i + 1 }}</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][label]" class="kt-input w-full" value="{{ old("home_sections.{$sectionKey}.{$i}.label", ($sectionData[$i]['label'] ?? '')) }}" placeholder="Actieve vacatures">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][label]" class="kt-input home-section-input-400" value="{{ old("home_sections.{$sectionKey}.{$i}.label", ($sectionData[$i]['label'] ?? '')) }}" placeholder="Actieve vacatures">
                     </div>
                 </div>
             </div>
@@ -418,7 +424,7 @@
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Waarom kiezen voor Nexa?') }}">
+                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Waarom kiezen voor Nexa?') }}">
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
@@ -426,7 +432,7 @@
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <textarea name="home_sections[{{ $sectionKey }}][subtitle]" id="home-{{ $sectionKey }}-subtitle" class="kt-input w-full pt-1 home-section-tinymce" rows="10">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ondertitel...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
         </div>
     </div>
@@ -467,9 +473,9 @@
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Illustratie Kenmerken-sectie</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding naast de kenmerken. Standaard: Illustration2.png.</p>
                 <div class="flex flex-wrap items-start gap-2">
-                    <div class="relative shrink-0">
+                    <div class="shrink-0 flex flex-col items-center">
                         <img alt="Kenmerken illustratie" id="hero-features-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $featuresPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($featuresPreviewSrc) }}" data-default-src="{{ $defaultFeaturesImg ?? '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="hero-features-illustration_url" data-preview-id="hero-features-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-features-illustration_url" data-preview-id="hero-features-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="features" data-field="illustration_url" style="width: 500px; min-width: 500px; height: 130px;">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
@@ -486,7 +492,7 @@
                     <input type="hidden" name="home_sections[visibility][features_section_title]" id="visibility-features_section_title" value="{{ ($visibility['features_section_title'] ?? true) ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-features_section_title" aria-label="Sectietitel tonen/verbergen">@if($visibility['features_section_title'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <input type="text" name="home_sections[features][section_title]" class="kt-input w-full" value="{{ old('home_sections.features.section_title', $features['section_title'] ?? 'Wat Wij Bieden') }}">
+                <input type="text" name="home_sections[features][section_title]" class="kt-input home-section-input-400" value="{{ old('home_sections.features.section_title', $features['section_title'] ?? 'Kenmerken') }}">
             </div>
             <div id="features-items-sortable" class="space-y-4" data-icon-options="{{ json_encode(collect($heroiconList)->map(fn($v) => $v['label'] ?? '')->all()) }}" data-size-options="{{ json_encode(collect($heroiconSizes)->map(fn($v) => $v['label'] ?? '')->all()) }}">
             @foreach($featureItems as $i => $item)
@@ -502,27 +508,35 @@
                     </div>
                     <div>
                         <label class="block text-xs text-muted-foreground mb-1">Titel</label>
-                        <input type="text" name="home_sections[features][items][{{ $i }}][title]" class="kt-input w-full features-item-title" value="{{ old("home_sections.features.items.{$i}.title", $item['title'] ?? '') }}">
+                        <input type="text" name="home_sections[features][items][{{ $i }}][title]" class="kt-input home-section-input-400 features-item-title" value="{{ old("home_sections.features.items.{$i}.title", $item['title'] ?? '') }}">
                     </div>
                     <div>
                         <label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>
-                        <textarea name="home_sections[features][items][{{ $i }}][description]" id="home-features-item-{{ $i }}-description" class="kt-input w-full pt-1 home-section-tinymce" rows="6">{{ old("home_sections.features.items.{$i}.description", $item['description'] ?? '') }}</textarea>
+                        @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-features-item-'.$i.'-description', 'name' => 'home_sections[features][items]['.$i.'][description]', 'value' => old("home_sections.features.items.{$i}.description", $item['description'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-features-item-'.$i.'-description'])
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs text-muted-foreground mb-1">Icoon (Heroicon)</label>
-                            <select name="home_sections[features][items][{{ $i }}][icon]" class="kt-input w-full features-item-icon">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label>
+                            <select name="home_sections[features][items][{{ $i }}][icon]" class="kt-input flex-1 min-w-0 features-item-icon">
                                 @foreach($heroiconList as $iconId => $iconData)
                                 <option value="{{ $iconId }}" {{ ($item['icon'] ?? ($i === 0 ? 'light-bulb' : 'bolt')) === $iconId ? 'selected' : '' }}>{{ $iconData['label'] ?? $iconId }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-xs text-muted-foreground mb-1">Grootte icoon</label>
-                            <select name="home_sections[features][items][{{ $i }}][icon_size]" class="kt-input w-full features-item-icon-size">
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label>
+                            <select name="home_sections[features][items][{{ $i }}][icon_size]" class="kt-input flex-1 min-w-0 features-item-icon-size">
                                 @foreach($heroiconSizes as $sizeId => $sizeData)
                                 <option value="{{ $sizeId }}" {{ ($item['icon_size'] ?? 'medium') === $sizeId ? 'selected' : '' }}>{{ $sizeData['label'] ?? $sizeId }}</option>
                                 @endforeach
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label>
+                            <select name="home_sections[features][items][{{ $i }}][icon_align]" class="kt-input flex-1 min-w-0 features-item-icon-align">
+                                <option value="left" {{ ($item['icon_align'] ?? 'center') === 'left' ? 'selected' : '' }}>Links</option>
+                                <option value="center" {{ ($item['icon_align'] ?? 'center') === 'center' ? 'selected' : '' }}>Midden</option>
+                                <option value="right" {{ ($item['icon_align'] ?? 'center') === 'right' ? 'selected' : '' }}>Rechts</option>
                             </select>
                         </div>
                     </div>
@@ -541,10 +555,10 @@
         if (empty($cardsItems)) {
             $cardsItems = [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left']];
         }
-        $cardsFontSizes = array_combine($a = range(10, 24, 2), $a);
         $cardsFontStyles = ['normal' => 'Normaal', 'bold' => 'Vet', 'italic' => 'Cursief'];
-        $cardsCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (500px)', 'max' => 'Maximaal (volledige breedte)'];
+        $cardsCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (500px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
         $cardsTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
+        $cardsImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
     @endphp
     <div class="kt-card home-section-card" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
@@ -567,9 +581,9 @@
                         <button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex flex-wrap items-start gap-2">
-                        <div class="relative shrink-0">
+                        <div class="shrink-0 flex flex-col items-center">
                             <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($cardItem['image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($cardItem['image_url'] ?? '') }}">
-                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url" style="width: 500px; min-width: 500px; height: 130px;">
                             <span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span>
@@ -578,40 +592,66 @@
                     </div>
                     <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url">
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_url', $cardItem['image_url'] ?? '') }}">
-                    <div class="row-visibility-row mt-2">
-                        <div class="flex flex-wrap items-center gap-4 mb-1 pt-5">
+                    <div class="space-y-2 mt-3">
+                        <div class="flex flex-wrap items-center gap-4">
                             <label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label>
                             <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_item_{{ $i }}]" id="visibility-{{ $sectionKey }}_item_{{ $i }}" value="{{ ($visibility[$sectionKey.'_item_'.$i] ?? true) ? '1' : '0' }}">
                             <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_item_{{ $i }}" aria-label="Tekst tonen/verbergen">@if($visibility[$sectionKey.'_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                         </div>
-                        <div class="flex flex-wrap items-center gap-3 mb-2">
-                            <label class="text-sm text-muted-foreground shrink-0">Kaartgrootte</label>
-                            <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][card_size]" class="kt-input w-36 text-sm">
-                                @foreach($cardsCardSizes as $val => $label)
-                                <option value="{{ $val }}" {{ ($cardItem['card_size'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            <label class="text-sm text-muted-foreground shrink-0">Lettergrootte</label>
-                            @php $cardFontSize = isset($cardItem['font_size']) ? max(10, min(24, (int) $cardItem['font_size'])) : 14; $cardFontSize = (int) (round($cardFontSize / 2) * 2); @endphp
-                            <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_size]" class="kt-input w-20 text-sm">
-                                @foreach($cardsFontSizes as $px => $label)
-                                <option value="{{ $px }}" {{ $cardFontSize === (int)$px ? 'selected' : '' }}>{{ $label }}px</option>
-                                @endforeach
-                            </select>
-                            <label class="text-sm text-muted-foreground shrink-0">Stijl</label>
-                            <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_style]" class="kt-input w-28 text-sm">
-                                @foreach($cardsFontStyles as $val => $label)
-                                <option value="{{ $val }}" {{ ($cardItem['font_style'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            <label class="text-sm text-muted-foreground shrink-0">Uitlijning</label>
-                            <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_align]" class="kt-input w-28 text-sm">
-                                @foreach($cardsTextAligns as $val => $label)
-                                <option value="{{ $val }}" {{ ($cardItem['text_align'] ?? 'left') === $val ? 'selected' : '' }}>{{ $label }}</option>
-                                @endforeach
-                            </select>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][card_size]" class="kt-input w-36 text-sm">
+                                    @foreach($cardsCardSizes as $val => $label)
+                                    <option value="{{ $val }}" {{ ($cardItem['card_size'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_style]" class="kt-input w-28 text-sm">
+                                    @foreach($cardsFontStyles as $val => $label)
+                                    <option value="{{ $val }}" {{ ($cardItem['font_style'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_align]" class="kt-input w-28 text-sm">
+                                    @foreach($cardsTextAligns as $val => $label)
+                                    <option value="{{ $val }}" {{ ($cardItem['text_align'] ?? 'left') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @php $cardImagePadding = isset($cardItem['image_padding']) ? max(0, min(30, (int) $cardItem['image_padding'])) : 2; $cardImagePadding = (int) (round($cardImagePadding / 2) * 2); @endphp
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_padding]" class="kt-input w-24 text-sm">
+                                    @foreach($cardsImagePaddings as $px => $label)
+                                    <option value="{{ $px }}" {{ $cardImagePadding === (int)$px ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $cardItem['image_bg_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $cardItem['text_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-text-color">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                </div>
+                            </div>
                         </div>
-                        <textarea name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" id="home-cards-{{ $sectionKey }}-item-{{ $i }}-text" class="kt-input w-full pt-1 home-section-tinymce" rows="6" placeholder="Tekst onder de afbeelding (rich text)">{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text', $cardItem['text'] ?? '') }}</textarea>
+                        <div class="w-full min-w-0">
+                            @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][text]', 'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.text', $cardItem['text'] ?? ''), 'placeholder' => 'Tekst onder de afbeelding (rich text)', 'textareaId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text'])
+                        </div>
                     </div>
                 </div>
                 @endforeach
@@ -649,9 +689,9 @@
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrondafbeelding</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de CTA-sectie. (Atom-v2 thema)</p>
                 <div class="flex flex-wrap items-start gap-2">
-                    <div class="relative shrink-0">
-                        <img alt="CTA achtergrond" id="cta-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="cta-{{ $sectionKey }}-background_image_url" data-preview-id="cta-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                    <div class="shrink-0 flex flex-col items-center {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" id="cta-{{ $sectionKey }}-bg-preview-wrapper">
+                        <img alt="CTA achtergrond" id="cta-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="cta-{{ $sectionKey }}-background_image_url" data-preview-id="cta-{{ $sectionKey }}-bg-preview" data-preview-wrapper-id="cta-{{ $sectionKey }}-bg-preview-wrapper" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="cta-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" style="width: 500px; min-width: 500px; height: 130px;">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
@@ -667,7 +707,7 @@
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
                 <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Klaar om je carrière te starten?') }}">
+                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Klaar om je carrière te starten?') }}">
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
@@ -675,7 +715,7 @@
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
                 <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <textarea name="home_sections[{{ $sectionKey }}][subtitle]" id="home-{{ $sectionKey }}-subtitle" class="kt-input w-full pt-1 home-section-tinymce" rows="10">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'cta-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-2">
@@ -686,70 +726,76 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 tekst</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text', $sectionData['cta_primary_text'] ?? '') }}">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text', $sectionData['cta_primary_text'] ?? '') }}">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 URL</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_url]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_url', $sectionData['cta_primary_url'] ?? '/register') }}">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_url', $sectionData['cta_primary_url'] ?? '/register') }}">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 tekst</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text', $sectionData['cta_secondary_text'] ?? '') }}">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text', $sectionData['cta_secondary_text'] ?? '') }}">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 URL</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_url]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_url', $sectionData['cta_secondary_url'] ?? '/jobs') }}">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_url', $sectionData['cta_secondary_url'] ?? '/jobs') }}">
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 pt-3 border-t border-border">
-                    <div class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 pt-3 border-t border-border">
+                    <div class="space-y-2">
                         <label class="block text-sm font-medium text-secondary-foreground">Knop 1 kleuren</label>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <div>
-                                <label class="block text-xs font-medium text-muted-foreground mb-1">Achtergrond</label>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#2563eb' }}" title="Achtergrond">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#2563eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-muted-foreground mb-1">Tekstkleur</label>
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#ffffff' }}" title="Tekstkleur">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-muted-foreground mb-1">Border</label>
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#ffffff' }}" title="Borderkleur">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-2">
                         <label class="block text-sm font-medium text-secondary-foreground">Knop 2 kleuren</label>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <div>
-                                <label class="block text-xs font-medium text-muted-foreground mb-1">Achtergrond</label>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-muted-foreground mb-1">Tekstkleur</label>
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#ffffff' }}" title="Tekstkleur">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-muted-foreground mb-1">Border</label>
+                            <div class="flex items-center gap-3">
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1f2937' }}" title="Borderkleur">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1f2937"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                         </div>
@@ -786,7 +832,7 @@
             <div id="carousel-slides-{{ $sectionKey }}" class="space-y-2 mb-3" data-section-key="{{ $sectionKey }}">
                 @foreach (($sectionData['items'] ?? []) as $idx => $item)
                     @php $uuid = $item['uuid'] ?? ''; $alt = $item['alt'] ?? ''; @endphp
-                    <div class="carousel-slide-row flex items-center gap-2 rounded border border-border p-2 bg-muted/30" data-uuid="{{ $uuid }}">
+                    <div class="carousel-slide-row flex items-center gap-2 rounded border border-border p-2" data-uuid="{{ $uuid }}">
                         <img src="{{ $uuid ? route('website-media.serve', ['uuid' => $uuid]) : '' }}" alt="" class="h-12 w-16 object-cover rounded flex-shrink-0" loading="lazy">
                         <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][uuid]" value="{{ $uuid }}">
                         <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][alt]" value="{{ $alt }}" placeholder="Alt-tekst (optioneel)" class="kt-input flex-1 min-w-0 text-sm">
@@ -882,23 +928,17 @@
             @endphp
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Tagline / korte omschrijving</label>
-                    <input type="hidden" name="home_sections[visibility][footer_tagline]" id="visibility-footer_tagline" value="{{ ($visibility['footer_tagline'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_tagline" aria-label="Tagline tonen/verbergen">@if($visibility['footer_tagline'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                </div>
-                <textarea name="home_sections[footer][tagline]" id="home-footer-tagline" class="kt-input w-full pt-1 home-section-tinymce" rows="10" placeholder="Ontdek de perfecte match...">{{ old('home_sections.footer.tagline', $footer['tagline'] ?? '') }}</textarea>
-                <p class="text-xs text-muted-foreground mt-1">Wordt onder het logo in de footer getoond. Gebruik de werkbalk voor bold, italic, lijsten, etc.</p>
-            </div>
-            <div class="row-visibility-row">
-                <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Footer-logo</label>
                     <input type="hidden" name="home_sections[visibility][footer_logo]" id="visibility-footer_logo" value="{{ ($visibility['footer_logo'] ?? true) ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_logo" aria-label="Logo tonen/verbergen">@if($visibility['footer_logo'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <p class="text-xs text-muted-foreground mb-2">Laat leeg om het logo uit Algemene instellingen te gebruiken.</p>
-                <div class="flex flex-wrap items-start gap-4 max-w-96">
-                    <img alt="Footer logo" id="footer-logo-preview" class="w-auto border border-border rounded object-contain {{ $footerLogoPreviewUrl ? '' : 'hidden' }}" style="max-height: 80px;"
-                         src="{{ $footerLogoPreviewUrl ? $imagePreviewUrl($footerLogoPreviewUrl) : '' }}">
+                <div class="flex flex-wrap items-start gap-2">
+                    <div class="shrink-0 flex flex-col items-center">
+                        <img alt="Footer logo" id="footer-logo-preview" class="w-auto border border-border rounded object-contain {{ $footerLogoPreviewUrl ? '' : 'hidden' }}" style="max-height: 80px;"
+                             src="{{ $footerLogoPreviewUrl ? $imagePreviewUrl($footerLogoPreviewUrl) : '' }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="footer-logo-url" data-preview-id="footer-logo-preview" title="Logo verwijderen" aria-label="Logo verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                    </div>
                     <div class="flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" id="footer-logo-upload-area" style="width: 500px; min-width: 500px; height: 130px;">
                         <div class="flex flex-col place-items-center place-content-center text-center w-full">
                             <div class="flex items-center mb-2.5">
@@ -914,41 +954,136 @@
                 </div>
                 <input type="hidden" name="home_sections[footer][logo_url]" id="footer-logo-url" value="{{ $footerLogoUrl }}">
             </div>
-            <div>
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-hoogte (px)</label>
-                <select name="home_sections[footer][logo_height]" id="footer-logo-height" class="kt-input w-32">
-                    @foreach([12, 14, 16, 18, 20, 22, 24, 26, 28, 30] as $px)
-                        <option value="{{ $px }}" {{ $footerLogoHeight === $px ? 'selected' : '' }}>{{ $px }}px</option>
-                    @endforeach
-                </select>
+            <div class="flex flex-wrap items-end gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-hoogte (px)</label>
+                    <select name="home_sections[footer][logo_height]" id="footer-logo-height" class="kt-input w-32">
+                        @foreach([12, 14, 16, 18, 20, 22, 24, 26, 28, 30] as $px)
+                            <option value="{{ $px }}" {{ $footerLogoHeight === $px ? 'selected' : '' }}>{{ $px }}px</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-uitlijning</label>
+                    <select name="home_sections[footer][logo_align]" id="footer-logo-align" class="kt-input w-40">
+                        @php $footerLogoAlign = old('home_sections.footer.logo_align', $footer['logo_align'] ?? 'left'); @endphp
+                        <option value="left" {{ $footerLogoAlign === 'left' ? 'selected' : '' }}>Links</option>
+                        <option value="center" {{ $footerLogoAlign === 'center' ? 'selected' : '' }}>Midden</option>
+                        <option value="right" {{ $footerLogoAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                    </select>
+                </div>
             </div>
             <div>
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo alt-tekst</label>
-                <input type="text" name="home_sections[footer][logo_alt]" class="kt-input w-full" value="{{ old('home_sections.footer.logo_alt', $footer['logo_alt'] ?? '') }}" placeholder="Bijv. Nexa Skillmatching">
+                <input type="text" name="home_sections[footer][logo_alt]" class="kt-input home-section-input-400" value="{{ old('home_sections.footer.logo_alt', $footer['logo_alt'] ?? '') }}" placeholder="Bijv. Nexa Skillmatching">
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="text-sm font-medium text-secondary-foreground">Titel kolom Snelle Links</span>
-                    <input type="hidden" name="home_sections[visibility][footer_quick_links]" id="visibility-footer_quick_links" value="{{ ($visibility['footer_quick_links'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_quick_links" aria-label="Snelle links tonen/verbergen">@if($visibility['footer_quick_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <label class="text-sm font-medium text-secondary-foreground">Footer-kaart (Google Maps)</label>
+                    <input type="hidden" name="home_sections[visibility][footer_map]" id="visibility-footer_map" value="{{ ($visibility['footer_map'] ?? true) ? '1' : '0' }}">
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_map" aria-label="Kaart tonen/verbergen">@if($visibility['footer_map'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <label class="block text-xs text-muted-foreground mb-1">Titel kolom</label>
-                <input type="text" name="home_sections[footer][quick_links_title]" class="kt-input w-full" value="{{ old('home_sections.footer.quick_links_title', $footer['quick_links_title'] ?? 'Snelle Links') }}" placeholder="Snelle Links">
-            </div>
-            <div class="space-y-3">
-                <p class="text-sm font-medium text-secondary-foreground">Snelle Links</p>
-                <div id="footer-quick-links-list" class="space-y-3">
-                    @php $quickLinks = $footer['quick_links'] ?? []; @endphp
-                    @foreach($quickLinks as $i => $link)
-                    <div class="footer-link-row flex flex-wrap items-center gap-3" data-index="{{ $i }}">
-                        <input type="text" name="home_sections[footer][quick_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" value="{{ old("home_sections.footer.quick_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
-                        <input type="text" name="home_sections[footer][quick_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.quick_links.{$i}.url", $link['url'] ?? '') }}" placeholder="/pad of https://...">
-                        <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>
+                <p class="text-xs text-muted-foreground mb-2">Kaart links in de footer. Vul postcode en huisnummer in en klik op Zoeken.</p>
+                <div class="flex flex-wrap items-start gap-6 w-1/2 max-w-[50%]">
+                    <div class="flex-1 min-w-0 space-y-2">
+                <div class="flex flex-wrap items-end gap-3 mb-2">
+                    <div>
+                        <label class="block text-xs text-muted-foreground mb-1">Postcode</label>
+                        <input type="text" name="home_sections[footer][map_postcode]" id="footer-map-postcode" class="kt-input w-24" value="{{ old('home_sections.footer.map_postcode', $footer['map_postcode'] ?? '') }}" placeholder="1234AB" maxlength="7" style="text-transform: uppercase;">
                     </div>
-                    @endforeach
+                    <div>
+                        <label class="block text-xs text-muted-foreground mb-1">Huisnummer</label>
+                        <input type="text" name="home_sections[footer][map_huisnummer]" id="footer-map-huisnummer" class="kt-input w-20" value="{{ old('home_sections.footer.map_huisnummer', $footer['map_huisnummer'] ?? '') }}" placeholder="1">
+                    </div>
+                    <button type="button" id="footer-map-lookup-btn" class="kt-btn kt-btn-sm kt-btn-outline">Zoeken</button>
                 </div>
-                <button type="button" id="footer-quick-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>Link toevoegen</button>
+                <div class="flex flex-wrap gap-3 mb-2">
+                    <div class="min-w-[200px]">
+                        <label class="block text-xs text-muted-foreground mb-1">Straat</label>
+                        <input type="text" name="home_sections[footer][map_street]" id="footer-map-street" class="kt-input w-full" value="{{ old('home_sections.footer.map_street', $footer['map_street'] ?? '') }}" readonly>
+                    </div>
+                    <div class="min-w-[160px]">
+                        <label class="block text-xs text-muted-foreground mb-1">Plaats</label>
+                        <input type="text" name="home_sections[footer][map_city]" id="footer-map-city" class="kt-input w-full" value="{{ old('home_sections.footer.map_city', $footer['map_city'] ?? '') }}" readonly>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Kaartgrootte</label>
+                    <select name="home_sections[footer][map_size]" id="footer-map-size" class="kt-input w-40">
+                        <option value="small" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'small' ? 'selected' : '' }}>Klein</option>
+                        <option value="normal" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'normal' ? 'selected' : '' }}>Normaal</option>
+                        <option value="large" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'large' ? 'selected' : '' }}>Groot</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Zoomniveau</label>
+                    @php $mapZoom = (int) old('home_sections.footer.map_zoom', $footer['map_zoom'] ?? 17); $mapZoom = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17; @endphp
+                    <select name="home_sections[footer][map_zoom]" id="footer-map-zoom" class="kt-input w-40">
+                        @for($z = 10; $z <= 20; $z++)
+                        <option value="{{ $z }}" {{ $mapZoom === $z ? 'selected' : '' }}>{{ $z }}</option>
+                        @endfor
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-0.5">1 = ver, 20 = dichtbij</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="hidden" name="home_sections[footer][map_show_address_balloon]" value="0">
+                    <input type="checkbox" name="home_sections[footer][map_show_address_balloon]" id="footer-map-show-address-balloon" class="kt-switch kt-switch-sm" value="1" {{ old('home_sections.footer.map_show_address_balloon', $footer['map_show_address_balloon'] ?? false) ? 'checked' : '' }}>
+                    <label for="footer-map-show-address-balloon" class="text-sm font-medium text-secondary-foreground cursor-pointer">Adres in ballon tonen</label>
+                </div>
+                <p class="text-xs text-muted-foreground">Toont het adres in een ballon op de kaart bij de marker.</p>
+                    </div>
+                    @if(!empty($googleMapsApiKey ?? ''))
+                    <div class="shrink-0">
+                        <label class="block text-xs text-muted-foreground mb-1">Voorbeeld kaart</label>
+                        <div id="footer-map-preview" class="rounded-lg border border-border bg-muted/30 overflow-hidden transition-[width,height] duration-200" data-api-key="{{ $googleMapsApiKey }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-size="{{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') }}" data-zoom="{{ $mapZoom }}"></div>
+                    </div>
+                    @endif
+                </div>
+                <input type="hidden" name="home_sections[footer][map_lat]" id="footer-map-lat" value="{{ old('home_sections.footer.map_lat', $footer['map_lat'] ?? '') }}">
+                <input type="hidden" name="home_sections[footer][map_lng]" id="footer-map-lng" value="{{ old('home_sections.footer.map_lng', $footer['map_lng'] ?? '') }}">
             </div>
+            <div class="row-visibility-row">
+                <div class="flex items-center gap-2 mb-1">
+                    <label class="text-sm font-medium text-secondary-foreground">Tagline / korte omschrijving</label>
+                    <input type="hidden" name="home_sections[visibility][footer_tagline]" id="visibility-footer_tagline" value="{{ ($visibility['footer_tagline'] ?? true) ? '1' : '0' }}">
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_tagline" aria-label="Tagline tonen/verbergen">@if($visibility['footer_tagline'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                </div>
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-footer-tagline', 'name' => 'home_sections[footer][tagline]', 'value' => old('home_sections.footer.tagline', $footer['tagline'] ?? ''), 'placeholder' => 'Ontdek de perfecte match...', 'textareaId' => 'home-footer-tagline'])
+                <p class="text-xs text-muted-foreground mt-1">Wordt onder het logo in de footer getoond. Gebruik de werkbalk voor bold, italic, lijsten, etc.</p>
+            </div>
+            <div class="border border-border rounded-lg p-4 space-y-4">
+                <div class="row-visibility-row">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-medium text-secondary-foreground">Titel kolom Snelle Links</span>
+                        <input type="hidden" name="home_sections[visibility][footer_quick_links]" id="visibility-footer_quick_links" value="{{ ($visibility['footer_quick_links'] ?? true) ? '1' : '0' }}">
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_quick_links" aria-label="Snelle links tonen/verbergen">@if($visibility['footer_quick_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    </div>
+                    <label class="block text-xs text-muted-foreground mb-1">Titel kolom</label>
+                    <input type="text" name="home_sections[footer][quick_links_title]" class="kt-input w-[300px] max-w-[300px] box-border" value="{{ old('home_sections.footer.quick_links_title', $footer['quick_links_title'] ?? 'Snelle Links') }}" placeholder="Snelle Links" style="width: 300px; max-width: 300px;">
+                    <label class="block text-xs text-muted-foreground mt-2 mb-1">Uitlijning</label>
+                    @php $quickLinksAlign = old('home_sections.footer.quick_links_align', $footer['quick_links_align'] ?? 'left'); @endphp
+                    <select name="home_sections[footer][quick_links_align]" class="kt-input w-40">
+                        <option value="left" {{ $quickLinksAlign === 'left' ? 'selected' : '' }}>Links</option>
+                        <option value="center" {{ $quickLinksAlign === 'center' ? 'selected' : '' }}>Midden</option>
+                        <option value="right" {{ $quickLinksAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                    </select>
+                </div>
+                <div class="space-y-3">
+                    <p class="text-sm font-medium text-secondary-foreground">Snelle Links</p>
+                    <div id="footer-quick-links-list" class="space-y-3">
+                        @php $quickLinks = $footer['quick_links'] ?? []; @endphp
+                        @foreach($quickLinks as $i => $link)
+                        <div class="footer-link-row flex flex-wrap items-center gap-3" data-index="{{ $i }}">
+                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" value="{{ old("home_sections.footer.quick_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
+                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.quick_links.{$i}.url", $link['url'] ?? '') }}" placeholder="/pad of https://...">
+                            <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>
+                        </div>
+                        @endforeach
+                    </div>
+                    <button type="button" id="footer-quick-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>Link toevoegen</button>
+                </div>
+            </div>
+            <div class="border border-border rounded-lg p-4 space-y-4">
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-sm font-medium text-secondary-foreground">Ondersteuning-links</span>
@@ -956,7 +1091,14 @@
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_support_links" aria-label="Ondersteuning-links tonen/verbergen">@if($visibility['footer_support_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <label class="block text-xs text-muted-foreground mb-1">Titel kolom Ondersteuning</label>
-                <input type="text" name="home_sections[footer][support_links_title]" class="kt-input w-full mb-3" value="{{ old('home_sections.footer.support_links_title', $footer['support_links_title'] ?? 'Ondersteuning') }}" placeholder="Ondersteuning">
+                <input type="text" name="home_sections[footer][support_links_title]" class="kt-input w-[300px] max-w-[300px] box-border" value="{{ old('home_sections.footer.support_links_title', $footer['support_links_title'] ?? 'Ondersteuning') }}" placeholder="Ondersteuning" style="width: 300px; max-width: 300px;">
+                <label class="block text-xs text-muted-foreground mt-2 mb-1">Uitlijning</label>
+                @php $supportLinksAlign = old('home_sections.footer.support_links_align', $footer['support_links_align'] ?? 'left'); @endphp
+                <select name="home_sections[footer][support_links_align]" class="kt-input w-40 mb-3">
+                    <option value="left" {{ $supportLinksAlign === 'left' ? 'selected' : '' }}>Links</option>
+                    <option value="center" {{ $supportLinksAlign === 'center' ? 'selected' : '' }}>Midden</option>
+                    <option value="right" {{ $supportLinksAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                </select>
             <div class="space-y-3">
                 <p class="text-sm font-medium text-secondary-foreground">Ondersteuning-links</p>
                 <div id="footer-support-links-list" class="space-y-3">
@@ -972,6 +1114,7 @@
                 <button type="button" id="footer-support-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>Link toevoegen</button>
             </div>
             </div>
+            </div>
         </div>
     </div>
 
@@ -985,7 +1128,7 @@
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
             <div>
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Copyrighttekst</label>
-                <input type="text" name="home_sections[copyright]" class="kt-input w-full" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} Nexa Skillmatching. Alle rechten voorbehouden.">
+                <input type="text" name="home_sections[copyright]" class="kt-input home-section-input-400" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} Nexa Skillmatching. Alle rechten voorbehouden.">
                 <p class="text-xs text-muted-foreground mt-1">Gebruik <code>{year}</code> voor het huidige jaar.</p>
             </div>
         </div>
@@ -1034,8 +1177,162 @@
         }
     }
 
+    // Footer map: postcode lookup en sync zichtbare velden naar hidden
+    var postcodeLookupUrl = {!! json_encode(route('admin.postcode.lookup')) !!};
+    var footerMapPostcode = document.getElementById('footer-map-postcode');
+    var footerMapHuisnummer = document.getElementById('footer-map-huisnummer');
+    var footerMapStreet = document.getElementById('footer-map-street');
+    var footerMapCity = document.getElementById('footer-map-city');
+    var footerMapLat = document.getElementById('footer-map-lat');
+    var footerMapLng = document.getElementById('footer-map-lng');
+    var footerMapLookupBtn = document.getElementById('footer-map-lookup-btn');
+    if (footerMapLookupBtn && csrfToken) {
+        footerMapLookupBtn.addEventListener('click', function() {
+            var postcode = (footerMapPostcode ? footerMapPostcode.value : '').trim().toUpperCase().replace(/\s+/g, '');
+            var huisnummer = (footerMapHuisnummer ? footerMapHuisnummer.value : '').trim();
+            if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode)) { alert('Ongeldig postcode formaat. Gebruik 1234AB'); return; }
+            if (!huisnummer) { alert('Vul een huisnummer in.'); return; }
+            footerMapLookupBtn.disabled = true;
+            fetch(postcodeLookupUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken.getAttribute('content') },
+                body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.success) {
+                    if (footerMapStreet) footerMapStreet.value = d.street || '';
+                    if (footerMapCity) footerMapCity.value = d.city || '';
+                    if (footerMapLat) footerMapLat.value = (d.latitude != null && d.longitude != null) ? d.latitude : '';
+                    if (footerMapLng) footerMapLng.value = (d.latitude != null && d.longitude != null) ? d.longitude : '';
+                    if (typeof window.updateFooterMapPreview === 'function' && d.latitude != null && d.longitude != null) {
+                        window.updateFooterMapPreview(parseFloat(d.latitude), parseFloat(d.longitude));
+                    }
+                } else {
+                    alert(d.message || 'Adres niet gevonden.');
+                }
+            })
+            .catch(function() { alert('Zoeken mislukt.'); })
+            .finally(function() { footerMapLookupBtn.disabled = false; });
+        });
+    }
+
+    (function() {
+        var previewEl = document.getElementById('footer-map-preview');
+        if (!previewEl) return;
+        var apiKey = (previewEl.getAttribute('data-api-key') || '').trim();
+        if (!apiKey) return;
+        var mapId = (previewEl.getAttribute('data-map-id') || '').trim();
+        var useAdvancedMarker = mapId && mapId.length > 0;
+        var footerMapPreviewMap = null;
+        var footerMapPreviewMarker = null;
+        var footerMapPreviewInfoWindow = null;
+        function createPreviewMarker(position, map) {
+            if (useAdvancedMarker && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+                return new google.maps.marker.AdvancedMarkerElement({ map: map, position: position });
+            }
+            return new google.maps.Marker({ position: position, map: map });
+        }
+        function removePreviewMarker(marker) {
+            if (!marker) return;
+            if (marker.setMap) marker.setMap(null);
+            else if (marker.map !== undefined) marker.map = null;
+        }
+        function getPreviewAddress() {
+            var street = (document.getElementById('footer-map-street') && document.getElementById('footer-map-street').value) || '';
+            var huisnummer = (document.getElementById('footer-map-huisnummer') && document.getElementById('footer-map-huisnummer').value) || '';
+            var postcode = (document.getElementById('footer-map-postcode') && document.getElementById('footer-map-postcode').value) || '';
+            var city = (document.getElementById('footer-map-city') && document.getElementById('footer-map-city').value) || '';
+            var parts = [street, huisnummer].filter(Boolean);
+            var line1 = parts.length ? parts.join(' ') : '';
+            parts = [postcode, city].filter(Boolean);
+            var line2 = parts.length ? parts.join(' ') : '';
+            return (line1 && line2) ? line1 + ', ' + line2 : (line1 || line2 || '');
+        }
+        function getPreviewZoom() {
+            var zoomEl = document.getElementById('footer-map-zoom');
+            var z = zoomEl ? parseInt(zoomEl.value, 10) : 17;
+            return (z >= 1 && z <= 20) ? z : 17;
+        }
+        function updatePreviewBalloon() {
+            if (!footerMapPreviewMap || !footerMapPreviewMarker) return;
+            var showEl = document.getElementById('footer-map-show-address-balloon');
+            if (footerMapPreviewInfoWindow) {
+                footerMapPreviewInfoWindow.close();
+                footerMapPreviewInfoWindow = null;
+            }
+            if (showEl && showEl.checked) {
+                var addr = (getPreviewAddress() || '').trim();
+                if (addr.length && google.maps.InfoWindow) {
+                    footerMapPreviewInfoWindow = new google.maps.InfoWindow({ content: '<div style="padding: 4px 8px 6px; font-size: 14px; color: #000; line-height: 1.25; margin: 0;">' + addr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' });
+                    var pos = footerMapPreviewMarker.position;
+                    if (pos && (typeof pos.lat === 'function' ? pos.lat() : pos.lat) != null) {
+                        footerMapPreviewInfoWindow.open(footerMapPreviewMap, footerMapPreviewMarker);
+                    }
+                }
+            }
+        }
+        window.updateFooterMapPreview = function(lat, lng) {
+            if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
+            var center = { lat: lat, lng: lng };
+            var zoom = getPreviewZoom();
+            var mapOptions = {
+                center: center,
+                zoom: zoom,
+                scrollwheel: false,
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: false,
+                zoomControl: true
+            };
+            if (useAdvancedMarker && mapId) mapOptions.mapId = mapId;
+            if (!footerMapPreviewMap) {
+                footerMapPreviewMap = new google.maps.Map(previewEl, mapOptions);
+                footerMapPreviewMarker = createPreviewMarker(center, footerMapPreviewMap);
+            } else {
+                footerMapPreviewMap.setCenter(center);
+                footerMapPreviewMap.setZoom(zoom);
+                removePreviewMarker(footerMapPreviewMarker);
+                footerMapPreviewMarker = createPreviewMarker(center, footerMapPreviewMap);
+            }
+            updatePreviewBalloon();
+        };
+        function initFooterMapPreview() {
+            if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
+            var latInp = document.getElementById('footer-map-lat');
+            var lngInp = document.getElementById('footer-map-lng');
+            var lat = latInp ? parseFloat(latInp.value) : NaN;
+            var lng = lngInp ? parseFloat(lngInp.value) : NaN;
+            if (!isNaN(lat) && !isNaN(lng)) window.updateFooterMapPreview(lat, lng);
+        }
+        window.initFooterMapPreview = initFooterMapPreview;
+        var sizeSelect = document.getElementById('footer-map-size');
+        var zoomSelect = document.getElementById('footer-map-zoom');
+        var sizeToDimensions = { small: { w: 400, h: 200 }, normal: { w: 400, h: 300 }, large: { w: 400, h: 400 } };
+        if (zoomSelect) zoomSelect.addEventListener('change', function() { if (footerMapPreviewMap) footerMapPreviewMap.setZoom(getPreviewZoom()); });
+        var balloonToggle = document.getElementById('footer-map-show-address-balloon');
+        if (balloonToggle) balloonToggle.addEventListener('change', updatePreviewBalloon);
+        function applyPreviewSize(size) {
+            var d = sizeToDimensions[size] || sizeToDimensions.normal;
+            previewEl.style.width = d.w + 'px';
+            previewEl.style.height = d.h + 'px';
+            previewEl.setAttribute('data-size', size);
+            if (footerMapPreviewMap && typeof google !== 'undefined' && google.maps && google.maps.event) {
+                setTimeout(function() { google.maps.event.trigger(footerMapPreviewMap, 'resize'); }, 100);
+            }
+        }
+        if (sizeSelect) {
+            sizeSelect.addEventListener('change', function() { applyPreviewSize(this.value); });
+            applyPreviewSize(sizeSelect.value);
+        }
+        var s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + (useAdvancedMarker ? '&libraries=marker' : '') + '&callback=initFooterMapPreview&loading=async';
+        s.async = true;
+        document.head.appendChild(s);
+    })();
+
     var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
-    function handleHeroImageFile(file, fileInput, urlInput, previewEl) {
+    function handleHeroImageFile(file, fileInput, urlInput, previewEl, wrapperEl) {
         var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
         if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'); fileInput.value = ''; return; }
         if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); fileInput.value = ''; return; }
@@ -1044,7 +1341,7 @@
         fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
         fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
             .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
-            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = d.url; previewEl.classList.remove('hidden'); } } })
+            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = d.url; previewEl.classList.remove('hidden'); } if (wrapperEl) wrapperEl.classList.remove('hidden'); } })
             .catch(function(err) { alert(err.message || 'Upload mislukt'); });
         fileInput.value = '';
     }
@@ -1079,30 +1376,35 @@
         var fileInput = document.querySelector('.cta-image-file-input[data-section-key="' + sectionKey + '"]');
         var urlInput = document.getElementById('cta-' + sectionKey + '-background_image_url');
         var preview = document.getElementById('cta-' + sectionKey + '-bg-preview');
+        var wrapper = document.getElementById('cta-' + sectionKey + '-bg-preview-wrapper');
         if (!fileInput || !urlInput) return;
         area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
         area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
         area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
-        area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview); });
-        fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleHeroImageFile(this.files[0], fileInput, urlInput, preview); });
+        area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview, wrapper); });
+        fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleHeroImageFile(this.files[0], fileInput, urlInput, preview, wrapper); });
     });
 
     document.querySelectorAll('.image-remove-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var urlInputId = btn.getAttribute('data-url-input-id');
             var previewId = btn.getAttribute('data-preview-id');
+            var wrapperId = btn.getAttribute('data-preview-wrapper-id');
             if (!urlInputId || !previewId) return;
             var urlInput = document.getElementById(urlInputId);
             var preview = document.getElementById(previewId);
+            var wrapper = wrapperId ? document.getElementById(wrapperId) : null;
             if (urlInput) urlInput.value = '';
             if (preview) {
                 var defaultSrc = preview.getAttribute('data-default-src') || '';
                 if (defaultSrc) {
                     preview.src = defaultSrc;
                     preview.classList.remove('hidden');
+                    if (wrapper) wrapper.classList.remove('hidden');
                 } else {
                     preview.src = '';
                     preview.classList.add('hidden');
+                    if (wrapper) wrapper.classList.add('hidden');
                 }
             }
         });
@@ -1152,7 +1454,7 @@
                         var url = (d && d.url) ? d.url : ('/website-media/' + (d && d.uuid ? d.uuid : ''));
                         var uuid = (d && d.uuid) ? d.uuid : '';
                         var row = document.createElement('div');
-                        row.className = 'carousel-slide-row flex items-center gap-2 rounded border border-border p-2 bg-muted/30';
+                        row.className = 'carousel-slide-row flex items-center gap-2 rounded border border-border p-2';
                         row.setAttribute('data-uuid', uuid);
                         row.innerHTML = '<img src="' + url.replace(/"/g, '&quot;') + '" alt="" class="h-12 w-16 object-cover rounded flex-shrink-0" loading="lazy">' +
                             '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + idx + '][uuid]" value="' + (uuid.replace(/"/g, '&quot;')) + '">' +
@@ -1252,19 +1554,31 @@
 })();
 
     // Section visibility toggle (eye = tonen, eye-slash = verborgen op website)
+    // Gebruik event delegation zodat alle knoppen werken (incl. footer Snelle Links/Ondersteuning)
     var eyeSvg = '<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>';
     var eyeSlashSvg = '<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>';
-    document.querySelectorAll('.section-visibility-toggle').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var id = btn.getAttribute('data-target');
-            var input = document.getElementById(id);
-            if (!input) return;
-            var visible = input.value !== '1';
-            input.value = visible ? '1' : '0';
-            btn.setAttribute('title', visible ? 'Verbergen op website' : 'Tonen op website');
-            btn.innerHTML = visible ? eyeSvg : eyeSlashSvg;
+    var eyeSvgSmall = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>';
+    var eyeSlashSvgSmall = '<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>';
+    function applyVisibilityTargets(id) {
+        var input = document.getElementById(id);
+        if (!input) return;
+        document.querySelectorAll('[data-visibility-target="' + id + '"]').forEach(function(el) {
+            if (input.value === '0') el.classList.add('hidden'); else el.classList.remove('hidden');
         });
+    }
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.section-visibility-toggle');
+        if (!btn) return;
+        var id = btn.getAttribute('data-target');
+        var input = id ? document.getElementById(id) : null;
+        if (!input) return;
+        var visible = input.value !== '1';
+        input.value = visible ? '1' : '0';
+        btn.setAttribute('title', visible ? 'Verbergen op website' : 'Tonen op website');
+        btn.innerHTML = btn.classList.contains('kt-btn-xs') ? (visible ? eyeSvgSmall : eyeSlashSvgSmall) : (visible ? eyeSvg : eyeSlashSvg);
+        applyVisibilityTargets(id);
     });
+    document.querySelectorAll('input[id^="visibility-"]').forEach(function(input) { applyVisibilityTargets(input.id); });
 
     // Collapse/expand sectie-kaarten (rechts van het oogje in de header)
     var chevronDownSvg = '<svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>';
@@ -1332,6 +1646,7 @@
             if (!card) return;
             var sectionKey = card.getAttribute('data-section');
             if (!sectionKey) return;
+            if (typeof window.destroyFlowbiteWysiwygIn === 'function') window.destroyFlowbiteWysiwygIn(card);
             if (typeof tinymce !== 'undefined') {
                 card.querySelectorAll('textarea[id]').forEach(function(ta) {
                     var id = ta.id;
@@ -1357,7 +1672,7 @@
         });
     }
 
-    // Kleurvelden: color-picker en hex-tekstveld synchen
+    // Kleurvelden: color-picker en hex-tekstveld synchen (container = element of document)
     function normalizeHex(v) {
         if (!v || typeof v !== 'string') return '';
         v = v.trim().toLowerCase();
@@ -1366,20 +1681,38 @@
         if (/^[0-9a-f]{6}$/.test(v)) return '#' + v;
         return '';
     }
-    document.querySelectorAll('input[data-sync-from]').forEach(function(textInp) {
-        var colorId = textInp.getAttribute('data-sync-from');
+    function bindColorSyncIn(container) {
+        var root = container && container.querySelectorAll ? container : document;
+        root.querySelectorAll('input[data-sync-from]').forEach(function(textInp) {
+            var colorId = textInp.getAttribute('data-sync-from');
+            var colorInp = document.getElementById(colorId);
+            if (!colorInp) return;
+            colorInp.addEventListener('input', function() { textInp.value = colorInp.value; });
+            colorInp.addEventListener('change', function() { textInp.value = colorInp.value; });
+            textInp.addEventListener('input', function() {
+                var hex = normalizeHex(textInp.value);
+                if (hex) colorInp.value = hex;
+            });
+            textInp.addEventListener('change', function() {
+                var hex = normalizeHex(textInp.value);
+                if (hex) colorInp.value = hex;
+            });
+        });
+    }
+    window.bindColorSyncIn = bindColorSyncIn;
+    bindColorSyncIn(document);
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.hex-clear-btn');
+        if (!btn) return;
+        e.preventDefault();
+        var hexInput = btn.previousElementSibling;
+        if (!hexInput || !hexInput.matches || !hexInput.matches('input[data-sync-from]')) return;
+        hexInput.value = '';
+        var colorId = hexInput.getAttribute('data-sync-from');
+        var defaultHex = btn.getAttribute('data-color-default') || '#e5e7eb';
         var colorInp = document.getElementById(colorId);
-        if (!colorInp) return;
-        colorInp.addEventListener('input', function() { textInp.value = colorInp.value; });
-        colorInp.addEventListener('change', function() { textInp.value = colorInp.value; });
-        textInp.addEventListener('input', function() {
-            var hex = normalizeHex(textInp.value);
-            if (hex) colorInp.value = hex;
-        });
-        textInp.addEventListener('change', function() {
-            var hex = normalizeHex(textInp.value);
-            if (hex) colorInp.value = hex;
-        });
+        if (colorInp) colorInp.value = defaultHex;
     });
 
     // Sleepbare volgorde van home-sectie componenten
@@ -1419,9 +1752,16 @@
         var addBtn = document.getElementById('features-item-add');
         if (!container) return;
 
-        function initTinymceForId(id) {
-            if (typeof window.initHomeSectionTinymce === 'function') window.initHomeSectionTinymce(id, 200);
+        function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder) {
+            var tpl = document.getElementById('flowbite-wysiwyg-tpl');
+            if (!tpl || !tpl.textContent) return '';
+            return tpl.textContent
+                .replace(/__FLOWBITE_EDITOR_ID__/g, editorId)
+                .replace(/__FLOWBITE_NAME__/g, name)
+                .replace(/__FLOWBITE_TEXTAREA_ID__/g, textareaId)
+                .replace(/__FLOWBITE_PLACEHOLDER__/g, placeholder || '');
         }
+        window.getFlowbiteWysiwygHtml = getFlowbiteWysiwygHtml;
         function reindexFeaturesItems() {
             var rows = container.querySelectorAll('.features-item-row');
             rows.forEach(function(row, i) {
@@ -1434,22 +1774,18 @@
                 if (iconInp) iconInp.name = 'home_sections[features][items][' + i + '][icon]';
                 var iconSizeInp = row.querySelector('.features-item-icon-size');
                 if (iconSizeInp) iconSizeInp.name = 'home_sections[features][items][' + i + '][icon_size]';
+                var iconAlignInp = row.querySelector('.features-item-icon-align');
+                if (iconAlignInp) iconAlignInp.name = 'home_sections[features][items][' + i + '][icon_align]';
                 var visInput = row.querySelector('input[type="hidden"][name*="visibility"][name*="features_item"]');
                 if (visInput) {
                     visInput.name = 'home_sections[visibility][features_item_' + i + ']';
                     visInput.id = 'visibility-features_item_' + i;
                 }
-                var ta = row.querySelector('textarea');
+                var wrapper = row.querySelector('[data-flowbite-wysiwyg]');
+                var ta = wrapper ? wrapper.querySelector('[data-editor-input]') : row.querySelector('textarea');
                 if (ta) {
-                    var oldId = ta.id;
-                    var content = (typeof tinymce !== 'undefined' && tinymce.get(oldId)) ? tinymce.get(oldId).getContent() : ta.value;
-                    var newId = 'home-features-item-' + i + '-description';
-                    if (typeof tinymce !== 'undefined' && tinymce.get(oldId)) tinymce.get(oldId).remove();
-                    ta.id = newId;
                     ta.name = 'home_sections[features][items][' + i + '][description]';
-                    ta.value = content;
-                    ta.classList.add('home-section-tinymce');
-                    initTinymceForId(newId);
+                    ta.id = 'home-features-item-' + i + '-description';
                 }
             });
         }
@@ -1497,12 +1833,12 @@
                     '<button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-features_item_' + nextIndex + '" aria-label="Kaart tonen/verbergen">' + eyeSvg + '</button>' +
                     '<button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button>' +
                     '</div>' +
-                    '<div><label class="block text-xs text-muted-foreground mb-1">Titel</label><input type="text" name="home_sections[features][items][' + nextIndex + '][title]" class="kt-input w-full features-item-title" value=""></div>' +
-                    '<div><label class="block text-xs text-muted-foreground mb-1">Beschrijving</label><textarea name="home_sections[features][items][' + nextIndex + '][description]" id="home-features-item-' + nextIndex + '-description" class="kt-input w-full pt-1 home-section-tinymce" rows="6"></textarea></div>' +
-                    '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label class="block text-xs text-muted-foreground mb-1">Icoon (Heroicon)</label><select name="home_sections[features][items][' + nextIndex + '][icon]" class="kt-input w-full features-item-icon">' + iconOpts + '</select></div><div><label class="block text-xs text-muted-foreground mb-1">Grootte icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_size]" class="kt-input w-full features-item-icon-size">' + sizeOpts + '</select></div></div>' +
+                    '<div><label class="block text-xs text-muted-foreground mb-1">Titel</label><input type="text" name="home_sections[features][items][' + nextIndex + '][title]" class="kt-input home-section-input-400 features-item-title" value=""></div>' +
+                    '<div><label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>' + getFlowbiteWysiwygHtml('home-features-item-' + nextIndex + '-description', 'home_sections[features][items][' + nextIndex + '][description]', 'home-features-item-' + nextIndex + '-description', '') + '</div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label><select name="home_sections[features][items][' + nextIndex + '][icon]" class="kt-input flex-1 min-w-0 features-item-icon">' + iconOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_size]" class="kt-input flex-1 min-w-0 features-item-icon-size">' + sizeOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_align]" class="kt-input flex-1 min-w-0 features-item-icon-align"><option value="left">Links</option><option value="center" selected>Midden</option><option value="right">Rechts</option></select></div></div>' +
                     '</div>';
                 container.appendChild(div);
-                initTinymceForId('home-features-item-' + nextIndex + '-description');
+                if (typeof window.initFlowbiteWysiwyg === 'function') window.initFlowbiteWysiwyg(div);
                 var newToggle = div.querySelector('.section-visibility-toggle');
                 if (newToggle) {
                     newToggle.addEventListener('click', function() {
@@ -1578,16 +1914,16 @@
                 div.className = 'cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3';
                 div.setAttribute('data-cards-index', nextIndex);
                 div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-start gap-2"><div class="relative shrink-0"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive absolute top-1 right-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url" data-preview-id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url" data-preview-id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
                     '<div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url" style="width: 500px; min-width: 500px; height: 130px;"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div></div>' +
                     '<input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url" value="">' +
-                    '<div class="row-visibility-row mt-2"><div class="flex flex-wrap items-center gap-4 mb-1 pt-5"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-center gap-3 mb-2"><label class="text-sm text-muted-foreground shrink-0">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (500px)</option><option value="max">Maximaal (volledige breedte)</option></select><label class="text-sm text-muted-foreground shrink-0">Lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_size]" class="kt-input w-20 text-sm">' + (function(){ var o = []; for (var px = 10; px <= 24; px += 2) o.push('<option value="' + px + '"' + (px === 14 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select><label class="text-sm text-muted-foreground shrink-0">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select><label class="text-sm text-muted-foreground shrink-0">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div>' +
-                    '<textarea name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text]" id="home-cards-' + sectionKey + '-item-' + nextIndex + '-text" class="kt-input w-full pt-1 home-section-tinymce" rows="6" placeholder="Tekst onder de afbeelding (rich text)"></textarea></div>';
+                    '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (500px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
+                    '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)') : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
                 container.appendChild(div);
-                var textareaId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text';
-                if (typeof window.initHomeSectionTinymce === 'function') window.initHomeSectionTinymce(textareaId, 200);
+                if (typeof window.initFlowbiteWysiwyg === 'function') window.initFlowbiteWysiwyg(div);
+                if (typeof window.bindColorSyncIn === 'function') window.bindColorSyncIn(div);
                 var newArea = div.querySelector('.hero-image-upload-area');
                 if (newArea && heroImageUploadUrl) bindOneHeroUpload(newArea);
                 var newToggle = div.querySelector('.section-visibility-toggle');
@@ -1662,6 +1998,9 @@
                 if (el.id && el.id.indexOf(baseType) !== -1) {
                     el.id = el.id.replace(baseType, newKey);
                 }
+                if (el.getAttribute && el.getAttribute('data-editor-id') && el.getAttribute('data-editor-id').indexOf(baseType) !== -1) {
+                    el.setAttribute('data-editor-id', el.getAttribute('data-editor-id').replace(new RegExp(baseType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newKey));
+                }
                 if (el.getAttribute && el.getAttribute('data-target')) {
                     var t = el.getAttribute('data-target');
                     if (t.indexOf('visibility-' + baseType) === 0) el.setAttribute('data-target', 'visibility-' + newKey + t.slice(('visibility-' + baseType).length));
@@ -1691,8 +2030,14 @@
             }
             sortableContainer.appendChild(clone);
             if (typeof window.bindHeroUploadAreasIn === 'function') window.bindHeroUploadAreasIn(clone);
+            /* Flowbite WYSIWYG (Tiptap): initialiseer editors in de nieuwe sectie; geen TinyMCE op deze textareas */
+            var flowbiteWrappers = clone.querySelectorAll('[data-flowbite-wysiwyg]');
+            if (flowbiteWrappers.length && typeof window.initFlowbiteWysiwyg === 'function') {
+                window.initFlowbiteWysiwyg(clone);
+            }
             var textareasToInit = [];
             clone.querySelectorAll('textarea').forEach(function(ta) {
+                if (ta.closest('[data-flowbite-wysiwyg]')) return; /* skip Flowbite-editor textarea */
                 if (!ta.classList.contains('home-section-tinymce')) ta.classList.add('home-section-tinymce', 'kt-input', 'w-full', 'pt-1');
                 ta.rows = 10;
                 if (ta.id) textareasToInit.push(ta.id);
@@ -1830,6 +2175,10 @@
     .dark .home-section-header--cta { background-color: rgb(127 29 29 / 0.35); border-left-color: rgb(248 113 113); }
     .home-section-header--cta .kt-card-title { color: rgb(185 28 28); }
     .dark .home-section-header--cta .kt-card-title { color: rgb(252 165 165); }
+    .home-section-header--carousel { background-color: rgb(204 251 241); border-left-color: rgb(20 184 166); }
+    .dark .home-section-header--carousel { background-color: rgb(19 78 74 / 0.4); border-left-color: rgb(45 212 191); }
+    .home-section-header--carousel .kt-card-title { color: rgb(15 118 110); }
+    .dark .home-section-header--carousel .kt-card-title { color: rgb(94 234 212); }
     .home-section-header--footer { background-color: rgb(241 245 249); border-left-color: rgb(100 116 139); }
     .dark .home-section-header--footer { background-color: rgb(30 41 59 / 0.5); border-left-color: rgb(148 163 184); }
     .home-section-header--footer .kt-card-title { color: rgb(51 65 85); }
@@ -1842,6 +2191,20 @@
 @endpush
 
 @push('scripts')
+@php
+$flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg', [
+    'editorId' => '__FLOWBITE_EDITOR_ID__',
+    'name' => '__FLOWBITE_NAME__',
+    'value' => '',
+    'textareaId' => '__FLOWBITE_TEXTAREA_ID__',
+    'placeholder' => '__FLOWBITE_PLACEHOLDER__'
+])->render();
+@endphp
+<script type="text/template" id="flowbite-wysiwyg-tpl">{!! $flowbiteWysiwygTemplate !!}</script>
+<script type="importmap">
+{"imports":{"https://esm.sh/v135/prosemirror-model@1.22.3/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs","https://esm.sh/v135/prosemirror-model@1.22.1/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs"}}
+</script>
+<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 (function() {
@@ -1918,13 +2281,12 @@
     } else {
         initAllHomeSectionTinymce();
     }
-    // Sync TinyMCE naar textareas vóór form submit (zodat cards/features-tekst wordt opgeslagen)
+    // Sync editors naar textareas vóór form submit
     var form = document.getElementById('website-page-form');
     if (form) {
         form.addEventListener('submit', function() {
-            if (typeof tinymce !== 'undefined' && tinymce.editors) {
-                tinymce.triggerSave();
-            }
+            if (typeof tinymce !== 'undefined' && tinymce.editors) tinymce.triggerSave();
+            if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
         }, true);
     }
 })();

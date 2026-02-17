@@ -66,6 +66,76 @@ class EnvService
     }
 
     /**
+     * Pad naar de root .env (projectroot, één niveau boven Laravel base_path).
+     * GOOGLE_MAPS_API_KEY staat hier; backend/.env wordt niet gebruikt voor deze key.
+     */
+    public static function getRootEnvPath(): string
+    {
+        return dirname(base_path()) . '/.env';
+    }
+
+    /**
+     * Google Maps API key uit de root .env (projectroot).
+     * De key staat in .env in de projectroot, niet in backend/.env.
+     */
+    public function getGoogleMapsApiKey(): string
+    {
+        $rootEnv = self::getRootEnvPath();
+        if (File::exists($rootEnv) && is_readable($rootEnv)) {
+            $key = trim((string) $this->getFromFile($rootEnv, 'GOOGLE_MAPS_API_KEY', ''));
+            if ($key !== '') {
+                return $key;
+            }
+        }
+        $key = trim((string) $this->get('GOOGLE_MAPS_API_KEY', ''));
+        if ($key !== '') {
+            return $key;
+        }
+        return trim((string) (config('maps.api_key') ?? env('GOOGLE_MAPS_API_KEY', '')));
+    }
+
+    /**
+     * Lees één key uit een .env-bestand (zonder wijziging van $this->envPath).
+     * Key-match is case-sensitive; waarde mag tussen aanhalingstekens staan.
+     */
+    private function getFromFile(string $filePath, string $key, $default = null)
+    {
+        if (!File::exists($filePath) || !is_readable($filePath)) {
+            return $default;
+        }
+        $lines = @file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!is_array($lines)) {
+            return $default;
+        }
+        $key = trim($key);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || strpos($line, '#') === 0) {
+                continue;
+            }
+            if (strpos($line, '=') !== false) {
+                list($k, $value) = explode('=', $line, 2);
+                if (trim($k) === $key) {
+                    $value = trim($value);
+                    if (strlen($value) >= 2 && ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') || (substr($value, 0, 1) === "'" && substr($value, -1) === "'"))) {
+                        $value = substr($value, 1, -1);
+                    }
+                    return $value;
+                }
+            }
+        }
+        return $default;
+    }
+
+    /**
+     * Google Maps Map ID (optioneel). Bij invullen: kaarten gebruiken AdvancedMarkerElement (geen deprecation).
+     */
+    public function getGoogleMapsMapId(): string
+    {
+        return trim((string) $this->get('GOOGLE_MAPS_MAP_ID', ''));
+    }
+
+    /**
      * Set environment variables
      */
     public function set(array $variables)

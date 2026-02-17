@@ -373,6 +373,23 @@
                             </td>
                         </tr>
                         <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Map ID (optioneel)</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('GOOGLE_MAPS_MAP_ID') border-destructive @enderror"
+                                           id="GOOGLE_MAPS_MAP_ID"
+                                           name="GOOGLE_MAPS_MAP_ID"
+                                           value="{{ old('GOOGLE_MAPS_MAP_ID', $mapsSettings['GOOGLE_MAPS_MAP_ID'] ?? '') }}"
+                                           placeholder="bijv. abc123def456">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Voor Advanced Markers (geen deprecation-warning). Aanmaken in <a href="https://console.cloud.google.com/google/maps-apis/studio/maps" target="_blank" rel="noopener" class="underline">Google Cloud Console → Map Management</a></div>
+                                @error('GOOGLE_MAPS_MAP_ID')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Standaard Zoom Level</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">

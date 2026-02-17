@@ -215,7 +215,15 @@ Route::get('/vacatures', function() {
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
 // Frontend meld: sessie verlopen (toegankelijk zonder login)
-Route::get('/meld/sessie-verlopen', function () {
+Route::get('/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
+    // Bewaar de bedoelde URL voor na inloggen (alleen frontend-pagina's, geen /admin)
+    $intended = $request->query('intended');
+    if ($intended && is_string($intended)) {
+        $path = parse_url($intended, PHP_URL_PATH) ?? '';
+        if ($path !== '' && !\Illuminate\Support\Str::startsWith($path, '/admin')) {
+            session(['url.intended' => $intended]);
+        }
+    }
     return view('meld.redirect', [
         'title' => 'Sessie verlopen',
         'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
@@ -240,14 +248,19 @@ Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admi
 Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $request) {
     // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's)
     $intended = $request->query('intended');
-    if ($intended && \Illuminate\Support\Str::startsWith(parse_url($intended, PHP_URL_PATH) ?? '', '/admin')) {
+    $path = $intended ? (parse_url($intended, PHP_URL_PATH) ?? '') : '';
+    if ($intended && is_string($intended) && $path !== '' && \Illuminate\Support\Str::startsWith($path, '/admin')) {
         session(['url.intended' => $intended]);
     }
     $appName = \App\Models\GeneralSetting::get('site_name', config('app.name'));
+    $redirectUrl = route('admin.login');
+    if (!empty($intended) && is_string($intended)) {
+        $redirectUrl .= '?intended=' . rawurlencode($intended);
+    }
     return view('admin.meld.redirect', [
         'title' => 'Sessie verlopen',
         'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
-        'redirectUrl' => route('admin.login'),
+        'redirectUrl' => $redirectUrl,
         'redirectLabel' => 'Naar inlogpagina',
         'appName' => $appName ?: config('app.name'),
     ]);
@@ -537,6 +550,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
         Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
         Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
+        Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');

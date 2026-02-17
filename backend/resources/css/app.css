@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "flag-icons/css/flag-icons.min.css";
+@import "flowbite-typography/dist/typography.min.css";
 
 /* Vertel Tailwind waar klassen voorkomen (Laravel) */
 @source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
@@ -320,5 +321,107 @@
   }
   .dark .stat-label {
     color: rgb(var(--color-muted-dark));
+  }
+
+  /* Flowbite WYSIWYG – wrapper en content-gebied; typography via flowbite-typography (.format) */
+  .flowbite-wysiwyg-wrapper {
+    border-color: #e5e7eb;
+    background-color: #ffffff;
+  }
+  .dark .flowbite-wysiwyg-wrapper {
+    border-color: #4b5563;
+    background-color: #1f2937;
+  }
+  .flowbite-wysiwyg-content {
+    background-color: #ffffff;
+  }
+  .dark .flowbite-wysiwyg-content {
+    background-color: #1f2937;
+  }
+  .flowbite-wysiwyg-content .ProseMirror {
+    background-color: transparent;
+    min-height: 280px;
+  }
+
+  /* Cards ronde hoeken (frontend): lettergrootte en lettertype uit admin; H1/H2/H3 schalen mee met --card-fs */
+  .cards-ronde-hoeken-text .prose,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose {
+    font-size: var(--card-fs) !important;
+    font-family: var(--theme-font-body, inherit);
+  }
+  .cards-ronde-hoeken-text .prose p,
+  .cards-ronde-hoeken-text .prose li,
+  .cards-ronde-hoeken-text .prose > * {
+    font-size: inherit;
+  }
+  /* Lege regels 1:1 overnemen: lege paragraaf of alleen <br> krijgt zichtbare ruimte (override prose) */
+  .cards-ronde-hoeken-text .prose p:empty,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose p:empty,
+  .cards-ronde-hoeken-text .prose p.cards-ronde-hoeken-empty-p,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose p.cards-ronde-hoeken-empty-p {
+    min-height: 1.5em !important;
+    height: auto !important;
+    display: block !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    margin: 20px !important;
+    overflow: visible !important;
+  }
+  .cards-ronde-hoeken-text .prose p:has(> br:only-child),
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose p:has(> br:only-child) {
+    min-height: 1.5em !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    margin-top: 0.5em !important;
+    margin-bottom: 0.5em !important;
+  }
+  /* <hr>: ruimte boven en onder binnen een card */
+  .cards-ronde-hoeken-text .prose hr,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose hr {
+    margin-top: 20px !important;
+    margin-bottom: 20px !important;
+  }
+  /* <br> niet verbergen zodat line breaks uit de WYSIWYG zichtbaar blijven */
+  .cards-ronde-hoeken-text .prose h1,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h1 {
+    font-size: 1.35em !important;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 0.5em;
+    margin-bottom: 0.4em;
+  }
+  .cards-ronde-hoeken-text .prose h2,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h2 {
+    font-size: 1.2em !important;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 0.5em;
+    margin-bottom: 0.35em;
+  }
+  .cards-ronde-hoeken-text .prose h3,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h3 {
+    font-size: 1.1em !important;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-top: 0.45em;
+    margin-bottom: 0.3em;
+  }
+
+  /* Cards ronde hoeken: WYSIWYG blijft binnen kaart, geen overflow of scheve uitlijning */
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-wrapper {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Home-sections: vaste breedte 400px voor korte tekstvelden (max-width werkt gegarandeerd) */
+  .home-section-input-400 {
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
   }
 }

@@ -22,8 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetLocale::class,
         ]);
         
-        // Ongeauthenticeerde frontend-gebruikers naar meld-pagina (sessie verlopen) i.p.v. direct naar login
-        $middleware->redirectGuestsTo(fn (Request $request) => route('meld.sessie-verlopen'));
+        // Ongeauthenticeerde frontend-gebruikers naar meld-pagina (sessie verlopen) i.p.v. direct naar login, met intended voor redirect na inloggen
+        $middleware->redirectGuestsTo(fn (Request $request) => route('meld.sessie-verlopen') . '?intended=' . rawurlencode($request->url()));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Ensure JSON response for favorite routes so frontend can show the error

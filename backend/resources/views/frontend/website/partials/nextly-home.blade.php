@@ -167,17 +167,22 @@
                         $iconSize = $item['icon_size'] ?? 'medium';
                         $sizeDef = config('heroicons.sizes.'.$iconSize);
                         $iconSizeClass = is_array($sizeDef) && !empty($sizeDef['class']) ? $sizeDef['class'] : 'w-10 h-10';
+                        $iconAlign = $item['icon_align'] ?? 'center';
+                        $iconAlignItems = $iconAlign === 'right' ? 'items-end' : ($iconAlign === 'left' ? 'items-start' : 'items-center');
+                        $iconAlignText = $iconAlign === 'right' ? 'text-right' : ($iconAlign === 'left' ? 'text-left' : 'text-center');
                     @endphp
                     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-10 min-h-[18rem] shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center justify-center w-[4.5rem] h-[4.5rem] py-2 rounded-lg text-white text-2xl" style="background-color: {{ $primaryColor }};">
-                            <svg class="{{ $iconSizeClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">{!! $iconDef['svg'] ?? '' !!}</svg>
+                        <div class="flex flex-col w-full {{ $iconAlignItems }} {{ $iconAlignText }}">
+                            <div class="flex items-center justify-center w-[4.5rem] h-[4.5rem] py-2 rounded-lg text-white text-2xl shrink-0" style="background-color: {{ $primaryColor }};">
+                                <svg class="{{ $iconSizeClass }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">{!! $iconDef['svg'] ?? '' !!}</svg>
+                            </div>
+                            <h3 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">
+                                {{ $item['title'] ?? 'Dienst' }}
+                            </h3>
+                            <p class="mt-3 text-gray-600 dark:text-gray-400">
+                                {!! $item['description'] ?? '' !!}
+                            </p>
                         </div>
-                        <h3 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">
-                            {{ $item['title'] ?? 'Dienst' }}
-                        </h3>
-                        <p class="mt-3 text-gray-600 dark:text-gray-400">
-                            {!! $item['description'] ?? '' !!}
-                        </p>
                     </div>
                     @endforeach
                 </div>

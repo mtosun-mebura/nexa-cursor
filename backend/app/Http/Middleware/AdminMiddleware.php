@@ -20,15 +20,15 @@ class AdminMiddleware
             // Store the intended URL for redirect after login
             session(['url.intended' => $request->url()]);
             
-            // For AJAX requests, return 401 status instead of redirect
+            // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Je sessie is verlopen. Log opnieuw in.',
-                    'redirect' => route('admin.meld.sessie-verlopen')
+                    'redirect' => route('admin.meld.sessie-verlopen', ['intended' => $request->url()])
                 ], 401);
             }
             
-            return redirect()->route('admin.meld.sessie-verlopen');
+            return redirect()->route('admin.meld.sessie-verlopen', ['intended' => $request->url()]);
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)

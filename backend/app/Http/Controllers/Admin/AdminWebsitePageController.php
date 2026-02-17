@@ -119,12 +119,17 @@ class AdminWebsitePageController extends Controller
         $themes = FrontendTheme::orderBy('slug')->get();
         $defaultTheme = $this->websiteBuilder->getActiveTheme();
         $moduleThemes = $this->getModuleThemesForForm($installedModules);
+        $env = app(\App\Services\EnvService::class);
+        $googleMapsApiKey = $env->getGoogleMapsApiKey();
+        $googleMapsMapId = $env->getGoogleMapsMapId();
         return view('admin.website-pages.edit', [
             'page' => $website_page,
             'installedModules' => $installedModules,
             'themes' => $themes,
             'defaultTheme' => $defaultTheme,
             'moduleThemes' => $moduleThemes,
+            'googleMapsApiKey' => $googleMapsApiKey,
+            'googleMapsMapId' => $googleMapsMapId,
         ]);
     }
 
@@ -221,7 +226,7 @@ class AdminWebsitePageController extends Controller
             'features' => $defaults['features'] ?? [],
             'cta' => $defaults['cta'] ?? [],
             'carousel' => $defaults['carousel'] ?? ['items' => []],
-            'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left']]],
+            'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']]],
             'footer' => $defaults['footer'] ?? [],
             'copyright' => $defaults['copyright'] ?? '',
         ];
@@ -379,6 +384,16 @@ class AdminWebsitePageController extends Controller
                 $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true);
             }
             $website_page->update($data);
+
+            // Footer en visibility worden op de frontend altijd van de home-pagina geladen. Sync ze
+            // naar de home-pagina zodat wijzigingen (zichtbaarheid, uitlijning) op elke bewerkpagina op de site zichtbaar zijn.
+            $homePage = $this->websiteBuilder->getHomePage();
+            if ($homePage && $homePage->id !== $website_page->id && $homePage->frontend_theme_id == $website_page->frontend_theme_id) {
+                $current = is_array($homePage->home_sections) ? $homePage->home_sections : [];
+                $current['footer'] = $data['home_sections']['footer'] ?? ($current['footer'] ?? []);
+                $current['visibility'] = array_merge($current['visibility'] ?? [], $data['home_sections']['visibility'] ?? []);
+                $homePage->update(['home_sections' => $current]);
+            }
         } catch (\Throwable $e) {
             \Log::error('Website page update failed', [
                 'page_id' => $website_page->id,
@@ -391,7 +406,7 @@ class AdminWebsitePageController extends Controller
                 ->withInput()
                 ->withErrors(['home_sections' => 'Opslaan mislukt: ' . $e->getMessage()]);
         }
-        return redirect()->route('admin.website-pages.index')->with('success', 'Pagina bijgewerkt.');
+        return redirect()->route('admin.website-pages.edit', $website_page)->with('success', 'Pagina bijgewerkt.');
     }
 
     /**
@@ -521,6 +536,19 @@ class AdminWebsitePageController extends Controller
             unset($footer['support_links']);
         }
         $footer = array_merge($defaults['footer'], $footer);
+        $footer['map_postcode'] = isset($footerInput['map_postcode']) ? trim((string) $footerInput['map_postcode']) : ($defaults['footer']['map_postcode'] ?? '');
+        $footer['map_huisnummer'] = isset($footerInput['map_huisnummer']) ? trim((string) $footerInput['map_huisnummer']) : ($defaults['footer']['map_huisnummer'] ?? '');
+        $footer['map_street'] = isset($footerInput['map_street']) ? trim((string) $footerInput['map_street']) : ($defaults['footer']['map_street'] ?? '');
+        $footer['map_city'] = isset($footerInput['map_city']) ? trim((string) $footerInput['map_city']) : ($defaults['footer']['map_city'] ?? '');
+        $footer['map_lat'] = isset($footerInput['map_lat']) && $footerInput['map_lat'] !== '' ? (is_numeric($footerInput['map_lat']) ? (float) $footerInput['map_lat'] : null) : null;
+        $footer['map_lng'] = isset($footerInput['map_lng']) && $footerInput['map_lng'] !== '' ? (is_numeric($footerInput['map_lng']) ? (float) $footerInput['map_lng'] : null) : null;
+        $footer['map_size'] = isset($footerInput['map_size']) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true) ? $footerInput['map_size'] : ($defaults['footer']['map_size'] ?? 'normal');
+        $mapZoom = isset($footerInput['map_zoom']) && is_numeric($footerInput['map_zoom']) ? (int) $footerInput['map_zoom'] : (int) ($defaults['footer']['map_zoom'] ?? 17);
+        $footer['map_zoom'] = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17;
+        $footer['map_show_address_balloon'] = !empty($footerInput['map_show_address_balloon']);
+        $footer['logo_align'] = isset($footerInput['logo_align']) && in_array($footerInput['logo_align'], ['left', 'center', 'right'], true) ? $footerInput['logo_align'] : ($defaults['footer']['logo_align'] ?? 'left');
+        $footer['quick_links_align'] = isset($footerInput['quick_links_align']) && in_array($footerInput['quick_links_align'], ['left', 'center', 'right'], true) ? $footerInput['quick_links_align'] : ($defaults['footer']['quick_links_align'] ?? 'left');
+        $footer['support_links_align'] = isset($footerInput['support_links_align']) && in_array($footerInput['support_links_align'], ['left', 'center', 'right'], true) ? $footerInput['support_links_align'] : ($defaults['footer']['support_links_align'] ?? 'left');
 
         $visibilityInput = $input['visibility'] ?? [];
         $visibility = array_merge($defaults['visibility'], [
@@ -534,6 +562,9 @@ class AdminWebsitePageController extends Controller
         ]);
         foreach (array_keys($visibilityInput) as $key) {
             if (preg_match('/^(hero|stats|why_nexa|features|cta|cards_ronde_hoeken)(_[a-z0-9_]+)?$/i', $key)) {
+                $visibility[$key] = !empty($visibilityInput[$key]);
+            }
+            if (preg_match('/^footer_[a-z0-9_]+$/i', $key)) {
                 $visibility[$key] = !empty($visibilityInput[$key]);
             }
         }
@@ -589,6 +620,7 @@ class AdminWebsitePageController extends Controller
                                 'description' => $row['description'] ?? '',
                                 'icon' => $row['icon'] ?? ($i === 0 ? 'light-bulb' : 'bolt'),
                                 'icon_size' => in_array($row['icon_size'] ?? '', ['small', 'medium', 'large'], true) ? $row['icon_size'] : 'medium',
+                                'icon_align' => in_array($row['icon_align'] ?? '', ['left', 'center', 'right'], true) ? $row['icon_align'] : 'center',
                             ];
                         }
                     }
@@ -629,8 +661,18 @@ class AdminWebsitePageController extends Controller
                             $fontSize = isset($row['font_size']) ? (int) $row['font_size'] : 14;
                             $fontSize = max(10, min(24, $fontSize));
                             $fontStyle = isset($row['font_style']) && in_array($row['font_style'], ['normal', 'bold', 'italic'], true) ? $row['font_style'] : 'normal';
-                            $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'max'], true) ? $row['card_size'] : 'normal';
+                            $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'max', 'total_width'], true) ? $row['card_size'] : 'normal';
                             $textAlign = isset($row['text_align']) && in_array($row['text_align'], ['left', 'center', 'right'], true) ? $row['text_align'] : 'left';
+                            $imagePadding = isset($row['image_padding']) ? max(0, min(30, (int) $row['image_padding'])) : 2;
+                            $imagePadding = (int) (round($imagePadding / 2) * 2);
+                            $imageBgColor = isset($row['image_bg_color']) ? trim((string) $row['image_bg_color']) : '';
+                            if ($imageBgColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $imageBgColor)) {
+                                $imageBgColor = '';
+                            }
+                            $textColor = isset($row['text_color']) ? trim((string) $row['text_color']) : '';
+                            if ($textColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $textColor)) {
+                                $textColor = '';
+                            }
                             $items[] = [
                                 'image_url' => isset($row['image_url']) ? trim((string) $row['image_url']) : '',
                                 'text' => isset($row['text']) ? trim((string) $row['text']) : '',
@@ -638,11 +680,14 @@ class AdminWebsitePageController extends Controller
                                 'font_style' => $fontStyle,
                                 'card_size' => $cardSize,
                                 'text_align' => $textAlign,
+                                'image_padding' => $imagePadding,
+                                'image_bg_color' => $imageBgColor,
+                                'text_color' => $textColor,
                             ];
                         }
                     }
                 }
-                $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left']];
+                $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
                 return ['items' => $items ?: $defItems];
             default:
                 return [];
@@ -722,6 +767,35 @@ class AdminWebsitePageController extends Controller
         return response()->json([
             'success' => true,
             'url' => $url,
+        ]);
+    }
+
+    /**
+     * Upload document voor WYSIWYG (PDF, DOC, etc.); retourneert publieke URL.
+     */
+    public function uploadWysiwygDocument(Request $request): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'document' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv|max:10240',
+        ], [
+            'document.required' => 'Selecteer een document.',
+            'document.mimes' => 'Toegestaan: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV.',
+            'document.max' => 'Maximaal 10MB.',
+        ]);
+
+        $file = $request->file('document');
+        $dir = 'website/documents';
+        if (! Storage::disk('public')->exists($dir)) {
+            Storage::disk('public')->makeDirectory($dir);
+        }
+        $path = $file->store($dir, 'public');
+        $url = '/storage/' . ltrim($path, '/');
+
+        return response()->json([
+            'success' => true,
+            'url' => $url,
+            'filename' => $file->getClientOriginalName(),
         ]);
     }
 

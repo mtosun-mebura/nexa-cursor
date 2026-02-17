@@ -60,9 +60,10 @@ class AdminSettingsController extends Controller
             'GOOGLE_SITE_VERIFICATION' => $this->envService->get('GOOGLE_SITE_VERIFICATION', ''),
         ];
 
-        // Get current Maps settings
+        // Get current Maps settings (zelfde bron als overal elders: Admin → Instellingen → Maps)
         $mapsSettings = [
-            'GOOGLE_MAPS_API_KEY' => $this->envService->get('GOOGLE_MAPS_API_KEY', ''),
+            'GOOGLE_MAPS_API_KEY' => $this->envService->getGoogleMapsApiKey(),
+            'GOOGLE_MAPS_MAP_ID' => $this->envService->getGoogleMapsMapId(),
             'GOOGLE_MAPS_ZOOM' => $this->envService->get('GOOGLE_MAPS_ZOOM', '12'),
             'GOOGLE_MAPS_CENTER_LAT' => $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
             'GOOGLE_MAPS_CENTER_LNG' => $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
@@ -255,6 +256,7 @@ class AdminSettingsController extends Controller
         
         $validator = Validator::make($request->all(), [
             'GOOGLE_MAPS_API_KEY' => 'required|string|max:255',
+            'GOOGLE_MAPS_MAP_ID' => 'nullable|string|max:255',
             'GOOGLE_MAPS_ZOOM' => 'nullable|integer|min:1|max:20',
             'GOOGLE_MAPS_CENTER_LAT' => 'nullable|numeric|between:-90,90',
             'GOOGLE_MAPS_CENTER_LNG' => 'nullable|numeric|between:-180,180',
@@ -280,6 +282,7 @@ class AdminSettingsController extends Controller
         try {
             $mapsSettings = [
                 'GOOGLE_MAPS_API_KEY' => $request->input('GOOGLE_MAPS_API_KEY'),
+                'GOOGLE_MAPS_MAP_ID' => $request->input('GOOGLE_MAPS_MAP_ID', ''),
                 'GOOGLE_MAPS_ZOOM' => $request->input('GOOGLE_MAPS_ZOOM', '12'),
                 'GOOGLE_MAPS_CENTER_LAT' => $request->input('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
                 'GOOGLE_MAPS_CENTER_LNG' => $request->input('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
@@ -432,6 +435,8 @@ class AdminSettingsController extends Controller
         $siteName = GeneralSetting::get('site_name', config('app.name'));
         $siteDescription = GeneralSetting::get('site_description', '');
         $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
+        $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0');
+        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1');
         
         // Verify files exist
         if ($logo && !Storage::disk('public')->exists($logo)) {
@@ -444,7 +449,7 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
         
-        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'siteName', 'siteDescription', 'dashboardLinkLabel'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'siteName', 'siteDescription', 'dashboardLinkLabel', 'aiChatEnabled', 'dashboardLinkVisible'));
     }
 
     /**
@@ -459,6 +464,8 @@ class AdminSettingsController extends Controller
             'site_name' => 'nullable|string|max:255',
             'site_description' => 'nullable|string|max:1000',
             'dashboard_link_label' => 'nullable|string|max:100',
+            'ai_chat_enabled' => 'nullable',
+            'dashboard_link_visible' => 'nullable',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
@@ -491,6 +498,8 @@ class AdminSettingsController extends Controller
             if ($request->has('dashboard_link_label')) {
                 GeneralSetting::set('dashboard_link_label', $request->input('dashboard_link_label', ''));
             }
+            GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0');
+            GeneralSetting::set('dashboard_link_visible', $request->has('dashboard_link_visible') ? '1' : '0');
 
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
