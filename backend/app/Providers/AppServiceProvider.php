@@ -2,11 +2,15 @@
 
 namespace App\Providers;
 
+use App\Models\Module as ModuleModel;
+use App\Services\ModuleDatabaseService;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\View;
 use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
+use App\Services\ModuleManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerModuleDatabaseConnections();
         $this->loadGoogleMapsApiKeyFromRootEnv();
 
         View::composer('frontend.layouts.website', function ($view) {
@@ -35,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
             }
             if (!array_key_exists('googleMapsMapId', $view->getData())) {
                 $view->with('googleMapsMapId', app(EnvService::class)->getGoogleMapsMapId());
+            }
+            if (!array_key_exists('showSkillmatchingAppLinks', $view->getData())) {
+                $view->with('showSkillmatchingAppLinks', app(ModuleManager::class)->isActive('skillmatching'));
             }
         });
 
@@ -53,6 +61,28 @@ class AppServiceProvider extends ServiceProvider
         
         // Register ModuleServiceProvider
         $this->app->register(\App\Providers\ModuleServiceProvider::class);
+    }
+
+    /**
+     * Registreer database-connections voor alle geïnstalleerde modules (nexa_taxiroyaal, nexa_skillmatching, …)
+     * zodat o.a. TaxiRoyaal-admin op de module-DB kan werken.
+     */
+    private function registerModuleDatabaseConnections(): void
+    {
+        if (!Schema::hasTable('modules')) {
+            return;
+        }
+        $dbService = $this->app->make(ModuleDatabaseService::class);
+        if (!$dbService->supportsModuleDatabases()) {
+            return;
+        }
+        foreach (ModuleModel::where('installed', true)->pluck('name') as $name) {
+            try {
+                $dbService->registerConnection($name);
+            } catch (\Throwable $e) {
+                // Bij eerste request na install kan DB nog niet bestaan; negeer
+            }
+        }
     }
 
     /**

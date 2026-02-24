@@ -198,9 +198,9 @@
                 </div>
             </div>
 
-            <div id="home_sections_card" class="kt-card" data-theme-name="{{ $page->theme?->name ?? 'Modern' }}">
+            <div id="home_sections_card" class="kt-card" data-theme-name="{{ $page->theme?->name ?? 'Metronic' }}">
                 <div class="kt-card-header flex items-center justify-between gap-2">
-                    <h3 class="kt-card-title" id="home_sections_card_title">Pagina-secties ({{ $page->theme?->name ?? 'Modern' }} thema)</h3>
+                    <h3 class="kt-card-title" id="home_sections_card_title">Pagina-secties ({{ $page->theme?->name ?? 'Metronic' }} thema)</h3>
                     <div class="flex items-center gap-1 shrink-0">
                         <div class="relative" id="home-sections-add-wrap">
                             <button type="button" id="home-sections-add-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Sectie toevoegen" aria-label="Sectie toevoegen" aria-haspopup="true" aria-expanded="false">
@@ -211,7 +211,7 @@
                                 @foreach($sectionTypes as $st)
                                 <button type="button" class="home-sections-add-type w-full text-left px-3 py-2 text-sm cursor-pointer hover:bg-muted/80" data-type="{{ $st['type'] }}">{{ $st['label'] }} toevoegen</button>
                                 @endforeach
-                                @php $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage(); @endphp
+                                @php $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($page->module_name); @endphp
                                 @if($availableComponents->isNotEmpty())
                                 <div class="border-t border-border my-1"></div>
                                 <div class="px-2 py-1 text-xs font-medium text-muted-foreground">Componenten</div>
@@ -227,7 +227,7 @@
                     </div>
                 </div>
                 <div class="kt-card-table p-4">
-                    <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Modern' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
+                    <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
                     @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? ''])
                 </div>
             </div>

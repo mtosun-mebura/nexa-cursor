@@ -54,29 +54,32 @@ class MenuService
                         }
                     }
                     // Check permission if specified
-                    if (isset($item['permission'])) {
-                        // Super-admin can see everything
+                    $permissionOk = true;
+                    if (isset($item['permission']) || !empty($item['permission_any'])) {
                         if ($isSuperAdmin) {
-                            // Show menu item for super-admin
+                            $permissionOk = true;
                         } else {
-                            // Check if permission exists in database
-                            $permissionExists = Permission::where('name', $item['permission'])
-                                ->where('guard_name', 'web')
-                                ->exists();
-                            
-                            if ($permissionExists) {
-                                // Permission exists - check if user has it
-                                try {
-                                    if (!$user->can($item['permission'])) {
-                                        // User doesn't have permission, skip this menu item
-                                        continue;
+                            $permissionsToCheck = isset($item['permission_any']) && is_array($item['permission_any'])
+                                ? $item['permission_any']
+                                : (isset($item['permission']) ? [$item['permission']] : []);
+                            $hasAny = false;
+                            foreach ($permissionsToCheck as $perm) {
+                                $exists = Permission::where('name', $perm)->where('guard_name', 'web')->exists();
+                                if ($exists) {
+                                    try {
+                                        if ($user->can($perm)) {
+                                            $hasAny = true;
+                                            break;
+                                        }
+                                    } catch (\Exception $e) {
+                                        // skip
                                     }
-                                } catch (\Exception $e) {
-                                    // If can() fails, skip to be safe
-                                    continue;
                                 }
                             }
-                            // If permission doesn't exist yet, don't show (wait for proper setup)
+                            $permissionOk = $hasAny;
+                            if (!$permissionOk && !empty($permissionsToCheck)) {
+                                continue;
+                            }
                         }
                     }
                     // If no permission specified, show for everyone (or check if logged in)
@@ -107,6 +110,7 @@ class MenuService
     /**
      * Geef voor een module de lijst enabled menu item keys uit config.
      * Null = geen filter (alle onderdelen tonen), array = alleen deze keys.
+     * Nieuwe menu-keys die de module later toevoegt (bijv. tarieven) worden automatisch meegenomen.
      */
     public function getEnabledMenuKeysForModule(string $moduleName): ?array
     {
@@ -122,6 +126,13 @@ class MenuService
         $enabled = $model->configuration['enabled_menu_items'] ?? null;
         if (!is_array($enabled)) {
             return null;
+        }
+
+        // Merge met huidige menu-keys van de module, zodat nieuw toegevoegde items (bijv. tarieven) ook getoond worden
+        $module = $this->moduleManager->loadModule($moduleName);
+        if ($module) {
+            $currentKeys = array_filter(array_column($module->registerMenuItems(), 'key'));
+            $enabled = array_values(array_unique(array_merge($enabled, $currentKeys)));
         }
 
         return $enabled;

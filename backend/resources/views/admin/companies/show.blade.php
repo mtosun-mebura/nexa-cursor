@@ -201,10 +201,30 @@
                 </h3>
             </div>
             <div class="kt-card-content flex-1">
+                @php
+                    // Eén adresbron voor weergave én kaart: hoofdkantoor of bedrijfsadres
+                    $contactSource = $company->mainLocation ?: $company;
+                    $addressLine1 = trim(($contactSource->street ?? '') . ' ' . ($contactSource->house_number ?? '') . (isset($contactSource->house_number_extension) && $contactSource->house_number_extension ? '-' . $contactSource->house_number_extension : ''));
+                    $addressLine2 = trim(($contactSource->postal_code ?? '') . ' ' . ($contactSource->city ?? ''));
+                    $addressLine3 = $contactSource->country ?? '';
+                    $addressParts = array_filter([$addressLine1, $addressLine2, $addressLine3]);
+                @endphp
                 <div class="flex flex-wrap items-start gap-5">
-                    <div class="rounded-xl w-full md:w-80 min-h-52 flex-shrink-0" id="company_contact_map">
+                    <div class="rounded-xl w-full md:w-80 flex-shrink-0 bg-muted/30" id="company_contact_map" style="height: 208px;">
                     </div>
                     <div class="flex flex-col gap-2.5 flex-1 min-w-0">
+                        @if(!empty($addressParts))
+                        <div class="flex items-start gap-2.5">
+                            <span class="mt-0.5">
+                                <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
+                            </span>
+                            <div class="flex flex-col gap-0.5">
+                                @foreach($addressParts as $part)
+                                <span class="text-sm text-mono">{{ $part }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                         @if($company->email)
                         <div class="flex items-center gap-2.5">
                             <span>
@@ -233,44 +253,6 @@
                             <a class="link text-sm font-medium" href="{{ $company->website }}" target="_blank">
                                 {{ $company->website }}
                             </a>
-                        </div>
-                        @endif
-                        @php
-                            $addressParts = [];
-                            if ($company->mainLocation) {
-                                if ($company->mainLocation->street && $company->mainLocation->house_number) {
-                                    $addressParts[] = $company->mainLocation->street . ' ' . $company->mainLocation->house_number . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : '');
-                                }
-                                if ($company->mainLocation->postal_code && $company->mainLocation->city) {
-                                    $addressParts[] = $company->mainLocation->postal_code . ' ' . $company->mainLocation->city;
-                                }
-                                if ($company->mainLocation->country) {
-                                    $addressParts[] = $company->mainLocation->country;
-                                }
-                            } elseif ($company->street || $company->city) {
-                                if ($company->street && $company->house_number) {
-                                    $addressParts[] = $company->street . ' ' . $company->house_number . ($company->house_number_extension ? '-' . $company->house_number_extension : '');
-                                }
-                                if ($company->postal_code && $company->city) {
-                                    $addressParts[] = $company->postal_code . ' ' . $company->city;
-                                }
-                                if ($company->country) {
-                                    $addressParts[] = $company->country;
-                                }
-                            }
-                        @endphp
-                        @if(!empty($addressParts))
-                        <div class="flex items-start gap-2.5">
-                            <span class="mt-0.5">
-                                <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
-                            </span>
-                            <div class="flex flex-col gap-0.5">
-                                @foreach($addressParts as $part)
-                                <span class="text-sm text-mono">
-                                    {{ $part }}
-                                </span>
-                                @endforeach
-                            </div>
                         </div>
                         @endif
                     </div>
@@ -782,44 +764,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!mapElement) return;
 
     @php
-        // Get address for geocoding and popup display
-        $streetAddress = '';
-        $postalCity = '';
-        $country = '';
-        $lat = null;
-        $lng = null;
+        // Zelfde adres als in Contact Informatie (contactSource / addressParts)
+        $mapStreetAddress = $addressLine1 ?? '';
+        $mapPostalCity = $addressLine2 ?? '';
+        $mapCountry = $addressLine3 ?? '';
+        $mapFullAddress = !empty($addressParts) ? implode(', ', $addressParts) : '';
+        $lat = $contactSource->latitude ?? null;
+        $lng = $contactSource->longitude ?? null;
         $defaultZoom = $googleMapsZoom;
-        $fullAddress = '';
-        
-        if ($company->mainLocation) {
-            $streetAddress = trim(($company->mainLocation->street ?? '') . ' ' . ($company->mainLocation->house_number ?? '') . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : ''));
-            $postalCity = trim(($company->mainLocation->postal_code ?? '') . ' ' . ($company->mainLocation->city ?? ''));
-            $country = $company->mainLocation->country ?: '';
-            $lat = $company->mainLocation->latitude;
-            $lng = $company->mainLocation->longitude;
-            
-            // Build full address for geocoding
-            $addressParts = array_filter([
-                $streetAddress,
-                $postalCity,
-                $country
-            ]);
-            $fullAddress = implode(', ', $addressParts);
-        } elseif ($company->street || $company->city) {
-            $streetAddress = trim(($company->street ?? '') . ' ' . ($company->house_number ?? '') . ($company->house_number_extension ? '-' . $company->house_number_extension : ''));
-            $postalCity = trim(($company->postal_code ?? '') . ' ' . ($company->city ?? ''));
-            $country = $company->country ?: '';
-            $lat = $company->latitude;
-            $lng = $company->longitude;
-            
-            // Build full address for geocoding
-            $addressParts = array_filter([
-                $streetAddress,
-                $postalCity,
-                $country
-            ]);
-            $fullAddress = implode(', ', $addressParts);
-        }
         
         // Store original coordinates before any fallback
         $originalLat = $lat;
@@ -840,7 +792,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if ($hasCoordinates) {
             $lat = $originalLat;
             $lng = $originalLng;
-        } elseif (empty($fullAddress) && empty($streetAddress) && empty($postalCity)) {
+        } elseif (empty($mapFullAddress) && empty($mapStreetAddress) && empty($mapPostalCity)) {
             // Only use default center if we have no coordinates AND no address to geocode
             $lat = $googleMapsCenterLat;
             $lng = $googleMapsCenterLng;
@@ -849,6 +801,11 @@ document.addEventListener('DOMContentLoaded', function() {
             $lat = null;
             $lng = null;
         }
+        // Aliassen voor de rest van de blade (zelfde adres als in Contact Informatie)
+        $streetAddress = $mapStreetAddress;
+        $postalCity = $mapPostalCity;
+        $country = $mapCountry;
+        $fullAddress = $mapFullAddress;
     @endphp
 
     function initGoogleMap() {
@@ -890,13 +847,12 @@ document.addEventListener('DOMContentLoaded', function() {
             center: initialCenter,
             zoom: initialZoom,
             mapTypeId: '{{ $googleMapsType }}',
-            mapTypeControl: false,
-            mapId: 'COMPANY_MAP'
+            mapTypeControl: false
         });
         
         @if($hasCoordinates)
-        // Use stored coordinates
-        const marker = new google.maps.marker.AdvancedMarkerElement({
+        // Use stored coordinates (classic Marker works without mapId)
+        const marker = new google.maps.Marker({
             position: { lat: parseFloat(mapLat), lng: parseFloat(mapLng) },
             map: googleMap,
             title: addressText
@@ -939,8 +895,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const lat = location.lat();
                     const lng = location.lng();
                     
-                    // Create marker at geocoded location
-                    const marker = new google.maps.marker.AdvancedMarkerElement({
+                    // Create marker at geocoded location (classic Marker works without mapId)
+                    const marker = new google.maps.Marker({
                         position: { lat: lat, lng: lng },
                         map: googleMap,
                         title: addressText

@@ -4,11 +4,15 @@ namespace App\Services;
 
 use App\Models\Module as ModuleModel;
 use App\Modules\Base\Module;
+use App\Services\ModuleDatabaseService;
 use App\Services\ModuleSchemaService;
 use App\Services\ThemeCopyService;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Permission;
 
 class ModuleManager
 {
@@ -262,6 +266,8 @@ class ModuleManager
      */
     public function installModule(string $moduleName): bool
     {
+        $mainConnection = config('database.main_connection', config('database.default'));
+
         $module = $this->loadModule($moduleName);
         if (!$module) {
             throw new \Exception("Module {$moduleName} niet gevonden");
@@ -275,20 +281,7 @@ class ModuleManager
             }
         }
 
-        // PostgreSQL: per-module schema met basis-tabellen en superadmin m.tosun@mebura.nl / wachtwoord !
-        $schemaService = app(ModuleSchemaService::class);
-        if ($schemaService->supportsModuleSchemas()) {
-            $schemaService->setupModuleSchema($moduleName);
-        }
-
-        // Thema's uit backend/themas/ kopiëren naar public en naar deze module (frontend direct zichtbaar bij activatie)
-        $themeCopy = app(ThemeCopyService::class);
-        if ($themeCopy->hasThemasSource()) {
-            $themeCopy->copyThemesToPublic();
-            $themeCopy->copyThemesToModule($moduleName);
-        }
-
-        // Run migrations (kopieer naar database/migrations/modules/{moduleName}/; module-migraties in schema bij pgsql)
+        // Module-migraties eerst kopiëren zodat ze in de module-DB (of schema) gedraaid kunnen worden
         $migrationsPath = $module->getMigrationsPath();
         if ($migrationsPath && File::exists($migrationsPath)) {
             $targetDir = database_path("migrations/modules/{$moduleName}");
@@ -302,37 +295,99 @@ class ModuleManager
                     File::copy($migrationFile, $targetFile);
                 }
             }
-            if ($schemaService->supportsModuleSchemas()) {
-                $this->runModuleMigrationsInSchema($moduleName);
-            }
         }
 
-        // Register permissions
+        // Eerst op hoofddatabase zetten: module als geïnstalleerd (zodat UI direct "Geïnstalleerd" toont na refresh)
+        $this->saveModuleAsInstalled($moduleName, $module, $mainConnection);
+
+        // Per-module standalone database (mysql/pgsql): eigen DB met alle standaardtabellen en superadmin
+        // Bestaande module-DB wordt bij install altijd gedropt en opnieuw aangemaakt.
+        $dbService = app(ModuleDatabaseService::class);
+        $schemaService = app(ModuleSchemaService::class);
+        if ($dbService->supportsModuleDatabases()) {
+            try {
+                $dbService->setupModuleDatabase($moduleName);
+            } catch (\Throwable $e) {
+                $this->saveModuleAsUninstalled($moduleName, $mainConnection);
+                throw new \Exception("Module-database kon niet worden opgezet voor {$moduleName}: " . $e->getMessage(), 0, $e);
+            }
+        } elseif ($schemaService->supportsModuleSchemas()) {
+            $schemaName = $module->getSchemaName();
+            $schemaService->setupModuleSchema($moduleName, $schemaName);
+            $schemaName = $schemaName ?? $schemaService->getSchemaName($moduleName);
+            $this->runModuleMigrationsInSchema($moduleName, $schemaName);
+        }
+
+        // Thema's uit backend/themas/ kopiëren naar public en naar deze module (frontend direct zichtbaar bij activatie)
+        $themeCopy = app(ThemeCopyService::class);
+        if ($themeCopy->hasThemasSource()) {
+            $themeCopy->copyThemesToPublic();
+            $themeCopy->copyThemesToModule($moduleName);
+        }
+
+        // Register permissions (op module-DB connection als we standalone DB gebruiken, anders default)
         $permissions = $module->registerPermissions();
-        foreach ($permissions as $permission) {
-            \Spatie\Permission\Models\Permission::firstOrCreate([
-                'name' => $permission,
-                'guard_name' => 'web',
-            ]);
+        if ($dbService->supportsModuleDatabases() && $permissions !== []) {
+            $conn = $dbService->getModuleConnectionName($moduleName);
+            $previousDefault = Config::get('database.default');
+            try {
+                Config::set('database.default', $conn);
+                foreach ($permissions as $permission) {
+                    Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+                    Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'api']);
+                }
+            } finally {
+                Config::set('database.default', $previousDefault);
+            }
+        } else {
+            foreach ($permissions as $permission) {
+                Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+            }
         }
 
         // Call module install
         $module->install();
 
-        // Save to database
-        ModuleModel::updateOrCreate(
-            ['name' => $moduleName],
-            [
-                'display_name' => $module->getDisplayName(),
-                'version' => $module->getVersion(),
-                'description' => $module->getDescription(),
-                'icon' => $module->getIcon(),
-                'installed' => true,
-                'active' => false, // Not active by default
-            ]
-        );
+        // Record nogmaals op hoofddatabase bijwerken (zelfde connection)
+        $this->saveModuleAsInstalled($moduleName, $module, $mainConnection);
 
         return true;
+    }
+
+    /**
+     * Module-record op de hoofddatabase opslaan als geïnstalleerd (directe DB-write op de gegeven connection).
+     */
+    protected function saveModuleAsInstalled(string $moduleName, Module $module, string $connection): void
+    {
+        $table = DB::connection($connection)->table('modules');
+        $row = $table->where('name', $moduleName)->first();
+        $data = [
+            'display_name' => $module->getDisplayName(),
+            'version' => $module->getVersion(),
+            'description' => $module->getDescription(),
+            'icon' => $module->getIcon(),
+            'installed' => true,
+            'active' => false,
+            'updated_at' => now(),
+        ];
+        if ($row) {
+            $table->where('name', $moduleName)->update($data);
+        } else {
+            $table->insert(array_merge($data, [
+                'name' => $moduleName,
+                'created_at' => now(),
+            ]));
+        }
+    }
+
+    /**
+     * Module-record op hoofddatabase op niet-geïnstalleerd zetten (bijv. na mislukte DB-setup).
+     */
+    protected function saveModuleAsUninstalled(string $moduleName, string $connection): void
+    {
+        DB::connection($connection)->table('modules')
+            ->where('name', $moduleName)
+            ->update(['installed' => false, 'active' => false, 'updated_at' => now()]);
     }
 
     /**
@@ -401,13 +456,22 @@ class ModuleManager
         // Call module uninstall
         $module->uninstall();
 
-        // PostgreSQL: schema verwijderen
+        // Altijd module-database of schema verwijderen bij Verwijderen
+        $dbService = app(ModuleDatabaseService::class);
         $schemaService = app(ModuleSchemaService::class);
-        if ($schemaService->supportsModuleSchemas()) {
-            $schemaService->dropSchema($moduleName);
+        if ($dbService->supportsModuleDatabases()) {
+            try {
+                $dbService->dropDatabase($moduleName);
+            } catch (\Throwable $e) {
+                Log::warning("Module database drop bij uninstall: " . $e->getMessage(), ['module' => $moduleName]);
+                throw new \Exception("Module verwijderd, maar database kon niet worden gedropt: " . $e->getMessage(), 0, $e);
+            }
+        } elseif ($schemaService->supportsModuleSchemas()) {
+            $schemaName = $module->getSchemaName();
+            $schemaService->dropSchema($moduleName, $schemaName);
         }
 
-        // Update database
+        // Update database (module als niet geïnstalleerd gemarkeerd)
         ModuleModel::where('name', $moduleName)->update([
             'installed' => false,
             'active' => false,
@@ -418,8 +482,9 @@ class ModuleManager
 
     /**
      * Run module-migraties (database/migrations/modules/{name}/*.php) binnen het module-schema (alleen pgsql).
+     * @param string $schemaName Schema waarin de migraties draaien (uit Module::getSchemaName() of module_{naam})
      */
-    protected function runModuleMigrationsInSchema(string $moduleName): void
+    protected function runModuleMigrationsInSchema(string $moduleName, string $schemaName): void
     {
         $schemaService = app(ModuleSchemaService::class);
         if (!$schemaService->supportsModuleSchemas()) {
@@ -429,11 +494,10 @@ class ModuleManager
         if (!File::exists($targetDir)) {
             return;
         }
-        $schema = $schemaService->getSchemaName($moduleName);
         $files = File::glob($targetDir . '/*.php');
         sort($files);
         foreach ($files as $file) {
-            $schemaService->runInSchema($schema, function () use ($file) {
+            $schemaService->runInSchema($schemaName, function () use ($file) {
                 $migration = require $file;
                 if (is_object($migration) && method_exists($migration, 'up')) {
                     $migration->up();

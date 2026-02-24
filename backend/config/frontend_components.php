@@ -19,5 +19,19 @@ return [
             'view' => 'frontend.website.components.recente-vacatures',
             'description' => 'Blok met recente vacatures (container-custom, grid van vacaturekaarten en link naar vacaturesoverzicht).',
         ],
+        [
+            'id' => 'taxiroyaal.tarieven',
+            'name' => 'Taxi Royaal tarieven',
+            'module_name' => 'Taxi Royaal',
+            'view' => 'frontend.website.components.taxiroyaal-tarieven',
+            'description' => 'Tarieven t/m 4 en 5 t/m 8 personen met voertuigfoto\'s en overige kosten.',
+        ],
+        [
+            'id' => 'taxiroyaal.boekingsmodule',
+            'name' => 'Boekingsmodule',
+            'module_name' => 'Taxi Royaal',
+            'view' => 'frontend.website.components.taxiroyaal-boekingsmodule',
+            'description' => 'Meerstaps boekingsmodule met bagage, aanbiedingen, reisgegevens en contactgegevens.',
+        ],
     ],
 ];

@@ -5,7 +5,12 @@
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Front-end Componenten</h1>
+        <div>
+            <h1 class="text-xl font-medium leading-none text-mono">Front-end Componenten</h1>
+            @if(!empty($activeModuleName))
+                <p class="text-sm text-muted-foreground mt-1">Alleen componenten van de actieve module: <strong>{{ $activeModuleName }}</strong></p>
+            @endif
+        </div>
     </div>
     <p class="text-sm text-muted-foreground mb-6">Deze componenten worden automatisch door de applicatie gezien en kunnen op website-pagina's (bijv. home) worden toegevoegd via de sectie-editor. Aanpassen van een component kan alleen in de code, niet via beheer.</p>
 

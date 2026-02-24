@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Module;
 use Illuminate\Support\Collection;
 
 /**
@@ -23,7 +24,14 @@ class FrontendComponentService
 
     public function getById(string $id): ?object
     {
-        return $this->all()->firstWhere('id', $id);
+        $id = trim((string) $id);
+        if ($id === '') {
+            return null;
+        }
+        $found = $this->all()->first(function ($c) use ($id) {
+            return strcasecmp($c->id ?? '', $id) === 0;
+        });
+        return $found ?: null;
     }
 
     /** Componenten gegroepeerd per module_name (voor overzichtspagina). */
@@ -32,14 +40,25 @@ class FrontendComponentService
         return $this->all()->groupBy('module_name');
     }
 
-    /** Componenten die op een pagina (bijv. home) toegevoegd kunnen worden; optioneel gefilterd op module. */
-    public function availableForPage(?string $moduleName = null): Collection
+    /**
+     * Componenten die op een pagina toegevoegd kunnen worden.
+     * Geef de module-key van de pagina (bijv. uit $page->module_name). Alleen componenten
+     * van die module worden getoond. Bij null (kernpagina) worden alle componenten getoond.
+     */
+    public function availableForPage(?string $pageModuleName = null): Collection
     {
         $all = $this->all();
-        if ($moduleName !== null && $moduleName !== '') {
-            return $all->where('module_name', $moduleName);
+        if ($pageModuleName === null || $pageModuleName === '') {
+            return $all;
         }
-        return $all;
+        $module = Module::where('installed', true)
+            ->whereRaw('LOWER(name) = ?', [strtolower(trim($pageModuleName))])
+            ->first();
+        if (!$module || !$module->display_name) {
+            return $all->filter(fn ($c) => false);
+        }
+        $displayName = trim($module->display_name);
+        return $all->filter(fn ($c) => trim((string) ($c->module_name ?? '')) === $displayName)->values();
     }
 
     /** Controleer of een section_order key een component-key is (component:module.key). */

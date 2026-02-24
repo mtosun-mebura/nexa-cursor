@@ -1,0 +1,366 @@
+@extends('admin.layouts.app')
+
+@section('title', 'Voertuig bewerken')
+
+@section('content')
+<div class="kt-container-fixed">
+    <div class="flex flex-col gap-5 pb-7.5">
+        <div class="flex flex-wrap items-center justify-between gap-5">
+            <h1 class="text-xl font-medium leading-none text-mono">
+                Voertuig bewerken
+            </h1>
+        </div>
+        <div class="flex items-center">
+            <a href="{{ route('admin.taxiroyaal.vehicles.show', $vehicle) }}" class="kt-btn kt-btn-outline">
+                <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+                Terug
+            </a>
+        </div>
+    </div>
+
+    <form action="{{ route('admin.taxiroyaal.vehicles.update', $vehicle) }}" method="POST">
+        @csrf
+        @method('PUT')
+
+        <div class="grid gap-5 lg:gap-7.5">
+            @if($errors->any())
+            <div class="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-600 px-5 py-4 flex items-start gap-3" role="alert">
+                <div class="flex-shrink-0 mt-0.5">
+                    <i class="ki-filled ki-information-5 text-2xl text-red-600 dark:text-red-400" aria-hidden="true"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-base font-semibold text-red-800 dark:text-red-200 mb-1">Er zijn fouten opgetreden</h3>
+                    <ul class="list-disc list-inside space-y-0.5 text-sm font-medium text-red-700 dark:text-red-300">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+            @endif
+
+            <!-- Voertuiggegevens -->
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
+                        Voertuiggegevens
+                    </h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <input type="hidden" name="company_id" value="{{ old('company_id', $vehicle->company_id) }}">
+                    @error('company_id')
+                        <div class="kt-alert kt-alert-danger mb-3 mx-5">{{ $message }}</div>
+                    @enderror
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                                Voertuigfoto
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <div class="text-xs text-muted-foreground mb-2">Optioneel. JPG, PNG of WebP, max. 5MB.</div>
+                                <div class="flex flex-wrap items-start gap-2">
+                                    <div class="shrink-0 flex flex-col items-center">
+                                        @php $imgUrl = old('image_url', $vehicle->image_url); @endphp
+                                        <img alt="Voertuig" id="vehicle-image-preview" class="w-full max-w-[200px] max-h-32 object-contain border border-border rounded-lg {{ $imgUrl ? '' : 'hidden' }}" src="{{ $imgUrl ? asset(ltrim($imgUrl, '/')) : '' }}" data-default-src="">
+                                        <button type="button" class="vehicle-image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10 {{ $imgUrl ? '' : 'hidden' }}" data-url-input-id="vehicle_image_url" data-preview-id="vehicle-image-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">
+                                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="vehicle-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 cursor-pointer hover:border-primary/50 transition-colors" style="width: 100%; max-width: 500px; min-height: 130px;">
+                                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
+                                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                                    </div>
+                                </div>
+                                <input type="file" class="vehicle-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" id="vehicle-image-file">
+                                <input type="hidden" name="image_url" id="vehicle_image_url" value="{{ old('image_url', $vehicle->image_url) }}">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Naam *
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="text"
+                                       name="name"
+                                       class="kt-input @error('name') border-destructive @enderror"
+                                       value="{{ old('name', $vehicle->name) }}"
+                                       required>
+                                @error('name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Type *
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <select name="type" class="kt-input @error('type') border-destructive @enderror" required>
+                                    @foreach($typeLabels as $value => $label)
+                                        <option value="{{ $value }}" {{ old('type', $vehicle->type) === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                @error('type')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Kenteken
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="text"
+                                       name="license_plate"
+                                       class="kt-input @error('license_plate') border-destructive @enderror"
+                                       value="{{ old('license_plate', $vehicle->license_plate) }}"
+                                       style="text-transform: uppercase"
+                                       maxlength="20"
+                                       oninput="this.value = this.value.toUpperCase()">
+                                @error('license_plate')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Personenbereik *
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <select name="person_range" class="kt-input @error('person_range') border-destructive @enderror" required>
+                                    @foreach($personRangeLabels as $value => $label)
+                                        <option value="{{ $value }}" {{ old('person_range', $vehicle->person_range ?? '1-4') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="text-xs text-muted-foreground mt-1">Bepaalt welke standaardtarievenset wordt gebruikt.</div>
+                                @error('person_range')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Actief
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="hidden" name="active" value="0">
+                                <input type="checkbox" name="active" id="active" value="1" class="kt-switch kt-switch-sm" {{ old('active', $vehicle->active) ? 'checked' : '' }}>
+                                <label for="active" class="ms-2 text-sm text-muted-foreground">Voertuig is actief</label>
+                                @error('active')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Foto weergeven
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="hidden" name="show_photo" value="0">
+                                <input type="checkbox" name="show_photo" id="show_photo" value="1" class="kt-switch kt-switch-sm" {{ old('show_photo', (bool) $vehicle->show_photo) ? 'checked' : '' }}>
+                                <label for="show_photo" class="ms-2 text-sm text-muted-foreground">Toon voertuigfoto in frontend selectie</label>
+                                @error('show_photo')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tarieven (optioneel: leeg = standaardtarieven uit Tarieven-pagina) -->
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
+                        Tarieven
+                    </h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <p class="text-xs text-muted-foreground px-5 pt-2">Optioneel. Leeglaten = algemene standaardtarieven worden gebruikt.</p>
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Instaptarief
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="number"
+                                       name="base_fare"
+                                       class="kt-input @error('base_fare') border-destructive @enderror"
+                                       value="{{ old('base_fare', $vehicle->base_fare) }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Optioneel">
+                                @error('base_fare')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Wachttarief vooraf p/u
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="number"
+                                       name="min_fare"
+                                       class="kt-input @error('min_fare') border-destructive @enderror"
+                                       value="{{ old('min_fare', $vehicle->min_fare) }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Optioneel">
+                                @error('min_fare')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Prijs per km (€)
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="number"
+                                       name="price_per_km"
+                                       class="kt-input @error('price_per_km') border-destructive @enderror"
+                                       value="{{ old('price_per_km', $vehicle->price_per_km) }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Optioneel">
+                                @error('price_per_km')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Prijs per min (€)
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="number"
+                                       name="price_per_min"
+                                       class="kt-input @error('price_per_min') border-destructive @enderror"
+                                       value="{{ old('price_per_min', $vehicle->price_per_min) }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Optioneel">
+                                @error('price_per_min')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                Reinigingskosten
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input type="number"
+                                       name="cleaning_costs"
+                                       class="kt-input @error('cleaning_costs') border-destructive @enderror"
+                                       value="{{ old('cleaning_costs', $vehicle->cleaning_costs) }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Optioneel">
+                                @error('cleaning_costs')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Overig -->
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
+                        Overig
+                    </h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                                Notities
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <textarea name="notes" class="kt-input @error('notes') border-destructive @enderror" rows="3">{{ old('notes', $vehicle->notes) }}</textarea>
+                                @error('notes')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-2.5">
+                <a href="{{ route('admin.taxiroyaal.vehicles.show', $vehicle) }}" class="kt-btn kt-btn-outline">
+                    <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                    Annuleren
+                </a>
+                <button type="submit" class="kt-btn kt-btn-primary">
+                    <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                    Wijzigingen opslaan
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+@push('styles')
+<style>
+    .kt-table-border-dashed tbody tr { border-bottom: none !important; }
+    .kt-table-border-dashed tbody tr,
+    .kt-table-border-dashed tbody tr td { height: auto; min-height: 48px; }
+    .kt-table-border-dashed tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: top; }
+    .kt-table-border-dashed tbody tr td:first-child { display: flex; vertical-align: middle; padding-top: 8px; padding-bottom: 0; line-height: 40px; height: 40px; }
+    .kt-table-border-dashed tbody tr td:last-child { vertical-align: top; padding-top: 12px; }
+    .kt-table-border-dashed tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
+    .kt-table-border-dashed tbody tr td.align-top:first-child { line-height: normal; height: auto; padding-top: 18px; }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+(function() {
+    var uploadUrl = {!! json_encode(route('admin.taxiroyaal.vehicles.upload-image')) !!};
+    var area = document.querySelector('.vehicle-image-upload-area');
+    var fileInput = document.getElementById('vehicle-image-file');
+    var urlInput = document.getElementById('vehicle_image_url');
+    var preview = document.getElementById('vehicle-image-preview');
+    var removeBtn = document.querySelector('.vehicle-image-remove-btn');
+    if (!area || !fileInput || !urlInput) return;
+    function handleFile(file) {
+        if (!file || !file.type || !file.type.match(/^image\/(jpeg|png|gif|webp)$/i)) { alert('Alleen JPG, PNG, GIF of WebP (max. 5MB).'); return; }
+        if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); return; }
+        var fd = new FormData();
+        fd.append('image', file);
+        fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+        fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
+            .then(function(d) {
+                if (d.success && d.url) {
+                    urlInput.value = d.url;
+                    if (preview) { preview.src = d.url; preview.classList.remove('hidden'); }
+                    if (removeBtn) removeBtn.classList.remove('hidden');
+                }
+            })
+            .catch(function(err) { alert(err.message || 'Upload mislukt'); });
+        fileInput.value = '';
+    }
+    area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+    area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
+    area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
+    area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleFile(this.files[0]); });
+    if (removeBtn && urlInput && preview) {
+        removeBtn.addEventListener('click', function() {
+            urlInput.value = '';
+            preview.src = '';
+            preview.classList.add('hidden');
+            removeBtn.classList.add('hidden');
+        });
+    }
+})();
+</script>
+@endpush
+@endsection

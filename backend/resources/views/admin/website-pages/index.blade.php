@@ -5,7 +5,12 @@
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
+        <div>
+            <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
+            @if(!empty($activeModuleName))
+                <p class="text-sm text-muted-foreground mt-1">Alleen pagina's van de actieve module: <strong>{{ $activeModuleName }}</strong></p>
+            @endif
+        </div>
         <a href="{{ route('admin.website-pages.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i> Nieuwe pagina
         </a>

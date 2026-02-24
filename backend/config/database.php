@@ -20,6 +20,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Main database connection name (waar o.a. modules-tabel staat)
+    | Gebruikt o.a. bij module-install om "geïnstalleerd" op de juiste DB te zetten.
+    |--------------------------------------------------------------------------
+    */
+    'main_connection' => env('DB_CONNECTION', 'sqlite'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Connections
     |--------------------------------------------------------------------------
     |

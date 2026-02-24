@@ -92,7 +92,7 @@ class WebsitePage extends Model
     }
 
     /**
-     * Standaardwaarden voor home-secties (Modern thema).
+     * Standaardwaarden voor home-secties (Metronic thema).
      */
     public static function defaultHomeSections(): array
     {
@@ -197,7 +197,7 @@ class WebsitePage extends Model
                 'map_show_address_balloon' => false,
             ],
             'copyright' => '© {year} Nexa Skillmatching. Alle rechten voorbehouden.',
-            'section_order' => ['hero', 'stats', 'why_nexa', 'features', 'component:nexa.recente_vacatures', 'cta'],
+            'section_order' => ['hero', 'why_nexa', 'features', 'stats', 'component:nexa.recente_vacatures', 'cta'],
             'visibility' => [
                 'hero' => true,
                 'hero_title' => true,
@@ -422,8 +422,49 @@ class WebsitePage extends Model
         }
 
         $sections = [];
+        $taxiroyaalTarievenDefault = [
+            'title' => 'Onze tarieven',
+            'title_font_size' => '',
+            'title_font_style' => 'normal',
+            'title_align' => 'left',
+            'items' => [
+                ['rate_type' => '1-4', 'title' => 't/m 4 personen'],
+                ['rate_type' => '5-8', 'title' => '5 t/m 8 personen'],
+            ],
+        ];
+        $taxiroyaalBoekingsmoduleDefault = app(\App\Services\TaxiRoyaalBookingPricingService::class)->getDefaultSectionConfig();
         foreach ($sectionOrder as $sectionKey) {
             if (str_starts_with($sectionKey, 'component:')) {
+                if ($sectionKey === 'component:taxiroyaal.tarieven') {
+                    $raw = $stored[$sectionKey] ?? [];
+                    $items = isset($raw['items']) && is_array($raw['items']) ? $raw['items'] : $taxiroyaalTarievenDefault['items'];
+                    $allowedFontSizes = array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
+                    $title = isset($raw['title']) ? trim((string) $raw['title']) : $taxiroyaalTarievenDefault['title'];
+                    if ($title === '') {
+                        $title = $taxiroyaalTarievenDefault['title'];
+                    }
+                    $titleFontSize = isset($raw['title_font_size']) ? trim((string) $raw['title_font_size']) : '';
+                    if (! in_array($titleFontSize, $allowedFontSizes, true)) {
+                        $titleFontSize = '';
+                    }
+                    $titleFontStyle = isset($raw['title_font_style']) && in_array($raw['title_font_style'], ['normal', 'bold', 'italic'], true)
+                        ? $raw['title_font_style'] : $taxiroyaalTarievenDefault['title_font_style'];
+                    $titleAlign = isset($raw['title_align']) && in_array($raw['title_align'], ['left', 'center', 'right'], true)
+                        ? $raw['title_align'] : $taxiroyaalTarievenDefault['title_align'];
+                    $sections[$sectionKey] = [
+                        'title' => $title,
+                        'title_font_size' => $titleFontSize,
+                        'title_font_style' => $titleFontStyle,
+                        'title_align' => $titleAlign,
+                        'items' => array_values($items),
+                    ];
+                } elseif ($sectionKey === 'component:taxiroyaal.boekingsmodule') {
+                    $raw = $stored[$sectionKey] ?? [];
+                    if (! is_array($raw)) {
+                        $raw = [];
+                    }
+                    $sections[$sectionKey] = app(\App\Services\TaxiRoyaalBookingPricingService::class)->mergeSectionConfig(array_replace_recursive($taxiroyaalBoekingsmoduleDefault, $raw));
+                }
                 continue;
             }
             $baseType = self::homeSectionBaseType($sectionKey);

@@ -202,10 +202,10 @@
             </div>
             @else
             @if(($themeSlugForOrder ?? '') === 'modern')
-            {{-- Modern thema: alleen achtergrond --}}
+            {{-- Metronic thema: alleen achtergrond --}}
             <div class="row-visibility-row">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrond banner</label>
-                <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de hero. (Modern thema)</p>
+                <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de hero. (Metronic thema)</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center">
                         <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
@@ -848,6 +848,393 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     Afbeelding(en) toevoegen
                 </button>
+            </div>
+        </div>
+    </div>
+    @elseif($sectionKey === 'component:taxiroyaal.tarieven')
+            @php
+                $tarievenSectionData = $sections[$sectionKey] ?? [];
+                $tarievenItems = array_values($tarievenSectionData['items'] ?? [['rate_type' => '1-4', 'title' => 't/m 4 personen'], ['rate_type' => '5-8', 'title' => '5 t/m 8 personen']]);
+                if (empty($tarievenItems)) {
+                    $tarievenItems = [['rate_type' => '1-4', 'title' => 't/m 4 personen'], ['rate_type' => '5-8', 'title' => '5 t/m 8 personen']];
+                }
+                $tarievenRateTypes = ['1-4' => 't/m 4 personen', '5-8' => '5 t/m 8 personen', 'overige_kosten' => 'Overige kosten'];
+                $tarievenVehicles = app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getVehiclesForSelect();
+                $tarievenVehiclesForJs = array_map(function($v) {
+                    $url = $v['image_url'] ?? null;
+                    $url = $url ? (str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'))) : null;
+                    return ['id' => $v['id'], 'name' => $v['name'], 'image_url' => $url];
+                }, $tarievenVehicles);
+                $tarievenCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (500px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
+                $tarievenFontStyles = ['normal' => 'Normaal', 'bold' => 'Vet', 'italic' => 'Cursief'];
+                $tarievenFontFamilies = ['' => 'Standaard', 'sans-serif' => 'Sans-serif', 'serif' => 'Serif', 'monospace' => 'Monospace', 'Inter' => 'Inter', 'Georgia' => 'Georgia'];
+                $tarievenFontSizes = ['' => 'Standaard'];
+                foreach (range(10, 40, 2) as $px) { $tarievenFontSizes[$px . 'px'] = $px . 'px'; }
+                $tarievenTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
+                $tarievenBlockTitle = old('home_sections.'.$sectionKey.'.title', $tarievenSectionData['title'] ?? 'Onze tarieven');
+                $tarievenImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
+                $tarievenRatesData = app(\App\Services\TaxiRoyaalPublicRatesService::class)->getRatesForDisplay();
+                $tarievenCleaning1_4 = $tarievenRatesData && $tarievenRatesData['rates_1_4'] !== null && $tarievenRatesData['rates_1_4']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_1_4']->cleaning_costs : null;
+                $tarievenCleaning5_8 = $tarievenRatesData && $tarievenRatesData['rates_5_8'] !== null && $tarievenRatesData['rates_5_8']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_5_8']->cleaning_costs : null;
+            @endphp
+    <div class="kt-card home-section-card home-section-card--component home-section-card--module" data-section="{{ $sectionKey }}">
+        <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">Taxi Royaal tarieven (Taxi)</h3>
+            <div class="flex items-center gap-1 shrink-0">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+            </div>
+        </div>
+        <div class="home-section-card-body kt-card-table p-4 space-y-4">
+            <p class="text-sm text-muted-foreground">Per kaart: tarief, titel, afbeelding (voertuig of eigen upload), kaartgrootte, stijl en kleuren. Op de website verschijnt de titel en de prijzen voor het gekozen tarief.</p>
+            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg bg-muted/20">
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel</label>
+                    <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input flex-1 max-w-md text-sm" value="{{ $tarievenBlockTitle }}" placeholder="Onze tarieven">
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel grootte</label>
+                    <select name="home_sections[{{ $sectionKey }}][title_font_size]" class="kt-input w-28 text-sm">
+                        @foreach($tarievenFontSizes as $val => $label)
+                        <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_font_size', $tarievenSectionData['title_font_size'] ?? '')) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel stijl</label>
+                    <select name="home_sections[{{ $sectionKey }}][title_font_style]" class="kt-input w-28 text-sm">
+                        @foreach($tarievenFontStyles as $val => $label)
+                        <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_font_style', $tarievenSectionData['title_font_style'] ?? 'normal')) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel uitlijning</label>
+                    <select name="home_sections[{{ $sectionKey }}][title_align]" class="kt-input w-28 text-sm">
+                        @foreach($tarievenTextAligns as $val => $label)
+                        <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_align', $tarievenSectionData['title_align'] ?? 'left')) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div id="taxiroyaal-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
+                @foreach($tarievenItems as $i => $item)
+                @php
+                    $itemRateType = $item['rate_type'] ?? ($i === 1 ? '5-8' : '1-4');
+                    $defaultItemTitle = $itemRateType === '5-8' ? '5 t/m 8 personen' : ($itemRateType === 'overige_kosten' ? 'Overige kosten' : 't/m 4 personen');
+                    $itemTitle = old('home_sections.'.$sectionKey.'.items.'.$i.'.title', ($item['title'] ?? $defaultItemTitle));
+
+                    $itemImageUrl = $item['image_url'] ?? '';
+                    $itemVehicleId = $item['vehicle_id'] ?? null;
+                    $fallbackVehicle = (!empty($tarievenVehicles) && $itemRateType !== 'overige_kosten')
+                        ? ($tarievenVehicles[$i % count($tarievenVehicles)] ?? null)
+                        : null;
+                    $fallbackVehicleId = $fallbackVehicle['id'] ?? null;
+                    if (!$itemVehicleId && $itemImageUrl === '' && $fallbackVehicleId) {
+                        $itemVehicleId = $fallbackVehicleId;
+                    }
+                    $itemImageSource = $itemImageUrl !== '' ? 'custom' : ($itemVehicleId ? (string)$itemVehicleId : '');
+                    $itemImagePadding = isset($item['image_padding']) ? max(0, min(30, (int)$item['image_padding'])) : 2;
+                    $itemImagePadding = (int)(round($itemImagePadding / 2) * 2);
+                @endphp
+                <div class="taxiroyaal-tarieven-item border border-border rounded-lg p-4 space-y-3" data-tarieven-index="{{ $i }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm font-medium">Kaart {{ $i + 1 }}</span>
+                        <button type="button" class="taxiroyaal-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                    </div>
+                    <div class="flex flex-wrap items-start gap-2">
+                        <div class="shrink-0 flex flex-col items-center">
+                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getImageUrl($itemVehicleId) ?? '') : '') }}" data-taxiroyaal-preview>
+                            <button type="button" class="taxiroyaal-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        </div>
+                        <div class="flex flex-col gap-2 flex-1 min-w-0">
+                            <div class="flex items-center gap-3">
+                                <label class="taxiroyaal-image-label text-sm text-muted-foreground shrink-0 w-40 {{ ($itemImageUrl !== '' || $itemVehicleId) ? 'hidden' : '' }}">Afbeelding</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][vehicle_id]" class="kt-input w-56 text-sm taxiroyaal-image-source-select" data-preview-target="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url-preview" data-upload-wrap="taxiroyaal-{{ $sectionKey }}-items-{{ $i }}-upload-wrap" data-image-url-input="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}">
+                                    <option value="">Geen</option>
+                                    @foreach($tarievenVehicles as $v)
+                                    <option value="{{ $v['id'] }}" {{ $itemVehicleId == $v['id'] ? 'selected' : '' }}>{{ $v['name'] }}</option>
+                                    @endforeach
+                                    <option value="custom" {{ $itemImageSource === 'custom' ? 'selected' : '' }}>Eigen afbeelding</option>
+                                </select>
+                            </div>
+                            <div class="taxiroyaal-upload-wrap {{ $itemImageSource === 'custom' ? '' : 'hidden' }}" id="taxiroyaal-{{ $sectionKey }}-items-{{ $i }}-upload-wrap">
+                                <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="taxiroyaal_items_{{ $i }}_image_url" style="width: 100%; max-width: 500px; min-height: 130px;">
+                                    <span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span>
+                                    <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                                </div>
+                                <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="taxiroyaal_items_{{ $i }}_image_url">
+                            </div>
+                            <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_url', $itemImageUrl) }}">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2 mt-3">
+                        <div class="flex items-center gap-3">
+                            <label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label>
+                            <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][rate_type]" class="kt-input w-48 text-sm">
+                                @foreach($tarievenRateTypes as $val => $label)
+                                <option value="{{ $val }}" {{ $itemRateType === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label>
+                            <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" class="kt-input flex-1 max-w-md text-sm" value="{{ $itemTitle }}" placeholder="bijv. t/m 4 personen">
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label>
+                            <input type="number" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][cleaning_costs]" class="kt-input w-28 text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.cleaning_costs', $item['cleaning_costs'] ?? '') }}" placeholder="leeg = uit tarief" step="0.01" min="0">
+                            <span class="text-xs text-muted-foreground">Optioneel; leeg = waarde uit gekozen tarief</span>
+                        </div>
+                        <div class="flex flex-col gap-3 pt-2 border-t border-border">
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][card_size]" class="kt-input w-36 text-sm">
+                                    @foreach($tarievenCardSizes as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['card_size'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_style]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenFontStyles as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['font_style'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_font_family]" class="kt-input w-40 text-sm">
+                                    @foreach($tarievenFontFamilies as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['title_font_family'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_font_size]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenFontSizes as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['title_font_size'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_font_style]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenFontStyles as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['title_font_style'] ?? ($item['font_style'] ?? 'normal')) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_align]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenTextAligns as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['title_align'] ?? ($item['text_align'] ?? 'left')) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label_font_size]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenFontSizes as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['label_font_size'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][value_font_size]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenFontSizes as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['value_font_size'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_align]" class="kt-input w-28 text-sm">
+                                    @foreach($tarievenTextAligns as $val => $label)
+                                    <option value="{{ $val }}" {{ ($item['text_align'] ?? 'left') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_padding]" class="kt-input w-24 text-sm">
+                                    @foreach($tarievenImagePaddings as $px => $label)
+                                    <option value="{{ $px }}" {{ $itemImagePadding === (int)$px ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $item['image_bg_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-image-bg">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $item['text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-text-color">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            <div class="mt-4">
+                <button type="button" class="taxiroyaal-tarieven-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Tarievenkaart toevoegen</button>
+            </div>
+        </div>
+    </div>
+    @elseif($sectionKey === 'component:taxiroyaal.boekingsmodule')
+            @php
+                $bookingData = app(\App\Services\TaxiRoyaalBookingPricingService::class)->mergeSectionConfig($sections[$sectionKey] ?? []);
+                $bookingVehicles = app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getVehiclesForSelect();
+            @endphp
+    <div class="kt-card home-section-card home-section-card--component home-section-card--module" data-section="{{ $sectionKey }}">
+        <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">Boekingsmodule (Taxi)</h3>
+            <div class="flex items-center gap-1 shrink-0">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+            </div>
+        </div>
+        <div class="home-section-card-body kt-card-table p-4 space-y-4">
+            <p class="text-sm text-muted-foreground">Meerstaps wizard voor bagage, aanbiedingen, reisgegevens en contactgegevens. Prijsberekening gebruikt route-afstand/tijd via Google Maps.</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg bg-muted/20">
+                <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
+                <div><label class="text-sm text-muted-foreground">Subtitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
+                <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? '#5b21b6') }}"></div>
+                <div><label class="text-sm text-muted-foreground">Accentkleur knop</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][accent_color]" value="{{ old('home_sections.'.$sectionKey.'.style.accent_color', $bookingData['style']['accent_color'] ?? '#34d399') }}"></div>
+                <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? '#5b21b6') }}"></div>
+                <div><label class="text-sm text-muted-foreground">Max breedte</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][container_max_width]" value="{{ old('home_sections.'.$sectionKey.'.style.container_max_width', $bookingData['style']['container_max_width'] ?? '1200px') }}" placeholder="1200px"></div>
+                <div><label class="text-sm text-muted-foreground">Border radius (px)</label><input type="number" min="0" max="40" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][border_radius]" value="{{ old('home_sections.'.$sectionKey.'.style.border_radius', $bookingData['style']['border_radius'] ?? 12) }}"></div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Uitlijning blok</label>
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][align]">
+                        @php $bookingAlign = old('home_sections.'.$sectionKey.'.style.align', $bookingData['style']['align'] ?? 'center'); @endphp
+                        <option value="left" {{ $bookingAlign === 'left' ? 'selected' : '' }}>Links</option>
+                        <option value="center" {{ $bookingAlign === 'center' ? 'selected' : '' }}>Midden</option>
+                        <option value="right" {{ $bookingAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
+                @foreach(['step1','step2','step3','step4','step5'] as $stepKey)
+                <div>
+                    <label class="text-xs text-muted-foreground">{{ strtoupper($stepKey) }} label</label>
+                    <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][step_labels][{{ $stepKey }}]" value="{{ old('home_sections.'.$sectionKey.'.step_labels.'.$stepKey, $bookingData['step_labels'][$stepKey] ?? '') }}">
+                </div>
+                @endforeach
+            </div>
+
+            @php
+                $bookingStepOrder = old('home_sections.'.$sectionKey.'.step_order', $bookingData['step_order'] ?? ['trip', 'baggage', 'offers', 'contact', 'confirm']);
+                if (!is_array($bookingStepOrder)) {
+                    $bookingStepOrder = ['trip', 'baggage', 'offers', 'contact', 'confirm'];
+                }
+                $bookingStepOptions = [
+                    'trip' => 'Reisgegevens',
+                    'baggage' => 'Bagage',
+                    'offers' => 'Aanbiedingen',
+                    'contact' => 'Contactgegevens',
+                    'confirm' => 'Bevestiging',
+                ];
+            @endphp
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
+                @for($stepPos = 0; $stepPos < 5; $stepPos++)
+                    <div>
+                        <label class="text-xs text-muted-foreground">Positie {{ $stepPos + 1 }}</label>
+                        <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][step_order][]">
+                            @foreach($bookingStepOptions as $stepValue => $stepName)
+                                <option value="{{ $stepValue }}" {{ (($bookingStepOrder[$stepPos] ?? '') === $stepValue) ? 'selected' : '' }}>{{ $stepName }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endfor
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
+                <div><label class="text-xs text-muted-foreground">Min passagiers</label><input type="number" min="1" max="8" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][min_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.min_passengers', $bookingData['logic']['min_passengers'] ?? 1) }}"></div>
+                <div><label class="text-xs text-muted-foreground">Max passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_passengers', $bookingData['logic']['max_passengers'] ?? 8) }}"></div>
+                <div><label class="text-xs text-muted-foreground">Default passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][default_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.default_passengers', $bookingData['logic']['default_passengers'] ?? 1) }}"></div>
+                <div><label class="text-xs text-muted-foreground">Max tussenstops</label><input type="number" min="0" max="6" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_stopovers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_stopovers', $bookingData['logic']['max_stopovers'] ?? 3) }}"></div>
+                <div><label class="text-xs text-muted-foreground">Retour multiplier</label><input type="number" min="1" max="3" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][return_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.return_price_multiplier', $bookingData['logic']['return_price_multiplier'] ?? 2) }}"></div>
+                <div>
+                    <label class="text-xs text-muted-foreground">Aanbiedingen tonen als</label>
+                    @php $offerDisplayMode = old('home_sections.'.$sectionKey.'.logic.offer_display_mode', $bookingData['logic']['offer_display_mode'] ?? 'vehicle'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][offer_display_mode]">
+                        <option value="vehicle" {{ $offerDisplayMode === 'vehicle' ? 'selected' : '' }}>Per auto</option>
+                        <option value="person_range" {{ $offerDisplayMode === 'person_range' ? 'selected' : '' }}>Per aantal personen</option>
+                    </select>
+                </div>
+                <div class="col-span-2 lg:col-span-5"><label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="home_sections[{{ $sectionKey }}][logic][return_enabled_by_default]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.return_enabled_by_default', $bookingData['logic']['return_enabled_by_default'] ?? false) ? 'checked' : '' }}> Retour standaard aan</label></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3 border border-border rounded-lg">
+                <div><label class="text-xs text-muted-foreground">Placeholder ophaaladres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][pickup_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.pickup_placeholder', $bookingData['texts']['pickup_placeholder'] ?? '') }}"></div>
+                <div><label class="text-xs text-muted-foreground">Placeholder afzetadres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][dropoff_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.dropoff_placeholder', $bookingData['texts']['dropoff_placeholder'] ?? '') }}"></div>
+                <div><label class="text-xs text-muted-foreground">Submit knoptekst</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][submit_button_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.submit_button_text', $bookingData['texts']['submit_button_text'] ?? '') }}"></div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Bagage-items (Stap 1)</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="space-y-2 taxiroyaal-booking-list" data-list="baggage" data-section-key="{{ $sectionKey }}">
+                    @foreach(($bookingData['baggage_items'] ?? []) as $i => $row)
+                    <div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage">
+                        <div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
+                        <div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div class="col-span-3"><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
+                        <div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}"></div>
+                        <div class="col-span-1"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Speciale bagage</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="space-y-2 taxiroyaal-booking-list" data-list="special" data-section-key="{{ $sectionKey }}">
+                    @foreach(($bookingData['special_items'] ?? []) as $i => $row)
+                    <div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special">
+                        <div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
+                        <div class="col-span-4"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}"></div>
+                        <div class="col-span-2"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div class="col-span-2 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Aanbiedingen (Stap 2)</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">+ kaart</button></div>
+                <div class="space-y-2 taxiroyaal-booking-list" data-list="offers" data-section-key="{{ $sectionKey }}">
+                    @foreach(($bookingData['offers'] ?? []) as $i => $row)
+                    <div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers">
+                        <div class="col-span-2"><label class="text-xs">ID</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][id]" value="{{ $row['id'] ?? '' }}"></div>
+                        <div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div class="col-span-2"><label class="text-xs">Badge</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][badge]" value="{{ $row['badge'] ?? '' }}"></div>
+                        <div class="col-span-2"><label class="text-xs">Voertuig</label><select class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">Automatisch</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
+                        <div class="col-span-1"><label class="text-xs">x prijs</label><input type="number" min="0.1" step="0.05" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][price_multiplier]" value="{{ $row['price_multiplier'] ?? 1 }}"></div>
+                        <div class="col-span-1"><label class="text-xs">x oud</label><input type="number" min="1" step="0.05" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][old_price_multiplier]" value="{{ $row['old_price_multiplier'] ?? 1.2 }}"></div>
+                        <div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                        <div class="col-span-12"><label class="text-xs">Features (1 per regel)</label><textarea class="kt-input w-full text-sm" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
+                    </div>
+                    @endforeach
+                </div>
             </div>
         </div>
     </div>
@@ -1951,6 +2338,236 @@
         });
     })();
 
+    // Taxi Royaal tarieven: image-source select, kaart toevoegen/verwijderen
+    (function() {
+        var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
+        function updateTaxiroyaalImageLabel(row) {
+            if (!row) return;
+            var label = row.querySelector('.taxiroyaal-image-label');
+            if (!label) return;
+            var preview = row.querySelector('[data-taxiroyaal-preview]');
+            var hasVisiblePreview = !!(preview && !preview.classList.contains('hidden') && (preview.getAttribute('src') || '').trim() !== '');
+            label.classList.toggle('hidden', hasVisiblePreview);
+        }
+        document.addEventListener('click', function(e) {
+            var removeBtn = e.target.closest('.taxiroyaal-image-remove-btn');
+            if (removeBtn) {
+                e.preventDefault();
+                var urlInputId = removeBtn.getAttribute('data-url-input-id');
+                var previewId = removeBtn.getAttribute('data-preview-id');
+                if (urlInputId) { var u = document.getElementById(urlInputId); if (u) u.value = ''; }
+                if (previewId) { var p = document.getElementById(previewId); if (p) { p.src = ''; p.classList.add('hidden'); } }
+                var row = removeBtn.closest('.taxiroyaal-tarieven-item');
+                var sel = row ? row.querySelector('.taxiroyaal-image-source-select') : null;
+                if (sel) sel.value = '';
+                var wrap = row ? row.querySelector('.taxiroyaal-upload-wrap') : null;
+                if (wrap) wrap.classList.add('hidden');
+                if (row) updateTaxiroyaalImageLabel(row);
+                return;
+            }
+        });
+        document.addEventListener('change', function(e) {
+            var sel = e.target.closest('.taxiroyaal-image-source-select');
+            if (sel) {
+                var val = sel.value;
+                var wrap = document.getElementById(sel.getAttribute('data-upload-wrap'));
+                var preview = document.getElementById(sel.getAttribute('data-preview-target'));
+                var urlInput = document.getElementById(sel.getAttribute('data-image-url-input'));
+                if (wrap) wrap.classList.toggle('hidden', val !== 'custom');
+                if (urlInput && val !== 'custom') urlInput.value = '';
+                if (preview) {
+                    if (val === '' || val === 'custom') {
+                        preview.classList.add('hidden');
+                        if (val === 'custom' && urlInput && urlInput.value) preview.src = urlInput.value;
+                    } else {
+                        var vehicles = [];
+                        try { vehicles = JSON.parse(sel.getAttribute('data-vehicles') || '[]'); } catch (x) {}
+                        var vid = parseInt(val, 10);
+                        var v = vehicles.find(function(x) { return x.id === vid; });
+                        if (v && v.image_url) { preview.src = v.image_url; preview.classList.remove('hidden'); }
+                        else { preview.classList.add('hidden'); }
+                    }
+                }
+                updateTaxiroyaalImageLabel(sel.closest('.taxiroyaal-tarieven-item'));
+            }
+        });
+        function reindexTaxiroyaalItems(container, sectionKey) {
+            var rows = container ? container.querySelectorAll('.taxiroyaal-tarieven-item') : [];
+            rows.forEach(function(row, i) {
+                row.setAttribute('data-tarieven-index', i);
+                var titleEl = row.querySelector('.text-sm.font-medium');
+                if (titleEl) titleEl.textContent = 'Kaart ' + (i + 1);
+
+                var field = 'taxiroyaal_items_' + i + '_image_url';
+                var previewId = 'hero-' + sectionKey + '-' + field + '-preview';
+                var hiddenId = 'hero-' + sectionKey + '-' + field;
+                var uploadWrapId = 'taxiroyaal-' + sectionKey + '-items-' + i + '-upload-wrap';
+
+                var preview = row.querySelector('[data-taxiroyaal-preview]');
+                if (preview) {
+                    preview.id = previewId;
+                    preview.alt = 'Kaart ' + (i + 1);
+                }
+                var imageRemoveBtn = row.querySelector('.taxiroyaal-image-remove-btn');
+                if (imageRemoveBtn) {
+                    imageRemoveBtn.setAttribute('data-url-input-id', hiddenId);
+                    imageRemoveBtn.setAttribute('data-preview-id', previewId);
+                }
+                var sourceSelect = row.querySelector('.taxiroyaal-image-source-select');
+                if (sourceSelect) {
+                    sourceSelect.name = 'home_sections[' + sectionKey + '][items][' + i + '][vehicle_id]';
+                    sourceSelect.setAttribute('data-preview-target', previewId);
+                    sourceSelect.setAttribute('data-upload-wrap', uploadWrapId);
+                    sourceSelect.setAttribute('data-image-url-input', hiddenId);
+                }
+                var uploadWrap = row.querySelector('.taxiroyaal-upload-wrap');
+                if (uploadWrap) uploadWrap.id = uploadWrapId;
+                var uploadArea = row.querySelector('.hero-image-upload-area');
+                if (uploadArea) uploadArea.setAttribute('data-field', field);
+                var uploadInput = row.querySelector('.hero-image-file-input');
+                if (uploadInput) uploadInput.setAttribute('data-field', field);
+                var hiddenImageInput = row.querySelector('input[type="hidden"][name*="[image_url]"]');
+                if (hiddenImageInput) {
+                    hiddenImageInput.name = 'home_sections[' + sectionKey + '][items][' + i + '][image_url]';
+                    hiddenImageInput.id = hiddenId;
+                }
+
+                var rateTypeSel = row.querySelector('select[name*="[rate_type]"]');
+                if (rateTypeSel) rateTypeSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][rate_type]';
+                var titleInput = row.querySelector('input[name*="[title]"]');
+                if (titleInput) titleInput.name = 'home_sections[' + sectionKey + '][items][' + i + '][title]';
+                var cleaningInput = row.querySelector('input[name*="[cleaning_costs]"]');
+                if (cleaningInput) cleaningInput.name = 'home_sections[' + sectionKey + '][items][' + i + '][cleaning_costs]';
+                var cardSizeSel = row.querySelector('select[name*="[card_size]"]');
+                if (cardSizeSel) cardSizeSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][card_size]';
+                var fontStyleSel = row.querySelector('select[name*="[font_style]"]');
+                if (fontStyleSel) fontStyleSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][font_style]';
+                var titleFontFamilySel = row.querySelector('select[name*="[title_font_family]"]');
+                if (titleFontFamilySel) titleFontFamilySel.name = 'home_sections[' + sectionKey + '][items][' + i + '][title_font_family]';
+                var titleFontSizeSel = row.querySelector('select[name*="[title_font_size]"]');
+                if (titleFontSizeSel) titleFontSizeSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][title_font_size]';
+                var titleFontStyleSel = row.querySelector('select[name*="[title_font_style]"]');
+                if (titleFontStyleSel) titleFontStyleSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][title_font_style]';
+                var titleAlignSel = row.querySelector('select[name*="[title_align]"]');
+                if (titleAlignSel) titleAlignSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][title_align]';
+                var labelFontSizeSel = row.querySelector('select[name*="[label_font_size]"]');
+                if (labelFontSizeSel) labelFontSizeSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][label_font_size]';
+                var valueFontSizeSel = row.querySelector('select[name*="[value_font_size]"]');
+                if (valueFontSizeSel) valueFontSizeSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][value_font_size]';
+                var textAlignSel = row.querySelector('select[name*="[text_align]"]');
+                if (textAlignSel) textAlignSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_align]';
+                var imagePaddingSel = row.querySelector('select[name*="[image_padding]"]');
+                if (imagePaddingSel) imagePaddingSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][image_padding]';
+
+                var imageBgColorPicker = row.querySelector('input[type="color"][id*="-image-bg"]');
+                var imageBgColorText = row.querySelector('input[type="text"][name*="[image_bg_color]"]');
+                if (imageBgColorPicker && imageBgColorText) {
+                    var imageBgId = 'taxiroyaal-' + sectionKey + '-item-' + i + '-image-bg';
+                    imageBgColorPicker.id = imageBgId;
+                    imageBgColorText.name = 'home_sections[' + sectionKey + '][items][' + i + '][image_bg_color]';
+                    imageBgColorText.id = imageBgId + '-hex';
+                    imageBgColorText.setAttribute('data-sync-from', imageBgId);
+                }
+
+                var textColorPicker = row.querySelector('input[type="color"][id*="-text-color"]');
+                var textColorText = row.querySelector('input[type="text"][name*="[text_color]"]');
+                if (textColorPicker && textColorText) {
+                    var textColorId = 'taxiroyaal-' + sectionKey + '-item-' + i + '-text-color';
+                    textColorPicker.id = textColorId;
+                    textColorText.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_color]';
+                    textColorText.id = textColorId + '-hex';
+                    textColorText.setAttribute('data-sync-from', textColorId);
+                }
+                updateTaxiroyaalImageLabel(row);
+            });
+        }
+        document.addEventListener('click', function(e) {
+            var addBtn = e.target.closest('.taxiroyaal-tarieven-item-add');
+            if (addBtn) {
+                e.preventDefault();
+                var sectionKey = addBtn.getAttribute('data-section-key');
+                var container = document.getElementById('taxiroyaal-tarieven-items-' + sectionKey);
+                if (!container) return;
+                reindexTaxiroyaalItems(container, sectionKey);
+                var items = container.querySelectorAll('.taxiroyaal-tarieven-item');
+                var nextIndex = items.length;
+                var vehicles = []; var cardSizes = {}; var fontStyles = {}; var fontFamilies = {}; var fontSizes = {}; var textAligns = {}; var imagePaddings = {};
+                try { vehicles = JSON.parse(container.getAttribute('data-vehicles') || '[]'); } catch (x) {}
+                try { cardSizes = JSON.parse(container.getAttribute('data-card-sizes') || '{}'); } catch (x) {}
+                try { fontStyles = JSON.parse(container.getAttribute('data-font-styles') || '{}'); } catch (x) {}
+                try { fontFamilies = JSON.parse(container.getAttribute('data-font-families') || '{}'); } catch (x) {}
+                try { fontSizes = JSON.parse(container.getAttribute('data-font-sizes') || '{}'); } catch (x) {}
+                try { textAligns = JSON.parse(container.getAttribute('data-text-aligns') || '{}'); } catch (x) {}
+                try { imagePaddings = JSON.parse(container.getAttribute('data-image-paddings') || '{}'); } catch (x) {}
+                var field = 'taxiroyaal_items_' + nextIndex + '_image_url';
+                var vehicleOpts = '<option value="">Geen</option>';
+                vehicles.forEach(function(v) { vehicleOpts += '<option value="' + v.id + '">' + (v.name || '') + '</option>'; });
+                vehicleOpts += '<option value="custom">Eigen afbeelding</option>';
+                var cardSizeOpts = ''; for (var k in cardSizes) cardSizeOpts += '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' + cardSizes[k] + '</option>';
+                var fontStyleOpts = ''; for (var k in fontStyles) fontStyleOpts += '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' + fontStyles[k] + '</option>';
+                var fontFamilyOpts = ''; for (var k in fontFamilies) fontFamilyOpts += '<option value="' + k + '"' + (k === '' ? ' selected' : '') + '>' + fontFamilies[k] + '</option>';
+                var fontSizeOpts = ''; for (var k in fontSizes) fontSizeOpts += '<option value="' + k + '"' + (k === '' ? ' selected' : '') + '>' + fontSizes[k] + '</option>';
+                var textAlignOpts = ''; for (var k in textAligns) textAlignOpts += '<option value="' + k + '"' + (k === 'left' ? ' selected' : '') + '>' + textAligns[k] + '</option>';
+                var paddingOpts = ''; for (var k in imagePaddings) paddingOpts += '<option value="' + k + '"' + (k === '2' ? ' selected' : '') + '>' + imagePaddings[k] + '</option>';
+                var rateOpt1 = 't/m 4 personen';
+                var rateOpt2 = '5 t/m 8 personen';
+                var rateOpt3 = 'Overige kosten';
+                var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
+                var hexClearSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>';
+                var div = document.createElement('div');
+                div.className = 'taxiroyaal-tarieven-item border border-border rounded-lg p-4 space-y-3';
+                div.setAttribute('data-tarieven-index', nextIndex);
+                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="taxiroyaal-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-' + field + '-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-' + field + '" data-preview-id="hero-' + sectionKey + '-' + field + '-preview" title="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-col gap-2 flex-1 min-w-0"><div class="flex items-center gap-3"><label class="taxiroyaal-image-label text-sm text-muted-foreground shrink-0 w-40">Afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][vehicle_id]" class="kt-input w-56 text-sm taxiroyaal-image-source-select" data-preview-target="hero-' + sectionKey + '-' + field + '-preview" data-upload-wrap="taxiroyaal-' + sectionKey + '-items-' + nextIndex + '-upload-wrap" data-image-url-input="hero-' + sectionKey + '-' + field + '" data-vehicles="' + (container.getAttribute('data-vehicles') || '[]').replace(/"/g, '&quot;') + '">' + vehicleOpts + '</select></div>' +
+                    '<div class="taxiroyaal-upload-wrap hidden" id="taxiroyaal-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
+                    '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-' + field + '" value=""></div></div>' +
+                    '<div class="flex flex-col gap-2 mt-3"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][rate_type]" class="kt-input w-48 text-sm"><option value="1-4" selected>' + rateOpt1 + '</option><option value="5-8">' + rateOpt2 + '</option><option value="overige_kosten">' + rateOpt3 + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input flex-1 max-w-md text-sm" value="" placeholder="bijv. t/m 4 personen"></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label><input type="number" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][cleaning_costs]" class="kt-input w-28 text-sm" value="" step="0.01" min="0" placeholder="leeg = uit tarief"><span class="text-xs text-muted-foreground">Optioneel</span></div>' +
+                    '<div class="flex flex-col gap-3 pt-2 border-t border-border"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div></div></div>';
+                container.appendChild(div);
+                reindexTaxiroyaalItems(container, sectionKey);
+                updateTaxiroyaalImageLabel(div);
+                if (typeof window.bindColorSyncIn === 'function') window.bindColorSyncIn(div);
+                var newArea = div.querySelector('.hero-image-upload-area');
+                if (newArea && heroImageUploadUrl) (function() {
+                    var area = newArea;
+                    var sk = sectionKey;
+                    var f = field;
+                    var scope = div;
+                    var fileInput = scope.querySelector('.hero-image-file-input[data-section-key="' + sk + '"][data-field="' + f + '"]');
+                    var urlInput = document.getElementById('hero-' + sk + '-' + f);
+                    var preview = document.getElementById('hero-' + sk + '-' + f + '-preview');
+                    if (!fileInput || !urlInput) return;
+                    function handleFile(file) {
+                        if (!file) return;
+                        var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
+                        if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP.'); fileInput.value = ''; return; }
+                        if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); fileInput.value = ''; return; }
+                        var fd = new FormData();
+                        fd.append('image', file);
+                        fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
+                        fileInput.value = '';
+                    }
+                    area.addEventListener('click', function(ev) { ev.preventDefault(); fileInput.click(); });
+                    fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleFile(this.files[0]); });
+                })();
+                return;
+            }
+            var removeBtn = e.target.closest('.taxiroyaal-tarieven-item-remove');
+            if (removeBtn) {
+                e.preventDefault();
+                var row = removeBtn.closest('.taxiroyaal-tarieven-item');
+                var container = row && row.parentElement;
+                if (row && container && container.querySelectorAll('.taxiroyaal-tarieven-item').length > 1) {
+                    row.remove();
+                    reindexTaxiroyaalItems(container, container.getAttribute('data-section-key') || '');
+                }
+            }
+        });
+        document.querySelectorAll('.taxiroyaal-tarieven-item').forEach(function(row) { updateTaxiroyaalImageLabel(row); });
+    })();
+
     // Header: + dropdown om sectie toe te voegen (kloneren van bestaand type)
     (function() {
         var addBtn = document.getElementById('home-sections-add-btn');
@@ -2086,6 +2703,63 @@
             });
         });
 
+        function reindexTaxiroyaalBookingList(listEl) {
+            if (!listEl) return;
+            var sectionKey = listEl.getAttribute('data-section-key') || '';
+            var listName = listEl.getAttribute('data-list') || '';
+            var rowName = listName === 'special' ? 'special_items' : (listName === 'offers' ? 'offers' : 'baggage_items');
+            var rows = listEl.querySelectorAll('.taxiroyaal-booking-row');
+            rows.forEach(function(row, index) {
+                row.querySelectorAll('input[name], select[name], textarea[name]').forEach(function(field) {
+                    field.name = field.name.replace(/home_sections\[[^\]]+\]\[[^\]]+\]\[\d+\]/, 'home_sections[' + sectionKey + '][' + rowName + '][' + index + ']');
+                });
+            });
+        }
+
+        function buildTaxiroyaalBookingRowHtml(listName, sectionKey, index) {
+            if (listName === 'offers') {
+                var vehicleOptions = '<option value="">Automatisch</option>';
+                var container = document.querySelector('.taxiroyaal-booking-list[data-section-key="' + sectionKey + '"][data-list="offers"]');
+                if (container) {
+                    try {
+                        var vehicleSelect = container.closest('.home-section-card-body').querySelector('select[name*="[offers][0][vehicle_id]"]');
+                        if (vehicleSelect) {
+                            vehicleOptions = vehicleSelect.innerHTML;
+                        }
+                    } catch (e) {}
+                }
+                return '<div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers">'
+                    + '<div class="col-span-2"><label class="text-xs">ID</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][id]" value="offer_' + (index + 1) + '"></div>'
+                    + '<div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][title]" value=""></div>'
+                    + '<div class="col-span-2"><label class="text-xs">Badge</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][badge]" value="Standaard taxi"></div>'
+                    + '<div class="col-span-2"><label class="text-xs">Voertuig</label><select class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][vehicle_id]">' + vehicleOptions + '</select></div>'
+                    + '<div class="col-span-1"><label class="text-xs">x prijs</label><input type="number" min="0.1" step="0.05" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][price_multiplier]" value="1"></div>'
+                    + '<div class="col-span-1"><label class="text-xs">x oud</label><input type="number" min="1" step="0.05" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][old_price_multiplier]" value="1.2"></div>'
+                    + '<div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                    + '<div class="col-span-12"><label class="text-xs">Features (1 per regel)</label><textarea class="kt-input w-full text-sm" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
+                    + '</div>';
+            }
+
+            if (listName === 'special') {
+                return '<div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special">'
+                    + '<div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
+                    + '<div class="col-span-4"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
+                    + '<div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div>'
+                    + '<div class="col-span-2"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
+                    + '<div class="col-span-2 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                    + '</div>';
+            }
+
+            return '<div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage">'
+                + '<div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
+                + '<div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
+                + '<div class="col-span-3"><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
+                + '<div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div>'
+                + '<div class="col-span-1"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
+                + '<div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                + '</div>';
+        }
+
         menu.addEventListener('click', function(e) {
             var el = e.target;
             var btn = null;
@@ -2134,6 +2808,34 @@
             }
             menu.classList.add('hidden');
             addBtn.setAttribute('aria-expanded', 'false');
+        });
+
+        document.addEventListener('click', function(e) {
+            var addItemBtn = e.target.closest('.taxiroyaal-booking-item-add');
+            if (addItemBtn) {
+                e.preventDefault();
+                var sectionKey = addItemBtn.getAttribute('data-section-key') || '';
+                var listName = addItemBtn.getAttribute('data-list') || 'baggage';
+                var listEl = document.querySelector('.taxiroyaal-booking-list[data-section-key="' + sectionKey + '"][data-list="' + listName + '"]');
+                if (!listEl) return;
+                var index = listEl.querySelectorAll('.taxiroyaal-booking-row').length;
+                var rowHtml = buildTaxiroyaalBookingRowHtml(listName, sectionKey, index);
+                var wrap = document.createElement('div');
+                wrap.innerHTML = rowHtml;
+                if (wrap.firstElementChild) {
+                    listEl.appendChild(wrap.firstElementChild);
+                }
+                reindexTaxiroyaalBookingList(listEl);
+                return;
+            }
+            var removeBtn = e.target.closest('.taxiroyaal-booking-item-remove');
+            if (removeBtn) {
+                e.preventDefault();
+                var row = removeBtn.closest('.taxiroyaal-booking-row');
+                var listEl = row ? row.closest('.taxiroyaal-booking-list') : null;
+                if (row) row.remove();
+                reindexTaxiroyaalBookingList(listEl);
+            }
         });
     })();
 </script>

@@ -27,7 +27,7 @@ class WebsitePageUpdateTest extends TestCase
     {
         $theme = FrontendTheme::firstOrCreate(
             ['slug' => 'modern'],
-            ['name' => 'Modern', 'is_active' => true]
+            ['name' => 'Metronic', 'is_active' => true]
         );
         $page = WebsitePage::create([
             'slug' => 'home',

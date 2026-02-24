@@ -296,43 +296,131 @@
 
                     <div class="field-feedback hidden" data-field="permissions"></div>
 
+                    {{-- Module Permissies Info (zoals op edit) --}}
+                    @if(isset($modulePermissions) && count($modulePermissions) > 0)
+                        <div class="px-5 mb-5">
+                            <div class="p-4 bg-primary/5 border border-border rounded-lg">
+                                <h4 class="font-semibold mb-3 text-primary flex items-center gap-2">
+                                    <x-heroicon-s-puzzle-piece class="w-5 h-5 text-primary flex-shrink-0" />
+                                    <span>Module Permissies (actieve modules) + standaard pagina's</span>
+                                </h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    @foreach($modulePermissions as $moduleDisplayName => $moduleData)
+                                        <div class="text-sm">
+                                            <span class="font-medium text-foreground">{{ $moduleDisplayName }}:</span>
+                                            <span class="text-muted-foreground">{{ count($moduleData['permissions']) }} permissies</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     <div class="kt-card-table kt-scrollable-x-auto pb-3 w-full -mx-5" style="border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1);" data-required-checkbox-group="permissions[]">
 
                     @php
-                        // Flatten all permissions from grouped structure
                         $allPermissions = collect($permissions)->flatten();
 
-                        // Parse permissions: structure is "action-module" (e.g., "view-users", "create-vacancies")
-                        // Group by module (the part after the action)
-                        $permissionModules = $allPermissions->groupBy(function($permission) {
-                            $parts = explode('-', $permission->name);
-                            if (count($parts) > 1) {
-                                array_shift($parts);
-                                return implode('-', $parts);
+                        // Modulepermissies toevoegen (zelfde logica als edit)
+                        $resourceToModuleMap = [];
+                        if (isset($modulePermissions) && count($modulePermissions) > 0) {
+                            foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
+                                $moduleKey = $moduleData['module'];
+                                $allModulePermissions = \Spatie\Permission\Models\Permission::where('guard_name', 'web')
+                                    ->where('name', 'like', $moduleKey . '.%')
+                                    ->get();
+                                foreach ($moduleData['permissions'] as $permName) {
+                                    $existing = $allModulePermissions->firstWhere('name', $permName);
+                                    if (!$existing) {
+                                        $allModulePermissions->push(\Spatie\Permission\Models\Permission::firstOrCreate(
+                                            ['name' => $permName, 'guard_name' => 'web']
+                                        ));
+                                    }
+                                }
+                                foreach ($allModulePermissions as $permission) {
+                                    if (!$allPermissions->contains('id', $permission->id)) {
+                                        $allPermissions->push($permission);
+                                    }
+                                }
+                                foreach ($moduleData['permissions'] as $permName) {
+                                    $p = explode('.', $permName);
+                                    if (count($p) === 2 && !isset($resourceToModuleMap[$p[0]])) {
+                                        $resourceToModuleMap[$p[0]] = $moduleKey;
+                                    }
+                                }
+                                $allModulePerms = \Spatie\Permission\Models\Permission::where('guard_name', 'web')
+                                    ->where('name', 'like', $moduleKey . '.%')->get();
+                                foreach ($allModulePerms as $perm) {
+                                    $parts = explode('.', $perm->name);
+                                    if (count($parts) >= 3 && $parts[0] === $moduleKey && !isset($resourceToModuleMap[$parts[1]])) {
+                                        $resourceToModuleMap[$parts[1]] = $moduleKey;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Group by module/resource (ondersteunt "action-module", "module.resource.action", "resource.action")
+                        $permissionModules = $allPermissions->groupBy(function($permission) use ($resourceToModuleMap) {
+                            $name = $permission->name;
+                            $parts = explode('.', $name);
+                            if (count($parts) >= 3) {
+                                return $parts[0] . '-' . $parts[1];
+                            }
+                            if (count($parts) === 2) {
+                                $resource = $parts[0];
+                                return isset($resourceToModuleMap[$resource]) ? $resourceToModuleMap[$resource] . '-' . $resource : 'other';
+                            }
+                            $dashParts = explode('-', $name);
+                            if (count($dashParts) > 1) {
+                                array_shift($dashParts);
+                                $resource = implode('-', $dashParts);
+                                return isset($resourceToModuleMap[$resource]) ? $resourceToModuleMap[$resource] . '-' . $resource : $resource;
                             }
                             return 'other';
                         });
 
-                        // Get all unique actions
                         $allActions = $allPermissions->map(function($permission) {
-                            $parts = explode('-', $permission->name);
-                            return $parts[0] ?? 'other';
+                            $name = $permission->name;
+                            $parts = explode('.', $name);
+                            if (count($parts) >= 3) {
+                                return $parts[2];
+                            }
+                            if (count($parts) === 2) {
+                                return $parts[1];
+                            }
+                            $dashParts = explode('-', $name);
+                            return $dashParts[0] ?? 'other';
                         })->unique()->sort()->values();
 
-                        // Create a map of module => [permissions by action]
                         $permissionMap = [];
                         foreach ($allPermissions as $permission) {
-                            $parts = explode('-', $permission->name);
-                            $action = $parts[0] ?? 'other';
-                            array_shift($parts);
-                            $module = implode('-', $parts) ?: 'other';
+                            $name = $permission->name;
+                            $parts = explode('.', $name);
+                            $action = 'other';
+                            $module = 'other';
+                            if (count($parts) >= 3) {
+                                $action = $parts[2];
+                                $module = $parts[0] . '-' . $parts[1];
+                            } elseif (count($parts) === 2) {
+                                $action = $parts[1];
+                                $resource = $parts[0];
+                                $module = isset($resourceToModuleMap[$resource]) ? $resourceToModuleMap[$resource] . '-' . $resource : 'other';
+                            } else {
+                                $dashParts = explode('-', $name);
+                                $action = $dashParts[0] ?? 'other';
+                                array_shift($dashParts);
+                                $resource = implode('-', $dashParts) ?: 'other';
+                                $module = isset($resourceToModuleMap[$resource]) ? $resourceToModuleMap[$resource] . '-' . $resource : $resource;
+                            }
                             if (!isset($permissionMap[$module])) {
                                 $permissionMap[$module] = [];
                             }
-                            $permissionMap[$module][$action] = $permission;
+                            if (!isset($permissionMap[$module][$action])) {
+                                $permissionMap[$module][$action] = $permission;
+                            }
                         }
 
-                        // Module display names
+                        // Module display names (standaard + module-resource)
                         $moduleNames = [
                             'users' => 'Gebruikers',
                             'vacancies' => 'Vacatures',
@@ -351,12 +439,28 @@
                             'permissions' => 'Permissies',
                             'dashboard' => 'Dashboard',
                         ];
+                        if (isset($modulePermissions) && is_array($modulePermissions)) {
+                            foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
+                                $moduleKey = $moduleData['module'];
+                                foreach ($moduleData['permissions'] as $permName) {
+                                    $p = explode('.', $permName);
+                                    if (count($p) >= 2) {
+                                        $resource = $p[0];
+                                        $key = $moduleKey . '-' . $resource;
+                                        if (!isset($moduleNames[$key])) {
+                                            $moduleNames[$key] = ucfirst($resource);
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         // Action display names
                         $actionNames = [
                             'view' => 'View',
                             'create' => 'Create',
                             'edit' => 'Edit',
+                            'update' => 'Update',
                             'delete' => 'Delete',
                             'publish' => 'Publish',
                             'approve' => 'Approve',
@@ -378,16 +482,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($permissionModules as $module => $modulePermissions)
+                            @foreach($permissionModules as $moduleKey => $perms)
                                 <tr>
                                     <td class="text-foreground font-medium">
-                                        {{ $moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)) }}
+                                        {{ $moduleNames[$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $moduleKey)) }}
                                     </td>
                                     @foreach($allActions as $action)
                                         <td class="text-center">
-                                            @if(isset($permissionMap[$module][$action]))
+                                            @if(isset($permissionMap[$moduleKey][$action]))
                                                 @php
-                                                    $permission = $permissionMap[$module][$action];
+                                                    $permission = $permissionMap[$moduleKey][$action];
                                                 @endphp
                                                 <label class="kt-label flex items-center justify-center cursor-pointer">
                                                     <input type="checkbox"

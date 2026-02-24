@@ -87,21 +87,19 @@ class ModuleThemePageService
     }
 
     /**
-     * Unieke slug voor een module+thema home (globale slug-uniekheid).
+     * Unieke slug voor een module+thema home. Standaard "home"; alleen suffix als "home"
+     * al in gebruik is voor dit thema (frontend_theme_id).
      */
     private function uniqueHomeSlugForModuleTheme(Module $module, FrontendTheme $theme): string
     {
-        $base = strtolower(preg_replace('/[^a-z0-9]+/', '-', trim($module->name)));
-        $themeSlug = strtolower(preg_replace('/[^a-z0-9\-]+/', '-', trim($theme->slug)));
-        $slug = ($base !== '' ? $base . '-' : '') . 'home-' . $themeSlug;
-        $slug = preg_replace('/\-+/', '-', trim($slug, '-'));
-
-        $original = $slug;
-        $n = 0;
-        while (WebsitePage::where('slug', $slug)->exists()) {
-            $slug = $original . '-' . (++$n);
+        $slug = 'home';
+        if (!WebsitePage::where('slug', $slug)->where('frontend_theme_id', $theme->id)->exists()) {
+            return $slug;
         }
-
-        return $slug;
+        $n = 1;
+        while (WebsitePage::where('slug', 'home-' . $n)->where('frontend_theme_id', $theme->id)->exists()) {
+            $n++;
+        }
+        return 'home-' . $n;
     }
 }

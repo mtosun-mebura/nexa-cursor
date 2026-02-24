@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Schema;
 class ModuleSchemaService
 {
     public const SUPERADMIN_EMAIL = 'm.tosun@mebura.nl';
-    public const SUPERADMIN_PASSWORD = '!';
+    public const SUPERADMIN_PASSWORD = 'M@Work!';
 
     /**
      * Schema-naam voor een module (bijv. skillmatching -> module_skillmatching).
@@ -33,13 +33,14 @@ class ModuleSchemaService
 
     /**
      * Maak een schema aan voor de module.
+     * @param string|null $schemaName Override (bijv. uit Module::getSchemaName()); anders module_{naam}
      */
-    public function createSchema(string $moduleName): void
+    public function createSchema(string $moduleName, ?string $schemaName = null): void
     {
         if (!$this->supportsModuleSchemas()) {
             return;
         }
-        $schema = $this->getSchemaName($moduleName);
+        $schema = $schemaName ?? $this->getSchemaName($moduleName);
         DB::statement("CREATE SCHEMA IF NOT EXISTS \"{$schema}\"");
     }
 
@@ -78,27 +79,29 @@ class ModuleSchemaService
 
     /**
      * Volledige setup: schema aanmaken, basis-tabellen, superadmin. Aanroepen bij module install.
+     * @param string|null $schemaName Override (bijv. uit Module::getSchemaName()); anders module_{naam}
      */
-    public function setupModuleSchema(string $moduleName): void
+    public function setupModuleSchema(string $moduleName, ?string $schemaName = null): void
     {
         if (!$this->supportsModuleSchemas()) {
             return;
         }
-        $this->createSchema($moduleName);
-        $schema = $this->getSchemaName($moduleName);
+        $this->createSchema($moduleName, $schemaName);
+        $schema = $schemaName ?? $this->getSchemaName($moduleName);
         $this->runBaseTablesInSchema($schema);
         $this->seedSuperadminInSchema($schema);
     }
 
     /**
      * Schema verwijderen (bij uninstall).
+     * @param string|null $schemaName Override (bijv. uit Module::getSchemaName()); anders module_{naam}
      */
-    public function dropSchema(string $moduleName): void
+    public function dropSchema(string $moduleName, ?string $schemaName = null): void
     {
         if (!$this->supportsModuleSchemas()) {
             return;
         }
-        $schema = $this->getSchemaName($moduleName);
+        $schema = $schemaName ?? $this->getSchemaName($moduleName);
         DB::statement("DROP SCHEMA IF EXISTS \"{$schema}\" CASCADE");
     }
 

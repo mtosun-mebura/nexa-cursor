@@ -18,8 +18,8 @@ class FrontendThemeSeeder extends Seeder
         $themes = [
             [
                 'slug' => 'modern',
-                'name' => 'Modern',
-                'description' => 'Strak en modern design met veel witruimte. Huidige website-layout (Home-pagina).',
+                'name' => 'Metronic',
+                'description' => 'Strak Metronic-design met veel witruimte. Huidige website-layout (Home-pagina).',
                 'preview_path' => 'frontend-themes/modern-home.png',
                 'is_active' => true,
                 'settings' => [

@@ -460,57 +460,62 @@
                                     }
                                 }
                                 
-                                // Process all module permissions
+                                // Process all module permissions (formaten: "module.resource.action" of "resource.action")
                                 foreach ($allModulePermissions as $permission) {
                                     $permName = $permission->name;
-                                    
-                                    // Parse permission name (e.g., "skillmatching.vacancies.view")
                                     $parts = explode('.', $permName);
+                                    
+                                    $action = null;
+                                    $resource = null;
                                     if (count($parts) >= 3 && $parts[0] === $moduleKey) {
-                                        $action = $parts[2]; // "view", "create", etc.
-                                        $resource = $parts[1]; // "vacancies", "matches", etc.
-                                        
-                                        // Use resource as module key for grouping (e.g., "vacancies" under "skillmatching")
-                                        // But we want to show them grouped by the actual module
-                                        $displayModuleKey = $moduleKey . '-' . $resource;
-                                        
-                                        // Add to moduleNames
-                                        if (!isset($moduleNames[$displayModuleKey])) {
-                                            $moduleNames[$displayModuleKey] = ucfirst($resource);
-                                        }
-                                        
-                                        // Add to permission map
-                                        if (!isset($permissionMap[$displayModuleKey])) {
-                                            $permissionMap[$displayModuleKey] = [];
-                                        }
-                                        $permissionMap[$displayModuleKey][$action] = $permission;
-                                        
-                                        // Add to allPermissions (if not already there)
-                                        if (!$allPermissions->contains('id', $permission->id)) {
-                                            $allPermissions->push($permission);
-                                        }
-                                        
-                                        // Note: permissionModules will be built later from allPermissions
+                                        $action = $parts[2];
+                                        $resource = $parts[1];
+                                    } elseif (count($parts) === 2) {
+                                        // Format "resource.action" (bijv. vehicles.view) van module
+                                        $resource = $parts[0];
+                                        $action = $parts[1];
+                                    }
+                                    if ($action === null || $resource === null) {
+                                        continue;
+                                    }
+                                    
+                                    $displayModuleKey = $moduleKey . '-' . $resource;
+                                    if (!isset($moduleNames[$displayModuleKey])) {
+                                        $moduleNames[$displayModuleKey] = ucfirst($resource);
+                                    }
+                                    if (!isset($permissionMap[$displayModuleKey])) {
+                                        $permissionMap[$displayModuleKey] = [];
+                                    }
+                                    $permissionMap[$displayModuleKey][$action] = $permission;
+                                    if (!$allPermissions->contains('id', $permission->id)) {
+                                        $allPermissions->push($permission);
                                     }
                                 }
                             }
                         }
                         
-                        // Build resource to module mapping first
+                        // Build resource to module mapping (voor 3-delige en 2-delige permissienamen)
                         $resourceToModuleMap = [];
                         if (isset($modulePermissions) && is_array($modulePermissions)) {
                             foreach ($modulePermissions as $moduleDisplayName => $moduleData) {
                                 $moduleKey = $moduleData['module'];
-                                // Get all permissions for this module to find resources
                                 $allModulePerms = \Spatie\Permission\Models\Permission::where('guard_name', 'web')
                                     ->where('name', 'like', $moduleKey . '.%')
                                     ->get();
-                                
                                 foreach ($allModulePerms as $perm) {
                                     $parts = explode('.', $perm->name);
                                     if (count($parts) >= 3 && $parts[0] === $moduleKey) {
                                         $resource = $parts[1];
-                                        // Map resource to module (e.g., "matches" -> "skillmatching")
+                                        if (!isset($resourceToModuleMap[$resource])) {
+                                            $resourceToModuleMap[$resource] = $moduleKey;
+                                        }
+                                    }
+                                }
+                                // 2-delig formaat (resource.action) uit registerPermissions
+                                foreach ($moduleData['permissions'] as $permName) {
+                                    $parts = explode('.', $permName);
+                                    if (count($parts) === 2) {
+                                        $resource = $parts[0];
                                         if (!isset($resourceToModuleMap[$resource])) {
                                             $resourceToModuleMap[$resource] = $moduleKey;
                                         }
@@ -520,32 +525,27 @@
                         }
                         
                         // NOW build the structure AFTER all permissions are collected
-                        // Parse permissions: can be either "action-module" (e.g., "view-users") or "module.resource.action" (e.g., "skillmatching.vacancies.view")
-                        // Group by module (the part after the action)
+                        // Formaten: "action-module", "module.resource.action", "resource.action"
                         $permissionModules = $allPermissions->groupBy(function($permission) use ($resourceToModuleMap) {
                             $name = $permission->name;
-                            
-                            // Check if it's module format (module.resource.action)
-                            if (strpos($name, '.') !== false) {
-                                $parts = explode('.', $name);
-                                if (count($parts) >= 3) {
-                                    // Format: module.resource.action -> group by "module-resource"
-                                    return $parts[0] . '-' . $parts[1];
-                                }
+                            $parts = explode('.', $name);
+                            if (count($parts) >= 3) {
+                                return $parts[0] . '-' . $parts[1];
                             }
-                            
-                            // Old format: action-module
-                            $parts = explode('-', $name);
-                            if (count($parts) > 1) {
-                                $action = array_shift($parts);
-                                $resource = implode('-', $parts);
-                                
-                                // Check if this resource belongs to an active module
+                            if (count($parts) === 2) {
+                                $resource = $parts[0];
                                 if (isset($resourceToModuleMap[$resource])) {
-                                    // Group under module-resource (e.g., "skillmatching-matches")
                                     return $resourceToModuleMap[$resource] . '-' . $resource;
                                 }
-                                
+                                return 'other';
+                            }
+                            $dashParts = explode('-', $name);
+                            if (count($dashParts) > 1) {
+                                array_shift($dashParts);
+                                $resource = implode('-', $dashParts);
+                                if (isset($resourceToModuleMap[$resource])) {
+                                    return $resourceToModuleMap[$resource] . '-' . $resource;
+                                }
                                 return $resource;
                             }
                             return 'other';
@@ -646,49 +646,47 @@
                             }
                         }
 
-                        // Get all unique actions
+                        // Get all unique actions (view, create, edit, update, delete, etc.)
                         $allActions = $allPermissions->map(function($permission) {
                             $name = $permission->name;
-                            
-                            // Check if it's module format (module.resource.action)
-                            if (strpos($name, '.') !== false) {
-                                $parts = explode('.', $name);
-                                if (count($parts) >= 3) {
-                                    return $parts[2]; // action is last part
-                                }
+                            $parts = explode('.', $name);
+                            if (count($parts) >= 3) {
+                                return $parts[2];
                             }
-                            
-                            // Old format: action-module
-                            $parts = explode('-', $name);
-                            return $parts[0] ?? 'other';
+                            if (count($parts) === 2) {
+                                return $parts[1]; // resource.action → action
+                            }
+                            $dashParts = explode('-', $name);
+                            return $dashParts[0] ?? 'other';
                         })->unique()->sort()->values();
 
-                        // Create a map of module => [permissions by action]
+                        // Create a map of module => [permissions by action] (eerder al deels gevuld; hier opnieuw voor consistentie)
                         $permissionMap = [];
                         foreach ($allPermissions as $permission) {
                             $name = $permission->name;
                             $action = 'other';
                             $module = 'other';
                             $mainModuleKey = 'other';
-                            
-                            // Check if it's module format (module.resource.action)
-                            if (strpos($name, '.') !== false) {
-                                $parts = explode('.', $name);
-                                if (count($parts) >= 3) {
-                                    $action = $parts[2];
-                                    $module = $parts[0] . '-' . $parts[1];
-                                    $mainModuleKey = $parts[0];
+                            $parts = explode('.', $name);
+                            if (count($parts) >= 3) {
+                                $action = $parts[2];
+                                $module = $parts[0] . '-' . $parts[1];
+                                $mainModuleKey = $parts[0];
+                            } elseif (count($parts) === 2) {
+                                $resource = $parts[0];
+                                $action = $parts[1];
+                                if (isset($resourceToModuleMap[$resource])) {
+                                    $module = $resourceToModuleMap[$resource] . '-' . $resource;
+                                    $mainModuleKey = $resourceToModuleMap[$resource];
+                                } else {
+                                    $module = 'other';
                                 }
                             } else {
-                                // Old format: action-module
-                                $parts = explode('-', $name);
-                                $action = $parts[0] ?? 'other';
-                                array_shift($parts);
-                                $oldModule = implode('-', $parts) ?: 'other';
-                                
-                                // Check if this old format permission belongs to an active module
+                                $dashParts = explode('-', $name);
+                                $action = $dashParts[0] ?? 'other';
+                                array_shift($dashParts);
+                                $oldModule = implode('-', $dashParts) ?: 'other';
                                 if (isset($resourceToModuleMap[$oldModule])) {
-                                    // Map to module-resource format (e.g., "matches" -> "skillmatching-matches")
                                     $module = $resourceToModuleMap[$oldModule] . '-' . $oldModule;
                                     $mainModuleKey = $resourceToModuleMap[$oldModule];
                                 } else {
@@ -696,16 +694,12 @@
                                     $mainModuleKey = 'other';
                                 }
                             }
-                            
-                            // Only add if module is active or is 'other' (non-module permissions)
                             if ($mainModuleKey !== 'other' && !in_array($mainModuleKey, $activeModuleKeys)) {
-                                continue; // Skip inactive modules
+                                continue;
                             }
-                            
                             if (!isset($permissionMap[$module])) {
                                 $permissionMap[$module] = [];
                             }
-                            // Only add if not already exists (prefer new format over old if both exist)
                             if (!isset($permissionMap[$module][$action])) {
                                 $permissionMap[$module][$action] = $permission;
                             }
@@ -716,6 +710,7 @@
                             'view' => 'View',
                             'create' => 'Create',
                             'edit' => 'Edit',
+                            'update' => 'Update',
                             'delete' => 'Delete',
                             'publish' => 'Publish',
                             'approve' => 'Approve',

@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', $branding['site_name'] ?? config('app.name'))</title>
-    <meta name="description" content="@yield('description', '')">
+    <meta name="description" content="@yield('description', $branding['site_description'] ?? '')">
+    <meta property="og:site_name" content="{{ $branding['site_name'] ?? config('app.name') }}">
+    <meta property="og:description" content="@yield('description', $branding['site_description'] ?? '')">
     @if(!empty($branding['favicon_url']))
     <link rel="icon" href="{{ $branding['favicon_url'] }}">
     <link rel="shortcut icon" href="{{ $branding['favicon_url'] }}">
@@ -53,18 +55,20 @@
             border-color: rgba(254, 243, 199, 0.3);
         }
         html.dark .staging-bar button:hover { background: rgba(255,255,255,0.25); }
-        /* Previewbalk: donker oranje + lichte tekst in light en dark mode */
+        /* Previewbalk: zachtere, minder felle kleur in light en dark mode */
         .preview-bar {
-            background-color: #c2410c !important;
-            color: #fffbeb;
+            background-color: #9a3412 !important;
+            color: #fff7ed;
+            border-bottom: 1px solid rgba(255, 237, 213, 0.24);
         }
-        .preview-bar a { color: #fffbeb; }
+        .preview-bar a { color: #fff7ed; }
         .preview-bar a:hover { color: #fff; }
         html.dark .preview-bar {
-            background-color: #c2410c !important;
-            color: #fffbeb;
+            background-color: #7c2d12 !important;
+            color: #fff7ed;
+            border-bottom: 1px solid rgba(255, 237, 213, 0.2);
         }
-        html.dark .preview-bar a { color: #fffbeb; }
+        html.dark .preview-bar a { color: #fff7ed; }
         html.dark .preview-bar a:hover { color: #fff; }
         /* Modern home: donkere secties in dark mode (fallback zodat blokken altijd donker zijn) */
         html.dark .modern-home-stats,
@@ -209,12 +213,14 @@
                         <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('home') && !request()->routeIs('home.*') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('home') && !request()->routeIs('home.*') ? 'color: var(--theme-primary);' : '' }}">Home</a>
                         <a href="{{ route('about') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('about') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('about') ? 'color: var(--theme-primary);' : '' }}">Over ons</a>
                     @endforelse
-                    {{-- App-links (alleen ingelogd): direct achter de andere menuitems, mee in het midden uitgelijnd --}}
+                    {{-- App-links (alleen wanneer Nexa Skillmatching actief is): Dashboard, Vacatures, Matches, Agenda --}}
                     @auth
+                    @if($showSkillmatchingAppLinks ?? false)
                     <a href="{{ route('dashboard') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('dashboard') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('dashboard') ? 'color: var(--theme-primary);' : '' }}">Dashboard</a>
                     <a href="{{ route('jobs.index') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('jobs.*') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('jobs.*') ? 'color: var(--theme-primary);' : '' }}">Vacatures</a>
                     <a href="{{ route('matches') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('matches') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('matches') ? 'color: var(--theme-primary);' : '' }}">Matches</a>
                     <a href="{{ route('agenda') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('agenda') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('agenda') ? 'color: var(--theme-primary);' : '' }}">Agenda</a>
+                    @endif
                     @endauth
                 </nav>
                 {{-- Rechterkant desktop: streep (border-l), thema-toggle + Mijn Nexa/Inloggen; verborgen onder 1025px --}}
@@ -270,12 +276,12 @@
                     <a href="{{ route('about') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Over ons</a>
                 @endforelse
                 @auth
+                @if($showSkillmatchingAppLinks ?? false)
                 <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Dashboard</a>
-                @endauth
                 <a href="{{ route('jobs.index') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Vacatures</a>
-                @auth
                 <a href="{{ route('matches') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Matches</a>
                 <a href="{{ route('agenda') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Agenda</a>
+                @endif
                 @endauth
                 {{-- Streep boven Mijn Nexa/Inloggen als onderscheid met normale menuitems --}}
                 <div class="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">

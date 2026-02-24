@@ -39,9 +39,10 @@ class WebsiteBuilderService
     }
 
     /**
-     * Logo-, favicon- en sitenaam voor de website layout (zelfde logica als coming soon).
+     * Logo-, favicon-, sitenaam en omschrijving voor de website layout.
+     * Sitenaam en omschrijving komen van het actieve module-config (indien ingevuld), anders van algemene instellingen.
      *
-     * @return array{logo_url: ?string, favicon_url: ?string, site_name: string}
+     * @return array{logo_url: ?string, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool}
      */
     public function getSiteBranding(): array
     {
@@ -57,13 +58,51 @@ class WebsiteBuilderService
             $faviconUrl = '/storage/' . ltrim($faviconPath, '/');
         }
 
+        $siteName = GeneralSetting::get('site_name', config('app.name', 'Nexa'));
+        $siteDescription = GeneralSetting::get('site_description', '');
+        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
+        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1') === '1';
+        $brandingModule = $this->getBrandingModule();
+        if ($brandingModule) {
+            $config = $brandingModule->configuration ?? [];
+            if (!empty($config['app_name'])) {
+                $siteName = $config['app_name'];
+            }
+            if (isset($config['app_description']) && (string) $config['app_description'] !== '') {
+                $siteDescription = (string) $config['app_description'];
+            }
+            if (isset($config['dashboard_link_label']) && (string) $config['dashboard_link_label'] !== '') {
+                $dashboardLinkLabel = (string) $config['dashboard_link_label'];
+            }
+            if (isset($config['dashboard_link_visible'])) {
+                $dashboardLinkVisible = $config['dashboard_link_visible'] === '1' || $config['dashboard_link_visible'] === true;
+            }
+        }
+
         return [
             'logo_url' => $logoUrl,
             'favicon_url' => $faviconUrl,
-            'site_name' => GeneralSetting::get('site_name', config('app.name', 'Nexa')),
-            'dashboard_link_label' => GeneralSetting::get('dashboard_link_label', 'Mijn Nexa'),
-            'dashboard_link_visible' => GeneralSetting::get('dashboard_link_visible', '1') === '1',
+            'site_name' => $siteName,
+            'site_description' => $siteDescription,
+            'dashboard_link_label' => $dashboardLinkLabel,
+            'dashboard_link_visible' => $dashboardLinkVisible,
         ];
+    }
+
+    /**
+     * Module waarvan de applicatienaam/omschrijving gebruikt wordt voor branding (meta, header, logo alt).
+     * Eerst de module die het actieve thema gebruikt, anders de eerste actieve module.
+     */
+    protected function getBrandingModule(): ?Module
+    {
+        $activeTheme = $this->getActiveTheme();
+        if ($activeTheme) {
+            $module = Module::where('frontend_theme_id', $activeTheme->id)->where('active', true)->first();
+            if ($module) {
+                return $module;
+            }
+        }
+        return Module::where('active', true)->first();
     }
 
     public function getActiveTheme(): ?FrontendTheme
@@ -71,8 +110,41 @@ class WebsiteBuilderService
         return FrontendTheme::getActive();
     }
 
+    /**
+     * Modulenaam (key) van de actieve frontend-module (branding), voor filtering in o.a. componenten-overzicht.
+     */
+    public function getActiveModuleName(): ?string
+    {
+        $module = $this->getBrandingModule();
+        return $module ? $module->name : null;
+    }
+
+    /**
+     * Homepagina voor de startpagina: actieve home die het actieve thema gebruikt.
+     * Als meerdere modules hetzelfde thema gebruiken: voorkeur voor de branding-module's home.
+     * Anders de kern-home (geen module).
+     */
     public function getHomePage(): ?WebsitePage
     {
+        $activeTheme = $this->getActiveTheme();
+        if ($activeTheme) {
+            $candidates = WebsitePage::active()
+                ->where('page_type', 'home')
+                ->where('frontend_theme_id', $activeTheme->id)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+            if ($candidates->isNotEmpty()) {
+                $brandingModule = $this->getBrandingModule();
+                if ($brandingModule) {
+                    $preferred = $candidates->first(fn (WebsitePage $p) => $p->module_name !== null && strcasecmp($p->module_name, $brandingModule->name) === 0);
+                    if ($preferred) {
+                        return $preferred;
+                    }
+                }
+                return $candidates->first();
+            }
+        }
         return WebsitePage::active()
             ->forModule(null)
             ->where('page_type', 'home')

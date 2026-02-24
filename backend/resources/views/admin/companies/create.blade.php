@@ -246,7 +246,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Telefoon
+                                Telefoon *
                             </td>
                             <td>
                                 <input type="tel" 
@@ -267,39 +267,12 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Straat
-                            </td>
-                            <td>
-                                <input type="text" 
-                                       class="kt-input @error('street') border-destructive @enderror" 
-                                       name="street" 
-                                       value="{{ old('street') }}">
-                                @error('street')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Huisnummer
-                            </td>
-                            <td>
-                                <input type="text" 
-                                       class="kt-input @error('house_number') border-destructive @enderror" 
-                                       name="house_number" 
-                                       value="{{ old('house_number') }}">
-                                @error('house_number')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Postcode
+                                Postcode *
                             </td>
                             <td>
                                 <input type="text" 
+                                       id="postal_code"
                                        class="kt-input @error('postal_code') border-destructive @enderror" 
                                        name="postal_code" 
                                        value="{{ old('postal_code') }}"
@@ -307,7 +280,7 @@
                                        placeholder="1234AB"
                                        maxlength="7"
                                        style="text-transform: uppercase;">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB)</div>
+                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.</div>
                                 @error('postal_code')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -319,13 +292,48 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Plaats
+                                Huisnummer *
                             </td>
                             <td>
                                 <input type="text" 
+                                       id="house_number"
+                                       class="kt-input @error('house_number') border-destructive @enderror" 
+                                       name="house_number" 
+                                       value="{{ old('house_number') }}">
+                                <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld wordt straat en plaats automatisch ingevuld.</div>
+                                @error('house_number')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
+                                Straat *
+                            </td>
+                            <td>
+                                <input type="text" 
+                                       id="street"
+                                       class="kt-input @error('street') border-destructive @enderror" 
+                                       name="street" 
+                                       value="{{ old('street') }}"
+                                       readonly>
+                                <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.</div>
+                                @error('street')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
+                                Plaats *
+                            </td>
+                            <td>
+                                <input type="text" 
+                                       id="city"
                                        class="kt-input @error('city') border-destructive @enderror" 
                                        name="city" 
-                                       value="{{ old('city') }}">
+                                       value="{{ old('city') }}"
+                                       readonly>
                                 @error('city')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -337,9 +345,11 @@
                             </td>
                             <td>
                                 <input type="text" 
+                                       id="country"
                                        class="kt-input @error('country') border-destructive @enderror" 
                                        name="country" 
-                                       value="{{ old('country', 'Nederland') }}">
+                                       value="{{ old('country', 'Nederland') }}"
+                                       readonly>
                                 @error('country')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -527,18 +537,17 @@
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Actions -->
-            <div class="flex items-center justify-end gap-2.5">
-                <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
-                    <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
-                </a>
-                <button type="submit" class="kt-btn kt-btn-primary">
-                    <i class="ki-filled ki-check me-2"></i>
-                    Bedrijf Opslaan
-                </button>
-            </div>
+        <div class="flex items-center justify-end gap-2.5 mt-5">
+            <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-cross me-2"></i>
+                Annuleren
+            </a>
+            <button type="submit" class="kt-btn kt-btn-primary">
+                <i class="ki-filled ki-check me-2"></i>
+                Bedrijf Opslaan
+            </button>
         </div>
     </form>
 </div>
@@ -581,6 +590,58 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Contact address: postcode + huisnummer lookup on blur
+    (function() {
+        const postalCodeInput = document.getElementById('postal_code');
+        const houseNumberInput = document.getElementById('house_number');
+        const streetInput = document.getElementById('street');
+        const cityInput = document.getElementById('city');
+        const countryInput = document.getElementById('country');
+        if (!postalCodeInput || !houseNumberInput || !streetInput || !cityInput) return;
+
+        let lookupTimeout;
+        function lookupContactAddress() {
+            const postcode = postalCodeInput.value.trim().toUpperCase().replace(/\s+/g, '');
+            const huisnummer = houseNumberInput.value.trim();
+            if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode) || !huisnummer) return;
+
+            clearTimeout(lookupTimeout);
+            lookupTimeout = setTimeout(function() {
+                fetch('{{ route('admin.postcode.lookup') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        streetInput.value = data.street || '';
+                        cityInput.value = data.city || '';
+                        if (countryInput) countryInput.value = data.country || 'Nederland';
+                        streetInput.setAttribute('readonly', 'readonly');
+                        cityInput.setAttribute('readonly', 'readonly');
+                        if (countryInput) countryInput.setAttribute('readonly', 'readonly');
+                    } else {
+                        streetInput.removeAttribute('readonly');
+                        cityInput.removeAttribute('readonly');
+                        if (countryInput) countryInput.removeAttribute('readonly');
+                    }
+                })
+                .catch(function() {
+                    streetInput.removeAttribute('readonly');
+                    cityInput.removeAttribute('readonly');
+                    if (countryInput) countryInput.removeAttribute('readonly');
+                });
+            }, 300);
+        }
+
+        postalCodeInput.addEventListener('blur', lookupContactAddress);
+        houseNumberInput.addEventListener('blur', lookupContactAddress);
+    })();
+
     // Main location header toggle
     const mainLocationHeaderToggle = document.getElementById('toggle-main-location-header');
     

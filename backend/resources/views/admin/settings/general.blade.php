@@ -59,38 +59,18 @@
             </div>
         </div>
 
-        <!-- Applicatienaam en omschrijving -->
+        <!-- Algemene opties. Applicatienaam, omschrijving en Mijn-omgeving-knop staan per module onder Modules Beheer > [module] > Configureren. -->
         <div class="kt-card mb-8">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Applicatie</h3>
-                <p class="text-sm text-muted-foreground mt-1">Naam en omschrijving van de applicatie (o.a. gebruikt op de coming soon-pagina).</p>
+                <h3 class="kt-card-title">Algemene opties</h3>
             </div>
             <div class="kt-card-content">
                 <form action="{{ route('admin.settings.general.update') }}" method="POST" class="mb-0">
                     @csrf
-                    <div class="mb-6">
-                        <label for="site_name" class="kt-form-label mb-2">Naam van de applicatie</label>
-                        <input type="text" name="site_name" id="site_name" class="kt-input w-full max-w-md" value="{{ old('site_name', $siteName ?? '') }}" placeholder="{{ config('app.name') }}">
-                        <p class="text-xs text-muted-foreground mt-1">Wordt o.a. getoond in de footer en als alt-tekst bij het logo.</p>
-                    </div>
-                    <div class="mb-6">
-                        <label for="site_description" class="kt-form-label mb-2">Omschrijving</label>
-                        <textarea name="site_description" id="site_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('site_description', $siteDescription ?? '') }}</textarea>
-                    </div>
                     <div class="mb-6 flex flex-wrap items-center gap-3">
                         <label class="kt-form-label mb-0">AI-assistent tonen</label>
                         <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
                         <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
-                    </div>
-                    <div class="mb-6 flex flex-wrap items-center gap-3">
-                        <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
-                        <input type="checkbox" name="dashboard_link_visible" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ old('dashboard_link_visible', $dashboardLinkVisible ?? '1') === '1' ? 'checked' : '' }}>
-                        <span class="text-sm text-muted-foreground">Toon de knop in de header die naar het dashboard gaat.</span>
-                    </div>
-                    <div class="mb-6">
-                        <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
-                        <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboardLinkLabel ?? 'Mijn Nexa') }}" placeholder="Mijn Nexa">
-                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header die naar het dashboard gaat (bijv. "Mijn Nexa", "Mijn omgeving").</p>
                     </div>
                     <div class="flex justify-end">
                         <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>

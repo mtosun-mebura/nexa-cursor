@@ -103,6 +103,36 @@
                 </div>
             @endif
 
+            <!-- Applicatie naam en omschrijving (meta, header, logo's) -->
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Applicatie</h3>
+                    <p class="text-sm text-muted-foreground mt-1">Naam en omschrijving van de applicatie voor deze module. Wordt gebruikt in meta-tags, header en als alt-tekst bij het logo zodra de module actief is.</p>
+                </div>
+                <div class="kt-card-content">
+                    <div class="mb-6">
+                        <label for="app_name" class="kt-form-label mb-2">Naam van de applicatie</label>
+                        <input type="text" name="app_name" id="app_name" class="kt-input w-full max-w-md" value="{{ old('app_name', $app_name ?? '') }}" placeholder="{{ config('app.name') }}">
+                        <p class="text-xs text-muted-foreground mt-1">Wordt o.a. getoond in de footer, in de titel en als alt-tekst bij het logo.</p>
+                    </div>
+                    <div class="mb-6">
+                        <label for="app_description" class="kt-form-label mb-2">Omschrijving</label>
+                        <textarea name="app_description" id="app_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('app_description', $app_description ?? '') }}</textarea>
+                        <p class="text-xs text-muted-foreground mt-1">Gebruikt o.a. in meta description voor zoekmachines.</p>
+                    </div>
+                    <div class="mb-6 flex flex-wrap items-center gap-3">
+                        <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
+                        <input type="checkbox" name="dashboard_link_visible" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ old('dashboard_link_visible', $dashboard_link_visible ?? true) ? 'checked' : '' }}>
+                        <span class="text-sm text-muted-foreground">Toon de knop in de header die naar het dashboard gaat.</span>
+                    </div>
+                    <div class="mb-6">
+                        <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
+                        <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboard_link_label ?? 'Mijn Nexa') }}" placeholder="Mijn Nexa">
+                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header (bijv. "Mijn Nexa", "Mijn omgeving").</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Module Configuratie -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
@@ -152,17 +182,11 @@
                         </table>
                     @endif
                 </div>
-                @if(!empty($availableItems))
-                    <div class="kt-card-footer flex items-center justify-end gap-2 pt-3">
-                        <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">
-                            Annuleren
-                        </a>
-                        <button type="submit" class="kt-btn kt-btn-primary">
-                            <i class="ki-filled ki-check me-2"></i>
-                            Opslaan
-                        </button>
-                    </div>
-                @endif
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5">
+                <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">Annuleren</a>
+                <button type="submit" class="kt-btn kt-btn-primary"><i class="ki-filled ki-check me-2"></i>Opslaan</button>
             </div>
 
             <!-- Info Card -->

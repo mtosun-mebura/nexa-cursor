@@ -5,11 +5,17 @@
         id="sidebar_header">
         <a href="{{ route('admin.dashboard') }}" class="flex items-center">
             @php
-                $logo = \App\Models\GeneralSetting::get('logo');
                 $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                 $logoHeight = $logoSize . 'px';
+                $company = auth()->user()?->company;
+                $useCompanyLogo = $company && $company->logo_blob;
+                $settingsLogo = \App\Models\GeneralSetting::get('logo');
+                $hasSettingsLogo = $settingsLogo && \Storage::disk('public')->exists($settingsLogo);
             @endphp
-            @if($logo && \Storage::disk('public')->exists($logo))
+            @if($useCompanyLogo)
+                <img class="default-logo w-auto max-w-[140px] object-contain" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
+                <img class="small-logo w-auto max-w-[94px] object-contain" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
+            @elseif($hasSettingsLogo)
                 <img class="default-logo w-auto max-w-[140px] object-contain" style="height: {{ $logoHeight }};" src="{{ route('admin.settings.logo') }}" alt="Logo" />
                 <img class="small-logo w-auto max-w-[94px] object-contain" style="height: {{ $logoHeight }};" src="{{ route('admin.settings.logo') }}" alt="Logo" />
             @else
@@ -36,9 +42,20 @@
                 <!-- Client API (Super Admin only) -->
                 @if(auth()->user()?->hasRole('super-admin'))
                 @php
-                    $companies = \App\Models\Company::orderBy('name')->get();
+                    $dbService = app(\App\Services\ModuleDatabaseService::class);
+                    $adminModuleConn = null;
+                    if (request()->routeIs('admin.taxiroyaal.*') && $dbService->supportsModuleDatabases()) {
+                        $adminModuleConn = $dbService->getModuleConnectionName('taxiroyaal');
+                    } elseif (request()->routeIs('admin.skillmatching.*') && $dbService->supportsModuleDatabases()) {
+                        $adminModuleConn = $dbService->getModuleConnectionName('skillmatching');
+                    }
+                    $companies = $adminModuleConn
+                        ? \App\Models\Company::on($adminModuleConn)->orderBy('name')->get()
+                        : \App\Models\Company::orderBy('name')->get();
                     $selectedTenant = session('selected_tenant');
-                    $selectedCompany = $selectedTenant ? \App\Models\Company::find($selectedTenant) : null;
+                    $selectedCompany = $selectedTenant
+                        ? ($adminModuleConn ? \App\Models\Company::on($adminModuleConn)->find($selectedTenant) : \App\Models\Company::find($selectedTenant))
+                        : null;
                 @endphp
                 <div class="mb-2 tenant-switcher" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-start" data-kt-dropdown-trigger="click" data-kt-dropdown-offset="0px, 5px">
                     <!-- Collapsed sidebar: icon-only toggle (opens same dropdown) -->
@@ -244,8 +261,8 @@
                 </div>
                 @endif
 
-                <!-- Job Configuraties (Super Admin only) -->
-                @if(auth()->user()?->hasRole('super-admin'))
+                <!-- Job Configuraties (Nexa Skillmatching: alleen wanneer module actief + Super Admin) -->
+                @if((auth()->user()?->hasRole('super-admin')) && app(\App\Services\ModuleManager::class)->isActive('skillmatching'))
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
@@ -366,7 +383,8 @@
                 </div>
                 @endif
 
-                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.payment-providers.*') ? 'here show' : '' }}" 
+                @if(auth()->user()?->hasRole('super-admin'))
+                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.payment-providers.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -444,8 +462,11 @@
                         </div>
                     </div>
                 </div>
+                @endif
+
                 <!-- Configuraties (Super Admin only) -->
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') ? 'here show' : '' }}" 
+                @if(auth()->user()?->hasRole('super-admin'))
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -496,8 +517,10 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
                 <!-- Front-end (Super Admin only): Coming Soon, Pagina's, Thema's, Componenten -->
+                @if(auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || request()->routeIs('admin.website-pages.*') || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
@@ -564,6 +587,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
 
             </div>

@@ -1,21 +1,28 @@
 # Module-schema's en thema's
 
+## Standaard database
+
+De **standaard database** is de Laravel default connection (`DB_CONNECTION` in `.env`). Daarin staan alleen de **standaard tabellen** van de applicatie (via `database/migrations/`). Geen module-specifieke tabellen; die horen in het eigen schema van de module.
+
+- **Super admin in standaard DB:** bij `php artisan db:seed` wordt de super admin aangemaakt met e-mail **m.tosun@mebura.nl** en het geëncrypte wachtwoord uit `ModuleSchemaService::SUPERADMIN_PASSWORD` (opgeslagen met `Hash::make()`). Zie `RoleSeeder` en `UserRoleSeeder`.
+
 ## Database per module (PostgreSQL)
 
 Bij **installatie van een module** (alleen wanneer `DB_CONNECTION=pgsql`):
 
-1. Er wordt een **apart schema** aangemaakt: `module_{naam}` (bijv. `module_skillmatching`).
+1. Er wordt een **apart schema** aangemaakt. De schema-naam komt uit **`Module::getSchemaName()`**: als de module die methode overschrijft en een string retourneert, wordt die naam gebruikt; anders `module_{naam}` (bijv. `module_skillmatching`). Deze configuratie wordt gebruikt voor de connectie naar het eigen schema.
 2. In dat schema worden **standaardtabellen** aangemaakt: `users`, `sessions`, `password_reset_tokens`, `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`, `cache`, `cache_locks`, `jobs`.
 3. Er wordt een **superadmin** aangemaakt in dat schema:
    - E-mail: **m.tosun@mebura.nl**
-   - Wachtwoord: **!**
+   - Wachtwoord: uit `ModuleSchemaService::SUPERADMIN_PASSWORD` (geëncrypt opgeslagen)
    - Rol: super-admin (voor configuraties).
-4. Als de module een **Migrations**-map heeft (`app/Modules/{Name}/Migrations/`), worden die migraties binnen het module-schema uitgevoerd.
+4. Als de module een **Migrations**-map heeft (`app/Modules/{Name}/Migrations/`), worden die migraties **bij installatie** binnen het module-schema uitgevoerd.
 
 Bij **deïnstallatie** van een module wordt het schema (CASCADE) verwijderd.
 
 - Service: `App\Services\ModuleSchemaService`
-- Config: geen; alleen actief bij PostgreSQL.
+- Schema-naam configuratie: in `App\Modules\Base\Module::getSchemaName()` (override in de concrete module, bijv. `Skillmatching\Module`).
+- Alleen actief bij PostgreSQL.
 
 ## Thema's uit `backend/themas/`
 

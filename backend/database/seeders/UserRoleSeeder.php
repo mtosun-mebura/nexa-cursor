@@ -2,11 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
+use App\Services\ModuleSchemaService;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\User;
-use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class UserRoleSeeder extends Seeder
 {
@@ -21,13 +23,13 @@ class UserRoleSeeder extends Seeder
         $staffRole = Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web']);
         $candidateRole = Role::firstOrCreate(['name' => 'candidate', 'guard_name' => 'web']);
 
-        // Create or find users
+        // Create or find users (super admin wachtwoord uit ModuleSchemaService)
         $superAdmin = User::firstOrCreate(
-            ['email' => 'm.tosun@mebura.nl'],
+            ['email' => ModuleSchemaService::SUPERADMIN_EMAIL],
             [
                 'first_name' => 'Mehmet',
                 'last_name' => 'Tosun',
-                'password' => bcrypt('!'),
+                'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
                 'email_verified_at' => now(),
             ]
         );
@@ -47,13 +49,13 @@ class UserRoleSeeder extends Seeder
         $companyAdmin->syncRoles([$companyAdminRole]);
 
         // Ensure Mehmet Tosun has super-admin role
-        $mehmetUser = User::where('email', 'm.tosun@mebura.nl')->first();
+        $mehmetUser = User::where('email', ModuleSchemaService::SUPERADMIN_EMAIL)->first();
         if ($mehmetUser) {
             $mehmetUser->syncRoles([$superAdminRole]);
         }
 
         $this->command->info('Users and roles assigned successfully!');
-        $this->command->info('Super Admin: m.tosun@mebura.nl (password: !)');
+        $this->command->info('Super Admin: ' . ModuleSchemaService::SUPERADMIN_EMAIL . ' (wachtwoord: in ModuleSchemaService)');
         $this->command->info('Company Admin: mali@tosun.nl (password: Mali12345)');
     }
 }

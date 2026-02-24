@@ -96,6 +96,17 @@ abstract class Module
     }
 
     /**
+     * Database-schema naam voor deze module (alleen bij PostgreSQL).
+     * Gebruikt voor de connectie naar het eigen schema; migraties van de module
+     * worden binnen dit schema uitgevoerd bij installatie.
+     * Return null om de standaardnaam te gebruiken: module_{naam} (bijv. module_skillmatching).
+     */
+    public function getSchemaName(): ?string
+    {
+        return null;
+    }
+
+    /**
      * Module migrations pad
      */
     public function getMigrationsPath(): ?string
@@ -167,6 +178,17 @@ abstract class Module
      * Frontend routes voor deze module
      */
     public function getFrontendRoutes(): array
+    {
+        return [];
+    }
+
+    /**
+     * Seeder-klassen met dummydata die bij deze module horen.
+     * Wordt gebruikt door "Database dummydata" in Modules Beheer.
+     *
+     * @return array<int, class-string<\Illuminate\Database\Seeder>>
+     */
+    public function getDummySeeders(): array
     {
         return [];
     }

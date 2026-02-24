@@ -184,26 +184,38 @@ class AdminCompanyController extends Controller
         $locations = $companyData['locations'] ?? [];
         unset($companyData['locations']);
         
-        // Handle logo upload
+        // Handle logo upload (must run before create; do not pass UploadedFile to create)
+        unset($companyData['logo']);
         if ($request->hasFile('logo')) {
-            $fileContent = file_get_contents($request->file('logo')->getRealPath());
-            $mimeType = $request->file('logo')->getMimeType();
-            $companyData['logo_blob'] = base64_encode($fileContent);
-            $companyData['logo_mime_type'] = $mimeType;
-            $companyData['logo_path'] = null; // Clear old file path
+            $file = $request->file('logo');
+            $companyData['logo_blob'] = base64_encode(file_get_contents($file->getRealPath()));
+            $companyData['logo_mime_type'] = $file->getMimeType();
+            $companyData['logo_path'] = null;
         }
         
         $company = Company::create($companyData);
         
-        // Create locations if provided
+        // Create locations if provided; eerste vestiging krijgt het contactadres van het bedrijf
         if (!empty($locations)) {
             $hasMainLocation = false;
+            $isFirstLocation = true;
             foreach ($locations as $locationData) {
                 // Only create location if name is provided
                 if (!empty($locationData['name'])) {
                     // Handle checkboxes
                     $locationData['is_main'] = isset($locationData['is_main']) ? (bool) $locationData['is_main'] : false;
                     $locationData['is_active'] = isset($locationData['is_active']) ? (bool) $locationData['is_active'] : true;
+                    
+                    // Eerste vestiging: adres overnemen van contactinformatie
+                    if ($isFirstLocation) {
+                        $locationData['street'] = $companyData['street'] ?? $locationData['street'] ?? '';
+                        $locationData['house_number'] = $companyData['house_number'] ?? $locationData['house_number'] ?? '';
+                        $locationData['house_number_extension'] = $companyData['house_number_extension'] ?? $locationData['house_number_extension'] ?? null;
+                        $locationData['postal_code'] = $companyData['postal_code'] ?? $locationData['postal_code'] ?? '';
+                        $locationData['city'] = $companyData['city'] ?? $locationData['city'] ?? '';
+                        $locationData['country'] = $companyData['country'] ?? $locationData['country'] ?? '';
+                        $isFirstLocation = false;
+                    }
                     
                     // If this is marked as main, unset previous main locations
                     if ($locationData['is_main'] && !$hasMainLocation) {
@@ -339,6 +351,19 @@ class AdminCompanyController extends Controller
         }
         
         $company->update($data);
+
+        // Eerste vestiging gelijk trekken met contactadres
+        $firstLocation = $company->locations()->orderBy('id')->first();
+        if ($firstLocation) {
+            $firstLocation->update([
+                'street' => $data['street'] ?? $firstLocation->street,
+                'house_number' => $data['house_number'] ?? $firstLocation->house_number,
+                'house_number_extension' => $data['house_number_extension'] ?? $firstLocation->house_number_extension,
+                'postal_code' => $data['postal_code'] ?? $firstLocation->postal_code,
+                'city' => $data['city'] ?? $firstLocation->city,
+                'country' => $data['country'] ?? $firstLocation->country,
+            ]);
+        }
 
         return redirect()->route('admin.companies.show', $company)
             ->with('success', 'Bedrijf succesvol bijgewerkt.');

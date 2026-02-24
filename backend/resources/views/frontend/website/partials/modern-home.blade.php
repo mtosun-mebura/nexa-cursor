@@ -1,7 +1,7 @@
 @php
     $homeSections = $homeSections ?? \App\Models\WebsitePage::defaultHomeSections();
     $visibility = $homeSections['visibility'] ?? [];
-    $defaultSectionOrder = ['hero', 'stats', 'why_nexa', 'features', 'component:nexa.recente_vacatures', 'cta'];
+    $defaultSectionOrder = ['hero', 'why_nexa', 'features', 'stats', 'component:nexa.recente_vacatures', 'cta'];
     $sectionOrder = $homeSections['section_order'] ?? $defaultSectionOrder;
     if (!is_array($sectionOrder)) {
         $sectionOrder = $defaultSectionOrder;
@@ -28,18 +28,22 @@
         return in_array($base, $types, true) ? $base : null;
     };
 @endphp
-{{-- Modern thema home: secties in volgorde van section_order (bewerkbaar via Admin > Website Pagina's > Home). Dynamische keys (hero_2, features_2) en component:module.key ondersteund. --}}
+{{-- Metronic thema home: secties in volgorde van section_order (bewerkbaar via Admin > Website Pagina's > Home). Dynamische keys (hero_2, features_2) en component:module.key ondersteund. --}}
 @foreach($sectionOrder as $sectionKey)
     @php
         $componentService = app(\App\Services\FrontendComponentService::class);
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view)) || $sectionKey === 'component:nexa.recente_vacatures'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxiroyaal.tarieven' || $sectionKey === 'component:taxiroyaal.boekingsmodule'))
         @if($sectionKey === 'component:nexa.recente_vacatures' && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
-        @elseif($component && view()->exists($component->view))
-            @include($component->view, ['jobs' => $jobs ?? collect()])
+        @elseif($sectionKey === 'component:taxiroyaal.tarieven' && view()->exists('frontend.website.components.taxiroyaal-tarieven'))
+            @include('frontend.website.components.taxiroyaal-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @elseif($sectionKey === 'component:taxiroyaal.boekingsmodule' && view()->exists('frontend.website.components.taxiroyaal-boekingsmodule'))
+            @include('frontend.website.components.taxiroyaal-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @elseif($component && view()->exists($component->view ?? ''))
+            @include($component->view, ['jobs' => $jobs ?? collect(), 'homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @endif
     @else
     @php

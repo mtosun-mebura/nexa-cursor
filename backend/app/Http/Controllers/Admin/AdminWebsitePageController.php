@@ -10,6 +10,7 @@ use App\Models\WebsitePage;
 use Illuminate\Support\Facades\Cache;
 use App\Services\FrontendComponentService;
 use App\Services\ModuleManager;
+use App\Services\TaxiRoyaalBookingPricingService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,19 +26,28 @@ class AdminWebsitePageController extends Controller
     ) {}
 
     /**
-     * Lijst website-pagina's. Alleen pagina's tonen waarvan het thema gelijk is aan het
-     * thema waarin ze zijn opgezet: voor module-pagina's het huidige thema van de module,
-     * voor core-pagina's het actieve thema (of geen thema).
+     * Lijst website-pagina's. Alleen pagina's van de actieve module (de module die het
+     * actieve thema gebruikt, anders de eerste actieve module). Thema-filter blijft van toepassing.
      */
     public function index()
     {
         $this->ensureSuperAdmin();
         $activeThemeId = $this->websiteBuilder->getActiveTheme()?->id;
         $moduleThemeIds = $this->getModuleThemeIdsByModuleName();
+        $activeModuleName = $this->getActiveModuleNameForFrontend();
 
-        $pages = WebsitePage::with('theme')->orderBy('sort_order')->orderBy('title')->get()->filter(function (WebsitePage $page) use ($activeThemeId, $moduleThemeIds) {
+        $pages = WebsitePage::with('theme')->orderBy('sort_order')->orderBy('title')->get()->filter(function (WebsitePage $page) use ($activeThemeId, $moduleThemeIds, $activeModuleName) {
             if (!$page->is_active) {
                 return false;
+            }
+            // Alleen pagina's van de actieve module tonen
+            if ($activeModuleName !== null) {
+                if ($page->module_name === null) {
+                    return false;
+                }
+                if (strcasecmp($page->module_name, $activeModuleName) !== 0) {
+                    return false;
+                }
             }
             if ($page->module_name === null) {
                 return $page->frontend_theme_id === null || (int) $page->frontend_theme_id === (int) $activeThemeId;
@@ -49,7 +59,7 @@ class AdminWebsitePageController extends Controller
             return (int) $page->frontend_theme_id === (int) $moduleThemeId;
         })->values();
 
-        return view('admin.website-pages.index', compact('pages'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName'));
     }
 
     public function create()
@@ -131,6 +141,25 @@ class AdminWebsitePageController extends Controller
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
         ]);
+    }
+
+    /**
+     * De modulenaam van de "actieve" frontend: de module die het actieve thema gebruikt,
+     * anders de eerste actieve module. Null als er geen actieve module is.
+     */
+    private function getActiveModuleNameForFrontend(): ?string
+    {
+        $activeTheme = $this->websiteBuilder->getActiveTheme();
+        if ($activeTheme) {
+            $module = Module::where('installed', true)->where('active', true)
+                ->where('frontend_theme_id', $activeTheme->id)
+                ->first();
+            if ($module) {
+                return $module->name;
+            }
+        }
+        $first = Module::where('installed', true)->where('active', true)->first();
+        return $first ? $first->name : null;
     }
 
     /**
@@ -458,6 +487,99 @@ class AdminWebsitePageController extends Controller
         return self::homeSectionBaseType($key) !== null || FrontendComponentService::isComponentKey($key);
     }
 
+    /** Normaliseer items voor component:taxiroyaal.tarieven (rate_type, title, image, card-opties per card). */
+    private function normalizeTaxiroyaalTarievenSection(array $raw): array
+    {
+        $items = $raw['items'] ?? [];
+        if (! is_array($items)) {
+            $items = [];
+        }
+        $cardSizes = ['small', 'normal', 'large', 'max', 'total_width'];
+        $fontStyles = ['normal', 'bold', 'italic'];
+        $textAligns = ['left', 'center', 'right'];
+        $fontFamilies = ['', 'sans-serif', 'serif', 'monospace', 'Inter', 'Georgia'];
+        $fontSizes = array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
+        $sectionTitle = isset($raw['title']) ? trim((string) $raw['title']) : 'Onze tarieven';
+        if ($sectionTitle === '') {
+            $sectionTitle = 'Onze tarieven';
+        }
+        $sectionTitleFontSize = isset($raw['title_font_size']) ? trim((string) $raw['title_font_size']) : '';
+        $sectionTitleFontSize = in_array($sectionTitleFontSize, $fontSizes, true) ? $sectionTitleFontSize : '';
+        $sectionTitleFontStyle = isset($raw['title_font_style']) && in_array($raw['title_font_style'], $fontStyles, true)
+            ? $raw['title_font_style'] : 'normal';
+        $sectionTitleAlign = isset($raw['title_align']) && in_array($raw['title_align'], $textAligns, true)
+            ? $raw['title_align'] : 'left';
+        $out = [];
+        foreach (array_values($items) as $row) {
+            $rateType = isset($row['rate_type']) && in_array($row['rate_type'], ['1-4', '5-8', 'overige_kosten'], true) ? $row['rate_type'] : '1-4';
+            $cleaning = null;
+            if (isset($row['cleaning_costs']) && $row['cleaning_costs'] !== '' && is_numeric($row['cleaning_costs'])) {
+                $v = (float) $row['cleaning_costs'];
+                $cleaning = $v >= 0 ? $v : null;
+            }
+            $vehicleId = isset($row['vehicle_id']) && $row['vehicle_id'] !== '' && is_numeric($row['vehicle_id'])
+                ? (int) $row['vehicle_id'] : null;
+            $imageUrl = isset($row['image_url']) && trim((string) $row['image_url']) !== '' ? trim((string) $row['image_url']) : null;
+            if ($vehicleId !== null) {
+                $imageUrl = null;
+            }
+            $cardSize = isset($row['card_size']) && in_array($row['card_size'], $cardSizes, true) ? $row['card_size'] : 'normal';
+            $fontStyle = isset($row['font_style']) && in_array($row['font_style'], $fontStyles, true) ? $row['font_style'] : 'normal';
+            $textAlign = isset($row['text_align']) && in_array($row['text_align'], $textAligns, true) ? $row['text_align'] : 'left';
+            $titleFontFamily = isset($row['title_font_family']) ? trim((string) $row['title_font_family']) : '';
+            $titleFontFamily = in_array($titleFontFamily, $fontFamilies, true) ? $titleFontFamily : '';
+            $titleFontSize = isset($row['title_font_size']) ? trim((string) $row['title_font_size']) : '';
+            $titleFontSize = in_array($titleFontSize, $fontSizes, true) ? $titleFontSize : '';
+            $titleFontStyle = isset($row['title_font_style']) && in_array($row['title_font_style'], $fontStyles, true)
+                ? $row['title_font_style'] : $fontStyle;
+            $titleAlign = isset($row['title_align']) && in_array($row['title_align'], $textAligns, true)
+                ? $row['title_align'] : $textAlign;
+            $labelFontSize = isset($row['label_font_size']) ? trim((string) $row['label_font_size']) : '';
+            $labelFontSize = in_array($labelFontSize, $fontSizes, true) ? $labelFontSize : '';
+            $valueFontSize = isset($row['value_font_size']) ? trim((string) $row['value_font_size']) : '';
+            $valueFontSize = in_array($valueFontSize, $fontSizes, true) ? $valueFontSize : '';
+            $imagePadding = isset($row['image_padding']) ? max(0, min(30, (int) $row['image_padding'])) : 2;
+            $imagePadding = (int) (round($imagePadding / 2) * 2);
+            $out[] = [
+                'rate_type' => $rateType,
+                'title' => isset($row['title']) ? trim((string) $row['title']) : '',
+                'cleaning_costs' => $cleaning,
+                'vehicle_id' => $vehicleId,
+                'image_url' => $imageUrl,
+                'card_size' => $cardSize,
+                'font_style' => $fontStyle,
+                'title_font_family' => $titleFontFamily,
+                'title_font_size' => $titleFontSize,
+                'title_font_style' => $titleFontStyle,
+                'title_align' => $titleAlign,
+                'label_font_size' => $labelFontSize,
+                'value_font_size' => $valueFontSize,
+                'text_align' => $textAlign,
+                'image_padding' => $imagePadding,
+                'image_bg_color' => isset($row['image_bg_color']) ? trim((string) $row['image_bg_color']) : '',
+                'text_color' => isset($row['text_color']) ? trim((string) $row['text_color']) : '',
+            ];
+        }
+        if (empty($out)) {
+            $out = [
+                ['rate_type' => '1-4', 'title' => 't/m 4 personen', 'cleaning_costs' => null, 'vehicle_id' => null, 'image_url' => null, 'card_size' => 'normal', 'font_style' => 'normal', 'title_font_family' => '', 'title_font_size' => '', 'title_font_style' => 'normal', 'title_align' => 'left', 'label_font_size' => '', 'value_font_size' => '', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => ''],
+                ['rate_type' => '5-8', 'title' => '5 t/m 8 personen', 'cleaning_costs' => null, 'vehicle_id' => null, 'image_url' => null, 'card_size' => 'normal', 'font_style' => 'normal', 'title_font_family' => '', 'title_font_size' => '', 'title_font_style' => 'normal', 'title_align' => 'left', 'label_font_size' => '', 'value_font_size' => '', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => ''],
+            ];
+        }
+        return [
+            'title' => $sectionTitle,
+            'title_font_size' => $sectionTitleFontSize,
+            'title_font_style' => $sectionTitleFontStyle,
+            'title_align' => $sectionTitleAlign,
+            'items' => $out,
+        ];
+    }
+
+    private function normalizeTaxiroyaalBoekingsmoduleSection(array $raw): array
+    {
+        return app(TaxiRoyaalBookingPricingService::class)->mergeSectionConfig($raw);
+    }
+
     /**
      * Normaliseer home_sections uit request; ondersteunt dynamische sectie-keys (hero_2, features_2, etc.).
      * Bij themeSlug wordt defaultHomeSectionsForTheme (of bij forNonHome: defaultPageSectionsForNonHome) gebruikt.
@@ -482,7 +604,13 @@ class AdminWebsitePageController extends Controller
         $sections = [];
         foreach ($sectionOrder as $sectionKey) {
             if (FrontendComponentService::isComponentKey($sectionKey)) {
-                $sections[$sectionKey] = [];
+                if ($sectionKey === 'component:taxiroyaal.tarieven') {
+                    $sections[$sectionKey] = $this->normalizeTaxiroyaalTarievenSection($input[$sectionKey] ?? []);
+                } elseif ($sectionKey === 'component:taxiroyaal.boekingsmodule') {
+                    $sections[$sectionKey] = $this->normalizeTaxiroyaalBoekingsmoduleSection($input[$sectionKey] ?? []);
+                } else {
+                    $sections[$sectionKey] = [];
+                }
                 continue;
             }
             $baseType = self::homeSectionBaseType($sectionKey);

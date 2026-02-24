@@ -77,12 +77,12 @@ class AdminFrontendThemeController extends Controller
     public function index()
     {
         $this->ensureSuperAdmin();
-        // Zorg dat alle thema's (Modern + Atom v2, Nextly, Next Landing VPN) bestaan
+        // Zorg dat alle thema's (Metronic + Atom v2, Nextly, Next Landing VPN) bestaan
         $newSlugs = ['atom-v2', 'nextly-template', 'next-landing-vpn'];
         if (FrontendTheme::count() === 0 || FrontendTheme::whereIn('slug', $newSlugs)->count() < count($newSlugs)) {
             (new FrontendThemeSeeder())->run();
         }
-        // Zorg dat thema Modern de NEXA Home-screenshot gebruikt
+        // Zorg dat thema Metronic de NEXA Home-screenshot gebruikt
         $modern = FrontendTheme::where('slug', 'modern')->first();
         $modernPreviewPath = 'frontend-themes/modern-home.png';
         if ($modern && file_exists(public_path($modernPreviewPath))) {
@@ -92,6 +92,7 @@ class AdminFrontendThemeController extends Controller
         }
         $themes = FrontendTheme::orderBy('slug')->get();
         $installedModules = $this->moduleManager->getInstalledModules();
+        $activeModulesForThemes = $this->moduleManager->getActiveModules();
         $activeTheme = FrontendTheme::getActive();
         $activeThemeId = $activeTheme ? $activeTheme->id : $themes->first()?->id;
 
@@ -135,7 +136,7 @@ class AdminFrontendThemeController extends Controller
 
         $websiteUrl = url('/');
         return view('admin.frontend-themes.index', compact(
-            'themes', 'installedModules', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
+            'themes', 'installedModules', 'activeModulesForThemes', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
             'websiteUrl', 'stagingUrlTop', 'activeThemeId'
         ));
     }

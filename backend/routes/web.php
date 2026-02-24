@@ -28,6 +28,7 @@ use App\Http\Controllers\Frontend\MatchController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\WebsitePageController;
+use App\Http\Controllers\Frontend\TaxiRoyaalBookingController;
 use App\Services\WebsiteBuilderService;
 
 /*
@@ -192,8 +193,9 @@ Route::get('/company-logo/{company}', function ($companyId) {
         abort(404);
     }
     
-    // Check if user has permission to view companies
-    if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+    // Toegestaan: super-admin, view-companies, of eigen bedrijfslogo (voor sidebar)
+    $isOwnCompany = auth()->user()->company_id && (int) auth()->user()->company_id === (int) $company->id;
+    if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies') && !$isOwnCompany) {
         abort(403);
     }
     
@@ -235,9 +237,11 @@ Route::get('/meld/sessie-verlopen', function (\Illuminate\Http\Request $request)
 // Frontend vacancy details (company slug + vacancy id; no model binding to avoid type confusion)
 Route::get('/vacature/{companySlug}/{vacancyId}', [PublicVacancyController::class, 'frontendShow'])->name('frontend.vacancy-details')->whereNumber('vacancyId');
 
-// Frontend job routes (publiek inzien)
-Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
-Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, 'show'])->name('jobs.show');
+// Frontend job routes (alleen wanneer Nexa Skillmatching actief is)
+Route::middleware(['skillmatching'])->group(function () {
+    Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
+    Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, 'show'])->name('jobs.show');
+});
 
 // Admin Authentication Routes (without admin middleware)
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
@@ -479,6 +483,8 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('modules/{module}/activate', [AdminModuleController::class, 'activate'])->name('modules.activate');
         Route::post('modules/{module}/deactivate', [AdminModuleController::class, 'deactivate'])->name('modules.deactivate');
         Route::post('modules/{module}/uninstall', [AdminModuleController::class, 'uninstall'])->name('modules.uninstall');
+        Route::post('modules/database-reset', [AdminModuleController::class, 'databaseReset'])->name('modules.database-reset');
+        Route::post('modules/{module}/database-dummydata', [AdminModuleController::class, 'databaseDummydata'])->name('modules.database-dummydata');
     });
     
     // Roles & Permissions (Super Admin only)
@@ -738,8 +744,8 @@ if (app()->environment('local', 'development')) {
     });
 }
 
-// User dashboard routes
-Route::middleware(['auth:web'])->group(function () {
+// User dashboard routes (alleen wanneer Nexa Skillmatching actief is)
+Route::middleware(['auth:web', 'skillmatching'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
     // Frontend chat routes
@@ -846,6 +852,11 @@ Route::get('/contact', function () {
     return app(\App\Http\Controllers\Frontend\ContactController::class)->index();
 })->name('contact');
 Route::post('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'submit'])->name('contact.submit');
+
+Route::prefix('taxiroyaal/booking')->name('taxiroyaal.booking.')->middleware('throttle:30,1')->group(function () {
+    Route::post('/quote', [TaxiRoyaalBookingController::class, 'quote'])->name('quote');
+    Route::post('/submit', [TaxiRoyaalBookingController::class, 'submit'])->name('submit');
+});
 
 Route::get('/privacy', function () {
     return view('frontend.pages.privacy');

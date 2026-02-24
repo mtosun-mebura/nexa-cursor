@@ -140,10 +140,10 @@
         @endforeach
     </div>
 
-    @if(count($installedModules) > 0)
+    @if(count($activeModulesForThemes ?? []) > 0)
         <div class="mt-8">
             <h2 class="text-lg font-medium mb-3">Thema per module</h2>
-            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module. Kernpagina's (geen module) gebruiken het actieve standaardthema hierboven.</p>
+            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module. Kernpagina's (geen module) gebruiken het actieve standaardthema hierboven. Alleen actieve modules worden getoond.</p>
             <div class="kt-card">
                 <div class="kt-card-table kt-scrollable-x-auto">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm">
@@ -155,7 +155,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($installedModules as $module)
+                            @foreach($activeModulesForThemes as $module)
                                     @php
                                     $moduleName = $module->getName();
                                     $moduleModel = $moduleModels[$moduleName] ?? null;

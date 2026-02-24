@@ -115,12 +115,15 @@ class WebsitePageController extends Controller
         }
 
         $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
+        $isRenderingHome = $page->page_type === 'home' || $page->slug === 'home';
         $useThemeHomeLayout = $themeHasHomeSections && (
-            !empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
+            !empty($page->home_sections) || $isRenderingHome
         );
-        // Footer altijd van de home-pagina, zodat deze op elke pagina hetzelfde is (logo, kaart, links, copyright)
+        // Bij home: secties van deze pagina. Anders: secties van de home (voor footer e.d.)
         $homePage = $themeHasHomeSections ? $this->websiteBuilder->getHomePage() : null;
-        $homeSections = $homePage ? $homePage->getHomeSections() : ($useThemeHomeLayout ? $page->getHomeSections() : []);
+        $homeSections = $useThemeHomeLayout && $isRenderingHome
+            ? $page->getHomeSections()
+            : ($homePage ? $homePage->getHomeSections() : []);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
         $env = app(EnvService::class);

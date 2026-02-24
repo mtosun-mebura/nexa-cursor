@@ -18,7 +18,7 @@
     @elseif($isNextLandingVpn)
         @include('frontend.website.partials.next-landing-vpn-home')
     @else
-        {{-- Modern thema: hero, stats, Waarom Nexa, Wat Wij Bieden, vacatures, CTA (of alleen hero+footer voor niet-home) --}}
+        {{-- Metronic thema: hero, stats, Waarom Nexa, Wat Wij Bieden, vacatures, CTA (of alleen hero+footer voor niet-home) --}}
         @include('frontend.website.partials.modern-home')
     @endif
 @else

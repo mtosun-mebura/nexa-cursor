@@ -434,9 +434,7 @@ class AdminSettingsController extends Controller
         $logoSize = GeneralSetting::get('logo_size', '26');
         $siteName = GeneralSetting::get('site_name', config('app.name'));
         $siteDescription = GeneralSetting::get('site_description', '');
-        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
         $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0');
-        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1');
         
         // Verify files exist
         if ($logo && !Storage::disk('public')->exists($logo)) {
@@ -449,7 +447,7 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
         
-        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'siteName', 'siteDescription', 'dashboardLinkLabel', 'aiChatEnabled', 'dashboardLinkVisible'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'siteName', 'siteDescription', 'aiChatEnabled'));
     }
 
     /**
@@ -463,9 +461,7 @@ class AdminSettingsController extends Controller
         $validator = Validator::make($request->all(), [
             'site_name' => 'nullable|string|max:255',
             'site_description' => 'nullable|string|max:1000',
-            'dashboard_link_label' => 'nullable|string|max:100',
             'ai_chat_enabled' => 'nullable',
-            'dashboard_link_visible' => 'nullable',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
@@ -495,11 +491,7 @@ class AdminSettingsController extends Controller
             if ($request->has('site_description')) {
                 GeneralSetting::set('site_description', $request->input('site_description', ''));
             }
-            if ($request->has('dashboard_link_label')) {
-                GeneralSetting::set('dashboard_link_label', $request->input('dashboard_link_label', ''));
-            }
             GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0');
-            GeneralSetting::set('dashboard_link_visible', $request->has('dashboard_link_visible') ? '1' : '0');
 
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
@@ -724,12 +716,10 @@ class AdminSettingsController extends Controller
     }
 
     /**
-     * Get logo file
+     * Get logo file (toegankelijk voor alle ingelogde admins, o.a. voor sidebar)
      */
     public function getLogo()
     {
-        $this->ensureSuperAdmin();
-        
         $logoPath = GeneralSetting::get('logo');
         
         if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {

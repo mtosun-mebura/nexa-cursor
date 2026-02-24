@@ -760,10 +760,12 @@
                         <i class="ki-filled ki-arrow-right"></i>
                     </button>
                 </div>
+                @if(Route::has('admin.skillmatching.interviews.create'))
                 <a href="{{ route('admin.skillmatching.interviews.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
                     Nieuwe interview
                 </a>
+                @endif
             </div>
         </div>
 
@@ -809,8 +811,8 @@ const monthNames = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'jul
 const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
 const dayNamesShort = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 
-// Interview base URL (Skillmatching module)
-const interviewBaseUrl = '{{ route("admin.skillmatching.interviews.index") }}'.replace(/\/$/, '') + '/';
+// Interview base URL (Skillmatching module; empty when module inactive)
+const interviewBaseUrl = @json(Route::has('admin.skillmatching.interviews.index') ? rtrim(route('admin.skillmatching.interviews.index'), '/') . '/' : '');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -1504,10 +1506,12 @@ window.openDayModal = function(year, month, day) {
             content.appendChild(notes);
         }
         
-        const link = document.createElement('div');
-        link.className = 'modal-event-link';
-        link.innerHTML = `<a href="${interviewBaseUrl}${event.id}">Bekijk details</a>`;
-        content.appendChild(link);
+        if (interviewBaseUrl) {
+            const link = document.createElement('div');
+            link.className = 'modal-event-link';
+            link.innerHTML = `<a href="${interviewBaseUrl}${event.id}">Bekijk details</a>`;
+            content.appendChild(link);
+        }
         
         eventItem.appendChild(avatar);
         eventItem.appendChild(content);

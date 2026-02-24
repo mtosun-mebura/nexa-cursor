@@ -17,9 +17,13 @@ class AdminMiddleware
     {
         // Check if user is authenticated
         if (!auth()->check()) {
-            // Store the intended URL for redirect after login
-            session(['url.intended' => $request->url()]);
-            
+            // Alleen een echte paginapagina als intended bewaren, niet API-endpoints (bijv. unread-count)
+            $path = $request->path();
+            $isUtilityPath = preg_match('#^(admin/)?(chat|notifications)/unread-count#', $path);
+            if (!$isUtilityPath) {
+                session(['url.intended' => $request->url()]);
+            }
+
             // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
