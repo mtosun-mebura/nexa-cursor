@@ -17,6 +17,9 @@ COPY composer.json composer.lock ./
 # Install dependencies ZONDER scripts (artisan bestaat nog niet)
 RUN composer install --no-interaction --prefer-dist --no-scripts
 
+# PHP upload limits (voor php artisan serve)
+COPY php-upload.ini /usr/local/etc/php/conf.d/99-upload.ini
+
 # Copy rest of code (entrypoint script included)
 COPY . /var/www/html
 

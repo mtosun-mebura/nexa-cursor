@@ -28,13 +28,12 @@ class TaxiRoyaalBookingPricingService
             'step_order' => ['trip', 'baggage', 'offers', 'contact', 'confirm'],
             'style' => [
                 'primary_color' => '#5b21b6',
-                'accent_color' => '#34d399',
                 'active_tab_color' => '#5b21b6',
                 'background_color' => '#ffffff',
                 'text_color' => '#111827',
                 'card_bg_color' => '#ffffff',
                 'border_radius' => 12,
-                'container_max_width' => '1200px',
+                'container_max_width' => '100%',
                 'align' => 'center',
             ],
             'logic' => [
@@ -42,15 +41,19 @@ class TaxiRoyaalBookingPricingService
                 'max_passengers' => 8,
                 'default_passengers' => 1,
                 'return_enabled_by_default' => false,
+                'skip_baggage_step' => false,
                 'max_stopovers' => 3,
                 'return_price_multiplier' => 2.0,
                 'offer_display_mode' => 'vehicle',
+                'person_range_base_price_multiplier' => 1.0,
+                'person_range_base_old_price_multiplier' => 1.2,
             ],
             'texts' => [
                 'pickup_placeholder' => 'straatnaam met huisnummer',
                 'dropoff_placeholder' => 'straatnaam met huisnummer',
                 'pickup_datetime_placeholder' => 'Selecteer datum en tijd',
                 'return_datetime_placeholder' => 'Selecteer datum en tijd',
+                'person_range_feature_text' => 'Tarief op basis van aantal personen',
                 'remarks_placeholder' => 'Opmerking(en)',
                 'offer_button_text' => 'Selecteer',
                 'submit_button_text' => 'Boeking versturen',
@@ -109,7 +112,7 @@ class TaxiRoyaalBookingPricingService
         }
         $section['style']['border_radius'] = max(0, min(40, (int) ($section['style']['border_radius'] ?? $defaults['style']['border_radius'])));
         $width = trim((string) ($section['style']['container_max_width'] ?? ''));
-        $section['style']['container_max_width'] = preg_match('/^\d{3,4}px$/', $width) ? $width : $defaults['style']['container_max_width'];
+        $section['style']['container_max_width'] = preg_match('/^(100|[1-9]\d?)%$/', $width) ? $width : $defaults['style']['container_max_width'];
         $align = trim((string) ($section['style']['align'] ?? $defaults['style']['align']));
         $section['style']['align'] = in_array($align, ['left', 'center', 'right'], true) ? $align : $defaults['style']['align'];
 
@@ -118,10 +121,13 @@ class TaxiRoyaalBookingPricingService
         $section['logic']['max_passengers'] = max($section['logic']['min_passengers'], min(20, (int) ($logic['max_passengers'] ?? $defaults['logic']['max_passengers'])));
         $section['logic']['default_passengers'] = max($section['logic']['min_passengers'], min($section['logic']['max_passengers'], (int) ($logic['default_passengers'] ?? $defaults['logic']['default_passengers'])));
         $section['logic']['return_enabled_by_default'] = !empty($logic['return_enabled_by_default']);
+        $section['logic']['skip_baggage_step'] = !empty($logic['skip_baggage_step']);
         $section['logic']['max_stopovers'] = max(0, min(6, (int) ($logic['max_stopovers'] ?? $defaults['logic']['max_stopovers'])));
         $section['logic']['return_price_multiplier'] = max(1, min(3, (float) ($logic['return_price_multiplier'] ?? $defaults['logic']['return_price_multiplier'])));
         $offerDisplayMode = trim((string) ($logic['offer_display_mode'] ?? $defaults['logic']['offer_display_mode']));
         $section['logic']['offer_display_mode'] = in_array($offerDisplayMode, ['vehicle', 'person_range'], true) ? $offerDisplayMode : $defaults['logic']['offer_display_mode'];
+        $section['logic']['person_range_base_price_multiplier'] = max(0.1, min(5, (float) ($logic['person_range_base_price_multiplier'] ?? $defaults['logic']['person_range_base_price_multiplier'])));
+        $section['logic']['person_range_base_old_price_multiplier'] = max(1, min(5, (float) ($logic['person_range_base_old_price_multiplier'] ?? $defaults['logic']['person_range_base_old_price_multiplier'])));
 
         $texts = is_array($raw['texts'] ?? null) ? $raw['texts'] : [];
         foreach ($defaults['texts'] as $k => $v) {
@@ -167,6 +173,7 @@ class TaxiRoyaalBookingPricingService
 
         $defaultRates = $this->getDefaultRates($range);
         $vehicleMap = $this->getActiveVehiclesById($range);
+        $allVehicleMap = $this->getAllActiveVehiclesById();
         $offers = is_array($sectionConfig['offers'] ?? null) ? $sectionConfig['offers'] : [];
         if (empty($offers)) {
             $offers = $this->buildDefaultOffersFromVehicles(array_values($vehicleMap));
@@ -178,6 +185,13 @@ class TaxiRoyaalBookingPricingService
 
         $resultOffers = [];
         if ($offerDisplayMode === 'person_range') {
+            $matchingOffers = array_values(array_filter($offers, fn (array $offer) => $this->offerMatchesPersonRange($offer, $range)));
+            $personRangeVehicle = null;
+            if (!empty($vehicleMap)) {
+                $personRangeVehicle = collect($vehicleMap)->sortBy('name')->first();
+            } elseif (!empty($allVehicleMap)) {
+                $personRangeVehicle = collect($allVehicleMap)->sortBy('name')->first();
+            }
             $baseRate = $this->resolveRateForVehicle(null, $defaultRates);
             $baseFare = $this->calculateFareFromRate(
                 $distanceMeters,
@@ -188,44 +202,82 @@ class TaxiRoyaalBookingPricingService
                 $pickupAt,
                 $waitingMinutes
             );
-            $template = $offers[0] ?? [];
-            $templateVehicleId = isset($template['vehicle_id']) && is_numeric($template['vehicle_id'])
-                ? (int) $template['vehicle_id']
-                : null;
-            $templateVehicle = $templateVehicleId !== null && isset($vehicleMap[$templateVehicleId])
-                ? $vehicleMap[$templateVehicleId]
-                : null;
-            $multiplier = max(0.1, (float) ($template['price_multiplier'] ?? 1.0));
-            $surcharge = max(0, (float) ($template['fixed_surcharge'] ?? 0));
-            $total = round(($baseFare * $multiplier) + $surcharge + $extraTotal, 2);
-            $oldMultiplier = max(1.0, (float) ($template['old_price_multiplier'] ?? 1.2));
-            $oldTotal = round($total * $oldMultiplier, 2);
+            $baseMultiplier = max(0.1, (float) ($sectionConfig['logic']['person_range_base_price_multiplier'] ?? 1.0));
+            $baseOldMultiplier = max(1.0, (float) ($sectionConfig['logic']['person_range_base_old_price_multiplier'] ?? 1.2));
+            $total = round(($baseFare * $baseMultiplier) + $extraTotal, 2);
+            $baseOldTotal = round($total * $baseOldMultiplier, 2);
             $rangeTitle = DefaultRate::formatPersonRangeLabel($range);
-            $templateImageUrl = $templateVehicle ? $this->resolveVehicleImageUrl($templateVehicle) : null;
-            $personRangeImageUrl = $templateImageUrl ?: $this->resolvePersonRangeImageUrl($vehicleMap);
+            $personRangeImageUrl = $this->resolvePersonRangeImageUrl($vehicleMap) ?: $this->resolvePersonRangeImageUrl($allVehicleMap);
             $resultOffers[] = [
                 'id' => 'person_range_' . str_replace('-', '_', $range),
                 'title' => $rangeTitle,
                 'badge' => $rangeTitle,
-                'button_text' => $template['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
-                'features' => !empty($template['features']) ? (array) $template['features'] : ['Tarief op basis van aantal personen'],
-                'vehicle_id' => $templateVehicle?->id,
-                'vehicle_name' => $templateVehicle?->name,
+                'button_text' => $sectionConfig['texts']['offer_button_text'] ?? 'Selecteer',
+                'features' => [trim((string) ($sectionConfig['texts']['person_range_feature_text'] ?? 'Tarief op basis van aantal personen')) ?: 'Tarief op basis van aantal personen'],
+                'vehicle_id' => $personRangeVehicle?->id,
+                'vehicle_name' => $personRangeVehicle?->name,
                 'image_url' => $personRangeImageUrl,
                 'price' => $total,
-                'old_price' => $oldTotal > $total ? $oldTotal : null,
+                'old_price' => $baseOldTotal > $total ? $baseOldTotal : null,
                 'currency' => 'EUR',
                 'person_range' => $range,
             ];
+
+            foreach ($matchingOffers as $idx => $offer) {
+                $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
+                $vehicleForRate = $vehicleId !== null && isset($vehicleMap[$vehicleId]) ? $vehicleMap[$vehicleId] : null;
+                $vehicleForDisplay = $vehicleId !== null && isset($allVehicleMap[$vehicleId]) ? $allVehicleMap[$vehicleId] : $vehicleForRate;
+
+                $rate = $this->resolveRateForVehicle($vehicleForRate, $defaultRates);
+                $offerBaseFare = $this->calculateFareFromRate(
+                    $distanceMeters,
+                    $durationSeconds,
+                    $rate,
+                    $returnTrip,
+                    (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
+                    $pickupAt,
+                    $waitingMinutes
+                );
+                $multiplier = max(0.1, (float) ($offer['price_multiplier'] ?? 1.0));
+                $surcharge = max(0, (float) ($offer['fixed_surcharge'] ?? 0));
+                $total = round(($offerBaseFare * $multiplier) + $surcharge + $extraTotal, 2);
+                $oldMultiplier = max(1.0, (float) ($offer['old_price_multiplier'] ?? 1.0));
+                $oldTotal = round($total * $oldMultiplier, 2);
+                $id = trim((string) ($offer['id'] ?? ('person_offer_' . ($idx + 1))));
+                $rawTitle = isset($offer['title']) ? trim((string) $offer['title']) : '';
+                $rawBadge = isset($offer['badge']) ? trim((string) $offer['badge']) : '';
+                $features = [];
+                if (isset($offer['features']) && is_array($offer['features'])) {
+                    $features = array_values(array_filter(array_map(static fn ($feature) => trim((string) $feature), $offer['features']), static fn ($feature) => $feature !== ''));
+                }
+                if (empty($features)) {
+                    $features = $this->resolveVehicleFeatures($vehicleForDisplay);
+                }
+
+                $resultOffers[] = [
+                    'id' => $id !== '' ? $id : ('person_offer_' . ($idx + 1)),
+                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding ' . ($idx + 1))),
+                    'badge' => $rawBadge,
+                    'button_text' => $offer['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
+                    'features' => $features,
+                    'vehicle_id' => $vehicleForDisplay?->id,
+                    'vehicle_name' => $vehicleForDisplay?->name,
+                    'image_url' => $this->resolveVehicleImageUrlForOffer($vehicleForDisplay),
+                    'price' => $total,
+                    'old_price' => $oldTotal > $total ? $oldTotal : null,
+                    'currency' => 'EUR',
+                    'person_range' => $range,
+                ];
+            }
         } else {
             foreach ($offers as $idx => $offer) {
-                $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
-                $vehicle = $vehicleId && isset($vehicleMap[$vehicleId]) ? $vehicleMap[$vehicleId] : null;
-                if ($vehicleId !== null && ! $vehicle) {
-                    // Config refers to a vehicle that does not match current person range (or is inactive).
+                if (! $this->offerMatchesPersonRange($offer, $range)) {
                     continue;
                 }
-                $rate = $this->resolveRateForVehicle($vehicle, $defaultRates);
+                $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
+                $vehicleForRate = $vehicleId !== null && isset($vehicleMap[$vehicleId]) ? $vehicleMap[$vehicleId] : null;
+                $vehicleForDisplay = $vehicleId !== null && isset($allVehicleMap[$vehicleId]) ? $allVehicleMap[$vehicleId] : $vehicleForRate;
+                $rate = $this->resolveRateForVehicle($vehicleForRate, $defaultRates);
                 $baseFare = $this->calculateFareFromRate(
                     $distanceMeters,
                     $durationSeconds,
@@ -248,17 +300,17 @@ class TaxiRoyaalBookingPricingService
                     $features = array_values(array_filter(array_map(static fn ($feature) => trim((string) $feature), $offer['features']), static fn ($feature) => $feature !== ''));
                 }
                 if (empty($features)) {
-                    $features = $this->resolveVehicleFeatures($vehicle);
+                    $features = $this->resolveVehicleFeatures($vehicleForDisplay);
                 }
                 $resultOffers[] = [
                     'id' => $id !== '' ? $id : ('offer_' . ($idx + 1)),
-                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicle?->name ?? ('Aanbieding ' . ($idx + 1))),
+                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding ' . ($idx + 1))),
                     'badge' => $rawBadge,
                     'button_text' => $offer['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
                     'features' => $features,
-                    'vehicle_id' => $vehicle?->id,
-                    'vehicle_name' => $vehicle?->name,
-                    'image_url' => $this->resolveVehicleImageUrl($vehicle),
+                    'vehicle_id' => $vehicleForDisplay?->id,
+                    'vehicle_name' => $vehicleForDisplay?->name,
+                    'image_url' => $this->resolveVehicleImageUrlForOffer($vehicleForDisplay),
                     'price' => $total,
                     'old_price' => $oldTotal > $total ? $oldTotal : null,
                     'currency' => 'EUR',
@@ -351,6 +403,7 @@ class TaxiRoyaalBookingPricingService
                 'badge' => trim((string) ($row['badge'] ?? 'Standaard taxi')),
                 'button_text' => trim((string) ($row['button_text'] ?? 'Selecteer')),
                 'vehicle_id' => isset($row['vehicle_id']) && $row['vehicle_id'] !== '' && is_numeric($row['vehicle_id']) ? (int) $row['vehicle_id'] : null,
+                'person_range' => $this->normalizePersonRange($row['person_range'] ?? null),
                 'price_multiplier' => max(0.1, min(5, (float) ($row['price_multiplier'] ?? 1.0))),
                 'old_price_multiplier' => max(1, min(5, (float) ($row['old_price_multiplier'] ?? 1.0))),
                 'fixed_surcharge' => max(0, (float) ($row['fixed_surcharge'] ?? 0)),
@@ -359,6 +412,34 @@ class TaxiRoyaalBookingPricingService
         }
 
         return $out;
+    }
+
+    private function normalizePersonRange(mixed $value): ?string
+    {
+        $raw = trim((string) ($value ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+        if (! preg_match('/^(\d{1,2})\s*-\s*(\d{1,2})$/', $raw, $matches)) {
+            return null;
+        }
+        $start = (int) ($matches[1] ?? 0);
+        $end = (int) ($matches[2] ?? 0);
+        if ($start <= 0 || $end <= 0 || $start > $end || $end > 50) {
+            return null;
+        }
+
+        return $start . '-' . $end;
+    }
+
+    private function offerMatchesPersonRange(array $offer, string $activeRange): bool
+    {
+        $offerRange = $this->normalizePersonRange($offer['person_range'] ?? null);
+        if ($offerRange === null) {
+            return true;
+        }
+
+        return $offerRange === $activeRange;
     }
 
     private function calculateExtraCosts(array $sectionConfig, array $input): float
@@ -415,6 +496,24 @@ class TaxiRoyaalBookingPricingService
             ->orderBy('name')
             ->get()
             ->filter(fn (Vehicle $vehicle) => $this->vehicleMatchesRange($vehicle, $personRange))
+            ->keyBy('id')
+            ->all();
+    }
+
+    /**
+     * @return array<int, Vehicle>
+     */
+    private function getAllActiveVehiclesById(): array
+    {
+        $conn = $this->getTaxiConnection();
+        if ($conn === null) {
+            return [];
+        }
+
+        return Vehicle::on($conn)
+            ->where('active', true)
+            ->orderBy('name')
+            ->get()
             ->keyBy('id')
             ->all();
     }
@@ -529,6 +628,22 @@ class TaxiRoyaalBookingPricingService
     private function resolveVehicleImageUrl(?Vehicle $vehicle): ?string
     {
         if (! $vehicle || ! (bool) ($vehicle->show_photo ?? false) || empty($vehicle->image_url)) {
+            return null;
+        }
+        $url = trim((string) $vehicle->image_url);
+        if ($url === '') {
+            return null;
+        }
+
+        return str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'));
+    }
+
+    /**
+     * For manually configured offer cards we always show selected vehicle image.
+     */
+    private function resolveVehicleImageUrlForOffer(?Vehicle $vehicle): ?string
+    {
+        if (! $vehicle || empty($vehicle->image_url)) {
             return null;
         }
         $url = trim((string) $vehicle->image_url);

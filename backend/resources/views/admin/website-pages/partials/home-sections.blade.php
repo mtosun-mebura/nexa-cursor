@@ -186,12 +186,12 @@
             <div class="row-visibility-row">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Hero-afbeelding</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding naast de titel. @if(($themeSlugForOrder ?? '') === 'next-landing-vpn')Standaard: Illustration1.png.@else(Nextly thema)@endif</p>
-                <div class="flex flex-wrap items-start gap-2">
+                <div class="flex flex-wrap items-stretch gap-3">
                     <div class="shrink-0 flex flex-col items-center">
                         <img alt="Hero afbeelding" id="hero-{{ $sectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $heroPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($heroPreviewSrc) }}" data-default-src="{{ $defaultHeroImg ?? '' }}">
                         <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
-                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="author_image_url" style="width: 500px; min-width: 500px; height: 130px;">
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 w-full min-w-0 min-h-[130px]" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                         <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                     </div>
@@ -206,12 +206,12 @@
             <div class="row-visibility-row">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrond banner</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de hero. (Metronic thema)</p>
-                <div class="flex flex-wrap items-start gap-2">
+                <div class="flex flex-wrap items-stretch gap-3">
                     <div class="shrink-0 flex flex-col items-center">
                         <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
                         <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
-                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_url" style="width: 500px; min-width: 500px; height: 130px;">
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 flex-1 min-w-0 min-h-[130px]" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                         <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                     </div>
@@ -223,15 +223,15 @@
             @else
             {{-- Atom-v2 e.d.: achtergrond + ronde foto --}}
             <div class="row-visibility-row grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrond banner</label>
-                    <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de gradient. (Atom-v2 thema)</p>
-                    <div class="flex flex-wrap items-start gap-2">
+                <div class="min-w-0 flex flex-col gap-2">
+                    <label class="block text-sm font-medium text-secondary-foreground">Achtergrond banner</label>
+                    <p class="text-xs text-muted-foreground">Afbeelding achter de gradient. (Atom-v2 thema)</p>
+                    <div class="flex flex-wrap items-stretch gap-3">
                         <div class="shrink-0 flex flex-col items-center">
                             <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
                             <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
-                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_url" style="width: 500px; min-width: 500px; height: 130px;">
+                        <div class="hero-image-upload-area flex flex-1 min-w-0 min-h-[130px] flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
                             <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                             <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                         </div>
@@ -239,15 +239,15 @@
                     <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image_url]" id="hero-{{ $sectionKey }}-background_image_url" value="{{ old('home_sections.'.$sectionKey.'.background_image_url', $sectionData['background_image_url'] ?? '') }}">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Foto in banner (ronde afbeelding)</label>
-                    <p class="text-xs text-muted-foreground mb-2">Ronde foto naast de titel. (Atom-v2 thema)</p>
-                    <div class="flex flex-wrap items-start gap-2">
+                <div class="min-w-0 flex flex-col gap-2">
+                    <label class="block text-sm font-medium text-secondary-foreground">Foto in banner (ronde afbeelding)</label>
+                    <p class="text-xs text-muted-foreground">Ronde foto naast de titel. (Atom-v2 thema)</p>
+                    <div class="flex flex-wrap items-stretch gap-3">
                         <div class="shrink-0 flex flex-col items-center">
                             <img alt="Hero foto" id="hero-{{ $sectionKey }}-author-preview" class="w-20 h-20 rounded-full object-cover border border-border {{ !empty($sectionData['author_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['author_image_url'] ?? '') }}">
                             <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
-                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="author_image_url" style="width: 500px; min-width: 500px; height: 130px;">
+                        <div class="hero-image-upload-area flex flex-1 min-w-0 min-h-[130px] flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
                             <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                             <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                         </div>
@@ -572,7 +572,17 @@
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            <p class="text-sm text-muted-foreground">Kaarten met afbeelding en tekst eronder. Maximaal 4 per regel; bij 6 kaarten: 3+3. Tekst per kaart kan met het oogje uitgeschakeld worden.</p>
+            <div class="flex flex-wrap items-center gap-4">
+                <p class="text-sm text-muted-foreground">Kaarten met afbeelding en tekst eronder. Tekst per kaart kan met het oogje uitgeschakeld worden.</p>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-muted-foreground shrink-0">Kaarten per regel:</label>
+                    <select name="home_sections[{{ $sectionKey }}][cards_per_row]" class="kt-input w-20 text-sm">
+                        @foreach([2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6'] as $val => $label)
+                        <option value="{{ $val }}" {{ (int)($sectionData['cards_per_row'] ?? 4) === (int)$val ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
             <div id="cards-ronde-hoeken-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}">
                 @foreach($cardsItems as $i => $cardItem)
                 <div class="cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3" data-cards-index="{{ $i }}">
@@ -585,12 +595,12 @@
                             <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($cardItem['image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($cardItem['image_url'] ?? '') }}">
                             <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
-                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url" style="width: 500px; min-width: 500px; height: 130px;">
+                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-file-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-file" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" style="width: 500px; min-width: 500px; height: 130px;">
                             <span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span>
                             <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                         </div>
                     </div>
-                    <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url">
+                    <input type="file" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url">
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_url', $cardItem['image_url'] ?? '') }}">
                     <div class="space-y-2 mt-3">
                         <div class="flex flex-wrap items-center gap-4">
@@ -865,7 +875,7 @@
                     $url = $url ? (str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'))) : null;
                     return ['id' => $v['id'], 'name' => $v['name'], 'image_url' => $url];
                 }, $tarievenVehicles);
-                $tarievenCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (500px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
+                $tarievenCardSizes = ['small' => 'Klein (400px)', 'normal' => 'Normaal (600px)', 'large' => 'Groot (800px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
                 $tarievenFontStyles = ['normal' => 'Normaal', 'bold' => 'Vet', 'italic' => 'Cursief'];
                 $tarievenFontFamilies = ['' => 'Standaard', 'sans-serif' => 'Sans-serif', 'serif' => 'Serif', 'monospace' => 'Monospace', 'Inter' => 'Inter', 'Georgia' => 'Georgia'];
                 $tarievenFontSizes = ['' => 'Standaard'];
@@ -1098,6 +1108,11 @@
             @php
                 $bookingData = app(\App\Services\TaxiRoyaalBookingPricingService::class)->mergeSectionConfig($sections[$sectionKey] ?? []);
                 $bookingVehicles = app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getVehiclesForSelect();
+                $offerPersonRangeOptions = [
+                    '' => 'Alle personen',
+                    '1-4' => 't/m 4 personen',
+                    '5-8' => '5 t/m 8 personen',
+                ];
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
@@ -1115,10 +1130,12 @@
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Subtitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? '#5b21b6') }}"></div>
-                <div><label class="text-sm text-muted-foreground">Accentkleur knop</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][accent_color]" value="{{ old('home_sections.'.$sectionKey.'.style.accent_color', $bookingData['style']['accent_color'] ?? '#34d399') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? '#5b21b6') }}"></div>
-                <div><label class="text-sm text-muted-foreground">Max breedte</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][container_max_width]" value="{{ old('home_sections.'.$sectionKey.'.style.container_max_width', $bookingData['style']['container_max_width'] ?? '1200px') }}" placeholder="1200px"></div>
-                <div><label class="text-sm text-muted-foreground">Border radius (px)</label><input type="number" min="0" max="40" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][border_radius]" value="{{ old('home_sections.'.$sectionKey.'.style.border_radius', $bookingData['style']['border_radius'] ?? 12) }}"></div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Max breedte (%)</label>
+                    <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_max_width]" value="{{ old('home_sections.'.$sectionKey.'.style.container_max_width', $bookingData['style']['container_max_width'] ?? '100%') }}" placeholder="100%">
+                </div>
+                <div><label class="text-sm text-muted-foreground">Border radius (px)</label><input type="number" min="0" max="40" class="kt-input mt-1 w-28 text-sm" name="home_sections[{{ $sectionKey }}][style][border_radius]" value="{{ old('home_sections.'.$sectionKey.'.style.border_radius', $bookingData['style']['border_radius'] ?? 12) }}"></div>
                 <div>
                     <label class="text-sm text-muted-foreground">Uitlijning blok</label>
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][align]">
@@ -1126,6 +1143,14 @@
                         <option value="left" {{ $bookingAlign === 'left' ? 'selected' : '' }}>Links</option>
                         <option value="center" {{ $bookingAlign === 'center' ? 'selected' : '' }}>Midden</option>
                         <option value="right" {{ $bookingAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Aanbiedingen tonen als</label>
+                    @php $offerDisplayMode = old('home_sections.'.$sectionKey.'.logic.offer_display_mode', $bookingData['logic']['offer_display_mode'] ?? 'vehicle'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][offer_display_mode]">
+                        <option value="vehicle" {{ $offerDisplayMode === 'vehicle' ? 'selected' : '' }}>Per auto</option>
+                        <option value="person_range" {{ $offerDisplayMode === 'person_range' ? 'selected' : '' }}>Per aantal personen</option>
                     </select>
                 </div>
             </div>
@@ -1151,6 +1176,10 @@
                     'contact' => 'Contactgegevens',
                     'confirm' => 'Bevestiging',
                 ];
+                $baggageStepNumber = array_search('baggage', $bookingStepOrder, true);
+                $offersStepNumber = array_search('offers', $bookingStepOrder, true);
+                $baggageStepNumber = $baggageStepNumber === false ? null : ($baggageStepNumber + 1);
+                $offersStepNumber = $offersStepNumber === false ? null : ($offersStepNumber + 1);
             @endphp
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
                 @for($stepPos = 0; $stepPos < 5; $stepPos++)
@@ -1171,34 +1200,38 @@
                 <div><label class="text-xs text-muted-foreground">Default passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][default_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.default_passengers', $bookingData['logic']['default_passengers'] ?? 1) }}"></div>
                 <div><label class="text-xs text-muted-foreground">Max tussenstops</label><input type="number" min="0" max="6" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_stopovers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_stopovers', $bookingData['logic']['max_stopovers'] ?? 3) }}"></div>
                 <div><label class="text-xs text-muted-foreground">Retour multiplier</label><input type="number" min="1" max="3" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][return_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.return_price_multiplier', $bookingData['logic']['return_price_multiplier'] ?? 2) }}"></div>
-                <div>
-                    <label class="text-xs text-muted-foreground">Aanbiedingen tonen als</label>
-                    @php $offerDisplayMode = old('home_sections.'.$sectionKey.'.logic.offer_display_mode', $bookingData['logic']['offer_display_mode'] ?? 'vehicle'); @endphp
-                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][offer_display_mode]">
-                        <option value="vehicle" {{ $offerDisplayMode === 'vehicle' ? 'selected' : '' }}>Per auto</option>
-                        <option value="person_range" {{ $offerDisplayMode === 'person_range' ? 'selected' : '' }}>Per aantal personen</option>
-                    </select>
+                <div><label class="text-xs text-muted-foreground">Standaard x prijs</label><input type="number" min="0.1" max="5" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][person_range_base_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.person_range_base_price_multiplier', $bookingData['logic']['person_range_base_price_multiplier'] ?? 1) }}"></div>
+                <div><label class="text-xs text-muted-foreground">Standaard x oud</label><input type="number" min="1" max="5" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][person_range_base_old_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.person_range_base_old_price_multiplier', $bookingData['logic']['person_range_base_old_price_multiplier'] ?? 1.2) }}"></div>
+                <div class="col-span-2 lg:col-span-5 mt-8 flex flex-nowrap items-center gap-x-6 gap-y-2">
+                    <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap pr-4"><input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][return_enabled_by_default]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.return_enabled_by_default', $bookingData['logic']['return_enabled_by_default'] ?? false) ? 'checked' : '' }}> Retour standaard aan</label>
+                    <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap"><input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][skip_baggage_step]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.skip_baggage_step', $bookingData['logic']['skip_baggage_step'] ?? false) ? 'checked' : '' }}> Bagage overslaan</label>
                 </div>
-                <div class="col-span-2 lg:col-span-5"><label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="home_sections[{{ $sectionKey }}][logic][return_enabled_by_default]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.return_enabled_by_default', $bookingData['logic']['return_enabled_by_default'] ?? false) ? 'checked' : '' }}> Retour standaard aan</label></div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3 border border-border rounded-lg">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 p-3 border border-border rounded-lg">
                 <div><label class="text-xs text-muted-foreground">Placeholder ophaaladres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][pickup_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.pickup_placeholder', $bookingData['texts']['pickup_placeholder'] ?? '') }}"></div>
                 <div><label class="text-xs text-muted-foreground">Placeholder afzetadres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][dropoff_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.dropoff_placeholder', $bookingData['texts']['dropoff_placeholder'] ?? '') }}"></div>
+                <div><label class="text-xs text-muted-foreground">Tekst personenkaart</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][person_range_feature_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.person_range_feature_text', $bookingData['texts']['person_range_feature_text'] ?? 'Tarief op basis van aantal personen') }}"></div>
                 <div><label class="text-xs text-muted-foreground">Submit knoptekst</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][submit_button_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.submit_button_text', $bookingData['texts']['submit_button_text'] ?? '') }}"></div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Bagage-items (Stap 1)</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="baggage" data-step-heading-base="Bagage-items">Bagage-items (Stap {{ $baggageStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
                 <div class="space-y-2 taxiroyaal-booking-list" data-list="baggage" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['baggage_items'] ?? []) as $i => $row)
-                    <div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage">
-                        <div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
-                        <div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
-                        <div class="col-span-3"><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
-                        <div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}"></div>
-                        <div class="col-span-1"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">
+                        <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
+                        <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
+                        <div>
+                            <label class="text-xs">Prijs</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                                <input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}">
+                            </div>
+                        </div>
+                        <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
                     </div>
                     @endforeach
                 </div>
@@ -1208,30 +1241,47 @@
                 <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Speciale bagage</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">+ item</button></div>
                 <div class="space-y-2 taxiroyaal-booking-list" data-list="special" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['special_items'] ?? []) as $i => $row)
-                    <div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special">
-                        <div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
-                        <div class="col-span-4"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
-                        <div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}"></div>
-                        <div class="col-span-2"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div class="col-span-2 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">
+                        <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
+                        <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div>
+                            <label class="text-xs">Prijs</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                                <input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}">
+                            </div>
+                        </div>
+                        <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
                     </div>
                     @endforeach
                 </div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Aanbiedingen (Stap 2)</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">+ kaart</button></div>
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="offers" data-step-heading-base="Aanbiedingen">Aanbiedingen (Stap {{ $offersStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">+ kaart</button></div>
                 <div class="space-y-2 taxiroyaal-booking-list" data-list="offers" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['offers'] ?? []) as $i => $row)
-                    <div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers">
-                        <div class="col-span-2"><label class="text-xs">ID</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][id]" value="{{ $row['id'] ?? '' }}"></div>
-                        <div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
-                        <div class="col-span-2"><label class="text-xs">Badge</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][badge]" value="{{ $row['badge'] ?? '' }}"></div>
-                        <div class="col-span-2"><label class="text-xs">Voertuig</label><select class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">Automatisch</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
-                        <div class="col-span-1"><label class="text-xs">x prijs</label><input type="number" min="0.1" step="0.05" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][price_multiplier]" value="{{ $row['price_multiplier'] ?? 1 }}"></div>
-                        <div class="col-span-1"><label class="text-xs">x oud</label><input type="number" min="1" step="0.05" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][old_price_multiplier]" value="{{ $row['old_price_multiplier'] ?? 1.2 }}"></div>
-                        <div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
-                        <div class="col-span-12"><label class="text-xs">Features (1 per regel)</label><textarea class="kt-input w-full text-sm" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
+                    <div class="overflow-x-auto">
+                    <div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">
+                        <label class="text-xs text-muted-foreground">ID</label>
+                        <label class="text-xs text-muted-foreground">Titel</label>
+                        <label class="text-xs text-muted-foreground">Badge</label>
+                        <label class="text-xs text-muted-foreground">Personen</label>
+                        <label class="text-xs text-muted-foreground">Voertuig</label>
+                        <label class="text-xs text-muted-foreground">x prijs</label>
+                        <label class="text-xs text-muted-foreground">x oud</label>
+                        <div class="text-right shrink-0"></div>
+                        <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][id]" value="{{ $row['id'] ?? '' }}"></div>
+                        <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][badge]" value="{{ $row['badge'] ?? '' }}"></div>
+                        <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][person_range]">@foreach($offerPersonRangeOptions as $rangeValue => $rangeLabel)<option value="{{ $rangeValue }}" {{ ($row['person_range'] ?? '') === $rangeValue ? 'selected' : '' }}>{{ $rangeLabel }}</option>@endforeach</select></div>
+                        <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">Automatisch</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" data-person-range="{{ e($vehicle['person_range'] ?? '') }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
+                        <div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][price_multiplier]" value="{{ $row['price_multiplier'] ?? 1 }}"></div>
+                        <div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][old_price_multiplier]" value="{{ $row['old_price_multiplier'] ?? 1.2 }}"></div>
+                        <div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                        <div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
+                    </div>
                     </div>
                     @endforeach
                 </div>
@@ -1370,60 +1420,76 @@
                     <input type="hidden" name="home_sections[visibility][footer_map]" id="visibility-footer_map" value="{{ ($visibility['footer_map'] ?? true) ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_map" aria-label="Kaart tonen/verbergen">@if($visibility['footer_map'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <p class="text-xs text-muted-foreground mb-2">Kaart links in de footer. Vul postcode en huisnummer in en klik op Zoeken.</p>
-                <div class="flex flex-wrap items-start gap-6 w-1/2 max-w-[50%]">
-                    <div class="flex-1 min-w-0 space-y-2">
-                <div class="flex flex-wrap items-end gap-3 mb-2">
-                    <div>
-                        <label class="block text-xs text-muted-foreground mb-1">Postcode</label>
-                        <input type="text" name="home_sections[footer][map_postcode]" id="footer-map-postcode" class="kt-input w-24" value="{{ old('home_sections.footer.map_postcode', $footer['map_postcode'] ?? '') }}" placeholder="1234AB" maxlength="7" style="text-transform: uppercase;">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-muted-foreground mb-1">Huisnummer</label>
-                        <input type="text" name="home_sections[footer][map_huisnummer]" id="footer-map-huisnummer" class="kt-input w-20" value="{{ old('home_sections.footer.map_huisnummer', $footer['map_huisnummer'] ?? '') }}" placeholder="1">
-                    </div>
-                    <button type="button" id="footer-map-lookup-btn" class="kt-btn kt-btn-sm kt-btn-outline">Zoeken</button>
+                @php
+                    $mapCityOnly = (bool) old('home_sections.footer.map_city_only', $footer['map_city_only'] ?? false);
+                @endphp
+                <p class="text-xs text-muted-foreground mb-2">Kaart links in de footer. Vul postcode en huisnummer in en klik op Zoeken, of kies "Alleen plaats invoeren".</p>
+                <div class="flex items-center gap-2 mb-3">
+                    <input type="hidden" name="home_sections[footer][map_city_only]" value="0">
+                    <input type="checkbox"
+                           name="home_sections[footer][map_city_only]"
+                           id="footer-map-city-only"
+                           class="kt-switch kt-switch-sm"
+                           value="1"
+                           {{ $mapCityOnly ? 'checked' : '' }}>
+                    <label for="footer-map-city-only" class="text-sm font-medium text-secondary-foreground cursor-pointer">Alleen plaats invoeren</label>
                 </div>
-                <div class="flex flex-wrap gap-3 mb-2">
-                    <div class="min-w-[200px]">
-                        <label class="block text-xs text-muted-foreground mb-1">Straat</label>
-                        <input type="text" name="home_sections[footer][map_street]" id="footer-map-street" class="kt-input w-full" value="{{ old('home_sections.footer.map_street', $footer['map_street'] ?? '') }}" readonly>
+                <div class="flex flex-wrap items-start gap-6 w-full">
+                    <div class="flex-1 min-w-0 space-y-2 min-w-[280px]">
+                        <div class="flex flex-wrap items-end gap-3 mb-2">
+                            <div>
+                                <label class="block text-xs text-muted-foreground mb-1">Postcode</label>
+                                <input type="text" name="home_sections[footer][map_postcode]" id="footer-map-postcode" class="kt-input w-24" value="{{ old('home_sections.footer.map_postcode', $footer['map_postcode'] ?? '') }}" placeholder="1234AB" maxlength="7" style="text-transform: uppercase;" {{ $mapCityOnly ? 'disabled' : '' }}>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-muted-foreground mb-1">Huisnummer</label>
+                                <input type="text" name="home_sections[footer][map_huisnummer]" id="footer-map-huisnummer" class="kt-input w-20" value="{{ old('home_sections.footer.map_huisnummer', $footer['map_huisnummer'] ?? '') }}" placeholder="1" {{ $mapCityOnly ? 'disabled' : '' }}>
+                            </div>
+                            <button type="button" id="footer-map-lookup-btn" class="kt-btn kt-btn-sm kt-btn-outline" {{ $mapCityOnly ? 'disabled' : '' }}>Zoeken</button>
+                        </div>
+                        <div class="flex flex-wrap gap-3 mb-2">
+                            <div class="min-w-[200px]">
+                                <label class="block text-xs text-muted-foreground mb-1">Straat</label>
+                                <input type="text" name="home_sections[footer][map_street]" id="footer-map-street" class="kt-input w-full" value="{{ old('home_sections.footer.map_street', $footer['map_street'] ?? '') }}" readonly>
+                            </div>
+                            <div class="min-w-[160px]">
+                                <label class="block text-xs text-muted-foreground mb-1">Plaats</label>
+                                <input type="text" name="home_sections[footer][map_city]" id="footer-map-city" class="kt-input w-full" value="{{ old('home_sections.footer.map_city', $footer['map_city'] ?? '') }}" {{ $mapCityOnly ? '' : 'readonly' }}>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Kaartgrootte</label>
+                            <select name="home_sections[footer][map_size]" id="footer-map-size" class="kt-input w-40">
+                                <option value="small" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'small' ? 'selected' : '' }}>Klein</option>
+                                <option value="normal" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'normal' ? 'selected' : '' }}>Normaal</option>
+                                <option value="large" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'large' ? 'selected' : '' }}>Groot</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Zoomniveau</label>
+                            @php $mapZoom = (int) old('home_sections.footer.map_zoom', $footer['map_zoom'] ?? 17); $mapZoom = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17; @endphp
+                            <select name="home_sections[footer][map_zoom]" id="footer-map-zoom" class="kt-input w-40">
+                                @for($z = 10; $z <= 20; $z++)
+                                <option value="{{ $z }}" {{ $mapZoom === $z ? 'selected' : '' }}>{{ $z }}</option>
+                                @endfor
+                            </select>
+                            <p class="text-xs text-muted-foreground mt-0.5">1 = ver, 20 = dichtbij</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="hidden" name="home_sections[footer][map_show_address_balloon]" value="0">
+                            <input type="checkbox" name="home_sections[footer][map_show_address_balloon]" id="footer-map-show-address-balloon" class="kt-switch kt-switch-sm" value="1" {{ old('home_sections.footer.map_show_address_balloon', $footer['map_show_address_balloon'] ?? false) ? 'checked' : '' }}>
+                            <label for="footer-map-show-address-balloon" class="text-sm font-medium text-secondary-foreground cursor-pointer">Adres in ballon tonen</label>
+                        </div>
+                        <p class="text-xs text-muted-foreground">Toont het adres in een ballon op de kaart bij de marker.</p>
                     </div>
-                    <div class="min-w-[160px]">
-                        <label class="block text-xs text-muted-foreground mb-1">Plaats</label>
-                        <input type="text" name="home_sections[footer][map_city]" id="footer-map-city" class="kt-input w-full" value="{{ old('home_sections.footer.map_city', $footer['map_city'] ?? '') }}" readonly>
-                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Kaartgrootte</label>
-                    <select name="home_sections[footer][map_size]" id="footer-map-size" class="kt-input w-40">
-                        <option value="small" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'small' ? 'selected' : '' }}>Klein</option>
-                        <option value="normal" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'normal' ? 'selected' : '' }}>Normaal</option>
-                        <option value="large" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'large' ? 'selected' : '' }}>Groot</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Zoomniveau</label>
-                    @php $mapZoom = (int) old('home_sections.footer.map_zoom', $footer['map_zoom'] ?? 17); $mapZoom = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17; @endphp
-                    <select name="home_sections[footer][map_zoom]" id="footer-map-zoom" class="kt-input w-40">
-                        @for($z = 10; $z <= 20; $z++)
-                        <option value="{{ $z }}" {{ $mapZoom === $z ? 'selected' : '' }}>{{ $z }}</option>
-                        @endfor
-                    </select>
-                    <p class="text-xs text-muted-foreground mt-0.5">1 = ver, 20 = dichtbij</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="hidden" name="home_sections[footer][map_show_address_balloon]" value="0">
-                    <input type="checkbox" name="home_sections[footer][map_show_address_balloon]" id="footer-map-show-address-balloon" class="kt-switch kt-switch-sm" value="1" {{ old('home_sections.footer.map_show_address_balloon', $footer['map_show_address_balloon'] ?? false) ? 'checked' : '' }}>
-                    <label for="footer-map-show-address-balloon" class="text-sm font-medium text-secondary-foreground cursor-pointer">Adres in ballon tonen</label>
-                </div>
-                <p class="text-xs text-muted-foreground">Toont het adres in een ballon op de kaart bij de marker.</p>
-                    </div>
+                {{-- Voorbeeldkaart op eigen regel, volle breedte (voor alle thema's) --}}
+                <div id="footer-map-preview-wrapper" class="w-full mt-4">
+                    <label class="block text-xs text-muted-foreground mb-1">Voorbeeld kaart</label>
                     @if(!empty($googleMapsApiKey ?? ''))
-                    <div class="shrink-0">
-                        <label class="block text-xs text-muted-foreground mb-1">Voorbeeld kaart</label>
-                        <div id="footer-map-preview" class="rounded-lg border border-border bg-muted/30 overflow-hidden transition-[width,height] duration-200" data-api-key="{{ $googleMapsApiKey }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-size="{{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') }}" data-zoom="{{ $mapZoom }}"></div>
-                    </div>
+                    <div id="footer-map-preview" class="w-full rounded-lg border border-border bg-muted/30 overflow-hidden transition-[width,height] duration-200" data-api-key="{{ $googleMapsApiKey }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-size="{{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') }}" data-zoom="{{ $mapZoom }}"></div>
+                    @else
+                    <div class="w-full rounded-lg border border-border bg-muted/30 flex items-center justify-center min-h-[200px] text-sm text-muted-foreground text-center p-4">Stel een Google Maps API-sleutel in bij Algemene instellingen om de voorbeeldkaart te tonen.</div>
                     @endif
                 </div>
                 <input type="hidden" name="home_sections[footer][map_lat]" id="footer-map-lat" value="{{ old('home_sections.footer.map_lat', $footer['map_lat'] ?? '') }}">
@@ -1570,11 +1636,31 @@
     var footerMapHuisnummer = document.getElementById('footer-map-huisnummer');
     var footerMapStreet = document.getElementById('footer-map-street');
     var footerMapCity = document.getElementById('footer-map-city');
+    var footerMapCityOnly = document.getElementById('footer-map-city-only');
     var footerMapLat = document.getElementById('footer-map-lat');
     var footerMapLng = document.getElementById('footer-map-lng');
     var footerMapLookupBtn = document.getElementById('footer-map-lookup-btn');
+    function syncFooterMapCityMode() {
+        var cityOnly = !!(footerMapCityOnly && footerMapCityOnly.checked);
+        if (footerMapPostcode) footerMapPostcode.disabled = cityOnly;
+        if (footerMapHuisnummer) footerMapHuisnummer.disabled = cityOnly;
+        if (footerMapLookupBtn) footerMapLookupBtn.disabled = cityOnly;
+        if (footerMapCity) footerMapCity.readOnly = !cityOnly;
+        if (cityOnly) {
+            if (footerMapStreet) footerMapStreet.value = '';
+            if (footerMapPostcode) footerMapPostcode.value = '';
+            if (footerMapHuisnummer) footerMapHuisnummer.value = '';
+            if (footerMapLat) footerMapLat.value = '';
+            if (footerMapLng) footerMapLng.value = '';
+        }
+    }
+    if (footerMapCityOnly) {
+        footerMapCityOnly.addEventListener('change', syncFooterMapCityMode);
+    }
+    syncFooterMapCityMode();
     if (footerMapLookupBtn && csrfToken) {
         footerMapLookupBtn.addEventListener('click', function() {
+            if (footerMapCityOnly && footerMapCityOnly.checked) return;
             var postcode = (footerMapPostcode ? footerMapPostcode.value : '').trim().toUpperCase().replace(/\s+/g, '');
             var huisnummer = (footerMapHuisnummer ? footerMapHuisnummer.value : '').trim();
             if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode)) { alert('Ongeldig postcode formaat. Gebruik 1234AB'); return; }
@@ -1614,6 +1700,19 @@
         var footerMapPreviewMap = null;
         var footerMapPreviewMarker = null;
         var footerMapPreviewInfoWindow = null;
+        var footerMapPreviewGeocoder = null;
+        var footerMapGeocodeSeq = 0;
+        var footerMapAuthFailed = false;
+        function showFooterMapFallback() {
+            footerMapAuthFailed = true;
+            var wrapper = document.getElementById('footer-map-preview-wrapper');
+            if (!previewEl || !wrapper) return;
+            var errDialog = previewEl.querySelector('[role="alertdialog"], .xxGHyP-dialog-view, [aria-label="Fout"]');
+            if (errDialog) errDialog.remove();
+            previewEl.innerHTML = '<div class="footer-map-fallback p-3 text-sm text-muted-foreground bg-muted/50 rounded flex items-center justify-center h-full min-h-[120px] text-center">Kaart niet beschikbaar. Voeg in Google Cloud Console bij API-sleutel restricties o.a. <code class="text-xs bg-muted px-1 rounded">' + (window.location.origin || 'http://localhost:8000') + '/*</code> toe en controleer of facturering is ingeschakeld.</div>';
+            previewEl.classList.add('footer-map-fallback-active');
+        }
+        window.gm_authFailure = function() { showFooterMapFallback(); };
         function createPreviewMarker(position, map) {
             if (useAdvancedMarker && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
                 return new google.maps.marker.AdvancedMarkerElement({ map: map, position: position });
@@ -1660,7 +1759,7 @@
             }
         }
         window.updateFooterMapPreview = function(lat, lng) {
-            if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
+            if (footerMapAuthFailed || typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
             var center = { lat: lat, lng: lng };
             var zoom = getPreviewZoom();
             var mapOptions = {
@@ -1684,25 +1783,68 @@
             }
             updatePreviewBalloon();
         };
+        function getPreviewSearchAddress() {
+            var cityOnlyEl = document.getElementById('footer-map-city-only');
+            var cityOnly = !!(cityOnlyEl && cityOnlyEl.checked);
+            var street = (document.getElementById('footer-map-street') && document.getElementById('footer-map-street').value || '').trim();
+            var huisnummer = (document.getElementById('footer-map-huisnummer') && document.getElementById('footer-map-huisnummer').value || '').trim();
+            var postcode = (document.getElementById('footer-map-postcode') && document.getElementById('footer-map-postcode').value || '').trim();
+            var city = (document.getElementById('footer-map-city') && document.getElementById('footer-map-city').value || '').trim();
+            if (cityOnly) return city;
+            var parts = [];
+            if (street) parts.push(street);
+            if (huisnummer) parts.push(huisnummer);
+            if (postcode || city) parts.push([postcode, city].filter(Boolean).join(' '));
+            return parts.join(', ').trim();
+        }
+        function updateFooterMapPreviewFromAddress(opts) {
+            if (typeof google === 'undefined' || !google.maps || !google.maps.Geocoder) return;
+            if (!footerMapPreviewGeocoder) footerMapPreviewGeocoder = new google.maps.Geocoder();
+            var address = getPreviewSearchAddress();
+            if (!address) return;
+            var mySeq = ++footerMapGeocodeSeq;
+            footerMapPreviewGeocoder.geocode({ address: address }, function(results, status) {
+                if (mySeq !== footerMapGeocodeSeq) return;
+                if (status === 'OK' && results && results[0] && results[0].geometry && results[0].geometry.location) {
+                    var loc = results[0].geometry.location;
+                    var lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+                    var lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+                    if (typeof lat === 'number' && typeof lng === 'number') {
+                        if (footerMapLat) footerMapLat.value = String(lat);
+                        if (footerMapLng) footerMapLng.value = String(lng);
+                        window.updateFooterMapPreview(lat, lng);
+                    }
+                } else if (opts && opts.notifyOnFail) {
+                    alert('Kon geen locatie vinden voor deze invoer.');
+                }
+            });
+        }
         function initFooterMapPreview() {
+            if (footerMapAuthFailed) return;
             if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
-            var latInp = document.getElementById('footer-map-lat');
-            var lngInp = document.getElementById('footer-map-lng');
-            var lat = latInp ? parseFloat(latInp.value) : NaN;
-            var lng = lngInp ? parseFloat(lngInp.value) : NaN;
-            if (!isNaN(lat) && !isNaN(lng)) window.updateFooterMapPreview(lat, lng);
+            try {
+                var latInp = document.getElementById('footer-map-lat');
+                var lngInp = document.getElementById('footer-map-lng');
+                var lat = latInp ? parseFloat(latInp.value) : NaN;
+                var lng = lngInp ? parseFloat(lngInp.value) : NaN;
+                if (!isNaN(lat) && !isNaN(lng)) window.updateFooterMapPreview(lat, lng);
+                else updateFooterMapPreviewFromAddress({ notifyOnFail: false });
+            } catch (e) {
+                showFooterMapFallback();
+            }
         }
         window.initFooterMapPreview = initFooterMapPreview;
         var sizeSelect = document.getElementById('footer-map-size');
         var zoomSelect = document.getElementById('footer-map-zoom');
-        var sizeToDimensions = { small: { w: 400, h: 200 }, normal: { w: 400, h: 300 }, large: { w: 400, h: 400 } };
+        var previewWrapperEl = document.getElementById('footer-map-preview-wrapper');
+        var sizeToHeights = { small: 200, normal: 300, large: 400 };
         if (zoomSelect) zoomSelect.addEventListener('change', function() { if (footerMapPreviewMap) footerMapPreviewMap.setZoom(getPreviewZoom()); });
         var balloonToggle = document.getElementById('footer-map-show-address-balloon');
         if (balloonToggle) balloonToggle.addEventListener('change', updatePreviewBalloon);
         function applyPreviewSize(size) {
-            var d = sizeToDimensions[size] || sizeToDimensions.normal;
-            previewEl.style.width = d.w + 'px';
-            previewEl.style.height = d.h + 'px';
+            var h = sizeToHeights[size] || sizeToHeights.normal;
+            previewEl.style.width = '100%';
+            previewEl.style.height = h + 'px';
             previewEl.setAttribute('data-size', size);
             if (footerMapPreviewMap && typeof google !== 'undefined' && google.maps && google.maps.event) {
                 setTimeout(function() { google.maps.event.trigger(footerMapPreviewMap, 'resize'); }, 100);
@@ -1712,23 +1854,76 @@
             sizeSelect.addEventListener('change', function() { applyPreviewSize(this.value); });
             applyPreviewSize(sizeSelect.value);
         }
+        var geocodeTimer = null;
+        function scheduleAddressGeocode(delayMs) {
+            if (geocodeTimer) clearTimeout(geocodeTimer);
+            geocodeTimer = setTimeout(function() {
+                updateFooterMapPreviewFromAddress({ notifyOnFail: false });
+            }, delayMs || 250);
+        }
+        if (footerMapCity) {
+            footerMapCity.addEventListener('input', function() {
+                if (footerMapCityOnly && footerMapCityOnly.checked) scheduleAddressGeocode(350);
+            });
+            footerMapCity.addEventListener('blur', function() {
+                if (footerMapCityOnly && footerMapCityOnly.checked) updateFooterMapPreviewFromAddress({ notifyOnFail: false });
+            });
+        }
+        if (footerMapPostcode) {
+            footerMapPostcode.addEventListener('blur', function() {
+                if (!(footerMapCityOnly && footerMapCityOnly.checked)) scheduleAddressGeocode(100);
+            });
+        }
+        if (footerMapHuisnummer) {
+            footerMapHuisnummer.addEventListener('blur', function() {
+                if (!(footerMapCityOnly && footerMapCityOnly.checked)) scheduleAddressGeocode(100);
+            });
+        }
+        if (footerMapCityOnly) {
+            footerMapCityOnly.addEventListener('change', function() {
+                scheduleAddressGeocode(50);
+            });
+        }
+        var mo = new MutationObserver(function(mutations) {
+            if (footerMapAuthFailed) return;
+            var err = previewEl.querySelector('[role="alertdialog"][aria-label="Fout"], .xxGHyP-dialog-view, .CizjDb-degraded-map-dialog-view');
+            if (err) showFooterMapFallback();
+        });
+        mo.observe(previewEl, { childList: true, subtree: true });
         var s = document.createElement('script');
-        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + (useAdvancedMarker ? '&libraries=marker' : '') + '&callback=initFooterMapPreview&loading=async';
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + '&libraries=marker&callback=initFooterMapPreview&loading=async';
         s.async = true;
         document.head.appendChild(s);
     })();
 
     var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
     function handleHeroImageFile(file, fileInput, urlInput, previewEl, wrapperEl) {
+        if (!file || !(file instanceof File)) { alert('Geen bestand geselecteerd.'); if (fileInput) fileInput.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
         if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'); fileInput.value = ''; return; }
         if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); fileInput.value = ''; return; }
         var fd = new FormData();
         fd.append('image', file);
-        fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-            .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
-            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = d.url; previewEl.classList.remove('hidden'); } if (wrapperEl) wrapperEl.classList.remove('hidden'); } })
+        var tokenEl = document.querySelector('meta[name="csrf-token"]');
+        if (tokenEl) fd.append('_token', tokenEl.getAttribute('content'));
+        if (urlInput && urlInput.value && urlInput.value.trim()) fd.append('previous_url', urlInput.value.trim());
+        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function(r) {
+                return r.text().then(function(text) {
+                    var d;
+                    try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { message: r.status === 422 ? 'Validatie mislukt.' : 'Upload mislukt.' }; }
+                    if (r.ok) return d;
+                    var msg = d.message || 'Upload mislukt';
+                    if (r.status === 403) msg = d.message || 'Geen rechten om afbeeldingen te uploaden. Alleen super-admins hebben toegang.';
+                    else if (d.errors && typeof d.errors === 'object') {
+                        var parts = [];
+                        if (d.errors.image && Array.isArray(d.errors.image)) parts.push(d.errors.image.join(' '));
+                        if (parts.length) msg = parts.join(' ');
+                    }
+                    throw new Error(msg);
+                });
+            })
+            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = d.url; previewEl.classList.remove('hidden'); previewEl.removeAttribute('srcset'); } if (wrapperEl) wrapperEl.classList.remove('hidden'); } })
             .catch(function(err) { alert(err.message || 'Upload mislukt'); });
         fileInput.value = '';
     }
@@ -1738,16 +1933,25 @@
             var sectionKey = area.getAttribute('data-section-key');
             var field = area.getAttribute('data-field');
             if (!sectionKey || !field) return;
-            var cardRow = area.closest && area.closest('.cards-ronde-hoeken-item');
-            var scope = cardRow || root;
-            var fileInput = scope.querySelector('.hero-image-file-input[data-section-key="' + sectionKey + '"][data-field="' + field + '"]');
-            var urlInput = scope.querySelector('[id="hero-' + sectionKey + '-' + field + '"]');
-            if (!urlInput) urlInput = document.getElementById('hero-' + sectionKey + '-' + field);
-            var previewId = field === 'background_image_url' ? 'hero-' + sectionKey + '-bg-preview' : (field === 'author_image_url' ? 'hero-' + sectionKey + '-author-preview' : 'hero-' + sectionKey + '-' + field + '-preview');
-            var preview = scope.querySelector('[id="' + previewId + '"]');
-            if (!preview) preview = document.getElementById(previewId);
+            var urlInputId = area.getAttribute('data-url-input-id');
+            var fileInputId = area.getAttribute('data-file-input-id');
+            var previewId = area.getAttribute('data-preview-id') || (field === 'background_image_url' ? 'hero-' + sectionKey + '-bg-preview' : (field === 'author_image_url' ? 'hero-' + sectionKey + '-author-preview' : 'hero-' + sectionKey + '-' + field + '-preview'));
+            var fileInput = (fileInputId && document.getElementById(fileInputId)) || (function() {
+                var cardRow = area.closest && area.closest('.cards-ronde-hoeken-item');
+                var scope = cardRow || root;
+                return scope.querySelector('.hero-image-file-input[data-section-key="' + sectionKey + '"][data-field="' + field + '"]');
+            })();
+            var urlInput = (urlInputId && document.getElementById(urlInputId)) || document.getElementById('hero-' + sectionKey + '-' + field);
+            var preview = (previewId && document.getElementById(previewId)) || (function() {
+                var cardRow = area.closest && area.closest('.cards-ronde-hoeken-item');
+                return (cardRow || root).querySelector('[id="' + previewId + '"]');
+            })();
             if (!fileInput || !urlInput) return;
-            area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+            area.addEventListener('click', function(e) {
+                e.preventDefault();
+                fileInput.value = '';
+                fileInput.click();
+            });
             area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
             area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
             area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview); });
@@ -2258,12 +2462,14 @@
             var sectionKey = area.getAttribute('data-section-key');
             var field = area.getAttribute('data-field');
             if (!sectionKey || !field) return;
+            var urlInputId = area.getAttribute('data-url-input-id');
+            var fileInputId = area.getAttribute('data-file-input-id');
+            var previewId = area.getAttribute('data-preview-id') || (field === 'background_image_url' ? 'hero-' + sectionKey + '-bg-preview' : (field === 'author_image_url' ? 'hero-' + sectionKey + '-author-preview' : 'hero-' + sectionKey + '-' + field + '-preview'));
             var cardRow = area.closest ? area.closest('.cards-ronde-hoeken-item') : null;
             var scope = cardRow || document;
-            var fileInput = scope.querySelector('.hero-image-file-input[data-section-key="' + sectionKey + '"][data-field="' + field + '"]');
-            var urlInput = scope.querySelector('[id="hero-' + sectionKey + '-' + field + '"]') || document.getElementById('hero-' + sectionKey + '-' + field);
-            var previewId = field === 'background_image_url' ? 'hero-' + sectionKey + '-bg-preview' : (field === 'author_image_url' ? 'hero-' + sectionKey + '-author-preview' : 'hero-' + sectionKey + '-' + field + '-preview');
-            var preview = (scope.querySelector && scope.querySelector('[id="' + previewId + '"]')) || document.getElementById(previewId);
+            var fileInput = (fileInputId && document.getElementById(fileInputId)) || scope.querySelector('.hero-image-file-input[data-section-key="' + sectionKey + '"][data-field="' + field + '"]');
+            var urlInput = (urlInputId && document.getElementById(urlInputId)) || document.getElementById('hero-' + sectionKey + '-' + field) || scope.querySelector('[id="hero-' + sectionKey + '-' + field + '"]');
+            var preview = (previewId && document.getElementById(previewId)) || (scope.querySelector && scope.querySelector('[id="' + previewId + '"]'));
             if (!fileInput || !urlInput) return;
             function handleFile(file) {
                 if (!file) return;
@@ -2273,13 +2479,14 @@
                 var fd = new FormData();
                 fd.append('image', file);
                 fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                if (urlInput.value && urlInput.value.trim()) fd.append('previous_url', urlInput.value.trim());
+                fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' })
                     .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
-                    .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); } } })
+                    .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); preview.removeAttribute('srcset'); } } })
                     .catch(function(err) { alert(err.message || 'Upload mislukt'); });
                 fileInput.value = '';
             }
-            area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+            area.addEventListener('click', function(e) { e.preventDefault(); fileInput.value = ''; fileInput.click(); });
             area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
             area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
             area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
@@ -2300,11 +2507,14 @@
                 var div = document.createElement('div');
                 div.className = 'cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3';
                 div.setAttribute('data-cards-index', nextIndex);
+                var urlInputId = 'hero-' + sectionKey + '-items_' + nextIndex + '_image_url';
+                var fileInputId = urlInputId + '-file';
+                var previewId = urlInputId + '-preview';
                 div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url" data-preview-id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url" style="width: 500px; min-width: 500px; height: 130px;"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div></div>' +
-                    '<input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
-                    '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-items_' + nextIndex + '_image_url" value="">' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="' + previewId + '" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="' + urlInputId + '" data-preview-id="' + previewId + '" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
+                    '<div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url" data-url-input-id="' + urlInputId + '" data-file-input-id="' + fileInputId + '" data-preview-id="' + previewId + '" style="width: 500px; min-width: 500px; height: 130px;"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div></div>' +
+                    '<input type="file" id="' + fileInputId + '" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
+                    '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="' + urlInputId + '" value="">' +
                     '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
                     '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (500px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
                     '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)') : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
@@ -2546,7 +2756,7 @@
                         var fd = new FormData();
                         fd.append('image', file);
                         fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
+                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
                         fileInput.value = '';
                     }
                     area.addEventListener('click', function(ev) { ev.preventDefault(); fileInput.click(); });
@@ -2728,36 +2938,91 @@
                         }
                     } catch (e) {}
                 }
-                return '<div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers">'
-                    + '<div class="col-span-2"><label class="text-xs">ID</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][id]" value="offer_' + (index + 1) + '"></div>'
-                    + '<div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][title]" value=""></div>'
-                    + '<div class="col-span-2"><label class="text-xs">Badge</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][badge]" value="Standaard taxi"></div>'
-                    + '<div class="col-span-2"><label class="text-xs">Voertuig</label><select class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][vehicle_id]">' + vehicleOptions + '</select></div>'
-                    + '<div class="col-span-1"><label class="text-xs">x prijs</label><input type="number" min="0.1" step="0.05" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][price_multiplier]" value="1"></div>'
-                    + '<div class="col-span-1"><label class="text-xs">x oud</label><input type="number" min="1" step="0.05" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][old_price_multiplier]" value="1.2"></div>'
-                    + '<div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
-                    + '<div class="col-span-12"><label class="text-xs">Features (1 per regel)</label><textarea class="kt-input w-full text-sm" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
-                    + '</div>';
+                return '<div class="overflow-x-auto"><div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">'
+                    + '<label class="text-xs text-muted-foreground">ID</label>'
+                    + '<label class="text-xs text-muted-foreground">Titel</label>'
+                    + '<label class="text-xs text-muted-foreground">Badge</label>'
+                    + '<label class="text-xs text-muted-foreground">Personen</label>'
+                    + '<label class="text-xs text-muted-foreground">Voertuig</label>'
+                    + '<label class="text-xs text-muted-foreground">x prijs</label>'
+                    + '<label class="text-xs text-muted-foreground">x oud</label>'
+                    + '<div class="text-right shrink-0"></div>'
+                    + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][id]" value="offer_' + (index + 1) + '"></div>'
+                    + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][title]" value=""></div>'
+                    + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][badge]" value="Standaard taxi"></div>'
+                    + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][person_range]"><option value="">Alle personen</option><option value="1-4">t/m 4 personen</option><option value="5-8">5 t/m 8 personen</option></select></div>'
+                    + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][vehicle_id]">' + vehicleOptions + '</select></div>'
+                    + '<div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][price_multiplier]" value="1"></div>'
+                    + '<div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][old_price_multiplier]" value="1.2"></div>'
+                    + '<div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                    + '<div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
+                    + '</div></div>';
             }
 
             if (listName === 'special') {
-                return '<div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special">'
-                    + '<div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
-                    + '<div class="col-span-4"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
-                    + '<div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div>'
-                    + '<div class="col-span-2"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
-                    + '<div class="col-span-2 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">'
+                    + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
+                    + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
+                    + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div></div>'
+                    + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
+                    + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
                     + '</div>';
             }
 
-            return '<div class="grid grid-cols-12 gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage">'
-                + '<div class="col-span-2"><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
-                + '<div class="col-span-3"><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
-                + '<div class="col-span-3"><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
-                + '<div class="col-span-2"><label class="text-xs">Prijs</label><input type="number" min="0" step="0.01" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div>'
-                + '<div class="col-span-1"><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
-                + '<div class="col-span-1 text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+            return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">'
+                + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
+                + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
+                + '<div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
+                + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div></div>'
+                + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
+                + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
                 + '</div>';
+        }
+
+        function refreshTaxiroyaalStepHeadings(scopeEl) {
+            var scope = scopeEl || document;
+            var stepOrderSelects = scope.querySelectorAll('select[name$="[step_order][]"]');
+            if (!stepOrderSelects.length) return;
+            var stepByKey = {};
+            stepOrderSelects.forEach(function(select, idx) {
+                var key = String(select.value || '').trim();
+                if (key) stepByKey[key] = idx + 1;
+            });
+            scope.querySelectorAll('[data-step-heading]').forEach(function(heading) {
+                var key = String(heading.getAttribute('data-step-key') || '').trim();
+                if (!key) return;
+                var base = heading.getAttribute('data-step-heading-base') || heading.textContent || '';
+                var stepNumber = stepByKey[key];
+                heading.textContent = base + ' (Stap ' + (stepNumber || '—') + ')';
+            });
+        }
+
+        function syncTaxiroyaalOfferVehicleOptions(rowEl) {
+            if (!rowEl) return;
+            var personRangeSelect = rowEl.querySelector('select[name*="[offers]["][name$="[person_range]"]');
+            var vehicleSelect = rowEl.querySelector('select[name*="[offers]["][name$="[vehicle_id]"]');
+            if (!personRangeSelect || !vehicleSelect) return;
+
+            var selectedRange = String(personRangeSelect.value || '').trim();
+            var currentVehicleValue = String(vehicleSelect.value || '');
+            var hasCurrentVehicle = false;
+
+            vehicleSelect.querySelectorAll('option').forEach(function(option) {
+                var value = String(option.value || '');
+                var vehicleRange = String(option.getAttribute('data-person-range') || '').trim();
+                var isAutomatic = value === '';
+                var visible = isAutomatic || selectedRange === '' || (vehicleRange !== '' && vehicleRange === selectedRange);
+
+                option.hidden = !visible;
+                option.disabled = !visible;
+                if (visible && value === currentVehicleValue) {
+                    hasCurrentVehicle = true;
+                }
+            });
+
+            if (!hasCurrentVehicle) {
+                vehicleSelect.value = '';
+            }
         }
 
         menu.addEventListener('click', function(e) {
@@ -2824,6 +3089,7 @@
                 wrap.innerHTML = rowHtml;
                 if (wrap.firstElementChild) {
                     listEl.appendChild(wrap.firstElementChild);
+                    syncTaxiroyaalOfferVehicleOptions(wrap.firstElementChild);
                 }
                 reindexTaxiroyaalBookingList(listEl);
                 return;
@@ -2836,6 +3102,27 @@
                 if (row) row.remove();
                 reindexTaxiroyaalBookingList(listEl);
             }
+        });
+
+        document.addEventListener('change', function(e) {
+            var target = e.target;
+            if (!target || !target.matches || !target.matches('select[name$="[step_order][]"]')) return;
+            var cardBody = target.closest('.home-section-card-body');
+            refreshTaxiroyaalStepHeadings(cardBody || document);
+        });
+
+        document.addEventListener('change', function(e) {
+            var target = e.target;
+            if (!target || !target.matches || !target.matches('select[name*="[offers]["][name$="[person_range]"]')) return;
+            var row = target.closest('.taxiroyaal-booking-row');
+            syncTaxiroyaalOfferVehicleOptions(row);
+        });
+
+        document.querySelectorAll('.home-section-card-body').forEach(function(cardBody) {
+            refreshTaxiroyaalStepHeadings(cardBody);
+            cardBody.querySelectorAll('.taxiroyaal-booking-row[data-list="offers"]').forEach(function(row) {
+                syncTaxiroyaalOfferVehicleOptions(row);
+            });
         });
     })();
 </script>

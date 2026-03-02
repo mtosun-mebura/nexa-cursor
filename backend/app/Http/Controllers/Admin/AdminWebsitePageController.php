@@ -36,11 +36,8 @@ class AdminWebsitePageController extends Controller
         $moduleThemeIds = $this->getModuleThemeIdsByModuleName();
         $activeModuleName = $this->getActiveModuleNameForFrontend();
 
-        $pages = WebsitePage::with('theme')->orderBy('sort_order')->orderBy('title')->get()->filter(function (WebsitePage $page) use ($activeThemeId, $moduleThemeIds, $activeModuleName) {
-            if (!$page->is_active) {
-                return false;
-            }
-            // Alleen pagina's van de actieve module tonen
+        $pages = WebsitePage::with('theme')->orderBy('sort_order')->orderBy('title')->get()->filter(function (WebsitePage $page) use ($activeThemeId, $activeModuleName) {
+            // Alleen pagina's van het actieve thema én (indien van toepassing) de gekozen module
             if ($activeModuleName !== null) {
                 if ($page->module_name === null) {
                     return false;
@@ -52,14 +49,11 @@ class AdminWebsitePageController extends Controller
             if ($page->module_name === null) {
                 return $page->frontend_theme_id === null || (int) $page->frontend_theme_id === (int) $activeThemeId;
             }
-            $moduleThemeId = $moduleThemeIds->get(strtolower($page->module_name));
-            if ($moduleThemeId === null) {
-                $moduleThemeId = $activeThemeId;
-            }
-            return (int) $page->frontend_theme_id === (int) $moduleThemeId;
+            return (int) $page->frontend_theme_id === (int) $activeThemeId;
         })->values();
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName'));
+        $activeTheme = $this->websiteBuilder->getActiveTheme();
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme'));
     }
 
     public function create()
@@ -69,20 +63,32 @@ class AdminWebsitePageController extends Controller
         $themes = FrontendTheme::orderBy('slug')->get();
         $defaultTheme = $this->websiteBuilder->getActiveTheme();
         $moduleThemes = $this->getModuleThemesForForm($installedModules);
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes'));
+        $env = app(\App\Services\EnvService::class);
+        $googleMapsApiKey = $env->getGoogleMapsApiKey();
+        $googleMapsMapId = $env->getGoogleMapsMapId();
+        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId'));
     }
 
     public function store(Request $request)
     {
         $this->ensureSuperAdmin();
         $frontendThemeId = $this->resolveFrontendThemeIdFromRequest($request);
+        $moduleName = $this->normalizeModuleNameForValidation($request->input('module_name'));
         $data = $request->validate([
             'slug' => [
                 'required',
                 'string',
                 'max:255',
                 'regex:/^[a-z0-9\-]+$/',
-                Rule::unique('website_pages', 'slug')->where('frontend_theme_id', $frontendThemeId),
+                Rule::unique('website_pages', 'slug')
+                    ->where('frontend_theme_id', $frontendThemeId)
+                    ->where(function ($q) use ($moduleName) {
+                        if ($moduleName === null) {
+                            $q->whereNull('module_name');
+                        } else {
+                            $q->where('module_name', $moduleName);
+                        }
+                    }),
             ],
             'title' => 'required|string|max:255',
             'content' => 'nullable|string',
@@ -91,6 +97,8 @@ class AdminWebsitePageController extends Controller
             'module_name' => 'nullable|string|max:255',
             'is_active' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
+        ], [
+            'slug.unique' => 'Deze slug wordt al gebruikt binnen dit thema en module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
@@ -255,7 +263,7 @@ class AdminWebsitePageController extends Controller
             'features' => $defaults['features'] ?? [],
             'cta' => $defaults['cta'] ?? [],
             'carousel' => $defaults['carousel'] ?? ['items' => []],
-            'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']]],
+            'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['cards_per_row' => 4, 'items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']]],
             'footer' => $defaults['footer'] ?? [],
             'copyright' => $defaults['copyright'] ?? '',
         ];
@@ -349,13 +357,23 @@ class AdminWebsitePageController extends Controller
     {
         $this->ensureSuperAdmin();
         $frontendThemeId = $this->resolveFrontendThemeIdFromRequest($request);
+        $moduleName = $this->normalizeModuleNameForValidation($request->input('module_name'));
         $data = $request->validate([
             'slug' => [
                 'required',
                 'string',
                 'max:255',
                 'regex:/^[a-z0-9\-]+$/',
-                Rule::unique('website_pages', 'slug')->ignore($website_page->id)->where('frontend_theme_id', $frontendThemeId),
+                Rule::unique('website_pages', 'slug')
+                    ->ignore($website_page->id)
+                    ->where('frontend_theme_id', $frontendThemeId)
+                    ->where(function ($q) use ($moduleName) {
+                        if ($moduleName === null) {
+                            $q->whereNull('module_name');
+                        } else {
+                            $q->where('module_name', $moduleName);
+                        }
+                    }),
             ],
             'title' => 'required|string|max:255',
             'content' => 'nullable|string',
@@ -364,6 +382,8 @@ class AdminWebsitePageController extends Controller
             'module_name' => 'nullable|string|max:255',
             'is_active' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
+        ], [
+            'slug.unique' => 'Deze slug wordt al gebruikt binnen dit thema en module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
@@ -668,8 +688,17 @@ class AdminWebsitePageController extends Controller
         $footer['map_huisnummer'] = isset($footerInput['map_huisnummer']) ? trim((string) $footerInput['map_huisnummer']) : ($defaults['footer']['map_huisnummer'] ?? '');
         $footer['map_street'] = isset($footerInput['map_street']) ? trim((string) $footerInput['map_street']) : ($defaults['footer']['map_street'] ?? '');
         $footer['map_city'] = isset($footerInput['map_city']) ? trim((string) $footerInput['map_city']) : ($defaults['footer']['map_city'] ?? '');
+        $footer['map_city_only'] = !empty($footerInput['map_city_only']);
         $footer['map_lat'] = isset($footerInput['map_lat']) && $footerInput['map_lat'] !== '' ? (is_numeric($footerInput['map_lat']) ? (float) $footerInput['map_lat'] : null) : null;
         $footer['map_lng'] = isset($footerInput['map_lng']) && $footerInput['map_lng'] !== '' ? (is_numeric($footerInput['map_lng']) ? (float) $footerInput['map_lng'] : null) : null;
+        if (!empty($footer['map_city_only'])) {
+            // Stad-modus: adres wordt op basis van alleen plaats bepaald.
+            $footer['map_postcode'] = '';
+            $footer['map_huisnummer'] = '';
+            $footer['map_street'] = '';
+            $footer['map_lat'] = null;
+            $footer['map_lng'] = null;
+        }
         $footer['map_size'] = isset($footerInput['map_size']) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true) ? $footerInput['map_size'] : ($defaults['footer']['map_size'] ?? 'normal');
         $mapZoom = isset($footerInput['map_zoom']) && is_numeric($footerInput['map_zoom']) ? (int) $footerInput['map_zoom'] : (int) ($defaults['footer']['map_zoom'] ?? 17);
         $footer['map_zoom'] = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17;
@@ -816,7 +845,9 @@ class AdminWebsitePageController extends Controller
                     }
                 }
                 $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
-                return ['items' => $items ?: $defItems];
+                $cardsPerRow = isset($raw['cards_per_row']) ? (int) $raw['cards_per_row'] : ($defaults['cards_ronde_hoeken']['cards_per_row'] ?? 4);
+                $cardsPerRow = in_array($cardsPerRow, [2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
+                return ['cards_per_row' => $cardsPerRow, 'items' => $items ?: $defItems];
             default:
                 return [];
         }
@@ -876,18 +907,60 @@ class AdminWebsitePageController extends Controller
     public function uploadHeroImage(Request $request): JsonResponse
     {
         $this->ensureSuperAdmin();
-        $request->validate([
-            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
-        ], [
-            'image.required' => 'Selecteer een afbeelding.',
-            'image.mimes' => 'Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.',
-            'image.max' => 'Het bestand mag maximaal 5MB groot zijn.',
-        ]);
+        // Accept both 'image' and 'file' for compatibility (e.g. WYSIWYG vs home-sections)
+        $file = $request->file('image') ?? $request->file('file');
+        if (! $file) {
+            return response()->json([
+                'message' => 'Geen afbeelding ontvangen. Selecteer een bestand (max. 5MB, JPEG/PNG/GIF/WebP).',
+                'errors' => ['image' => ['Selecteer een afbeelding.']],
+            ], 422);
+        }
+        if (! $file->isValid()) {
+            $err = $file->getError();
+            if ($err === \UPLOAD_ERR_INI_SIZE || $err === \UPLOAD_ERR_FORM_SIZE) {
+                $uploadMax = ini_get('upload_max_filesize');
+                $postMax = ini_get('post_max_size');
+                $msg = 'Het bestand wordt door de server geweigerd (te groot). Serverlimiet: upload_max_filesize=' . $uploadMax . ', post_max_size=' . $postMax . '. Stel in php.ini beide in op minimaal 6M en herstart de webserver.';
+            } else {
+                $msg = 'Upload mislukt. Probeer een kleiner bestand of controleer de serverinstellingen.';
+            }
+            return response()->json([
+                'message' => $msg,
+                'errors' => ['image' => [$msg]],
+            ], 422);
+        }
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            ['previous_url' => $request->input('previous_url')],
+            ['previous_url' => 'nullable|string|max:500']
+        );
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validatie mislukt.', 'errors' => $validator->errors()], 422);
+        }
+        if ($file->getSize() > 5120 * 1024) {
+            return response()->json([
+                'message' => 'Het bestand mag maximaal 5MB groot zijn.',
+                'errors' => ['image' => ['Het bestand mag maximaal 5MB groot zijn.']],
+            ], 422);
+        }
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
+        $allowedExt = ['jpeg', 'jpg', 'png', 'gif', 'webp'];
+        if (! in_array($ext, $allowedExt, true)) {
+            return response()->json([
+                'message' => 'Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.',
+                'errors' => ['image' => ['Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.']],
+            ], 422);
+        }
 
-        $file = $request->file('image');
         $dir = 'website/hero';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
+        }
+        $previousUrl = $request->input('previous_url');
+        if (is_string($previousUrl) && $previousUrl !== '') {
+            $pathFromUrl = preg_replace('#^/storage/#', '', $previousUrl);
+            if (str_starts_with($pathFromUrl, 'website/hero/') && ! str_contains($pathFromUrl, '..')) {
+                Storage::disk('public')->delete($pathFromUrl);
+            }
         }
         $path = $file->store($dir, 'public');
         $url = '/storage/' . ltrim($path, '/');
@@ -932,6 +1005,20 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $website_page->delete();
         return redirect()->route('admin.website-pages.index')->with('success', 'Pagina verwijderd.');
+    }
+
+    /**
+     * Genormaliseerde module_name voor validatie (null bij leeg).
+     * Gebruikt voor slug-uniekheid per module.
+     */
+    private function normalizeModuleNameForValidation(mixed $value): ?string
+    {
+        if ($value === null || ! is_string($value)) {
+            return null;
+        }
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     /**

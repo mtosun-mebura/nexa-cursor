@@ -49,9 +49,9 @@
     };
     $valueColumnWidth = '120px';
     $cardWidthPx = [
-        'small' => 300,
-        'normal' => 400,
-        'large' => 500,
+        'small' => 400,
+        'normal' => 600,
+        'large' => 800,
     ];
 @endphp
 <section class="container-custom py-12 md:py-16" aria-labelledby="taxiroyaal-tarieven-heading">
@@ -75,7 +75,7 @@
                             $cardSize = isset($item['card_size']) ? (string)$item['card_size'] : 'normal';
                             $isMaxWidth = $cardSize === 'max';
                             $isTotalWidth = $cardSize === 'total_width';
-                            $exactWidthPx = $cardWidthPx[$cardSize] ?? 400;
+                            $exactWidthPx = $cardWidthPx[$cardSize] ?? 600;
                             $wrapperClass = $isMaxWidth ? 'basis-full w-full' : 'shrink-0';
                             $wrapperStyle = $isMaxWidth
                                 ? 'width:100%;max-width:100%;'

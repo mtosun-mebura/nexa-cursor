@@ -31,7 +31,7 @@
         formData.append(fileKey, file);
         const token = getCsrfToken();
         if (token) formData.append('_token', token);
-        const res = await fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } });
+        const res = await fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' });
         if (!res.ok) throw new Error('Upload mislukt');
         return res.json();
     }
@@ -49,7 +49,6 @@
             { default: StarterKit },
             { default: Link },
             { default: Image },
-            { default: HardBreak },
             UnderlineMod,
             HighlightMod,
             TextAlignMod
@@ -58,7 +57,6 @@
             import('https://esm.sh/@tiptap/starter-kit@2.6.6'),
             import('https://esm.sh/@tiptap/extension-link@2.6.6'),
             import('https://esm.sh/@tiptap/extension-image@2.6.6'),
-            import('https://esm.sh/@tiptap/extension-hard-break@2.6.6'),
             import('https://esm.sh/@tiptap/extension-underline@2.6.6').catch(() => ({ default: null })),
             import('https://esm.sh/@tiptap/extension-highlight@2.6.6').catch(() => ({ default: null })),
             import('https://esm.sh/@tiptap/extension-text-align@2.6.6').catch(() => ({ default: null }))
@@ -126,7 +124,6 @@
 
         const extensions = [
             StarterKit,
-            HardBreak,
             FontSize,
             FontFamily,
             Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener' } }),

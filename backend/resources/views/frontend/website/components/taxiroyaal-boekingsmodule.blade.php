@@ -26,6 +26,9 @@
         'border-radius: ' . (int) ($sectionStyle['border_radius'] ?? 12) . 'px;',
     ];
     $moduleShellStyle = implode(' ', $shellStyleParts);
+    $envService = app(\App\Services\EnvService::class);
+    $whatsappClickToChatEnabled = (string) $envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0') === '1';
+    $whatsappClickToChatNumber = trim((string) $envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''));
 @endphp
 
 <section class="container-custom py-8 md:py-12" data-taxiroyaal-booking-module>
@@ -46,13 +49,13 @@
                     <label for="booking-steps-select" class="sr-only">Selecteer stap</label>
                     <select id="booking-steps-select" data-booking-step-select class="bg-neutral-secondary-soft border-0 border-b border-default text-heading text-sm rounded-t-base focus:ring-brand block w-full p-2.5">
                         @foreach($stepOrder as $stepKey)
-                            <option value="{{ $stepKey }}">{{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}</option>
+                            <option value="{{ $stepKey }}" @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden disabled @endif>{{ e($stepLabelByLogical[$stepKey] ?? 'Stap') }}</option>
                         @endforeach
                     </select>
                 </div>
                 <ul class="hidden sm:flex flex-wrap -mb-px text-sm font-medium text-center text-body" data-booking-steps-nav role="tablist">
                     @foreach($stepOrder as $idx => $stepKey)
-                    <li class="me-2">
+                    <li class="me-2 @if($stepKey === 'baggage' && !empty($logic['skip_baggage_step'])) hidden @endif">
                         <button
                             id="booking-tab-{{ $stepKey }}"
                             data-step-index="{{ $idx + 1 }}"
@@ -188,6 +191,7 @@
                                 </div>
                             </div>
                             <div class="pt-1">
+                                @if(empty($logic['skip_baggage_step']))
                                 <label class="block mb-2.5 text-sm font-semibold text-heading">Reis je met bagage?</label>
                                 <div class="flex flex-wrap items-center gap-5 text-heading">
                                     <label class="inline-flex items-center gap-2">
@@ -199,6 +203,7 @@
                                         <span>Nee, ik heb geen bagage</span>
                                     </label>
                                 </div>
+                                @endif
                                 <div class="mt-3 hidden rounded-lg border border-violet-300/60 dark:border-violet-500/40 bg-violet-50/80 dark:bg-violet-500/10 px-3 py-2.5 text-base text-violet-900 dark:text-violet-100 shadow-xs" data-route-details-banner>
                                     <div class="text-lg font-semibold mb-0.5">Route informatie</div>
                                     <div data-route-details></div>
@@ -213,7 +218,7 @@
                                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 2v3m8-3v3M3 9h18M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
                                     </svg>
                                     <input type="datetime-local" style="padding-left: 50px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer" data-field="pickup_at" data-datetime-input data-placeholder-target="pickup_at" placeholder="{{ e($texts['pickup_datetime_placeholder'] ?? '') }}">
-                                    <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 70px;" data-datetime-placeholder-for="pickup_at">{{ e($texts['pickup_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
+                                    <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="pickup_at">{{ e($texts['pickup_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
                                 </div>
                             </div>
                             <div>
@@ -225,8 +230,8 @@
                                     <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 2v3m8-3v3M3 9h18M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
                                     </svg>
-                                    <input type="datetime-local" style="padding-left: 70px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer disabled:opacity-70" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="{{ e($texts['return_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
-                                    <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 70px;" data-datetime-placeholder-for="return_at">{{ e($texts['return_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
+                                    <input type="datetime-local" style="padding-left: 70px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer disabled:opacity-70" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="Selecteer datum en tijd" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
+                                    <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="return_at">Selecteer datum en tijd</span>
                                 </div>
                             </div>
                             <div>
@@ -256,8 +261,8 @@
                 </div>
 
                 <div class="hidden" id="booking-panel-confirm" role="tabpanel" aria-labelledby="booking-tab-confirm" data-step-panel="confirm">
-                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
-                    <div class="rounded-xl border shadow-sm bg-transparent overflow-hidden" style="border-color: rgba(148, 163, 184, 0.45);">
+                    <h3 class="text-3xl font-semibold mb-4 text-center" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
+                    <div class="rounded-xl border shadow-sm bg-transparent overflow-hidden max-w-4xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
                         <div class="kt-card-content lg:pt-9 lg:pb-7.5 px-4 py-4 md:px-6 md:py-5 space-y-5">
                             <div class="hidden flex justify-center" data-summary-vehicle-image-wrap>
                                 <div class="w-full max-w-md rounded-lg border bg-neutral-secondary-medium p-0 overflow-hidden" style="border-color: rgba(148, 163, 184, 0.45); box-shadow: 0 26px 58px rgba(15, 23, 42, 0.5), 0 10px 24px rgba(15, 23, 42, 0.28);">
@@ -268,8 +273,8 @@
                                 <div class="grid justify-center gap-1.5 mb-2 text-center">
                                     <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Rit</div>
                                 </div>
-                                <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs" style="border-color: rgba(148, 163, 184, 0.45);">
-                                    <div class="flex items-start justify-between gap-4 md:gap-6">
+                                <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs max-w-3xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
+                                    <div class="grid grid-cols-[1fr_auto_1fr] items-start gap-4 md:gap-8">
                                         <div class="min-w-0 flex-1">
                                             <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Van</div>
                                             <div class="text-base font-semibold text-heading truncate" data-summary-pickup-line1>—</div>
@@ -278,10 +283,10 @@
                                         </div>
                                         <div class="inline-flex items-center justify-center text-fg-brand shrink-0 pt-6" aria-hidden="true">
                                             <svg class="w-8 h-8 md:w-10 md:h-10" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m0 0-4-4m4 4-4 4"/>
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m0 0-4-4m4 4 4-4"/>
                                             </svg>
                                         </div>
-                                        <div class="min-w-0 flex-1 text-right">
+                                        <div class="min-w-0 flex-1 text-left md:text-right">
                                             <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Naar</div>
                                             <div class="text-base font-semibold text-heading truncate" data-summary-dropoff-line1>—</div>
                                             <div class="text-base text-body truncate" data-summary-dropoff-line2>—</div>
@@ -300,6 +305,13 @@
                                 <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Aanbieding</div>
                                 <div class="mt-1 text-base md:text-lg font-semibold text-heading text-center" data-summary-offer>—</div>
                             </div>
+
+                            <div class="rounded-lg bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs">
+                                <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold text-center">Gekozen bagage</div>
+                                <div class="mt-2 flex flex-wrap items-center justify-center gap-2" data-summary-baggage-list>
+                                    <span class="inline-flex items-center rounded-full bg-neutral-primary px-2.5 py-1 text-sm text-body">Geen bagage geselecteerd</span>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="border-t px-4 py-4 md:px-6 md:py-5 text-center" style="border-color: rgba(148, 163, 184, 0.45);">
@@ -307,7 +319,7 @@
                             <div class="mt-1 text-3xl md:text-4xl font-extrabold text-violet-700 dark:text-violet-300" data-summary-total>—</div>
                         </div>
                     </div>
-                    <p class="text-sm mt-3 text-slate-600 dark:text-slate-300">Controleer je gegevens en verstuur je boeking.</p>
+                    <p class="text-sm mt-3 text-slate-600 dark:text-slate-300 text-center">Controleer je gegevens en verstuur je boeking.</p>
                 </div>
             </div>
 
@@ -320,6 +332,23 @@
         </div>
     </div>
     </div>
+    </div>
+
+    <div class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6" data-booking-confirm-modal>
+        <div class="absolute inset-0 bg-black/75 backdrop-blur-2xl" data-booking-confirm-backdrop></div>
+        <div class="relative z-10 w-full max-w-md rounded-2xl border border-violet-400/35 bg-slate-950/98 text-slate-100 shadow-2xl p-6 md:p-7 text-center">
+            <button type="button" class="absolute top-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors" aria-label="Sluiten" data-booking-confirm-close>
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <h4 class="text-2xl font-bold mb-2">Boeking versturen</h4>
+            <p class="text-base text-slate-300">Weet u zeker dat u de boeking wilt versturen?</p>
+            <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap">
+                <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-600 text-slate-100 hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
+                <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-500" data-booking-confirm-submit>Bevestigen</button>
+            </div>
+        </div>
     </div>
 
     <div class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6" data-booking-success-modal>
@@ -351,7 +380,8 @@
     gap: 24px;
 }
 
-[data-taxiroyaal-booking-module] [data-booking-success-modal] {
+[data-taxiroyaal-booking-module] [data-booking-success-modal],
+[data-taxiroyaal-booking-module] [data-booking-confirm-modal] {
     animation: bookingFadeIn 180ms ease-out;
 }
 
@@ -528,6 +558,17 @@ body.booking-modal-open {
     border-color: rgba(148, 163, 184, 0.45) !important;
 }
 
+[data-taxiroyaal-booking-module] input:focus,
+[data-taxiroyaal-booking-module] textarea:focus,
+[data-taxiroyaal-booking-module] select:focus,
+[data-taxiroyaal-booking-module] input:focus-visible,
+[data-taxiroyaal-booking-module] textarea:focus-visible,
+[data-taxiroyaal-booking-module] select:focus-visible {
+    border-color: rgba(148, 163, 184, 0.45) !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
 [data-taxiroyaal-booking-module] .booking-route-fields input.booking-route-input-short.is-selected {
     border-color: rgba(148, 163, 184, 0.45) !important;
 }
@@ -627,9 +668,11 @@ body.booking-modal-open {
     -webkit-text-fill-color: transparent !important;
     caret-color: transparent;
     text-shadow: none;
+    color-scheme: light;
 }
 .dark [data-taxiroyaal-booking-module] .booking-datetime-input {
     border-color: rgba(148, 163, 184, 0.55) !important;
+    color-scheme: dark;
 }
 [data-taxiroyaal-booking-module] .booking-datetime-input::-webkit-clear-button,
 [data-taxiroyaal-booking-module] .booking-datetime-input::-webkit-inner-spin-button {
@@ -650,9 +693,6 @@ body.booking-modal-open {
 }
 [data-taxiroyaal-booking-module] .booking-datetime-input::-webkit-datetime-edit {
     display: none;
-}
-.dark [data-taxiroyaal-booking-module] .booking-datetime-input {
-    color-scheme: dark;
 }
 .dark [data-taxiroyaal-booking-module] .booking-datetime-input::-webkit-calendar-picker-indicator {
     opacity: 0;
@@ -695,6 +735,12 @@ body.booking-modal-open {
     var sectionKey = @json($sectionKey ?? 'component:taxiroyaal.boekingsmodule');
     var mapsApiKey = @json($mapsApiKey);
     var activeTabColor = @json($sectionStyle['active_tab_color'] ?? '#5b21b6');
+    var whatsappClickToChatEnabled = @json($whatsappClickToChatEnabled);
+    var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
+    var whatsappDraftWindow = null;
+    var maxStopovers = parseInt(config.logic && config.logic.max_stopovers != null ? config.logic.max_stopovers : 3, 10);
+    if (isNaN(maxStopovers)) maxStopovers = 3;
+    maxStopovers = Math.max(0, Math.min(6, maxStopovers));
     var stepOrder = Array.isArray(config.step_order) && config.step_order.length
         ? config.step_order.slice(0, 5)
         : ['trip', 'baggage', 'offers', 'contact', 'confirm'];
@@ -703,12 +749,14 @@ body.booking-modal-open {
     });
     stepOrder = stepOrder.slice(0, 5);
 
+    var skipBaggageStep = !!(config.logic && config.logic.skip_baggage_step);
     var state = {
         step: 1,
-        has_baggage: true,
+        has_baggage: !skipBaggageStep,
         passengers: parseInt(config.logic && config.logic.default_passengers ? config.logic.default_passengers : 1, 10),
         minPassengers: parseInt(config.logic && config.logic.min_passengers ? config.logic.min_passengers : 1, 10),
         maxPassengers: parseInt(config.logic && config.logic.max_passengers ? config.logic.max_passengers : 8, 10),
+        maxStopovers: maxStopovers,
         pickup_address: '',
         stopovers: [],
         dropoff_address: '',
@@ -847,6 +895,108 @@ body.booking-modal-open {
         return text;
     }
 
+    function normalizeWhatsappPhone(raw) {
+        return String(raw || '').replace(/[^0-9]/g, '');
+    }
+
+    function getSelectedOffer() {
+        return state.offers.find(function(offer) { return offer.id === state.selected_offer_id; }) || null;
+    }
+
+    function buildSelectedBaggageSummary() {
+        var itemMap = {};
+        (config.baggage_items || []).forEach(function(item) {
+            if (!item || !item.key) return;
+            itemMap[String(item.key)] = item.title || item.key;
+        });
+        (config.special_items || []).forEach(function(item) {
+            if (!item || !item.key) return;
+            itemMap[String(item.key)] = item.title || item.key;
+        });
+
+        var rows = [];
+        Object.keys(state.baggage || {}).forEach(function(key) {
+            var qty = parseInt(state.baggage[key] || 0, 10);
+            if (qty > 0) rows.push((itemMap[key] || key) + ' x ' + qty);
+        });
+        Object.keys(state.special_baggage || {}).forEach(function(key) {
+            var qty = parseInt(state.special_baggage[key] || 0, 10);
+            if (qty > 0) rows.push((itemMap[key] || key) + ' x ' + qty);
+        });
+
+        return rows.length ? rows.join(', ') : 'Geen';
+    }
+
+    function buildWhatsappSummaryMessage(rideRequestId) {
+        var selected = getSelectedOffer();
+        var fullName = [state.first_name || '', state.last_name || ''].join(' ').trim();
+        var stopovers = (state.stopovers || []).map(function(stop) { return compactAddress(stop) || stop; }).filter(Boolean);
+        var lines = [
+            'Nieuwe taxiboeking',
+            'Naam: ' + (fullName || '—'),
+            'Telefoon: ' + (state.phone || '—'),
+            'E-mail: ' + (state.email || '—'),
+            'Ophalen: ' + (compactAddress(state.pickup_address || '') || '—'),
+            'Afzetten: ' + (compactAddress(state.dropoff_address || '') || '—'),
+            'Datum/tijd: ' + formatDateTimeNl(state.pickup_at || ''),
+            'Passagiers: ' + String(state.passengers || 1),
+            'Bagage: ' + buildSelectedBaggageSummary()
+        ];
+
+        if (stopovers.length) {
+            lines.splice(6, 0, 'Tussenstops: ' + stopovers.join(' -> '));
+        }
+        if (state.return_trip) {
+            lines.push('Retour: ' + (state.return_at ? ('Ja (' + formatDateTimeNl(state.return_at) + ')') : 'Ja'));
+        }
+        if (selected) {
+            lines.push('Aanbieding: ' + (selected.title || '—'));
+            lines.push('Prijsindicatie: ' + formatEuro(selected.price || 0));
+        }
+        if (rideRequestId) {
+            lines.push('Referentie: rit #' + String(rideRequestId));
+        }
+        if (state.remarks) {
+            lines.push('Opmerking: ' + state.remarks);
+        }
+        return lines.join('\n');
+    }
+
+    function prepareWhatsappWindow() {
+        if (!whatsappClickToChatEnabled) return;
+        var phone = normalizeWhatsappPhone(whatsappClickToChatNumber);
+        if (!phone) return;
+        if (whatsappDraftWindow && !whatsappDraftWindow.closed) return;
+        try {
+            whatsappDraftWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+        } catch (e) {
+            whatsappDraftWindow = null;
+        }
+    }
+
+    function closePreparedWhatsappWindow() {
+        if (whatsappDraftWindow && !whatsappDraftWindow.closed) {
+            whatsappDraftWindow.close();
+        }
+        whatsappDraftWindow = null;
+    }
+
+    function openWhatsappWithSummary(rideRequestId) {
+        if (!whatsappClickToChatEnabled) return;
+        var phone = normalizeWhatsappPhone(whatsappClickToChatNumber);
+        if (!phone) return;
+        var url = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(buildWhatsappSummaryMessage(rideRequestId));
+        if (whatsappDraftWindow && !whatsappDraftWindow.closed) {
+            whatsappDraftWindow.location.href = url;
+            whatsappDraftWindow = null;
+            return;
+        }
+        var popup = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+            window.location.href = url;
+        }
+    }
+
     function showError(message) {
         var el = root.querySelector('[data-booking-error]');
         if (!el) return;
@@ -934,6 +1084,11 @@ body.booking-modal-open {
     }
 
     function syncBaggageChoiceFromUi() {
+        if (skipBaggageStep) {
+            state.has_baggage = false;
+            updateBaggageStepAvailability();
+            return;
+        }
         var selected = root.querySelector('input[name="booking_has_baggage_ui"]:checked');
         state.has_baggage = selected ? selected.value === 'yes' : true;
         updateBaggageStepAvailability();
@@ -1038,6 +1193,15 @@ body.booking-modal-open {
         renderRouteIcons(list.children.length);
     }
 
+    function getStopoverCount() {
+        var list = root.querySelector('[data-stopovers-list]');
+        return list ? list.children.length : 0;
+    }
+
+    function canAddStopover() {
+        return getStopoverCount() < state.maxStopovers;
+    }
+
     function syncRouteIconAlignment() {
         var wrap = root.querySelector('.booking-route-wrap');
         var iconsRoot = wrap ? wrap.querySelector('[data-route-icons-list]') : null;
@@ -1089,6 +1253,7 @@ body.booking-modal-open {
     function renderRouteIcons(stopCount) {
         var iconsRoot = root.querySelector('[data-route-icons-list]');
         if (!iconsRoot) return;
+        var allowAddStopover = canAddStopover();
         var rows = ['pickup', 'add'];
         for (var i = 0; i < stopCount; i += 1) rows.push('stop');
         rows.push('dropoff');
@@ -1112,7 +1277,9 @@ body.booking-modal-open {
             if (type === 'pickup') {
                 html += '<svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2.5"/></svg>';
             } else if (type === 'add') {
-                html += '<button type="button" class="booking-stopover-toggle inline-flex items-center justify-center w-6 h-6 rounded-full border border-current bg-transparent" aria-label="Tussenstop toevoegen"><svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14m-7-7h14"/></svg></button>';
+                var addBtnStateClass = allowAddStopover ? '' : ' opacity-40 cursor-not-allowed';
+                var addBtnDisabledAttr = allowAddStopover ? '' : ' disabled aria-disabled="true"';
+                html += '<button type="button" class="booking-stopover-toggle inline-flex items-center justify-center w-6 h-6 rounded-full border border-current bg-transparent' + addBtnStateClass + '" aria-label="Tussenstop toevoegen"' + addBtnDisabledAttr + '><svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14m-7-7h14"/></svg></button>';
             } else if (type === 'stop') {
                 html += '<svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="2.5"/></svg>';
             } else {
@@ -1142,10 +1309,11 @@ body.booking-modal-open {
 
     function addStopover(initialValue) {
         var list = root.querySelector('[data-stopovers-list]');
-        if (!list) return;
+        if (!list || !canAddStopover()) return false;
         list.appendChild(createStopoverRow(initialValue || ''));
         syncStateFromFields();
         setupStopoverAutocompletes();
+        return true;
     }
 
     function setupStopoverAutocompletes() {
@@ -1329,6 +1497,38 @@ body.booking-modal-open {
             }
         }
 
+        var baggageListEl = root.querySelector('[data-summary-baggage-list]');
+        if (baggageListEl) {
+            var itemMap = {};
+            (config.baggage_items || []).forEach(function(item) {
+                if (!item || !item.key) return;
+                itemMap[String(item.key)] = item.title || item.key;
+            });
+            (config.special_items || []).forEach(function(item) {
+                if (!item || !item.key) return;
+                itemMap[String(item.key)] = item.title || item.key;
+            });
+
+            var selectedBaggage = [];
+            Object.keys(state.baggage || {}).forEach(function(key) {
+                var qty = parseInt(state.baggage[key] || 0, 10);
+                if (qty > 0) selectedBaggage.push({ key: key, qty: qty });
+            });
+            Object.keys(state.special_baggage || {}).forEach(function(key) {
+                var qty = parseInt(state.special_baggage[key] || 0, 10);
+                if (qty > 0) selectedBaggage.push({ key: key, qty: qty });
+            });
+
+            if (!selectedBaggage.length) {
+                baggageListEl.innerHTML = '<span class="inline-flex items-center rounded-full bg-neutral-primary px-2.5 py-1 text-sm text-body">Geen bagage geselecteerd</span>';
+            } else {
+                baggageListEl.innerHTML = selectedBaggage.map(function(row) {
+                    var label = itemMap[row.key] || row.key;
+                    return '<span class="inline-flex items-center rounded-full bg-neutral-primary px-2.5 py-1 text-sm font-medium text-heading">' + label + ' × ' + row.qty + '</span>';
+                }).join('');
+            }
+        }
+
         var totalEl = root.querySelector('[data-summary-total]');
         if (totalEl) totalEl.textContent = total;
         var offerEl = root.querySelector('[data-summary-offer]');
@@ -1485,7 +1685,60 @@ body.booking-modal-open {
         return true;
     }
 
-    function submitBooking() {
+    function validateAllBeforeSubmit() {
+        if (!String(state.pickup_address || '').trim()) {
+            showError('Vul het ophaaladres in.');
+            return false;
+        }
+        if (!String(state.dropoff_address || '').trim()) {
+            showError('Vul het afzetadres in.');
+            return false;
+        }
+        if (!String(state.pickup_at || '').trim()) {
+            showError('Vul datum en tijd van ophalen in.');
+            return false;
+        }
+        if (state.return_trip && !String(state.return_at || '').trim()) {
+            showError('Vul het retourmoment in.');
+            return false;
+        }
+        if (!state.selected_offer_id) {
+            showError('Selecteer een aanbieding.');
+            return false;
+        }
+        if (!String(state.first_name || '').trim()) {
+            showError('Vul uw voornaam in.');
+            return false;
+        }
+        if (!String(state.last_name || '').trim()) {
+            showError('Vul uw achternaam in.');
+            return false;
+        }
+        if (!String(state.phone || '').trim()) {
+            showError('Vul uw telefoonnummer in.');
+            return false;
+        }
+        clearError();
+        return true;
+    }
+
+    function showConfirmModal() {
+        var modal = root.querySelector('[data-booking-confirm-modal]');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        document.documentElement.classList.add('booking-modal-open');
+        document.body.classList.add('booking-modal-open');
+    }
+
+    function closeConfirmModal() {
+        var modal = root.querySelector('[data-booking-confirm-modal]');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        document.documentElement.classList.remove('booking-modal-open');
+        document.body.classList.remove('booking-modal-open');
+    }
+
+    function submitBooking(sendToWhatsapp) {
         clearError();
         var payload = {
             page_id: pageId,
@@ -1528,9 +1781,15 @@ body.booking-modal-open {
             return response.json();
         })
         .then(function(data) {
+            if (sendToWhatsapp) {
+                openWhatsappWithSummary(data && data.ride_request_id ? data.ride_request_id : null);
+            }
             showSuccess(data.message || (config.texts && config.texts.success_message ? config.texts.success_message : 'Bedankt! Je boeking is ontvangen.'));
         })
         .catch(function(error) {
+            if (sendToWhatsapp) {
+                closePreparedWhatsappWindow();
+            }
             showError(error.message || 'Boeking versturen mislukt');
         });
     }
@@ -1959,7 +2218,8 @@ body.booking-modal-open {
         var stopoverBtn = e.target.closest('.booking-stopover-toggle');
         if (stopoverBtn) {
             e.preventDefault();
-            addStopover('');
+            var didAddStopover = addStopover('');
+            if (!didAddStopover) return;
             var list = root.querySelector('[data-stopovers-list]');
             if (list && list.lastElementChild) {
                 var lastInput = list.lastElementChild.querySelector('[data-stopover-input]');
@@ -2076,12 +2336,30 @@ body.booking-modal-open {
                 updateSummary();
                 return;
             }
-            submitBooking();
+            if (!validateAllBeforeSubmit()) return;
+            showConfirmModal();
         }
     });
 
+    root.querySelectorAll('[data-booking-confirm-close], [data-booking-confirm-backdrop]').forEach(function(el) {
+        el.addEventListener('click', function() { closeConfirmModal(); });
+    });
+    var confirmSubmitBtn = root.querySelector('[data-booking-confirm-submit]');
+    if (confirmSubmitBtn) {
+        confirmSubmitBtn.addEventListener('click', function() {
+            closeConfirmModal();
+            prepareWhatsappWindow();
+            submitBooking(whatsappClickToChatEnabled);
+        });
+    }
+
     root.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            var confirmModal = root.querySelector('[data-booking-confirm-modal]');
+            if (confirmModal && !confirmModal.classList.contains('hidden')) {
+                closeConfirmModal();
+                return;
+            }
             closeSuccessModal();
             return;
         }
@@ -2101,6 +2379,7 @@ body.booking-modal-open {
     window.__taxiroyaalBookingRouteCalc = calculateRouteFallback;
 
     setStep(1);
+    updateBaggageStepAvailability();
     syncStateFromFields();
     setupAddressTypeaheadFallback();
     initGoogleMaps();

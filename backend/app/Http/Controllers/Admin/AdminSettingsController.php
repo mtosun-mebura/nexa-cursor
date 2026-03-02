@@ -78,6 +78,11 @@ class AdminSettingsController extends Controller
             'WHATSAPP_API_VERSION' => $this->envService->get('WHATSAPP_API_VERSION', 'v18.0'),
             'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $this->envService->get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
             'WHATSAPP_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_DEFAULT_MESSAGE', ''),
+            'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0'),
+            'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $this->envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''),
+            'WHATSAPP_WIDGET_ENABLED' => $this->envService->get('WHATSAPP_WIDGET_ENABLED', '0'),
+            'WHATSAPP_WIDGET_PHONE' => $this->envService->get('WHATSAPP_WIDGET_PHONE', ''),
+            'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'),
         ];
 
         return view('admin.settings.index', compact('mailSettings', 'seoSettings', 'mapsSettings', 'whatsappSettings'));
@@ -315,6 +320,11 @@ class AdminSettingsController extends Controller
             'WHATSAPP_API_VERSION' => 'nullable|string|max:50',
             'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => 'nullable|string|max:255',
             'WHATSAPP_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
+            'WHATSAPP_CLICK_TO_CHAT_ENABLED' => 'nullable|in:0,1',
+            'WHATSAPP_CLICK_TO_CHAT_NUMBER' => 'nullable|string|max:50',
+            'WHATSAPP_WIDGET_ENABLED' => 'nullable|in:0,1',
+            'WHATSAPP_WIDGET_PHONE' => 'nullable|string|max:50',
+            'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -331,6 +341,11 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_API_VERSION' => $request->input('WHATSAPP_API_VERSION', 'v18.0'),
                 'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $request->input('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
                 'WHATSAPP_DEFAULT_MESSAGE' => $request->input('WHATSAPP_DEFAULT_MESSAGE', ''),
+                'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0',
+                'WHATSAPP_CLICK_TO_CHAT_NUMBER' => trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', '')),
+                'WHATSAPP_WIDGET_ENABLED' => $request->boolean('WHATSAPP_WIDGET_ENABLED') ? '1' : '0',
+                'WHATSAPP_WIDGET_PHONE' => trim((string) $request->input('WHATSAPP_WIDGET_PHONE', '')),
+                'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => trim((string) $request->input('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.')),
             ];
 
             $this->envService->set($whatsappSettings);

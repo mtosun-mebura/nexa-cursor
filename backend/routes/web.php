@@ -866,6 +866,18 @@ Route::get('/terms', function () {
     return view('frontend.pages.terms');
 })->name('terms');
 
+// Storage files: serve publiek (vóór {slug} zodat /storage/... niet als slug wordt gezien)
+Route::get('storage/{path}', function (string $path) {
+    $path = str_replace(['../', '..'], ['', ''], $path);
+    $file = storage_path('app/public/' . $path);
+    if (! $path || ! file_exists($file) || ! is_file($file)) {
+        abort(404);
+    }
+    return response()->file($file)->withHeaders([
+        'Cache-Control' => 'public, max-age=31536000',
+    ]);
+})->where('path', '.*')->name('storage.serve');
+
 // Website-builder: custom/module pagina's op slug (moet na vaste paden staan)
 Route::get('/{slug}', [WebsitePageController::class, 'showBySlug'])->name('website.page')->where('slug', '[a-z0-9\-]+');
 

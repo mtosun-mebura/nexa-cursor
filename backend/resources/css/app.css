@@ -256,6 +256,13 @@
     }
   }
 
+  /* Footer: kaartkolom mag niet inkrimpen (voorkomt 24px-breedte bug) */
+  @media (min-width: 768px) {
+    .footer-grid-with-map {
+      grid-template-columns: 1fr 1fr minmax(200px, 1fr) minmax(200px, 1fr);
+    }
+  }
+
   .section-padding {
     padding-top: 4rem;
     padding-bottom: 4rem;

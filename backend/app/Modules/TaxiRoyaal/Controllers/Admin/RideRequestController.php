@@ -46,7 +46,13 @@ class RideRequestController extends Controller
             $query->whereDate('pickup_at', '<=', $request->string('to'));
         }
 
-        $rideRequests = $query->orderByDesc('pickup_at')->paginate(20)->withQueryString();
+        $allowedPerPage = [10, 15, 25, 50];
+        $perPage = (int) $request->integer('per_page', 15);
+        if (!in_array($perPage, $allowedPerPage, true)) {
+            $perPage = 15;
+        }
+
+        $rideRequests = $query->orderByDesc('pickup_at')->paginate($perPage)->withQueryString();
 
         $vehicles = Vehicle::on($conn);
         $this->applyTenantFilter($vehicles);
@@ -66,13 +72,8 @@ class RideRequestController extends Controller
         $this->applyTenantFilter($vehicles);
         $vehicles = $vehicles->where('active', true)->orderBy('name')->get();
 
-        $drivers = User::on($conn);
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $drivers->where('company_id', session('selected_tenant'));
-        } elseif (auth()->user()->company_id) {
-            $drivers->where('company_id', auth()->user()->company_id);
-        }
-        $drivers = $drivers->orderBy('first_name')->orderBy('last_name')->get();
+        $companyId = $this->resolveTenantCompanyId();
+        $drivers = $this->buildChauffeurQuery($conn, $companyId)->get();
 
         $statusLabels = RideRequest::statusLabels();
 
@@ -86,7 +87,7 @@ class RideRequestController extends Controller
         $conn = $this->moduleConnection();
         $validated = $request->validate([
             'vehicle_id' => ['nullable', Rule::exists($conn . '.vehicles', 'id')],
-            'driver_id' => ['nullable', Rule::exists($conn . '.users', 'id')],
+            'driver_id' => ['nullable', Rule::exists('users', 'id')],
             'status' => 'required|in:draft,quoted,accepted,assigned,completed,cancelled',
             'pickup_address' => 'required|string|max:500',
             'dropoff_address' => 'required|string|max:500',
@@ -133,13 +134,8 @@ class RideRequestController extends Controller
         $this->applyTenantFilter($vehicles);
         $vehicles = $vehicles->where('active', true)->orderBy('name')->get();
 
-        $drivers = User::on($conn);
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $drivers->where('company_id', session('selected_tenant'));
-        } elseif (auth()->user()->company_id) {
-            $drivers->where('company_id', auth()->user()->company_id);
-        }
-        $drivers = $drivers->orderBy('first_name')->orderBy('last_name')->get();
+        $rideCompanyId = $this->resolveRideCompanyId($ride_request, $conn) ?? $this->resolveTenantCompanyId();
+        $drivers = $this->buildChauffeurQuery($conn, $rideCompanyId)->get();
 
         return view('taxiroyaal::admin.ride_requests.show', [
             'ride' => $ride_request,
@@ -159,13 +155,8 @@ class RideRequestController extends Controller
         $this->applyTenantFilter($vehicles);
         $vehicles = $vehicles->where('active', true)->orderBy('name')->get();
 
-        $drivers = User::on($conn);
-        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
-            $drivers->where('company_id', session('selected_tenant'));
-        } elseif (auth()->user()->company_id) {
-            $drivers->where('company_id', auth()->user()->company_id);
-        }
-        $drivers = $drivers->orderBy('first_name')->orderBy('last_name')->get();
+        $rideCompanyId = $this->resolveRideCompanyId($ride_request, $conn) ?? $this->resolveTenantCompanyId();
+        $drivers = $this->buildChauffeurQuery($conn, $rideCompanyId)->get();
 
         $statusLabels = RideRequest::statusLabels();
 
@@ -180,7 +171,7 @@ class RideRequestController extends Controller
         $conn = $this->moduleConnection();
         $validated = $request->validate([
             'vehicle_id' => ['nullable', Rule::exists($conn . '.vehicles', 'id')],
-            'driver_id' => ['nullable', Rule::exists($conn . '.users', 'id')],
+            'driver_id' => ['nullable', Rule::exists('users', 'id')],
             'status' => 'required|in:draft,quoted,accepted,assigned,completed,cancelled',
             'pickup_address' => 'required|string|max:500',
             'dropoff_address' => 'required|string|max:500',
@@ -222,7 +213,7 @@ class RideRequestController extends Controller
         $conn = $this->moduleConnection();
         $request->validate([
             'vehicle_id' => ['nullable', Rule::exists($conn . '.vehicles', 'id')],
-            'driver_id' => ['nullable', Rule::exists($conn . '.users', 'id')],
+            'driver_id' => ['nullable', Rule::exists('users', 'id')],
         ]);
         $ride_request->update([
             'vehicle_id' => $request->input('vehicle_id') ?: null,
@@ -258,5 +249,45 @@ class RideRequestController extends Controller
         if ($rideCompanyId === null || (int) $rideCompanyId !== (int) $companyId) {
             abort(403, 'Geen toegang tot deze rit.');
         }
+    }
+
+    private function resolveTenantCompanyId(): ?int
+    {
+        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            return (int) session('selected_tenant');
+        }
+        if (auth()->user()->company_id) {
+            return (int) auth()->user()->company_id;
+        }
+
+        return null;
+    }
+
+    private function resolveRideCompanyId(RideRequest $ride, string $conn): ?int
+    {
+        if (!empty($ride->company_id)) {
+            return (int) $ride->company_id;
+        }
+        if (!empty($ride->vehicle_id)) {
+            $vehicle = Vehicle::on($conn)->find($ride->vehicle_id);
+            if ($vehicle && !empty($vehicle->company_id)) {
+                return (int) $vehicle->company_id;
+            }
+        }
+
+        return null;
+    }
+
+    private function buildChauffeurQuery(string $conn, ?int $companyId)
+    {
+        $query = User::query()->whereHas('roles', function ($roles) {
+            $roles->where('name', 'chauffeur');
+        });
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
+
+        return $query->orderBy('first_name')->orderBy('last_name');
     }
 }

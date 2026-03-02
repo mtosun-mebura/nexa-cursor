@@ -31,11 +31,14 @@ class TaxiRoyaalPublicRatesService
         }
         try {
             $forEdit = DefaultRate::getRatesForEdit($conn);
-            $rates1_4 = $forEdit['1-4'] ?? null;
-            $rates5_8 = $forEdit['5-8'] ?? null;
-            $cleaning = $rates1_4 && $rates1_4->cleaning_costs !== null
-                ? (float) $rates1_4->cleaning_costs
-                : null;
+            $rates1_4 = $forEdit->firstWhere('person_range', '1-4');
+            $rates5_8 = $forEdit->firstWhere('person_range', '5-8');
+            $cleaning = null;
+            if ($rates1_4 && $rates1_4->cleaning_costs !== null) {
+                $cleaning = (float) $rates1_4->cleaning_costs;
+            } elseif ($rates5_8 && $rates5_8->cleaning_costs !== null) {
+                $cleaning = (float) $rates5_8->cleaning_costs;
+            }
             return [
                 'rates_1_4' => $rates1_4,
                 'rates_5_8' => $rates5_8,

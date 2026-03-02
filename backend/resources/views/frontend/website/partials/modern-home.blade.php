@@ -183,7 +183,7 @@
     @endif
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
-        @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey])
+        @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey, 'cards_per_row' => $sectionData['cards_per_row'] ?? 4])
     @endif
 
     @if($base === 'cta' && $v(''))

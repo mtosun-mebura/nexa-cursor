@@ -46,9 +46,9 @@ class TaxiRoyaalVehicleDisplayService
     }
 
     /**
-     * Lijst voertuigen voor select (id, name, image_url).
+     * Lijst voertuigen voor select (id, name, image_url, person_range).
      *
-     * @return array<int, array{id: int, name: string, image_url: string|null}>
+     * @return array<int, array{id: int, name: string, image_url: string|null, person_range: string|null}>
      */
     public function getVehiclesForSelect(): array
     {
@@ -64,11 +64,12 @@ class TaxiRoyaalVehicleDisplayService
             return Vehicle::on($conn)
                 ->where('active', true)
                 ->orderBy('name')
-                ->get(['id', 'name', 'image_url'])
+                ->get(['id', 'name', 'image_url', 'person_range'])
                 ->map(fn ($v) => [
                     'id' => $v->id,
                     'name' => $v->name,
                     'image_url' => $v->image_url ? trim((string) $v->image_url) : null,
+                    'person_range' => isset($v->person_range) && trim((string) $v->person_range) !== '' ? trim((string) $v->person_range) : null,
                 ])
                 ->values()
                 ->all();

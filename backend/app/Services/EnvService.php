@@ -199,9 +199,6 @@ class EnvService
         }
         
         File::put($this->envPath, $content);
-        
-        // Clear config cache
-        \Artisan::call('config:clear');
     }
 }
 

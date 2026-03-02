@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
 use App\Modules\TaxiRoyaal\Models\RideRequest;
+use App\Modules\TaxiRoyaal\Models\Vehicle;
 use App\Services\ModuleDatabaseService;
 use App\Services\TaxiRoyaalBookingPricingService;
 use Illuminate\Http\JsonResponse;
@@ -89,6 +90,25 @@ class TaxiRoyaalBookingController extends Controller
 
         $conn = $this->moduleDb->getModuleConnectionName('taxiroyaal');
         $customerName = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+        $vehicleId = isset($selected['vehicle_id']) && is_numeric($selected['vehicle_id'])
+            ? (int) $selected['vehicle_id']
+            : null;
+
+        // Fallback: bij person-range kan vehicle_id ontbreken; kies dan een actief voertuig in die range.
+        if ($vehicleId === null) {
+            $personRange = isset($selected['person_range']) ? trim((string) $selected['person_range']) : '';
+            $vehicleQuery = Vehicle::on($conn)->where('active', true);
+            if ($personRange !== '') {
+                $vehicleQuery->where('person_range', $personRange);
+            }
+            $fallbackVehicle = $vehicleQuery->orderBy('name')->first();
+            if ($fallbackVehicle) {
+                $vehicleId = (int) $fallbackVehicle->id;
+            }
+        }
+
+        $resolvedVehicle = $vehicleId ? Vehicle::on($conn)->find($vehicleId) : null;
+        $companyId = $resolvedVehicle?->company_id ? (int) $resolvedVehicle->company_id : null;
         $payload = [
             'step_data' => [
                 'distance_meters' => $data['distance_meters'],
@@ -102,8 +122,8 @@ class TaxiRoyaalBookingController extends Controller
         ];
 
         $ride = RideRequest::on($conn)->create([
-            'company_id' => null,
-            'vehicle_id' => $selected['vehicle_id'] ?? null,
+            'company_id' => $companyId,
+            'vehicle_id' => $vehicleId,
             'driver_id' => null,
             'status' => RideRequest::STATUS_QUOTED,
             'pickup_address' => $data['pickup_address'],

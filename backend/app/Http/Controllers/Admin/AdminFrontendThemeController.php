@@ -162,6 +162,7 @@ class AdminFrontendThemeController extends Controller
     {
         $this->ensureSuperAdmin();
         $module = $request->query('module');
+        $module = ($module !== null && trim((string) $module) !== '') ? trim((string) $module) : null;
         $pageParam = $request->query('page');
 
         // Thema strikt uit query: alleen bij aanwezige theme_id dat thema laden, anders actieve
@@ -169,16 +170,20 @@ class AdminFrontendThemeController extends Controller
         $requestedThemeId = $request->query('theme_id');
         if ($requestedThemeId !== null && $requestedThemeId !== '') {
             $theme = FrontendTheme::find((int) $requestedThemeId);
+            if (! $theme && (int) $requestedThemeId > 0) {
+                return redirect()->route('admin.frontend-themes.index')
+                    ->with('error', 'Thema met id ' . (int) $requestedThemeId . ' niet gevonden.');
+            }
         }
-        if (!$theme) {
+        if (! $theme) {
             $theme = FrontendTheme::getActive();
         }
-        if (!$theme) {
+        if (! $theme) {
             return redirect()->route('admin.frontend-themes.index')
                 ->with('error', 'Geen thema gekozen.');
         }
 
-        $menuPages = $this->websiteBuilder->getMenuPagesForStaging($module ?: null);
+        $menuPages = $this->websiteBuilder->getMenuPagesForStaging($module);
         $menuPages = $menuPages->values();
 
         $page = null;
@@ -193,8 +198,8 @@ class AdminFrontendThemeController extends Controller
                 ?? $menuPages->first();
         }
         // Geen actieve pagina's: toon demo-home voor het gekozen thema zodat het thema altijd bekeken kan worden
-        if (!$page) {
-            $page = WebsitePage::demoPageForTheme($theme, $module ?: null);
+        if (! $page) {
+            $page = WebsitePage::demoPageForTheme($theme, $module);
             $menuPages = collect([$page]);
         }
 
@@ -205,7 +210,7 @@ class AdminFrontendThemeController extends Controller
 
         $stagingParams = [
             'theme_id' => $theme->id,
-            'module' => $module ?? '',
+            'module' => $module !== null ? $module : '',
         ];
 
         $jobs = collect();
@@ -233,6 +238,12 @@ class AdminFrontendThemeController extends Controller
             !empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
         );
         $homeSections = $useThemeHomeLayout ? $page->getHomeSections() : [];
+        // Staging: bij thema's met home-sections altijd dezelfde footer tonen (logo, tagline, links, map)
+        if ($themeHasHomeSections && empty($homeSections)) {
+            $demoPageForFooter = WebsitePage::demoPageForTheme($theme, $module);
+            $demoPageForFooter->setRelation('theme', $theme);
+            $homeSections = $demoPageForFooter->getHomeSections();
+        }
         // Atom v2: laad thema-styles op alle paginatypes (staging) voor dezelfde weergave als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
 
@@ -246,7 +257,7 @@ class AdminFrontendThemeController extends Controller
             'showContactForm' => $showContactForm,
             'isStaging' => true,
             'stagingThemeId' => $theme->id,
-            'stagingModule' => $module ?? '',
+            'stagingModule' => $module !== null ? $module : '',
             'stagingParams' => $stagingParams,
             'stagingBackUrl' => route('admin.frontend-themes.index'),
             'stagingPublishUrl' => route('admin.frontend-themes.publish'),

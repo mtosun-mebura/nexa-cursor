@@ -30,6 +30,16 @@
         </div>
     @endif
 
+    @if(session('success'))
+        <div id="settings-success-toast"
+             class="fixed top-5 right-5 z-[120] max-w-md w-[calc(100%-2.5rem)] sm:w-auto rounded-lg border border-emerald-300/60 bg-emerald-50 text-emerald-900 shadow-lg px-4 py-3 opacity-0 translate-y-2 pointer-events-none transition-all duration-300">
+            <div class="flex items-start gap-2">
+                <i class="ki-filled ki-check-circle text-emerald-600 mt-0.5"></i>
+                <div class="text-sm font-medium">{{ session('success') }}</div>
+            </div>
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="kt-alert kt-alert-danger mb-5" role="alert">
             <i class="ki-filled ki-information me-2"></i>
@@ -583,6 +593,102 @@
                                 @enderror
                             </td>
                         </tr>
+                        <tr>
+                            <td colspan="2" class="pt-4">
+                                <div class="rounded-lg border border-border bg-background px-4 py-3">
+                                    <div class="text-sm font-semibold text-secondary-foreground">WhatsApp Direct (zonder Business API)</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Gebruik alleen een telefoonnummer om bij het versturen van de boeking direct WhatsApp te openen met een voorgestelde samenvatting.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Direct inschakelen</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="WHATSAPP_CLICK_TO_CHAT_ENABLED" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           id="WHATSAPP_CLICK_TO_CHAT_ENABLED"
+                                           name="WHATSAPP_CLICK_TO_CHAT_ENABLED"
+                                           value="1"
+                                           {{ old('WHATSAPP_CLICK_TO_CHAT_ENABLED', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Boekingsknop opent ook WhatsApp-bericht</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Nummer (zonder Business API)</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('WHATSAPP_CLICK_TO_CHAT_NUMBER') border-destructive @enderror"
+                                           id="WHATSAPP_CLICK_TO_CHAT_NUMBER"
+                                           name="WHATSAPP_CLICK_TO_CHAT_NUMBER"
+                                           value="{{ old('WHATSAPP_CLICK_TO_CHAT_NUMBER', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_NUMBER'] ?? '') }}"
+                                           placeholder="+31612345678">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt voor `wa.me` (bijv. +31612345678 of 31612345678).</div>
+                                @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" class="pt-4">
+                                <div class="rounded-lg border border-border bg-background px-4 py-3">
+                                    <div class="text-sm font-semibold text-secondary-foreground">Frontend WhatsApp Widget</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Toont rechtsonder op de frontend een WhatsApp-icoon. Klanten kunnen dan kiezen tussen bellen of een WhatsApp-bericht starten.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Widget tonen op frontend</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="WHATSAPP_WIDGET_ENABLED" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           id="WHATSAPP_WIDGET_ENABLED"
+                                           name="WHATSAPP_WIDGET_ENABLED"
+                                           value="1"
+                                           {{ old('WHATSAPP_WIDGET_ENABLED', $whatsappSettings['WHATSAPP_WIDGET_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">WhatsApp widget rechtsonder weergeven</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Widget telefoonnummer</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('WHATSAPP_WIDGET_PHONE') border-destructive @enderror"
+                                           id="WHATSAPP_WIDGET_PHONE"
+                                           name="WHATSAPP_WIDGET_PHONE"
+                                           value="{{ old('WHATSAPP_WIDGET_PHONE', $whatsappSettings['WHATSAPP_WIDGET_PHONE'] ?? '') }}"
+                                           placeholder="+31612345678">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt voor zowel bellen (`tel:`) als WhatsApp (`wa.me`).</div>
+                                @error('WHATSAPP_WIDGET_PHONE')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Widget standaardbericht</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <textarea rows="3"
+                                              class="kt-input pt-1 @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE') border-destructive @enderror"
+                                              id="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
+                                              name="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
+                                              placeholder="Hallo, ik heb een vraag over jullie diensten.">{{ old('WHATSAPP_WIDGET_DEFAULT_MESSAGE', $whatsappSettings['WHATSAPP_WIDGET_DEFAULT_MESSAGE'] ?? 'Hallo, ik heb een vraag over jullie diensten.') }}</textarea>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Deze tekst wordt voorgesteld wanneer iemand via de frontend-widget op “Bericht sturen” klikt.</div>
+                                @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
                     </table>
                     <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
                         <button type="submit" class="kt-btn kt-btn-primary">
@@ -608,6 +714,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 successAlert.remove();
             }, 300);
         }, 5000);
+    }
+
+    const successToast = document.getElementById('settings-success-toast');
+    if (successToast) {
+        requestAnimationFrame(function() {
+            successToast.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
+        });
+
+        setTimeout(function() {
+            successToast.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none');
+            setTimeout(function() {
+                successToast.remove();
+            }, 300);
+        }, 4000);
     }
 
     // Test email functionality

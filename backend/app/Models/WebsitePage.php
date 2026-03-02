@@ -160,6 +160,7 @@ class WebsitePage extends Model
                 'items' => [],
             ],
             'cards_ronde_hoeken' => [
+                'cards_per_row' => 4,
                 'items' => [
                     ['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => ''],
                 ],
@@ -190,6 +191,7 @@ class WebsitePage extends Model
                 'map_huisnummer' => '',
                 'map_street' => '',
                 'map_city' => '',
+                'map_city_only' => false,
                 'map_lat' => null,
                 'map_lng' => null,
                 'map_size' => 'normal',
@@ -542,6 +544,8 @@ class WebsitePage extends Model
                     $items = [];
                 }
                 $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
+                $cardsPerRow = isset($raw['cards_per_row']) ? (int) $raw['cards_per_row'] : ($defaults['cards_ronde_hoeken']['cards_per_row'] ?? 4);
+                $cardsPerRow = in_array($cardsPerRow, [2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
                 $out = array_values(array_map(function ($row) {
                     $fontSize = isset($row['font_size']) ? max(10, min(24, (int) $row['font_size'])) : 14;
                     $fontStyle = isset($row['font_style']) && in_array($row['font_style'], ['normal', 'bold', 'italic'], true) ? $row['font_style'] : 'normal';
@@ -572,7 +576,7 @@ class WebsitePage extends Model
                 if (empty($out)) {
                     $out = $defItems;
                 }
-                return ['items' => $out];
+                return ['cards_per_row' => $cardsPerRow, 'items' => $out];
             default:
                 return [];
         }

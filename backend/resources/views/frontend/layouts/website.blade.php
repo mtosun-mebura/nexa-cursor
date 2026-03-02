@@ -17,6 +17,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Georgia&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-cookieconsent@3.1.0/dist/cookieconsent.css">
     @if(!empty($loadAtomV2Styles))
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600&family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet">
@@ -192,7 +193,7 @@
                 </div>
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
                 <nav id="website-desktop-nav" class="flex flex-nowrap items-center gap-4 flex-1 justify-center px-4 min-w-0 overflow-hidden" role="navigation" aria-label="Hoofdnavigatie">
-                    @forelse($menuPages ?? [] as $menuPage)
+                    @forelse(($menuPages ?? collect()) as $menuPage)
                         @php
                             if (!empty($isStaging) && isset($stagingParams)) {
                                 $pageParam = in_array($menuPage->page_type, ['home','about','contact'], true) ? $menuPage->page_type : $menuPage->slug;
@@ -256,7 +257,7 @@
         </div>
         <div id="website-mobile-menu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div class="container-custom py-4 space-y-1">
-                @forelse($menuPages ?? [] as $menuPage)
+                @forelse(($menuPages ?? collect()) as $menuPage)
                     @php
                         if (!empty($isStaging) && isset($stagingParams)) {
                             $pageParam = in_array($menuPage->page_type, ['home','about','contact'], true) ? $menuPage->page_type : $menuPage->slug;
@@ -322,7 +323,11 @@
                         $showFooterMap = $footerMapVisible && $googleMapsKeyForView !== '';
                         $footerMapSize = $footerData['map_size'] ?? 'normal';
                         $footerMapHeightPx = $footerMapSize === 'small' ? 200 : ($footerMapSize === 'large' ? 400 : 300);
-                        $footerMapAddressStr = trim(($footerData['map_street'] ?? '') . ' ' . ($footerData['map_huisnummer'] ?? '') . ', ' . ($footerData['map_postcode'] ?? '') . ' ' . ($footerData['map_city'] ?? ''), ' ,');
+                        $footerMapWidthClass = 'w-full';
+                        $footerMapCityOnly = !empty($footerData['map_city_only']);
+                        $footerMapAddressStr = $footerMapCityOnly
+                            ? trim((string) ($footerData['map_city'] ?? ''))
+                            : trim(($footerData['map_street'] ?? '') . ' ' . ($footerData['map_huisnummer'] ?? '') . ', ' . ($footerData['map_postcode'] ?? '') . ' ' . ($footerData['map_city'] ?? ''), ' ,');
                         $footerLogoAlign = isset($footerData['logo_align']) && in_array($footerData['logo_align'], ['left', 'center', 'right'], true) ? $footerData['logo_align'] : 'left';
                         $footerLogoAlignWrapper = $footerLogoAlign === 'center' ? 'flex flex-col items-center' : ($footerLogoAlign === 'right' ? 'flex flex-col items-end' : 'flex flex-col items-start');
                         $footerLogoAlignText = $footerLogoAlign === 'center' ? 'text-center' : ($footerLogoAlign === 'right' ? 'text-right' : 'text-left');
@@ -333,13 +338,14 @@
                         $showQuickLinks = ($footVis['footer_quick_links'] ?? true) && !empty($footerData['quick_links']);
                         $showSupportLinks = ($footVis['footer_support_links'] ?? true) && !empty($footerData['support_links']);
                         $footerLinkColumnsCount = ($showQuickLinks ? 1 : 0) + ($showSupportLinks ? 1 : 0);
-                        $footerGridCols = ($footerMapVisible && $footerLinkColumnsCount > 0) ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 2 ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 1 ? 'md:grid-cols-3' : 'md:grid-cols-1'));
-                        $footerFirstColSpan = $footerLinkColumnsCount === 2 ? 'md:col-span-2' : ($footerLinkColumnsCount === 1 ? 'md:col-span-2' : 'md:col-span-1');
                         $footerAlignLinksWithMap = $footerMapVisible && $footerLinkColumnsCount > 0;
+                        $footerGridCols = $footerAlignLinksWithMap ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 2 ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 1 ? 'md:grid-cols-3' : 'md:grid-cols-1'));
+                        $footerGridWithMapClass = $footerAlignLinksWithMap ? ' footer-grid-with-map' : '';
+                        $footerFirstColSpan = $footerLinkColumnsCount === 2 ? 'md:col-span-2' : ($footerLinkColumnsCount === 1 ? 'md:col-span-2' : 'md:col-span-1');
                         $footerQuickLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-3' : 'md:col-start-3';
                         $footerSupportLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-4' : 'md:col-start-3';
                     @endphp
-                    <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerAlignLinksWithMap ? 'md:grid-rows-[auto]' : '' }}">
+                    <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerAlignLinksWithMap ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
                         @if($footerAlignLinksWithMap)
                         {{-- Linkerkolom: logo + tagline, direct daaronder Snelle Links en Ondersteuning (kol 1-2) --}}
                         <div class="col-span-1 {{ $footerFirstColSpan }} md:col-start-1 md:col-end-3 md:row-start-1 flex flex-col">
@@ -383,11 +389,11 @@
                                 @endif
                             </div>
                         </div>
-                        {{-- Rechterkolom: kaart rechts uitgelijnd (kol 3-4) --}}
-                        <div class="col-span-1 {{ $footerFirstColSpan }} md:col-start-3 md:col-end-5 md:row-start-1 flex md:justify-end">
-                            <div class="w-full md:max-w-[480px] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px;">
+                        {{-- Rechterkolom: kaart over volle breedte (kol 3-4) --}}
+                        <div class="col-span-1 {{ $footerFirstColSpan }} md:col-span-2 md:col-start-3 md:col-end-5 md:row-start-1 w-full min-w-0">
+                            <div class="{{ $footerMapWidthClass }} min-w-0 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px;">
                                 @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-full block" style="width: 100%; height: 100%; min-height: 100%;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
+                                <div id="footer-google-map" class="w-full h-full min-h-full block min-w-0" style="width: 100%; height: 100%; min-height: 100%; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
                                 @else
                                 <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
                                     Stel de Google Maps API-sleutel in via <strong>Admin → Instellingen → Maps</strong> om de kaart te tonen.
@@ -476,7 +482,177 @@
         @endif
     </footer>
 
+    @php
+        $frontendEnv = app(\App\Services\EnvService::class);
+        $whatsappWidgetEnabled = (string) $frontendEnv->get('WHATSAPP_WIDGET_ENABLED', '0') === '1';
+        $whatsappWidgetPhoneRaw = trim((string) $frontendEnv->get('WHATSAPP_WIDGET_PHONE', ''));
+        $whatsappWidgetPhoneDigits = preg_replace('/\D+/', '', $whatsappWidgetPhoneRaw);
+        $whatsappWidgetMessage = trim((string) $frontendEnv->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'));
+        if ($whatsappWidgetMessage === '') {
+            $whatsappWidgetMessage = 'Hallo, ik heb een vraag over jullie diensten.';
+        }
+    @endphp
+    @if($whatsappWidgetEnabled && !empty($whatsappWidgetPhoneDigits))
+        <div id="frontend-whatsapp-widget"
+             class="pointer-events-auto"
+             style="position: fixed; right: 20px; bottom: 20px; z-index: 9999;">
+            <div id="frontend-whatsapp-widget-menu"
+                 class="absolute right-0 flex flex-col items-end gap-3"
+                 style="display: none; bottom: 76px;">
+                <a href="tel:{{ $whatsappWidgetPhoneDigits }}"
+                   title="Bellen"
+                   aria-label="Bellen"
+                   class="inline-flex h-14 w-14 items-center justify-center text-white shadow-xl hover:brightness-110 transition-all"
+                   style="background-color: #25D366; border-radius: 9999px;">
+                    <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M3.5 5.2c0-.94.76-1.7 1.7-1.7h2.05c.8 0 1.5.56 1.67 1.35l.56 2.6c.12.54-.05 1.1-.45 1.48l-1.04.98a13.52 13.52 0 0 0 5.1 5.1l.98-1.04c.38-.4.94-.57 1.48-.45l2.6.56c.79.17 1.35.87 1.35 1.67v2.05c0 .94-.76 1.7-1.7 1.7h-.85C9.65 19.6 3.5 13.45 3.5 5.2v0Z" fill="currentColor"/>
+                    </svg>
+                </a>
+                <a href="https://wa.me/{{ $whatsappWidgetPhoneDigits }}?text={{ urlencode($whatsappWidgetMessage) }}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   title="Bericht sturen"
+                   aria-label="Bericht sturen"
+                   class="inline-flex h-14 w-14 items-center justify-center text-white shadow-xl hover:brightness-110 transition-all"
+                   style="background-color: #25D366; border-radius: 9999px;">
+                    <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9" aria-hidden="true">
+                </a>
+            </div>
+            <button type="button"
+                    id="frontend-whatsapp-widget-toggle"
+                    aria-label="Open WhatsApp opties"
+                    aria-expanded="false"
+                    class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-all">
+                <span id="frontend-whatsapp-widget-icon-open" class="inline-flex" style="display: inline-flex;">
+                    <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9" aria-hidden="true">
+                </span>
+                <span id="frontend-whatsapp-widget-icon-close" class="inline-flex" style="display: none;">
+                    <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+                    </svg>
+                </span>
+            </button>
+        </div>
+    @endif
+
+    <button type="button"
+            id="cookie-settings-btn"
+            class="fixed left-4 bottom-4 z-[9998] rounded-full border border-gray-300 bg-white/95 px-4 py-2 text-xs font-medium text-gray-700 shadow-md backdrop-blur hover:bg-white dark:border-gray-600 dark:bg-gray-800/95 dark:text-gray-200 dark:hover:bg-gray-800">
+        Cookie-instellingen
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/vanilla-cookieconsent@3.1.0/dist/cookieconsent.umd.js"></script>
+
     <script>
+        (function() {
+            if (typeof window.CookieConsent === 'undefined') return;
+
+            window.CookieConsent.run({
+                guiOptions: {
+                    consentModal: {
+                        layout: 'box',
+                        position: 'bottom right',
+                        equalWeightButtons: true,
+                        flipButtons: false
+                    },
+                    preferencesModal: {
+                        layout: 'box',
+                        position: 'right',
+                        equalWeightButtons: true,
+                        flipButtons: false
+                    }
+                },
+                categories: {
+                    necessary: {
+                        enabled: true,
+                        readOnly: true
+                    },
+                    analytics: {
+                        enabled: false
+                    },
+                    marketing: {
+                        enabled: false
+                    }
+                },
+                language: {
+                    default: 'nl',
+                    translations: {
+                        nl: {
+                            consentModal: {
+                                title: 'Wij gebruiken cookies',
+                                description: 'We gebruiken noodzakelijke cookies om de site goed te laten werken. Met jouw toestemming gebruiken we ook analytics en marketing cookies.',
+                                acceptAllBtn: 'Alles accepteren',
+                                acceptNecessaryBtn: 'Alleen noodzakelijk',
+                                showPreferencesBtn: 'Voorkeuren beheren',
+                                footer: '<a href="{{ route('privacy') }}">Privacybeleid</a>'
+                            },
+                            preferencesModal: {
+                                title: 'Cookievoorkeuren',
+                                acceptAllBtn: 'Alles accepteren',
+                                acceptNecessaryBtn: 'Alleen noodzakelijk',
+                                savePreferencesBtn: 'Voorkeuren opslaan',
+                                closeIconLabel: 'Sluiten',
+                                sections: [
+                                    {
+                                        title: 'Cookiegebruik',
+                                        description: 'Kies per categorie welke cookies je wilt toestaan.'
+                                    },
+                                    {
+                                        title: 'Noodzakelijk',
+                                        description: 'Deze cookies zijn nodig voor basisfunctionaliteit en kunnen niet worden uitgeschakeld.',
+                                        linkedCategory: 'necessary'
+                                    },
+                                    {
+                                        title: 'Analytics',
+                                        description: 'Helpt ons het gebruik van de website te meten en verbeteren.',
+                                        linkedCategory: 'analytics'
+                                    },
+                                    {
+                                        title: 'Marketing',
+                                        description: 'Wordt gebruikt voor marketing en personalisatie.',
+                                        linkedCategory: 'marketing'
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                onConsent: function() {
+                    var btn = document.getElementById('cookie-settings-btn');
+                    if (btn) btn.style.display = 'none';
+                    window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
+                        detail: {
+                            analytics: window.CookieConsent.acceptedCategory('analytics'),
+                            marketing: window.CookieConsent.acceptedCategory('marketing')
+                        }
+                    }));
+                },
+                onChange: function() {
+                    var btn = document.getElementById('cookie-settings-btn');
+                    if (btn) btn.style.display = 'none';
+                    window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
+                        detail: {
+                            analytics: window.CookieConsent.acceptedCategory('analytics'),
+                            marketing: window.CookieConsent.acceptedCategory('marketing')
+                        }
+                    }));
+                }
+            });
+
+            var cookieSettingsBtn = document.getElementById('cookie-settings-btn');
+            if (cookieSettingsBtn) {
+                cookieSettingsBtn.addEventListener('click', function() {
+                    if (window.CookieConsent && typeof window.CookieConsent.showPreferences === 'function') {
+                        window.CookieConsent.showPreferences();
+                    }
+                });
+                try {
+                    var hasStored = localStorage.getItem('cc_cookie') || (document.cookie.indexOf('cc_cookie=') !== -1);
+                    if (hasStored) cookieSettingsBtn.style.display = 'none';
+                } catch (e) {}
+            }
+        })();
+
         (function() {
             var toggle = document.getElementById('website-mobile-menu-toggle');
             var menu = document.getElementById('website-mobile-menu');
@@ -680,16 +856,75 @@
                 } else {
                     addMarkerSafe(map, center);
                 }
-                setTimeout(function() {
+                function triggerResize() {
                     if (google.maps && google.maps.event && map) {
                         google.maps.event.trigger(map, 'resize');
                     }
-                }, 100);
+                }
+                setTimeout(triggerResize, 100);
+                setTimeout(triggerResize, 300);
+                setTimeout(triggerResize, 600);
+                if (typeof window !== 'undefined') {
+                    window.addEventListener('load', triggerResize);
+                    if (typeof ResizeObserver !== 'undefined' && mapEl && mapEl.parentElement) {
+                        var ro = new ResizeObserver(function() { setTimeout(triggerResize, 50); });
+                        ro.observe(mapEl.parentElement);
+                    }
+                }
             };
             var s = document.createElement('script');
             s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + (useAdvancedMarker ? '&libraries=marker' : '') + '&callback=initFooterMap&loading=async';
             s.async = true;
             document.head.appendChild(s);
+        })();
+
+        (function() {
+            var widget = document.getElementById('frontend-whatsapp-widget');
+            var toggle = document.getElementById('frontend-whatsapp-widget-toggle');
+            var menu = document.getElementById('frontend-whatsapp-widget-menu');
+            var openIcon = document.getElementById('frontend-whatsapp-widget-icon-open');
+            var closeIcon = document.getElementById('frontend-whatsapp-widget-icon-close');
+            if (!widget || !toggle || !menu || !openIcon || !closeIcon) return;
+
+            function closeMenu() {
+                menu.style.display = 'none';
+                toggle.setAttribute('aria-expanded', 'false');
+                openIcon.style.display = 'inline-flex';
+                closeIcon.style.display = 'none';
+                toggle.style.backgroundColor = '#25D366';
+            }
+
+            function openMenu() {
+                menu.style.display = 'flex';
+                toggle.setAttribute('aria-expanded', 'true');
+                openIcon.style.display = 'none';
+                closeIcon.style.display = 'inline-flex';
+                toggle.style.backgroundColor = '#ff6b6b';
+            }
+
+            toggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (menu.style.display === 'none' || menu.style.display === '') {
+                    openMenu();
+                } else {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!widget.contains(e.target)) {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeMenu();
+                }
+            });
+
+            closeMenu();
         })();
     </script>
     @stack('scripts')

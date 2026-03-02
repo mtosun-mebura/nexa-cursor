@@ -128,19 +128,17 @@
                         </thead>
                         <tbody>
                             @foreach($vehicles as $v)
-                            <tr class="vehicle-row" data-vehicle-id="{{ $v->id }}">
-                                <td class="w-[250px] text-center align-middle">
+                            <tr class="vehicle-row vehicle-row--clickable" data-vehicle-id="{{ $v->id }}" data-href="{{ route('admin.taxiroyaal.vehicles.show', $v) }}">
+                                <td class="w-[300px] text-center align-middle">
                                     @if($v->image_url)
-                                        <img src="{{ asset(ltrim($v->image_url, '/')) }}" alt="" class="w-[150px] h-[100px] rounded object-cover border border-border mx-auto block">
+                                        <img src="{{ asset(ltrim($v->image_url, '/')) }}" alt="" class="w-[220px] h-[120px] rounded-xl object-contain mx-auto block">
                                     @else
-                                        <div class="w-[150px] h-[100px] rounded bg-muted border border-input flex items-center justify-center mx-auto">
+                                        <div class="w-[220px] h-[120px] rounded-xl bg-muted border border-input flex items-center justify-center mx-auto">
                                             <i class="ki-filled ki-car text-2xl text-muted-foreground"></i>
                                         </div>
                                     @endif
                                 </td>
-                                <td>
-                                    <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.taxiroyaal.vehicles.show', $v) }}">{{ $v->name }}</a>
-                                </td>
+                                <td class="text-sm font-medium text-mono">{{ $v->name }}</td>
                                 <td class="text-foreground font-normal">{{ $v->type_label }}</td>
                                 <td class="text-foreground font-normal">{{ $v->license_plate ?? '—' }}</td>
                                 <td>
@@ -150,7 +148,7 @@
                                         <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
                                     @endif
                                 </td>
-                                <td class="w-[60px]" onclick="event.stopPropagation();">
+                                <td class="w-[60px]" data-no-row-link onclick="event.stopPropagation();">
                                     <div class="kt-menu flex justify-center" data-kt-menu="true">
                                         <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                             <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
@@ -223,6 +221,7 @@
                         per pagina
                     </div>
                     <div class="flex items-center gap-4 order-1 md:order-2">
+                        <span>{{ $vehicles->firstItem() ?? 0 }}-{{ $vehicles->lastItem() ?? 0 }} van {{ $vehicles->total() }}</span>
                         {{ $vehicles->links() }}
                     </div>
                 </div>
@@ -301,6 +300,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     initVehicleMenus();
     setTimeout(initVehicleMenus, 300);
+
+    document.querySelectorAll('.vehicle-row--clickable').forEach(function(row) {
+        if (row._rowLinkBound) return;
+        row._rowLinkBound = true;
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('a, button, input, select, textarea, [data-no-row-link]')) return;
+            var href = row.getAttribute('data-href');
+            if (href) window.location.href = href;
+        });
+    });
 
     document.addEventListener('click', function(e) {
         if (e.target.closest('.vehicles-table-wrap .kt-menu')) return;

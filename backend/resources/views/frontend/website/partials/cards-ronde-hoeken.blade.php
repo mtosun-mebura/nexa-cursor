@@ -2,6 +2,7 @@
     $items = $items ?? [];
     $visibility = $visibility ?? [];
     $sectionKey = $sectionKey ?? 'cards_ronde_hoeken';
+    $cardsPerRow = isset($cards_per_row) && in_array((int) $cards_per_row, [2, 3, 4, 5, 6], true) ? (int) $cards_per_row : 4;
     $count = count($items);
     $url = function($u) {
         if (empty($u)) return '';
@@ -43,6 +44,10 @@
             $rows[] = ['type' => 'total_width', 'item' => $card, 'index' => $i, 'width_px' => $widthPx];
         } else {
             $currentRow[] = ['card' => $card, 'index' => $i, 'card_width_px' => $cardWidthForSize($sz)];
+            if (count($currentRow) >= $cardsPerRow) {
+                $rows[] = ['type' => 'normal', 'items' => $currentRow];
+                $currentRow = [];
+            }
         }
     }
     if (!empty($currentRow)) {
