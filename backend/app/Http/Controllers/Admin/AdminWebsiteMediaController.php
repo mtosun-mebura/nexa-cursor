@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\WebsiteMedia;
+use App\Services\ModuleContextService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -14,6 +15,10 @@ class AdminWebsiteMediaController extends Controller
 {
     private const DISK = 'local';
     private const MEDIA_DIR = 'website_media';
+
+    public function __construct(
+        protected ModuleContextService $moduleContext
+    ) {}
 
     /** Max breedte voor carousel (snel laden, goede kwaliteit). */
     private const MAX_WIDTH = 1920;
@@ -43,7 +48,9 @@ class AdminWebsiteMediaController extends Controller
 
         $encrypted = Crypt::encrypt($content);
         $uuid = (string) Str::uuid();
-        $encryptedPath = self::MEDIA_DIR . '/' . $uuid . '.enc';
+        $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
+        $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
+        $encryptedPath = $prefix . self::MEDIA_DIR . '/' . $uuid . '.enc';
 
         $media = WebsiteMedia::create([
             'uuid' => $uuid,

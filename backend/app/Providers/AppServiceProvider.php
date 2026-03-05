@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Models\Module as ModuleModel;
+use App\Models\WebsitePage;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Route;
 use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
 use App\Services\ModuleManager;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerModuleDatabaseConnections();
+        $this->registerWebsitePageRouteBinding();
         $this->loadGoogleMapsApiKeyFromRootEnv();
 
         View::composer('frontend.layouts.website', function ($view) {
@@ -61,6 +64,22 @@ class AppServiceProvider extends ServiceProvider
         
         // Register ModuleServiceProvider
         $this->app->register(\App\Providers\ModuleServiceProvider::class);
+    }
+
+    /**
+     * WebsitePage uit module-DB oplossen wanneer ?module= in de request staat (zelfstandige module-databases).
+     */
+    private function registerWebsitePageRouteBinding(): void
+    {
+        Route::bind('website_page', function (string $value) {
+            $module = request()->query('module');
+            $dbService = $this->app->make(ModuleDatabaseService::class);
+            if ($module && is_string($module) && trim($module) !== '' && $dbService->supportsModuleDatabases()) {
+                $conn = $dbService->getModuleConnectionName(trim($module));
+                return WebsitePage::on($conn)->with('theme')->findOrFail($value);
+            }
+            return WebsitePage::with('theme')->findOrFail($value);
+        });
     }
 
     /**

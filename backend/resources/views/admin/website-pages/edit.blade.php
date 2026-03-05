@@ -3,8 +3,11 @@
 @section('title', 'Pagina bewerken')
 
 @section('content')
-@if(session('success'))
-    <script>window.__websitePageSuccessMessage = @json(session('success'));</script>
+@php
+    $showSuccessMessage = session('success') ?? (request()->query('saved') ? 'Pagina bijgewerkt.' : null);
+@endphp
+@if($showSuccessMessage)
+    <script>window.__websitePageSuccessMessage = @json($showSuccessMessage);</script>
 @endif
 <div class="kt-container-fixed">
     @if($errors->any())
@@ -17,7 +20,7 @@
     })();
     </script>
     @endif
-    <p class="text-sm text-muted-foreground mb-5">De pagina hoort bij een <strong>module</strong> of bij kernpagina's (geen). Het thema waarmee de pagina wordt getoond is per module vastgelegd bij Frontend Thema's. De inhoud bewerk je met de website builder onderaan.</p>
+    <p class="text-sm text-muted-foreground mb-5">De pagina hoort bij een <strong>module</strong> of bij kernpagina's (geen). Pagina's worden altijd getoond in het actieve thema. De inhoud bewerk je met de website builder onderaan.</p>
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
@@ -29,16 +32,19 @@
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
-            <a href="{{ route('admin.website-pages.preview', $page) }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
+            <a href="{{ route('admin.website-pages.preview', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
                 Pagina voorbeeld
             </a>
         </div>
     </div>
 
-    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}" method="POST" data-success-url="{{ route('admin.website-pages.index') }}">
+    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index') }}">
         @csrf
         @method('PUT')
+        {{-- Fallback voor section_order bovenaan formulier (bij grote PUT-request kan section_order anders ontbreken) --}}
+        @php $editSectionOrder = $page->getHomeSections()['section_order'] ?? []; $editSectionOrderStr = is_array($editSectionOrder) ? implode(',', $editSectionOrder) : (is_string($editSectionOrder) ? $editSectionOrder : ''); @endphp
+        <input type="hidden" name="_section_order" id="section-order-fallback" value="{{ $editSectionOrderStr }}">
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -68,21 +74,22 @@
                             <td class="min-w-48 w-full">
                                 <select id="module_choice"
                                         class="kt-input"
-                                        required>
-                                    <option value="" data-theme-text="Standaardthema: {{ $defaultTheme?->name ?? 'Geen actief' }}"
+                                        required
+                                        data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
+                                    <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
                                         {{ !old('module_name', $page->module_name) ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
                                     @foreach($installedModules as $module)
                                         @php
                                             $moduleName = $module->getName();
                                             $moduleModel = $moduleThemes[$moduleName] ?? null;
-                                            $themeName = ($moduleModel && $moduleModel->theme) ? $moduleModel->theme->name : ($defaultTheme?->name ?? 'Standaardthema');
+                                            $themeId = ($moduleModel && $moduleModel->theme) ? $moduleModel->theme->id : ($defaultTheme?->id ?? '');
                                         @endphp
                                         <option value="{{ $moduleName }}"
-                                            data-theme-text="Thema voor {{ $module->getDisplayName() }}: {{ $themeName }}"
+                                            data-theme-id="{{ $themeId }}"
                                             {{ old('module_name', $page->module_name) === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
                                     @endforeach
                                 </select>
-                                <div class="text-xs text-muted-foreground mt-1">Kernpagina's gebruiken het actieve standaardthema; bij een module het thema van die module. Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
                                 <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name', $page->module_name) }}">
                             </td>
                         </tr>
@@ -91,7 +98,9 @@
                                 Thema
                             </td>
                             <td>
-                                <p id="theme_display" class="text-sm font-medium text-secondary-foreground"></p>
+                                <input type="hidden" name="frontend_theme_id" id="frontend_theme_id_fixed" value="{{ $defaultTheme?->id ?? '' }}">
+                                <span class="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground dark:bg-white/15 dark:text-white dark:border dark:border-white/20">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
+                                <div class="text-xs text-muted-foreground mt-1">Pagina's worden altijd getoond in het actieve thema. Wijzig het thema onder Frontend Thema's.</div>
                             </td>
                         </tr>
                         <tr id="page_type_row">
@@ -228,7 +237,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? ''])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null])
                 </div>
             </div>
 
@@ -299,54 +308,46 @@
         autoCloseTimer = setTimeout(closeModal, 3000);
     }
 
-    // Fouten zichtbaar in console: bij submit via fetch loggen we foutrespons, na redirect loggen we Laravel-errors
+    // Normale form submit (geen fetch) zodat de server de POST zeker ontvangt en na redirect de pagina met opgeslagen data toont.
+    // Section order altijd uit de DOM halen bij submit, zodat verwijderde secties nooit meer meegestuurd worden.
     var form = document.getElementById('website-page-form');
     if (form) {
         form.addEventListener('submit', function(e) {
-            e.preventDefault();
             if (typeof tinymce !== 'undefined' && tinymce.editors) tinymce.triggerSave();
             if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
-            var formData = new FormData(form);
-            var url = form.getAttribute('action');
+            var sortable = document.getElementById('home-sections-sortable');
+            var orderInp = document.getElementById('home-sections-order-input');
+            var fallbackInp = document.getElementById('section-order-fallback');
+            var collapsedInp = document.getElementById('admin-collapsed-input');
+            if (sortable && orderInp) {
+                var order = [];
+                var collapsed = [];
+                [].slice.call(sortable.children).forEach(function(el) {
+                    var s = el.getAttribute('data-section');
+                    if (s) {
+                        order.push(s);
+                        if (el.classList.contains('home-section-card--collapsed')) collapsed.push(s);
+                    }
+                });
+                var orderStr = order.join(',');
+                orderInp.value = orderStr;
+                if (fallbackInp) fallbackInp.value = orderStr;
+                if (collapsedInp) collapsedInp.value = collapsed.join(',');
+            } else if (orderInp && fallbackInp) {
+                fallbackInp.value = orderInp.value;
+            }
             var submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Bezig met opslaan…';
             }
-            var indexUrl = (form.getAttribute('data-success-url') || (window.location.origin + '/admin/website-pages')).replace(/\/$/, '');
-            fetch(url, { method: 'POST', body: formData })
-                .then(function(res) {
-                    if (res.status >= 400) {
-                        return res.text().then(function(body) {
-                            console.error('[Website-pagina opslaan] Serverfout:', res.status, res.statusText);
-                            console.error('[Website-pagina opslaan] Response body:', body);
-                            throw new Error('Server: ' + res.status);
-                        });
-                    }
-                    var resUrl = (res.url || '').replace(/\/$/, '');
-                    if (res.ok && resUrl && resUrl.indexOf(indexUrl) !== -1 && resUrl.indexOf('/edit') === -1) {
-                        window.location.href = indexUrl;
-                        return;
-                    }
-                    if (res.ok) {
-                        if (submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = '<i class="ki-filled ki-check me-2"></i>Opslaan';
-                        }
-                        showSuccessModal('Pagina bijgewerkt.');
-                        return;
-                    }
-                    window.location.href = url;
-                })
-                .catch(function(err) {
-                    console.error('[Website-pagina opslaan] Fout:', err);
-                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<i class="ki-filled ki-check me-2"></i>Opslaan'; }
-                });
+            try {
+                sessionStorage.setItem('website-page-edit-scroll', String(window.scrollY || window.pageYOffset || 0));
+            } catch (err) {}
         });
     }
 
     var moduleChoice = document.getElementById('module_choice');
-    var themeDisplay = document.getElementById('theme_display');
     var pageTypeSelect = document.getElementById('page_type');
     var moduleNameHidden = document.getElementById('module_name_hidden');
     var homeSectionsCard = document.getElementById('home_sections_card');
@@ -355,9 +356,12 @@
     function updateForm() {
         var choice = moduleChoice.value;
         var opt = moduleChoice.options[moduleChoice.selectedIndex];
-        var themeText = opt ? opt.getAttribute('data-theme-text') : '';
-        themeDisplay.textContent = themeText || '';
+        var themeId = opt ? opt.getAttribute('data-theme-id') : '';
         if (moduleNameHidden) moduleNameHidden.value = choice || '';
+        var themeSelect = document.getElementById('frontend_theme_id');
+        if (themeSelect && themeId) {
+            themeSelect.value = themeId;
+        }
         toggleHomeAndContentRows();
     }
     function toggleHomeAndContentRows() {
@@ -402,10 +406,30 @@
         });
     }
 
-    // Succesmelding na redirect (session) als modal tonen
+    // Succesmelding na redirect (session of URL-param saved=1) als modal tonen; herstel scrollpositie
     if (window.__websitePageSuccessMessage) {
         showSuccessModal(window.__websitePageSuccessMessage);
         delete window.__websitePageSuccessMessage;
+        var u = new URL(window.location.href);
+        if (u.searchParams.get('saved')) {
+            u.searchParams.delete('saved');
+            var clean = u.pathname + (u.search || '');
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', clean);
+            }
+        }
+        try {
+            var savedScroll = sessionStorage.getItem('website-page-edit-scroll');
+            if (savedScroll !== null) {
+                sessionStorage.removeItem('website-page-edit-scroll');
+                var y = parseInt(savedScroll, 10);
+                if (!isNaN(y) && y > 0) {
+                    requestAnimationFrame(function() {
+                        window.scrollTo(0, y);
+                    });
+                }
+            }
+        } catch (err) {}
     }
 })();
 </script>

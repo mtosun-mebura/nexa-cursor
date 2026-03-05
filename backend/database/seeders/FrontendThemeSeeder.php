@@ -93,6 +93,15 @@ class FrontendThemeSeeder extends Seeder
             ['type' => 'paragraph', 'data' => ['text' => ''], 'width' => 'full'],
             ['type' => 'slider', 'data' => ['items' => [['url' => '', 'caption' => '']]], 'width' => 'full'],
             ['type' => 'paragraph', 'data' => ['text' => ''], 'width' => 'full'],
+            ['type' => 'featured_services', 'data' => [
+                'title' => 'Diensten',
+                'subtitle' => 'Onze diensten in het kort.',
+                'items' => [
+                    ['icon' => 'briefcase', 'title' => 'Business Collaboration', 'description' => 'Morbi sagittis hendrerit nulla ultricies. Cras in diam ipsum, elementum pretium hendrerit ultricies.'],
+                    ['icon' => 'cog-6-tooth', 'title' => 'Engineering & Services', 'description' => 'Proin scelerisque magna at porttitor tristique.'],
+                    ['icon' => 'user-group', 'title' => 'Consulting', 'description' => 'Samen werken we aan het beste resultaat.'],
+                ],
+            ], 'width' => 'full'],
             ['type' => 'image', 'data' => ['url' => '', 'caption' => ''], 'width' => 'full'],
             ['type' => 'paragraph', 'data' => ['text' => ''], 'width' => 'full'],
         ];

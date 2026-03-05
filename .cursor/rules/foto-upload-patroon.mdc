@@ -1,0 +1,20 @@
+---
+description: Foto/afbeelding-upload altijd als drag-and-drop (Klik of Sleep & Drop), nooit als URL-veld
+alwaysApply: true
+---
+
+# Foto-upload: standaard patroon
+
+Als de gebruiker vraagt om een **foto upload**, **afbeelding upload** of **plaatje upload** toe te voegen, gebruik **altijd** het drag-and-drop uploadpatroon zoals bij Footer-logo en hero-achtergrond, **niet** een simpel URL-invoerveld.
+
+## Gewenst patroon
+
+- **Uploadzone**: div met class `hero-image-upload-area` (of het project-specifieke equivalent zoals `cta-image-upload-area` waar van toepassing), met `data-section-key` en `data-field`.
+- **Tekst in de zone**: "Klik of sleep afbeelding" en formaat/limiet (bijv. "JPG, PNG, WebP (max. 5MB)").
+- **Verborgen inputs**: een file input (class `hero-image-file-input`) en een hidden input voor de opgeslagen URL, met `id="hero-{sectionKey}-{field}"` zodat het bestaande script het vindt.
+- **Preview + verwijder-knop**: optioneel maar aanbevolen voor consistentie (preview img + `image-remove-btn` met `data-url-input-id` en `data-preview-id`).
+- **Binding**: het formulier gebruikt `bindHeroUploadAreasIn` (of de juiste variant) om uploadzones te koppelen aan de hero-upload route (`admin.website-pages.upload-hero-image`) of de juiste sectie-specifieke route (bijv. footer-logo).
+
+## Niet doen
+
+- Geen `<input type="url">` als enige manier om een afbeelding in te voeren wanneer de gebruiker om een "foto upload" of "afbeelding upload" vraagt.

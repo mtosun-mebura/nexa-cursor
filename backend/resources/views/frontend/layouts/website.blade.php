@@ -338,18 +338,18 @@
                         $showQuickLinks = ($footVis['footer_quick_links'] ?? true) && !empty($footerData['quick_links']);
                         $showSupportLinks = ($footVis['footer_support_links'] ?? true) && !empty($footerData['support_links']);
                         $footerLinkColumnsCount = ($showQuickLinks ? 1 : 0) + ($showSupportLinks ? 1 : 0);
-                        $footerAlignLinksWithMap = $footerMapVisible && $footerLinkColumnsCount > 0;
-                        $footerGridCols = $footerAlignLinksWithMap ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 2 ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 1 ? 'md:grid-cols-3' : 'md:grid-cols-1'));
-                        $footerGridWithMapClass = $footerAlignLinksWithMap ? ' footer-grid-with-map' : '';
+                        $footerShowMapRight = $footerMapVisible;
+                        $footerGridCols = $footerShowMapRight ? 'md:grid-cols-2' : ($footerLinkColumnsCount === 2 ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 1 ? 'md:grid-cols-3' : 'md:grid-cols-1'));
+                        $footerGridWithMapClass = $footerShowMapRight ? ' footer-grid-with-map' : '';
                         $footerFirstColSpan = $footerLinkColumnsCount === 2 ? 'md:col-span-2' : ($footerLinkColumnsCount === 1 ? 'md:col-span-2' : 'md:col-span-1');
                         $footerQuickLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-3' : 'md:col-start-3';
                         $footerSupportLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-4' : 'md:col-start-3';
                     @endphp
-                    <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerAlignLinksWithMap ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
-                        @if($footerAlignLinksWithMap)
-                        {{-- Linkerkolom: logo + tagline, direct daaronder Snelle Links en Ondersteuning (kol 1-2) --}}
-                        <div class="col-span-1 {{ $footerFirstColSpan }} md:col-start-1 md:col-end-3 md:row-start-1 flex flex-col">
-                            <div class="{{ $footerLogoAlignWrapper }}">
+                    <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerShowMapRight ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
+                        @if($footerShowMapRight)
+                        {{-- Linkerkant (50%): logo + tagline, daaronder Snelle Links (links) en Ondersteuning (rechts) naast elkaar --}}
+                        <div class="flex flex-col min-w-0">
+                            <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
                                     @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
                                     <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
@@ -357,14 +357,14 @@
                                     <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none {{ $footerLogoAlignText }}">
+                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none {{ $footerLogoAlignText }}">
                                         {!! $homeSections['footer']['tagline'] !!}
                                     </div>
                                 @endif
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-0">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-0 w-full max-w-full min-w-0">
                                 @if($showQuickLinks)
-                                <div class="{{ $footerQuickLinksAlignClass }}">
+                                <div class="{{ $footerQuickLinksAlignClass }} min-w-0">
                                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
                                     <ul class="space-y-3">
                                         @foreach($footerData['quick_links'] as $link)
@@ -376,7 +376,7 @@
                                 </div>
                                 @endif
                                 @if($showSupportLinks)
-                                <div class="{{ $footerSupportLinksAlignClass }}">
+                                <div class="{{ $footerSupportLinksAlignClass }} min-w-0">
                                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
                                     <ul class="space-y-3">
                                         @foreach($footerData['support_links'] as $link)
@@ -389,11 +389,11 @@
                                 @endif
                             </div>
                         </div>
-                        {{-- Rechterkolom: kaart over volle breedte (kol 3-4) --}}
-                        <div class="col-span-1 {{ $footerFirstColSpan }} md:col-span-2 md:col-start-3 md:col-end-5 md:row-start-1 w-full min-w-0">
-                            <div class="{{ $footerMapWidthClass }} min-w-0 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px;">
+                        {{-- Rechterkant (50%): kaart over volle breedte van de rechterhelft --}}
+                        <div class="w-full min-w-0 flex flex-col">
+                            <div class="w-full min-w-0 flex-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px;">
                                 @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-full block min-w-0" style="width: 100%; height: 100%; min-height: 100%; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
+                                <div id="footer-google-map" class="w-full h-full min-h-full block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 100%; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
                                 @else
                                 <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
                                     Stel de Google Maps API-sleutel in via <strong>Admin → Instellingen → Maps</strong> om de kaart te tonen.
@@ -430,7 +430,7 @@
                             @endif
                         </div>
                         @endif
-                        @if(!$footerAlignLinksWithMap)
+                        @if(!$footerShowMapRight)
                         @if($showQuickLinks)
                         <div class="{{ $footerQuickLinksCol }} {{ $footerQuickLinksAlignClass }}">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>

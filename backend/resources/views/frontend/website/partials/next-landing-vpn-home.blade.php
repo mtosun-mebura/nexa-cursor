@@ -7,17 +7,8 @@
         $sectionOrder = $defaultSectionOrder;
     }
     $sectionOrder = array_values($sectionOrder);
-    $missingInOrder = array_diff($defaultSectionOrder, $sectionOrder);
-    if (!empty($missingInOrder)) {
-        foreach (array_values($missingInOrder) as $key) {
-            $pos = array_search($key, $defaultSectionOrder, true);
-            if ($pos !== false) {
-                array_splice($sectionOrder, min($pos, count($sectionOrder)), 0, [$key]);
-            }
-        }
-        $sectionOrder = array_values($sectionOrder);
-    }
-    $baseTypes = ['hero', 'features', 'cta', 'carousel', 'cards_ronde_hoeken'];
+    // Alleen opgeslagen section_order tonen; verwijderde secties blijven weg.
+    $baseTypes = ['hero', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
     $baseType = function($key) use ($baseTypes) {
         if (in_array($key, $baseTypes, true)) return $key;
         $base = preg_replace('/_\d+$/', '', (string) $key);
@@ -118,6 +109,25 @@
     </section>
     @endif
 
+    @if($base === 'why_nexa' && $v(''))
+    <section class="py-16 md:py-20 bg-white dark:bg-gray-900">
+        <div class="max-w-screen-xl px-6 sm:px-8 lg:px-16 mx-auto">
+            <div class="max-w-3xl mx-auto text-center">
+                @if($v('_title'))
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">
+                    {{ $sectionData['title'] ?? 'Waarom kiezen voor Nexa?' }}
+                </h2>
+                @endif
+                @if($v('_subtitle') && !empty($sectionData['subtitle']))
+                <div class="mt-6 text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
+                    {!! $sectionData['subtitle'] !!}
+                </div>
+                @endif
+            </div>
+        </div>
+    </section>
+    @endif
+
     @if($base === 'features' && $v(''))
     @php
         $featuresItems = [];
@@ -141,12 +151,17 @@
                 @endif
                 <ul class="mt-4 text-gray-600 dark:text-gray-400 space-y-3 list-none pl-0">
                     @foreach($featuresItems as $entry)
-                    @php $item = $entry['item']; @endphp
-                    <li class="flex gap-3 items-start">
+                    @php
+                        $item = $entry['item'];
+                        $iconAlign = $item['icon_align'] ?? 'left';
+                        $rowJustify = $iconAlign === 'right' ? 'flex-row-reverse' : ($iconAlign === 'center' ? 'flex-col items-center text-center' : '');
+                        $textAlign = $iconAlign === 'right' ? 'text-right' : ($iconAlign === 'center' ? 'text-center' : 'text-left');
+                    @endphp
+                    <li class="flex gap-3 items-start {{ $rowJustify }}">
                         <span class="shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center" style="background-color: {{ $primaryColor }};">
                             <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         </span>
-                        <div>
+                        <div class="{{ $textAlign }} min-w-0">
                             <span class="font-medium text-gray-900 dark:text-white">{{ $item['title'] ?? 'Kenmerk' }}</span>
                             @if(!empty($item['description']))
                             <span class="block text-sm mt-0.5">{!! $item['description'] !!}</span>
@@ -162,6 +177,9 @@
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
         @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey, 'cards_per_row' => $sectionData['cards_per_row'] ?? 4])
+    @endif
+    @if($base === 'featured_services' && $v(''))
+        @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
     @endif
 
     @if($base === 'cta' && $v(''))

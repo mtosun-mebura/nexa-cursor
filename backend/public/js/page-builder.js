@@ -21,13 +21,14 @@
             imageAligned: { url: '', caption: '', alignment: 'center' },
             slider: { items: [{ url: '', caption: '' }] },
             quote: { text: '', caption: '' },
-            code: { code: '' }
+            code: { code: '' },
+            featured_services: { title: '', subtitle: '', items: [{ icon: 'light-bulb', title: '', description: '' }] }
         };
         return d[type] ? JSON.parse(JSON.stringify(d[type])) : {};
     }
 
     function typeLabel(type) {
-        var labels = { paragraph: 'Paragraaf', header: 'Kop', list: 'Lijst', table: 'Tabel', image: 'Afbeelding', imageAligned: 'Afbeelding (uitlijning)', slider: 'Slider', quote: 'Citaat', code: 'Code' };
+        var labels = { paragraph: 'Paragraaf', header: 'Kop', list: 'Lijst', table: 'Tabel', image: 'Afbeelding', imageAligned: 'Afbeelding (uitlijning)', slider: 'Slider', quote: 'Citaat', code: 'Code', featured_services: 'Dienstenblok (scroll-animatie)' };
         return labels[type] || type;
     }
 
@@ -86,6 +87,27 @@
                     '<label class="block text-xs font-medium mt-2 mb-1">Bron</label><input type="text" class="builder-field kt-input w-full text-sm" data-field="caption" value="' + esc(d.caption) + '">';
             case 'code':
                 return '<label class="block text-xs font-medium mb-1">Code</label><textarea class="builder-field kt-input w-full min-h-[100px] font-mono text-sm" data-field="code" rows="5">' + esc(d.code) + '</textarea>';
+            case 'featured_services':
+                var iconOpts = [
+                    { v: 'light-bulb', l: 'Gloeilamp' }, { v: 'bolt', l: 'Bliksem' }, { v: 'key', l: 'Sleutel' },
+                    { v: 'chart-bar', l: 'Grafiek' }, { v: 'user-group', l: 'Gebruikers' }, { v: 'cog-6-tooth', l: 'Tandwiel' },
+                    { v: 'sparkles', l: 'Sterren' }, { v: 'academic-cap', l: 'Academisch' }, { v: 'briefcase', l: 'Koffer' },
+                    { v: 'clipboard-document-check', l: 'Clipboard check' }
+                ];
+                var fsItems = (d.items && d.items.length) ? d.items : [{ icon: 'light-bulb', title: '', description: '' }];
+                var fsHtml = '<label class="block text-xs font-medium mb-1">Sectietitel</label><input type="text" class="builder-field kt-input w-full text-sm mb-2" data-field="title" value="' + esc(d.title) + '" placeholder="Bijv. Services We Deliver">' +
+                    '<label class="block text-xs font-medium mb-1">Ondertitel</label><input type="text" class="builder-field kt-input w-full text-sm mb-3" data-field="subtitle" value="' + esc(d.subtitle) + '" placeholder="Bijv. Our Featured Services">' +
+                    '<label class="block text-xs font-medium mb-2">Diensten / blokken</label><div class="builder-featured-services-items space-y-2">';
+                fsItems.forEach(function(it, idx) {
+                    var iconSel = iconOpts.map(function(o) { return '<option value="' + esc(o.v) + '"' + ((it.icon || 'light-bulb') === o.v ? ' selected' : '') + '>' + esc(o.l) + '</option>'; }).join('');
+                    fsHtml += '<div class="builder-featured-services-item p-2 border border-input rounded space-y-2">' +
+                        '<div class="flex gap-2 items-center"><select class="builder-field kt-input flex-1 min-w-0 text-sm" data-fs-index="' + idx + '" data-fs-field="icon">' + iconSel + '</select>' +
+                        '<button type="button" class="builder-featured-services-remove kt-btn kt-btn-sm kt-btn-ghost text-destructive">×</button></div>' +
+                        '<input type="text" class="builder-field kt-input w-full text-sm" data-fs-index="' + idx + '" data-fs-field="title" value="' + esc(it.title || '') + '" placeholder="Titel blok">' +
+                        '<textarea class="builder-field kt-input w-full text-sm min-h-[60px]" data-fs-index="' + idx + '" data-fs-field="description" rows="2" placeholder="Beschrijving">' + esc(it.description || '') + '</textarea></div>';
+                });
+                fsHtml += '</div><button type="button" class="builder-featured-services-add kt-btn kt-btn-sm kt-btn-outline mt-2">+ Blok toevoegen</button>';
+                return fsHtml;
             default:
                 return '<p class="text-muted-foreground text-sm">Onbekend type: ' + esc(type) + '</p>';
         }
@@ -154,6 +176,22 @@
                 break;
             case 'code':
                 data.code = (base.querySelector('[data-field="code"]') || {}).value || '';
+                break;
+            case 'featured_services':
+                data.title = (base.querySelector('[data-field="title"]') || {}).value || '';
+                data.subtitle = (base.querySelector('[data-field="subtitle"]') || {}).value || '';
+                data.items = [];
+                base.querySelectorAll('.builder-featured-services-item').forEach(function(item) {
+                    var iconSel = item.querySelector('[data-fs-field="icon"]');
+                    var titleInp = item.querySelector('[data-fs-field="title"]');
+                    var descInp = item.querySelector('[data-fs-field="description"]');
+                    data.items.push({
+                        icon: iconSel ? iconSel.value : 'light-bulb',
+                        title: titleInp ? titleInp.value : '',
+                        description: descInp ? descInp.value : ''
+                    });
+                });
+                if (data.items.length === 0) data.items = [{ icon: 'light-bulb', title: '', description: '' }];
                 break;
             default:
                 data = defaultData(type);
@@ -339,6 +377,36 @@
         card.querySelectorAll('.builder-slider-remove').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 btn.closest('.builder-slider-item').remove();
+                syncToInput();
+            });
+        });
+        card.querySelectorAll('.builder-featured-services-add').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var wrap = card.querySelector('.builder-featured-services-items');
+                if (!wrap) return;
+                var idx = wrap.querySelectorAll('.builder-featured-services-item').length;
+                var iconOpts = [
+                    { v: 'light-bulb', l: 'Gloeilamp' }, { v: 'bolt', l: 'Bliksem' }, { v: 'key', l: 'Sleutel' },
+                    { v: 'chart-bar', l: 'Grafiek' }, { v: 'user-group', l: 'Gebruikers' }, { v: 'cog-6-tooth', l: 'Tandwiel' },
+                    { v: 'sparkles', l: 'Sterren' }, { v: 'academic-cap', l: 'Academisch' }, { v: 'briefcase', l: 'Koffer' },
+                    { v: 'clipboard-document-check', l: 'Clipboard check' }
+                ];
+                var iconSel = iconOpts.map(function(o) { return '<option value="' + o.v + '">' + o.l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>'; }).join('');
+                var div = document.createElement('div');
+                div.className = 'builder-featured-services-item p-2 border border-input rounded space-y-2';
+                div.innerHTML = '<div class="flex gap-2 items-center"><select class="builder-field kt-input flex-1 min-w-0 text-sm" data-fs-index="' + idx + '" data-fs-field="icon">' + iconSel + '</select>' +
+                    '<button type="button" class="builder-featured-services-remove kt-btn kt-btn-sm kt-btn-ghost text-destructive">×</button></div>' +
+                    '<input type="text" class="builder-field kt-input w-full text-sm" data-fs-index="' + idx + '" data-fs-field="title" value="" placeholder="Titel blok">' +
+                    '<textarea class="builder-field kt-input w-full text-sm min-h-[60px]" data-fs-index="' + idx + '" data-fs-field="description" rows="2" placeholder="Beschrijving"></textarea>';
+                wrap.appendChild(div);
+                div.querySelector('.builder-featured-services-remove').addEventListener('click', function() { div.remove(); syncToInput(); });
+                div.querySelectorAll('.builder-field').forEach(function(el) { el.addEventListener('input', function() { syncToInput(); }); el.addEventListener('change', function() { syncToInput(); }); });
+                syncToInput();
+            });
+        });
+        card.querySelectorAll('.builder-featured-services-remove').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                btn.closest('.builder-featured-services-item').remove();
                 syncToInput();
             });
         });

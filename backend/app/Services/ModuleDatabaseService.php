@@ -34,6 +34,15 @@ class ModuleDatabaseService
     }
 
     /**
+     * Slug voor upload-paden en asset-mappen (bijv. TaxiRoyaal -> taxiroyaal).
+     * Gebruik in storage-paden: modules/{slug}/website/hero, etc.
+     */
+    public function getModuleUploadSlug(string $moduleName): string
+    {
+        return strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
+    }
+
+    /**
      * Of de huidige driver ondersteund wordt (mysql, pgsql).
      */
     public function supportsModuleDatabases(): bool

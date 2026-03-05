@@ -256,10 +256,14 @@
     }
   }
 
-  /* Footer: kaartkolom mag niet inkrimpen (voorkomt 24px-breedte bug) */
+  /* Footer: exact 50/50 links (tekst + links) / rechts (kaart), kaart vult rechterhelft */
   @media (min-width: 768px) {
     .footer-grid-with-map {
-      grid-template-columns: 1fr 1fr minmax(200px, 1fr) minmax(200px, 1fr);
+      grid-template-columns: 1fr 1fr;
+    }
+    .footer-grid-with-map #footer-google-map {
+      width: 100% !important;
+      min-width: 0;
     }
   }
 

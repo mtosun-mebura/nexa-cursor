@@ -7,17 +7,8 @@
         $sectionOrder = $defaultSectionOrder;
     }
     $sectionOrder = array_values($sectionOrder);
-    $missingInOrder = array_diff($defaultSectionOrder, $sectionOrder);
-    if (!empty($missingInOrder)) {
-        foreach (array_values($missingInOrder) as $key) {
-            $pos = array_search($key, $defaultSectionOrder, true);
-            if ($pos !== false) {
-                array_splice($sectionOrder, min($pos, count($sectionOrder)), 0, [$key]);
-            }
-        }
-        $sectionOrder = array_values($sectionOrder);
-    }
-    $baseTypes = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel', 'cards_ronde_hoeken'];
+    // Alleen opgeslagen section_order tonen; verwijderde secties blijven weg.
+    $baseTypes = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
     $baseType = function($key) use ($baseTypes) {
         if (in_array($key, $baseTypes, true)) return $key;
         $base = preg_replace('/_\d+$/', '', (string) $key);
@@ -196,37 +187,14 @@
     @endif
 
     @if($base === 'stats' && $v(''))
-    @php
-        $statsItems = is_array($sectionData) ? array_values($sectionData) : [];
-        $statsItems = array_slice(array_merge($statsItems, [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']]), 0, 4);
-        $statsVisibleCount = 0;
-        foreach ($statsItems as $i => $stat) {
-            if ($visibility['stats_' . $i] ?? true) $statsVisibleCount++;
-        }
-        $statsVisibleCount = max(1, min($statsVisibleCount, 4));
-    @endphp
-    <section class="py-16 md:py-20 bg-white dark:bg-gray-900 shadow-sm" id="statistics">
-        <div class="container mx-auto px-4">
-            <div class="grid gap-8 md:gap-10 w-full place-items-center" style="grid-template-columns: repeat({{ $statsVisibleCount }}, minmax(0, 1fr));">
-                @foreach($statsItems as $i => $stat)
-                    @if($visibility['stats_' . $i] ?? true)
-                    <div class="flex flex-col items-center text-center min-w-0">
-                        <span class="text-3xl font-bold md:text-4xl" style="color: {{ $primaryColor }};">
-                            {{ $stat['value'] ?? '0' }}
-                        </span>
-                        <span class="mt-2 text-base font-medium text-gray-700 dark:text-gray-300 md:text-lg">
-                            {{ $stat['label'] ?? '' }}
-                        </span>
-                    </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-    </section>
+        @include('frontend.website.blocks.stats', ['sectionData' => $sectionData, 'visibility' => $visibility, 'sectionKey' => $sectionKey])
     @endif
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
         @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey, 'cards_per_row' => $sectionData['cards_per_row'] ?? 4])
+    @endif
+    @if($base === 'featured_services' && $v(''))
+        @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
     @endif
 
     @if($base === 'cta' && $v(''))

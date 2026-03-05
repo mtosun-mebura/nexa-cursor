@@ -31,6 +31,7 @@
         formData.append(fileKey, file);
         const token = getCsrfToken();
         if (token) formData.append('_token', token);
+        if (typeof window.__websitePageModuleName !== 'undefined' && window.__websitePageModuleName) formData.append('module', window.__websitePageModuleName);
         const res = await fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' });
         if (!res.ok) throw new Error('Upload mislukt');
         return res.json();

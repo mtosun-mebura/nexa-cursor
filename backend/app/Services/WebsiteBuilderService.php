@@ -6,35 +6,34 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
+use App\Services\ModuleDatabaseService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
 class WebsiteBuilderService
 {
     public function __construct(
-        protected ModuleManager $moduleManager
-    ) {}
+        protected ModuleManager $moduleManager,
+        protected ?ModuleDatabaseService $moduleDb = null
+    ) {
+        $this->moduleDb = $this->moduleDb ?? (app()->bound(ModuleDatabaseService::class) ? app(ModuleDatabaseService::class) : null);
+    }
+
+    /** Query WebsitePage op de juiste connection: module-DB als actieve module die eigen DB heeft, anders default. */
+    private function websitePageQuery(?string $forModuleName = null): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($forModuleName !== null && $this->moduleDb && $this->moduleDb->supportsModuleDatabases()) {
+            return WebsitePage::on($this->moduleDb->getModuleConnectionName($forModuleName));
+        }
+        return WebsitePage::query();
+    }
 
     /**
-     * Bepaalt het thema voor een website-pagina: pagina-eigen thema, anders thema van de module, anders standaardthema.
+     * Bepaalt het thema waarmee een website-pagina wordt getoond: altijd het actieve thema.
+     * Pagina-inhoud (componenten) blijft gelijk; alleen de styling past zich aan het actieve thema aan.
      */
     public function getThemeForPage(WebsitePage $page): ?FrontendTheme
     {
-        if ($page->frontend_theme_id) {
-            $theme = FrontendTheme::find($page->frontend_theme_id);
-            if ($theme) {
-                return $theme;
-            }
-        }
-        if ($page->module_name) {
-            $module = Module::where('name', $page->module_name)->first();
-            if ($module && $module->frontend_theme_id) {
-                $theme = FrontendTheme::find($module->frontend_theme_id);
-                if ($theme) {
-                    return $theme;
-                }
-            }
-        }
         return $this->getActiveTheme();
     }
 
@@ -120,32 +119,22 @@ class WebsiteBuilderService
     }
 
     /**
-     * Homepagina voor de startpagina: actieve home die het actieve thema gebruikt.
-     * Als meerdere modules hetzelfde thema gebruiken: voorkeur voor de branding-module's home.
-     * Anders de kern-home (geen module).
+     * Homepagina voor de startpagina: uit module-DB als actieve module die eigen DB heeft, anders hoofddatabase.
+     * Geen filter op thema: er is één homepagina (per module); we tonen die in het actieve thema.
      */
     public function getHomePage(): ?WebsitePage
     {
-        $activeTheme = $this->getActiveTheme();
-        if ($activeTheme) {
-            $candidates = WebsitePage::active()
-                ->where('page_type', 'home')
-                ->where('frontend_theme_id', $activeTheme->id)
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get();
-            if ($candidates->isNotEmpty()) {
-                $brandingModule = $this->getBrandingModule();
-                if ($brandingModule) {
-                    $preferred = $candidates->first(fn (WebsitePage $p) => $p->module_name !== null && strcasecmp($p->module_name, $brandingModule->name) === 0);
-                    if ($preferred) {
-                        return $preferred;
-                    }
-                }
-                return $candidates->first();
-            }
+        $brandingModule = $this->getBrandingModule();
+        $moduleName = $brandingModule ? $brandingModule->name : null;
+        $query = $this->websitePageQuery($moduleName)->active()
+            ->where('page_type', 'home')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+        $page = $query->first();
+        if ($page !== null) {
+            return $page;
         }
-        return WebsitePage::active()
+        return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'home')
             ->orderBy('sort_order')
@@ -154,7 +143,7 @@ class WebsiteBuilderService
 
     public function getAboutPage(): ?WebsitePage
     {
-        return WebsitePage::active()
+        return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'about')
             ->orderBy('sort_order')
@@ -163,7 +152,7 @@ class WebsiteBuilderService
 
     public function getContactPage(): ?WebsitePage
     {
-        return WebsitePage::active()
+        return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'contact')
             ->orderBy('sort_order')
@@ -172,23 +161,27 @@ class WebsiteBuilderService
 
     public function getPageBySlug(string $slug): ?WebsitePage
     {
-        $page = WebsitePage::active()
+        $brandingModule = $this->getBrandingModule();
+        $moduleName = $brandingModule ? $brandingModule->name : null;
+        $page = $this->websitePageQuery($moduleName)->active()
             ->where('slug', $slug)
             ->first();
-
+        if (!$page && $moduleName !== null) {
+            $page = $this->websitePageQuery(null)->active()
+                ->where('slug', $slug)
+                ->first();
+        }
         if (!$page) {
             return null;
         }
-
         if ($page->module_name !== null && !$this->moduleManager->isActive($page->module_name)) {
             return null;
         }
-
         return $page;
     }
 
     /**
-     * Pagina's voor het menu (core + custom + actieve module-pagina's), gesorteerd op sort_order.
+     * Pagina's voor het menu: core uit hoofddatabase + actieve module-pagina's uit module-DB, gesorteerd op sort_order.
      *
      * @return Collection<int, WebsitePage>
      */
@@ -196,28 +189,42 @@ class WebsiteBuilderService
     {
         $activeModules = $this->moduleManager->getActiveModules();
         $activeModuleNames = array_map(fn ($m) => $m->getName(), $activeModules);
-
-        return WebsitePage::active()
+        $pages = $this->websitePageQuery(null)->active()
+            ->whereNull('module_name')
             ->orderBy('sort_order')
-            ->get()
-            ->filter(function (WebsitePage $page) use ($activeModuleNames) {
-                if ($page->module_name === null) {
-                    return true;
+            ->get();
+        if ($this->moduleDb && $this->moduleDb->supportsModuleDatabases()) {
+            foreach ($activeModules as $mod) {
+                $name = $mod->getName();
+                if ($name === null || $name === '') {
+                    continue;
                 }
-                return in_array($page->module_name, $activeModuleNames, true);
-            });
+                $fromModule = $this->websitePageQuery($name)->active()
+                    ->orderBy('sort_order')
+                    ->orderBy('title')
+                    ->get();
+                $pages = $pages->merge($fromModule);
+            }
+        } else {
+            $fromDefault = WebsitePage::active()
+                ->whereNotNull('module_name')
+                ->whereIn('module_name', $activeModuleNames)
+                ->orderBy('sort_order')
+                ->get();
+            $pages = $pages->merge($fromDefault);
+        }
+        return $pages->sortBy('sort_order')->values();
     }
 
     /**
-     * Pagina's voor het staging-menu: alleen voor gegeven module, of alle actieve menu-pagina's.
+     * Pagina's voor het staging-menu: alleen voor gegeven module (uit module-DB), of alle actieve menu-pagina's.
      *
      * @return Collection<int, WebsitePage>
      */
     public function getMenuPagesForStaging(?string $moduleName): Collection
     {
         if ($moduleName !== null && $moduleName !== '') {
-            return WebsitePage::active()
-                ->forModule($moduleName)
+            return $this->websitePageQuery($moduleName)->active()
                 ->orderBy('sort_order')
                 ->orderBy('title')
                 ->get();

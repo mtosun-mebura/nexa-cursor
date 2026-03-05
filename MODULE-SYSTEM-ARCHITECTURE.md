@@ -868,6 +868,25 @@ class WebsiteBuilderService
 
 ---
 
+### 7.1 Actieve module: database, uploads en assets
+
+Zodra een **module actief** is (het actieve frontend-thema hoort bij die module), geldt een duidelijke scheiding zodat de module zelfstandig kan werken en Nexa zonder module gewoon blijft werken:
+
+| Context | Zonder actieve module | Met actieve module |
+|--------|------------------------|---------------------|
+| **Database** | Hoofddatabase (default connection) | Module-eigen database (connection `module_{slug}`) |
+| **Website-pagina's** | `website_pages` (hoofd-DB) | `website_pages` op module-connection |
+| **Uploads** | `storage/app/public/website/...`, `website_media/...` | `storage/app/public/modules/{slug}/website/...`, `modules/{slug}/website_media/...` |
+| **Thema-assets** | Gedeelde theme-mappen | Optioneel: module-eigen assets onder het thema (bv. in `App\Modules\...\Resources\frontend\themes\{slug}`) |
+
+- **Uploads**: Footer-logo, hero-afbeeldingen, WYSIWYG-documenten en website-media (carousel) worden bij een module-pagina opgeslagen onder `modules/{slug}/...`. De client stuurt bij uploads het form field `module` mee (of `?module=...`); de server gebruikt `ModuleContextService::getModuleNameFromRequest()` en `getUploadPathPrefix()`.
+- **Route binding**: Bij `?module=...` wordt `WebsitePage` via de module-connection opgehaald (`AppServiceProvider`).
+- **Verwijderen module**: Als een module wordt gedeactiveerd/verwijderd, gebruikt Nexa weer uitsluitend de hoofddatabase en gedeelde storage; bestaande module-data blijft in de module-DB en -mappen staan.
+
+Zie `App\Services\ModuleContextService` voor de API (o.a. `getActiveModuleName()`, `getUploadPathPrefix()`, `getModuleNameFromRequest()`).
+
+---
+
 ## 8. Implementatie Stappenplan
 
 ### Fase 1: Core Infrastructure (Week 1-2)

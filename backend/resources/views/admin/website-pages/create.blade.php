@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="kt-container-fixed">
-    <p class="text-sm text-muted-foreground mb-5">Kies eerst <strong>bij welke module</strong> deze pagina hoort. Kernpagina's (geen module) gebruik je voor Home, Over ons, Contact en custom pagina's. Het thema waarmee de pagina wordt getoond is per module vastgelegd bij Frontend Thema's.</p>
+    <p class="text-sm text-muted-foreground mb-5">Kies <strong>bij welke module</strong> deze pagina hoort. Kernpagina's (geen module) gebruik je voor Home, Over ons, Contact en custom pagina's. Pagina's worden altijd getoond in het actieve thema (instelbaar onder Frontend Thema's).</p>
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
@@ -50,21 +50,23 @@
                             <td class="min-w-48 w-full">
                                 <select id="module_choice"
                                         class="kt-input"
-                                        required>
-                                    <option value="" data-theme-text="Standaardthema: {{ $defaultTheme?->name ?? 'Geen actief' }}"
+                                        required
+                                        data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
+                                    <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
                                         {{ !old('module_name') ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
                                     @foreach($installedModules as $module)
                                         @php
                                             $moduleName = $module->getName();
                                             $moduleModel = $moduleThemes[$moduleName] ?? null;
+                                            $themeId = ($moduleModel && $moduleModel->theme) ? $moduleModel->theme->id : ($defaultTheme?->id ?? '');
                                             $themeName = ($moduleModel && $moduleModel->theme) ? $moduleModel->theme->name : ($defaultTheme?->name ?? 'Standaardthema');
                                         @endphp
                                         <option value="{{ $moduleName }}"
-                                            data-theme-text="Thema voor {{ $module->getDisplayName() }}: {{ $themeName }}"
+                                            data-theme-id="{{ $themeId }}"
                                             {{ old('module_name') === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
                                     @endforeach
                                 </select>
-                                <div class="text-xs text-muted-foreground mt-1">Kernpagina's gebruiken het actieve standaardthema; bij een module het thema van die module. Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden.</div>
+                                <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
                                 <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name') }}">
                             </td>
                         </tr>
@@ -73,9 +75,9 @@
                                 Thema
                             </td>
                             <td>
-                                <p id="theme_display" class="text-sm font-medium text-secondary-foreground">
-                                    Standaardthema: {{ $defaultTheme?->name ?? 'Geen actief' }}
-                                </p>
+                                <input type="hidden" name="frontend_theme_id" id="frontend_theme_id_fixed" value="{{ $defaultTheme?->id ?? '' }}">
+                                <span class="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground dark:bg-white/15 dark:text-white dark:border dark:border-white/20">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
+                                <div class="text-xs text-muted-foreground mt-1">Pagina's worden altijd getoond in het actieve thema. Wijzig het thema onder Frontend Thema's.</div>
                             </td>
                         </tr>
                         <tr id="page_type_row">
@@ -239,7 +241,6 @@
 <script>
 (function() {
     var moduleChoice = document.getElementById('module_choice');
-    var themeDisplay = document.getElementById('theme_display');
     var moduleNameHidden = document.getElementById('module_name_hidden');
     var pageTypeSelect = document.getElementById('page_type');
     var homeSectionsCard = document.getElementById('home_sections_card');
@@ -248,9 +249,12 @@
     function updateForm() {
         var choice = moduleChoice.value;
         var opt = moduleChoice.options[moduleChoice.selectedIndex];
-        var themeText = opt ? opt.getAttribute('data-theme-text') : '';
-        themeDisplay.textContent = themeText || '';
+        var themeId = opt ? opt.getAttribute('data-theme-id') : '';
         if (moduleNameHidden) moduleNameHidden.value = choice || '';
+        var themeSelect = document.getElementById('frontend_theme_id');
+        if (themeSelect && themeId) {
+            themeSelect.value = themeId;
+        }
         toggleHomeAndContentRows();
     }
     function toggleHomeAndContentRows() {

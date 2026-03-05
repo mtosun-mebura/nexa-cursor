@@ -9,12 +9,12 @@
             <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
             @if($activeTheme || !empty($activeModuleName))
                 <p class="text-sm text-muted-foreground mt-1">
-                    Alleen pagina's van het actieve thema
+                    Pagina's worden op de website getoond in het actieve thema
                     @if($activeTheme)
                         <strong>{{ $activeTheme->name }}</strong>
                     @endif
                     @if(!empty($activeModuleName))
-                        en module <strong>{{ $activeModuleName }}</strong>
+                        · Module <strong>{{ $activeModuleName }}</strong>
                     @endif
                 </p>
             @endif
@@ -53,7 +53,7 @@
                             <td><code>{{ $page->slug }}</code></td>
                             <td>{{ $page->page_type }}</td>
                             <td>{{ $page->module_name ?? '—' }}</td>
-                            <td>{{ $page->theme?->name ?? '—' }}</td>
+                            <td>{{ $activeTheme?->name ?? '—' }}</td>
                             <td>
                                 @if($page->is_active)
                                     <span class="kt-badge kt-badge-success">Actief</span>
@@ -67,9 +67,12 @@
                                         <button type="button" class="website-pages-actions-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties" aria-expanded="false" aria-haspopup="true">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
+                                        @php
+                                            $pageModule = $page->module_name ? '?module=' . rawurlencode($page->module_name) : '';
+                                        @endphp
                                         <div class="website-pages-actions-dropdown kt-menu-dropdown kt-menu-default hidden absolute end-0 top-full z-[100] mt-1 min-w-[175px] rounded-lg border border-border bg-background py-1 shadow-lg" role="menu">
                                             <div class="kt-menu-item">
-                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.preview', $page) }}" target="_blank" rel="noopener">
+                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" target="_blank" rel="noopener">
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-eye"></i>
                                                     </span>
@@ -78,7 +81,7 @@
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
-                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.edit', $page) }}">
+                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.edit', $page) }}{{ $pageModule }}">
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-pencil"></i>
                                                     </span>
@@ -87,7 +90,7 @@
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
-                                                <form action="{{ route('admin.website-pages.destroy', $page) }}" method="POST" class="block" onsubmit="return confirm('Pagina verwijderen?');">
+                                                <form action="{{ route('admin.website-pages.destroy', $page) }}{{ $pageModule }}" method="POST" class="block" onsubmit="return confirm('Pagina verwijderen?');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-destructive">

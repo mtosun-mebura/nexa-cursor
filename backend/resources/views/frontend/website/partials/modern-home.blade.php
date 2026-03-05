@@ -6,23 +6,15 @@
     if (!is_array($sectionOrder)) {
         $sectionOrder = $defaultSectionOrder;
     }
-    $missingInOrder = array_diff($defaultSectionOrder, $sectionOrder);
-    if (!empty($missingInOrder)) {
-        foreach (array_values($missingInOrder) as $key) {
-            $pos = array_search($key, $defaultSectionOrder, true);
-            if ($pos !== false) {
-                array_splice($sectionOrder, $pos, 0, [$key]);
-            }
-        }
-        $sectionOrder = array_values($sectionOrder);
-    }
+    $sectionOrder = array_values($sectionOrder);
+    // Alleen opgeslagen section_order tonen; geen ontbrekende default-secties terugzetten (verwijderde secties blijven weg).
     $url = function($u) {
         if (empty($u)) return url('/');
         $u = trim($u);
         return (strpos($u, 'http') === 0 || strpos($u, '//') === 0) ? $u : url($u);
     };
     $baseType = function($key) {
-        $types = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken'];
+        $types = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
         if (in_array($key, $types, true)) return $key;
         $base = preg_replace('/_\d+$/', '', $key);
         return in_array($base, $types, true) ? $base : null;
@@ -113,21 +105,7 @@
     @endif
 
     @if($base === 'stats' && $v(''))
-<!-- Stats -->
-<section class="modern-home-stats py-16 bg-gray-100 dark:bg-gray-900">
-    <div class="container-custom">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-            @foreach(array_slice(array_merge($sectionData, [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']]), 0, 4) as $i => $stat)
-            @if($visibility[$sectionKey . '_' . $i] ?? $visibility['stats_'.$i] ?? true)
-            <div class="text-center p-6">
-                <div class="text-3xl font-bold {{ $i === 0 ? 'text-blue-600 dark:text-blue-400' : ($i === 1 ? 'text-green-600 dark:text-green-400' : ($i === 2 ? 'text-gray-900 dark:text-white' : 'text-orange-600 dark:text-orange-400')) }} mb-2">{{ $stat['value'] ?? '' }}</div>
-                <div class="text-gray-600 dark:text-gray-300">{{ $stat['label'] ?? '' }}</div>
-            </div>
-            @endif
-            @endforeach
-        </div>
-    </div>
-</section>
+        @include('frontend.website.blocks.stats', ['sectionData' => $sectionData, 'visibility' => $visibility, 'sectionKey' => $sectionKey])
     @endif
 
     @if($base === 'why_nexa' && $v(''))
@@ -151,28 +129,52 @@
     @endif
 
     @if($base === 'features' && $v(''))
+@php
+    $featuresRevealDuration = '0.6s';
+    $featuresRevealDelayStepMs = 200;
+    $featuresTitleDelayMs = 0;
+    $featuresFirstCardDelayMs = 100;
+    $featuresEasing = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+@endphp
 <!-- Wat Wij Bieden -->
-<section class="modern-home-features py-16 md:py-20 bg-white dark:bg-gray-900">
+<section class="modern-home-features py-16 md:py-20 bg-white dark:bg-gray-900 scroll-reveal-section" data-scroll-reveal>
     <div class="container-custom">
         <div class="max-w-5xl mx-auto">
             @if($visibility[$sectionKey . '_section_title'] ?? $visibility['features_section_title'] ?? true)
-            <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-8 text-center">
-                {{ $sectionData['section_title'] ?? 'Wat Wij Bieden' }}
-            </h2>
+            <div class="scroll-reveal-item text-center mb-8" style="transition: opacity {{ $featuresRevealDuration }} {{ $featuresEasing }}, transform {{ $featuresRevealDuration }} {{ $featuresEasing }}; transition-delay: {{ $featuresTitleDelayMs }}ms;">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+                    {{ $sectionData['section_title'] ?? 'Wat Wij Bieden' }}
+                </h2>
+            </div>
             @endif
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 @foreach(($sectionData['items'] ?? []) as $fi => $item)
                 @if($visibility[$sectionKey . '_item_' . $fi] ?? $visibility['features_item_'.$fi] ?? true)
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-6 hover:border-blue-500/50 transition-colors">
-                    <div class="w-12 h-12 {{ $fi === 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-green-100 dark:bg-green-500/20' }} rounded-lg flex items-center justify-center mb-4">
-                        @if(($item['icon'] ?? '') === 'lightning')
-                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        @else
-                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                        @endif
+                @php
+                    $iconName = $item['icon'] ?? ($fi === 0 ? 'light-bulb' : 'bolt');
+                    $iconDef = config('heroicons.icons.'.$iconName);
+                    if (!is_array($iconDef) || empty($iconDef['svg'])) {
+                        $iconDef = config('heroicons.icons.light-bulb') ?? ['svg' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />'];
+                    }
+                    $iconSize = $item['icon_size'] ?? 'medium';
+                    $sizeDef = config('heroicons.sizes.'.$iconSize);
+                    $iconSizeClass = is_array($sizeDef) && !empty($sizeDef['class']) ? $sizeDef['class'] : 'w-10 h-10';
+                    $iconAlign = $item['icon_align'] ?? 'center';
+                    $iconAlignItems = $iconAlign === 'right' ? 'items-end' : ($iconAlign === 'left' ? 'items-start' : 'items-center');
+                    $iconAlignText = $iconAlign === 'right' ? 'text-right' : ($iconAlign === 'left' ? 'text-left' : 'text-center');
+                    $cardRevealDelayMs = $featuresFirstCardDelayMs + $fi * $featuresRevealDelayStepMs;
+                    $cardRevealStyle = 'transition: opacity ' . $featuresRevealDuration . ' ' . $featuresEasing . ', transform ' . $featuresRevealDuration . ' ' . $featuresEasing . '; transition-delay: ' . $cardRevealDelayMs . 'ms;';
+                @endphp
+                <div class="scroll-reveal-item" style="{{ $cardRevealStyle }}">
+                <div class="features-card rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-6 transition-colors h-full">
+                    <div class="flex flex-col w-full {{ $iconAlignItems }} {{ $iconAlignText }}">
+                        <div class="features-card-icon w-12 h-12 {{ $fi === 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-green-100 dark:bg-green-500/20' }} rounded-lg flex items-center justify-center shrink-0">
+                            <svg class="{{ $iconSizeClass }} {{ $fi === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">{!! $iconDef['svg'] ?? '' !!}</svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mt-4 mb-3">{{ $item['title'] ?? '' }}</h3>
+                        <div class="text-gray-600 dark:text-gray-300 prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none">{!! $item['description'] ?? '' !!}</div>
                     </div>
-                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">{{ $item['title'] ?? '' }}</h3>
-                    <div class="text-gray-600 dark:text-gray-300 prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none">{!! $item['description'] ?? '' !!}</div>
+                </div>
                 </div>
                 @endif
                 @endforeach
@@ -180,10 +182,54 @@
         </div>
     </div>
 </section>
+@push('styles')
+<style>
+    /* Zelfde invliegen als Elementor Overige Diensten: van beneden, lichte scale */
+    .modern-home-features.scroll-reveal-section .scroll-reveal-item {
+        opacity: 0;
+        transform: translateY(48px) scale(0.98);
+        transform-origin: center center;
+        will-change: opacity, transform;
+    }
+    .modern-home-features.scroll-reveal-section.is-in-view .scroll-reveal-item {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    @keyframes features-icon-bounce-left {
+        0% { transform: translateX(0); }
+        50% { transform: translateX(-8px); }
+        100% { transform: translateX(-3px); }
+    }
+    .modern-home-features .features-card:hover .features-card-icon {
+        animation: features-icon-bounce-left 0.4s ease-out forwards;
+    }
+</style>
+@endpush
+@push('scripts')
+<script>
+(function() {
+    function initScrollReveal() {
+        var sections = document.querySelectorAll('[data-scroll-reveal]');
+        if (!sections.length) return;
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) entry.target.classList.add('is-in-view');
+            });
+        }, { rootMargin: '0px 0px -80px 0px', threshold: 0.08 });
+        sections.forEach(function(s) { observer.observe(s); });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initScrollReveal);
+    else initScrollReveal();
+})();
+</script>
+@endpush
     @endif
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
         @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey, 'cards_per_row' => $sectionData['cards_per_row'] ?? 4])
+    @endif
+    @if($base === 'featured_services' && $v(''))
+        @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
     @endif
 
     @if($base === 'cta' && $v(''))

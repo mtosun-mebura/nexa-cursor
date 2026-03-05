@@ -114,10 +114,14 @@ class WebsitePage extends Model
                 'overlay' => true,
             ],
             'stats' => [
-                ['value' => '10,000+', 'label' => 'Actieve vacatures'],
-                ['value' => '5,000+', 'label' => 'Succesvolle matches'],
-                ['value' => '500+', 'label' => 'Partner bedrijven'],
-                ['value' => '95%', 'label' => 'Match accuracy'],
+                'items' => [
+                    ['value' => '10,000+', 'label' => 'Actieve vacatures', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '5,000+', 'label' => 'Succesvolle matches', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '500+', 'label' => 'Partner bedrijven', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                    ['value' => '95%', 'label' => 'Match accuracy', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'],
+                ],
+                'background' => '',
+                'background_image' => '',
             ],
             'why_nexa' => [
                 'title' => 'Waarom kiezen voor Nexa?',
@@ -163,6 +167,22 @@ class WebsitePage extends Model
                 'cards_per_row' => 4,
                 'items' => [
                     ['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => ''],
+                ],
+            ],
+            'featured_services' => [
+                'title' => 'Diensten',
+                'subtitle' => 'Onze diensten in het kort.',
+                'blocks_per_row' => 3,
+                'block_size' => 'medium',
+                'block_align' => 'center',
+                'icon_size' => 'medium',
+                'icon_align' => 'center',
+                'card_bg_color' => '',
+                'animation_speed' => 'slow',
+                'items' => [
+                    ['icon' => 'briefcase', 'title' => 'Business Collaboration', 'description' => 'Morbi sagittis hendrerit nulla ultricies. Cras in diam ipsum, elementum pretium hendrerit ultricies.'],
+                    ['icon' => 'cog-6-tooth', 'title' => 'Engineering & Services', 'description' => 'Proin scelerisque magna at porttitor tristique.'],
+                    ['icon' => 'user-group', 'title' => 'Consulting', 'description' => 'Samen werken we aan het beste resultaat.'],
                 ],
             ],
             'footer' => [
@@ -217,6 +237,7 @@ class WebsitePage extends Model
                 'features_section_title' => true,
                 'features_item_0' => true,
                 'features_item_1' => true,
+                'featured_services' => true,
                 'cta' => true,
                 'cta_title' => true,
                 'cta_subtitle' => true,
@@ -248,6 +269,7 @@ class WebsitePage extends Model
             'cta' => 'CTA',
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
+            'featured_services' => 'Dienstenblok (scroll-animatie)',
         ];
         $byTheme = [
             'atom-v2' => [
@@ -258,6 +280,7 @@ class WebsitePage extends Model
                 ['type' => 'cta', 'label' => 'CTA'],
                 ['type' => 'carousel', 'label' => 'Carousel'],
                 ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
+                ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
             ],
             'nextly-template' => [
                 ['type' => 'hero', 'label' => 'Hero (banner)'],
@@ -267,6 +290,7 @@ class WebsitePage extends Model
                 ['type' => 'cta', 'label' => 'CTA'],
                 ['type' => 'carousel', 'label' => 'Carousel'],
                 ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
+                ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
             ],
             'next-landing-vpn' => [
                 ['type' => 'hero', 'label' => 'Hero (banner)'],
@@ -274,6 +298,7 @@ class WebsitePage extends Model
                 ['type' => 'cta', 'label' => 'CTA'],
                 ['type' => 'carousel', 'label' => 'Carousel'],
                 ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
+                ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
             ],
         ];
         if (isset($byTheme[$themeSlug])) {
@@ -287,6 +312,7 @@ class WebsitePage extends Model
             ['type' => 'cta', 'label' => $defaults['cta']],
             ['type' => 'carousel', 'label' => $defaults['carousel']],
             ['type' => 'cards_ronde_hoeken', 'label' => $defaults['cards_ronde_hoeken']],
+            ['type' => 'featured_services', 'label' => $defaults['featured_services']],
         ];
     }
 
@@ -360,7 +386,7 @@ class WebsitePage extends Model
         return $base;
     }
 
-    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken'];
+    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
 
     private static function homeSectionBaseType(string $sectionKey): ?string
     {
@@ -404,24 +430,18 @@ class WebsitePage extends Model
         }, $sectionOrder);
         $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
         $sectionOrder = array_values($sectionOrder);
-        // Als alle content-secties hetzelfde type zijn (bijv. alleen hero) terwijl het thema meerdere types heeft, gebruik dan de thema-default (herstel foutieve data)
-        $contentKeys = array_filter($sectionOrder, fn ($k) => is_string($k) && ! str_starts_with(strtolower($k), 'component:'));
-        $baseTypes = array_filter(array_map([self::class, 'homeSectionBaseType'], $contentKeys));
-        $defaultContentCount = count(array_filter($defaults['section_order'], fn ($k) => is_string($k) && ! str_starts_with(strtolower($k), 'component:')));
-        if (count($baseTypes) > 0 && count(array_unique($baseTypes)) === 1 && $defaultContentCount > 1) {
-            $sectionOrder = $defaults['section_order'];
-        }
-        // Voeg ontbrekende keys uit default toe op hun standaardpositie (bijv. component tussen features en cta)
-        $missing = array_diff($defaults['section_order'], $sectionOrder);
-        if (! empty($missing)) {
-            foreach (array_values($missing) as $key) {
-                $pos = array_search($key, $defaults['section_order'], true);
-                if ($pos !== false) {
-                    array_splice($sectionOrder, $pos, 0, [$key]);
-                }
+        // Als alle content-secties hetzelfde type zijn (bijv. alleen hero) terwijl het thema meerdere types heeft, gebruik dan de thema-default (herstel foutieve data). Overslaan als de gebruiker componenten heeft toegevoegd.
+        $hasComponentKeys = count(array_filter($sectionOrder, fn ($k) => is_string($k) && str_starts_with(strtolower($k), 'component:'))) > 0;
+        if (! $hasComponentKeys) {
+            $contentKeys = array_filter($sectionOrder, fn ($k) => is_string($k) && ! str_starts_with(strtolower($k), 'component:'));
+            $baseTypes = array_filter(array_map([self::class, 'homeSectionBaseType'], $contentKeys));
+            $defaultContentCount = count(array_filter($defaults['section_order'], fn ($k) => is_string($k) && ! str_starts_with(strtolower($k), 'component:')));
+            if (count($baseTypes) > 0 && count(array_unique($baseTypes)) === 1 && $defaultContentCount > 1) {
+                $sectionOrder = $defaults['section_order'];
             }
-            $sectionOrder = array_values($sectionOrder);
         }
+        // Gebruik de opgeslagen section_order als bron van waarheid; voeg geen ontbrekende default-secties toe,
+        // zodat door de gebruiker verwijderde secties/componenten na refresh weg blijven.
 
         $sections = [];
         $taxiroyaalTarievenDefault = [
@@ -500,11 +520,17 @@ class WebsitePage extends Model
             }
         }
 
+        $adminCollapsed = $stored['admin_collapsed'] ?? [];
+        if (! is_array($adminCollapsed)) {
+            $adminCollapsed = [];
+        }
+
         return array_merge($sections, [
             'footer' => $footer,
             'copyright' => $copyright,
             'section_order' => $sectionOrder,
             'visibility' => $visibility,
+            'admin_collapsed' => array_values($adminCollapsed),
         ]);
     }
 
@@ -519,7 +545,46 @@ class WebsitePage extends Model
                 return array_merge($defaults['hero'], $raw);
             case 'stats':
                 $stats = $stored[$sectionKey] ?? $defaults['stats'];
-                return is_array($stats) ? array_values($stats) : $defaults['stats'];
+                $defItems = $defaults['stats']['items'] ?? [['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16'],['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16'],['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16'],['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16']];
+                if (isset($stats['items']) && is_array($stats['items'])) {
+                    $items = [];
+                    foreach (array_values($stats['items']) as $idx => $it) {
+                        $vs = $it['value_size'] ?? '22';
+                        $vs = in_array($vs, ['small', 'medium', 'large'], true) ? $vs : (in_array((int) $vs, range(10, 30, 2), true) ? (string) (int) $vs : '22');
+                        $ls = $it['label_size'] ?? '16';
+                        $ls = in_array($ls, ['small', 'medium', 'large'], true) ? $ls : (in_array((int) $ls, range(10, 30, 2), true) ? (string) (int) $ls : '16');
+                        $items[] = [
+                            'value' => $it['value'] ?? '',
+                            'label' => $it['label'] ?? '',
+                            'value_color' => isset($it['value_color']) && is_string($it['value_color']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $it['value_color']) ? $it['value_color'] : '',
+                            'value_size' => $vs,
+                            'label_size' => $ls,
+                        ];
+                    }
+                    while (count($items) < 4) {
+                        $items[] = ['value' => $defItems[count($items)]['value'] ?? '', 'label' => $defItems[count($items)]['label'] ?? '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'];
+                    }
+                    $items = array_slice($items, 0, 4);
+                    $bg = isset($stats['background']) && is_string($stats['background']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $stats['background']) ? $stats['background'] : '';
+                    $bgImage = isset($stats['background_image']) && is_string($stats['background_image']) ? trim($stats['background_image']) : '';
+                    return ['items' => $items, 'background' => $bg, 'background_image' => $bgImage];
+                }
+                $legacy = is_array($stats) ? array_values($stats) : [];
+                $items = [];
+                foreach (array_slice(array_merge($legacy, $defItems), 0, 4) as $it) {
+                    $vs = is_array($it) ? ($it['value_size'] ?? '22') : '22';
+                    $vs = in_array($vs, ['small', 'medium', 'large'], true) ? $vs : (in_array((int) $vs, range(10, 30, 2), true) ? (string) (int) $vs : '22');
+                    $ls = is_array($it) ? ($it['label_size'] ?? '16') : '16';
+                    $ls = in_array($ls, ['small', 'medium', 'large'], true) ? $ls : (in_array((int) $ls, range(10, 30, 2), true) ? (string) (int) $ls : '16');
+                    $items[] = [
+                        'value' => is_array($it) ? ($it['value'] ?? '') : '',
+                        'label' => is_array($it) ? ($it['label'] ?? '') : '',
+                        'value_color' => (is_array($it) && isset($it['value_color']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $it['value_color'] ?? '')) ? $it['value_color'] : '',
+                        'value_size' => $vs,
+                        'label_size' => $ls,
+                    ];
+                }
+                return ['items' => $items, 'background' => '', 'background_image' => ''];
             case 'why_nexa':
                 return array_merge($defaults['why_nexa'], $raw);
             case 'features':
@@ -577,6 +642,43 @@ class WebsitePage extends Model
                     $out = $defItems;
                 }
                 return ['cards_per_row' => $cardsPerRow, 'items' => $out];
+            case 'featured_services':
+                $items = $raw['items'] ?? [];
+                if (! is_array($items)) {
+                    $items = [];
+                }
+                $defFs = $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => '', 'blocks_per_row' => 3, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'light-bulb', 'title' => '', 'description' => '']]];
+                $blocksPerRow = isset($raw['blocks_per_row']) ? (int) $raw['blocks_per_row'] : ($defFs['blocks_per_row'] ?? 3);
+                $blocksPerRow = in_array($blocksPerRow, [2, 3, 4], true) ? $blocksPerRow : 3;
+                $blockSize = isset($raw['block_size']) && in_array($raw['block_size'], ['small', 'medium', 'large', 'full'], true) ? $raw['block_size'] : ($defFs['block_size'] ?? 'medium');
+                $blockAlign = isset($raw['block_align']) && in_array($raw['block_align'], ['left', 'center', 'right'], true) ? $raw['block_align'] : ($defFs['block_align'] ?? 'center');
+                $iconSize = isset($raw['icon_size']) && in_array($raw['icon_size'], ['small', 'medium', 'large'], true) ? $raw['icon_size'] : ($defFs['icon_size'] ?? 'medium');
+                $iconAlign = isset($raw['icon_align']) && in_array($raw['icon_align'], ['top', 'center', 'bottom'], true) ? $raw['icon_align'] : ($defFs['icon_align'] ?? 'center');
+                $cardBgColor = isset($raw['card_bg_color']) && is_string($raw['card_bg_color']) ? trim($raw['card_bg_color']) : ($defFs['card_bg_color'] ?? '');
+                $cardBgColor = $cardBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $cardBgColor) ? $cardBgColor : '';
+                $animationSpeed = isset($raw['animation_speed']) && in_array($raw['animation_speed'], ['fast', 'normal', 'slow', 'slower'], true) ? $raw['animation_speed'] : ($defFs['animation_speed'] ?? 'slow');
+                $out = [
+                    'title' => trim((string) ($raw['title'] ?? $defFs['title'] ?? '')),
+                    'subtitle' => trim((string) ($raw['subtitle'] ?? $defFs['subtitle'] ?? '')),
+                    'blocks_per_row' => $blocksPerRow,
+                    'block_size' => $blockSize,
+                    'block_align' => $blockAlign,
+                    'icon_size' => $iconSize,
+                    'icon_align' => $iconAlign,
+                    'card_bg_color' => $cardBgColor,
+                    'animation_speed' => $animationSpeed,
+                    'items' => array_values(array_map(function ($row) {
+                        return [
+                            'icon' => trim((string) ($row['icon'] ?? 'light-bulb')),
+                            'title' => trim((string) ($row['title'] ?? '')),
+                            'description' => trim((string) ($row['description'] ?? '')),
+                        ];
+                    }, $items)),
+                ];
+                if (empty($out['items'])) {
+                    $out['items'] = $defFs['items'] ?? [['icon' => 'light-bulb', 'title' => '', 'description' => '']];
+                }
+                return $out;
             default:
                 return [];
         }

@@ -62,10 +62,12 @@
                             data-step-key="{{ $stepKey }}"
                             data-tabs-target="#booking-panel-{{ $stepKey }}"
                             type="button"
+                            tabindex="-1"
                             role="tab"
                             aria-controls="booking-panel-{{ $stepKey }}"
                             aria-selected="{{ $idx === 0 ? 'true' : 'false' }}"
-                            class="booking-step-tab inline-flex items-center justify-center p-4 border-b-2 border-transparent rounded-t-base hover:text-fg-brand group transition-colors">
+                            class="booking-step-tab inline-flex items-center justify-center p-4 border-b-2 border-transparent rounded-t-base cursor-default"
+                            aria-label="{{ e($stepLabelByLogical[$stepKey] ?? ('Stap ' . ($idx + 1))) }}">
                             @if($stepKey === 'trip')
                                 <svg class="w-4 h-4 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21s7-4.35 7-10a7 7 0 1 0-14 0c0 5.65 7 10 7 10Z"/>
@@ -733,6 +735,7 @@ body.booking-modal-open {
     var submitUrl = @json(route('taxiroyaal.booking.submit'));
     var pageId = @json($bookingPageId);
     var sectionKey = @json($sectionKey ?? 'component:taxiroyaal.boekingsmodule');
+    var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var mapsApiKey = @json($mapsApiKey);
     var activeTabColor = @json($sectionStyle['active_tab_color'] ?? '#5b21b6');
     var whatsappClickToChatEnabled = @json($whatsappClickToChatEnabled);
@@ -1110,14 +1113,21 @@ body.booking-modal-open {
             panel.classList.toggle('hidden', panel.getAttribute('data-step-panel') !== currentStepKey);
         });
         root.querySelectorAll('.booking-step-tab').forEach(function(tab) {
-            var active = parseInt(tab.getAttribute('data-step-index'), 10) === state.step;
+            var tabStepIndex = parseInt(tab.getAttribute('data-step-index'), 10);
+            var active = tabStepIndex === state.step;
+            var reachable = state.step >= tabStepIndex;
             tab.classList.toggle('font-semibold', active);
             tab.classList.toggle('text-heading', active);
             tab.classList.toggle('text-fg-brand', active);
             tab.classList.toggle('active', active);
             tab.classList.toggle('font-medium', !active);
             tab.classList.toggle('text-body', !active);
+            tab.classList.toggle('booking-step-tab--reachable', reachable);
+            tab.classList.toggle('hover:text-fg-brand', reachable);
+            tab.classList.toggle('transition-colors', reachable);
             tab.style.backgroundColor = 'transparent';
+            tab.style.cursor = reachable ? 'pointer' : 'default';
+            tab.setAttribute('tabindex', reachable ? '0' : '-1');
             if (active) {
                 tab.style.borderBottomColor = activeTabColor;
                 tab.style.borderColor = activeTabColor;
@@ -1128,6 +1138,7 @@ body.booking-modal-open {
                 tab.style.color = '';
             }
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.setAttribute('aria-disabled', reachable ? 'false' : 'true');
         });
         var stepSelect = root.querySelector('[data-booking-step-select]');
         if (stepSelect) stepSelect.value = currentStepKey;
@@ -1549,6 +1560,7 @@ body.booking-modal-open {
             body: JSON.stringify({
                 page_id: pageId,
                 section_key: sectionKey,
+                module: bookingModuleName || undefined,
                 distance_meters: parseInt(state.distance_meters || 0, 10),
                 duration_seconds: parseInt(state.duration_seconds || 0, 10),
                 passengers: parseInt(state.passengers || 1, 10),
@@ -1667,7 +1679,7 @@ body.booking-modal-open {
         }
         if (currentStepKey === 'trip') {
             if (!state.pickup_address || !state.dropoff_address || !state.pickup_at) {
-                showError('Vul ophaaladres, afzetadres en ophaalmoment in.');
+                showError('Vul alle reisgegevens in: kies een ophaaladres, een afzetadres en selecteer datum en tijd voor ophalen.');
                 return false;
             }
             if (state.return_trip && !state.return_at) {
@@ -1743,6 +1755,7 @@ body.booking-modal-open {
         var payload = {
             page_id: pageId,
             section_key: sectionKey,
+            module: bookingModuleName || undefined,
             selected_offer_id: state.selected_offer_id,
             distance_meters: parseInt(state.distance_meters || 0, 10),
             duration_seconds: parseInt(state.duration_seconds || 0, 10),
@@ -2266,19 +2279,23 @@ body.booking-modal-open {
         var tabBtn = e.target.closest('.booking-step-tab');
         if (tabBtn) {
             e.preventDefault();
-            var targetStepKey = tabBtn.getAttribute('data-step-key') || '';
-            if (targetStepKey === 'baggage' && !state.has_baggage) {
-                targetStepKey = 'offers';
-            }
-            if (targetStepKey && stepOrder.indexOf(targetStepKey) >= 0) {
-                clearError();
-                setStepByKey(targetStepKey);
-                var currentStepKey = getCurrentStepKey();
-                if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
-                    requestQuotes();
+            var tabStepIndex = parseInt(tabBtn.getAttribute('data-step-index'), 10);
+            if (state.step >= tabStepIndex) {
+                var targetStepKey = tabBtn.getAttribute('data-step-key') || '';
+                if (targetStepKey === 'baggage' && !state.has_baggage) {
+                    targetStepKey = 'offers';
                 }
-                updateSummary();
+                if (targetStepKey && stepOrder.indexOf(targetStepKey) >= 0) {
+                    clearError();
+                    setStepByKey(targetStepKey);
+                    var currentStepKey = getCurrentStepKey();
+                    if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
+                        requestQuotes();
+                    }
+                    updateSummary();
+                }
             }
+            e.stopPropagation();
             return;
         }
         var qtyBtn = e.target.closest('.booking-qty-btn');

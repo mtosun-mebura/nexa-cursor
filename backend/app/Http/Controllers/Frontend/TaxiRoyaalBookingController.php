@@ -23,6 +23,7 @@ class TaxiRoyaalBookingController extends Controller
         $data = $request->validate([
             'page_id' => 'nullable|integer',
             'section_key' => 'nullable|string|max:120',
+            'module' => 'nullable|string|max:64',
             'distance_meters' => 'required|integer|min:0',
             'duration_seconds' => 'required|integer|min:0',
             'passengers' => 'required|integer|min:1|max:20',
@@ -37,7 +38,8 @@ class TaxiRoyaalBookingController extends Controller
 
         $sectionConfig = $this->resolveSectionConfig(
             isset($data['page_id']) ? (int) $data['page_id'] : null,
-            isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxiroyaal.boekingsmodule'
+            isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxiroyaal.boekingsmodule',
+            isset($data['module']) ? trim((string) $data['module']) : null
         );
         $quotes = $this->pricing->buildQuotes($sectionConfig, $data);
 
@@ -52,6 +54,7 @@ class TaxiRoyaalBookingController extends Controller
         $data = $request->validate([
             'page_id' => 'nullable|integer',
             'section_key' => 'nullable|string|max:120',
+            'module' => 'nullable|string|max:64',
             'selected_offer_id' => 'required|string|max:120',
             'distance_meters' => 'required|integer|min:0',
             'duration_seconds' => 'required|integer|min:0',
@@ -77,7 +80,8 @@ class TaxiRoyaalBookingController extends Controller
 
         $sectionConfig = $this->resolveSectionConfig(
             isset($data['page_id']) ? (int) $data['page_id'] : null,
-            isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxiroyaal.boekingsmodule'
+            isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxiroyaal.boekingsmodule',
+            isset($data['module']) ? trim((string) $data['module']) : null
         );
         $quotes = $this->pricing->buildQuotes($sectionConfig, $data);
         $selected = collect($quotes['offers'] ?? [])->firstWhere('id', (string) $data['selected_offer_id']);
@@ -153,13 +157,16 @@ class TaxiRoyaalBookingController extends Controller
         ]);
     }
 
-    private function resolveSectionConfig(?int $pageId, string $sectionKey): array
+    private function resolveSectionConfig(?int $pageId, string $sectionKey, ?string $moduleName = null): array
     {
         $default = $this->pricing->getDefaultSectionConfig();
         if (! $pageId) {
             return $default;
         }
-        $page = WebsitePage::query()->find($pageId);
+        $query = $moduleName && $this->moduleDb->supportsModuleDatabases()
+            ? WebsitePage::on($this->moduleDb->getModuleConnectionName($moduleName))
+            : WebsitePage::query();
+        $page = $query->find($pageId);
         if (! $page) {
             return $default;
         }

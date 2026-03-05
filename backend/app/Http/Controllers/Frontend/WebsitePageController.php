@@ -119,9 +119,11 @@ class WebsitePageController extends Controller
         $useThemeHomeLayout = $themeHasHomeSections && (
             !empty($page->home_sections) || $isRenderingHome
         );
-        // Bij home: secties van deze pagina. Anders: secties van de home (voor footer e.d.)
+        // Gebruik secties van de huidige pagina als die eigen home_sections heeft (o.a. modulepagina's);
+        // anders bij home de home-secties, anders secties van de hoofdpagina (footer e.d.).
         $homePage = $themeHasHomeSections ? $this->websiteBuilder->getHomePage() : null;
-        $homeSections = $useThemeHomeLayout && $isRenderingHome
+        $useCurrentPageSections = $useThemeHomeLayout && ($isRenderingHome || !empty($page->home_sections));
+        $homeSections = $useCurrentPageSections
             ? $page->getHomeSections()
             : ($homePage ? $homePage->getHomeSections() : []);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home

@@ -93,20 +93,22 @@ class AdminAuthController extends Controller
         // Mark that user has logged in before
         $request->session()->put('has_logged_in_before', true);
         
-        // Eerste login of intended is een utility-URL: altijd naar dashboard
         $path = $intendedUrl ? parse_url($intendedUrl, PHP_URL_PATH) : '';
         $isUtilityPath = $path && preg_match('#/admin/(chat|notifications)/unread-count#', $path);
+        
+        // Intended URL heeft voorrang: na sessie-verlopen of directe link met ?intended= ga daarheen.
+        // Gebruik relatief pad zodat de browser op dezelfde origin blijft en sessiecookies meeneemt.
+        if ($intendedUrl && is_string($intendedUrl) && $path && \Illuminate\Support\Str::startsWith($path, '/admin') && !$isUtilityPath) {
+            session()->forget('url.intended');
+            $query = parse_url($intendedUrl, PHP_URL_QUERY);
+            $target = $path . ($query ? '?' . $query : '');
+            return redirect()->to($target);
+        }
+        
+        // Eerste login of utility-URL: naar dashboard
         if ($isFirstLogin || $isUtilityPath) {
             session()->forget('url.intended');
             return redirect()->route('admin.dashboard');
-        }
-        
-        // Als er een intended-parameter is (uit form of session), ga daarheen; anders dashboard
-        if ($intendedUrl && is_string($intendedUrl)) {
-            if ($path && \Illuminate\Support\Str::startsWith($path, '/admin')) {
-                session()->forget('url.intended');
-                return redirect($intendedUrl);
-            }
         }
 
         return redirect()->route('admin.dashboard');

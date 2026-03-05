@@ -7,17 +7,8 @@
         $sectionOrder = $defaultSectionOrder;
     }
     $sectionOrder = array_values($sectionOrder);
-    $missingInOrder = array_diff($defaultSectionOrder, $sectionOrder);
-    if (!empty($missingInOrder)) {
-        foreach (array_values($missingInOrder) as $key) {
-            $pos = array_search($key, $defaultSectionOrder, true);
-            if ($pos !== false) {
-                array_splice($sectionOrder, min($pos, count($sectionOrder)), 0, [$key]);
-            }
-        }
-        $sectionOrder = array_values($sectionOrder);
-    }
-    $baseTypes = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel', 'cards_ronde_hoeken'];
+    // Alleen opgeslagen section_order tonen; verwijderde secties blijven weg.
+    $baseTypes = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
     $baseType = function($key) use ($baseTypes) {
         if (in_array($key, $baseTypes, true)) return $key;
         $base = preg_replace('/_\d+$/', '', (string) $key);
@@ -147,12 +138,17 @@
         <div class="flex justify-center pt-10 md:pt-12">
             <div class="grid gap-6 md:gap-10 w-max max-w-full" style="grid-template-columns: repeat({{ $featuresCols }}, minmax(0, 20rem));">
                 @foreach($featuresItems as $entry)
-                @php $item = $entry['item']; @endphp
-                <div class="group rounded px-8 py-12 shadow hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }};">
-                    <div class="mx-auto h-24 w-24 text-center xl:h-28 xl:w-28 flex items-center justify-center">
+                @php
+                    $item = $entry['item'];
+                    $iconAlign = $item['icon_align'] ?? 'center';
+                    $iconAlignItems = $iconAlign === 'right' ? 'items-end' : ($iconAlign === 'left' ? 'items-start' : 'items-center');
+                    $iconAlignText = $iconAlign === 'right' ? 'text-right' : ($iconAlign === 'left' ? 'text-left' : 'text-center');
+                @endphp
+                <div class="group rounded px-8 py-12 shadow hover:opacity-90 transition-opacity flex flex-col w-full {{ $iconAlignItems }} {{ $iconAlignText }}" style="background-color: {{ $primaryColor }};">
+                    <div class="h-24 w-24 shrink-0 xl:h-28 xl:w-28 flex items-center justify-center">
                         <i class="bx bx-bulb text-6xl text-white xl:text-7xl"></i>
                     </div>
-                    <div class="text-center">
+                    <div class="{{ $iconAlignText }}">
                         <h3 class="pt-8 text-lg font-semibold uppercase text-yellow lg:text-xl">
                             {{ $item['title'] ?? 'Dienst' }}
                         </h3>
@@ -168,44 +164,14 @@
     @endif
 
     @if($base === 'stats' && $v(''))
-    @php
-        $statsItems = is_array($sectionData) ? array_values($sectionData) : [];
-        $statsItems = array_slice(array_merge($statsItems, [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']]), 0, 4);
-        $statsVisibleCount = 0;
-        foreach ($statsItems as $i => $stat) {
-            if ($visibility['stats_' . $i] ?? true) $statsVisibleCount++;
-        }
-        $statsVisibleCount = max(1, min($statsVisibleCount, 4));
-    @endphp
-    <div class="bg-cover bg-top bg-no-repeat pb-16 md:py-16 lg:py-24" style="background-image: url({{ $atomAsset('assets/img/experience-figure.png') }});" id="statistics">
-        <div class="container">
-                            <div class="mx-auto w-5/6 bg-white dark:bg-gray-800 py-16 shadow md:w-11/12 lg:py-20 xl:py-24 2xl:w-full">
-                                <div class="grid gap-6 md:gap-8 w-full place-items-center" style="grid-template-columns: repeat({{ $statsVisibleCount }}, minmax(0, 1fr));">
-                                    @foreach($statsItems as $i => $stat)
-                                        @if($visibility['stats_' . $i] ?? true)
-                                        <div class="flex flex-col items-center justify-center text-center md:flex-row md:text-left w-full md:justify-center min-w-0">
-                                            <div>
-                                                <img src="{{ $atomAsset('assets/img/icon-project.svg') }}" class="mx-auto h-12 w-auto md:h-20 atom-v2-stat-icon" alt="">
-                                            </div>
-                                            <div class="pt-5 md:pl-5 md:pt-0">
-                                                <h1 class="font-body text-2xl font-bold md:text-4xl" style="color: {{ $primaryColor }};">
-                                                    {{ $stat['value'] ?? '0' }}
-                                                </h1>
-                                                <h4 class="font-header text-base font-medium leading-loose md:text-xl text-gray-700 dark:text-gray-200">
-                                                    {{ $stat['label'] ?? '' }}
-                                                </h4>
-                                            </div>
-                                        </div>
-                                        @endif
-                                    @endforeach
-                                </div>
-                            </div>
-        </div>
-    </div>
+        @include('frontend.website.blocks.stats', ['sectionData' => $sectionData, 'visibility' => $visibility, 'sectionKey' => $sectionKey])
     @endif
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
         @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey, 'cards_per_row' => $sectionData['cards_per_row'] ?? 4])
+    @endif
+    @if($base === 'featured_services' && $v(''))
+        @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
     @endif
 
     @if($base === 'cta' && $v(''))

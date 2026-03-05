@@ -83,7 +83,7 @@
                                     ? 'width:100%;max-width:100%;'
                                     : 'width:min(100%, ' . $exactWidthPx . 'px);max-width:' . $exactWidthPx . 'px;');
                             $fontStyle = $item['font_style'] ?? 'normal';
-                            $textColor = !empty($item['text_color']) ? $item['text_color'] : '#ffffff';
+                            $textColor = !empty($item['text_color']) ? $item['text_color'] : '';
                             $titleFontFamily = isset($item['title_font_family']) ? trim((string) $item['title_font_family']) : '';
                             $allowedTitleFamilies = ['', 'sans-serif', 'serif', 'monospace', 'Inter', 'Georgia'];
                             if (!in_array($titleFontFamily, $allowedTitleFamilies, true)) {
@@ -101,7 +101,7 @@
                             if (!in_array($valueFontSize, $allowedFontSizes, true)) {
                                 $valueFontSize = '';
                             }
-                            $titleStyle = 'color: ' . $textColor . ';';
+                            $titleStyle = $textColor !== '' ? ('color: ' . $textColor . ';') : '';
                             if ($titleFontFamily !== '') {
                                 $titleStyle .= ' font-family: ' . $titleFontFamily . ';';
                             }
@@ -123,13 +123,13 @@
                         @endphp
                         @if($isOverigeKosten)
                         <div class="{{ $wrapperClass }}" style="{{ $wrapperStyle }}" data-taxiroyaal-card-wrapper data-card-size="{{ $cardSize }}">
-                        <div class="rounded-xl overflow-hidden bg-slate-800/90 dark:bg-slate-900/95 border border-slate-700/50 shadow-lg w-full h-full flex flex-col {{ $textAlignClass }}" data-taxiroyaal-card data-card-size="{{ $cardSize }}">
+                        <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-500/50 transition-colors shadow-lg w-full h-full flex flex-col {{ $textAlignClass }}" data-taxiroyaal-card data-card-size="{{ $cardSize }}">
                             @if($imageUrl)
-                            <div class="aspect-[16/10] w-full overflow-hidden" style="background-color: {{ $imageBgColor }}; padding: {{ $imagePadding }}px;">
-                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="w-full h-full object-cover" loading="lazy">
+                            <div class="aspect-[16/10] w-full overflow-hidden shrink-0" style="background-color: {{ $imageBgColor }};">
+                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="w-full h-full object-cover object-center" loading="lazy">
                             </div>
                             @endif
-                            <div class="p-5 md:p-6 flex-1 flex flex-col" style="color: {{ $textColor }};">
+                            <div class="p-5 md:p-6 flex-1 flex flex-col {{ $textColor === '' ? 'text-gray-900 dark:text-gray-100' : '' }}" @if($textColor !== '') style="color: {{ e($textColor) }};" @endif>
                                 <h3 class="text-lg font-semibold mb-4 {{ $titleFontClass }} {{ $titleAlignClass }}" style="{{ $titleStyle }}">{{ e($title) }}</h3>
                                 <div class="flex items-baseline gap-4 text-left">
                                     <span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Reinigingskosten</span>
@@ -142,13 +142,13 @@
                         </div>
                         @elseif($rate)
                         <div class="{{ $wrapperClass }}" style="{{ $wrapperStyle }}" data-taxiroyaal-card-wrapper data-card-size="{{ $cardSize }}">
-                        <div class="rounded-xl overflow-hidden bg-slate-800/90 dark:bg-slate-900/95 border border-slate-700/50 shadow-lg w-full h-full flex flex-col {{ $textAlignClass }}" data-taxiroyaal-card data-card-size="{{ $cardSize }}">
+                        <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-500/50 transition-colors shadow-lg w-full h-full flex flex-col {{ $textAlignClass }}" data-taxiroyaal-card data-card-size="{{ $cardSize }}">
                             @if($imageUrl)
-                            <div class="aspect-[16/10] w-full overflow-hidden" style="background-color: {{ $imageBgColor }}; padding: {{ $imagePadding }}px;">
-                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="w-full h-full object-cover" loading="lazy">
+                            <div class="aspect-[16/10] w-full overflow-hidden shrink-0" style="background-color: {{ $imageBgColor }};">
+                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="w-full h-full object-cover object-center" loading="lazy">
                             </div>
                             @endif
-                            <div class="p-5 md:p-6 flex-1 flex flex-col" style="color: {{ $textColor }};">
+                            <div class="p-5 md:p-6 flex-1 flex flex-col {{ $textColor === '' ? 'text-gray-900 dark:text-gray-100' : '' }}" @if($textColor !== '') style="color: {{ e($textColor) }};" @endif>
                                 <h3 class="text-lg font-semibold mb-4 {{ $titleFontClass }} {{ $titleAlignClass }}" style="{{ $titleStyle }}">{{ e($title) }}</h3>
                                 <ul class="space-y-3 text-sm">
                                     @if($v = $formatPrice($rate->base_fare))
@@ -168,7 +168,7 @@
                                     $itemCleaning = isset($item['cleaning_costs']) && $item['cleaning_costs'] !== null && (float)$item['cleaning_costs'] > 0 ? (float)$item['cleaning_costs'] : null;
                                 @endphp
                                 @if($itemCleaning !== null)
-                                <div class="mt-4 pt-4 border-t border-slate-600/50">
+                                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600/50">
                                     <div class="flex items-baseline gap-4 text-left">
                                         <span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Overige kosten</span>
                                         <span class="font-semibold block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">€ {{ number_format($itemCleaning, 2, ',', '.') }}</span>

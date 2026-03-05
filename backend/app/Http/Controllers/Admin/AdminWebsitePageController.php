@@ -7,6 +7,8 @@ use App\Models\FrontendTheme;
 use App\Models\Module;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
+use App\Services\ModuleContextService;
+use App\Services\ModuleDatabaseService;
 use Illuminate\Support\Facades\Cache;
 use App\Services\FrontendComponentService;
 use App\Services\ModuleManager;
@@ -14,6 +16,7 @@ use App\Services\TaxiRoyaalBookingPricingService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -22,38 +25,52 @@ class AdminWebsitePageController extends Controller
 {
     public function __construct(
         protected ModuleManager $moduleManager,
-        protected WebsiteBuilderService $websiteBuilder
+        protected WebsiteBuilderService $websiteBuilder,
+        protected ModuleDatabaseService $moduleDb,
+        protected ModuleContextService $moduleContext
     ) {}
 
     /**
-     * Lijst website-pagina's. Alleen pagina's van de actieve module (de module die het
-     * actieve thema gebruikt, anders de eerste actieve module). Thema-filter blijft van toepassing.
+     * Lijst website-pagina's. Kernpagina's (geen module) uit hoofddatabase; plus bij actieve module
+     * de pagina's uit die module-DB. Alle pagina's zijn zichtbaar en worden in het actieve thema getoond.
      */
     public function index()
     {
         $this->ensureSuperAdmin();
-        $activeThemeId = $this->websiteBuilder->getActiveTheme()?->id;
-        $moduleThemeIds = $this->getModuleThemeIdsByModuleName();
         $activeModuleName = $this->getActiveModuleNameForFrontend();
 
-        $pages = WebsitePage::with('theme')->orderBy('sort_order')->orderBy('title')->get()->filter(function (WebsitePage $page) use ($activeThemeId, $activeModuleName) {
-            // Alleen pagina's van het actieve thema én (indien van toepassing) de gekozen module
-            if ($activeModuleName !== null) {
-                if ($page->module_name === null) {
-                    return false;
-                }
-                if (strcasecmp($page->module_name, $activeModuleName) !== 0) {
-                    return false;
-                }
-            }
-            if ($page->module_name === null) {
-                return $page->frontend_theme_id === null || (int) $page->frontend_theme_id === (int) $activeThemeId;
-            }
-            return (int) $page->frontend_theme_id === (int) $activeThemeId;
-        })->values();
-
+        $pages = $this->loadAllPagesForIndex($activeModuleName);
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme'));
+    }
+
+    /**
+     * Kernpagina's uit hoofddatabase + eventueel module-pagina's uit module-DB, samengevoegd en gesorteerd.
+     */
+    private function loadAllPagesForIndex(?string $activeModuleName): \Illuminate\Support\Collection
+    {
+        $kernel = WebsitePage::query()
+            ->whereNull('module_name')
+            ->with('theme')
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get();
+
+        if ($activeModuleName === null || ! $this->moduleDb->supportsModuleDatabases()) {
+            return $kernel->values();
+        }
+
+        $conn = $this->moduleDb->getModuleConnectionName($activeModuleName);
+        $modulePages = WebsitePage::on($conn)
+            ->with('theme')
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get();
+
+        return $kernel->concat($modulePages)->sortBy([
+            ['sort_order', 'asc'],
+            ['title', 'asc'],
+        ])->values();
     }
 
     public function create()
@@ -72,62 +89,57 @@ class AdminWebsitePageController extends Controller
     public function store(Request $request)
     {
         $this->ensureSuperAdmin();
-        $frontendThemeId = $this->resolveFrontendThemeIdFromRequest($request);
-        $moduleName = $this->normalizeModuleNameForValidation($request->input('module_name'));
+        $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
+        $connection = null;
+        if ($moduleName !== null && $this->moduleDb->supportsModuleDatabases()) {
+            $connection = $this->moduleDb->getModuleConnectionName($moduleName);
+        }
+        $slugRule = $this->buildSlugUniqueRule($connection, $moduleName, null);
         $data = $request->validate([
-            'slug' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[a-z0-9\-]+$/',
-                Rule::unique('website_pages', 'slug')
-                    ->where('frontend_theme_id', $frontendThemeId)
-                    ->where(function ($q) use ($moduleName) {
-                        if ($moduleName === null) {
-                            $q->whereNull('module_name');
-                        } else {
-                            $q->where('module_name', $moduleName);
-                        }
-                    }),
-            ],
+            'slug' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9\-]+$/', $slugRule],
             'title' => 'required|string|max:255',
             'content' => 'nullable|string',
             'meta_description' => 'nullable|string|max:500',
             'page_type' => 'required|in:home,about,contact,custom,module',
             'module_name' => 'nullable|string|max:255',
+            'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'is_active' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ], [
-            'slug.unique' => 'Deze slug wordt al gebruikt binnen dit thema en module. Kies een andere slug.',
+            'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
-        if (!empty($data['module_name'])) {
-            $module = Module::where('installed', true)->whereRaw('LOWER(name) = ?', [strtolower(trim($data['module_name']))])->first();
-            $data['frontend_theme_id'] = $module && $module->frontend_theme_id
-                ? $module->frontend_theme_id
-                : ($this->websiteBuilder->getActiveTheme()?->id);
-        } else {
-            $data['module_name'] = null;
-            $data['frontend_theme_id'] = null;
-        }
-        $themeSlug = $data['frontend_theme_id'] ? (FrontendTheme::find($data['frontend_theme_id'])?->slug ?? 'modern') : 'modern';
+        $activeTheme = $this->websiteBuilder->getActiveTheme();
+        $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
+        $data['module_name'] = $moduleName;
+        $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         $input = $this->getHomeSectionsInput($request);
         if ($data['page_type'] === 'home') {
             $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false);
         } else {
             $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true);
         }
-        WebsitePage::create($data);
+        if ($connection !== null) {
+            $data['frontend_theme_id'] = null;
+            WebsitePage::on($connection)->create($data);
+        } else {
+            WebsitePage::create($data);
+        }
         return redirect()->route('admin.website-pages.index')->with('success', 'Pagina aangemaakt.');
     }
 
     /**
      * Redirect to edit form (resource has no dedicated show view).
+     * Bij module-pagina: ?module= meegeven zodat binding uit module-DB laadt.
      */
     public function show(WebsitePage $website_page)
     {
-        return redirect()->route('admin.website-pages.edit', $website_page);
+        $url = route('admin.website-pages.edit', $website_page);
+        if ($website_page->module_name) {
+            $url .= '?module=' . rawurlencode($website_page->module_name);
+        }
+        return redirect($url);
     }
 
     public function edit(WebsitePage $website_page)
@@ -168,6 +180,18 @@ class AdminWebsitePageController extends Controller
         }
         $first = Module::where('installed', true)->where('active', true)->first();
         return $first ? $first->name : null;
+    }
+
+    /**
+     * Query voor website-pagina's op de juiste database: module-DB bij actieve module (als ondersteund), anders hoofddatabase.
+     */
+    private function websitePagesQueryForIndex(?string $activeModuleName): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($activeModuleName !== null && $this->moduleDb->supportsModuleDatabases()) {
+            $conn = $this->moduleDb->getModuleConnectionName($activeModuleName);
+            return WebsitePage::on($conn);
+        }
+        return WebsitePage::query();
     }
 
     /**
@@ -248,7 +272,7 @@ class AdminWebsitePageController extends Controller
     {
         $this->ensureSuperAdmin();
         $valid = $request->validate([
-            'type' => 'required|string|in:hero,stats,why_nexa,features,cta,carousel,cards_ronde_hoeken',
+            'type' => 'required|string|in:hero,stats,why_nexa,features,cta,carousel,cards_ronde_hoeken,featured_services',
             'theme' => 'nullable|string|max:64',
         ]);
         $type = $valid['type'];
@@ -258,12 +282,13 @@ class AdminWebsitePageController extends Controller
             'section_order' => [$type],
             'visibility' => $defaults['visibility'] ?? [],
             'hero' => $defaults['hero'] ?? [],
-            'stats' => $defaults['stats'] ?? [],
+            'stats' => $defaults['stats'] ?? ['items' => [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']], 'background' => '', 'background_image' => ''],
             'why_nexa' => $defaults['why_nexa'] ?? [],
             'features' => $defaults['features'] ?? [],
             'cta' => $defaults['cta'] ?? [],
             'carousel' => $defaults['carousel'] ?? ['items' => []],
             'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['cards_per_row' => 4, 'items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']]],
+            'featured_services' => $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => 'Onze diensten in het kort.', 'blocks_per_row' => 3, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'briefcase', 'title' => '', 'description' => ''], ['icon' => 'cog-6-tooth', 'title' => '', 'description' => ''], ['icon' => 'user-group', 'title' => '', 'description' => '']]],
             'footer' => $defaults['footer'] ?? [],
             'copyright' => $defaults['copyright'] ?? '',
         ];
@@ -332,10 +357,19 @@ class AdminWebsitePageController extends Controller
 
         $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
         $useThemeHomeLayout = $themeHasHomeSections && ($website_page->page_type === 'home' || $website_page->slug === 'home' || !empty($website_page->home_sections));
-        $homeSections = $useThemeHomeLayout ? $website_page->getHomeSections() : [];
+        // Altijd homeSections doorgeven wanneer de pagina home_sections heeft, zodat footer/visibility op preview werken
+        $homeSections = !empty($website_page->home_sections) ? $website_page->getHomeSections() : [];
         // Atom v2: laad thema-styles op alle paginatypes (preview) voor dezelfde weergave als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
+        // Footer-kaart: expliciet Maps API-key en map-id doorgeven (zelfde bron als frontend)
+        $env = app(\App\Services\EnvService::class);
+        $googleMapsApiKey = trim((string) ($env->getGoogleMapsApiKey() ?? ''));
+        $googleMapsMapId = $env->getGoogleMapsMapId() ?? '';
 
+        $previewEditUrl = route('admin.website-pages.edit', $website_page);
+        if ($website_page->module_name) {
+            $previewEditUrl .= '?module=' . rawurlencode($website_page->module_name);
+        }
         return view('frontend.website.page', [
             'page' => $website_page,
             'theme' => $theme,
@@ -345,58 +379,50 @@ class AdminWebsitePageController extends Controller
             'branding' => $branding,
             'showContactForm' => $website_page->page_type === 'contact',
             'isPreview' => true,
-            'previewEditUrl' => route('admin.website-pages.edit', $website_page),
+            'previewEditUrl' => $previewEditUrl,
             'jobs' => $jobs,
             'useModernHomeLayout' => $useThemeHomeLayout,
             'homeSections' => $homeSections,
             'loadAtomV2Styles' => $loadAtomV2Styles,
+            'googleMapsApiKey' => $googleMapsApiKey,
+            'googleMapsMapId' => $googleMapsMapId,
         ]);
     }
 
     public function update(Request $request, WebsitePage $website_page)
     {
         $this->ensureSuperAdmin();
-        $frontendThemeId = $this->resolveFrontendThemeIdFromRequest($request);
-        $moduleName = $this->normalizeModuleNameForValidation($request->input('module_name'));
+        $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
+        $connection = null;
+        if ($moduleName !== null && $this->moduleDb->supportsModuleDatabases()) {
+            $connection = $this->moduleDb->getModuleConnectionName($moduleName);
+        }
+        $slugRule = $this->buildSlugUniqueRule($connection, $moduleName, (int) $website_page->id);
         $data = $request->validate([
             'slug' => [
                 'required',
                 'string',
                 'max:255',
                 'regex:/^[a-z0-9\-]+$/',
-                Rule::unique('website_pages', 'slug')
-                    ->ignore($website_page->id)
-                    ->where('frontend_theme_id', $frontendThemeId)
-                    ->where(function ($q) use ($moduleName) {
-                        if ($moduleName === null) {
-                            $q->whereNull('module_name');
-                        } else {
-                            $q->where('module_name', $moduleName);
-                        }
-                    }),
+                $slugRule,
             ],
             'title' => 'required|string|max:255',
             'content' => 'nullable|string',
             'meta_description' => 'nullable|string|max:500',
             'page_type' => 'required|in:home,about,contact,custom,module',
             'module_name' => 'nullable|string|max:255',
+            'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'is_active' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ], [
-            'slug.unique' => 'Deze slug wordt al gebruikt binnen dit thema en module. Kies een andere slug.',
+            'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
-        if (!empty($data['module_name'])) {
-            $module = Module::where('installed', true)->whereRaw('LOWER(name) = ?', [strtolower(trim($data['module_name']))])->first();
-            $data['frontend_theme_id'] = $module && $module->frontend_theme_id
-                ? $module->frontend_theme_id
-                : ($this->websiteBuilder->getActiveTheme()?->id);
-        } else {
-            $data['module_name'] = null;
-            $data['frontend_theme_id'] = null;
-        }
-        $themeSlug = $data['frontend_theme_id'] ? (FrontendTheme::find($data['frontend_theme_id'])?->slug ?? 'modern') : 'modern';
+        $activeTheme = $this->websiteBuilder->getActiveTheme();
+        $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
+        $data['module_name'] = $moduleName;
+        $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         // home_sections niet meenemen in validate() om BadRequestException te voorkomen (ParameterBag verwacht array;
         // bij PUT kan de structuur anders zijn). We halen het veilig op en normaliseren zelf.
         $input = $this->getHomeSectionsInput($request);
@@ -413,6 +439,16 @@ class AdminWebsitePageController extends Controller
         // Als de request helemaal geen home_sections bevat (bijv. request bag leeg), bestaande niet overschrijven
         if (empty($input) && !empty($website_page->home_sections)) {
             $input = $website_page->getHomeSections();
+        }
+        // Altijd _section_order uit de request laten voorgaan (staat bovenaan form, wordt door JS bijgewerkt bij verwijderen/sorteren).
+        // Zo blijft een verwijderde sectie ook weg als home_sections door max_input_vars werd afgekapt of leeg was.
+        $fallbackOrder = $request->input('_section_order');
+        if ((!is_string($fallbackOrder) || trim($fallbackOrder) === '') && $request->getContent() !== '') {
+            parse_str($request->getContent(), $parsed);
+            $fallbackOrder = $parsed['_section_order'] ?? null;
+        }
+        if (is_string($fallbackOrder) && trim($fallbackOrder) !== '') {
+            $input['section_order'] = trim($fallbackOrder);
         }
         $orderInput = $input['section_order'] ?? null;
         $orderIsEmpty = $orderInput === null || $orderInput === ''
@@ -431,6 +467,9 @@ class AdminWebsitePageController extends Controller
                 $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false);
             } else {
                 $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true);
+            }
+            if ($connection !== null) {
+                $data['frontend_theme_id'] = null;
             }
             $website_page->update($data);
 
@@ -455,7 +494,14 @@ class AdminWebsitePageController extends Controller
                 ->withInput()
                 ->withErrors(['home_sections' => 'Opslaan mislukt: ' . $e->getMessage()]);
         }
-        return redirect()->route('admin.website-pages.edit', $website_page)->with('success', 'Pagina bijgewerkt.');
+        $editUrl = route('admin.website-pages.edit', $website_page);
+        $separator = '?';
+        if ($website_page->module_name) {
+            $editUrl .= '?module=' . rawurlencode($website_page->module_name);
+            $separator = '&';
+        }
+        $editUrl .= $separator . 'saved=1';
+        return redirect($editUrl)->with('success', 'Pagina bijgewerkt.');
     }
 
     /**
@@ -465,33 +511,39 @@ class AdminWebsitePageController extends Controller
      */
     private function getHomeSectionsInput(Request $request): array
     {
-        // Laravel's input() parsed ook PUT/PATCH body (method spoofing); request->request kan leeg zijn bij PUT
+        // Laravel's input() parsed ook PUT/PATCH body (method spoofing + FormData/multipart)
         $raw = $request->input('home_sections');
         if (is_array($raw)) {
-            return $raw;
-        }
-        try {
-            $params = $request->request->all();
-            $raw = $params['home_sections'] ?? null;
-        } catch (\Throwable $e) {
-            $raw = null;
-        }
-        if (is_array($raw)) {
-            return $raw;
-        }
-        // Fallback: body parsen (bij grote forms of edge cases)
-        $content = $request->getContent();
-        if (is_string($content) && $content !== '') {
-            parse_str($content, $parsed);
-            $raw = $parsed['home_sections'] ?? null;
-            if (is_array($raw)) {
-                return $raw;
+            $input = $raw;
+        } else {
+            try {
+                $params = $request->request->all();
+                $raw = $params['home_sections'] ?? null;
+            } catch (\Throwable $e) {
+                $raw = null;
+            }
+            $input = is_array($raw) ? $raw : [];
+            if ($input === [] && $request->getContent() !== '') {
+                parse_str($request->getContent(), $parsed);
+                $raw = $parsed['home_sections'] ?? null;
+                $input = is_array($raw) ? $raw : [];
             }
         }
-        return [];
+        // Section order kan ontbreken bij grote body (max_input_vars): vul aan uit fallback-veld bovenaan formulier
+        $orderFromFallback = $request->input('_section_order');
+        if (is_string($orderFromFallback) && trim($orderFromFallback) !== '') {
+            $currentOrder = $input['section_order'] ?? null;
+            $orderEmpty = $currentOrder === null || $currentOrder === ''
+                || (is_array($currentOrder) && empty(array_filter($currentOrder)))
+                || (is_string($currentOrder) && trim($currentOrder) === '');
+            if ($orderEmpty) {
+                $input['section_order'] = trim($orderFromFallback);
+            }
+        }
+        return $input;
     }
 
-    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken'];
+    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
 
     private static function homeSectionBaseType(string $sectionKey): ?string
     {
@@ -619,7 +671,8 @@ class AdminWebsitePageController extends Controller
         } elseif (is_string($orderInput) && $orderInput !== '') {
             $sectionOrder = array_values(array_filter(array_map('trim', explode(',', $orderInput)), fn ($k) => self::homeSectionOrderValid($k)));
         }
-        $sectionOrder = array_values(array_unique(array_merge($sectionOrder, $defaults['section_order'])));
+        // Gebruik alleen de door de gebruiker opgegeven volgorde; niet mergen met defaults, zodat verwijderde secties weg blijven.
+        $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
 
         $sections = [];
         foreach ($sectionOrder as $sectionKey) {
@@ -708,15 +761,13 @@ class AdminWebsitePageController extends Controller
         $footer['support_links_align'] = isset($footerInput['support_links_align']) && in_array($footerInput['support_links_align'], ['left', 'center', 'right'], true) ? $footerInput['support_links_align'] : ($defaults['footer']['support_links_align'] ?? 'left');
 
         $visibilityInput = $input['visibility'] ?? [];
-        $visibility = array_merge($defaults['visibility'], [
-            'hero' => !empty($visibilityInput['hero']),
-            'stats' => !empty($visibilityInput['stats']),
-            'why_nexa' => !empty($visibilityInput['why_nexa']),
-            'features' => !empty($visibilityInput['features']),
-            'cta' => !empty($visibilityInput['cta']),
-            'cards_ronde_hoeken' => !empty($visibilityInput['cards_ronde_hoeken']),
-            'footer' => !empty($visibilityInput['footer']),
-        ]);
+        $visibilityOverlay = [];
+        foreach (['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'footer'] as $k) {
+            if (array_key_exists($k, $visibilityInput)) {
+                $visibilityOverlay[$k] = !empty($visibilityInput[$k]);
+            }
+        }
+        $visibility = array_merge($defaults['visibility'], $visibilityOverlay);
         foreach (array_keys($visibilityInput) as $key) {
             if (preg_match('/^(hero|stats|why_nexa|features|cta|cards_ronde_hoeken)(_[a-z0-9_]+)?$/i', $key)) {
                 $visibility[$key] = !empty($visibilityInput[$key]);
@@ -726,11 +777,21 @@ class AdminWebsitePageController extends Controller
             }
         }
 
+        $adminCollapsed = $input['admin_collapsed'] ?? [];
+        if (is_string($adminCollapsed) && $adminCollapsed !== '') {
+            $adminCollapsed = array_values(array_filter(array_map('trim', explode(',', $adminCollapsed))));
+        } elseif (is_array($adminCollapsed)) {
+            $adminCollapsed = array_values(array_filter($adminCollapsed, fn ($k) => is_string($k) && $k !== ''));
+        } else {
+            $adminCollapsed = [];
+        }
+
         return array_merge($sections, [
             'footer' => $footer,
             'copyright' => is_string($input['copyright'] ?? null) ? trim($input['copyright']) : ($defaults['copyright'] ?? ''),
             'section_order' => $sectionOrder,
             'visibility' => $visibility,
+            'admin_collapsed' => $adminCollapsed,
         ]);
     }
 
@@ -751,20 +812,43 @@ class AdminWebsitePageController extends Controller
             case 'stats':
                 $stats = [];
                 if (!empty($raw) && is_array($raw)) {
-                    foreach (array_values($raw) as $row) {
-                        if (is_array($row) && (isset($row['value']) || isset($row['label']))) {
+                    foreach ([0, 1, 2, 3] as $i) {
+                        $row = $raw[$i] ?? null;
+                        if (is_array($row)) {
+                            $vc = isset($row['value_color']) && is_string($row['value_color']) ? trim($row['value_color']) : '';
+                            $vc = $vc !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $vc) ? $vc : '';
+                            $vsRaw = $row['value_size'] ?? '22';
+                            $vs = in_array($vsRaw, ['small', 'medium', 'large'], true) ? $vsRaw : (in_array((int) $vsRaw, range(10, 30, 2), true) ? (string) (int) $vsRaw : '22');
+                            $lsRaw = $row['label_size'] ?? '16';
+                            $ls = in_array($lsRaw, ['small', 'medium', 'large'], true) ? $lsRaw : (in_array((int) $lsRaw, range(10, 30, 2), true) ? (string) (int) $lsRaw : '16');
                             $stats[] = [
-                                'value' => $row['value'] ?? '',
-                                'label' => $row['label'] ?? '',
+                                'value' => trim((string) ($row['value'] ?? '')),
+                                'label' => trim((string) ($row['label'] ?? '')),
+                                'value_color' => $vc,
+                                'value_size' => $vs,
+                                'label_size' => $ls,
                             ];
+                        } else {
+                            $defItems = $defaults['stats']['items'] ?? $defaults['stats'];
+                            $di = is_array($defItems) && isset($defItems[$i]) && is_array($defItems[$i]) ? $defItems[$i] : null;
+                            $stats[] = $di ? ['value' => $di['value'] ?? '', 'label' => $di['label'] ?? '', 'value_color' => $di['value_color'] ?? '', 'value_size' => $di['value_size'] ?? '22', 'label_size' => $di['label_size'] ?? '16'] : ['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'];
                         }
                     }
                 }
-                $defStats = $defaults['stats'];
+                $defStats = $defaults['stats']['items'] ?? $defaults['stats'];
+                if (!is_array($defStats)) $defStats = [];
                 while (count($stats) < 4) {
-                    $stats[] = $defStats[count($stats)] ?? ['value' => '', 'label' => ''];
+                    $di = $defStats[count($stats)] ?? null;
+                    $stats[] = is_array($di) ? ['value' => $di['value'] ?? '', 'label' => $di['label'] ?? '', 'value_color' => $di['value_color'] ?? '', 'value_size' => $di['value_size'] ?? '22', 'label_size' => $di['label_size'] ?? '16'] : ['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'];
                 }
-                return $stats;
+                $bg = isset($raw['background']) && is_string($raw['background']) ? trim($raw['background']) : '';
+                $bg = $bg !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $bg) ? $bg : '';
+                $bgImage = isset($raw['background_image']) && is_string($raw['background_image']) ? trim($raw['background_image']) : '';
+                return [
+                    'items' => array_values($stats),
+                    'background' => $bg,
+                    'background_image' => $bgImage,
+                ];
             case 'why_nexa':
                 return array_filter(array_merge($defaults['why_nexa'], $raw));
             case 'features':
@@ -848,6 +932,41 @@ class AdminWebsitePageController extends Controller
                 $cardsPerRow = isset($raw['cards_per_row']) ? (int) $raw['cards_per_row'] : ($defaults['cards_ronde_hoeken']['cards_per_row'] ?? 4);
                 $cardsPerRow = in_array($cardsPerRow, [2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
                 return ['cards_per_row' => $cardsPerRow, 'items' => $items ?: $defItems];
+            case 'featured_services':
+                $items = [];
+                if (! empty($raw['items']) && is_array($raw['items'])) {
+                    foreach (array_values($raw['items']) as $row) {
+                        if (is_array($row)) {
+                            $items[] = [
+                                'icon' => trim((string) ($row['icon'] ?? 'light-bulb')),
+                                'title' => trim((string) ($row['title'] ?? '')),
+                                'description' => trim((string) ($row['description'] ?? '')),
+                            ];
+                        }
+                    }
+                }
+                $defItems = $defaults['featured_services']['items'] ?? [['icon' => 'light-bulb', 'title' => '', 'description' => '']];
+                $blocksPerRow = isset($raw['blocks_per_row']) ? (int) $raw['blocks_per_row'] : ($defaults['featured_services']['blocks_per_row'] ?? 3);
+                $blocksPerRow = in_array($blocksPerRow, [2, 3, 4], true) ? $blocksPerRow : 3;
+                $blockSize = isset($raw['block_size']) && in_array($raw['block_size'], ['small', 'medium', 'large', 'full'], true) ? $raw['block_size'] : ($defaults['featured_services']['block_size'] ?? 'medium');
+                $blockAlign = isset($raw['block_align']) && in_array($raw['block_align'], ['left', 'center', 'right'], true) ? $raw['block_align'] : ($defaults['featured_services']['block_align'] ?? 'center');
+                $iconSize = isset($raw['icon_size']) && in_array($raw['icon_size'], ['small', 'medium', 'large'], true) ? $raw['icon_size'] : ($defaults['featured_services']['icon_size'] ?? 'medium');
+                $iconAlign = isset($raw['icon_align']) && in_array($raw['icon_align'], ['top', 'center', 'bottom'], true) ? $raw['icon_align'] : ($defaults['featured_services']['icon_align'] ?? 'center');
+                $cardBgColor = isset($raw['card_bg_color']) && is_string($raw['card_bg_color']) ? trim($raw['card_bg_color']) : ($defaults['featured_services']['card_bg_color'] ?? '');
+                $cardBgColor = $cardBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $cardBgColor) ? $cardBgColor : '';
+                $animationSpeed = isset($raw['animation_speed']) && in_array($raw['animation_speed'], ['fast', 'normal', 'slow', 'slower'], true) ? $raw['animation_speed'] : ($defaults['featured_services']['animation_speed'] ?? 'slow');
+                return [
+                    'title' => trim((string) ($raw['title'] ?? ($defaults['featured_services']['title'] ?? 'Diensten'))),
+                    'subtitle' => trim((string) ($raw['subtitle'] ?? ($defaults['featured_services']['subtitle'] ?? ''))),
+                    'blocks_per_row' => $blocksPerRow,
+                    'block_size' => $blockSize,
+                    'block_align' => $blockAlign,
+                    'icon_size' => $iconSize,
+                    'icon_align' => $iconAlign,
+                    'card_bg_color' => $cardBgColor,
+                    'animation_speed' => $animationSpeed,
+                    'items' => $items ?: $defItems,
+                ];
             default:
                 return [];
         }
@@ -887,8 +1006,10 @@ class AdminWebsitePageController extends Controller
         ]);
 
         $logoFile = $request->file('logo');
-        $dir = 'website';
-        if (!Storage::disk('public')->exists($dir)) {
+        $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
+        $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
+        $dir = $prefix . 'website';
+        if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
         $path = $logoFile->store($dir, 'public');
@@ -951,14 +1072,16 @@ class AdminWebsitePageController extends Controller
             ], 422);
         }
 
-        $dir = 'website/hero';
+        $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
+        $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
+        $dir = $prefix . 'website/hero';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
         $previousUrl = $request->input('previous_url');
         if (is_string($previousUrl) && $previousUrl !== '') {
             $pathFromUrl = preg_replace('#^/storage/#', '', $previousUrl);
-            if (str_starts_with($pathFromUrl, 'website/hero/') && ! str_contains($pathFromUrl, '..')) {
+            if (! str_contains($pathFromUrl, '..') && (str_starts_with($pathFromUrl, 'website/hero/') || str_starts_with($pathFromUrl, 'modules/'))) {
                 Storage::disk('public')->delete($pathFromUrl);
             }
         }
@@ -986,7 +1109,9 @@ class AdminWebsitePageController extends Controller
         ]);
 
         $file = $request->file('document');
-        $dir = 'website/documents';
+        $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
+        $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
+        $dir = $prefix . 'website/documents';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
@@ -1008,6 +1133,49 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * Uniekheidsregel voor slug: per module (niet per thema). Bij module-connection gebruiken we een
+     * closure i.p.v. Rule::unique(connection.table) om te voorkomen dat Laravel een niet-bestaande
+     * connection()-methode op de Unique-rule aanroept.
+     *
+     * @param  string|null  $connection  Database connection (bijv. module_taxiroyaal) of null voor default
+     * @param  string|null  $moduleName
+     * @param  int|null  $ignoreId  Bij update: id van de huidige pagina om te negeren
+     * @return \Closure|Rule
+     */
+    private function buildSlugUniqueRule(?string $connection, ?string $moduleName, ?int $ignoreId = null)
+    {
+        if ($connection !== null) {
+            return function (string $attribute, mixed $value, \Closure $fail) use ($connection, $moduleName, $ignoreId): void {
+                $query = DB::connection($connection)->table('website_pages')->where('slug', $value);
+                if ($moduleName === null) {
+                    $query->whereNull('module_name');
+                } else {
+                    $query->where('module_name', $moduleName);
+                }
+                if ($ignoreId !== null) {
+                    $query->where('id', '!=', $ignoreId);
+                }
+                if ($query->exists()) {
+                    $fail('Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.');
+                }
+            };
+        }
+        $table = 'website_pages';
+        $rule = Rule::unique($table, 'slug')
+            ->where(function ($q) use ($moduleName) {
+                if ($moduleName === null) {
+                    $q->whereNull('module_name');
+                } else {
+                    $q->where('module_name', $moduleName);
+                }
+            });
+        if ($ignoreId !== null) {
+            $rule->ignore($ignoreId);
+        }
+        return $rule;
+    }
+
+    /**
      * Genormaliseerde module_name voor validatie (null bij leeg).
      * Gebruikt voor slug-uniekheid per module.
      */
@@ -1022,11 +1190,35 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
-     * Bepaal frontend_theme_id uit het request (zelfde logica als bij store/update).
+     * Resolve form module_name naar de canonieke naam uit de modules-tabel.
+     * Zorgt dat opslaan en frontend (getBrandingModule()->name) dezelfde connection/naam gebruiken.
+     */
+    private function resolveCanonicalModuleName(mixed $value): ?string
+    {
+        $trimmed = $this->normalizeModuleNameForValidation($value);
+        if ($trimmed === null) {
+            return null;
+        }
+        $module = Module::where('installed', true)->whereRaw('LOWER(name) = ?', [strtolower($trimmed)])->first();
+
+        return $module ? $module->name : $trimmed;
+    }
+
+    /**
+     * Bepaal frontend_theme_id uit het request.
+     * Als de gebruiker expliciet een thema heeft gekozen (frontend_theme_id), wordt die gebruikt.
+     * Anders: bij een module het thema van die module, bij kernpagina's null.
      * Gebruikt voor slug-uniekheid per thema.
      */
     private function resolveFrontendThemeIdFromRequest(Request $request): ?int
     {
+        $themeId = $request->input('frontend_theme_id');
+        if ($themeId !== null && $themeId !== '') {
+            $id = (int) $themeId;
+            if ($id > 0 && FrontendTheme::where('id', $id)->exists()) {
+                return $id;
+            }
+        }
         $moduleName = $request->input('module_name');
         if (empty($moduleName) || ! is_string($moduleName)) {
             return null;
@@ -1035,9 +1227,7 @@ class AdminWebsitePageController extends Controller
         if ($module && $module->frontend_theme_id) {
             return (int) $module->frontend_theme_id;
         }
-
         $active = $this->websiteBuilder->getActiveTheme();
-
         return $active ? (int) $active->id : null;
     }
 
