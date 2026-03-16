@@ -56,6 +56,11 @@
             border-color: rgba(254, 243, 199, 0.3);
         }
         html.dark .staging-bar button:hover { background: rgba(255,255,255,0.25); }
+        /* Logo light/dark op frontend: toon juiste logo volgens thema */
+        .fe-logo-light { display: block !important; }
+        .fe-logo-dark { display: none !important; }
+        html.dark .fe-logo-light { display: none !important; }
+        html.dark .fe-logo-dark { display: block !important; }
         /* Previewbalk: zachtere, minder felle kleur in light en dark mode */
         .preview-bar {
             background-color: #9a3412 !important;
@@ -137,6 +142,49 @@
         /* Footer: witte lijntjes grijs in dark mode */
         html.dark footer,
         html.dark footer .border-t { border-color: #4b5563 !important; }
+        /* Scroll-to-top knop: rechtsonder, verschijnt bij scrollen */
+        .scrollup {
+            position: fixed;
+            right: 20px;
+            bottom: 24px;
+            width: 40px;
+            height: 40px;
+            z-index: 9997;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: var(--theme-primary, #2563eb);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s ease, background-color 0.2s ease;
+        }
+        .scrollup:hover {
+            filter: brightness(1.1);
+        }
+        .scrollup.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .scrollup.right {
+            right: 84px;
+            bottom: 24px;
+        }
+        @media (min-width: 768px) {
+            .scrollup.right { right: 88px; bottom: 28px; }
+        }
+        body:not(:has(#frontend-whatsapp-widget)) .scrollup.right {
+            right: 20px;
+        }
+        @media (min-width: 768px) {
+            body:not(:has(#frontend-whatsapp-widget)) .scrollup.right { right: 24px; bottom: 28px; }
+        }
     </style>
     <!-- Dark mode: direct op html zetten vóór first paint (voorkomt witte flits) -->
     <script>
@@ -185,7 +233,12 @@
                     @endphp
                     <a href="{{ $logoHref }}" class="flex items-center" aria-label="{{ $branding['site_name'] ?? 'Home' }}">
                         @if(!empty($branding['logo_url']))
-                            <img src="{{ $branding['logo_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="h-10 md:h-12 w-auto">
+                            @if(!empty($branding['logo_dark_url']))
+                                <img src="{{ $branding['logo_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="fe-logo-light h-10 md:h-12 w-auto object-contain">
+                                <img src="{{ $branding['logo_dark_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="fe-logo-dark h-10 md:h-12 w-auto object-contain">
+                            @else
+                                <img src="{{ $branding['logo_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="h-10 md:h-12 w-auto">
+                            @endif
                         @else
                             <span class="text-xl font-bold" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                         @endif
@@ -307,6 +360,7 @@
             @php
                 $footerData = $homeSections['footer'] ?? [];
                 $footerLogoUrl = !empty($footerData['logo_url']) ? $footerData['logo_url'] : ($branding['logo_url'] ?? null);
+                $footerLogoDarkUrl = (empty($footerData['logo_url']) && !empty($branding['logo_dark_url'])) ? $branding['logo_dark_url'] : null;
                 $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['site_name'] ?? config('app.name'));
                 $footerLinkUrl = function($u) {
                     if (empty($u)) return url('/');
@@ -344,6 +398,19 @@
                         $footerFirstColSpan = $footerLinkColumnsCount === 2 ? 'md:col-span-2' : ($footerLinkColumnsCount === 1 ? 'md:col-span-2' : 'md:col-span-1');
                         $footerQuickLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-3' : 'md:col-start-3';
                         $footerSupportLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-4' : 'md:col-start-3';
+                        $footerSocialLinks = [];
+                        $footerSocialBases = ['social_facebook' => 'https://www.facebook.com/', 'social_instagram' => 'https://www.instagram.com/', 'social_x' => 'https://x.com/', 'social_linkedin' => 'https://www.linkedin.com/', 'social_youtube' => 'https://www.youtube.com/', 'social_tiktok' => 'https://www.tiktok.com/@'];
+                        foreach (['facebook' => 'social_facebook', 'instagram' => 'social_instagram', 'x' => 'social_x', 'linkedin' => 'social_linkedin', 'youtube' => 'social_youtube', 'tiktok' => 'social_tiktok'] as $key => $field) {
+                            $u = trim((string)($footerData[$field] ?? ''));
+                            if ($u === '') continue;
+                            if (strpos($u, 'http') === 0 || strpos($u, '//') === 0) {
+                                $footerSocialLinks[$key] = $footerLinkUrl($u);
+                            } else {
+                                $base = $footerSocialBases[$field];
+                                $id = $field === 'social_tiktok' ? ltrim($u, '@') : $u;
+                                $footerSocialLinks[$key] = $base . $id;
+                            }
+                        }
                     @endphp
                     <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerShowMapRight ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
                         @if($footerShowMapRight)
@@ -352,7 +419,12 @@
                             <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
                                     @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
-                                    <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
+                                    @if(!empty($footerLogoDarkUrl))
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto mb-4 h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto mb-4 h-{{ $logoHeight }} object-contain">
+                                    @else
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
+                                    @endif
                                 @elseif($footVis['footer_logo'] ?? true)
                                     <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
@@ -407,7 +479,12 @@
                             <div class="{{ $footerLogoAlignWrapper }}">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
                                     @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
-                                    <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
+                                    @if(!empty($footerLogoDarkUrl))
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto mb-4 h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto mb-4 h-{{ $logoHeight }} object-contain">
+                                    @else
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
+                                    @endif
                                 @elseif($footVis['footer_logo'] ?? true)
                                     <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
@@ -457,6 +534,11 @@
                         @endif
                         @endif
                     </div>
+                    @if(($footVis['footer_social'] ?? true) && count($footerSocialLinks) > 0)
+                        <div class="w-full mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                            @include('frontend.layouts.partials.footer-social-icons', ['footerSocialLinks' => $footerSocialLinks, 'footerLogoAlign' => 'center'])
+                        </div>
+                    @endif
                 </div>
                 @if(!empty($homeSections['copyright']))
                     <div class="border-t border-gray-300 dark:border-gray-600 py-4 container-custom">
@@ -470,7 +552,12 @@
             <div class="container-custom py-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                     @if(!empty($branding['logo_url']))
-                        <img src="{{ $branding['logo_url'] }}" alt="" class="h-8 w-auto opacity-80">
+                        @if(!empty($branding['logo_dark_url']))
+                            <img src="{{ $branding['logo_url'] }}" alt="" class="fe-logo-light h-8 w-auto opacity-80 object-contain">
+                            <img src="{{ $branding['logo_dark_url'] }}" alt="" class="fe-logo-dark h-8 w-auto opacity-80 object-contain">
+                        @else
+                            <img src="{{ $branding['logo_url'] }}" alt="" class="h-8 w-auto opacity-80">
+                        @endif
                     @else
                         <span class="font-semibold" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                     @endif
@@ -534,6 +621,16 @@
             </button>
         </div>
     @endif
+
+    <button type="button"
+            id="scrollup-btn"
+            class="scrollup right"
+            aria-label="Naar boven scrollen"
+            title="Naar boven">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+        </svg>
+    </button>
 
     <button type="button"
             id="cookie-settings-btn"
@@ -683,8 +780,14 @@
                 } else {
                     html.classList.remove('dark');
                 }
+                syncFeLogos();
             }
             function isDark() { return html.classList.contains('dark'); }
+            function syncFeLogos() {
+                var dark = isDark();
+                document.querySelectorAll('.fe-logo-light').forEach(function(el) { el.style.setProperty('display', dark ? 'none' : 'block', 'important'); });
+                document.querySelectorAll('.fe-logo-dark').forEach(function(el) { el.style.setProperty('display', dark ? 'block' : 'none', 'important'); });
+            }
             function updateIcons() {
                 var dark = isDark();
                 var suns = document.querySelectorAll('#theme-icon-sun, #theme-icon-sun-mobile');
@@ -705,6 +808,7 @@
                 else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) { applyTheme(true); }
                 else { applyTheme(false); }
                 updateIcons();
+                syncFeLogos();
             }
             function init() {
                 initTheme();
@@ -784,7 +888,8 @@
             var apiKey = (mapEl.getAttribute('data-api-key') || '').trim();
             if (!apiKey) return;
             var mapId = (mapEl.getAttribute('data-map-id') || '').trim();
-            var useAdvancedMarker = mapId.length > 0;
+            if (!mapId) mapId = 'DEMO_MAP_ID';
+            var useAdvancedMarker = true;
             var latStr = (mapEl.getAttribute('data-lat') || '').trim();
             var lngStr = (mapEl.getAttribute('data-lng') || '').trim();
             var address = (mapEl.getAttribute('data-address') || '').trim();
@@ -802,7 +907,7 @@
                 if (hasCoords) {
                     center = { lat: lat, lng: lng };
                 }
-                var useAdvanced = useAdvancedMarker && mapId;
+                var useAdvanced = useAdvancedMarker && mapId && mapId.length > 0;
                 var mapOptions = {
                     center: center,
                     zoom: zoom,
@@ -925,6 +1030,30 @@
             });
 
             closeMenu();
+        })();
+
+        (function() {
+            var btn = document.getElementById('scrollup-btn');
+            if (!btn) return;
+            var scrollThreshold = 280;
+            function updateVisibility() {
+                if (window.scrollY > scrollThreshold) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            }
+            function scrollToTop() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            window.addEventListener('scroll', function() {
+                updateVisibility();
+            }, { passive: true });
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                scrollToTop();
+            });
+            updateVisibility();
         })();
     </script>
     @stack('scripts')

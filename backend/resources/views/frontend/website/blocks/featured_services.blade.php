@@ -97,7 +97,7 @@
                         <div class="scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-delay="{{ $index }}">
                         <div class="featured-service-card min-w-0 h-full rounded-xl border border-gray-200 dark:border-gray-700 {{ $cardPadding }} shadow-sm w-full {{ $cardBgColor ? '' : 'bg-white dark:bg-gray-800/50' }}" @if($cardBgColor) style="background-color: {{ $cardBgColor }};" @endif>
                         <div class="flex {{ $iconAlignClass }} gap-4">
-                            <div class="featured-service-icon shrink-0 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary transition-transform duration-200 ease-out" style="width: {{ $iconSizePx }}px; height: {{ $iconSizePx }}px;">
+                            <div class="featured-service-icon shrink-0 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary" style="width: {{ $iconSizePx }}px; height: {{ $iconSizePx }}px;">
                                 <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="width: {{ $iconSizePx }}px; height: {{ $iconSizePx }}px;">{!! $iconDef['svg'] ?? '' !!}</svg>
                             </div>
                             <div class="min-w-0 flex-1">
@@ -165,8 +165,19 @@
         transform: translateY(-6px);
         box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.15), 0 4px 8px -4px rgb(0 0 0 / 0.08);
     }
+    /* Icon: ruststand iets links; bij hover soepel terug naar 0, bij loslaten weer naar ruststand */
+    .website-block-featured-services .featured-service-icon {
+        transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+    }
     .website-block-featured-services.is-in-view .featured-service-card:hover .featured-service-icon {
-        transform: translateX(-6px);
+        animation: featured-service-icon-spring 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+    }
+    @keyframes featured-service-icon-spring {
+        0%   { transform: translateX(0); }
+        32%  { transform: translateX(-8px); }
+        58%  { transform: translateX(5px); }
+        78%  { transform: translateX(-1px); }
+        100% { transform: translateX(-3px); }
     }
     .dark .website-block-featured-services.is-in-view .featured-service-card:hover {
         box-shadow: 0 12px 24px -8px rgb(0 0 0 / 0.25), 0 4px 8px -4px rgb(0 0 0 / 0.15);

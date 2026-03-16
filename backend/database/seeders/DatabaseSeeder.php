@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             InterviewMatchSeeder::class,
             NotificationSeeder::class,
             EmailTemplateSeeder::class,
+            InfoRequestFormFieldSeeder::class,
             FrontendThemeSeeder::class,
         ]);
     }

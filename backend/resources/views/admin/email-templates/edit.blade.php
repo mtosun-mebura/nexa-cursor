@@ -29,11 +29,10 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.email-templates.update', $emailTemplate) }}" method="POST">
-        @csrf
-        @method('PUT')
-        
-        <div class="grid gap-5 lg:gap-7.5">
+    <div class="grid gap-5 lg:gap-7.5">
+        <form action="{{ route('admin.email-templates.update', $emailTemplate) }}" method="POST" style="display: contents;">
+            @csrf
+            @method('PUT')
             @if(auth()->user()->hasRole('super-admin'))
             <!-- Bedrijf Selectie (alleen voor Super Admin) -->
             <div class="kt-card">
@@ -146,12 +145,28 @@
                                 @enderror
                             </td>
                         </tr>
+                        @include('admin.email-templates.partials.recipient-fields', ['emailTemplate' => $emailTemplate, 'users' => $users])
                     </table>
                 </div>
             </div>
 
-            <!-- HTML Content Card -->
-            <div class="kt-card">
+            @include('admin.email-templates.partials.form-field-order', ['formFields' => $formFields ?? collect(), 'allFormFieldsPool' => $allFormFieldsPool ?? collect(), 'isInfoRequestType' => $isInfoRequestType ?? false])
+
+            @if(isset($isInfoRequestType) && $isInfoRequestType)
+            <!-- Frontend weergave (formulierpreview, volgorde synct met Formuliervelden) -->
+            <div class="kt-card" id="frontend-weergave-card">
+                <div class="kt-card-header">
+                    <h5 class="kt-card-title">Frontend weergave</h5>
+                </div>
+                <div class="kt-card-content">
+                    <p class="text-sm text-muted-foreground mb-3">Zo ziet het formulier er op de website uit. De volgorde wijzigt direct wanneer je velden hierboven herschikt.</p>
+                    @include('admin.email-templates.partials.formulier-preview', ['formFields' => $formFields ?? []])
+                </div>
+            </div>
+            @endif
+
+            <!-- HTML Content Card (zelfde breedte als overige secties) -->
+            <div class="kt-card" id="html-content-card">
                 <div class="kt-card-header">
                     <h5 class="kt-card-title">HTML Inhoud *</h5>
                 </div>
@@ -170,13 +185,20 @@
                     <div class="text-xs text-muted-foreground mb-2">
                         <strong>Tip:</strong> Gebruik de knoppen voor opmaak of wissel naar "Bewerk code" (knop &lt;/&gt;) om HTML en variabelen te bewerken.
                     </div>
-                    <div class="text-xs text-muted-foreground">
-                        <p class="mb-2"><strong>Beschikbare variabelen:</strong></p>
+                    <div class="text-xs text-muted-foreground mb-5">
+                        <p class="mb-2"><strong>Beschikbare variabelen {{ (isset($isInfoRequestType) && $isInfoRequestType) ? '(formulier op de website)' : '' }}:</strong></p>
                         <div class="space-y-1.5">
-                            @if(isset($templateVariables) && is_array($templateVariables))
+                            @if(isset($isInfoRequestType) && $isInfoRequestType && isset($infoRequestVariables) && is_array($infoRequestVariables))
+                                @foreach($infoRequestVariables as $variable => $description)
+                                    <div class="flex items-center gap-2">
+                                        <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
+                                        <span class="text-foreground">{{ $description }}</span>
+                                    </div>
+                                @endforeach
+                            @elseif(isset($templateVariables) && is_array($templateVariables))
                                 @foreach($templateVariables as $variable => $description)
                                     <div class="flex items-center gap-2">
-                                        <code class="px-2 py-1 bg-muted rounded text-foreground font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
+                                        <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
                                         <span class="text-foreground">{{ $description }}</span>
                                     </div>
                                 @endforeach
@@ -185,37 +207,19 @@
                             @endif
                         </div>
                         <p class="text-xs text-muted-foreground mt-3">
-                            <strong>Tip:</strong> Gebruik deze variabelen in je template met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-muted rounded text-foreground font-mono text-xs">{{ '{' }}{{ '{' }}USER_NAME{{ '}' }}{{ '}' }}</code>
+                            <strong>Tip:</strong> Gebruik deze variabelen in je template met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }}{{ (isset($isInfoRequestType) && $isInfoRequestType) ? 'VOORNAAM' : 'USER_NAME' }}{{ '}' }}{{ '}' }}</code>
                         </p>
+                        @if(isset($isInfoRequestType) && $isInfoRequestType)
+                        <p class="text-xs text-muted-foreground mt-1">
+                            <strong>Dynamische velden:</strong> Gebruik <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }} DYNAMIC_FORM_FIELDS {{ '}' }}{{ '}' }}</code> in een tabel om alle formuliervelden (inclusief nieuw toegevoegde) automatisch te tonen.
+                        </p>
+                        @endif
                     </div>
                 </div>
             </div>
-
-            <!-- Text Content Card -->
-            <div class="kt-card">
-                <div class="kt-card-header">
-                    <h5 class="kt-card-title">Tekst Inhoud (Plain Text)</h5>
-                </div>
-                <div class="kt-card-content">
-                    <div class="mb-3">
-                        <label for="text_content" class="kt-form-label mb-2">Tekst Inhoud</label>
-                        <textarea class="kt-input pt-2 @error('text_content') border-destructive @enderror" 
-                                  id="text_content" 
-                                  name="text_content" 
-                                  rows="30">{{ old('text_content', $emailTemplate->text_content) }}</textarea>
-                        @error('text_content')
-                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="text-xs text-muted-foreground">
-                        Tekstversie voor e-mail clients die geen HTML ondersteunen. Laat leeg om automatisch te genereren vanuit HTML.
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Form Actions -->
-        <div class="flex items-center justify-end gap-2.5 mt-5">
+        <div class="flex items-center justify-end gap-2.5 mt-5" style="grid-column: 1 / -1;">
             <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
                 Annuleren
             </a>
@@ -224,26 +228,197 @@
                 Wijzigingen Opslaan
             </button>
         </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 @include('admin.email-templates.partials.tinymce-html-editor')
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" crossorigin="anonymous"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var textContentTextarea = document.getElementById('text_content');
-    if (!textContentTextarea) return;
-
-    function autoResizeTextarea(ta) {
-        ta.style.height = 'auto';
-        var sh = ta.scrollHeight;
-        var lh = parseInt(window.getComputedStyle(ta).lineHeight) || 20;
-        var minH = lh * parseInt(ta.getAttribute('rows') || 30);
-        ta.style.height = Math.max(sh + 12, minH) + 'px';
+    // Toggle ontvanger: gebruiker uit lijst / vrije e-mail (in Basis Informatie-kaart)
+    var mainForm = document.querySelector('form[action*="email-templates"]:not(.send-test-form)');
+    if (mainForm) {
+        var typeUser = mainForm.querySelector('input.recipient-type-radio[value="user"]');
+        var userWrap = mainForm.querySelector('.recipient-user-wrap.main-form-recipient-wrap');
+        var emailWrap = mainForm.querySelector('.recipient-email-wrap.main-form-recipient-wrap');
+        if (typeUser && userWrap && emailWrap) {
+            function toggleMainRecipient() {
+                var isUser = typeUser.checked;
+                userWrap.style.display = isUser ? '' : 'none';
+                emailWrap.style.display = isUser ? 'none' : '';
+            }
+            mainForm.querySelectorAll('.recipient-type-radio.main-form-recipient').forEach(function(r) {
+                r.addEventListener('change', toggleMainRecipient);
+            });
+            toggleMainRecipient();
+        }
     }
-    autoResizeTextarea(textContentTextarea);
-    textContentTextarea.addEventListener('input', function() { autoResizeTextarea(this); });
+
+    // Formuliervelden volgorde: klik (omhoog/omlaag/verwijderen), drag & drop, en live sync naar Frontend weergave + testform
+    var orderList = document.getElementById('form-field-order-list');
+    var addSelect = document.getElementById('form-field-order-add');
+
+    function getFormFieldOrder() {
+        if (!orderList) return [];
+        var ids = [];
+        orderList.querySelectorAll('[data-field-id]').forEach(function(el) {
+            var id = el.getAttribute('data-field-id');
+            if (id) ids.push(id);
+        });
+        return ids;
+    }
+
+    function getOrderRowLabelName(id) {
+        if (!orderList) return { label: '', name: '' };
+        var row = orderList.querySelector('[data-field-id="' + id + '"]');
+        if (!row) return { label: '', name: '' };
+        var label = row.querySelector('.font-medium') ? row.querySelector('.font-medium').textContent.trim() : '';
+        var code = row.querySelector('code');
+        var name = code ? code.textContent.trim() : '';
+        return { label: label, name: name };
+    }
+
+    function syncFormPreviewOrder() {
+        var orderedIds = getFormFieldOrder();
+        var previewContainer = document.getElementById('frontend-preview-fields');
+        var testTbody = document.getElementById('send-test-form-fields-tbody');
+        var inputClass = 'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-500 dark:focus:border-blue-500 opacity-75';
+
+        if (previewContainer) {
+            var previewRows = {};
+            previewContainer.querySelectorAll('.form-preview-field-row[data-field-id]').forEach(function(el) {
+                previewRows[el.getAttribute('data-field-id')] = el;
+            });
+            function makeRowEl(id) {
+                var el = previewRows[id];
+                if (el) return el;
+                var info = getOrderRowLabelName(id);
+                var name = (info.name || '').toLowerCase();
+                var isOmschrijving = name.indexOf('omschrijving') !== -1;
+                var isEmail = name.indexOf('email') !== -1;
+                var inputHtml = isOmschrijving
+                    ? '<textarea rows="5" disabled readonly class="' + inputClass + '"></textarea>'
+                    : '<input type="' + (isEmail ? 'email' : 'text') + '" disabled readonly class="' + inputClass + '" value="">';
+                el = document.createElement('div');
+                el.className = 'form-preview-field-row';
+                el.setAttribute('data-field-id', id);
+                el.innerHTML = '<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">' + (info.label || '') + ' *</label>' + inputHtml;
+                previewRows[id] = el;
+                return el;
+            }
+            while (previewContainer.firstChild) previewContainer.removeChild(previewContainer.firstChild);
+            if (orderedIds.length >= 2) {
+                var gridDiv = document.createElement('div');
+                gridDiv.className = 'grid gap-4 sm:grid-cols-2';
+                gridDiv.appendChild(makeRowEl(orderedIds[0]));
+                gridDiv.appendChild(makeRowEl(orderedIds[1]));
+                previewContainer.appendChild(gridDiv);
+                for (var i = 2; i < orderedIds.length; i++) previewContainer.appendChild(makeRowEl(orderedIds[i]));
+            } else {
+                orderedIds.forEach(function(id) { previewContainer.appendChild(makeRowEl(id)); });
+            }
+        }
+
+        if (testTbody) {
+            var submitRow = testTbody.querySelector('.send-test-form-submit-row');
+            var testRows = {};
+            testTbody.querySelectorAll('tr[data-field-id]').forEach(function(el) {
+                testRows[el.getAttribute('data-field-id')] = el;
+            });
+            orderedIds.forEach(function(id) {
+                var el = testRows[id];
+                if (!el) {
+                    var info = getOrderRowLabelName(id);
+                    el = document.createElement('tr');
+                    el.setAttribute('data-field-id', id);
+                    el.innerHTML = '<td class="text-secondary-foreground font-normal w-px whitespace-nowrap pr-4">' + (info.label || '') + ' *</td><td><input type="text" class="kt-input max-w-md" name="test_' + (info.name || '') + '" value=""></td>';
+                    testRows[id] = el;
+                }
+                testTbody.appendChild(el);
+            });
+            if (submitRow) testTbody.appendChild(submitRow);
+        }
+    }
+
+    function removeFieldFromPreviews(fieldId) {
+        document.querySelectorAll('#frontend-preview-fields .form-preview-field-row[data-field-id="' + fieldId + '"]').forEach(function(el) { el.remove(); });
+        document.querySelectorAll('#send-test-form-fields-tbody tr[data-field-id="' + fieldId + '"]').forEach(function(el) { el.remove(); });
+    }
+
+    if (orderList) {
+        orderList.addEventListener('click', function(e) {
+            e.preventDefault();
+            var row = e.target.closest('[data-field-id]');
+            if (!row) return;
+            if (e.target.closest('.form-field-order-remove')) {
+                var fieldId = row.getAttribute('data-field-id');
+                if (addSelect) {
+                    var codes = row.querySelectorAll('code');
+                    var slug = codes[0] ? codes[0].textContent.trim() : '';
+                    var label = row.querySelector('.font-medium') ? row.querySelector('.font-medium').textContent.trim() : '';
+                    var opt = document.createElement('option');
+                    opt.value = fieldId;
+                    opt.setAttribute('data-label', label);
+                    opt.setAttribute('data-name', slug);
+                    opt.textContent = label + ' (' + slug + ')';
+                    addSelect.appendChild(opt);
+                }
+                removeFieldFromPreviews(fieldId);
+                row.remove();
+            } else if (e.target.closest('.form-field-order-up')) {
+                var prev = row.previousElementSibling;
+                if (prev) orderList.insertBefore(row, prev);
+                syncFormPreviewOrder();
+            } else if (e.target.closest('.form-field-order-down')) {
+                var next = row.nextElementSibling;
+                if (next) orderList.insertBefore(next, row);
+                syncFormPreviewOrder();
+            }
+        });
+
+        // Sleep (drag & drop) met Sortable.js, zelfde techniek als home-sections-sortable
+        if (typeof Sortable !== 'undefined') {
+            new Sortable(orderList, {
+                handle: '.form-field-drag-handle',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                dragClass: 'cursor-grabbing',
+                onEnd: function() { syncFormPreviewOrder(); }
+            });
+        }
+    }
+
+    if (orderList && addSelect) {
+        addSelect.addEventListener('change', function() {
+            var opt = this.options[this.selectedIndex];
+            if (!opt || !opt.value) return;
+            var id = opt.value;
+            var label = opt.getAttribute('data-label') || opt.textContent;
+            var name = opt.getAttribute('data-name') || '';
+            var varKey = name.toUpperCase().replace(/-/g, '_');
+            var row = document.createElement('div');
+            row.className = 'flex items-center gap-2 py-2 px-3 rounded-lg border border-border bg-muted/20';
+            row.setAttribute('data-field-id', id);
+            var varDisplay = '{{ ' + varKey + ' }}';
+            row.innerHTML = '<span class="form-field-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground select-none" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen" role="button">⋮⋮</span>' +
+                '<span class="font-medium text-foreground">' + (label || '') + '</span>' +
+                '<code class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-white px-2 py-0.5 rounded">' + (name || '') + '</code>' +
+                '<span class="text-xs text-muted-foreground">→ <code>' + varDisplay + '</code></span>' +
+                '<div class="ml-auto flex items-center gap-1">' +
+                '<button type="button" class="form-field-order-up kt-btn kt-btn-sm kt-btn-ghost" title="Omhoog"><i class="ki-filled ki-arrow-up"></i></button>' +
+                '<button type="button" class="form-field-order-down kt-btn kt-btn-sm kt-btn-ghost" title="Omlaag"><i class="ki-filled ki-arrow-down"></i></button>' +
+                '<button type="button" class="form-field-order-remove kt-btn kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen"><i class="ki-filled ki-trash"></i></button>' +
+                '</div>' +
+                '<input type="hidden" name="form_field_order[]" value="' + id + '">';
+            orderList.appendChild(row);
+            opt.remove();
+            this.selectedIndex = 0;
+            syncFormPreviewOrder();
+        });
+    }
 });
 </script>
 @endpush

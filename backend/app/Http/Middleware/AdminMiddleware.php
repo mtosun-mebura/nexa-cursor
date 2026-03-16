@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\WebsiteBuilderService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,18 +22,18 @@ class AdminMiddleware
             $path = $request->path();
             $isUtilityPath = preg_match('#^(admin/)?(chat|notifications)/unread-count#', $path);
             if (!$isUtilityPath) {
-                session(['url.intended' => $request->url()]);
+                session(['url.intended' => $request->fullUrl()]);
             }
 
             // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Je sessie is verlopen. Log opnieuw in.',
-                    'redirect' => route('admin.meld.sessie-verlopen', ['intended' => $request->url()])
+                    'redirect' => route('admin.meld.sessie-verlopen', ['intended' => $request->fullUrl()])
                 ], 401);
             }
             
-            return redirect()->route('admin.meld.sessie-verlopen', ['intended' => $request->url()]);
+            return redirect()->route('admin.meld.sessie-verlopen', ['intended' => $request->fullUrl()]);
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)
@@ -44,9 +45,21 @@ class AdminMiddleware
                     'redirect' => route('admin.login')
                 ], 403);
             }
-            
+
             // Redirect to admin login page instead of home
             return redirect()->route('admin.login')->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
+        }
+
+        // Super-admin: als er nog geen tenant gekozen is, automatisch de tenant van de actieve (branding) module kiezen
+        if (auth()->user()->hasRole('super-admin') && !session()->has('selected_tenant')) {
+            $websiteBuilder = app(WebsiteBuilderService::class);
+            $brandingModule = $websiteBuilder->getBrandingModule();
+            if ($brandingModule && is_array($brandingModule->configuration)) {
+                $companyId = $brandingModule->configuration['company_id'] ?? null;
+                if ($companyId !== null && $companyId !== '') {
+                    session(['selected_tenant' => (int) $companyId]);
+                }
+            }
         }
 
         return $next($request);

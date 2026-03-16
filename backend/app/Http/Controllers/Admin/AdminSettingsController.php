@@ -450,11 +450,38 @@ class AdminSettingsController extends Controller
         $siteName = GeneralSetting::get('site_name', config('app.name'));
         $siteDescription = GeneralSetting::get('site_description', '');
         $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0');
-        
+        $infoRequestSuccessTitle = GeneralSetting::get('info_request_success_title', 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.');
+        $infoRequestSuccessSubtitle = GeneralSetting::get('info_request_success_subtitle', 'Er wordt binnenkort contact met u opgenomen.');
+        $infoRequestSuccessFooter = GeneralSetting::get('info_request_success_footer', 'Uw bericht is succesvol verzonden.');
+        $infoRequestSuccessTextsEnabled = GeneralSetting::get('info_request_success_texts_enabled', '1');
+        $infoRequestSuccessImage = GeneralSetting::get('info_request_success_image');
+        $infoRequestSuccessIcon = GeneralSetting::get('info_request_success_icon', 'ki-filled ki-check-circle');
+        $infoRequestSuccessSize = GeneralSetting::get('info_request_success_icon_size', '80');
+
+        if ($infoRequestSuccessImage && !Storage::disk('public')->exists($infoRequestSuccessImage)) {
+            \Log::warning('Success image file not found in storage', ['path' => $infoRequestSuccessImage]);
+            $infoRequestSuccessImage = null;
+        }
+
         // Verify files exist
         if ($logo && !Storage::disk('public')->exists($logo)) {
             \Log::warning('Logo file not found in storage', ['path' => $logo]);
             $logo = null;
+        }
+
+        $logoMode = GeneralSetting::get('logo_mode', 'single');
+        if (!in_array($logoMode, ['single', 'light_dark'], true)) {
+            $logoMode = 'single';
+        }
+        $logoDark = GeneralSetting::get('logo_dark');
+        if ($logoDark && !Storage::disk('public')->exists($logoDark)) {
+            \Log::warning('Dark logo file not found in storage', ['path' => $logoDark]);
+            $logoDark = null;
+        }
+        // Als er een dark logo is geüpload, toon toggle als aangevinkt (en sync DB indien nodig)
+        if ($logoDark !== null && $logoMode !== 'light_dark') {
+            GeneralSetting::set('logo_mode', 'light_dark');
+            $logoMode = 'light_dark';
         }
         
         if ($favicon && !Storage::disk('public')->exists($favicon)) {
@@ -462,7 +489,7 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
         
-        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'siteName', 'siteDescription', 'aiChatEnabled'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize'));
     }
 
     /**
@@ -477,6 +504,12 @@ class AdminSettingsController extends Controller
             'site_name' => 'nullable|string|max:255',
             'site_description' => 'nullable|string|max:1000',
             'ai_chat_enabled' => 'nullable',
+            'info_request_success_title' => 'nullable|string|max:500',
+            'info_request_success_subtitle' => 'nullable|string|max:500',
+            'info_request_success_footer' => 'nullable|string|max:500',
+            'info_request_success_texts_enabled' => 'nullable|in:0,1',
+            'info_request_success_icon' => 'nullable|string|max:100',
+            'info_request_success_icon_size' => 'nullable|integer|min:32|max:200',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
@@ -507,6 +540,26 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set('site_description', $request->input('site_description', ''));
             }
             GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0');
+            if ($request->has('info_request_success_title')) {
+                GeneralSetting::set('info_request_success_title', $request->input('info_request_success_title', ''));
+            }
+            if ($request->has('info_request_success_subtitle')) {
+                GeneralSetting::set('info_request_success_subtitle', $request->input('info_request_success_subtitle', ''));
+            }
+            if ($request->has('info_request_success_footer')) {
+                GeneralSetting::set('info_request_success_footer', $request->input('info_request_success_footer', ''));
+            }
+            if ($request->has('info_request_success_texts_enabled')) {
+                GeneralSetting::set('info_request_success_texts_enabled', $request->input('info_request_success_texts_enabled') === '0' ? '0' : '1');
+            } else {
+                GeneralSetting::set('info_request_success_texts_enabled', '1');
+            }
+            if ($request->has('info_request_success_icon')) {
+                GeneralSetting::set('info_request_success_icon', $request->input('info_request_success_icon', ''));
+            }
+            if ($request->has('info_request_success_icon_size')) {
+                GeneralSetting::set('info_request_success_icon_size', (string) $request->input('info_request_success_icon_size', '80'));
+            }
 
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
@@ -587,6 +640,10 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set('logo_size', $request->input('logo_size'));
             }
 
+            if ($request->has('logo_mode') && in_array($request->input('logo_mode'), ['single', 'light_dark'], true)) {
+                GeneralSetting::set('logo_mode', $request->input('logo_mode'));
+            }
+
             return redirect()->route('admin.settings.general.index')
                 ->with('success', 'Algemene configuraties succesvol bijgewerkt!');
         } catch (\Exception $e) {
@@ -609,12 +666,15 @@ class AdminSettingsController extends Controller
         
         $request->validate([
             'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'logo_type' => 'nullable|string|in:light,dark',
         ], [
             'logo.required' => 'Selecteer een logo bestand.',
             'logo.file' => 'Het bestand moet een geldig bestand zijn.',
             'logo.mimes' => 'Alleen JPEG, PNG, JPG, GIF en SVG bestanden zijn toegestaan.',
             'logo.max' => 'Het bestand mag maximaal 2MB groot zijn.',
         ]);
+
+        $isDark = $request->input('logo_type') === 'dark';
 
         try {
             // Ensure settings directory exists
@@ -625,16 +685,19 @@ class AdminSettingsController extends Controller
             
             $logoFile = $request->file('logo');
             
-            // Delete old logo if exists
-            $oldLogo = GeneralSetting::get('logo');
+            if ($isDark) {
+                $oldLogo = GeneralSetting::get('logo_dark');
+                $settingKey = 'logo_dark';
+            } else {
+                $oldLogo = GeneralSetting::get('logo');
+                $settingKey = 'logo';
+            }
             if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
                 Storage::disk('public')->delete($oldLogo);
             }
             
-            // Store new logo
             $logoPath = $logoFile->store('settings', 'public');
             
-            // Verify file was stored
             if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
                 \Log::error('Logo storage failed', [
                     'path' => $logoPath,
@@ -646,15 +709,22 @@ class AdminSettingsController extends Controller
                 ], 500);
             }
             
-            // Save path to database
-            GeneralSetting::set('logo', $logoPath);
+            GeneralSetting::set($settingKey, $logoPath);
+            if ($isDark) {
+                GeneralSetting::set('logo_mode', 'light_dark');
+            }
             
-            \Log::info('Logo uploaded successfully', ['path' => $logoPath]);
+            \Log::info('Logo uploaded successfully', ['path' => $logoPath, 'type' => $isDark ? 'dark' : 'light']);
+            
+            $logoUrl = $isDark
+                ? route('admin.settings.logo-dark') . '?t=' . time()
+                : route('admin.settings.logo') . '?t=' . time();
             
             return response()->json([
                 'success' => true,
                 'message' => 'Logo succesvol geüpload.',
-                'logo_url' => route('admin.settings.logo') . '?t=' . time()
+                'logo_url' => $logoUrl,
+                'logo_type' => $isDark ? 'dark' : 'light',
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading logo', ['error' => $e->getMessage()]);
@@ -731,6 +801,73 @@ class AdminSettingsController extends Controller
     }
 
     /**
+     * Upload succes-icoon/plaatje voor formulier succesbericht (AJAX)
+     */
+    public function uploadSuccessImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $request->validate([
+                'info_request_success_image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+            ], [
+                'info_request_success_image.required' => 'Selecteer een afbeelding.',
+                'info_request_success_image.file' => 'Het bestand is ongeldig of kon niet worden gelezen.',
+                'info_request_success_image.mimes' => 'Ongeldig bestandstype. Alleen JPEG, PNG, JPG, GIF, SVG en WebP zijn toegestaan.',
+                'info_request_success_image.max' => 'Het bestand is te groot. Maximaal 5MB (5120 KB) toegestaan. Uw bestand is groter.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $errors = $e->errors();
+            $message = isset($errors['info_request_success_image'][0])
+                ? $errors['info_request_success_image'][0]
+                : 'De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).';
+            return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
+        }
+
+        try {
+            $settingsDir = storage_path('app/public/settings');
+            if (!file_exists($settingsDir)) {
+                File::makeDirectory($settingsDir, 0755, true);
+            }
+
+            $oldPath = GeneralSetting::get('info_request_success_image');
+            if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            $path = $request->file('info_request_success_image')->store('settings', 'public');
+            if (!$path || !Storage::disk('public')->exists($path)) {
+                return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
+            }
+
+            GeneralSetting::set('info_request_success_image', $path);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Afbeelding geüpload.',
+                'image_url' => route('admin.settings.success-image') . '?t=' . time(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error uploading success image', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Verwijder succes-afbeelding (gebruik weer icoon)
+     */
+    public function removeSuccessImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $oldPath = GeneralSetting::get('info_request_success_image');
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+        GeneralSetting::set('info_request_success_image', '');
+        return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
+    }
+
+    /**
      * Get logo file (toegankelijk voor alle ingelogde admins, o.a. voor sidebar)
      */
     public function getLogo()
@@ -750,12 +887,44 @@ class AdminSettingsController extends Controller
     }
 
     /**
+     * Get dark mode logo file (sidebar e.d.)
+     */
+    public function getLogoDark()
+    {
+        $logoPath = GeneralSetting::get('logo_dark');
+        if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+            abort(404, 'Dark logo niet gevonden');
+        }
+        $file = Storage::disk('public')->get($logoPath);
+        $mimeType = Storage::disk('public')->mimeType($logoPath);
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="logo-dark"');
+    }
+
+    /**
+     * Get succes-afbeelding voor formulier (voor frontend en admin preview)
+     */
+    public function getSuccessImage()
+    {
+        $path = GeneralSetting::get('info_request_success_image');
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404, 'Afbeelding niet gevonden');
+        }
+        $file = Storage::disk('public')->get($path);
+        $mimeType = Storage::disk('public')->mimeType($path);
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="success-image"');
+    }
+
+    /**
      * Get favicon file
      */
     public function getFavicon()
     {
         $this->ensureSuperAdmin();
-        
+
         $faviconPath = GeneralSetting::get('favicon');
         
         if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {

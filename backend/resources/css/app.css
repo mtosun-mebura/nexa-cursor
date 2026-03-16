@@ -429,10 +429,59 @@
     box-sizing: border-box;
   }
 
+  /* Tekstblok frontend: zelfde opmaak als editor (flowbite-typography); zorgt dat H1/H2/H3 etc. correct worden weergegeven */
+  .text-block-section .prose.format h1,
+  .text-block-section .format.prose h1 {
+    font-size: 2.25em !important;
+    font-weight: 800;
+    line-height: 1.1111111;
+    margin-top: 0;
+    margin-bottom: 0.8888889em;
+  }
+  .text-block-section .prose.format h2,
+  .text-block-section .format.prose h2 {
+    font-size: 1.5em !important;
+    font-weight: 700;
+    line-height: 1.3333333;
+    margin-top: 0;
+    margin-bottom: 1em;
+  }
+  .text-block-section .prose.format h3,
+  .text-block-section .format.prose h3 {
+    font-size: 1.25em !important;
+    font-weight: 700;
+    line-height: 1.6;
+    margin-top: 0;
+    margin-bottom: 0.6em;
+  }
+  @media (min-width: 1024px) {
+    .text-block-section .prose.format h1,
+    .text-block-section .format.prose h1 {
+      font-size: 2.6666667em !important;
+      margin-bottom: 0.8333333em;
+      line-height: 1;
+    }
+    .text-block-section .prose.format h2,
+    .text-block-section .format.prose h2 {
+      font-size: 2em !important;
+      margin-bottom: 0.6666667em;
+    }
+    .text-block-section .prose.format h3,
+    .text-block-section .format.prose h3 {
+      font-size: 1.3333333em !important;
+      margin-bottom: 0.6666667em;
+    }
+  }
+
   /* Home-sections: vaste breedte 400px voor korte tekstvelden (max-width werkt gegarandeerd) */
   .home-section-input-400 {
     width: 100%;
     max-width: 400px;
     box-sizing: border-box;
+  }
+
+  /* Alle textarea's: extra padding-top (pt-1) voor betere leesbaarheid */
+  textarea {
+    padding-top: 0.25rem;
   }
 }

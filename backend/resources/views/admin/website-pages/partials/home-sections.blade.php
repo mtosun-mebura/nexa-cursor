@@ -56,7 +56,7 @@
     $sectionOrder = array_values($sectionOrder);
     // Niet sectionOrder vervangen door thema-default: opgeslagen volgorde is bron van waarheid (verwijderde secties blijven weg).
     $componentService = app(\App\Services\FrontendComponentService::class);
-    $baseTypes = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
+    $baseTypes = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
     $baseType = function($key) use ($baseTypes) {
         if (in_array($key, $baseTypes, true)) return $key;
         $base = preg_replace('/_\d+$/', '', $key);
@@ -77,20 +77,28 @@
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
             'featured_services' => 'Dienstenblok (scroll-animatie)',
+            'email_template' => 'E-mailtemplate (informatieaanvraag)',
+            'text_block' => 'Tekstblok (rich text + component)',
             default => $base,
         };
     };
+    $emailTemplatesForSelect = $emailTemplates ?? collect();
+    $emailTemplateSelectedIds = $emailTemplateSelectedIds ?? [];
     // Alleen secties tonen die voor dit thema beschikbaar zijn (add-menu = bron van waarheid)
     $allowedBaseTypesForTheme = array_column(\App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlugForOrder), 'type');
     $sectionOrder = array_values(array_filter($sectionOrder, function($key) use ($allowedBaseTypesForTheme) {
         if (is_string($key) && str_starts_with($key, 'component:')) return true;
-        $baseTypes = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
+        $baseTypes = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
         $base = in_array($key, $baseTypes, true) ? $key : preg_replace('/_\d+$/', '', (string)$key);
         if (!in_array($base, $baseTypes, true)) return false;
         return in_array($base, $allowedBaseTypesForTheme, true);
     }));
     $adminCollapsed = $sections['admin_collapsed'] ?? [];
     if (!is_array($adminCollapsed)) $adminCollapsed = [];
+    // Voor "Component naast de tekst" altijd alle beschikbare types + huidige section_order tonen, zodat de dropdown direct gevuld is ook bij nieuw toegevoegde tekstblokken (sectionCardOnly).
+    $availableTypesForTheme = array_column(\App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlugForOrder), 'type');
+    $sideComponentOptionKeys = array_values(array_unique(array_merge($availableTypesForTheme, $sectionOrder)));
+    $sideComponentOptionKeys = array_values(array_filter($sideComponentOptionKeys, fn($k) => $k !== 'text_block' && !in_array($k, ['footer', 'copyright'], true)));
 @endphp
 {{-- Heroicons: eye (tonen) en eye-slash (verborgen op website) --}}
 <input type="hidden" name="home_sections[section_order]" id="home-sections-order-input" value="{{ implode(',', $sectionOrder) }}">
@@ -168,7 +176,7 @@
                         <img alt="Hero afbeelding" id="hero-{{ $sectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $heroPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($heroPreviewSrc) }}" data-default-src="{{ $defaultHeroImg ?? '' }}">
                         <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
-                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 w-full min-w-0 min-h-[130px]" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                         <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                     </div>
@@ -188,7 +196,7 @@
                         <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
                         <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
-                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 flex-1 min-w-0 min-h-[130px]" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                         <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                     </div>
@@ -208,7 +216,7 @@
                             <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
                             <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
-                        <div class="hero-image-upload-area flex flex-1 min-w-0 min-h-[130px] flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
+                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
                             <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                             <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                         </div>
@@ -224,7 +232,7 @@
                             <img alt="Hero foto" id="hero-{{ $sectionKey }}-author-preview" class="w-20 h-20 rounded-full object-cover border border-border {{ !empty($sectionData['author_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['author_image_url'] ?? '') }}">
                             <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
-                        <div class="hero-image-upload-area flex flex-1 min-w-0 min-h-[130px] flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
+                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
                             <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                             <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                         </div>
@@ -728,7 +736,7 @@
         $heroiconLabels = config('heroicons.icons', []);
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
-        <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
+        <div class="kt-card-header home-section-header home-section-header--featured-services flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('featured_services') }}{{ $sectionKey !== 'featured_services' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
@@ -738,9 +746,9 @@
                 <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
-        <div class="home-section-card-body kt-card-table p-4 space-y-4">
+        <div class="home-section-card-body kt-card-table p-4 space-y-6">
             <p class="text-sm text-muted-foreground">Dienstenblok met scroll-animatie. Titel, ondertitel en per blok icoon, titel en beschrijving bewerkbaar.</p>
-            <div class="grid gap-y-4 gap-x-4" style="grid-template-columns: 10rem 11rem;">
+            <div class="grid gap-x-4" style="grid-template-columns: 10rem 11rem; row-gap: 1rem;">
                 <label class="text-sm font-medium text-secondary-foreground flex items-center">Blokken per regel</label>
                 <select name="home_sections[{{ $sectionKey }}][blocks_per_row]" class="kt-input text-sm w-full">
                     @foreach([2 => '2', 3 => '3', 4 => '4'] as $val => $label)
@@ -786,15 +794,15 @@
                     <button type="button" class="featured-services-card-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="featured_services_card_bg_picker_{{ $sectionKey }}" data-input-id="featured_services_card_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2" style="margin-top: 1rem;">
                 <label class="text-sm font-medium text-secondary-foreground">Sectietitel</label>
                 <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Diensten') }}" placeholder="Bijv. Diensten">
             </div>
-            <div class="space-y-2">
+            <div class="space-y-2" style="margin-top: 1rem;">
                 <label class="text-sm font-medium text-secondary-foreground">Ondertitel</label>
                 <textarea name="home_sections[{{ $sectionKey }}][subtitle]" class="kt-input w-full max-w-xl min-h-[60px]" rows="2" placeholder="Korte ondertitel">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
             </div>
-            <div class="featured-services-items space-y-4" data-section-key="{{ $sectionKey }}" id="featured-services-items-{{ $sectionKey }}">
+            <div class="featured-services-items space-y-4" data-section-key="{{ $sectionKey }}" id="featured-services-items-{{ $sectionKey }}" style="margin-top: 1rem;">
                 @foreach($fsItems as $i => $fsItem)
                 <div class="featured-services-item border border-border rounded-lg p-3 space-y-2">
                     <div class="flex items-center justify-between gap-2">
@@ -823,6 +831,112 @@
             </div>
             <div class="mt-4">
                 <button type="button" class="featured-services-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Blok toevoegen</button>
+            </div>
+        </div>
+    </div>
+    @elseif($base === 'email_template')
+    <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
+        <div class="kt-card-header home-section-header home-section-header--cta flex items-center justify-between gap-2 bg-gray-100 dark:bg-gray-800/50">
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">{{ $sectionLabel('email_template') }}{{ $sectionKey !== 'email_template' ? ' – ' . $sectionKey : '' }}</h3>
+            <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+            </div>
+        </div>
+        <div class="home-section-card-body kt-card-table p-4 space-y-4">
+            <p class="text-sm text-muted-foreground">Toon een formulier op de website waarmee bezoekers een e-mail kunnen versturen op basis van een gekozen template (bijv. informatieaanvraag). Kies hier het e-mailtemplate dat gebruikt wordt.</p>
+            <div class="grid gap-x-4" style="grid-template-columns: 10rem 1fr; row-gap: 1rem;">
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">Sectietitel</label>
+                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Informatie aanvragen') }}" placeholder="Informatie aanvragen">
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">E-mailtemplate</label>
+                @php
+                    $selectedTemplateId = (int) old('home_sections.'.$sectionKey.'.template_id', $emailTemplateSelectedIds[$sectionKey] ?? $sectionData['template_id'] ?? 0);
+                @endphp
+                <input type="hidden" name="_email_template_tid_{{ $sectionKey }}" id="email-template-tid-{{ $sectionKey }}" value="{{ $selectedTemplateId ?: '' }}" data-email-template-fallback>
+                <select name="home_sections[{{ $sectionKey }}][template_id]" id="home_sections_{{ $sectionKey }}_template_id" class="kt-input w-full max-w-xl" data-email-template-select data-fallback-input-id="email-template-tid-{{ $sectionKey }}" data-selected-template-id="{{ $selectedTemplateId ?: '' }}">
+                    <option value="">— Geen template gekozen —</option>
+                    @foreach($emailTemplatesForSelect as $et)
+                        <option value="{{ $et->id }}" {{ $selectedTemplateId === (int) $et->id ? 'selected' : '' }}>{{ $et->name }} ({{ $et->type }})</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+    </div>
+    @elseif($base === 'text_block')
+    <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
+        <div class="kt-card-header home-section-header home-section-header--cta flex items-center justify-between gap-2 bg-pink-100 dark:bg-pink-900/30">
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">{{ $sectionLabel('text_block') }}{{ $sectionKey !== 'text_block' ? ' – ' . $sectionKey : '' }}</h3>
+            <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+            </div>
+        </div>
+        <div class="home-section-card-body kt-card-table p-4 space-y-4">
+            <p class="text-sm text-muted-foreground">Rich-tekstblok met optioneel een component (bijv. formulier) ernaast. Kies de uitlijning van de tekst en eventueel welk component rechts of links van de tekst getoond moet worden.</p>
+            <div class="row-visibility-row">
+                <label class="block text-sm font-medium text-secondary-foreground mb-2">Tekst (rich text)</label>
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'text-block-' . $sectionKey . '-content', 'name' => 'home_sections['.$sectionKey.'][content]', 'value' => old('home_sections.'.$sectionKey.'.content', $sectionData['content'] ?? ''), 'placeholder' => 'Voeg hier uw tekst toe...', 'textareaId' => 'text-block-'.$sectionKey.'-content-input'])
+            </div>
+            <div class="row-visibility-row grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Tekstuitlijning op de website</label>
+                    <select name="home_sections[{{ $sectionKey }}][alignment]" id="text-block-{{ $sectionKey }}-alignment" class="kt-input w-full max-w-xs">
+                        @php $textBlockAlignment = old('home_sections.'.$sectionKey.'.alignment', $sectionData['alignment'] ?? 'left'); @endphp
+                        <option value="left" {{ $textBlockAlignment === 'left' ? 'selected' : '' }}>Links</option>
+                        <option value="center" {{ $textBlockAlignment === 'center' ? 'selected' : '' }}>Midden</option>
+                        <option value="right" {{ $textBlockAlignment === 'right' ? 'selected' : '' }}>Rechts</option>
+                        <option value="full" {{ $textBlockAlignment === 'full' ? 'selected' : '' }}>Volledige breedte</option>
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1">Bepaalt hoe de tekst wordt uitgelijnd en of er ruimte is voor een component ernaast.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Component naast de tekst</label>
+                    <select name="home_sections[{{ $sectionKey }}][side_component_key]" id="text-block-{{ $sectionKey }}-side-component" class="kt-input w-full max-w-md">
+                        <option value="">— Geen —</option>
+                        @foreach($sideComponentOptionKeys as $sk)
+                            @if($sk !== $sectionKey)
+                                @php $skBase = $baseType($sk); $skLabel = $sectionLabel($skBase ?? $sk) . ($sk !== ($skBase ?? $sk) ? ' – ' . $sk : ''); @endphp
+                                <option value="{{ $sk }}" {{ old('home_sections.'.$sectionKey.'.side_component_key', $sectionData['side_component_key'] ?? '') === $sk ? 'selected' : '' }}>{{ $skLabel }}</option>
+                            @endif
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1">Toon een sectie van deze pagina naast de tekst (bijv. formulier links of rechts). Alleen bij uitlijning Links of Rechts. Alleen het e-mailformulier wordt momenteel naast de tekst getoond.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Sectiebreedte op de website</label>
+                    <select name="home_sections[{{ $sectionKey }}][width_percent]" id="text-block-{{ $sectionKey }}-width-percent" class="kt-input w-full max-w-xs">
+                        @php $textBlockWidth = (int) old('home_sections.'.$sectionKey.'.width_percent', $sectionData['width_percent'] ?? 100); $textBlockWidth = max(60, min(100, $textBlockWidth)); @endphp
+                        <option value="100" {{ $textBlockWidth === 100 ? 'selected' : '' }}>100%</option>
+                        <option value="90" {{ $textBlockWidth === 90 ? 'selected' : '' }}>90%</option>
+                        <option value="80" {{ $textBlockWidth === 80 ? 'selected' : '' }}>80%</option>
+                        <option value="70" {{ $textBlockWidth === 70 ? 'selected' : '' }}>70%</option>
+                        <option value="60" {{ $textBlockWidth === 60 ? 'selected' : '' }}>60%</option>
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1">Breedte van de sectie ten opzichte van de pagina (in procenten).</p>
+                </div>
+            </div>
+            <div class="row-visibility-row">
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">Afbeelding naast de tekst</label>
+                <p class="text-xs text-muted-foreground mb-2">Optioneel: toon een afbeelding links of rechts van de tekst (zelfde zijde als het component). Alleen bij uitlijning Links of Rechts.</p>
+                @php $textBlockImageUrl = old('home_sections.'.$sectionKey.'.image_url', $sectionData['image_url'] ?? ''); @endphp
+                <div class="flex flex-wrap items-stretch gap-3">
+                    <div class="shrink-0 flex flex-col items-center">
+                        <img alt="Tekstblok afbeelding" id="hero-{{ $sectionKey }}-image_url-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $textBlockImageUrl ? '' : 'hidden' }}" src="{{ $textBlockImageUrl ? $imagePreviewUrl($textBlockImageUrl) : '' }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-image_url" data-preview-id="hero-{{ $sectionKey }}-image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                    </div>
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="image_url" data-url-input-id="hero-{{ $sectionKey }}-image_url" data-preview-id="hero-{{ $sectionKey }}-image_url-preview">
+                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
+                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                    </div>
+                </div>
+                <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="image_url">
+                <input type="hidden" name="home_sections[{{ $sectionKey }}][image_url]" id="hero-{{ $sectionKey }}-image_url" value="{{ $textBlockImageUrl }}">
             </div>
         </div>
     </div>
@@ -1081,6 +1195,20 @@
                         <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_align', $tarievenSectionData['title_align'] ?? 'left')) === $val ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
+                </div>
+                <div class="flex items-start gap-3">
+                    <input type="hidden" name="home_sections[{{ $sectionKey }}][price_animation]" value="0">
+                    <div class="flex flex-col text-sm text-muted-foreground shrink-0 w-40">
+                        <span class="block">Telleranimatie</span>
+                        <span class="block">(prijzen tellen omhoog)</span>
+                    </div>
+                    <label class="shrink-0 cursor-pointer pt-0.5">
+                        <input type="checkbox" name="home_sections[{{ $sectionKey }}][price_animation]" value="1" class="kt-switch kt-switch-sm" {{ (old('home_sections.'.$sectionKey.'.price_animation', $tarievenSectionData['price_animation'] ?? true)) ? 'checked' : '' }}>
+                    </label>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">Plaatjes fade-in (ms)</label>
+                    <input type="number" name="home_sections[{{ $sectionKey }}][image_fade_duration]" value="{{ old('home_sections.'.$sectionKey.'.image_fade_duration', $tarievenSectionData['image_fade_duration'] ?? 1200) }}" min="300" max="5000" step="100" class="kt-input w-28 text-sm">
                 </div>
             </div>
             <div id="taxiroyaal-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
@@ -1723,6 +1851,40 @@
             </div>
             </div>
             </div>
+            <div class="border border-border rounded-lg p-4 space-y-4">
+                <div class="row-visibility-row">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-sm font-medium text-secondary-foreground">Social media</span>
+                        <input type="hidden" name="home_sections[visibility][footer_social]" id="visibility-footer_social" value="{{ ($visibility['footer_social'] ?? true) ? '1' : '0' }}">
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_social" aria-label="Social media tonen/verbergen">@if($visibility['footer_social'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    </div>
+                    <p class="text-xs text-muted-foreground mb-3">Vul alleen de unieke identifier in (pagina-, kanaal- of gebruikersnaam). De basis-URL staat vast; alleen ingevulde velden worden als icoon getoond.</p>
+                    @php
+                        $socialDisplay = function($val, $prefixes) {
+                            $val = trim((string)$val);
+                            foreach ((array)$prefixes as $p) {
+                                if ($val !== '' && strpos($val, $p) === 0) return substr($val, strlen($p));
+                            }
+                            return $val;
+                        };
+                        $v = fn($k) => old('home_sections.footer.'.$k, $footer[$k] ?? '');
+                        $fb = $socialDisplay($v('social_facebook'), ['https://www.facebook.com/', 'https://facebook.com/']);
+                        $ig = $socialDisplay($v('social_instagram'), ['https://www.instagram.com/', 'https://instagram.com/']);
+                        $x = $socialDisplay($v('social_x'), ['https://x.com/', 'https://twitter.com/', 'https://www.x.com/', 'https://www.twitter.com/']);
+                        $li = $socialDisplay($v('social_linkedin'), ['https://www.linkedin.com/', 'https://linkedin.com/']);
+                        $yt = $socialDisplay($v('social_youtube'), ['https://www.youtube.com/', 'https://youtube.com/']);
+                        $tt = $socialDisplay($v('social_tiktok'), ['https://www.tiktok.com/@', 'https://tiktok.com/@']);
+                    @endphp
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div><label for="footer-social-facebook" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">facebook.com/</span> Facebook</label><input type="text" name="home_sections[footer][social_facebook]" id="footer-social-facebook" class="kt-input w-full" value="{{ $fb }}" placeholder="jouwpagina"></div>
+                        <div><label for="footer-social-instagram" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">instagram.com/</span> Instagram</label><input type="text" name="home_sections[footer][social_instagram]" id="footer-social-instagram" class="kt-input w-full" value="{{ $ig }}" placeholder="gebruikersnaam"></div>
+                        <div><label for="footer-social-x" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">x.com/</span> X (Twitter)</label><input type="text" name="home_sections[footer][social_x]" id="footer-social-x" class="kt-input w-full" value="{{ $x }}" placeholder="handle"></div>
+                        <div><label for="footer-social-linkedin" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">linkedin.com/</span> LinkedIn</label><input type="text" name="home_sections[footer][social_linkedin]" id="footer-social-linkedin" class="kt-input w-full" value="{{ $li }}" placeholder="company/bedrijfsnaam of in/naam"></div>
+                        <div><label for="footer-social-youtube" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">youtube.com/</span> YouTube</label><input type="text" name="home_sections[footer][social_youtube]" id="footer-social-youtube" class="kt-input w-full" value="{{ $yt }}" placeholder="@kanaal of channel/UC..."></div>
+                        <div><label for="footer-social-tiktok" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">tiktok.com/@</span> TikTok</label><input type="text" name="home_sections[footer][social_tiktok]" id="footer-social-tiktok" class="kt-input w-full" value="{{ $tt }}" placeholder="gebruikersnaam"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1864,7 +2026,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var apiKey = (previewEl.getAttribute('data-api-key') || '').trim();
         if (!apiKey) return;
         var mapId = (previewEl.getAttribute('data-map-id') || '').trim();
-        var useAdvancedMarker = mapId && mapId.length > 0;
+        if (!mapId) mapId = 'DEMO_MAP_ID';
+        var useAdvancedMarker = true;
         var footerMapPreviewMap = null;
         var footerMapPreviewMarker = null;
         var footerMapPreviewInfoWindow = null;
@@ -3063,7 +3226,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             var raw = metaEl ? metaEl.getAttribute('data-section-labels') : '';
             if (raw) sectionLabels = JSON.parse(raw);
         } catch (e) {}
-        var headerClassByType = { hero: 'hero', stats: 'stats', why_nexa: 'why', features: 'features', cta: 'cta', featured_services: 'features', carousel: 'cta', cards_ronde_hoeken: 'cta' };
+        var headerClassByType = { hero: 'hero', stats: 'stats', why_nexa: 'why', features: 'features', cta: 'cta', featured_services: 'features', carousel: 'cta', cards_ronde_hoeken: 'cta', email_template: 'cta' };
 
         function addSectionCard(baseType, newKey, sourceCard, done) {
             var clone = sourceCard.cloneNode(true);
@@ -3475,6 +3638,12 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .home-section-header--copyright { background-color: rgb(30 41 59 / 0.4); border-left-color: rgb(100 116 139); }
     .home-section-header--copyright .kt-card-title { color: rgb(71 85 105); }
     .dark .home-section-header--copyright .kt-card-title { color: rgb(148 163 184); }
+    /* Dienstenblok (scroll-animatie): donkergeel in dark mode, tekst leesbaar */
+    .home-section-header--featured-services { background-color: rgb(254 249 195); border-left-color: rgb(202 138 4); }
+    .home-section-header--featured-services .kt-card-title { color: rgb(113 63 18); }
+    .dark .home-section-header--featured-services { background-color: rgb(113 63 18); border-left-color: rgb(250 204 21); }
+    .dark .home-section-header--featured-services .kt-card-title { color: rgb(254 252 232); }
+    .dark .home-section-header--featured-services .text-muted-foreground { color: rgb(253 224 71); }
 </style>
 @endpush
 

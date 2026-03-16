@@ -16,6 +16,7 @@ use App\Services\TaxiRoyaalBookingPricingService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -83,7 +84,8 @@ class AdminWebsitePageController extends Controller
         $env = app(\App\Services\EnvService::class);
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
         $googleMapsMapId = $env->getGoogleMapsMapId();
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId'));
+        $emailTemplates = $this->getEmailTemplatesForWebsiteForm();
+        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates'));
     }
 
     public function store(Request $request)
@@ -145,6 +147,11 @@ class AdminWebsitePageController extends Controller
     public function edit(WebsitePage $website_page)
     {
         $this->ensureSuperAdmin();
+        // Zorg dat bij een module-pagina altijd ?module= in de URL staat, zodat route binding de pagina uit de module-DB laadt (anders toont de select geen opgeslagen template_id).
+        if ($website_page->module_name && trim((string) request()->query('module')) !== trim((string) $website_page->module_name)) {
+            $url = route('admin.website-pages.edit', ['website_page' => $website_page->id]) . '?module=' . rawurlencode($website_page->module_name);
+            return redirect($url);
+        }
         $installedModules = $this->moduleManager->getInstalledModules();
         $themes = FrontendTheme::orderBy('slug')->get();
         $defaultTheme = $this->websiteBuilder->getActiveTheme();
@@ -152,6 +159,39 @@ class AdminWebsitePageController extends Controller
         $env = app(\App\Services\EnvService::class);
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
         $googleMapsMapId = $env->getGoogleMapsMapId();
+        $homeSections = $website_page->getHomeSections();
+        $includeTemplateIds = [];
+        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
+            $base = is_string($sectionKey) ? preg_replace('/_\d+$/', '', $sectionKey) : '';
+            if ($base === 'email_template') {
+                $tid = $homeSections[$sectionKey]['template_id'] ?? null;
+                if ($tid !== null && $tid !== '') {
+                    $includeTemplateIds[] = (int) $tid;
+                }
+            }
+        }
+        // Hoofdlijst altijd uit standaard-DB (waar templates staan). Bij module-pagina: opgeslagen template(s) uit module-DB toevoegen zodat ze geselecteerd kunnen worden.
+        $includeFromConnection = null;
+        $moduleName = $website_page->module_name;
+        if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {
+            $connName = $this->moduleDb->getModuleConnectionName($moduleName);
+            if (Config::has("database.connections.{$connName}")) {
+                $includeFromConnection = $connName;
+            }
+        }
+        $emailTemplates = $this->getEmailTemplatesForWebsiteForm(null, array_unique($includeTemplateIds), $includeFromConnection);
+        $emailTemplateSelectedIds = [];
+        $rawSections = $website_page->home_sections ?? [];
+        foreach (($rawSections['section_order'] ?? $homeSections['section_order'] ?? []) as $sectionKey) {
+            if (! is_string($sectionKey)) {
+                continue;
+            }
+            $base = preg_replace('/_\d+$/', '', $sectionKey);
+            if ($base === 'email_template') {
+                $tid = $rawSections[$sectionKey]['template_id'] ?? $homeSections[$sectionKey]['template_id'] ?? null;
+                $emailTemplateSelectedIds[$sectionKey] = $tid !== null && $tid !== '' ? (int) $tid : 0;
+            }
+        }
         return view('admin.website-pages.edit', [
             'page' => $website_page,
             'installedModules' => $installedModules,
@@ -160,6 +200,8 @@ class AdminWebsitePageController extends Controller
             'moduleThemes' => $moduleThemes,
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
+            'emailTemplates' => $emailTemplates,
+            'emailTemplateSelectedIds' => $emailTemplateSelectedIds,
         ]);
     }
 
@@ -272,7 +314,7 @@ class AdminWebsitePageController extends Controller
     {
         $this->ensureSuperAdmin();
         $valid = $request->validate([
-            'type' => 'required|string|in:hero,stats,why_nexa,features,cta,carousel,cards_ronde_hoeken,featured_services',
+            'type' => 'required|string|in:hero,stats,why_nexa,features,cta,carousel,cards_ronde_hoeken,featured_services,email_template,text_block',
             'theme' => 'nullable|string|max:64',
         ]);
         $type = $valid['type'];
@@ -289,14 +331,18 @@ class AdminWebsitePageController extends Controller
             'carousel' => $defaults['carousel'] ?? ['items' => []],
             'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['cards_per_row' => 4, 'items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']]],
             'featured_services' => $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => 'Onze diensten in het kort.', 'blocks_per_row' => 3, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'briefcase', 'title' => '', 'description' => ''], ['icon' => 'cog-6-tooth', 'title' => '', 'description' => ''], ['icon' => 'user-group', 'title' => '', 'description' => '']]],
+            'email_template' => $defaults['email_template'] ?? ['title' => 'Informatie aanvragen', 'template_id' => null],
+            'text_block' => $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'image_url' => '', 'width_percent' => 100],
             'footer' => $defaults['footer'] ?? [],
             'copyright' => $defaults['copyright'] ?? '',
         ];
+        $emailTemplates = $this->getEmailTemplatesForWebsiteForm();
         $html = view('admin.website-pages.partials.home-sections', [
             'homeSections' => $sections,
             'themeSlug' => $theme,
             'isNonHomePage' => false,
             'sectionCardOnly' => true,
+            'emailTemplates' => $emailTemplates,
         ])->render();
 
         // Eerste .home-section-card extraheren (bij sectionCardOnly rendert de partial precies één kaart)
@@ -359,6 +405,32 @@ class AdminWebsitePageController extends Controller
         $useThemeHomeLayout = $themeHasHomeSections && ($website_page->page_type === 'home' || $website_page->slug === 'home' || !empty($website_page->home_sections));
         // Altijd homeSections doorgeven wanneer de pagina home_sections heeft, zodat footer/visibility op preview werken
         $homeSections = !empty($website_page->home_sections) ? $website_page->getHomeSections() : [];
+        // E-mailtemplate per sectie (zelfde logica als frontend WebsitePageController: module-DB bij module-pagina)
+        $emailTemplateBySectionKey = [];
+        $templateConnection = null;
+        $moduleName = $website_page->module_name;
+        if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {
+            $connName = $this->moduleDb->getModuleConnectionName($moduleName);
+            if (Config::has("database.connections.{$connName}")) {
+                $templateConnection = $connName;
+            }
+        }
+        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
+            $base = is_string($sectionKey) ? preg_replace('/_\d+$/', '', $sectionKey) : '';
+            if ($base === 'email_template') {
+                $tid = $homeSections[$sectionKey]['template_id'] ?? null;
+                if (!$tid) {
+                    $emailTemplateBySectionKey[$sectionKey] = null;
+                    continue;
+                }
+                $tidInt = (int) $tid;
+                $template = \App\Models\EmailTemplate::find($tidInt);
+                if (!$template && $templateConnection) {
+                    $template = \App\Models\EmailTemplate::on($templateConnection)->find($tidInt);
+                }
+                $emailTemplateBySectionKey[$sectionKey] = $template;
+            }
+        }
         // Atom v2: laad thema-styles op alle paginatypes (preview) voor dezelfde weergave als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
         // Footer-kaart: expliciet Maps API-key en map-id doorgeven (zelfde bron als frontend)
@@ -383,6 +455,7 @@ class AdminWebsitePageController extends Controller
             'jobs' => $jobs,
             'useModernHomeLayout' => $useThemeHomeLayout,
             'homeSections' => $homeSections,
+            'emailTemplateBySectionKey' => $emailTemplateBySectionKey,
             'loadAtomV2Styles' => $loadAtomV2Styles,
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
@@ -462,6 +535,29 @@ class AdminWebsitePageController extends Controller
             $existing = $website_page->getHomeSections();
             $input['section_order'] = $existing['section_order'] ?? WebsitePage::defaultPageSectionsForNonHome($themeSlug)['section_order'];
         }
+        // Tekstblok-content kan ontbreken in de request (bijv. max_input_vars of async WYSIWYG-sync): neem bestaande content over
+        $existingSections = $website_page->getHomeSections();
+        $orderForMerge = $input['section_order'] ?? [];
+        if (is_string($orderForMerge) && $orderForMerge !== '') {
+            $orderForMerge = array_values(array_filter(array_map('trim', explode(',', $orderForMerge))));
+        }
+        if (is_array($orderForMerge)) {
+            foreach ($orderForMerge as $sk) {
+                if (self::homeSectionBaseType($sk) !== 'text_block') {
+                    continue;
+                }
+                $incomingContent = $input[$sk]['content'] ?? null;
+                $incomingContent = is_string($incomingContent) ? $incomingContent : '';
+                $existingContent = $existingSections[$sk]['content'] ?? null;
+                $existingContent = is_string($existingContent) ? $existingContent : '';
+                if ($existingContent !== '' && $incomingContent === '') {
+                    if (! isset($input[$sk]) || ! is_array($input[$sk])) {
+                        $input[$sk] = [];
+                    }
+                    $input[$sk]['content'] = $existingContent;
+                }
+            }
+        }
         try {
             if ($data['page_type'] === 'home') {
                 $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false);
@@ -540,10 +636,77 @@ class AdminWebsitePageController extends Controller
                 $input['section_order'] = trim($orderFromFallback);
             }
         }
+        // email_template template_id kan ontbreken (custom select/JS of max_input_vars): vul aan uit fallback-velden
+        $sectionOrder = $input['section_order'] ?? [];
+        if (is_string($sectionOrder) && $sectionOrder !== '') {
+            $sectionOrder = array_values(array_filter(array_map('trim', explode(',', $sectionOrder))));
+        }
+        if (is_array($sectionOrder)) {
+            foreach ($sectionOrder as $sk) {
+                if (! is_string($sk)) {
+                    continue;
+                }
+                $base = self::homeSectionBaseType($sk);
+                if ($base !== 'email_template') {
+                    continue;
+                }
+                $tid = $request->input('_email_template_tid_' . $sk);
+                if ($tid !== null && $tid !== '' && is_numeric($tid)) {
+                    if (! isset($input[$sk]) || ! is_array($input[$sk])) {
+                        $input[$sk] = [];
+                    }
+                    // Altijd fallback gebruiken wanneer aanwezig (select-waarde kan bij grote forms ontbreken)
+                    $input[$sk]['template_id'] = (int) $tid;
+                }
+            }
+        }
         return $input;
     }
 
-    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
+    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
+
+    /**
+     * Actieve e-mailtemplates voor website-formulieren (bijv. sectie email_template).
+     * Hoofdlijst uit standaard-DB (tenant-filter). Optioneel: templates uit $includeTemplateIds uit $includeFromConnection (module-DB) toevoegen zodat opgeslagen keuze zichtbaar blijft.
+     *
+     * @param  array<int>  $includeTemplateIds  Ids die altijd in de lijst moeten (bijv. reeds gekozen op pagina)
+     * @param  string|null  $includeFromConnection  Bij module-pagina: connection waarop includeTemplateIds opgehaald worden (module-DB)
+     */
+    private function getEmailTemplatesForWebsiteForm(?string $connection = null, array $includeTemplateIds = [], ?string $includeFromConnection = null): \Illuminate\Support\Collection
+    {
+        $tenantId = auth()->user()->hasRole('super-admin')
+            ? session('selected_tenant')
+            : auth()->user()->company_id;
+
+        $query = $connection
+            ? \App\Models\EmailTemplate::on($connection)->where('is_active', true)
+            : \App\Models\EmailTemplate::where('is_active', true);
+        if ($tenantId !== null && $tenantId !== '') {
+            $query->where(function ($q) use ($tenantId) {
+                $q->whereNull('company_id')->orWhere('company_id', (int) $tenantId);
+            });
+        }
+        $templates = $query->orderBy('name')->get(['id', 'name', 'type']);
+        $includeTemplateIds = array_filter(array_map('intval', $includeTemplateIds));
+        if ($includeTemplateIds !== []) {
+            $existingIds = $templates->pluck('id')->all();
+            $missingIds = array_diff($includeTemplateIds, $existingIds);
+            if ($missingIds !== []) {
+                $extraConn = $includeFromConnection ?? $connection;
+                $extraQuery = $extraConn
+                    ? \App\Models\EmailTemplate::on($extraConn)->where('is_active', true)->whereIn('id', $missingIds)
+                    : \App\Models\EmailTemplate::where('is_active', true)->whereIn('id', $missingIds);
+                $extra = $extraQuery->get(['id', 'name', 'type']);
+                $templates = $templates->merge($extra)->sortBy('name')->values();
+                $missingIds = array_diff($includeTemplateIds, $templates->pluck('id')->all());
+                if ($missingIds !== []) {
+                    $defaultExtra = \App\Models\EmailTemplate::where('is_active', true)->whereIn('id', $missingIds)->get(['id', 'name', 'type']);
+                    $templates = $templates->merge($defaultExtra)->sortBy('name')->values();
+                }
+            }
+        }
+        return $templates;
+    }
 
     private static function homeSectionBaseType(string $sectionKey): ?string
     {
@@ -638,11 +801,21 @@ class AdminWebsitePageController extends Controller
                 ['rate_type' => '5-8', 'title' => '5 t/m 8 personen', 'cleaning_costs' => null, 'vehicle_id' => null, 'image_url' => null, 'card_size' => 'normal', 'font_style' => 'normal', 'title_font_family' => '', 'title_font_size' => '', 'title_font_style' => 'normal', 'title_align' => 'left', 'label_font_size' => '', 'value_font_size' => '', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => ''],
             ];
         }
+        $priceAnimation = true;
+        if (array_key_exists('price_animation', $raw)) {
+            $priceAnimation = filter_var($raw['price_animation'], FILTER_VALIDATE_BOOLEAN);
+        }
+        $imageFadeDuration = 1200;
+        if (array_key_exists('image_fade_duration', $raw) && is_numeric($raw['image_fade_duration'])) {
+            $imageFadeDuration = max(300, min(5000, (int) $raw['image_fade_duration']));
+        }
         return [
             'title' => $sectionTitle,
             'title_font_size' => $sectionTitleFontSize,
             'title_font_style' => $sectionTitleFontStyle,
             'title_align' => $sectionTitleAlign,
+            'price_animation' => $priceAnimation,
+            'image_fade_duration' => $imageFadeDuration,
             'items' => $out,
         ];
     }
@@ -759,17 +932,20 @@ class AdminWebsitePageController extends Controller
         $footer['logo_align'] = isset($footerInput['logo_align']) && in_array($footerInput['logo_align'], ['left', 'center', 'right'], true) ? $footerInput['logo_align'] : ($defaults['footer']['logo_align'] ?? 'left');
         $footer['quick_links_align'] = isset($footerInput['quick_links_align']) && in_array($footerInput['quick_links_align'], ['left', 'center', 'right'], true) ? $footerInput['quick_links_align'] : ($defaults['footer']['quick_links_align'] ?? 'left');
         $footer['support_links_align'] = isset($footerInput['support_links_align']) && in_array($footerInput['support_links_align'], ['left', 'center', 'right'], true) ? $footerInput['support_links_align'] : ($defaults['footer']['support_links_align'] ?? 'left');
+        foreach (['social_facebook', 'social_instagram', 'social_x', 'social_linkedin', 'social_youtube', 'social_tiktok'] as $socialKey) {
+            $footer[$socialKey] = isset($footerInput[$socialKey]) ? trim((string) $footerInput[$socialKey]) : '';
+        }
 
         $visibilityInput = $input['visibility'] ?? [];
         $visibilityOverlay = [];
-        foreach (['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'footer'] as $k) {
+        foreach (['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block', 'footer'] as $k) {
             if (array_key_exists($k, $visibilityInput)) {
                 $visibilityOverlay[$k] = !empty($visibilityInput[$k]);
             }
         }
         $visibility = array_merge($defaults['visibility'], $visibilityOverlay);
         foreach (array_keys($visibilityInput) as $key) {
-            if (preg_match('/^(hero|stats|why_nexa|features|cta|cards_ronde_hoeken)(_[a-z0-9_]+)?$/i', $key)) {
+            if (preg_match('/^(hero|stats|why_nexa|features|cta|cards_ronde_hoeken|text_block)(_[a-z0-9_]+)?$/i', $key)) {
                 $visibility[$key] = !empty($visibilityInput[$key]);
             }
             if (preg_match('/^footer_[a-z0-9_]+$/i', $key)) {
@@ -966,6 +1142,34 @@ class AdminWebsitePageController extends Controller
                     'card_bg_color' => $cardBgColor,
                     'animation_speed' => $animationSpeed,
                     'items' => $items ?: $defItems,
+                ];
+            case 'email_template':
+                $templateId = isset($raw['template_id']) && $raw['template_id'] !== '' && is_numeric($raw['template_id'])
+                    ? (int) $raw['template_id']
+                    : null;
+                return [
+                    'title' => trim((string) ($raw['title'] ?? ($defaults['email_template']['title'] ?? 'Informatie aanvragen'))),
+                    'template_id' => $templateId,
+                ];
+            case 'text_block':
+                $alignment = isset($raw['alignment']) && in_array($raw['alignment'], ['left', 'center', 'right', 'full'], true)
+                    ? $raw['alignment']
+                    : ($defaults['text_block']['alignment'] ?? 'left');
+                $sideKey = isset($raw['side_component_key']) && is_string($raw['side_component_key']) ? trim($raw['side_component_key']) : '';
+                $content = array_key_exists('content', $raw)
+                    ? (is_string($raw['content']) ? $raw['content'] : '')
+                    : (string) ($defaults['text_block']['content'] ?? '');
+                $imageUrl = array_key_exists('image_url', $raw) && is_string($raw['image_url']) ? trim($raw['image_url']) : '';
+                $widthPercent = isset($raw['width_percent']) && is_numeric($raw['width_percent'])
+                    ? (int) $raw['width_percent']
+                    : (int) ($defaults['text_block']['width_percent'] ?? 100);
+                $widthPercent = max(60, min(100, $widthPercent));
+                return [
+                    'content' => $content,
+                    'alignment' => $alignment,
+                    'side_component_key' => $sideKey,
+                    'image_url' => $imageUrl,
+                    'width_percent' => $widthPercent,
                 ];
             default:
                 return [];

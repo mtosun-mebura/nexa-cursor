@@ -10,6 +10,8 @@ use App\Services\ModuleDatabaseService;
 use App\Services\TaxiRoyaalBookingPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class TaxiRoyaalBookingController extends Controller
 {
@@ -155,6 +157,49 @@ class TaxiRoyaalBookingController extends Controller
             'message' => $sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.',
             'ride_request_id' => $ride->id,
         ]);
+    }
+
+    /**
+     * Proxy voor Nominatim address search (voorkomt CORS en 429 door server-side cache).
+     */
+    public function addressSearch(Request $request): JsonResponse
+    {
+        $q = $request->input('q', '');
+        $q = is_string($q) ? trim($q) : '';
+        if ($q === '') {
+            return response()->json([]);
+        }
+        $countrycodes = $request->input('countrycodes', 'nl');
+        $countrycodes = is_string($countrycodes) ? strtolower(trim($countrycodes)) : 'nl';
+        $limit = (int) $request->input('limit', 8);
+        $limit = max(1, min(20, $limit));
+        $format = $request->input('format', 'jsonv2');
+        $addressdetails = $request->input('addressdetails', '1');
+        $dedupe = $request->input('dedupe', '1');
+        $acceptLanguage = $request->input('accept-language', 'nl');
+
+        $cacheKey = 'nominatim_search:' . md5($q . '|' . $countrycodes . '|' . $limit . '|' . $addressdetails);
+        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage) {
+            $url = 'https://nominatim.openstreetmap.org/search?' . http_build_query([
+                'format' => $format,
+                'addressdetails' => $addressdetails,
+                'limit' => $limit,
+                'dedupe' => $dedupe,
+                'countrycodes' => $countrycodes,
+                'accept-language' => $acceptLanguage,
+                'q' => $q,
+            ]);
+            $response = Http::withHeaders([
+                'User-Agent' => config('app.name', 'NexaTaxiBooking') . '/1.0 (address search)',
+            ])->timeout(8)->get($url);
+            if (! $response->successful()) {
+                return [];
+            }
+            $body = $response->json();
+            return is_array($body) ? $body : [];
+        });
+
+        return response()->json($data);
     }
 
     private function resolveSectionConfig(?int $pageId, string $sectionKey, ?string $moduleName = null): array

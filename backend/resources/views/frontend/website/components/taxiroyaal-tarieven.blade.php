@@ -1,65 +1,57 @@
-@php
-    $ratesData = app(\App\Services\TaxiRoyaalPublicRatesService::class)->getRatesForDisplay();
-    $hasRates = $ratesData && ($ratesData['rates_1_4'] || $ratesData['rates_5_8']);
-    $sectionConfig = isset($sectionKey) && isset($homeSections) ? ($homeSections[$sectionKey] ?? []) : [];
-    $sectionItems = $sectionConfig['items'] ?? [];
-    $hasSectionItemsWithContent = !empty($sectionItems) && $ratesData !== null;
-    $sectionTitle = isset($sectionConfig['title']) ? trim((string) $sectionConfig['title']) : 'Onze tarieven';
-    if ($sectionTitle === '') {
-        $sectionTitle = 'Onze tarieven';
-    }
-    $allowedFontSizes = array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
-    $allowedFontStyles = ['normal', 'bold', 'italic'];
-    $allowedTextAligns = ['left', 'center', 'right'];
-    $sectionTitleFontSize = isset($sectionConfig['title_font_size']) ? trim((string) $sectionConfig['title_font_size']) : '';
-    if (!in_array($sectionTitleFontSize, $allowedFontSizes, true)) {
-        $sectionTitleFontSize = '';
-    }
-    $sectionTitleFontStyle = isset($sectionConfig['title_font_style']) && in_array($sectionConfig['title_font_style'], $allowedFontStyles, true)
-        ? $sectionConfig['title_font_style'] : 'normal';
-    $sectionTitleAlign = isset($sectionConfig['title_align']) && in_array($sectionConfig['title_align'], $allowedTextAligns, true)
-        ? $sectionConfig['title_align'] : 'left';
-    $sectionTitleStyle = 'font-family: var(--theme-font-heading, inherit);';
-    if ($sectionTitleFontSize !== '') {
-        $sectionTitleStyle .= ' font-size: ' . $sectionTitleFontSize . ';';
-    }
-    if ($sectionTitleFontStyle === 'bold') {
-        $sectionTitleStyle .= ' font-weight: 700;';
-    } elseif ($sectionTitleFontStyle === 'italic') {
-        $sectionTitleStyle .= ' font-style: italic;';
-    } else {
-        $sectionTitleStyle .= ' font-style: normal;';
-    }
-    $sectionTitleAlignClass = $sectionTitleAlign === 'center' ? 'text-center' : ($sectionTitleAlign === 'right' ? 'text-right' : 'text-left');
-    $vehicleDisplayService = app(\App\Services\TaxiRoyaalVehicleDisplayService::class);
-    $fallbackVehicleImages = collect($vehicleDisplayService->getVehiclesForSelect())
-        ->map(function ($v) {
-            $url = isset($v['image_url']) ? trim((string) $v['image_url']) : '';
-            if ($url === '') {
-                return null;
-            }
-            return str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'));
-        })
-        ->filter()
-        ->values();
-    $formatPrice = function($value, $unit = '') {
-        if ($value === null || $value === '' || (is_numeric($value) && (float)$value == 0)) return null;
-        $num = number_format((float)$value, 2, ',', '.');
-        return '€ ' . $num . ($unit ? ' ' . $unit : '');
-    };
-    $valueColumnWidth = '120px';
-    $cardWidthPx = [
-        'small' => 400,
-        'normal' => 600,
-        'large' => 800,
-    ];
-@endphp
 <section class="container-custom py-12 md:py-16" aria-labelledby="taxiroyaal-tarieven-heading">
+    @php
+        // Wanneer alleen homeSections + sectionKey worden doorgegeven (frontend home), data zelf ophalen
+        if (isset($sectionKey) && isset($homeSections) && is_array($homeSections)) {
+            $sectionData = $homeSections[$sectionKey] ?? [];
+            $ratesData = $ratesData ?? app(\App\Services\TaxiRoyaalPublicRatesService::class)->getRatesForDisplay();
+            $sectionItems = isset($sectionData['items']) && is_array($sectionData['items']) ? $sectionData['items'] : [];
+            $hasRates = $ratesData && ($ratesData['rates_1_4'] || $ratesData['rates_5_8']);
+            $hasSectionItemsWithContent = !empty($sectionItems);
+            $sectionTitle = $sectionData['title'] ?? 'Tarieven';
+            $sectionTitleAlignClass = 'text-' . (in_array($sectionData['title_align'] ?? 'left', ['left', 'center', 'right'], true) ? ($sectionData['title_align']) : 'left');
+            $sectionTitleStyle = '';
+            if (!empty($sectionData['title_font_size'])) {
+                $sectionTitleStyle .= ' font-size: ' . e($sectionData['title_font_size']) . ';';
+            }
+            if (!empty($sectionData['title_font_style']) && $sectionData['title_font_style'] !== 'normal') {
+                $sectionTitleStyle .= ' font-weight: ' . ($sectionData['title_font_style'] === 'bold' ? '700' : '400') . '; font-style: ' . ($sectionData['title_font_style'] === 'italic' ? 'italic' : 'normal') . ';';
+            }
+            $vehicleDisplayService = $vehicleDisplayService ?? app(\App\Services\TaxiRoyaalVehicleDisplayService::class);
+            $vehiclesForSelect = $vehicleDisplayService->getVehiclesForSelect();
+            $fallbackVehicleImages = $fallbackVehicleImages ?? collect(array_filter(array_map(function ($v) use ($vehicleDisplayService) {
+                return isset($v['id']) ? $vehicleDisplayService->getImageUrl((int) $v['id']) : null;
+            }, $vehiclesForSelect)));
+            $cardWidthPx = $cardWidthPx ?? ['small' => 320, 'normal' => 600, 'large' => 800, 'max' => 9999, 'total_width' => 9999];
+            $allowedFontSizes = $allowedFontSizes ?? array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
+            $valueColumnWidth = $valueColumnWidth ?? '6rem';
+            $allowedFontStyles = $allowedFontStyles ?? ['normal', 'bold', 'italic'];
+            $allowedTextAligns = $allowedTextAligns ?? ['left', 'center', 'right'];
+            $priceAnimation = isset($sectionData['price_animation']) ? (bool) $sectionData['price_animation'] : true;
+            $imageFadeDuration = isset($sectionData['image_fade_duration']) ? max(300, min(5000, (int) $sectionData['image_fade_duration'])) : 1200;
+        }
+        $sectionTitleAlignClass = $sectionTitleAlignClass ?? 'text-left';
+        $priceAnimation = $priceAnimation ?? true;
+        $imageFadeDuration = $imageFadeDuration ?? 1200;
+        $sectionTitleStyle = $sectionTitleStyle ?? '';
+        $sectionTitle = $sectionTitle ?? 'Tarieven';
+        $hasRates = $hasRates ?? false;
+        $hasSectionItemsWithContent = $hasSectionItemsWithContent ?? false;
+        $sectionItems = $sectionItems ?? [];
+        $ratesData = $ratesData ?? ['rates_1_4' => null, 'rates_5_8' => null, 'cleaning_costs' => null];
+        $vehicleDisplayService = $vehicleDisplayService ?? app(\App\Services\TaxiRoyaalVehicleDisplayService::class);
+        $fallbackVehicleImages = $fallbackVehicleImages ?? collect();
+        $cardWidthPx = $cardWidthPx ?? ['small' => 320, 'normal' => 600, 'large' => 800, 'max' => 9999, 'total_width' => 9999];
+        $allowedFontSizes = $allowedFontSizes ?? array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
+        $valueColumnWidth = $valueColumnWidth ?? '6rem';
+        $allowedFontStyles = $allowedFontStyles ?? ['normal', 'bold', 'italic'];
+        $allowedTextAligns = $allowedTextAligns ?? ['left', 'center', 'right'];
+    @endphp
+    <style>.taxiroyaal-card-image-wrap.image-loaded .taxiroyaal-card-image-loader{opacity:0;pointer-events:none;}</style>
     <h2 id="taxiroyaal-tarieven-heading" class="text-2xl md:text-3xl text-gray-900 dark:text-white mb-8 md:mb-10 {{ $sectionTitleAlignClass }}" style="{{ $sectionTitleStyle }}">{{ e($sectionTitle) }}</h2>
     @if($hasRates || $hasSectionItemsWithContent)
         @if(!empty($sectionItems))
             {{-- Per-card configuratie: één kaart per sectie-item met gekozen tarief (1-4 of 5-8), afbeelding en kaartopties --}}
-            <div class="taxiroyaal-pricing my-10 md:my-14" data-taxiroyaal-pricing>
+            <div class="taxiroyaal-pricing my-10 md:my-14" data-taxiroyaal-pricing data-price-animation="{{ $priceAnimation ? '1' : '0' }}">
                 <div class="flex flex-wrap justify-center items-stretch gap-6 lg:gap-8 mb-6 lg:mb-8">
                     @foreach($sectionItems as $itemIndex => $item)
                         @php
@@ -123,45 +115,53 @@
                         @endphp
                         @if($isOverigeKosten)
                         <div class="{{ $wrapperClass }}" style="{{ $wrapperStyle }}" data-taxiroyaal-card-wrapper data-card-size="{{ $cardSize }}">
-                        <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-500/50 transition-colors shadow-lg w-full h-full flex flex-col {{ $textAlignClass }}" data-taxiroyaal-card data-card-size="{{ $cardSize }}">
-                            @if($imageUrl)
-                            <div class="aspect-[16/10] w-full overflow-hidden shrink-0" style="background-color: {{ $imageBgColor }};">
-                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="w-full h-full object-cover object-center" loading="lazy">
+                        <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 transition-all duration-700 ease-out shadow-lg w-full h-full flex flex-col opacity-0 translate-y-4 {{ $textAlignClass }} transition-transform duration-200 hover:-translate-y-2" data-taxiroyaal-card data-card-size="{{ $cardSize }}" data-card-index="{{ $itemIndex }}">
+                        @if($imageUrl)
+                            <div class="taxiroyaal-card-image-wrap aspect-[16/10] w-full overflow-hidden shrink-0 relative" style="background-color: {{ $imageBgColor }};">
+                                <div class="taxiroyaal-card-image-loader absolute inset-0 flex items-center justify-center transition-opacity duration-300 bg-gray-100/90 dark:bg-gray-800/90" aria-hidden="true">
+                                    <svg class="animate-spin h-10 w-10 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </div>
+                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="taxiroyaal-card-image w-full h-full object-cover object-center opacity-0 transition-opacity ease-out" style="transition-duration: {{ $imageFadeDuration }}ms;" loading="lazy" onload="this.closest('.taxiroyaal-card-image-wrap').classList.add('image-loaded')" onerror="this.closest('.taxiroyaal-card-image-wrap').classList.add('image-loaded')">
                             </div>
                             @endif
                             <div class="p-5 md:p-6 flex-1 flex flex-col {{ $textColor === '' ? 'text-gray-900 dark:text-gray-100' : '' }}" @if($textColor !== '') style="color: {{ e($textColor) }};" @endif>
                                 <h3 class="text-lg font-semibold mb-4 {{ $titleFontClass }} {{ $titleAlignClass }}" style="{{ $titleStyle }}">{{ e($title) }}</h3>
                                 <div class="flex items-baseline gap-4 text-left">
                                     <span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Reinigingskosten</span>
-                                    <span class="font-semibold text-lg block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">
-                                        @if($overigeKostenPrice !== null)€ {{ number_format($overigeKostenPrice, 2, ',', '.') }}@else<span class="opacity-80">—</span>@endif
-                                    </span>
+                                    @if($overigeKostenPrice !== null)
+                                    <span class="font-semibold text-lg block text-left ml-auto price-count" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}" data-price-end="{{ $overigeKostenPrice }}" data-price-prefix="€ " data-price-suffix="">0,00</span>
+                                    @else
+                                    <span class="font-semibold text-lg block text-left ml-auto opacity-80" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">—</span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
                         </div>
-                        @elseif($rate)
-                        <div class="{{ $wrapperClass }}" style="{{ $wrapperStyle }}" data-taxiroyaal-card-wrapper data-card-size="{{ $cardSize }}">
-                        <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-500/50 transition-colors shadow-lg w-full h-full flex flex-col {{ $textAlignClass }}" data-taxiroyaal-card data-card-size="{{ $cardSize }}">
+                            @elseif($rate)
+                            <div class="{{ $wrapperClass }}" style="{{ $wrapperStyle }}" data-taxiroyaal-card-wrapper data-card-size="{{ $cardSize }}">
+                            <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 transition-all duration-700 ease-out shadow-lg w-full h-full flex flex-col opacity-0 translate-y-4 {{ $textAlignClass }} transition-transform duration-200 hover:-translate-y-2" data-taxiroyaal-card data-card-size="{{ $cardSize }}" data-card-index="{{ $itemIndex }}">
                             @if($imageUrl)
-                            <div class="aspect-[16/10] w-full overflow-hidden shrink-0" style="background-color: {{ $imageBgColor }};">
-                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="w-full h-full object-cover object-center" loading="lazy">
+                            <div class="taxiroyaal-card-image-wrap aspect-[16/10] w-full overflow-hidden shrink-0 relative" style="background-color: {{ $imageBgColor }};">
+                                <div class="taxiroyaal-card-image-loader absolute inset-0 flex items-center justify-center transition-opacity duration-300 bg-gray-100/90 dark:bg-gray-800/90" aria-hidden="true">
+                                    <svg class="animate-spin h-10 w-10 text-gray-400 dark:text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </div>
+                                <img src="{{ $imageUrl }}" alt="{{ e($title) }}" class="taxiroyaal-card-image w-full h-full object-cover object-center opacity-0 transition-opacity ease-out" style="transition-duration: {{ $imageFadeDuration }}ms;" loading="lazy" onload="this.closest('.taxiroyaal-card-image-wrap').classList.add('image-loaded')" onerror="this.closest('.taxiroyaal-card-image-wrap').classList.add('image-loaded')">
                             </div>
                             @endif
                             <div class="p-5 md:p-6 flex-1 flex flex-col {{ $textColor === '' ? 'text-gray-900 dark:text-gray-100' : '' }}" @if($textColor !== '') style="color: {{ e($textColor) }};" @endif>
                                 <h3 class="text-lg font-semibold mb-4 {{ $titleFontClass }} {{ $titleAlignClass }}" style="{{ $titleStyle }}">{{ e($title) }}</h3>
                                 <ul class="space-y-3 text-sm">
-                                    @if($v = $formatPrice($rate->base_fare))
-                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Instaptarief</span><span class="font-semibold block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">{{ $v }}</span></li>
+                                    @if($rate->base_fare !== null)
+                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Instaptarief</span><span class="font-semibold block text-left ml-auto price-count" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}" data-price-end="{{ (float) $rate->base_fare }}" data-price-prefix="€ " data-price-suffix="">0,00</span></li>
                                     @endif
-                                    @if($v = $formatPrice($rate->price_per_km, '/km'))
-                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Prijs per km</span><span class="font-semibold block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">{{ $v }}</span></li>
+                                    @if($rate->price_per_km !== null)
+                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Prijs per km</span><span class="font-semibold block text-left ml-auto price-count" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}" data-price-end="{{ (float) $rate->price_per_km }}" data-price-prefix="€ " data-price-suffix=" /km">0,00</span></li>
                                     @endif
-                                    @if($v = $formatPrice($rate->price_per_min, '/min'))
-                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Prijs per minuut</span><span class="font-semibold block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">{{ $v }}</span></li>
+                                    @if($rate->price_per_min !== null)
+                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Prijs per minuut</span><span class="font-semibold block text-left ml-auto price-count" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}" data-price-end="{{ (float) $rate->price_per_min }}" data-price-prefix="€ " data-price-suffix=" /min">0,00</span></li>
                                     @endif
-                                    @if($v = $formatPrice($rate->min_fare, '/u'))
-                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Wachttarief vooraf p/u</span><span class="font-semibold block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">{{ $v }}</span></li>
+                                    @if($rate->min_fare !== null)
+                                    <li class="flex items-baseline gap-4 text-left"><span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Wachttarief vooraf p/u</span><span class="font-semibold block text-left ml-auto price-count" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}" data-price-end="{{ (float) $rate->min_fare }}" data-price-prefix="€ " data-price-suffix=" /u">0,00</span></li>
                                     @endif
                                 </ul>
                                 @php
@@ -171,7 +171,7 @@
                                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600/50">
                                     <div class="flex items-baseline gap-4 text-left">
                                         <span class="opacity-80 flex-1 text-left" style="{{ $labelStyle }}">Overige kosten</span>
-                                        <span class="font-semibold block text-left ml-auto" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}">€ {{ number_format($itemCleaning, 2, ',', '.') }}</span>
+                                        <span class="font-semibold block text-left ml-auto price-count" style="width: {{ $valueColumnWidth }}; min-width: {{ $valueColumnWidth }}; max-width: {{ $valueColumnWidth }}; {{ $valueStyle }}" data-price-end="{{ $itemCleaning }}" data-price-prefix="€ " data-price-suffix="">0,00</span>
                                     </div>
                                 </div>
                                 @endif
@@ -237,6 +237,25 @@
                     });
                 }
 
+                function animatePrice(el) {
+                    var endStr = el.getAttribute('data-price-end');
+                    if (endStr === null || endStr === '') return;
+                    var end = parseFloat(endStr, 10);
+                    if (isNaN(end)) return;
+                    var prefix = el.getAttribute('data-price-prefix') || '€ ';
+                    var suffix = el.getAttribute('data-price-suffix') || '';
+                    var duration = 2200;
+                    var start = performance.now();
+                    function tick(now) {
+                        var t = Math.min(1, (now - start) / duration);
+                        var eased = 1 - Math.pow(1 - t, 3);
+                        var current = end * eased;
+                        el.textContent = prefix + current.toFixed(2).replace('.', ',') + suffix;
+                        if (t < 1) requestAnimationFrame(tick);
+                    }
+                    requestAnimationFrame(tick);
+                }
+
                 function run() {
                     var roots = document.querySelectorAll('[data-taxiroyaal-pricing]');
                     roots.forEach(function(root) {
@@ -245,21 +264,68 @@
                     });
                 }
 
+                /* Staggered fade-in + price count-up when cards enter viewport */
+                function initCardAnimations() {
+                    var roots = document.querySelectorAll('[data-taxiroyaal-pricing]');
+                    roots.forEach(function(root) {
+                        var cards = root.querySelectorAll('[data-taxiroyaal-card]');
+                        if (!cards.length) return;
+                        var io = new IntersectionObserver(function(entries) {
+                            entries.forEach(function(entry) {
+                                if (!entry.isIntersecting) return;
+                                var card = entry.target;
+                                var idx = parseInt(card.getAttribute('data-card-index'), 10) || 0;
+                                io.unobserve(card);
+                                setTimeout(function() {
+                                    card.classList.remove('opacity-0', 'translate-y-4');
+                                    card.classList.add('opacity-100', 'translate-y-0');
+                                    card.querySelectorAll('.taxiroyaal-card-image').forEach(function(img) { img.classList.add('opacity-100'); });
+                                    var animate = root.getAttribute('data-price-animation') !== '0';
+                                    card.querySelectorAll('.price-count').forEach(function(el) {
+                                        if (!el.getAttribute('data-price-end') || el.getAttribute('data-price-end') === '') return;
+                                        if (animate) {
+                                            animatePrice(el);
+                                        } else {
+                                            var end = parseFloat(el.getAttribute('data-price-end'), 10);
+                                            if (!isNaN(end)) {
+                                                var prefix = el.getAttribute('data-price-prefix') || '€ ';
+                                                var suffix = el.getAttribute('data-price-suffix') || '';
+                                                el.textContent = prefix + end.toFixed(2).replace('.', ',') + suffix;
+                                            }
+                                        }
+                                    });
+                                }, idx * 200);
+                            });
+                        }, { threshold: 0.12 });
+                        cards.forEach(function(card) { io.observe(card); });
+                    });
+                }
+
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', run);
+                    document.addEventListener('DOMContentLoaded', function() { run(); initCardAnimations(); });
                 } else {
                     run();
+                    initCardAnimations();
                 }
                 window.addEventListener('load', run);
                 window.addEventListener('resize', run);
             })();
             </script>
         @else
+            @php
+                $formatPrice = fn ($v, $suffix = '') => ($v !== null && $v !== '' && is_numeric($v)) ? ('€ ' . number_format((float) $v, 2, ',', '.') . $suffix) : null;
+                $imgCar = $fallbackVehicleImages->get(0) ?? 'data:image/svg+xml,' . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect fill="#e5e7eb" width="400" height="250"/></svg>');
+                $imgVan = $fallbackVehicleImages->get(1) ?? $fallbackVehicleImages->get(0) ?? 'data:image/svg+xml,' . rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect fill="#e5e7eb" width="400" height="250"/></svg>');
+            @endphp
             @include('frontend.website.partials.taxiroyaal-pricing-cards', [
                 'rates_1_4' => $ratesData['rates_1_4'],
                 'rates_5_8' => $ratesData['rates_5_8'],
                 'cleaning_costs' => $ratesData['cleaning_costs'],
                 'block' => null,
+                'formatPrice' => $formatPrice,
+                'imgCar' => $imgCar,
+                'imgVan' => $imgVan,
+                'image_fade_duration' => $imageFadeDuration ?? 1200,
             ])
         @endif
     @else

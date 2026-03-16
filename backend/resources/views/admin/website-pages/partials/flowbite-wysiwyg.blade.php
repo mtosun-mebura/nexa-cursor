@@ -6,6 +6,8 @@
     $textareaId = $textareaId ?? ($editorId . '-input');
     $placeholder = $placeholder ?? '';
     $prefix = $editorId;
+    // Ongescaped in textarea zodat opgeslagen HTML in de editor wordt getoond; alleen </textarea> escapen om tag niet te breken
+    $valueForTextarea = str_replace('</textarea>', '&lt;/textarea&gt;', (string) $value);
 @endphp
 <div class="flowbite-wysiwyg-wrapper w-full max-w-4xl border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 min-w-0" data-flowbite-wysiwyg data-editor-id="{{ $editorId }}" data-upload-image-url="{{ route('admin.website-pages.upload-hero-image') }}" data-upload-document-url="{{ route('admin.website-pages.upload-wysiwyg-document') }}">
     <input type="file" class="hidden flowbite-wysiwyg-image-input" accept="image/*" data-editor-id="{{ $editorId }}" aria-hidden="true">
@@ -60,8 +62,14 @@
                 <option value="Inter, sans-serif">Inter</option>
                 <option value="Georgia, serif">Georgia</option>
             </select>
+            <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-1"></span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 mr-1 shrink-0">Tekstkleur:</span>
+            <div class="flex items-center gap-1 shrink-0">
+                <input type="color" id="{{ $prefix }}-textColor" class="w-8 h-8 rounded border border-gray-200 dark:border-gray-600 cursor-pointer bg-white dark:bg-gray-800 p-0.5" value="#000000" title="Tekstkleur kiezen">
+                <button type="button" id="{{ $prefix }}-unsetTextColor" class="px-2 py-1 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300" title="Kleur verwijderen">Geen</button>
+            </div>
         </div>
     </div>
     <div class="flowbite-wysiwyg-content px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus-within:ring-1 focus-within:ring-blue-500 rounded-b-xl overflow-auto min-w-0" style="min-height: 300px; max-height: 300px;" data-editor-content></div>
-    <textarea name="{{ $name }}" id="{{ $textareaId }}" class="hidden flowbite-wysiwyg-textarea" data-editor-input>{{ $value }}</textarea>
+    <textarea name="{{ $name }}" id="{{ $textareaId }}" class="hidden flowbite-wysiwyg-textarea" data-editor-input>{!! $valueForTextarea !!}</textarea>
 </div>

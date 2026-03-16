@@ -96,6 +96,36 @@ class AdminAuthController extends Controller
         $path = $intendedUrl ? parse_url($intendedUrl, PHP_URL_PATH) : '';
         $isUtilityPath = $path && preg_match('#/admin/(chat|notifications)/unread-count#', $path);
         
+        // Preview-URL: stuur door naar bewerkpagina (inclusief module-parameter) zodat je soepel verder kunt waar je was.
+        if ($path && preg_match('#^/admin/website-pages/(\d+)/preview$#', $path, $m)) {
+            $pageId = $m[1];
+            $query = parse_url($intendedUrl, PHP_URL_QUERY);
+            parse_str($query ?? '', $params);
+            if (empty($params['module'])) {
+                $page = \App\Models\WebsitePage::find($pageId);
+                if ($page && !empty($page->module_name)) {
+                    $params['module'] = $page->module_name;
+                    $query = http_build_query($params);
+                }
+            }
+            $path = '/admin/website-pages/' . $pageId . '/edit';
+            $intendedUrl = $path . ($query ? '?' . $query : '');
+        }
+
+        // Edit-URL zonder module: voeg module toe uit de website-pagina zodat de juiste module-context behouden blijft.
+        if ($path && preg_match('#^/admin/website-pages/(\d+)/edit$#', $path, $m)) {
+            $query = parse_url($intendedUrl, PHP_URL_QUERY);
+            parse_str($query ?? '', $params);
+            if (empty($params['module'])) {
+                $page = \App\Models\WebsitePage::find($m[1]);
+                if ($page && !empty($page->module_name)) {
+                    $params['module'] = $page->module_name;
+                    $query = http_build_query($params);
+                    $intendedUrl = $path . '?' . $query;
+                }
+            }
+        }
+        
         // Intended URL heeft voorrang: na sessie-verlopen of directe link met ?intended= ga daarheen.
         // Gebruik relatief pad zodat de browser op dezelfde origin blijft en sessiecookies meeneemt.
         if ($intendedUrl && is_string($intendedUrl) && $path && \Illuminate\Support\Str::startsWith($path, '/admin') && !$isUtilityPath) {

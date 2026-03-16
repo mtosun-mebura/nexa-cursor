@@ -123,10 +123,97 @@
             }
         });
 
+        function parseColorFromNode(node) {
+            if (!node || node.nodeType !== 1) return null;
+            var color = null;
+            if (node.getAttribute) {
+                var style = node.getAttribute('style');
+                if (style && typeof style === 'string' && style.indexOf('color') !== -1) {
+                    var m = style.match(/color\s*:\s*([^;]+)/);
+                    if (m) color = m[1].trim();
+                }
+            }
+            if (!color && node.style && node.style.color) color = node.style.color;
+            return color || null;
+        }
+        function colorToHex(cssColor) {
+            if (!cssColor || typeof cssColor !== 'string') return null;
+            cssColor = cssColor.trim();
+            if (/^#[0-9A-Fa-f]{3,8}$/.test(cssColor)) {
+                if (cssColor.length === 4) return '#' + cssColor[1] + cssColor[1] + cssColor[2] + cssColor[2] + cssColor[3] + cssColor[3];
+                if (cssColor.length === 7) return cssColor;
+                return null;
+            }
+            var rgb = cssColor.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+            if (rgb) {
+                var r = ('0' + parseInt(rgb[1], 10).toString(16)).slice(-2);
+                var g = ('0' + parseInt(rgb[2], 10).toString(16)).slice(-2);
+                var b = ('0' + parseInt(rgb[3], 10).toString(16)).slice(-2);
+                return '#' + r + g + b;
+            }
+            var rgba = cssColor.match(/^rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,/);
+            if (rgba) {
+                var r = ('0' + parseInt(rgba[1], 10).toString(16)).slice(-2);
+                var g = ('0' + parseInt(rgba[2], 10).toString(16)).slice(-2);
+                var b = ('0' + parseInt(rgba[3], 10).toString(16)).slice(-2);
+                return '#' + r + g + b;
+            }
+            try {
+                var el = document.createElement('span');
+                el.style.color = cssColor;
+                document.body.appendChild(el);
+                var computed = window.getComputedStyle(el).color;
+                document.body.removeChild(el);
+                var rgb = computed && computed.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+                if (rgb) {
+                    var r = ('0' + parseInt(rgb[1], 10).toString(16)).slice(-2);
+                    var g = ('0' + parseInt(rgb[2], 10).toString(16)).slice(-2);
+                    var b = ('0' + parseInt(rgb[3], 10).toString(16)).slice(-2);
+                    return '#' + r + g + b;
+                }
+            } catch (e) {}
+            return null;
+        }
+        var TextColor = Mark.create({
+            name: 'textColor',
+            addAttributes() {
+                return {
+                    color: {
+                        default: null,
+                        parseHTML: function (el) { return parseColorFromNode(el) || null; },
+                        renderHTML: function (attrs) { return attrs.color ? { style: 'color: ' + attrs.color } : {}; }
+                    }
+                };
+            },
+            parseHTML() {
+                return [{
+                    tag: 'span',
+                    getAttrs: function (node) {
+                        var c = parseColorFromNode(node);
+                        return c ? { color: c } : false;
+                    },
+                    priority: 100
+                }];
+            },
+            renderHTML: function (_a) {
+                var mark = _a.mark;
+                if (!mark.attrs.color) return ['span', 0];
+                return ['span', { style: 'color: ' + mark.attrs.color }, 0];
+            },
+            addCommands() {
+                var self = this;
+                return {
+                    setColor: function (color) { return function (_a) { var chain = _a.chain; return color ? chain().focus().setMark(self.name, { color: color }).run() : chain().focus().unsetMark(self.name).run(); }; },
+                    unsetColor: function () { return function (_a) { var chain = _a.chain; return chain().focus().unsetMark(self.name).run(); }; }
+                };
+            }
+        });
+
         const extensions = [
             StarterKit,
             FontSize,
             FontFamily,
+            TextColor,
             Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener' } }),
             Image
         ];
@@ -189,6 +276,13 @@
             var v = fontFamilySelect.value;
             editor.chain().focus()[v ? 'setFontFamily' : 'unsetFontFamily'](v || undefined).run();
         });
+
+        var textColorInput = q('-textColor');
+        if (textColorInput) textColorInput.addEventListener('input', function () {
+            var v = textColorInput.value;
+            if (v) editor.chain().focus().setColor(v).run();
+        });
+        on('-unsetTextColor', () => editor.chain().focus().unsetColor().run());
 
         on('-addImage', () => {
             const input = wrapper.querySelector('.flowbite-wysiwyg-image-input');
@@ -254,6 +348,7 @@
             setBtnActive(q('-setH3'), editor.isActive('heading', { level: 3 }));
             var fs = fontSizeSelect; if (fs) { var attrs = editor.getAttributes('fontSize'); fs.value = (attrs && attrs.fontSize) ? attrs.fontSize : ''; }
             var ff = fontFamilySelect; if (ff) { var attrs = editor.getAttributes('fontFamily'); ff.value = (attrs && attrs.fontFamily) ? attrs.fontFamily : ''; }
+            var tc = textColorInput; if (tc) { var attrs = editor.getAttributes('textColor'); var c = (attrs && attrs.color) ? attrs.color : ''; var hex = colorToHex(c); tc.value = hex || '#000000'; }
         }
         function scheduleToolbarUpdate() { requestAnimationFrame(updateToolbarState); }
         editor.on('selectionUpdate', scheduleToolbarUpdate);

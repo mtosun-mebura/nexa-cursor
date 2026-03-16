@@ -29,12 +29,13 @@
     $envService = app(\App\Services\EnvService::class);
     $whatsappClickToChatEnabled = (string) $envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0') === '1';
     $whatsappClickToChatNumber = trim((string) $envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''));
+    $bookingConfig['address_search_url'] = url()->route('taxiroyaal.booking.address-search');
 @endphp
 
-<section class="container-custom py-8 md:py-12" data-taxiroyaal-booking-module>
+<section class="container-custom py-8 md:py-12 booking-module-scroll-reveal" data-taxiroyaal-booking-module data-booking-module-scroll-reveal>
     <div class="flex {{ $moduleAlignClass }}">
     <div class="w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
-    <div class="rounded-xl border p-0 overflow-hidden shadow-sm bg-neutral-primary text-heading"
+    <div class="booking-module-card booking-module-reveal-item rounded-xl border p-0 shadow-sm bg-neutral-primary text-heading"
         style="{{ $moduleShellStyle }}">
         <div class="px-6 py-5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}33;">
             <h2 class="text-3xl md:text-4xl font-bold" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
@@ -110,13 +111,13 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                 @foreach(($bookingConfig['baggage_items'] ?? []) as $row)
                                 @php $key = $row['key'] ?? ''; @endphp
-                                <div class="booking-baggage-card rounded-xl border p-4 bg-neutral-primary shadow-xs" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}22;">
-                                    <div class="space-y-1">
+                                <div class="booking-baggage-card rounded-xl border p-4 bg-neutral-primary shadow-xs flex flex-col h-full" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}22;">
+                                    <div class="space-y-1 flex-1 min-h-0">
                                         <div class="text-base font-semibold text-heading">{{ e($row['title'] ?? '') }}</div>
                                         @if(!empty($row['subtitle']))<div class="text-sm text-body">{{ e($row['subtitle']) }}</div>@endif
                                         @if(!empty($row['price']) && (float)$row['price'] > 0)<div class="text-xs text-body">+ € {{ number_format((float)$row['price'], 2, ',', '.') }}</div>@endif
                                     </div>
-                                    <div class="mt-4 inline-flex items-center gap-2 px-1.5 py-1 rounded-lg bg-neutral-secondary-medium shadow-xs">
+                                    <div class="mt-auto pt-4 inline-flex items-center gap-2 px-1.5 py-1 rounded-lg bg-neutral-secondary-medium shadow-xs self-start">
                                         <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-8 w-8 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="baggage.{{ e($key) }}" data-delta="-1">-</button>
                                         <span class="min-w-5 text-center font-semibold text-base leading-none text-heading" data-qty-display="baggage.{{ e($key) }}">0</span>
                                         <button type="button" class="booking-qty-btn inline-flex items-center justify-center rounded-md border h-8 w-8 border-default-medium bg-neutral-primary text-heading hover:bg-neutral-secondary-soft transition-colors" data-target="baggage.{{ e($key) }}" data-delta="1" data-max="{{ (int)($row['max_qty'] ?? 4) }}">+</button>
@@ -228,11 +229,11 @@
                                     <input type="checkbox" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft" data-field="return_trip" {{ !empty($logic['return_enabled_by_default']) ? 'checked' : '' }}>
                                     <span class="text-heading">Retour</span>
                                 </label>
-                                <div class="relative mt-3 booking-datetime-wrap">
+                                <div class="relative mt-3 booking-datetime-wrap booking-return-datetime-wrap">
                                     <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 2v3m8-3v3M3 9h18M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
                                     </svg>
-                                    <input type="datetime-local" style="padding-left: 70px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer disabled:opacity-70" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="Selecteer datum en tijd" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
+                                    <input type="datetime-local" style="padding-left: 70px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="Selecteer datum en tijd" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
                                     <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="return_at">Selecteer datum en tijd</span>
                                 </div>
                             </div>
@@ -277,7 +278,7 @@
                                 </div>
                                 <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs max-w-3xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
                                     <div class="grid grid-cols-[1fr_auto_1fr] items-start gap-4 md:gap-8">
-                                        <div class="min-w-0 flex-1">
+                                        <div class="min-w-0 flex-1 text-center">
                                             <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Van</div>
                                             <div class="text-base font-semibold text-heading truncate" data-summary-pickup-line1>—</div>
                                             <div class="text-base text-body truncate" data-summary-pickup-line2>—</div>
@@ -288,7 +289,7 @@
                                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m0 0-4-4m4 4 4-4"/>
                                             </svg>
                                         </div>
-                                        <div class="min-w-0 flex-1 text-left md:text-right">
+                                        <div class="min-w-0 flex-1 text-center">
                                             <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Naar</div>
                                             <div class="text-base font-semibold text-heading truncate" data-summary-dropoff-line1>—</div>
                                             <div class="text-base text-body truncate" data-summary-dropoff-line2>—</div>
@@ -337,18 +338,23 @@
     </div>
 
     <div class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6" data-booking-confirm-modal>
-        <div class="absolute inset-0 bg-black/75 backdrop-blur-2xl" data-booking-confirm-backdrop></div>
-        <div class="relative z-10 w-full max-w-md rounded-2xl border border-violet-400/35 bg-slate-950/98 text-slate-100 shadow-2xl p-6 md:p-7 text-center">
-            <button type="button" class="absolute top-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300 hover:bg-slate-800/80 hover:text-white transition-colors" aria-label="Sluiten" data-booking-confirm-close>
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-            </button>
+        <div class="absolute inset-0 bg-black/45 dark:bg-black/88" data-booking-confirm-backdrop style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"></div>
+        <div class="relative z-10 w-full max-w-md">
+            <div class="absolute inset-0 rounded-2xl bg-white confirm-modal-bg" aria-hidden="true"></div>
+            <div class="relative rounded-2xl border border-slate-200 confirm-modal-content text-slate-900 dark:text-slate-100 shadow-2xl p-6 md:p-7 text-center">
+            <div class="flex justify-end items-start -mt-1 -mr-1 mb-1">
+                <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-white transition-colors" aria-label="Sluiten" data-booking-confirm-close>
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
             <h4 class="text-2xl font-bold mb-2">Boeking versturen</h4>
-            <p class="text-base text-slate-300">Weet u zeker dat u de boeking wilt versturen?</p>
+            <p class="text-base text-slate-600 dark:text-slate-200">Weet u zeker dat u de boeking wilt versturen?</p>
             <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap">
-                <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-600 text-slate-100 hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
-                <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-emerald-600 text-white hover:bg-emerald-500" data-booking-confirm-submit>Bevestigen</button>
+                <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-400 text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
+                <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-confirm-submit>Bevestigen</button>
+            </div>
             </div>
         </div>
     </div>
@@ -376,15 +382,59 @@
 </section>
 
 <style>
+/* Scroll-reveal: infade bij in beeld */
+.booking-module-scroll-reveal .booking-module-reveal-item {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+}
+.booking-module-scroll-reveal.is-in-view .booking-module-reveal-item {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+[data-taxiroyaal-booking-module] .booking-module-card {
+    overflow: visible;
+}
+
 [data-taxiroyaal-booking-module] .booking-trip-layout {
     display: grid;
     grid-template-columns: 1fr;
     gap: 24px;
 }
 
-[data-taxiroyaal-booking-module] [data-booking-success-modal],
-[data-taxiroyaal-booking-module] [data-booking-confirm-modal] {
+[data-taxiroyaal-booking-module] .booking-return-datetime-wrap.booking-return-readonly {
+    opacity: 0.7;
+    pointer-events: none;
+}
+[data-taxiroyaal-booking-module] .booking-return-datetime-wrap.booking-return-readonly .booking-datetime-input {
+    cursor: default;
+}
+
+[data-taxiroyaal-booking-module] [data-booking-success-modal] {
     animation: bookingFadeIn 180ms ease-out;
+}
+/* Bevestig-modal: geen fade, blur en modal direct zichtbaar */
+[data-taxiroyaal-booking-module] [data-booking-confirm-modal] {
+    animation: none;
+}
+
+/* Bevestig-modal: light mode = witte achtergrond */
+[data-booking-confirm-modal] .confirm-modal-bg {
+    background-color: #ffffff;
+}
+[data-booking-confirm-modal] .confirm-modal-content {
+    border-color: #e2e8f0;
+}
+
+/* Bevestig-modal: dark mode = rgb(15 23 42), alleen bij class .dark op html */
+html.dark [data-booking-confirm-modal] .confirm-modal-bg,
+.dark [data-booking-confirm-modal] .confirm-modal-bg {
+    background-color: rgb(15, 23, 42);
+}
+html.dark [data-booking-confirm-modal] .confirm-modal-content,
+.dark [data-booking-confirm-modal] .confirm-modal-content {
+    border-color: rgba(148, 163, 184, 0.5);
 }
 
 html.booking-modal-open,
@@ -418,6 +468,7 @@ body.booking-modal-open {
 }
 
 [data-taxiroyaal-booking-module] .booking-route-wrap {
+    overflow: visible;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: 12px;
@@ -468,12 +519,15 @@ body.booking-modal-open {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    overflow: visible;
 }
 
 [data-taxiroyaal-booking-module] .booking-route-field-row {
+    position: relative;
     min-height: 24px;
     display: flex;
     align-items: center;
+    overflow: visible;
 }
 
 [data-taxiroyaal-booking-module] .booking-stopover-row {
@@ -488,12 +542,24 @@ body.booking-modal-open {
     width: 100%;
 }
 
-[data-taxiroyaal-booking-module] .booking-address-suggestions-panel {
+[data-taxiroyaal-booking-module] .booking-address-suggestions-panel,
+.booking-address-suggestions-panel--fixed {
     position: absolute;
     left: 0;
     right: 0;
     top: calc(100% + 6px);
-    z-index: 40;
+    z-index: 10001;
+}
+.booking-address-suggestions-panel--fixed {
+    right: auto;
+}
+.booking-address-suggestions-panel.hidden,
+.booking-address-suggestions-panel--fixed.hidden {
+    pointer-events: none !important;
+    visibility: hidden;
+}
+.booking-address-suggestions-panel--fixed,
+[data-taxiroyaal-booking-module] .booking-address-suggestions-panel {
     width: 100%;
     border: 1px solid rgba(148, 163, 184, 0.55);
     border-radius: 10px;
@@ -501,6 +567,40 @@ body.booking-modal-open {
     box-shadow: 0 14px 34px rgba(2, 6, 23, 0.25);
     max-height: 320px;
     overflow: auto;
+}
+.dark .booking-address-suggestions-panel--fixed {
+    background: #1e293b;
+    border-color: rgba(148, 163, 184, 0.35);
+}
+.dark .booking-address-suggestions-panel--fixed .booking-address-suggestion-item {
+    color: #f1f5f9;
+    border-bottom-color: rgba(148, 163, 184, 0.25);
+}
+.dark .booking-address-suggestions-panel--fixed .booking-address-suggestion-item:hover {
+    background: rgba(148, 163, 184, 0.2);
+    color: #fff;
+}
+.dark .booking-address-suggestions-panel--fixed .booking-address-suggestion-loading {
+    color: #94a3b8;
+}
+.booking-address-suggestions-panel--fixed .booking-address-suggestion-item {
+    width: 100%;
+    display: block;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #0f172a;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+.booking-address-suggestions-panel--fixed .booking-address-suggestion-item:hover {
+    background: rgba(91, 33, 182, 0.08);
+}
+.booking-address-suggestions-panel--fixed .booking-address-suggestion-loading {
+    pointer-events: none;
+    color: #64748b;
 }
 
 [data-taxiroyaal-booking-module] .dark .booking-address-suggestions-panel,
@@ -521,6 +621,11 @@ body.booking-modal-open {
     line-height: 1.45;
     color: #0f172a;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+[data-taxiroyaal-booking-module] .booking-address-suggestion-loading {
+    pointer-events: none;
+    color: var(--body, #64748b);
 }
 
 [data-taxiroyaal-booking-module] .booking-address-suggestion-item:hover {
@@ -1328,37 +1433,23 @@ body.booking-modal-open {
     }
 
     function setupStopoverAutocompletes() {
-        if (!window.google || !google.maps || !google.maps.places) return;
-        var options = {
-            componentRestrictions: { country: (config.maps && config.maps.country ? config.maps.country : 'nl') },
-            fields: ['formatted_address', 'geometry'],
-        };
-        root.querySelectorAll('[data-stopover-input]').forEach(function(input, idx) {
-            if (input.dataset.autocompleteBound === '1') return;
-            var ac = new google.maps.places.Autocomplete(input, options);
-            ac.addListener('place_changed', function() {
-                var place = ac.getPlace();
-                if (!place) return;
-                input.value = place.formatted_address || input.value;
-                state.stopovers_geo[idx] = {
-                    lat: place.geometry && place.geometry.location ? place.geometry.location.lat() : null,
-                    lng: place.geometry && place.geometry.location ? place.geometry.location.lng() : null,
-                };
-                syncStateFromFields();
-                if (window.__taxiroyaalBookingRouteCalc) {
-                    window.__taxiroyaalBookingRouteCalc();
-                }
-            });
-            input.dataset.autocompleteBound = '1';
-        });
+        /* Stopover-velden gebruiken dezelfde snelle typeahead als pickup/dropoff (setupAddressTypeaheadFallback).
+           Bij nieuwe tussenstop de typeahead opnieuw binden via root._bindAllRouteAddressInputs(). */
+        if (root._bindAllRouteAddressInputs) {
+            root._bindAllRouteAddressInputs();
+        }
     }
 
     function syncReturnTripUi() {
         var returnTripEnabled = !!state.return_trip;
         var returnInput = root.querySelector('[data-field="return_at"]');
         var returnPlaceholder = root.querySelector('[data-datetime-placeholder-for="return_at"]');
+        var returnWrap = root.querySelector('.booking-return-datetime-wrap');
         if (!returnInput) return;
         returnInput.disabled = !returnTripEnabled;
+        if (returnWrap) {
+            returnWrap.classList.toggle('booking-return-readonly', !returnTripEnabled);
+        }
         if (!returnTripEnabled) {
             returnInput.value = '';
             state.return_at = '';
@@ -1464,12 +1555,25 @@ body.booking-modal-open {
         var dropoffLine2El = root.querySelector('[data-summary-dropoff-line2]');
         var dropoffLine3El = root.querySelector('[data-summary-dropoff-line3]');
 
+        var dash = '—';
         if (pickupLine1El) pickupLine1El.textContent = pickupLines[0];
-        if (pickupLine2El) pickupLine2El.textContent = pickupLines[1];
-        if (pickupLine3El) pickupLine3El.textContent = pickupLines[2];
+        if (pickupLine2El) {
+            pickupLine2El.textContent = pickupLines[1];
+            pickupLine2El.classList.toggle('hidden', pickupLines[1] === dash);
+        }
+        if (pickupLine3El) {
+            pickupLine3El.textContent = pickupLines[2];
+            pickupLine3El.classList.toggle('hidden', pickupLines[2] === dash);
+        }
         if (dropoffLine1El) dropoffLine1El.textContent = dropoffLines[0];
-        if (dropoffLine2El) dropoffLine2El.textContent = dropoffLines[1];
-        if (dropoffLine3El) dropoffLine3El.textContent = dropoffLines[2];
+        if (dropoffLine2El) {
+            dropoffLine2El.textContent = dropoffLines[1];
+            dropoffLine2El.classList.toggle('hidden', dropoffLines[1] === dash);
+        }
+        if (dropoffLine3El) {
+            dropoffLine3El.textContent = dropoffLines[2];
+            dropoffLine3El.classList.toggle('hidden', dropoffLines[2] === dash);
+        }
 
         var vehicleImageWrapEl = root.querySelector('[data-summary-vehicle-image-wrap]');
         var vehicleImageEl = root.querySelector('[data-summary-vehicle-image]');
@@ -1594,16 +1698,37 @@ body.booking-modal-open {
 
     var routeCalcSeq = 0;
     var geocodeCache = new Map();
+    var GEOCODE_CACHE_MAX = 80;
+    var GEOCODE_TIMEOUT_MS = 5000;
+    var OSRM_TIMEOUT_MS = 6000;
+    var ROUTE_TOTAL_TIMEOUT_MS = 12000;
+
+    function fetchWithTimeout(url, ms) {
+        var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timeoutId = setTimeout(function() {
+            if (ctrl) ctrl.abort();
+        }, ms);
+        var opts = ctrl ? { signal: ctrl.signal } : {};
+        return fetch(url, opts).then(function(res) {
+            clearTimeout(timeoutId);
+            return res;
+        }).catch(function(err) {
+            clearTimeout(timeoutId);
+            throw err;
+        });
+    }
 
     function fetchNominatimCoordinates(address) {
         var key = String(address || '').trim().toLowerCase();
         if (!key) return Promise.resolve(null);
         if (geocodeCache.has(key)) return Promise.resolve(geocodeCache.get(key));
-        return fetch(
-            'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes='
-            + encodeURIComponent((config.maps && config.maps.country ? String(config.maps.country) : 'nl').toLowerCase())
-            + '&q=' + encodeURIComponent(address)
-        )
+        var country = (config.maps && config.maps.country ? String(config.maps.country) : 'nl').toLowerCase();
+        var params = { format: 'jsonv2', limit: 1, countrycodes: country, q: address };
+        var base = (config.address_search_url || '').trim();
+        var url = base
+            ? base + (base.indexOf('?') >= 0 ? '&' : '?') + new URLSearchParams(params).toString()
+            : 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams(params).toString();
+        return fetchWithTimeout(url, GEOCODE_TIMEOUT_MS)
             .then(function(res) { return res.ok ? res.json() : []; })
             .then(function(rows) {
                 var row = Array.isArray(rows) && rows[0] ? rows[0] : null;
@@ -1613,6 +1738,10 @@ body.booking-modal-open {
                     lng: parseFloat(row.lon || '0')
                 };
                 if (!isFinite(coord.lat) || !isFinite(coord.lng)) return null;
+                if (geocodeCache.size >= GEOCODE_CACHE_MAX) {
+                    var firstKey = geocodeCache.keys().next().value;
+                    if (firstKey !== undefined) geocodeCache.delete(firstKey);
+                }
                 geocodeCache.set(key, coord);
                 return coord;
             })
@@ -1630,7 +1759,11 @@ body.booking-modal-open {
             .concat((state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; }))
             .concat([state.dropoff_address]);
 
-        Promise.all(addressChain.map(fetchNominatimCoordinates))
+        var totalTimeout = new Promise(function(_, reject) {
+            setTimeout(function() { reject(new Error('timeout')); }, ROUTE_TOTAL_TIMEOUT_MS);
+        });
+
+        var routePromise = Promise.all(addressChain.map(fetchNominatimCoordinates))
             .then(function(points) {
                 if (seq !== routeCalcSeq) return;
                 if (!Array.isArray(points) || points.some(function(p) { return !p; })) {
@@ -1638,7 +1771,7 @@ body.booking-modal-open {
                     return;
                 }
                 var coordsPath = points.map(function(p) { return p.lng + ',' + p.lat; }).join(';');
-                return fetch('https://router.project-osrm.org/route/v1/driving/' + coordsPath + '?overview=false')
+                return fetchWithTimeout('https://router.project-osrm.org/route/v1/driving/' + coordsPath + '?overview=false', OSRM_TIMEOUT_MS)
                     .then(function(res) { return res.ok ? res.json() : null; })
                     .then(function(payload) {
                         if (seq !== routeCalcSeq) return;
@@ -1661,6 +1794,10 @@ body.booking-modal-open {
             .catch(function() {
                 requestQuotes();
             });
+
+        Promise.race([routePromise, totalTimeout]).catch(function() {
+            if (seq === routeCalcSeq) requestQuotes();
+        });
     }
 
     function recalculateRouteOrQuote() {
@@ -1734,12 +1871,20 @@ body.booking-modal-open {
         return true;
     }
 
+    var confirmModalEscapeHandler = function(e) {
+        if (e.key === 'Escape') {
+            closeConfirmModal();
+            document.removeEventListener('keydown', confirmModalEscapeHandler);
+        }
+    };
+
     function showConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
         modal.classList.remove('hidden');
         document.documentElement.classList.add('booking-modal-open');
         document.body.classList.add('booking-modal-open');
+        document.addEventListener('keydown', confirmModalEscapeHandler);
     }
 
     function closeConfirmModal() {
@@ -1748,6 +1893,7 @@ body.booking-modal-open {
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
+        document.removeEventListener('keydown', confirmModalEscapeHandler);
     }
 
     function submitBooking(sendToWhatsapp) {
@@ -1811,74 +1957,68 @@ body.booking-modal-open {
         if (!mapsApiKey) return;
         function startAutocomplete() {
             if (!window.google || !google.maps || !google.maps.places) return;
+            /* Pickup en dropoff gebruiken de typeahead (setupAddressTypeaheadFallback) met getPlacePredictions
+               en custom panel. Geen native Autocomplete op deze velden om conflicten te voorkomen. */
+            setupStopoverAutocompletes();
             var pickupInput = root.querySelector('[data-field="pickup_address"]');
             var dropoffInput = root.querySelector('[data-field="dropoff_address"]');
-            if (!pickupInput || !dropoffInput) return;
-            var options = {
-                componentRestrictions: { country: (config.maps && config.maps.country ? config.maps.country : 'nl') },
-                fields: ['formatted_address', 'geometry'],
-                types: ['address'],
-            };
-            var acPickup = new google.maps.places.Autocomplete(pickupInput, options);
-            var acDropoff = new google.maps.places.Autocomplete(dropoffInput, options);
-
-            function handlePlaceUpdate(which, place) {
-                if (!place) return;
-                if (which === 'pickup') {
-                    state.pickup_address = compactAddress(place.formatted_address || pickupInput.value);
-                    state.pickup_lat = place.geometry && place.geometry.location ? place.geometry.location.lat() : null;
-                    state.pickup_lng = place.geometry && place.geometry.location ? place.geometry.location.lng() : null;
-                    pickupInput.value = state.pickup_address || pickupInput.value;
-                } else {
-                    state.dropoff_address = compactAddress(place.formatted_address || dropoffInput.value);
-                    state.dropoff_lat = place.geometry && place.geometry.location ? place.geometry.location.lat() : null;
-                    state.dropoff_lng = place.geometry && place.geometry.location ? place.geometry.location.lng() : null;
-                    dropoffInput.value = state.dropoff_address || dropoffInput.value;
-                }
-                calculateRoute();
-            }
-
-            acPickup.addListener('place_changed', function() { handlePlaceUpdate('pickup', acPickup.getPlace()); });
-            acDropoff.addListener('place_changed', function() { handlePlaceUpdate('dropoff', acDropoff.getPlace()); });
-            setupStopoverAutocompletes();
-            // If fields already contain values (e.g. prefilled in preview), compute route immediately.
-            if (state.pickup_address && state.dropoff_address) {
+            if (pickupInput && dropoffInput && state.pickup_address && state.dropoff_address) {
                 calculateRoute();
             }
         }
 
         function calculateRoute() {
-            if (!window.google || !google.maps || !google.maps.DirectionsService) {
-                calculateRouteFallback();
-                return;
-            }
             if (!state.pickup_address || !state.dropoff_address) {
                 requestQuotes();
                 return;
             }
-            var waypoints = (state.stopovers || []).map(function(stop) {
-                return { location: stop, stopover: true };
-            });
-            var service = new google.maps.DirectionsService();
-            service.route({
-                origin: state.pickup_address,
-                destination: state.dropoff_address,
-                waypoints: waypoints,
-                travelMode: google.maps.TravelMode.DRIVING
-            }, function(result, status) {
-                if (status !== 'OK' || !result || !result.routes || !result.routes[0] || !result.routes[0].legs || !result.routes[0].legs[0]) {
+            if (!window.google || !google.maps || typeof google.maps.importLibrary !== 'function') {
+                calculateRouteFallback();
+                return;
+            }
+            google.maps.importLibrary('routes').then(function(routesLib) {
+                var Route = routesLib && (routesLib.Route || routesLib);
+                if (!Route || typeof Route.computeRoutes !== 'function') {
                     calculateRouteFallback();
                     return;
                 }
-                var leg = result.routes[0].legs[0];
-                state.distance_meters = leg.distance ? leg.distance.value : 0;
-                state.duration_seconds = leg.duration ? leg.duration.value : 0;
-                renderRouteDetailsText('Route: ' + (leg.distance ? leg.distance.text : '-') + ' • Reistijd: ' + (leg.duration ? leg.duration.text : '-'));
-                requestQuotes();
+                var request = {
+                    origin: state.pickup_address,
+                    destination: state.dropoff_address,
+                    travelMode: 'DRIVING',
+                    fields: ['distanceMeters', 'durationMillis'],
+                    regionCode: 'nl'
+                };
+                var stopovers = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
+                if (stopovers.length > 0) request.intermediates = stopovers;
+
+                Route.computeRoutes(request).then(function(result) {
+                    if (!result || !result.routes || !result.routes[0]) {
+                        calculateRouteFallback();
+                        return;
+                    }
+                    var route = result.routes[0];
+                    var dist = route.distanceMeters;
+                    var durMs = route.durationMillis;
+                    if (dist == null || durMs == null) {
+                        calculateRouteFallback();
+                        return;
+                    }
+                    state.distance_meters = Math.round(Number(dist));
+                    state.duration_seconds = Math.round(Number(durMs) / 1000);
+                    var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
+                    var min = Math.round(state.duration_seconds / 60);
+                    renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ' + min + ' min');
+                    requestQuotes();
+                }).catch(function() {
+                    calculateRouteFallback();
+                });
+            }).catch(function() {
+                calculateRouteFallback();
             });
         }
 
-        window.__taxiroyaalBookingRouteCalc = calculateRoute;
+        window.__taxiroyaalBookingRouteCalc = calculateRouteFallback;
         if (window.google && google.maps && google.maps.places) {
             startAutocomplete();
             return;
@@ -1923,6 +2063,7 @@ body.booking-modal-open {
         var lastSuggestionsByKey = {};
         var requestSeqByKey = {};
         var nominatimAbortByKey = {};
+        var hidePanelTimeoutByKey = {};
 
         function updateRouteInputVisualState(input) {
             if (!input) return;
@@ -1945,26 +2086,61 @@ body.booking-modal-open {
             if (!useCustomSuggestionPanel) return null;
             if (!input) return null;
             if (panelByKey[key] && panelByKey[key].isConnected) return panelByKey[key];
-            var row = input.closest('.booking-route-field-row');
-            if (!row) return null;
             var panel = document.createElement('div');
-            panel.className = 'booking-address-suggestions-panel hidden';
+            panel.className = 'booking-address-suggestions-panel booking-address-suggestions-panel--fixed hidden';
             panel.setAttribute('data-suggestion-panel', key);
-            row.appendChild(panel);
+            panel.setAttribute('role', 'listbox');
+            panel.setAttribute('aria-label', 'Adressuggesties');
+            panel.style.display = 'none';
+            document.body.appendChild(panel);
             panelByKey[key] = panel;
             return panel;
         }
 
+        function positionPanelUnderInput(panel, input) {
+            if (!panel || !input) return;
+            var rect = input.getBoundingClientRect();
+            panel.style.position = 'fixed';
+            panel.style.top = (rect.bottom + 6) + 'px';
+            panel.style.left = rect.left + 'px';
+            panel.style.width = Math.max(rect.width, 280) + 'px';
+            panel.style.minWidth = '280px';
+            panel.style.zIndex = '99999';
+        }
+
         function hideSuggestionPanel(key) {
+            if (hidePanelTimeoutByKey[key]) {
+                clearTimeout(hidePanelTimeoutByKey[key]);
+                hidePanelTimeoutByKey[key] = null;
+            }
             if (!useCustomSuggestionPanel) return;
             var panel = panelByKey[key];
             if (!panel) return;
+            panel.style.display = 'none';
             panel.classList.add('hidden');
             panel.innerHTML = '';
         }
 
+        function showPanelLoading(input, key) {
+            if (hidePanelTimeoutByKey[key]) {
+                clearTimeout(hidePanelTimeoutByKey[key]);
+                hidePanelTimeoutByKey[key] = null;
+            }
+            if (!useCustomSuggestionPanel) return;
+            var panel = ensureSuggestionPanel(input, key);
+            if (!panel) return;
+            panel.style.display = '';
+            panel.innerHTML = '<div class="booking-address-suggestion-item booking-address-suggestion-loading" role="option" aria-live="polite">Laden…</div>';
+            positionPanelUnderInput(panel, input);
+            panel.classList.remove('hidden');
+        }
+
         function renderSuggestionPanel(input, key, suggestions) {
             if (!useCustomSuggestionPanel) return;
+            if (hidePanelTimeoutByKey[key]) {
+                clearTimeout(hidePanelTimeoutByKey[key]);
+                hidePanelTimeoutByKey[key] = null;
+            }
             var panel = ensureSuggestionPanel(input, key);
             if (!panel) return;
             if (!Array.isArray(suggestions) || suggestions.length === 0) {
@@ -1976,10 +2152,16 @@ body.booking-modal-open {
                 var btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'booking-address-suggestion-item';
+                btn.setAttribute('role', 'option');
                 btn.textContent = suggestion && suggestion.label ? suggestion.label : '';
                 btn.setAttribute('data-suggestion-value', suggestion && suggestion.value ? suggestion.value : '');
                 btn.addEventListener('mousedown', function(e) {
                     e.preventDefault();
+                    e.stopPropagation();
+                    if (hidePanelTimeoutByKey[key]) {
+                        clearTimeout(hidePanelTimeoutByKey[key]);
+                        hidePanelTimeoutByKey[key] = null;
+                    }
                     input.value = suggestion && suggestion.value ? suggestion.value : '';
                     updateRouteInputVisualState(input);
                     syncStateFromFields();
@@ -1990,6 +2172,8 @@ body.booking-modal-open {
                 });
                 panel.appendChild(btn);
             });
+            positionPanelUnderInput(panel, input);
+            panel.style.display = '';
             panel.classList.remove('hidden');
         }
 
@@ -2019,9 +2203,10 @@ body.booking-modal-open {
         }
 
         function formatNominatimAddress(row) {
-            if (!row || !row.address) {
-                var fallback = row && row.display_name ? compactAddress(row.display_name) : '';
-                return { label: fallback, value: fallback };
+            if (!row) return null;
+            var displayName = (row.display_name && String(row.display_name).trim()) ? compactAddress(row.display_name) : '';
+            if (!row.address) {
+                return displayName ? { label: displayName, value: displayName } : null;
             }
             var a = row.address;
             var street = a.road || a.pedestrian || a.footway || a.cycleway || '';
@@ -2031,12 +2216,27 @@ body.booking-modal-open {
             var first = [street, number].filter(Boolean).join(' ').trim();
             var second = [postcode, city].filter(Boolean).join(' ').trim();
             var compact = [first, second].filter(Boolean).join(', ').trim();
-            var fallback = row.display_name ? compactAddress(row.display_name) : compact;
-            var value = compact || fallback;
+            var value = compact || displayName || '';
+            if (!value) return null;
             var compactValue = compactAddress(value);
             return { label: compactValue, value: compactValue };
         }
 
+        function buildNominatimUrl(params) {
+            var base = (config.address_search_url || '').trim();
+            if (!base && typeof window !== 'undefined' && window.location) {
+                base = window.location.origin + '/taxiroyaal/booking/address-search';
+            }
+            if (base && base.startsWith('/') && typeof window !== 'undefined' && window.location) {
+                base = window.location.origin + base;
+            }
+            if (!base) {
+                base = 'https://nominatim.openstreetmap.org/search';
+            }
+            var searchParams = new URLSearchParams(params);
+            return base + (base.indexOf('?') >= 0 ? '&' : '?') + searchParams.toString();
+        }
+        var TYPEAHEAD_FETCH_TIMEOUT_MS = 6000;
         function fetchNominatimPredictions(q, sourceKey) {
             var key = sourceKey || 'default';
             if (nominatimAbortByKey[key]) {
@@ -2046,10 +2246,8 @@ body.booking-modal-open {
             if (controller) {
                 nominatimAbortByKey[key] = controller;
             }
-            return fetch(
-                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&dedupe=1&countrycodes=' + encodeURIComponent(countryCode) + '&accept-language=nl&q=' + encodeURIComponent(q),
-                controller ? { signal: controller.signal } : undefined
-            )
+            var url = buildNominatimUrl({ format: 'jsonv2', addressdetails: 1, limit: 8, dedupe: 1, countrycodes: countryCode, 'accept-language': 'nl', q: q });
+            var fetchPromise = fetch(url, controller ? { signal: controller.signal } : undefined)
                 .then(function(res) { return res.ok ? res.json() : []; })
                 .then(function(rows) {
                     return Array.isArray(rows)
@@ -2059,48 +2257,39 @@ body.booking-modal-open {
                 .catch(function() {
                     return [];
                 });
+            var timeoutPromise = new Promise(function(resolve) {
+                setTimeout(function() {
+                    if (controller) controller.abort();
+                    resolve([]);
+                }, TYPEAHEAD_FETCH_TIMEOUT_MS);
+            });
+            return Promise.race([fetchPromise, timeoutPromise]);
         }
 
         function fetchPredictions(query, sourceKey) {
-            return new Promise(function(resolve) {
-                var q = String(query || '').trim();
-                if (q.length < 2) {
-                    resolve([]);
-                    return;
-                }
-
-                var autocompleteService = getService();
-                if (autocompleteService) {
-                    autocompleteService.getPlacePredictions({
-                        input: q,
-                        types: ['address'],
-                        componentRestrictions: { country: countryCode },
-                    }, function(predictions, status) {
-                        if (!predictions || status !== 'OK' || predictions.length === 0) {
-                            fetchNominatimPredictions(q, sourceKey).then(resolve);
-                            return;
-                        }
-                        resolve(predictions.map(function(item) {
-                            var text = item && item.description ? item.description : '';
-                            if (!text) return null;
-                            var compactText = compactAddress(text);
-                            return { label: compactText, value: compactText };
-                        }).filter(Boolean));
-                    });
-                    return;
-                }
-
-                fetchNominatimPredictions(q, sourceKey).then(resolve);
-            });
+            var q = String(query || '').trim();
+            if (q.length < 1) return Promise.resolve([]);
+            return fetchNominatimPredictions(q, sourceKey);
         }
 
-        var runTypeahead = debounce(function(input) {
+        function getInputKey(input) {
+            var field = input.getAttribute('data-field');
+            if (field === 'dropoff_address') return 'dropoff';
+            if (field === 'pickup_address') return 'pickup';
+            if (input.hasAttribute('data-stopover-input')) {
+                var stopovers = root.querySelectorAll('[data-stopover-input]');
+                var idx = Array.prototype.indexOf.call(stopovers, input);
+                return 'stopover-' + (idx >= 0 ? idx : 0);
+            }
+            return 'pickup';
+        }
+        var MIN_QUERY_LENGTH = 2;
+        function runTypeaheadNow(input) {
             if (!input) return;
             var raw = input.value || '';
             var query = raw.trim();
-            var key = input.getAttribute('data-field') === 'dropoff_address' ? 'dropoff' : 'pickup';
-            if (query.length < 2) {
-                updateDataList(input, key, []);
+            var key = getInputKey(input);
+            if (query.length < MIN_QUERY_LENGTH) {
                 hideSuggestionPanel(key);
                 lastSuggestionsByKey[key] = [];
                 return;
@@ -2110,29 +2299,47 @@ body.booking-modal-open {
             if (suggestionCache.has(cacheKey)) {
                 var cachedSuggestions = suggestionCache.get(cacheKey) || [];
                 lastSuggestionsByKey[key] = cachedSuggestions;
-                updateDataList(input, key, cachedSuggestions);
                 renderSuggestionPanel(input, key, cachedSuggestions);
                 return;
             }
             requestSeqByKey[key] = (requestSeqByKey[key] || 0) + 1;
             var requestId = requestSeqByKey[key];
+            showPanelLoading(input, key);
             fetchPredictions(query, key).then(function(suggestions) {
                 if (requestId !== requestSeqByKey[key]) return;
-                if (!Array.isArray(suggestions)) {
-                    updateDataList(input, key, []);
-                    hideSuggestionPanel(key);
-                    lastSuggestionsByKey[key] = [];
+                if (!Array.isArray(suggestions)) suggestions = [];
+                if (suggestions.length > 0) {
+                    suggestionCache.set(cacheKey, suggestions);
+                    lastSuggestionsByKey[key] = suggestions;
+                    renderSuggestionPanel(input, key, suggestions);
                     return;
                 }
-                suggestionCache.set(cacheKey, suggestions);
-                lastSuggestionsByKey[key] = suggestions;
-                updateDataList(input, key, suggestions);
-                renderSuggestionPanel(input, key, suggestions);
+                var parts = query.split(/\s+/).filter(Boolean);
+                if (parts.length > 1) {
+                    var fallbackQuery = parts.slice(0, -1).join(' ');
+                    if (fallbackQuery.length >= MIN_QUERY_LENGTH) {
+                        fetchPredictions(fallbackQuery, key).then(function(fallbackSuggestions) {
+                            if (requestId !== requestSeqByKey[key]) return;
+                            if (Array.isArray(fallbackSuggestions) && fallbackSuggestions.length > 0) {
+                                lastSuggestionsByKey[key] = fallbackSuggestions;
+                                renderSuggestionPanel(input, key, fallbackSuggestions);
+                                return;
+                            }
+                            hideSuggestionPanel(key);
+                            lastSuggestionsByKey[key] = [];
+                        });
+                        return;
+                    }
+                }
+                hideSuggestionPanel(key);
+                lastSuggestionsByKey[key] = [];
             });
-        }, 70);
+        }
+        var runTypeahead = debounce(runTypeaheadNow, 280);
 
-        [pickupInput, dropoffInput].forEach(function(input) {
-            var key = input.getAttribute('data-field') === 'dropoff_address' ? 'dropoff' : 'pickup';
+        function bindOneAddressInput(input) {
+            if (!input || input.getAttribute('data-typeahead-bound') === '1') return;
+            var key = getInputKey(input);
             ensureDataList(input, key);
             ensureSuggestionPanel(input, key);
             updateRouteInputVisualState(input);
@@ -2141,29 +2348,44 @@ body.booking-modal-open {
                 runTypeahead(input);
             });
             input.addEventListener('focus', function() {
-                runTypeahead(input);
+                runTypeaheadNow(input);
+            });
+            input.addEventListener('click', function() {
+                if ((input.value || '').trim().length >= 1) runTypeaheadNow(input);
             });
             input.addEventListener('change', function() {
                 updateRouteInputVisualState(input);
             });
             input.addEventListener('blur', function() {
-                window.setTimeout(function() {
-                    hideSuggestionPanel(key);
-                }, 150);
+                var k = getInputKey(input);
+                if (hidePanelTimeoutByKey[k]) clearTimeout(hidePanelTimeoutByKey[k]);
+                hidePanelTimeoutByKey[k] = setTimeout(function() {
+                    hidePanelTimeoutByKey[k] = null;
+                    hideSuggestionPanel(k);
+                }, 180);
             });
             input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && Array.isArray(lastSuggestionsByKey[key]) && lastSuggestionsByKey[key].length > 0) {
-                    var first = lastSuggestionsByKey[key][0];
+                var k = getInputKey(input);
+                if (e.key === 'Enter' && Array.isArray(lastSuggestionsByKey[k]) && lastSuggestionsByKey[k].length > 0) {
+                    var first = lastSuggestionsByKey[k][0];
                     input.value = first && first.value ? first.value : input.value;
                     updateRouteInputVisualState(input);
                     syncStateFromFields();
                     if (window.__taxiroyaalBookingRouteCalc) {
                         window.__taxiroyaalBookingRouteCalc();
                     }
-                    hideSuggestionPanel(key);
+                    hideSuggestionPanel(k);
                 }
             });
-        });
+            input.setAttribute('data-typeahead-bound', '1');
+        }
+
+        function bindAllRouteAddressInputs() {
+            [pickupInput, dropoffInput].forEach(bindOneAddressInput);
+            root.querySelectorAll('[data-stopover-input]').forEach(bindOneAddressInput);
+        }
+        bindAllRouteAddressInputs();
+        root._bindAllRouteAddressInputs = bindAllRouteAddressInputs;
     }
 
     root.addEventListener('input', function(e) {
@@ -2207,6 +2429,20 @@ body.booking-modal-open {
         }
     });
 
+    root.addEventListener('mousedown', function(e) {
+        var stopoverBtn = e.target.closest('.booking-stopover-toggle');
+        if (stopoverBtn) {
+            e.preventDefault();
+            var didAddStopover = addStopover('');
+            if (!didAddStopover) return;
+            var list = root.querySelector('[data-stopovers-list]');
+            if (list && list.lastElementChild) {
+                var lastInput = list.lastElementChild.querySelector('[data-stopover-input]');
+                if (lastInput) lastInput.focus();
+            }
+        }
+    });
+
     root.addEventListener('click', function(e) {
         if (e.target.matches('[data-booking-success-backdrop]')) {
             closeSuccessModal();
@@ -2231,13 +2467,6 @@ body.booking-modal-open {
         var stopoverBtn = e.target.closest('.booking-stopover-toggle');
         if (stopoverBtn) {
             e.preventDefault();
-            var didAddStopover = addStopover('');
-            if (!didAddStopover) return;
-            var list = root.querySelector('[data-stopovers-list]');
-            if (list && list.lastElementChild) {
-                var lastInput = list.lastElementChild.querySelector('[data-stopover-input]');
-                if (lastInput) lastInput.focus();
-            }
             return;
         }
         var stopoverRemove = e.target.closest('.booking-stopover-remove');
@@ -2395,12 +2624,40 @@ body.booking-modal-open {
 
     window.__taxiroyaalBookingRouteCalc = calculateRouteFallback;
 
-    setStep(1);
-    updateBaggageStepAvailability();
-    syncStateFromFields();
-    setupAddressTypeaheadFallback();
-    initGoogleMaps();
-    recalculateRouteOrQuote();
+    function initBookingModule() {
+        setStep(1);
+        updateBaggageStepAvailability();
+        syncStateFromFields();
+        setupAddressTypeaheadFallback();
+        initGoogleMaps();
+        recalculateRouteOrQuote();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBookingModule);
+    } else {
+        initBookingModule();
+    }
+})();
+</script>
+<script>
+(function() {
+    function initBookingModuleScrollReveal() {
+        var section = document.querySelector('[data-booking-module-scroll-reveal]');
+        if (!section) return;
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-in-view');
+                }
+            });
+        }, { rootMargin: '0px 0px -60px 0px', threshold: 0.06 });
+        observer.observe(section);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBookingModuleScrollReveal);
+    } else {
+        initBookingModuleScrollReveal();
+    }
 })();
 </script>
 @endpush

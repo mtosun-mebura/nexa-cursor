@@ -185,6 +185,17 @@ class WebsitePage extends Model
                     ['icon' => 'user-group', 'title' => 'Consulting', 'description' => 'Samen werken we aan het beste resultaat.'],
                 ],
             ],
+            'email_template' => [
+                'title' => 'Informatie aanvragen',
+                'template_id' => null,
+            ],
+            'text_block' => [
+                'content' => '',
+                'alignment' => 'left',
+                'side_component_key' => '',
+                'image_url' => '',
+                'width_percent' => 100,
+            ],
             'footer' => [
                 'tagline' => 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.',
                 'logo_url' => '',
@@ -247,6 +258,7 @@ class WebsitePage extends Model
                 'footer_logo' => true,
                 'footer_quick_links' => true,
                 'footer_support_links' => true,
+                'footer_social' => true,
                 'footer_map' => true,
             ],
         ];
@@ -270,6 +282,8 @@ class WebsitePage extends Model
             'carousel' => 'Carousel',
             'cards_ronde_hoeken' => 'Cards ronde hoeken',
             'featured_services' => 'Dienstenblok (scroll-animatie)',
+            'email_template' => 'E-mailtemplate (informatieaanvraag)',
+            'text_block' => 'Tekstblok (rich text + component)',
         ];
         $byTheme = [
             'atom-v2' => [
@@ -281,6 +295,8 @@ class WebsitePage extends Model
                 ['type' => 'carousel', 'label' => 'Carousel'],
                 ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
                 ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
+                ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
+                ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
             ],
             'nextly-template' => [
                 ['type' => 'hero', 'label' => 'Hero (banner)'],
@@ -291,6 +307,8 @@ class WebsitePage extends Model
                 ['type' => 'carousel', 'label' => 'Carousel'],
                 ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
                 ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
+                ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
+                ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
             ],
             'next-landing-vpn' => [
                 ['type' => 'hero', 'label' => 'Hero (banner)'],
@@ -299,6 +317,8 @@ class WebsitePage extends Model
                 ['type' => 'carousel', 'label' => 'Carousel'],
                 ['type' => 'cards_ronde_hoeken', 'label' => 'Cards ronde hoeken'],
                 ['type' => 'featured_services', 'label' => 'Dienstenblok (scroll-animatie)'],
+                ['type' => 'email_template', 'label' => 'E-mailtemplate (informatieaanvraag)'],
+                ['type' => 'text_block', 'label' => 'Tekstblok (rich text + component)'],
             ],
         ];
         if (isset($byTheme[$themeSlug])) {
@@ -313,6 +333,8 @@ class WebsitePage extends Model
             ['type' => 'carousel', 'label' => $defaults['carousel']],
             ['type' => 'cards_ronde_hoeken', 'label' => $defaults['cards_ronde_hoeken']],
             ['type' => 'featured_services', 'label' => $defaults['featured_services']],
+            ['type' => 'email_template', 'label' => $defaults['email_template']],
+            ['type' => 'text_block', 'label' => $defaults['text_block']],
         ];
     }
 
@@ -380,13 +402,14 @@ class WebsitePage extends Model
             'footer_logo' => true,
             'footer_quick_links' => true,
             'footer_support_links' => true,
+            'footer_social' => true,
             'footer_map' => true,
         ];
 
         return $base;
     }
 
-    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
+    private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
 
     private static function homeSectionBaseType(string $sectionKey): ?string
     {
@@ -442,6 +465,28 @@ class WebsitePage extends Model
         }
         // Gebruik de opgeslagen section_order als bron van waarheid; voeg geen ontbrekende default-secties toe,
         // zodat door de gebruiker verwijderde secties/componenten na refresh weg blijven.
+        // Als er opgeslagen email_template-data met template_id is maar die key ontbreekt in section_order,
+        // voeg die dan toe (na featured_services) zodat het formulier op de FE onder Diensten verschijnt.
+        foreach (array_keys($stored) as $key) {
+            if (! is_string($key)) {
+                continue;
+            }
+            $base = self::homeSectionBaseType($key);
+            if ($base === 'email_template') {
+                $raw = $stored[$key] ?? [];
+                $tid = is_array($raw) ? ($raw['template_id'] ?? null) : null;
+                if ($tid !== null && $tid !== '' && ! in_array($key, $sectionOrder, true)) {
+                    $idx = array_search('featured_services', $sectionOrder, true);
+                    if ($idx !== false) {
+                        array_splice($sectionOrder, $idx + 1, 0, [$key]);
+                    } else {
+                        $sectionOrder[] = $key;
+                    }
+                    $sectionOrder = array_values($sectionOrder);
+                }
+                break;
+            }
+        }
 
         $sections = [];
         $taxiroyaalTarievenDefault = [
@@ -473,11 +518,17 @@ class WebsitePage extends Model
                         ? $raw['title_font_style'] : $taxiroyaalTarievenDefault['title_font_style'];
                     $titleAlign = isset($raw['title_align']) && in_array($raw['title_align'], ['left', 'center', 'right'], true)
                         ? $raw['title_align'] : $taxiroyaalTarievenDefault['title_align'];
+                    $priceAnimation = isset($raw['price_animation'])
+                        ? filter_var($raw['price_animation'], FILTER_VALIDATE_BOOLEAN)
+                        : true;
+                    $imageFadeDuration = isset($raw['image_fade_duration']) ? max(300, min(5000, (int) $raw['image_fade_duration'])) : 1200;
                     $sections[$sectionKey] = [
                         'title' => $title,
                         'title_font_size' => $titleFontSize,
                         'title_font_style' => $titleFontStyle,
                         'title_align' => $titleAlign,
+                        'price_animation' => $priceAnimation,
+                        'image_fade_duration' => $imageFadeDuration,
                         'items' => array_values($items),
                     ];
                 } elseif ($sectionKey === 'component:taxiroyaal.boekingsmodule') {
@@ -679,6 +730,28 @@ class WebsitePage extends Model
                     $out['items'] = $defFs['items'] ?? [['icon' => 'light-bulb', 'title' => '', 'description' => '']];
                 }
                 return $out;
+            case 'email_template':
+                $def = $defaults['email_template'] ?? ['title' => 'Informatie aanvragen', 'template_id' => null];
+                $title = isset($raw['title']) && trim((string) $raw['title']) !== '' ? trim((string) $raw['title']) : ($def['title'] ?? 'Informatie aanvragen');
+                $templateId = isset($raw['template_id']) && $raw['template_id'] !== '' && is_numeric($raw['template_id'])
+                    ? (int) $raw['template_id']
+                    : ($def['template_id'] ?? null);
+
+                return [
+                    'title' => $title,
+                    'template_id' => $templateId,
+                ];
+            case 'text_block':
+                $def = $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'image_url' => '', 'width_percent' => 100];
+                $wp = isset($raw['width_percent']) && is_numeric($raw['width_percent']) ? (int) $raw['width_percent'] : ($def['width_percent'] ?? 100);
+                $wp = max(60, min(100, $wp));
+                return [
+                    'content' => isset($raw['content']) && is_string($raw['content']) ? $raw['content'] : ($def['content'] ?? ''),
+                    'alignment' => isset($raw['alignment']) && in_array($raw['alignment'], ['left', 'center', 'right', 'full'], true) ? $raw['alignment'] : ($def['alignment'] ?? 'left'),
+                    'side_component_key' => isset($raw['side_component_key']) && is_string($raw['side_component_key']) ? trim($raw['side_component_key']) : ($def['side_component_key'] ?? ''),
+                    'image_url' => isset($raw['image_url']) && is_string($raw['image_url']) ? trim($raw['image_url']) : ($def['image_url'] ?? ''),
+                    'width_percent' => $wp,
+                ];
             default:
                 return [];
         }

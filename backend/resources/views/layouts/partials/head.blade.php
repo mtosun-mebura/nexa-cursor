@@ -36,6 +36,11 @@
 
 <!-- Global custom styles -->
 <style>
+    /* Alle textarea's met kt-input: padding-top pt-1 voor betere leesbaarheid */
+    textarea.kt-input {
+        padding-top: 0.25rem !important;
+    }
+
     /* Make textareas with 4 rows actually visible and add padding-top */
     textarea.kt-input[rows="4"] {
         min-height: 100px !important;

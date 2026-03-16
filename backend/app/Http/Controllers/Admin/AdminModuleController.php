@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\InstallModuleJob;
+use App\Models\Company;
 use App\Models\Module as ModuleModel;
 use App\Services\DatabaseResetService;
 use App\Services\ModuleDatabaseService;
@@ -12,6 +13,7 @@ use App\Services\ModuleManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 
 class AdminModuleController extends Controller
@@ -153,6 +155,20 @@ class AdminModuleController extends Controller
             $enabledKeys = array_column($availableItems, 'key');
         }
 
+        $dbService = app(ModuleDatabaseService::class);
+        $conn = null;
+        if ($dbService->supportsModuleDatabases()) {
+            $connName = $dbService->getModuleConnectionName($moduleName);
+            if (Config::has("database.connections.{$connName}")) {
+                $conn = $connName;
+            }
+        }
+        try {
+            $companies = $conn ? Company::on($conn)->orderBy('name')->get() : Company::orderBy('name')->get();
+        } catch (\Throwable $e) {
+            $companies = Company::orderBy('name')->get();
+        }
+
         return view('admin.modules.config', [
             'moduleName' => $moduleName,
             'module' => $module,
@@ -162,6 +178,8 @@ class AdminModuleController extends Controller
             'app_description' => $config['app_description'] ?? '',
             'dashboard_link_visible' => ($config['dashboard_link_visible'] ?? '1') === '1',
             'dashboard_link_label' => $config['dashboard_link_label'] ?? 'Mijn Nexa',
+            'company_id' => $config['company_id'] ?? null,
+            'companies' => $companies,
         ]);
     }
 
@@ -188,12 +206,33 @@ class AdminModuleController extends Controller
         }
         $enabledKeys = array_values(array_intersect($submitted, $validKeys));
 
+        $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
+        if ($companyId !== null) {
+            $dbService = app(ModuleDatabaseService::class);
+            $conn = null;
+            if ($dbService->supportsModuleDatabases()) {
+                $connName = $dbService->getModuleConnectionName($moduleName);
+                if (Config::has("database.connections.{$connName}")) {
+                    $conn = $connName;
+                }
+            }
+            try {
+                $exists = $conn ? Company::on($conn)->where('id', $companyId)->exists() : Company::where('id', $companyId)->exists();
+            } catch (\Throwable $e) {
+                $exists = Company::where('id', $companyId)->exists();
+            }
+            if (!$exists) {
+                return redirect()->back()->withInput()->withErrors(['company_id' => 'Het gekozen bedrijf bestaat niet.']);
+            }
+        }
+
         $config = $moduleModel->configuration ?? [];
         $config['enabled_menu_items'] = $enabledKeys;
         $config['app_name'] = $request->input('app_name', '');
         $config['app_description'] = $request->input('app_description', '');
         $config['dashboard_link_visible'] = $request->has('dashboard_link_visible') ? '1' : '0';
         $config['dashboard_link_label'] = $request->input('dashboard_link_label', 'Mijn Nexa');
+        $config['company_id'] = $companyId;
         $moduleModel->update(['configuration' => $config]);
 
         return redirect()->route('admin.modules.config', $moduleName)

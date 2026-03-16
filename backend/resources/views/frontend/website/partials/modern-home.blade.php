@@ -1,5 +1,6 @@
 @php
     $homeSections = $homeSections ?? \App\Models\WebsitePage::defaultHomeSections();
+    $emailTemplateBySectionKey = $emailTemplateBySectionKey ?? [];
     $visibility = $homeSections['visibility'] ?? [];
     $defaultSectionOrder = ['hero', 'why_nexa', 'features', 'stats', 'component:nexa.recente_vacatures', 'cta'];
     $sectionOrder = $homeSections['section_order'] ?? $defaultSectionOrder;
@@ -14,7 +15,7 @@
         return (strpos($u, 'http') === 0 || strpos($u, '//') === 0) ? $u : url($u);
     };
     $baseType = function($key) {
-        $types = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services'];
+        $types = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
         if (in_array($key, $types, true)) return $key;
         $base = preg_replace('/_\d+$/', '', $key);
         return in_array($base, $types, true) ? $base : null;
@@ -230,6 +231,23 @@
     @endif
     @if($base === 'featured_services' && $v(''))
         @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
+    @endif
+
+    @if($base === 'email_template' && $v(''))
+        @php
+            $emailTemplateForSection = $emailTemplateBySectionKey[$sectionKey] ?? null;
+            $sectionFormFields = $emailTemplateForSection ? $emailTemplateForSection->getOrderedFormFields() : collect();
+            if ($sectionFormFields->isEmpty()) {
+                $sectionFormFields = $infoRequestFormFields ?? collect();
+            }
+        @endphp
+        @if($emailTemplateForSection)
+            @include('frontend.website.components.email-template-section', ['sectionData' => $sectionData, 'sectionKey' => $sectionKey, 'emailTemplate' => $emailTemplateForSection, 'formFields' => $sectionFormFields])
+        @endif
+    @endif
+
+    @if($base === 'text_block' && $v(''))
+        @include('frontend.website.components.text-block-section', ['sectionData' => $sectionData, 'sectionKey' => $sectionKey, 'homeSections' => $homeSections, 'emailTemplateBySectionKey' => $emailTemplateBySectionKey])
     @endif
 
     @if($base === 'cta' && $v(''))

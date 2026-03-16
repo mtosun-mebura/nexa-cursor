@@ -221,7 +221,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor het gekozen thema ({{ $defaultTheme->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde en beschikbare secties hangen af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => $createPageType !== 'home'])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => $createPageType !== 'home', 'emailTemplates' => $emailTemplates ?? collect()])
                 </div>
             </div>
 

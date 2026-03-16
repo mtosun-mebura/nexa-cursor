@@ -125,17 +125,77 @@ class EmailTemplateService
     }
 
     /**
+     * Send a test email using an email template with custom variables.
+     *
+     * @param  string|null  $fromEmail  Optioneel From-adres (bijv. ingelogde gebruiker); voorkomt SMTP 550 "not authorized to send on behalf of"
+     * @param  string|null  $fromName   Optioneel From-naam
+     */
+    public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null): void
+    {
+        $defaults = [
+            'USER_NAME' => $toName ?: $toEmail,
+            'USER_EMAIL' => $toEmail,
+            'USER_FIRST_NAME' => $variables['VOORNAAM'] ?? '',
+            'USER_LAST_NAME' => $variables['ACHTERNAAM'] ?? '',
+            'COMPANY_NAME' => $template->company?->name ?? 'Ons bedrijf',
+            'NOTIFICATION_TITLE' => $template->subject,
+            'NOTIFICATION_MESSAGE' => $variables['OMSCHRIJVING'] ?? '',
+            'ACTION_URL' => '',
+            'EMAIL_AANVRAAG' => $variables['EMAIL_AANVRAAG'] ?? $toEmail,
+            'DATUM_AANVRAAG' => $variables['DATUM_AANVRAAG'] ?? now()->format('d-m-Y H:i'),
+        ];
+        $merged = array_merge($defaults, $variables);
+
+        $subject = $this->parseTemplate($template->subject ?? '', $merged);
+        $htmlContent = $template->html_content ?? '';
+        if ($template->type === 'informatieaanvraag') {
+            $htmlContent = str_replace('{{ DYNAMIC_FORM_FIELDS }}', $template->renderDynamicFormFieldsHtml(), $htmlContent);
+        }
+        $htmlContent = $this->parseTemplate($htmlContent, $merged);
+        if ($template->type === 'informatieaanvraag' && $htmlContent !== '') {
+            $htmlContent = '<style>.info-request-email-body, .info-request-email-body table, .info-request-email-body td, .info-request-email-body th, .info-request-email-body p, .info-request-email-body div { text-align: left !important; }</style>'
+                . '<div class="info-request-email-body" style="text-align: left !important; background-color: #f3f4f6 !important; padding: 1rem;">' . $htmlContent . '</div>';
+        }
+        $textContent = $template->text_content
+            ? $this->parseTemplate($template->text_content, $merged)
+            : strip_tags($htmlContent);
+
+        Mail::send([], [], function ($message) use ($toEmail, $toName, $subject, $htmlContent, $textContent, $fromEmail, $fromName) {
+            if ($fromEmail) {
+                $message->from($fromEmail, $fromName ?: $fromEmail);
+            }
+            $message->to($toEmail, $toName)->subject($subject);
+            if ($htmlContent) {
+                $message->html($htmlContent);
+            }
+            if ($textContent) {
+                $message->text($textContent);
+            }
+        });
+    }
+
+    /**
      * Parse template with variables
+     * Supports {VAR}, {{VAR}}, { VAR } and {{ VAR }} (with spaces) for email client compatibility.
+     * Removes one level of surrounding single curly braces so output is not wrapped in { value }.
      */
     private function parseTemplate(string $template, array $variables): string
     {
         $result = $template;
-        
+
         foreach ($variables as $key => $value) {
-            // Support both {VAR} and {{VAR}} syntax
-            $result = str_replace(['{' . $key . '}', '{{' . $key . '}}'], $value, $result);
+            $search = [
+                '{' . $key . '}',
+                '{{' . $key . '}}',
+                '{ ' . $key . ' }',
+                '{{ ' . $key . ' }}',
+            ];
+            $result = str_replace($search, $value, $result);
         }
-        
+
+        // Verwijder overgebleven { } om waarden (bv. door letterlijke braces in template)
+        $result = preg_replace('#\{\s*([^{}]*)\s*\}#u', '$1', $result);
+
         return $result;
     }
 

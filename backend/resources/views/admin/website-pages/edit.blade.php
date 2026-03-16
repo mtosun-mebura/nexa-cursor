@@ -237,7 +237,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null, 'emailTemplates' => $emailTemplates ?? collect(), 'emailTemplateSelectedIds' => $emailTemplateSelectedIds ?? []])
                 </div>
             </div>
 
@@ -315,6 +315,15 @@
         form.addEventListener('submit', function(e) {
             if (typeof tinymce !== 'undefined' && tinymce.editors) tinymce.triggerSave();
             if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
+            // E-mailtemplate-select: waarde naar fallback-hidden kopiëren zodat template_id altijd meegestuurd wordt
+            var emailTemplateSelects = form.querySelectorAll('select[data-email-template-select]');
+            emailTemplateSelects.forEach(function(sel) {
+                var hidId = sel.getAttribute('data-fallback-input-id');
+                if (hidId) {
+                    var hid = document.getElementById(hidId);
+                    if (hid) hid.value = sel.value || '';
+                }
+            });
             var sortable = document.getElementById('home-sections-sortable');
             var orderInp = document.getElementById('home-sections-order-input');
             var fallbackInp = document.getElementById('section-order-fallback');
@@ -344,6 +353,29 @@
             try {
                 sessionStorage.setItem('website-page-edit-scroll', String(window.scrollY || window.pageYOffset || 0));
             } catch (err) {}
+        });
+        // E-mailtemplate-select: bij wijziging direct hidden vullen zodat template_id bij submit altijd aanwezig is
+        form.addEventListener('change', function(e) {
+            var sel = e.target.closest('select[data-email-template-select]');
+            if (sel) {
+                var hidId = sel.getAttribute('data-fallback-input-id');
+                if (hidId) {
+                    var hid = document.getElementById(hidId);
+                    if (hid) hid.value = sel.value || '';
+                }
+            }
+        });
+        // Bij laden: opgeslagen template_id in select zetten (prefill uit data-selected-template-id)
+        document.querySelectorAll('select[data-email-template-select]').forEach(function(sel) {
+            var id = sel.getAttribute('data-selected-template-id');
+            if (id && sel.querySelector('option[value="' + id + '"]')) {
+                sel.value = id;
+                var hidId = sel.getAttribute('data-fallback-input-id');
+                if (hidId) {
+                    var hid = document.getElementById(hidId);
+                    if (hid) hid.value = id;
+                }
+            }
         });
     }
 

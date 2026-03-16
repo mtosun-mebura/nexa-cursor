@@ -335,6 +335,11 @@
             max-width: 100% !important;
             width: 100% !important;
         }
+        /* Logo light/dark: toon juiste logo volgens thema (html of body kan .dark hebben) */
+        .logo-light { display: block !important; }
+        .logo-dark { display: none !important; }
+        html.dark .logo-light, body.dark .logo-light, .dark .logo-light { display: none !important; }
+        html.dark .logo-dark, body.dark .logo-dark, .dark .logo-dark { display: block !important; }
     </style>
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased">
@@ -372,6 +377,31 @@
     <!-- End of Page -->
 
     @include('layouts.partials.scripts')
+
+    <!-- Logo light/dark sync: toon juiste logo bij thema-wissel -->
+    <script>
+    (function() {
+        function isDark() {
+            return document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
+        }
+        function syncLogoVisibility() {
+            var dark = isDark();
+            document.querySelectorAll('.logo-light').forEach(function(el) { el.style.setProperty('display', dark ? 'none' : 'block', 'important'); });
+            document.querySelectorAll('.logo-dark').forEach(function(el) { el.style.setProperty('display', dark ? 'block' : 'none', 'important'); });
+        }
+        function initLogoSync() {
+            syncLogoVisibility();
+            var obs = new MutationObserver(syncLogoVisibility);
+            obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+            obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLogoSync);
+        } else {
+            initLogoSync();
+        }
+    })();
+    </script>
 
     <!-- Ensure Cmd+A / Ctrl+A works in input fields -->
     <script>

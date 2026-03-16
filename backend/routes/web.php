@@ -253,6 +253,34 @@ Route::get('/admin/meld/sessie-verlopen', function (\Illuminate\Http\Request $re
     // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's)
     $intended = $request->query('intended');
     $path = $intended ? (parse_url($intended, PHP_URL_PATH) ?? '') : '';
+    // Preview-URL: vervang door bewerkpagina zodat na inloggen soepel naar edit gaat (preview geeft vaak invalid response)
+    if ($path && preg_match('#^/admin/website-pages/(\d+)/preview$#', $path, $m)) {
+        $pageId = $m[1];
+        $query = $intended ? (parse_url($intended, PHP_URL_QUERY) ?? '') : '';
+        parse_str($query, $params);
+        if (empty($params['module'])) {
+            $page = \App\Models\WebsitePage::find($pageId);
+            if ($page && !empty($page->module_name)) {
+                $params['module'] = $page->module_name;
+                $query = http_build_query($params);
+            }
+        }
+        $intended = url('/admin/website-pages/' . $pageId . '/edit' . ($query ? '?' . $query : ''));
+        $path = '/admin/website-pages/' . $pageId . '/edit';
+    }
+    // Edit-URL zonder module: voeg module toe uit de website-pagina
+    if ($path && preg_match('#^/admin/website-pages/(\d+)/edit$#', $path, $m)) {
+        $query = $intended ? (parse_url($intended, PHP_URL_QUERY) ?? '') : '';
+        parse_str($query, $params);
+        if (empty($params['module'])) {
+            $page = \App\Models\WebsitePage::find($m[1]);
+            if ($page && !empty($page->module_name)) {
+                $params['module'] = $page->module_name;
+                $query = http_build_query($params);
+                $intended = url('/admin/website-pages/' . $m[1] . '/edit?' . $query);
+            }
+        }
+    }
     if ($intended && is_string($intended) && $path !== '' && \Illuminate\Support\Str::startsWith($path, '/admin')) {
         session(['url.intended' => $intended]);
     }
@@ -461,8 +489,15 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::resource('notifications', AdminNotificationController::class);
     
     // Email Templates
+    Route::get('email-templates/form-fields', [App\Http\Controllers\Admin\AdminFormFieldController::class, 'index'])->name('email-templates.form-fields.index');
+    Route::get('email-templates/form-fields/create', [App\Http\Controllers\Admin\AdminFormFieldController::class, 'create'])->name('email-templates.form-fields.create');
+    Route::post('email-templates/form-fields', [App\Http\Controllers\Admin\AdminFormFieldController::class, 'store'])->name('email-templates.form-fields.store');
+    Route::get('email-templates/form-fields/{info_request_form_field}/edit', [App\Http\Controllers\Admin\AdminFormFieldController::class, 'edit'])->name('email-templates.form-fields.edit');
+    Route::put('email-templates/form-fields/{info_request_form_field}', [App\Http\Controllers\Admin\AdminFormFieldController::class, 'update'])->name('email-templates.form-fields.update');
+    Route::delete('email-templates/form-fields/{info_request_form_field}', [App\Http\Controllers\Admin\AdminFormFieldController::class, 'destroy'])->name('email-templates.form-fields.destroy');
     Route::resource('email-templates', AdminEmailTemplateController::class);
     Route::post('email-templates/{emailTemplate}/toggle-status', [AdminEmailTemplateController::class, 'toggleStatus'])->name('email-templates.toggle-status');
+    Route::post('email-templates/{emailTemplate}/send-test', [AdminEmailTemplateController::class, 'sendTest'])->name('email-templates.send-test');
     
     // Candidates (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {
@@ -549,7 +584,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/upload-favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadFavicon'])->name('settings.upload-favicon');
         Route::post('settings/logo-size', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateLogoSize'])->name('settings.logo-size.update');
         Route::get('settings/logo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogo'])->name('settings.logo');
+        Route::get('settings/logo-dark', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getLogoDark'])->name('settings.logo-dark');
         Route::get('settings/favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getFavicon'])->name('settings.favicon');
+        Route::post('settings/upload-success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadSuccessImage'])->name('settings.upload-success-image');
+        Route::delete('settings/remove-success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeSuccessImage'])->name('settings.remove-success-image');
+        Route::get('settings/success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getSuccessImage'])->name('settings.success-image');
         
         // Website builder (Super Admin only)
         Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
@@ -853,9 +892,12 @@ Route::get('/contact', function () {
 })->name('contact');
 Route::post('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'submit'])->name('contact.submit');
 
-Route::prefix('taxiroyaal/booking')->name('taxiroyaal.booking.')->middleware('throttle:30,1')->group(function () {
-    Route::post('/quote', [TaxiRoyaalBookingController::class, 'quote'])->name('quote');
-    Route::post('/submit', [TaxiRoyaalBookingController::class, 'submit'])->name('submit');
+Route::post('/send-informatieaanvraag', [App\Http\Controllers\Frontend\InfoRequestController::class, 'submit'])->name('frontend.send-info-request')->middleware('throttle:10,1');
+
+Route::prefix('taxiroyaal/booking')->name('taxiroyaal.booking.')->group(function () {
+    Route::get('/address-search', [TaxiRoyaalBookingController::class, 'addressSearch'])->name('address-search')->middleware('throttle:60,1');
+    Route::post('/quote', [TaxiRoyaalBookingController::class, 'quote'])->name('quote')->middleware('throttle:120,1');
+    Route::post('/submit', [TaxiRoyaalBookingController::class, 'submit'])->name('submit')->middleware('throttle:30,1');
 });
 
 Route::get('/privacy', function () {

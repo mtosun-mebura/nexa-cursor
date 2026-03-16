@@ -50,6 +50,14 @@ class WebsiteBuilderService
         if ($logoPath && Storage::disk('public')->exists($logoPath)) {
             $logoUrl = '/storage/' . ltrim($logoPath, '/');
         }
+        $logoDarkUrl = null;
+        $logoMode = GeneralSetting::get('logo_mode', 'single');
+        if ($logoMode === 'light_dark' && $logoUrl) {
+            $logoDarkPath = GeneralSetting::get('logo_dark');
+            if ($logoDarkPath && Storage::disk('public')->exists($logoDarkPath)) {
+                $logoDarkUrl = '/storage/' . ltrim($logoDarkPath, '/');
+            }
+        }
 
         $faviconPath = GeneralSetting::get('favicon');
         $faviconUrl = null;
@@ -80,6 +88,7 @@ class WebsiteBuilderService
 
         return [
             'logo_url' => $logoUrl,
+            'logo_dark_url' => $logoDarkUrl,
             'favicon_url' => $faviconUrl,
             'site_name' => $siteName,
             'site_description' => $siteDescription,
@@ -91,8 +100,9 @@ class WebsiteBuilderService
     /**
      * Module waarvan de applicatienaam/omschrijving gebruikt wordt voor branding (meta, header, logo alt).
      * Eerst de module die het actieve thema gebruikt, anders de eerste actieve module.
+     * Publiek voor o.a. AdminMiddleware (automatisch tenant kiezen).
      */
-    protected function getBrandingModule(): ?Module
+    public function getBrandingModule(): ?Module
     {
         $activeTheme = $this->getActiveTheme();
         if ($activeTheme) {
