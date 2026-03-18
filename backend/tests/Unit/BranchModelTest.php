@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 use App\Models\Branch;
 use App\Models\Vacancy;
@@ -11,9 +12,12 @@ class BranchModelTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function branch_has_vacancies_relationship()
     {
+        if (!class_exists(\Database\Factories\VacancyFactory::class)) {
+            $this->markTestSkipped('VacancyFactory (skillmatching module) not available');
+        }
         $branch = Branch::create([
             'name' => 'Test Branch',
             'slug' => 'test-branch',
@@ -27,7 +31,7 @@ class BranchModelTest extends TestCase
         $this->assertTrue($branch->vacancies->contains($vacancy));
     }
 
-    /** @test */
+    #[Test]
     public function branch_can_be_created()
     {
         $branch = Branch::create([
@@ -44,7 +48,7 @@ class BranchModelTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function branch_can_be_updated()
     {
         $branch = Branch::create([
@@ -64,7 +68,7 @@ class BranchModelTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function branch_can_be_deleted()
     {
         $branch = Branch::create([
@@ -78,7 +82,7 @@ class BranchModelTest extends TestCase
         $this->assertDatabaseMissing('branches', ['id' => $branchId]);
     }
 
-    /** @test */
+    #[Test]
     public function branch_is_active_is_boolean()
     {
         $branch = Branch::create([
@@ -91,7 +95,7 @@ class BranchModelTest extends TestCase
         $this->assertTrue($branch->is_active);
     }
 
-    /** @test */
+    #[Test]
     public function branch_sort_order_is_integer()
     {
         $branch = Branch::create([

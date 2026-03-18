@@ -33,6 +33,13 @@ class AppServiceProvider extends ServiceProvider
         $this->registerWebsitePageRouteBinding();
         $this->loadGoogleMapsApiKeyFromRootEnv();
 
+        if ($this->app->environment('testing')) {
+            $this->loadMigrationsFrom(database_path('migrations/shared'));
+            if (is_dir(database_path('migrations/core'))) {
+                $this->loadMigrationsFrom(database_path('migrations/core'));
+            }
+        }
+
         View::composer('frontend.layouts.website', function ($view) {
             if (!isset($view->getData()['googleMapsApiKey']) || $view->getData()['googleMapsApiKey'] === '') {
                 $key = trim((string) (config('maps.api_key') ?? ''));

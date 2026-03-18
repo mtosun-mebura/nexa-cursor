@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,7 +16,7 @@ class FormValidationUnitTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function sanitize_recursive_handles_flat_arrays()
     {
         $request = new class extends BaseFormRequest {
@@ -37,7 +38,7 @@ class FormValidationUnitTest extends TestCase
         $this->assertEquals('test@example.com', $result['email']); // Trimmed
     }
 
-    /** @test */
+    #[Test]
     public function sanitize_recursive_handles_nested_arrays()
     {
         $request = new class extends BaseFormRequest {
@@ -63,7 +64,7 @@ class FormValidationUnitTest extends TestCase
         $this->assertEquals('MainStreet', $result['user']['address']['street']);
     }
 
-    /** @test */
+    #[Test]
     public function sanitize_recursive_handles_non_string_values()
     {
         $request = new class extends BaseFormRequest {
@@ -89,7 +90,7 @@ class FormValidationUnitTest extends TestCase
         $this->assertEquals([1, 2, 3], $result['items']);
     }
 
-    /** @test */
+    #[Test]
     public function sanitize_recursive_removes_control_characters()
     {
         $request = new class extends BaseFormRequest {
@@ -100,8 +101,8 @@ class FormValidationUnitTest extends TestCase
         $method = $reflection->getMethod('sanitizeRecursive');
         $method->setAccessible(true);
 
-        // Control characters (but keep newlines and tabs)
-        $input = "Test\x00\x01\x02\x03String\n\t";
+        // Control characters (but keep newlines and tabs when not trimmed)
+        $input = "Test\x00\x01\x02\x03String\n\tMid"; // \n\t in middle so trim() doesn't remove them
         $result = $method->invoke($request, $input);
 
         $this->assertStringNotContainsString("\x00", $result);

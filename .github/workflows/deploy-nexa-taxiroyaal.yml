@@ -1,0 +1,73 @@
+name: Deploy Nexa Taxiroyaal
+
+on:
+  push:
+    branches:
+      - nexa-taxiroyaal
+
+concurrency:
+  group: deploy-nexa-taxiroyaal
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  migrate:
+    name: Run migrations
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: ${{ secrets.NEXA_TAXIROYAAL_DATABASE_URL }}
+        run: npm run migrate
+
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    needs: migrate
+    if: github.ref == 'refs/heads/nexa-taxiroyaal'
+    environment: production-taxiroyaal
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy
+        env:
+          SSH_HOST: ${{ secrets.NEXA_TAXIROYAAL_SSH_HOST }}
+          SSH_USER: ${{ secrets.NEXA_TAXIROYAAL_SSH_USER }}
+          SSH_KEY: ${{ secrets.NEXA_TAXIROYAAL_SSH_KEY }}
+        run: |
+          echo "Hier komt je deploy-script"
