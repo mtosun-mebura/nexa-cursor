@@ -16,7 +16,7 @@ class WebsiteBuilderService
         protected ModuleManager $moduleManager,
         protected ?ModuleDatabaseService $moduleDb = null
     ) {
-        $this->moduleDb = $this->moduleDb ?? (app()->bound(ModuleDatabaseService::class) ? app(ModuleDatabaseService::class) : null);
+        $this->moduleDb = $this->moduleDb ?? app(ModuleDatabaseService::class);
     }
 
     /** Query WebsitePage op de juiste connection: module-DB als actieve module die eigen DB heeft, anders default. */
@@ -48,21 +48,21 @@ class WebsiteBuilderService
         $logoPath = GeneralSetting::get('logo');
         $logoUrl = null;
         if ($logoPath && Storage::disk('public')->exists($logoPath)) {
-            $logoUrl = '/storage/' . ltrim($logoPath, '/');
+            $logoUrl = $this->publicFileUrl(ltrim($logoPath, '/'));
         }
         $logoDarkUrl = null;
         $logoMode = GeneralSetting::get('logo_mode', 'single');
-        if ($logoMode === 'light_dark' && $logoUrl) {
+        if ($logoMode === 'light_dark') {
             $logoDarkPath = GeneralSetting::get('logo_dark');
             if ($logoDarkPath && Storage::disk('public')->exists($logoDarkPath)) {
-                $logoDarkUrl = '/storage/' . ltrim($logoDarkPath, '/');
+                $logoDarkUrl = $this->publicFileUrl(ltrim($logoDarkPath, '/'));
             }
         }
 
         $faviconPath = GeneralSetting::get('favicon');
         $faviconUrl = null;
         if ($faviconPath && Storage::disk('public')->exists($faviconPath)) {
-            $faviconUrl = '/storage/' . ltrim($faviconPath, '/');
+            $faviconUrl = $this->publicFileUrl(ltrim($faviconPath, '/'));
         }
 
         $siteName = GeneralSetting::get('site_name', config('app.name', 'Nexa'));
@@ -98,25 +98,144 @@ class WebsiteBuilderService
     }
 
     /**
-     * Module waarvan de applicatienaam/omschrijving gebruikt wordt voor branding (meta, header, logo alt).
-     * Eerst de module die het actieve thema gebruikt, anders de eerste actieve module.
-     * Publiek voor o.a. AdminMiddleware (automatisch tenant kiezen).
+     * Publieke URL voor een bestand in storage/app/public (bruikbaar voor niet-ingelogde bezoekers).
+     * Gebruikt de /file/ route zodat logo/favicon altijd laden.
+     */
+    public function publicFileUrl(string $path): string
+    {
+        $path = str_replace(['../', '..'], '', $path);
+        $encoded = str_replace('/', '--', trim($path, '/'));
+        return url('/file/' . $encoded);
+    }
+
+    /**
+     * Zet een opgeslagen storage-URL (relatief of volledig) om naar een werkende weergave-URL via /file/.
+     * Gebruik overal waar img src of background-image uit de database komt (bv. /storage/vehicles/..., http://.../storage/...).
+     */
+    public function storageUrlToDisplayUrl(?string $url): string
+    {
+        if ($url === null || trim($url) === '') {
+            return '';
+        }
+        $u = trim((string) $url);
+        $path = null;
+        if (str_starts_with($u, '/storage/')) {
+            $path = preg_replace('#^/storage/#', '', $u);
+        } elseif (preg_match('#^https?://[^/]+/storage/(.+)$#', $u, $m)) {
+            $path = preg_replace('/[#?].*$/', '', $m[1]);
+        }
+        if ($path !== null) {
+            return $this->publicFileUrl($path);
+        }
+        if (str_starts_with($u, 'http://') || str_starts_with($u, 'https://')) {
+            return $u;
+        }
+        return url($u);
+    }
+
+    /**
+     * Module waarvan de website op localhost getoond wordt (branding, menu, home).
+     * Prefereert het aan het actieve thema gekoppelde module (active_module_id), anders
+     * een actieve module die het actieve thema gebruikt én minstens één actieve home heeft.
      */
     public function getBrandingModule(): ?Module
     {
         $activeTheme = $this->getActiveTheme();
-        if ($activeTheme) {
-            $module = Module::where('frontend_theme_id', $activeTheme->id)->where('active', true)->first();
-            if ($module) {
+        if (! $activeTheme) {
+            return Module::where('active', true)->first();
+        }
+
+        // Als voor dit thema een module is vastgezet (bijv. na "Website tonen" in staging), die gebruiken
+        if ($activeTheme->active_module_id) {
+            $pinned = Module::find($activeTheme->active_module_id);
+            if ($pinned && $pinned->active) {
+                $name = $pinned->name;
+                if ($name !== null && $name !== '') {
+                    $hasHome = $this->moduleDb && $this->moduleDb->supportsModuleDatabases()
+                        ? $this->websitePageQuery($name)->active()->where('page_type', 'home')->exists()
+                        : WebsitePage::query()->where('module_name', $name)->active()->where('page_type', 'home')->exists();
+                    if ($hasHome) {
+                        return $pinned;
+                    }
+                }
+            }
+        }
+
+        $candidates = Module::where('frontend_theme_id', $activeTheme->id)
+            ->where('active', true)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($candidates as $module) {
+            $name = $module->name;
+            if ($name === null || $name === '') {
+                continue;
+            }
+            $hasHome = $this->moduleDb && $this->moduleDb->supportsModuleDatabases()
+                ? $this->websitePageQuery($name)->active()->where('page_type', 'home')->exists()
+                : WebsitePage::query()->where('module_name', $name)->active()->where('page_type', 'home')->exists();
+            if ($hasHome) {
                 return $module;
             }
         }
-        return Module::where('active', true)->first();
+
+        return $candidates->first() ?? Module::where('active', true)->first();
     }
 
     public function getActiveTheme(): ?FrontendTheme
     {
         return FrontendTheme::getActive();
+    }
+
+    /**
+     * Module om te tonen voor staging/startpagina voor dit thema: vastgezette module (active_module_id)
+     * als die een home heeft, anders eerste actieve module met thema en home.
+     */
+    public function getStagingModuleNameForTheme(int $themeId): ?string
+    {
+        $theme = FrontendTheme::find($themeId);
+        if ($theme && $theme->active_module_id) {
+            $pinned = Module::find($theme->active_module_id);
+            if ($pinned && $pinned->active) {
+                $name = $pinned->name;
+                if ($name !== null && $name !== '') {
+                    $hasHome = $this->moduleDb && $this->moduleDb->supportsModuleDatabases()
+                        ? $this->websitePageQuery($name)->active()->where('page_type', 'home')->exists()
+                        : WebsitePage::query()->where('module_name', $name)->active()->where('page_type', 'home')->exists();
+                    if ($hasHome) {
+                        return $name;
+                    }
+                }
+            }
+        }
+        return $this->getFirstModuleNameWithWebsiteForTheme($themeId);
+    }
+
+    /**
+     * Eerste actieve module die dit thema gebruikt én minstens één actieve home-pagina heeft.
+     * Voor staging-URL "Website tonen" per thema.
+     */
+    public function getFirstModuleNameWithWebsiteForTheme(int $themeId): ?string
+    {
+        $candidates = Module::where('frontend_theme_id', $themeId)
+            ->where('active', true)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($candidates as $module) {
+            $name = $module->name;
+            if ($name === null || $name === '') {
+                continue;
+            }
+            $hasHome = $this->moduleDb && $this->moduleDb->supportsModuleDatabases()
+                ? $this->websitePageQuery($name)->active()->where('page_type', 'home')->exists()
+                : WebsitePage::query()->where('module_name', $name)->active()->where('page_type', 'home')->exists();
+            if ($hasHome) {
+                return $name;
+            }
+        }
+
+        return $candidates->first()?->name;
     }
 
     /**
@@ -151,8 +270,21 @@ class WebsiteBuilderService
             ->first();
     }
 
+    /**
+     * About-pagina: eerst uit actieve/branding module, anders uit core (module_name null).
+     */
     public function getAboutPage(): ?WebsitePage
     {
+        $brandingModule = $this->getBrandingModule();
+        $moduleName = $brandingModule ? $brandingModule->name : null;
+        $page = $this->websitePageQuery($moduleName)->active()
+            ->where('page_type', 'about')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->first();
+        if ($page !== null) {
+            return $page;
+        }
         return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'about')
@@ -160,8 +292,22 @@ class WebsiteBuilderService
             ->first();
     }
 
+    /**
+     * Contactpagina: eerst uit actieve/branding module (frontend pagina's), anders uit core.
+     * Zo overruleert de contactpagina uit de module de statische Nexa Skillmatching contactpagina.
+     */
     public function getContactPage(): ?WebsitePage
     {
+        $brandingModule = $this->getBrandingModule();
+        $moduleName = $brandingModule ? $brandingModule->name : null;
+        $page = $this->websitePageQuery($moduleName)->active()
+            ->where('page_type', 'contact')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->first();
+        if ($page !== null) {
+            return $page;
+        }
         return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'contact')
@@ -191,39 +337,47 @@ class WebsiteBuilderService
     }
 
     /**
-     * Pagina's voor het menu: core uit hoofddatabase + actieve module-pagina's uit module-DB, gesorteerd op sort_order.
+     * Pagina's voor het hoofdmenu: alle actieve pagina's voor de huidige module in sort_order.
+     * Als er een module met eigen DB is: module-pagina's + ontbrekende home/about/contact uit core,
+     * zodat o.a. Contact altijd in het menu staat als die alleen in de hoofddatabase bestaat.
      *
      * @return Collection<int, WebsitePage>
      */
     public function getActiveMenuPages(): Collection
     {
-        $activeModules = $this->moduleManager->getActiveModules();
-        $activeModuleNames = array_map(fn ($m) => $m->getName(), $activeModules);
-        $pages = $this->websitePageQuery(null)->active()
+        $brandingModule = $this->getBrandingModule();
+        $moduleName = $brandingModule ? $brandingModule->name : null;
+
+        $corePages = $this->websitePageQuery(null)->active()
             ->whereNull('module_name')
             ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
-        if ($this->moduleDb && $this->moduleDb->supportsModuleDatabases()) {
-            foreach ($activeModules as $mod) {
-                $name = $mod->getName();
-                if ($name === null || $name === '') {
-                    continue;
-                }
-                $fromModule = $this->websitePageQuery($name)->active()
-                    ->orderBy('sort_order')
-                    ->orderBy('title')
-                    ->get();
-                $pages = $pages->merge($fromModule);
-            }
-        } else {
-            $fromDefault = WebsitePage::active()
-                ->whereNotNull('module_name')
-                ->whereIn('module_name', $activeModuleNames)
-                ->orderBy('sort_order')
-                ->get();
-            $pages = $pages->merge($fromDefault);
+
+        $hasModuleDb = $moduleName !== null && $moduleName !== ''
+            && $this->moduleDb
+            && $this->moduleDb->supportsModuleDatabases();
+
+        if (! $hasModuleDb) {
+            return $corePages->values();
         }
-        return $pages->sortBy('sort_order')->values();
+
+        $modulePages = $this->websitePageQuery($moduleName)->active()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $coreTypes = ['home', 'about', 'contact'];
+        $moduleHasType = $modulePages->keyBy('page_type');
+
+        foreach ($corePages as $core) {
+            if (in_array($core->page_type, $coreTypes, true)
+                && ! $moduleHasType->has($core->page_type)) {
+                $modulePages->push($core);
+            }
+        }
+
+        return $modulePages->sortBy(['sort_order', 'id'])->values();
     }
 
     /**

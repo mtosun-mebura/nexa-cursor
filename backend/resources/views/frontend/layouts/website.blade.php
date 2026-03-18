@@ -252,12 +252,7 @@
                                 $pageParam = in_array($menuPage->page_type, ['home','about','contact'], true) ? $menuPage->page_type : $menuPage->slug;
                                 $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
                             } else {
-                                $url = match($menuPage->page_type) {
-                                    'home' => route('home'),
-                                    'about' => route('about'),
-                                    'contact' => route('contact'),
-                                    default => route('website.page', ['slug' => $menuPage->slug]),
-                                };
+                                $url = $menuPage->page_type === 'home' ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
                             }
                             $isActive = isset($page) && $page->id === $menuPage->id;
                         @endphp
@@ -286,13 +281,13 @@
                         <svg id="theme-icon-moon" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>
                     @endif
-                    @guest
-                    <a href="{{ route('login') }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0" style="background-color: var(--theme-primary);">Inloggen</a>
-                    @else
                     @if($branding['dashboard_link_visible'] ?? true)
-                    <a href="{{ route('dashboard') }}" class="px-4 py-2 rounded-lg text-base font-medium transition-colors shrink-0 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
-                    @endif
+                    @guest
+                    <a href="{{ route('login') }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">Inloggen</a>
+                    @else
+                    <a href="{{ route('dashboard') }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
                     @endguest
+                    @endif
                 </div>
                 {{-- Hamburger rechtsboven: rechts van thema-icoon; zichtbaar onder 1025px (via CSS media query) --}}
                 <div id="website-hamburger-row" class="hidden items-center gap-2 ml-auto flex-shrink-0">
@@ -316,12 +311,7 @@
                             $pageParam = in_array($menuPage->page_type, ['home','about','contact'], true) ? $menuPage->page_type : $menuPage->slug;
                             $url = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
                         } else {
-                            $url = match($menuPage->page_type) {
-                                'home' => route('home'),
-                                'about' => route('about'),
-                                'contact' => route('contact'),
-                                default => route('website.page', ['slug' => $menuPage->slug]),
-                            };
+                            $url = $menuPage->page_type === 'home' ? route('home') : route('website.page', ['slug' => $menuPage->slug]);
                         }
                     @endphp
                     <a href="{{ $url }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $menuPage->page_type === 'home' ? 'Home' : $menuPage->title }}</a>
@@ -337,16 +327,16 @@
                 <a href="{{ route('agenda') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Agenda</a>
                 @endif
                 @endauth
-                {{-- Streep boven Mijn Nexa/Inloggen als onderscheid met normale menuitems --}}
+                @if($branding['dashboard_link_visible'] ?? true)
+                {{-- Streep boven dashboard-link/Inloggen als onderscheid met normale menuitems --}}
                 <div class="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
                     @guest
-                    <a href="{{ route('login') }}" class="block px-4 py-3 rounded-lg font-medium text-white" style="background-color: var(--theme-primary);">Inloggen</a>
+                    <a href="{{ route('login') }}" class="block px-4 py-3 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">Inloggen</a>
                     @else
-                    @if($branding['dashboard_link_visible'] ?? true)
-                    <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
-                    @endif
+                    <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
                     @endguest
                 </div>
+                @endif
             </div>
         </div>
     </header>
@@ -361,6 +351,13 @@
                 $footerData = $homeSections['footer'] ?? [];
                 $footerLogoUrl = !empty($footerData['logo_url']) ? $footerData['logo_url'] : ($branding['logo_url'] ?? null);
                 $footerLogoDarkUrl = (empty($footerData['logo_url']) && !empty($branding['logo_dark_url'])) ? $branding['logo_dark_url'] : null;
+                if (!empty($footerLogoUrl) && (str_contains($footerLogoUrl, '/storage/') || str_contains($footerLogoUrl, 'storage/'))) {
+                    $storagePath = preg_replace('#^.*?/storage/#', '', $footerLogoUrl);
+                    $storagePath = strtok($storagePath, '?');
+                    if ($storagePath !== '') {
+                        $footerLogoUrl = app(\App\Services\WebsiteBuilderService::class)->publicFileUrl($storagePath);
+                    }
+                }
                 $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['site_name'] ?? config('app.name'));
                 $footerLinkUrl = function($u) {
                     if (empty($u)) return url('/');
@@ -429,7 +426,7 @@
                                     <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none {{ $footerLogoAlignText }}">
+                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
                                         {!! $homeSections['footer']['tagline'] !!}
                                     </div>
                                 @endif
@@ -489,7 +486,7 @@
                                     <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none {{ $footerLogoAlignText }}">
+                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
                                         {!! $homeSections['footer']['tagline'] !!}
                                     </div>
                                 @endif

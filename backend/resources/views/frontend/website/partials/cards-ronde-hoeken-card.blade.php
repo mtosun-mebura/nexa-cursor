@@ -21,21 +21,13 @@
     @php
         $cardText = trim((string) ($card['text'] ?? ''));
         if ($cardText !== '') {
-            $stripped = strip_tags($cardText);
-            if ($stripped === $cardText) {
-                if (str_contains($cardText, "\n")) {
-                    $cardText = nl2br(e($cardText));
-                } else {
-                    $escaped = e($cardText);
-                    if (str_contains($cardText, 'Wachttarief')) {
-                        $cardText = str_replace('Wachttarief', '<hr>Wachttarief', $escaped);
-                    } else {
-                        $cardText = $escaped;
-                    }
-                }
-            } else {
-                $cardText = preg_replace('/<p>(\s*|<br\s*\/?>)\s*<\/p>/u', '<p class="cards-ronde-hoeken-empty-p"></p>', $cardText);
-            }
+            // Bewaar de HTML van de editor zoveel mogelijk 1-op-1 en vervang
+            // alleen volledig lege paragrafen door een speciale klasse voor extra witruimte.
+            $cardText = preg_replace(
+                '/<p>(\s*|<br\s*\/?>)\s*<\/p>/u',
+                '<p class="cards-ronde-hoeken-empty-p"></p>',
+                $cardText
+            );
         }
     @endphp
     <div class="p-5 flex-grow leading-relaxed cards-ronde-hoeken-text {{ $textAlignClass }} {{ ($card['text_color'] ?? '') === '' ? 'text-gray-700 dark:text-gray-300' : '' }}" style="{{ $textStyle }}">

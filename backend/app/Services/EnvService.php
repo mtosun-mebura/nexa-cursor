@@ -2,11 +2,26 @@
 
 namespace App\Services;
 
+use App\Models\GeneralSetting;
 use Illuminate\Support\Facades\File;
 
 class EnvService
 {
     protected $envPath;
+
+    /** Keys that are stored in GeneralSetting (admin settings); EnvService::get() prefers DB over .env */
+    private const GENERAL_SETTING_KEYS = [
+        'MAIL_MAILER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION',
+        'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
+        'GOOGLE_SEO_PROPERTY_ID', 'GOOGLE_ANALYTICS_ID', 'GOOGLE_TAG_MANAGER_ID',
+        'META_DESCRIPTION', 'META_KEYWORDS', 'GOOGLE_SITE_VERIFICATION',
+        'GOOGLE_MAPS_API_KEY', 'GOOGLE_MAPS_MAP_ID', 'GOOGLE_MAPS_ZOOM',
+        'GOOGLE_MAPS_CENTER_LAT', 'GOOGLE_MAPS_CENTER_LNG', 'GOOGLE_MAPS_TYPE',
+        'WHATSAPP_API_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_BUSINESS_ACCOUNT_ID',
+        'WHATSAPP_API_VERSION', 'WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'WHATSAPP_DEFAULT_MESSAGE',
+        'WHATSAPP_CLICK_TO_CHAT_ENABLED', 'WHATSAPP_CLICK_TO_CHAT_NUMBER',
+        'WHATSAPP_WIDGET_ENABLED', 'WHATSAPP_WIDGET_PHONE', 'WHATSAPP_WIDGET_DEFAULT_MESSAGE',
+    ];
 
     public function __construct()
     {
@@ -57,10 +72,17 @@ class EnvService
     }
 
     /**
-     * Get a specific environment variable
+     * Get a specific environment variable.
+     * For keys in GENERAL_SETTING_KEYS, returns GeneralSetting value first (like Google Reviews), then .env.
      */
     public function get($key, $default = null)
     {
+        if (in_array($key, self::GENERAL_SETTING_KEYS, true)) {
+            $value = GeneralSetting::get($key, null);
+            if ($value !== null) {
+                return $value;
+            }
+        }
         $all = $this->getAll();
         return $all[$key] ?? $default;
     }
@@ -80,16 +102,16 @@ class EnvService
      */
     public function getGoogleMapsApiKey(): string
     {
+        $key = trim((string) $this->get('GOOGLE_MAPS_API_KEY', ''));
+        if ($key !== '') {
+            return $key;
+        }
         $rootEnv = self::getRootEnvPath();
         if (File::exists($rootEnv) && is_readable($rootEnv)) {
             $key = trim((string) $this->getFromFile($rootEnv, 'GOOGLE_MAPS_API_KEY', ''));
             if ($key !== '') {
                 return $key;
             }
-        }
-        $key = trim((string) $this->get('GOOGLE_MAPS_API_KEY', ''));
-        if ($key !== '') {
-            return $key;
         }
         return trim((string) (config('maps.api_key') ?? env('GOOGLE_MAPS_API_KEY', '')));
     }

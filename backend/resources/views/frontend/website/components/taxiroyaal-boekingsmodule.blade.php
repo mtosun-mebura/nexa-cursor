@@ -207,7 +207,7 @@
                                     </label>
                                 </div>
                                 @endif
-                                <div class="mt-3 hidden rounded-lg border border-violet-300/60 dark:border-violet-500/40 bg-violet-50/80 dark:bg-violet-500/10 px-3 py-2.5 text-base text-violet-900 dark:text-violet-100 shadow-xs" data-route-details-banner>
+                                <div class="mt-3 hidden rounded-lg border border-orange-300 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/80 px-3 py-2.5 text-base text-orange-900 dark:text-orange-50 shadow-xs" data-route-details-banner>
                                     <div class="text-lg font-semibold mb-0.5">Route informatie</div>
                                     <div data-route-details></div>
                                 </div>
@@ -268,7 +268,7 @@
                     <div class="rounded-xl border shadow-sm bg-transparent overflow-hidden max-w-4xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
                         <div class="kt-card-content lg:pt-9 lg:pb-7.5 px-4 py-4 md:px-6 md:py-5 space-y-5">
                             <div class="hidden flex justify-center" data-summary-vehicle-image-wrap>
-                                <div class="w-full max-w-md rounded-lg border bg-neutral-secondary-medium p-0 overflow-hidden" style="border-color: rgba(148, 163, 184, 0.45); box-shadow: 0 26px 58px rgba(15, 23, 42, 0.5), 0 10px 24px rgba(15, 23, 42, 0.28);">
+                                <div class="w-full max-w-md rounded-lg border bg-neutral-secondary-medium p-0 overflow-hidden" style="border-color: rgba(148, 163, 184, 0.45);">
                                     <img src="" alt="" class="w-full h-44 md:h-52 object-cover rounded-md mx-auto" data-summary-vehicle-image>
                                 </div>
                             </div>
@@ -277,14 +277,14 @@
                                     <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Rit</div>
                                 </div>
                                 <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs max-w-3xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
-                                    <div class="grid grid-cols-[1fr_auto_1fr] items-start gap-4 md:gap-8">
+                                    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
                                         <div class="min-w-0 flex-1 text-center">
                                             <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Van</div>
                                             <div class="text-base font-semibold text-heading truncate" data-summary-pickup-line1>—</div>
                                             <div class="text-base text-body truncate" data-summary-pickup-line2>—</div>
                                             <div class="text-base text-body truncate" data-summary-pickup-line3>—</div>
                                         </div>
-                                        <div class="inline-flex items-center justify-center text-fg-brand shrink-0 pt-6" aria-hidden="true">
+                                        <div class="inline-flex items-center justify-center text-fg-brand shrink-0" aria-hidden="true">
                                             <svg class="w-8 h-8 md:w-10 md:h-10" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m0 0-4-4m4 4 4-4"/>
                                             </svg>
@@ -319,7 +319,7 @@
 
                         <div class="border-t px-4 py-4 md:px-6 md:py-5 text-center" style="border-color: rgba(148, 163, 184, 0.45);">
                             <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Totaalbedrag</div>
-                            <div class="mt-1 text-3xl md:text-4xl font-extrabold text-violet-700 dark:text-violet-300" data-summary-total>—</div>
+                            <div class="mt-1 text-3xl md:text-4xl font-black text-violet-700 dark:text-violet-300" data-summary-total>—</div>
                         </div>
                     </div>
                     <p class="text-sm mt-3 text-slate-600 dark:text-slate-300 text-center">Controleer je gegevens en verstuur je boeking.</p>
@@ -395,6 +395,45 @@
 
 [data-taxiroyaal-booking-module] .booking-module-card {
     overflow: visible;
+}
+
+/* Geselecteerde aanbiedingskaart: groene border (#0cea36) – via CSS i.p.v. Tailwind i.v.m. dynamische classes */
+[data-taxiroyaal-booking-module] [data-offer-id][aria-pressed="true"] {
+    border-color: #0cea36 !important;
+    border-width: 2px;
+    box-shadow: 0 0 0 2px rgba(12, 234, 54, 0.5);
+}
+
+/* Bevestiging: zwevend effect voertuigfoto – in dark mode zichtbare schaduw */
+[data-taxiroyaal-booking-module] [data-summary-vehicle-image-wrap] > div {
+    box-shadow: 0 26px 58px rgba(15, 23, 42, 0.5), 0 10px 24px rgba(15, 23, 42, 0.28);
+}
+@media (prefers-color-scheme: dark) {
+    [data-taxiroyaal-booking-module] [data-summary-vehicle-image-wrap] > div {
+        box-shadow: 0 26px 58px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+}
+.dark [data-taxiroyaal-booking-module] [data-summary-vehicle-image-wrap] > div {
+    box-shadow: 0 26px 58px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Route-informatiebanner: licht oranje achtergrond zodat deze opvalt (ook in dark mode) */
+[data-taxiroyaal-booking-module] [data-route-details-banner] {
+    background-color: #fff7ed !important;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+@media (prefers-color-scheme: dark) {
+    [data-taxiroyaal-booking-module] [data-route-details-banner] {
+        background-color: rgba(154, 52, 18, 0.45) !important;
+        border-color: rgba(234, 88, 12, 0.6);
+        color: #fed7aa;
+    }
+}
+.dark [data-taxiroyaal-booking-module] [data-route-details-banner] {
+    background-color: rgba(154, 52, 18, 0.45) !important;
+    border-color: rgba(234, 88, 12, 0.6);
+    color: #fed7aa;
 }
 
 [data-taxiroyaal-booking-module] .booking-trip-layout {
@@ -1499,7 +1538,7 @@ body.booking-modal-open {
         state.offers.forEach(function(offer) {
             var active = state.selected_offer_id === offer.id;
             var card = document.createElement('div');
-            card.className = 'rounded-xl border p-5 md:p-6 flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-200 bg-neutral-primary cursor-pointer ' + (active ? 'border-violet-500 dark:border-violet-400 shadow-lg ring-2 ring-violet-300/60 dark:ring-violet-500/40' : 'border-slate-300/60 dark:border-slate-600 shadow-xs hover:border-violet-300/70 dark:hover:border-violet-500/60');
+            card.className = 'rounded-xl border p-5 md:p-6 flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-200 bg-neutral-primary cursor-pointer ' + (active ? 'border-[#0cea36] shadow-lg ring-2 ring-[#0cea36]/50' : 'border-slate-300/60 dark:border-slate-600 shadow-xs hover:border-violet-300/70 dark:hover:border-violet-500/60');
             card.setAttribute('role', 'button');
             card.setAttribute('tabindex', '0');
             card.setAttribute('aria-pressed', active ? 'true' : 'false');

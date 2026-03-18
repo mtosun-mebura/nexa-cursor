@@ -444,33 +444,35 @@
     })();
     </script>
 
-    <!-- Ctrl+S / Cmd+S: opslaan op pagina's met een Opslaan-knop -->
+    <!-- Ctrl+S / Cmd+S: opslaan van de card/form waar de focus in staat -->
     <script>
     (function() {
         document.addEventListener('keydown', function(e) {
             var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
             if (!isSave) return;
-            e.preventDefault();
 
+            var active = document.activeElement;
+            if (!active || typeof active.closest !== 'function') return;
+            var form = active.closest('form');
+            if (!form) return;
+
+            if (form.closest('[role="dialog"]') || form.closest('.modal')) return;
+
+            e.preventDefault();
             var content = document.getElementById('content');
-            if (!content) return;
-            var forms = content.querySelectorAll('form');
-            for (var i = 0; i < forms.length; i++) {
-                var form = forms[i];
-                if (form.closest('[role="dialog"]') || form.closest('.modal')) continue;
-                var btn = form.querySelector('button[type="submit"].kt-btn-primary');
-                if (!btn) btn = form.querySelector('button[type="submit"][class*="btn-primary"]');
-                if (!btn) continue;
-                var text = (btn.textContent || btn.innerText || '').trim();
-                var isSaveBtn = /opslaan|opsla|save|wijzigingen opslaan|template opslaan|gebruiker opslaan|vestiging opslaan|match opslaan|toevoegen/i.test(text) || form.id === 'website-page-form' || form.id === 'general-settings-form' || form.id === 'coming-soon-form';
-                if (isSaveBtn) {
-                    if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit(btn);
-                    } else {
-                        form.submit();
-                    }
-                    return;
-                }
+            if (content && !content.contains(form)) return;
+
+            var btn = form.querySelector('button[type="submit"].kt-btn-primary');
+            if (!btn) btn = form.querySelector('button[type="submit"][class*="btn-primary"]');
+            if (!btn) return;
+            var text = (btn.textContent || btn.innerText || '').trim();
+            var isSaveBtn = /opslaan|opsla|save|wijzigingen opslaan|template opslaan|gebruiker opslaan|vestiging opslaan|match opslaan|toevoegen/i.test(text) || form.id === 'website-page-form' || form.id === 'general-settings-form' || form.id === 'coming-soon-form';
+            if (!isSaveBtn) return;
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(btn);
+            } else {
+                form.submit();
             }
         });
     })();

@@ -28,7 +28,9 @@
         'large' => 40,
         default => 30,
     };
-    $cardMaxWidth = match($blockSize) {
+    /* Bij 4 kolommen altijd grid gebruiken zodat 4 blokken naast elkaar passen; anders vaste breedte mogelijk */
+    $useGridLayout = $blockSize === 'full' || $blocksPerRow === 4;
+    $cardMaxWidth = $useGridLayout ? null : match($blockSize) {
         'small' => '300px',
         'medium' => '500px',
         'large' => '700px',
@@ -80,7 +82,7 @@
                 @if($cardMaxWidth)
                 <div class="featured-services-grid-fixed featured-services-align-{{ $blockAlign }} flex flex-wrap gap-6 lg:gap-8" style="--fs-cols: {{ $blocksPerRow }}; --fs-col-width: {{ $cardMaxWidth }};">
                 @else
-                <div class="grid grid-cols-1 {{ $gridCols }} gap-6 lg:gap-8 w-full">
+                <div class="grid grid-cols-1 {{ $gridCols }} gap-6 lg:gap-8 w-full max-w-full px-4 lg:px-6">
                 @endif
                 @foreach($items as $index => $item)
                     @php
@@ -88,6 +90,7 @@
                         $itemDesc = $decode($item['description'] ?? '');
                         $iconKey = trim((string) ($item['icon'] ?? 'light-bulb'));
                         $iconDef = $icons[$iconKey] ?? $icons['light-bulb'] ?? ['svg' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />'];
+                        $iconColor = isset($item['icon_color']) && is_string($item['icon_color']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', trim($item['icon_color'])) ? trim($item['icon_color']) : null;
                     @endphp
                     @php
                         $cardRevealDelayMs = $revealFirstCardDelayMs + $index * $revealDelayStepMs;
@@ -97,7 +100,10 @@
                         <div class="scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-delay="{{ $index }}">
                         <div class="featured-service-card min-w-0 h-full rounded-xl border border-gray-200 dark:border-gray-700 {{ $cardPadding }} shadow-sm w-full {{ $cardBgColor ? '' : 'bg-white dark:bg-gray-800/50' }}" @if($cardBgColor) style="background-color: {{ $cardBgColor }};" @endif>
                         <div class="flex {{ $iconAlignClass }} gap-4">
-                            <div class="featured-service-icon shrink-0 rounded-lg bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary" style="width: {{ $iconSizePx }}px; height: {{ $iconSizePx }}px;">
+                            @php
+                                $iconColorStyle = $iconColor ? ' color: ' . e($iconColor) . ';' : '';
+                            @endphp
+                            <div class="featured-service-icon shrink-0 rounded-lg flex items-center justify-center {{ $iconColor ? '' : 'bg-primary/10 dark:bg-primary/20 text-primary' }}" style="width: {{ $iconSizePx }}px; height: {{ $iconSizePx }}px; @if($iconColor) background-color: transparent; @endif{{ $iconColorStyle }}">
                                 <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="width: {{ $iconSizePx }}px; height: {{ $iconSizePx }}px;">{!! $iconDef['svg'] ?? '' !!}</svg>
                             </div>
                             <div class="min-w-0 flex-1">

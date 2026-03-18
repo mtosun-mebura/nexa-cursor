@@ -262,6 +262,10 @@
         on('-undo', () => editor.chain().focus().undo().run());
         on('-redo', () => editor.chain().focus().redo().run());
         on('-setParagraph', () => editor.chain().focus().setParagraph().run());
+        on('-clearFormat', () => {
+            editor.chain().focus().selectAll().unsetAllMarks().run();
+            try { editor.chain().focus().clearNodes().run(); } catch (e) {}
+        });
         on('-setH1', () => editor.chain().focus().toggleHeading({ level: 1 }).run());
         on('-setH2', () => editor.chain().focus().toggleHeading({ level: 2 }).run());
         on('-setH3', () => editor.chain().focus().toggleHeading({ level: 3 }).run());

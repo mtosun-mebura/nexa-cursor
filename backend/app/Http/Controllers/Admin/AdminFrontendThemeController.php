@@ -113,8 +113,9 @@ class AdminFrontendThemeController extends Controller
             }
         }
 
+        $stagingModuleTop = $activeThemeId ? $this->websiteBuilder->getStagingModuleNameForTheme($activeThemeId) : null;
         $stagingUrlTop = $activeThemeId
-            ? route('admin.frontend-themes.staging', ['theme_id' => $activeThemeId, 'module' => ''])
+            ? route('admin.frontend-themes.staging', ['theme_id' => $activeThemeId, 'module' => $stagingModuleTop ?? ''])
             : null;
 
         $moduleFirstPageUrls = [];
@@ -134,10 +135,15 @@ class AdminFrontendThemeController extends Controller
                 : $stagingUrlTop;
         }
 
+        $themeStagingModules = [];
+        foreach ($themes as $theme) {
+            $themeStagingModules[$theme->id] = $this->websiteBuilder->getStagingModuleNameForTheme($theme->id);
+        }
+
         $websiteUrl = url('/');
         return view('admin.frontend-themes.index', compact(
             'themes', 'installedModules', 'activeModulesForThemes', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
-            'websiteUrl', 'stagingUrlTop', 'activeThemeId'
+            'websiteUrl', 'stagingUrlTop', 'activeThemeId', 'themeStagingModules'
         ));
     }
 
@@ -183,6 +189,22 @@ class AdminFrontendThemeController extends Controller
                 ->with('error', 'Geen thema gekozen.');
         }
 
+        if ($module === null || $module === '') {
+            $module = $this->websiteBuilder->getFirstModuleNameWithWebsiteForTheme($theme->id);
+        }
+
+        // Zet dit thema vast op de getoonde module, zodat localhost:8000 dezelfde module toont
+        if ($module !== null && $module !== '') {
+            $moduleModel = Module::where('active', true)
+                ->whereRaw('LOWER(name) = ?', [strtolower($module)])
+                ->first();
+            if ($moduleModel) {
+                if ((int) $theme->active_module_id !== (int) $moduleModel->id) {
+                    $theme->update(['active_module_id' => $moduleModel->id]);
+                }
+            }
+        }
+
         $menuPages = $this->websiteBuilder->getMenuPagesForStaging($module);
         $menuPages = $menuPages->values();
 
@@ -215,7 +237,8 @@ class AdminFrontendThemeController extends Controller
 
         $jobs = collect();
         $isHomePage = $page->page_type === 'home' || $page->slug === 'home';
-        if ($isHomePage) {
+        $isSkillmatchingModule = $module !== null && strtolower((string) $module) === 'skillmatching';
+        if ($isHomePage && $isSkillmatchingModule) {
             $rotationKey = floor(now()->timestamp / (2 * 3600));
             $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () {
                 return Vacancy::with(['company', 'category'])
@@ -279,6 +302,17 @@ class AdminFrontendThemeController extends Controller
     }
 
     /**
+     * De-publiceren: actief thema op inactief zetten. Geen thema actief → op localhost:8000 verschijnt Coming soon.
+     */
+    public function unpublish(Request $request): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        FrontendTheme::where('is_active', true)->update(['is_active' => false]);
+        return redirect()->route('admin.frontend-themes.index')
+            ->with('success', 'Geen thema meer actief. Op de website verschijnt nu de Coming soon-pagina.');
+    }
+
+    /**
      * Publiceren: thema actief maken en demo-/staging-URL's in content omzetten naar daadwerkelijke URL's.
      */
     public function publish(Request $request): RedirectResponse
@@ -289,6 +323,15 @@ class AdminFrontendThemeController extends Controller
         $theme = FrontendTheme::findOrFail($request->theme_id);
         FrontendTheme::where('is_active', true)->update(['is_active' => false]);
         $theme->update(['is_active' => true]);
+
+        $chosenThemeId = $theme->id;
+        WebsitePage::query()
+            ->where(function ($q) use ($chosenThemeId) {
+                $q->where('frontend_theme_id', '!=', $chosenThemeId)
+                    ->orWhereNull('frontend_theme_id');
+            })
+            ->update(['is_active' => false]);
+        WebsitePage::where('frontend_theme_id', $chosenThemeId)->update(['is_active' => true]);
 
         $stagingBasePath = parse_url(route('admin.frontend-themes.staging', [], true), PHP_URL_PATH);
         $productionBase = rtrim(config('app.url'), '/');

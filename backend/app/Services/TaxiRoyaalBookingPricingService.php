@@ -10,7 +10,8 @@ use Carbon\Carbon;
 class TaxiRoyaalBookingPricingService
 {
     public function __construct(
-        protected ModuleDatabaseService $moduleDb
+        protected ModuleDatabaseService $moduleDb,
+        protected WebsiteBuilderService $websiteBuilder
     ) {}
 
     public function getDefaultSectionConfig(): array
@@ -630,12 +631,8 @@ class TaxiRoyaalBookingPricingService
         if (! $vehicle || ! (bool) ($vehicle->show_photo ?? false) || empty($vehicle->image_url)) {
             return null;
         }
-        $url = trim((string) $vehicle->image_url);
-        if ($url === '') {
-            return null;
-        }
-
-        return str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'));
+        $displayUrl = $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $vehicle->image_url));
+        return $displayUrl === '' ? null : $displayUrl;
     }
 
     /**
@@ -646,12 +643,8 @@ class TaxiRoyaalBookingPricingService
         if (! $vehicle || empty($vehicle->image_url)) {
             return null;
         }
-        $url = trim((string) $vehicle->image_url);
-        if ($url === '') {
-            return null;
-        }
-
-        return str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'));
+        $displayUrl = $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $vehicle->image_url));
+        return $displayUrl === '' ? null : $displayUrl;
     }
 
     /**

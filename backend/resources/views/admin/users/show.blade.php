@@ -20,7 +20,7 @@
             @if($user->photo_blob)
                 <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
             @elseif($user->photo)
-                <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ asset('storage/' . $user->photo) }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
+                <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl('/storage/' . $user->photo) }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
             @else
                 <div class="rounded-full border-3 border-green-500 size-[100px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
                     {{ strtoupper(substr($user->first_name, 0, 1) . substr($user->last_name, 0, 1)) }}

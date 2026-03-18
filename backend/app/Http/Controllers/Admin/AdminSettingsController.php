@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
-
 class AdminSettingsController extends Controller
 {
     protected $envService;
@@ -19,7 +18,7 @@ class AdminSettingsController extends Controller
     {
         $this->envService = $envService;
     }
-    
+
     /**
      * Check if user is super-admin
      */
@@ -37,8 +36,8 @@ class AdminSettingsController extends Controller
     public function index()
     {
         $this->ensureSuperAdmin();
-        
-        // Get current mail settings
+
+        // Get current mail settings (EnvService reads from GeneralSetting first for these keys)
         $mailSettings = [
             'MAIL_MAILER' => $this->envService->get('MAIL_MAILER', 'log'),
             'MAIL_HOST' => $this->envService->get('MAIL_HOST', ''),
@@ -85,7 +84,15 @@ class AdminSettingsController extends Controller
             'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => $this->envService->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'),
         ];
 
-        return view('admin.settings.index', compact('mailSettings', 'seoSettings', 'mapsSettings', 'whatsappSettings'));
+        $googleReviewsPlaceId = GeneralSetting::get('google_reviews_place_id', '');
+        $googleReviewsBusinessName = GeneralSetting::get('google_reviews_business_name', '');
+        $googleReviewsCacheHours = (string) max(1, min(168, (int) GeneralSetting::get('google_reviews_cache_hours', '24')));
+        $googleReviewsCount = (int) GeneralSetting::get('google_reviews_count', '5');
+        $googleReviewsCount = max(1, min(20, $googleReviewsCount));
+        $googleReviewsMinStars = (int) GeneralSetting::get('google_reviews_min_stars', '1');
+        $googleReviewsMinStars = max(1, min(5, $googleReviewsMinStars));
+
+        return view('admin.settings.index', compact('mailSettings', 'seoSettings', 'mapsSettings', 'whatsappSettings', 'googleReviewsPlaceId', 'googleReviewsBusinessName', 'googleReviewsCacheHours', 'googleReviewsCount', 'googleReviewsMinStars'));
     }
 
     /**
@@ -127,18 +134,17 @@ class AdminSettingsController extends Controller
                 'MAIL_HOST' => $request->input('MAIL_HOST', ''),
                 'MAIL_PORT' => $request->input('MAIL_PORT', '587'),
                 'MAIL_USERNAME' => $request->input('MAIL_USERNAME', ''),
-                'MAIL_PASSWORD' => $request->input('MAIL_PASSWORD', ''),
                 'MAIL_ENCRYPTION' => $request->input('MAIL_ENCRYPTION', 'tls'),
                 'MAIL_FROM_ADDRESS' => $request->input('MAIL_FROM_ADDRESS'),
                 'MAIL_FROM_NAME' => $request->input('MAIL_FROM_NAME'),
             ];
-
-            // Only update password if it's provided (not empty)
-            if (empty($request->input('MAIL_PASSWORD'))) {
-                unset($mailSettings['MAIL_PASSWORD']);
+            if ($request->filled('MAIL_PASSWORD')) {
+                $mailSettings['MAIL_PASSWORD'] = $request->input('MAIL_PASSWORD');
             }
 
-            $this->envService->set($mailSettings);
+            foreach ($mailSettings as $key => $value) {
+                GeneralSetting::set($key, (string) $value);
+            }
 
             return redirect()->route('admin.settings.index')
                 ->with('success', 'Mail instellingen succesvol bijgewerkt!');
@@ -240,7 +246,9 @@ class AdminSettingsController extends Controller
                 'GOOGLE_SITE_VERIFICATION' => $request->input('GOOGLE_SITE_VERIFICATION', ''),
             ];
 
-            $this->envService->set($seoSettings);
+            foreach ($seoSettings as $key => $value) {
+                GeneralSetting::set($key, (string) $value);
+            }
 
             return redirect()->route('admin.settings.index')
                 ->with('success', 'SEO instellingen succesvol bijgewerkt!');
@@ -294,12 +302,73 @@ class AdminSettingsController extends Controller
                 'GOOGLE_MAPS_TYPE' => $request->input('GOOGLE_MAPS_TYPE', 'roadmap'),
             ];
 
-            $this->envService->set($mapsSettings);
+            foreach ($mapsSettings as $key => $value) {
+                GeneralSetting::set($key, (string) $value);
+            }
 
             return redirect()->route('admin.settings.index')
                 ->with('success', 'Google Maps instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
+                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Update Google Reviews settings (Place ID + cache; gebruikt dezelfde Maps API-sleutel)
+     */
+    public function updateGoogleReviews(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        // Lege cacheduur normaliseren naar 24 zodat validatie slaagt; waarde 1 blijft gewoon 1
+        $cacheHoursInput = $request->input('google_reviews_cache_hours');
+        if ($cacheHoursInput === '' || $cacheHoursInput === null) {
+            $request->merge(['google_reviews_cache_hours' => 24]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'google_reviews_place_id' => 'nullable|string|max:255',
+            'google_reviews_business_name' => 'nullable|string|max:255',
+            'google_reviews_cache_hours' => 'nullable|integer|min:1|max:168',
+            'google_reviews_count' => 'nullable|integer|min:1|max:5',
+            'google_reviews_min_stars' => 'nullable|integer|min:1|max:5',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->to(route('admin.settings.index') . '#google-reviews')
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        try {
+            $oldPlaceId = trim((string) GeneralSetting::get('google_reviews_place_id', ''));
+            $oldBusinessName = trim((string) GeneralSetting::get('google_reviews_business_name', ''));
+            $newPlaceId = trim((string) $request->input('google_reviews_place_id', ''));
+            $newBusinessName = trim((string) $request->input('google_reviews_business_name', ''));
+            GeneralSetting::set('google_reviews_place_id', $newPlaceId);
+            GeneralSetting::set('google_reviews_business_name', $newBusinessName);
+            $hours = (int) $request->input('google_reviews_cache_hours', 24);
+            $hours = max(1, min(168, $hours));
+            GeneralSetting::set('google_reviews_cache_hours', (string) $hours);
+            $count = max(1, min(5, (int) $request->input('google_reviews_count', 5)));
+            GeneralSetting::set('google_reviews_count', (string) $count);
+            $minStars = max(1, min(5, (int) $request->input('google_reviews_min_stars', 1)));
+            GeneralSetting::set('google_reviews_min_stars', (string) $minStars);
+
+            // Cache legen (oude en nieuwe key) zodat verse data wordt opgehaald
+            try {
+                \Illuminate\Support\Facades\Cache::forget('google_reviews_' . md5($oldPlaceId . '|' . $oldBusinessName));
+                \Illuminate\Support\Facades\Cache::forget('google_reviews_' . md5($newPlaceId . '|' . $newBusinessName));
+            } catch (\Throwable $e) {
+                // Negeer cachefouten; redirect gaat gewoon door
+            }
+
+            return redirect()->to(route('admin.settings.index') . '#google-reviews')
+                ->with('success', 'Google Reviews instellingen succesvol bijgewerkt!');
+        } catch (\Exception $e) {
+            return redirect()->to(route('admin.settings.index') . '#google-reviews')
                 ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
                 ->withInput();
         }
@@ -348,7 +417,9 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => trim((string) $request->input('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.')),
             ];
 
-            $this->envService->set($whatsappSettings);
+            foreach ($whatsappSettings as $key => $value) {
+                GeneralSetting::set($key, (string) $value);
+            }
 
             return redirect()->route('admin.settings.index')
                 ->with('success', 'WhatsApp Business instellingen succesvol bijgewerkt!');
@@ -499,7 +570,7 @@ class AdminSettingsController extends Controller
     public function generalUpdate(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $validator = Validator::make($request->all(), [
             'site_name' => 'nullable|string|max:255',
             'site_description' => 'nullable|string|max:1000',

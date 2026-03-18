@@ -16,7 +16,7 @@
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($vehicle->image_url)
-                <img src="{{ asset(ltrim($vehicle->image_url, '/')) }}" alt="{{ $vehicle->name }}" class="max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white">
+                <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($vehicle->image_url) }}" alt="{{ $vehicle->name }}" class="max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white">
             @else
                 <div class="w-full max-w-sm h-48 rounded-lg border border-border flex items-center justify-center bg-primary/10 text-primary text-3xl font-semibold">
                     <i class="ki-filled ki-car"></i>

@@ -131,7 +131,7 @@
                             <tr class="vehicle-row vehicle-row--clickable" data-vehicle-id="{{ $v->id }}" data-href="{{ route('admin.taxiroyaal.vehicles.show', $v) }}">
                                 <td class="w-[300px] text-center align-middle">
                                     @if($v->image_url)
-                                        <img src="{{ asset(ltrim($v->image_url, '/')) }}" alt="" class="w-[220px] h-[120px] rounded-xl object-contain mx-auto block">
+                                        <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($v->image_url) }}" alt="" class="w-[220px] h-[120px] rounded-xl object-contain mx-auto block">
                                     @else
                                         <div class="w-[220px] h-[120px] rounded-xl bg-muted border border-input flex items-center justify-center mx-auto">
                                             <i class="ki-filled ki-car text-2xl text-muted-foreground"></i>

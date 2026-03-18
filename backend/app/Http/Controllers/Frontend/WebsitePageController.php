@@ -7,6 +7,7 @@ use App\Models\EmailTemplate;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
 use App\Services\EnvService;
+use App\Services\GoogleReviewsService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\Request;
@@ -100,7 +101,9 @@ class WebsitePageController extends Controller
 
         $jobs = collect();
         $isHomePage = $page->page_type === 'home' || $page->slug === 'home';
-        if ($isHomePage) {
+        $moduleName = $page->module_name ?? null;
+        $isSkillmatchingModule = $moduleName !== null && strtolower((string) $moduleName) === 'skillmatching';
+        if ($isHomePage && $isSkillmatchingModule) {
             $rotationKey = floor(now()->timestamp / (2 * 3600));
             $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () {
                 return Vacancy::with(['company', 'category'])
@@ -170,6 +173,8 @@ class WebsitePageController extends Controller
         }
         $googleMapsMapId = $env->getGoogleMapsMapId();
 
+        $googleReviews = $useThemeHomeLayout ? app(GoogleReviewsService::class)->getReviews() : [];
+
         try {
             $infoRequestFormFields = \App\Models\InfoRequestFormField::ordered()->get();
         } catch (\Throwable $e) {
@@ -192,6 +197,7 @@ class WebsitePageController extends Controller
             'loadAtomV2Styles' => $loadAtomV2Styles,
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
+            'googleReviews' => $googleReviews,
         ]);
     }
 

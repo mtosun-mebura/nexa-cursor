@@ -38,6 +38,7 @@
             <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-0.5"></span>
             <button type="button" id="{{ $prefix }}-undo" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Ongedaan"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg></button>
             <button type="button" id="{{ $prefix }}-redo" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Opnieuw"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"/></svg></button>
+            <button type="button" id="{{ $prefix }}-clearFormat" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Opmaak verwijderen"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20h-10.5l-4.21-4.3a1 1 0 010-1.41l10-10a1 1 0 011.41 0l5 5a1 1 0 010 1.41l-9.2 9.3"/><path d="M18 13.3l-6.3-6.3"/></svg></button>
         </div>
         <div class="flex flex-wrap items-center justify-start gap-1 mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-600 min-w-max">
             <span class="text-xs text-gray-500 dark:text-gray-400 mr-1 shrink-0">Format:</span>

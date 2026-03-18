@@ -13,12 +13,8 @@
         $defItems = (\App\Models\WebsitePage::defaultHomeSections())['features']['items'] ?? [['title'=>'','description'=>'','icon'=>'bulb'],['title'=>'','description'=>'','icon'=>'lightning']];
         $featureItems = array_merge($featureItems, array_slice($defItems, count($featureItems), 2 - count($featureItems)));
     }
-    // Absolute URL voor preview-afbeeldingen (relatieve paden werken in admin niet altijd)
     $imagePreviewUrl = function($url) {
-        if ($url === null || $url === '') return '';
-        $url = trim((string) $url);
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) return $url;
-        return url($url);
+        return app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($url ?? '');
     };
     // Normaliseer hex naar #rrggbb voor type="color" (picker accepteert alleen 6-digit)
     $hexForPicker = function($v) {
@@ -610,12 +606,12 @@
             $cardsItems = [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left']];
         }
         $cardsFontStyles = ['normal' => 'Normaal', 'bold' => 'Vet', 'italic' => 'Cursief'];
-        $cardsCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (500px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
+        $cardsCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (600px)', 'xlarge' => 'Extra groot (800px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
         $cardsTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
         $cardsImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
-        <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
+        <div class="kt-card-header home-section-header home-section-header--cards flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('cards_ronde_hoeken') }}{{ $sectionKey !== 'cards_ronde_hoeken' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
@@ -626,12 +622,12 @@
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            <div class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-col gap-2">
                 <p class="text-sm text-muted-foreground">Kaarten met afbeelding en tekst eronder. Tekst per kaart kan met het oogje uitgeschakeld worden.</p>
                 <div class="flex items-center gap-2">
                     <label class="text-sm text-muted-foreground shrink-0">Kaarten per regel:</label>
                     <select name="home_sections[{{ $sectionKey }}][cards_per_row]" class="kt-input w-20 text-sm">
-                        @foreach([2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6'] as $val => $label)
+                        @foreach([1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6'] as $val => $label)
                         <option value="{{ $val }}" {{ (int)($sectionData['cards_per_row'] ?? 4) === (int)$val ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
@@ -818,6 +814,13 @@
                             @endforeach
                         </select>
                     </div>
+                    <div class="flex gap-2 items-center">
+                        <label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($fsItem['icon_color']) ? $fsItem['icon_color'] : '#2563eb' }}" title="Kies icoonkleur" aria-label="Icoonkleur">
+                            <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon_color]" class="kt-input text-sm w-24 font-mono" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.icon_color', $fsItem['icon_color'] ?? '') }}" placeholder="#hex" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
+                        </div>
+                    </div>
                     <div>
                         <label class="text-sm text-muted-foreground block mb-1">Titel blok</label>
                         <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" class="kt-input w-full max-w-[50%] text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.title', $fsItem['title'] ?? '') }}" placeholder="Titel">
@@ -836,7 +839,7 @@
     </div>
     @elseif($base === 'email_template')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
-        <div class="kt-card-header home-section-header home-section-header--cta flex items-center justify-between gap-2 bg-gray-100 dark:bg-gray-800/50">
+        <div class="kt-card-header home-section-header home-section-header--email-template flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('email_template') }}{{ $sectionKey !== 'email_template' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
@@ -867,7 +870,7 @@
     </div>
     @elseif($base === 'text_block')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
-        <div class="kt-card-header home-section-header home-section-header--cta flex items-center justify-between gap-2 bg-pink-100 dark:bg-pink-900/30">
+        <div class="kt-card-header home-section-header home-section-header--text-block flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('text_block') }}{{ $sectionKey !== 'text_block' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
@@ -1157,7 +1160,7 @@
                 $tarievenCleaning5_8 = $tarievenRatesData && $tarievenRatesData['rates_5_8'] !== null && $tarievenRatesData['rates_5_8']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_5_8']->cleaning_costs : null;
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
-        <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
+        <div class="kt-card-header home-section-header home-section-header--component flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">Taxi Royaal tarieven (Taxi)</h3>
             <div class="flex items-center gap-1 shrink-0">
@@ -2228,6 +2231,19 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     })();
 
     var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
+    /** Zet /storage/... (relatief of volledige URL) om naar /file/... zodat preview laadt. */
+    function storageUrlToFileUrl(url) {
+        if (!url || typeof url !== 'string') return url;
+        var u = url.trim();
+        var path = null;
+        if (u.indexOf('/storage/') === 0) {
+            path = u.replace(/^\/storage\//, '').split(/[#?]/)[0].replace(/\//g, '--');
+        } else if (/^https?:\/\/[^/]+\/storage\//.test(u)) {
+            path = u.replace(/^https?:\/\/[^/]+\/storage\//, '').split(/[#?]/)[0].replace(/\//g, '--');
+        }
+        if (path) return (window.location.origin || '') + '/file/' + path;
+        return u;
+    }
     function handleHeroImageFile(file, fileInput, urlInput, previewEl, wrapperEl) {
         if (!file || !(file instanceof File)) { alert('Geen bestand geselecteerd.'); if (fileInput) fileInput.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
@@ -2255,7 +2271,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     throw new Error(msg);
                 });
             })
-            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = d.url; previewEl.classList.remove('hidden'); previewEl.removeAttribute('srcset'); } if (wrapperEl) wrapperEl.classList.remove('hidden'); } })
+            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = storageUrlToFileUrl(d.url); previewEl.classList.remove('hidden'); previewEl.removeAttribute('srcset'); } if (wrapperEl) wrapperEl.classList.remove('hidden'); } })
             .catch(function(err) { alert(err.message || 'Upload mislukt'); });
         fileInput.value = '';
     }
@@ -2537,12 +2553,19 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 : '<svg class="w-5 h-5 text-current" id="home-sections-collapse-all-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 7.5m0 0L7.5 12m4.5-4.5V21" /></svg>';
         }
     }
-    // Sync color picker naar tekstveld (featured_services + stats + stats value color)
+    // Sync color picker naar tekstveld (featured_services + stats + stats value color + featured-services icoonkleur)
     document.addEventListener('input', function(e) {
         if (e.target.matches && e.target.matches('input[type=color]')) {
             var next = e.target.nextElementSibling;
-            if (next && (next.tagName === 'INPUT' || next.tagName === 'input') && (e.target.id.indexOf('featured_services_card_bg_picker_') === 0 || e.target.id.indexOf('stats_bg_picker_') === 0 || e.target.id.indexOf('stats_value_color_picker_') === 0)) {
-                next.value = e.target.value;
+            var isKnown = next && (next.tagName === 'INPUT' || next.tagName === 'input') && (e.target.id.indexOf('featured_services_card_bg_picker_') === 0 || e.target.id.indexOf('stats_bg_picker_') === 0 || e.target.id.indexOf('stats_value_color_picker_') === 0 || e.target.classList.contains('featured-services-icon-color-picker'));
+            if (isKnown) next.value = e.target.value;
+        }
+        // Sync icoonkleur-tekstveld naar color picker (vorige sibling)
+        if (e.target.matches && e.target.matches('input[type=text][name*="[icon_color]"]')) {
+            var val = (e.target.value || '').trim();
+            if (/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(val)) {
+                var prev = e.target.previousElementSibling;
+                if (prev && prev.type === 'color') prev.value = val;
             }
         }
     });
@@ -2867,7 +2890,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
                 fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' })
                     .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
-                    .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); preview.removeAttribute('srcset'); } } })
+                    .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); preview.removeAttribute('srcset'); } } })
                     .catch(function(err) { alert(err.message || 'Upload mislukt'); });
                 fileInput.value = '';
             }
@@ -2901,7 +2924,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     '<input type="file" id="' + fileInputId + '" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="' + urlInputId + '" value="">' +
                     '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
-                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (500px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (600px)</option><option value="xlarge">Extra groot (800px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
                     '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)') : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
                 container.appendChild(div);
                 if (typeof window.initFlowbiteWysiwyg === 'function') window.initFlowbiteWysiwyg(div);
@@ -2952,6 +2975,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 div.className = 'featured-services-item border border-border rounded-lg p-3 space-y-2';
                 div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Blok ' + (nextIndex + 1) + '</span><button type="button" class="featured-services-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Blok verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
                     '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input text-sm w-auto min-w-[10rem] max-w-full">' + iconSelect + '</select></div>' +
+                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label><div class="flex items-center gap-2"><input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="#2563eb" title="Kies icoonkleur" aria-label="Icoonkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_color]" class="kt-input text-sm w-24 font-mono" value="" placeholder="#hex" maxlength="7"></div></div>' +
                     '<div><label class="text-sm text-muted-foreground block mb-1">Titel blok</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input w-full max-w-[50%] text-sm" value="" placeholder="Titel"></div>' +
                     '<div><label class="text-sm text-muted-foreground block mb-1">Beschrijving</label><textarea name="home_sections[' + sectionKey + '][items][' + nextIndex + '][description]" class="kt-input w-full max-w-[50%] text-sm min-h-[60px]" rows="2" placeholder="Beschrijving"></textarea></div>';
                 container.appendChild(div);
@@ -3007,13 +3031,13 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (preview) {
                     if (val === '' || val === 'custom') {
                         preview.classList.add('hidden');
-                        if (val === 'custom' && urlInput && urlInput.value) preview.src = urlInput.value;
+                        if (val === 'custom' && urlInput && urlInput.value) preview.src = storageUrlToFileUrl(urlInput.value);
                     } else {
                         var vehicles = [];
                         try { vehicles = JSON.parse(sel.getAttribute('data-vehicles') || '[]'); } catch (x) {}
                         var vid = parseInt(val, 10);
                         var v = vehicles.find(function(x) { return x.id === vid; });
-                        if (v && v.image_url) { preview.src = v.image_url; preview.classList.remove('hidden'); }
+                        if (v && v.image_url) { preview.src = storageUrlToFileUrl(v.image_url); preview.classList.remove('hidden'); }
                         else { preview.classList.add('hidden'); }
                     }
                 }
@@ -3176,7 +3200,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         fd.append('image', file);
                         fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
                         if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
-                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = d.url; preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
+                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
                         fileInput.value = '';
                     }
                     area.addEventListener('click', function(ev) { ev.preventDefault(); fileInput.click(); });
@@ -3600,50 +3624,94 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .tox .tox-edit-area__iframe { background: #1f2937 !important; }
     /* Home-sectie inklappen: body verbergen wanneer ingeklapt */
     .home-section-card--collapsed .home-section-card-body { display: none !important; }
-    /* Home-sectie kopjes: duidelijke kleur per component */
+    /* Home-sectie kopjes + card body: duidelijke kleur per component */
     .home-section-header { border-left-width: 4px; border-radius: var(--radius, 0.375rem) var(--radius, 0.375rem) 0 0; }
     .home-section-header--hero { background-color: rgb(239 246 255); border-left-color: rgb(59 130 246); }
     .dark .home-section-header--hero { background-color: rgb(30 58 138 / 0.35); border-left-color: rgb(96 165 250); }
     .home-section-header--hero .kt-card-title { color: rgb(30 64 175); }
     .dark .home-section-header--hero .kt-card-title { color: rgb(191 219 254); }
+    .home-section-card:has(.home-section-header--hero) .home-section-card-body { background-color: rgb(239 246 255 / 0.25); }
+    .dark .home-section-card:has(.home-section-header--hero) .home-section-card-body { background-color: rgb(30 58 138 / 0.12); }
     .home-section-header--stats { background-color: rgb(240 253 244); border-left-color: rgb(34 197 94); }
     .dark .home-section-header--stats { background-color: rgb(20 83 45 / 0.35); border-left-color: rgb(74 222 128); }
     .home-section-header--stats .kt-card-title { color: rgb(21 128 61); }
     .dark .home-section-header--stats .kt-card-title { color: rgb(134 239 172); }
+    .home-section-card:has(.home-section-header--stats) .home-section-card-body { background-color: rgb(240 253 244 / 0.4); }
+    .dark .home-section-card:has(.home-section-header--stats) .home-section-card-body { background-color: rgb(20 83 45 / 0.15); }
     .home-section-header--why { background-color: rgb(238 242 255); border-left-color: rgb(99 102 241); }
     .dark .home-section-header--why { background-color: rgb(49 46 129 / 0.35); border-left-color: rgb(129 140 248); }
     .home-section-header--why .kt-card-title { color: rgb(67 56 202); }
     .dark .home-section-header--why .kt-card-title { color: rgb(165 180 252); }
+    .home-section-card:has(.home-section-header--why) .home-section-card-body { background-color: rgb(238 242 255 / 0.3); }
+    .dark .home-section-card:has(.home-section-header--why) .home-section-card-body { background-color: rgb(49 46 129 / 0.12); }
     .home-section-header--features { background-color: rgb(255 251 235); border-left-color: rgb(245 158 11); }
     .dark .home-section-header--features { background-color: rgb(120 53 15 / 0.35); border-left-color: rgb(251 191 36); }
     .home-section-header--features .kt-card-title { color: rgb(161 98 7); }
     .dark .home-section-header--features .kt-card-title { color: rgb(253 224 71); }
+    .home-section-card:has(.home-section-header--features) .home-section-card-body { background-color: rgb(255 251 235 / 0.4); }
+    .dark .home-section-card:has(.home-section-header--features) .home-section-card-body { background-color: rgb(120 53 15 / 0.15); }
     .home-section-header--cta { background-color: rgb(254 226 226); border-left-color: rgb(239 68 68); }
     .dark .home-section-header--cta { background-color: rgb(127 29 29 / 0.35); border-left-color: rgb(248 113 113); }
     .home-section-header--cta .kt-card-title { color: rgb(185 28 28); }
     .dark .home-section-header--cta .kt-card-title { color: rgb(252 165 165); }
+    .home-section-card:has(.home-section-header--cta) .home-section-card-body { background-color: rgb(254 226 226 / 0.25); }
+    .dark .home-section-card:has(.home-section-header--cta) .home-section-card-body { background-color: rgb(127 29 29 / 0.12); }
     .home-section-header--carousel { background-color: rgb(204 251 241); border-left-color: rgb(20 184 166); }
     .dark .home-section-header--carousel { background-color: rgb(19 78 74 / 0.4); border-left-color: rgb(45 212 191); }
     .home-section-header--carousel .kt-card-title { color: rgb(15 118 110); }
     .dark .home-section-header--carousel .kt-card-title { color: rgb(94 234 212); }
+    .home-section-card:has(.home-section-header--carousel) .home-section-card-body { background-color: rgb(204 251 241 / 0.3); }
+    .dark .home-section-card:has(.home-section-header--carousel) .home-section-card-body { background-color: rgb(19 78 74 / 0.15); }
+    .home-section-header--cards { background-color: rgb(245 243 255); border-left-color: rgb(139 92 246); }
+    .dark .home-section-header--cards { background-color: rgb(76 29 149 / 0.4); border-left-color: rgb(167 139 250); }
+    .home-section-header--cards .kt-card-title { color: rgb(91 33 182); }
+    .dark .home-section-header--cards .kt-card-title { color: rgb(216 180 254); }
+    .home-section-card:has(.home-section-header--cards) .home-section-card-body { background-color: rgb(245 243 255 / 0.35); }
+    .dark .home-section-card:has(.home-section-header--cards) .home-section-card-body { background-color: rgb(76 29 149 / 0.12); }
+    .home-section-header--email-template { background-color: rgb(224 242 254); border-left-color: rgb(14 165 233); }
+    .dark .home-section-header--email-template { background-color: rgb(12 74 110 / 0.4); border-left-color: rgb(56 189 248); }
+    .home-section-header--email-template .kt-card-title { color: rgb(7 89 133); }
+    .dark .home-section-header--email-template .kt-card-title { color: rgb(186 230 253); }
+    .home-section-card:has(.home-section-header--email-template) .home-section-card-body { background-color: rgb(224 242 254 / 0.35); }
+    .dark .home-section-card:has(.home-section-header--email-template) .home-section-card-body { background-color: rgb(12 74 110 / 0.12); }
+    .home-section-header--text-block { background-color: rgb(252 231 243); border-left-color: rgb(219 39 119); }
+    .dark .home-section-header--text-block { background-color: rgb(131 24 67 / 0.4); border-left-color: rgb(236 72 153); }
+    .home-section-header--text-block .kt-card-title { color: rgb(157 23 77); }
+    .dark .home-section-header--text-block .kt-card-title { color: rgb(251 207 232); }
+    .home-section-card:has(.home-section-header--text-block) .home-section-card-body { background-color: rgb(252 231 243 / 0.3); }
+    .dark .home-section-card:has(.home-section-header--text-block) .home-section-card-body { background-color: rgb(131 24 67 / 0.12); }
+    .home-section-header--component { background-color: rgb(255 228 230); border-left-color: rgb(244 63 94); }
+    .dark .home-section-header--component { background-color: rgb(127 29 63 / 0.4); border-left-color: rgb(251 113 133); }
+    .home-section-header--component .kt-card-title { color: rgb(159 18 57); }
+    .dark .home-section-header--component .kt-card-title { color: rgb(253 164 175); }
+    .home-section-card:has(.home-section-header--component) .home-section-card-body { background-color: rgb(255 228 230 / 0.25); }
+    .dark .home-section-card:has(.home-section-header--component) .home-section-card-body { background-color: rgb(127 29 63 / 0.12); }
+    .home-section-card--component.home-section-card--module .home-section-card-body { padding-bottom: 0; }
     .home-section-header--footer { background-color: rgb(241 245 249); border-left-color: rgb(100 116 139); }
     .dark .home-section-header--footer { background-color: rgb(30 41 59 / 0.5); border-left-color: rgb(148 163 184); }
     .home-section-header--footer .kt-card-title { color: rgb(51 65 85); }
     .dark .home-section-header--footer .kt-card-title { color: rgb(203 213 225); }
-    .home-section-header--boekingsmodule { background-color: rgb(254 249 195); border-left-color: rgb(234 179 8); }
-    .dark .home-section-header--boekingsmodule { background-color: rgb(113 63 18 / 0.35); border-left-color: rgb(250 204 21); }
-    .home-section-header--boekingsmodule .kt-card-title { color: rgb(113 63 18); }
-    .dark .home-section-header--boekingsmodule .kt-card-title { color: rgb(253 224 71); }
+    .home-section-card:has(.home-section-header--footer) .home-section-card-body { background-color: rgb(241 245 249 / 0.5); }
+    .dark .home-section-card:has(.home-section-header--footer) .home-section-card-body { background-color: rgb(30 41 59 / 0.2); }
+    .home-section-header--boekingsmodule { background-color: rgb(254 243 199); border-left-color: rgb(217 119 6); }
+    .dark .home-section-header--boekingsmodule { background-color: rgb(124 45 18 / 0.4); border-left-color: rgb(251 146 60); }
+    .home-section-header--boekingsmodule .kt-card-title { color: rgb(124 45 18); }
+    .dark .home-section-header--boekingsmodule .kt-card-title { color: rgb(254 215 170); }
+    .home-section-card:has(.home-section-header--boekingsmodule) .home-section-card-body { background-color: rgb(254 243 199 / 0.35); }
+    .dark .home-section-card:has(.home-section-header--boekingsmodule) .home-section-card-body { background-color: rgb(124 45 18 / 0.15); }
     .home-section-header--copyright { background-color: rgb(248 250 252); border-left-color: rgb(71 85 105); }
     .dark .home-section-header--copyright { background-color: rgb(30 41 59 / 0.4); border-left-color: rgb(100 116 139); }
     .home-section-header--copyright .kt-card-title { color: rgb(71 85 105); }
     .dark .home-section-header--copyright .kt-card-title { color: rgb(148 163 184); }
-    /* Dienstenblok (scroll-animatie): donkergeel in dark mode, tekst leesbaar */
-    .home-section-header--featured-services { background-color: rgb(254 249 195); border-left-color: rgb(202 138 4); }
-    .home-section-header--featured-services .kt-card-title { color: rgb(113 63 18); }
-    .dark .home-section-header--featured-services { background-color: rgb(113 63 18); border-left-color: rgb(250 204 21); }
-    .dark .home-section-header--featured-services .kt-card-title { color: rgb(254 252 232); }
-    .dark .home-section-header--featured-services .text-muted-foreground { color: rgb(253 224 71); }
+    .home-section-card:has(.home-section-header--copyright) .home-section-card-body { background-color: rgb(248 250 252 / 0.6); }
+    .dark .home-section-card:has(.home-section-header--copyright) .home-section-card-body { background-color: rgb(30 41 59 / 0.18); }
+    .home-section-header--featured-services { background-color: rgb(220 252 231); border-left-color: rgb(22 163 74); }
+    .home-section-header--featured-services .kt-card-title { color: rgb(21 128 61); }
+    .dark .home-section-header--featured-services { background-color: rgb(20 83 45 / 0.5); border-left-color: rgb(74 222 128); }
+    .dark .home-section-header--featured-services .kt-card-title { color: rgb(187 247 208); }
+    .dark .home-section-header--featured-services .text-muted-foreground { color: rgb(134 239 172); }
+    .home-section-card:has(.home-section-header--featured-services) .home-section-card-body { background-color: rgb(220 252 231 / 0.3); }
+    .dark .home-section-card:has(.home-section-header--featured-services) .home-section-card-body { background-color: rgb(20 83 45 / 0.15); }
 </style>
 @endpush
 
@@ -3658,6 +3726,20 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
 ])->render();
 @endphp
 <script type="text/template" id="flowbite-wysiwyg-tpl">{!! $flowbiteWysiwygTemplate !!}</script>
+<script>
+(function() {
+    function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder) {
+        var tpl = document.getElementById('flowbite-wysiwyg-tpl');
+        if (!tpl || !tpl.textContent) return '';
+        return tpl.textContent
+            .replace(/__FLOWBITE_EDITOR_ID__/g, editorId)
+            .replace(/__FLOWBITE_NAME__/g, name)
+            .replace(/__FLOWBITE_TEXTAREA_ID__/g, textareaId)
+            .replace(/__FLOWBITE_PLACEHOLDER__/g, placeholder || '');
+    }
+    window.getFlowbiteWysiwygHtml = getFlowbiteWysiwygHtml;
+})();
+</script>
 <script type="importmap">
 {"imports":{"https://esm.sh/v135/prosemirror-model@1.22.3/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs","https://esm.sh/v135/prosemirror-model@1.22.1/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs"}}
 </script>

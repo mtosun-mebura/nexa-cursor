@@ -12,11 +12,12 @@ use Illuminate\Support\Facades\Log;
 class TaxiRoyaalVehicleDisplayService
 {
     public function __construct(
-        protected ModuleDatabaseService $moduleDb
+        protected ModuleDatabaseService $moduleDb,
+        protected WebsiteBuilderService $websiteBuilder
     ) {}
 
     /**
-     * Afbeelding-URL voor een voertuig (voor frontend weergave).
+     * Afbeelding-URL voor een voertuig (voor frontend weergave). Gebruikt /file/ route.
      */
     public function getImageUrl(?int $vehicleId): ?string
     {
@@ -36,8 +37,8 @@ class TaxiRoyaalVehicleDisplayService
             if (! $vehicle || empty($vehicle->image_url)) {
                 return null;
             }
-            $url = trim((string) $vehicle->image_url);
-            return $url === '' ? null : (str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/')));
+            $displayUrl = $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $vehicle->image_url));
+            return $displayUrl === '' ? null : $displayUrl;
         } catch (\Throwable $e) {
             Log::debug('TaxiRoyaalVehicleDisplayService: getImageUrl failed', ['id' => $vehicleId, 'message' => $e->getMessage()]);
 
@@ -46,7 +47,7 @@ class TaxiRoyaalVehicleDisplayService
     }
 
     /**
-     * Lijst voertuigen voor select (id, name, image_url, person_range).
+     * Lijst voertuigen voor select (id, name, image_url als weergave-URL, person_range).
      *
      * @return array<int, array{id: int, name: string, image_url: string|null, person_range: string|null}>
      */
@@ -68,7 +69,7 @@ class TaxiRoyaalVehicleDisplayService
                 ->map(fn ($v) => [
                     'id' => $v->id,
                     'name' => $v->name,
-                    'image_url' => $v->image_url ? trim((string) $v->image_url) : null,
+                    'image_url' => $v->image_url ? $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $v->image_url)) : null,
                     'person_range' => isset($v->person_range) && trim((string) $v->person_range) !== '' ? trim((string) $v->person_range) : null,
                 ])
                 ->values()

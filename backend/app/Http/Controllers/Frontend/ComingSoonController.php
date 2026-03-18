@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\GeneralSetting;
+use App\Services\WebsiteBuilderService;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -42,14 +43,13 @@ class ComingSoonController extends Controller
         $logoPath = GeneralSetting::get('logo');
         $settings['logo_url'] = null;
         if ($logoPath && Storage::disk('public')->exists($logoPath)) {
-            // Relatief pad zodat het logo met hetzelfde protocol/host als de pagina laadt (voorkomt problemen bij http vs https op bv. localhost)
-            $settings['logo_url'] = '/storage/' . ltrim($logoPath, '/');
+            $settings['logo_url'] = app(WebsiteBuilderService::class)->publicFileUrl(ltrim($logoPath, '/'));
         }
 
         $faviconPath = GeneralSetting::get('favicon');
         $settings['favicon_url'] = null;
         if ($faviconPath && Storage::disk('public')->exists($faviconPath)) {
-            $settings['favicon_url'] = '/storage/' . ltrim($faviconPath, '/');
+            $settings['favicon_url'] = app(WebsiteBuilderService::class)->publicFileUrl(ltrim($faviconPath, '/'));
         }
 
         $settings['site_name'] = GeneralSetting::get('site_name', config('app.name', 'Nexa'));

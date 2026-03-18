@@ -99,7 +99,7 @@
                             </td>
                             <td>
                                 <input type="hidden" name="frontend_theme_id" id="frontend_theme_id_fixed" value="{{ $defaultTheme?->id ?? '' }}">
-                                <span class="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground dark:bg-white/15 dark:text-white dark:border dark:border-white/20">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
+                                <span class="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-foreground border border-border dark:bg-white/15 dark:text-white dark:border-white/20">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
                                 <div class="text-xs text-muted-foreground mt-1">Pagina's worden altijd getoond in het actieve thema. Wijzig het thema onder Frontend Thema's.</div>
                             </td>
                         </tr>
@@ -215,19 +215,13 @@
                             <button type="button" id="home-sections-add-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Sectie toevoegen" aria-label="Sectie toevoegen" aria-haspopup="true" aria-expanded="false">
                                 <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                             </button>
-                            <div id="home-sections-add-menu" class="hidden absolute right-0 top-full mt-1 z-20 min-w-[180px] rounded-lg border border-border bg-background shadow-lg py-1 max-h-[70vh] overflow-y-auto">
-                                @php $themeSlug = $page->theme?->slug ?? 'modern'; $sectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug); @endphp
-                                @foreach($sectionTypes as $st)
-                                <button type="button" class="home-sections-add-type w-full text-left px-3 py-2 text-sm cursor-pointer hover:bg-muted/80" data-type="{{ $st['type'] }}">{{ $st['label'] }} toevoegen</button>
-                                @endforeach
-                                @php $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($page->module_name); @endphp
-                                @if($availableComponents->isNotEmpty())
-                                <div class="border-t border-border my-1"></div>
-                                <div class="px-2 py-1 text-xs font-medium text-muted-foreground">Componenten</div>
-                                @foreach($availableComponents as $comp)
-                                <button type="button" class="home-sections-add-component w-full text-left px-3 py-2 text-sm cursor-pointer hover:bg-muted/80" data-section="component:{{ $comp->id }}" data-name="{{ e($comp->name) }}" data-module="{{ e(trim(Str::before($comp->module_name ?? 'Module', ' ')) ?: $comp->module_name ?? 'Module') }}">{{ $comp->name }} toevoegen</button>
-                                @endforeach
-                                @endif
+                            <div id="home-sections-add-menu" class="hidden absolute right-0 top-full mt-1 z-20 min-w-[240px] rounded-lg border border-border bg-background shadow-lg py-1 max-h-[70vh] overflow-y-auto">
+                                @php
+                                    $themeSlug = $page->theme?->slug ?? 'modern';
+                                    $sectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug);
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($page->module_name);
+                                @endphp
+                                @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $sectionTypes, 'availableComponents' => $availableComponents])
                             </div>
                         </div>
                         <button type="button" id="home-sections-collapse-all-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Alles inklappen" aria-label="Alles inklappen of uitklappen">

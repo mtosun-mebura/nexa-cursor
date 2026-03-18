@@ -61,6 +61,7 @@
 @section('title', "Frontend Thema's")
 
 @section('content')
+@php $themeStagingModules = $themeStagingModules ?? []; @endphp
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Frontend Thema's</h1>
@@ -126,13 +127,15 @@
                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Activeren</button>
                             </form>
                         @else
-                            <a href="{{ route('admin.frontend-themes.staging', ['theme_id' => $theme->id, 'module' => '']) }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-warning" title="Staging met dit thema">Website tonen</a>
-                            <form action="{{ route('admin.frontend-themes.publish') }}" method="POST" class="inline">
+                            @php
+                                $stagingModule = $themeStagingModules[$theme->id] ?? '';
+                            @endphp
+                            <a href="{{ route('admin.frontend-themes.staging', ['theme_id' => $theme->id, 'module' => $stagingModule]) }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-warning" title="Geconfigureerde website van dit thema tonen">Website tonen</a>
+                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline" onsubmit="return confirm('Thema de-publiceren? De website wordt dan inactief en op localhost:8000 verschijnt de Coming soon-pagina.');">
                                 @csrf
-                                <input type="hidden" name="theme_id" value="{{ $theme->id }}">
-                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-success" title="Thema publiceren en demo-URL's omzetten naar daadwerkelijke URL's">Publiceren</button>
+                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-muted-foreground hover:text-destructive" title="Thema inactief maken">De-publiceren</button>
                             </form>
-                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground">Instellingen</a>
+                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground" title="Kleur, lettertypen en footer aanpassen">Instellingen</a>
                         @endif
                     </div>
                 </div>

@@ -2,6 +2,7 @@
     $homeSections = $homeSections ?? \App\Models\WebsitePage::defaultHomeSectionsForTheme('atom-v2');
     $emailTemplateBySectionKey = $emailTemplateBySectionKey ?? [];
     $visibility = $homeSections['visibility'] ?? [];
+    $isNexaOrSkillmatching = !isset($page) || $page->module_name === null || strtolower((string)$page->module_name) === 'skillmatching';
     $defaultSectionOrder = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
     $sectionOrder = $homeSections['section_order'] ?? $defaultSectionOrder;
     if (!is_array($sectionOrder)) {
@@ -31,13 +32,15 @@
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxiroyaal.tarieven' || $sectionKey === 'component:taxiroyaal.boekingsmodule'))
-        @if($sectionKey === 'component:nexa.recente_vacatures' && view()->exists('frontend.website.components.recente-vacatures'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxiroyaal.tarieven' || $sectionKey === 'component:taxiroyaal.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews'))
+        @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
         @elseif($sectionKey === 'component:taxiroyaal.tarieven' && view()->exists('frontend.website.components.taxiroyaal-tarieven'))
             @include('frontend.website.components.taxiroyaal-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @elseif($sectionKey === 'component:taxiroyaal.boekingsmodule' && view()->exists('frontend.website.components.taxiroyaal-boekingsmodule'))
             @include('frontend.website.components.taxiroyaal-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @elseif(($sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews') && view()->exists('frontend.website.components.google-reviews'))
+            @include('frontend.website.components.google-reviews', ['reviews' => $googleReviews ?? [], 'googleReviews' => $googleReviews ?? []])
         @elseif($component && !empty($component->view) && view()->exists($component->view))
             @include($component->view, ['jobs' => $jobs ?? collect(), 'homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @endif
@@ -51,8 +54,8 @@
 
     @if($base === 'hero' && ($v('') && ($v('_title') || $v('_subtitle') || $v('_cta'))))
     @php
-        $heroBgUrl = !empty($sectionData['background_image_url']) ? $sectionData['background_image_url'] : $atomAsset('assets/img/bg-hero.jpg');
-        $heroAuthorUrl = !empty($sectionData['author_image_url']) ? $sectionData['author_image_url'] : $atomAsset('assets/img/blog-author.jpg');
+        $heroBgUrl = !empty($sectionData['background_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['background_image_url']) : $atomAsset('assets/img/bg-hero.jpg');
+        $heroAuthorUrl = !empty($sectionData['author_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['author_image_url']) : $atomAsset('assets/img/blog-author.jpg');
     @endphp
     {{-- Hero: full-width bg, gradient, title, CTA; afbeeldingen aanpasbaar via Admin > Website-pagina's > Hero --}}
     <div class="relative bg-cover bg-center bg-no-repeat py-8" style="background-image: url({{ $heroBgUrl }});">
@@ -193,7 +196,7 @@
     @endif
 
     @if($base === 'cta' && $v(''))
-    @php $ctaBgUrl = !empty($sectionData['background_image_url']) ? $sectionData['background_image_url'] : $atomAsset('assets/img/bg-cta.jpg'); @endphp
+    @php $ctaBgUrl = !empty($sectionData['background_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['background_image_url']) : $atomAsset('assets/img/bg-cta.jpg'); @endphp
     <div class="relative bg-cover bg-center bg-no-repeat py-16 lg:py-24" style="background-image: url({{ $ctaBgUrl }}); background-color: {{ $primaryColor }}; background-blend-mode: multiply;">
         <div class="container relative z-30">
             @if($v('_title'))

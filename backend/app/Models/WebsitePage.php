@@ -661,11 +661,11 @@ class WebsitePage extends Model
                 }
                 $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
                 $cardsPerRow = isset($raw['cards_per_row']) ? (int) $raw['cards_per_row'] : ($defaults['cards_ronde_hoeken']['cards_per_row'] ?? 4);
-                $cardsPerRow = in_array($cardsPerRow, [2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
+                $cardsPerRow = in_array($cardsPerRow, [1, 2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
                 $out = array_values(array_map(function ($row) {
                     $fontSize = isset($row['font_size']) ? max(10, min(24, (int) $row['font_size'])) : 14;
                     $fontStyle = isset($row['font_style']) && in_array($row['font_style'], ['normal', 'bold', 'italic'], true) ? $row['font_style'] : 'normal';
-                    $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'max', 'total_width'], true) ? $row['card_size'] : 'normal';
+                    $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'xlarge', 'max', 'total_width'], true) ? $row['card_size'] : 'normal';
                     $textAlign = isset($row['text_align']) && in_array($row['text_align'], ['left', 'center', 'right'], true) ? $row['text_align'] : 'left';
                     $imagePadding = isset($row['image_padding']) ? max(0, min(30, (int) $row['image_padding'])) : 2;
                     $imagePadding = (int) (round($imagePadding / 2) * 2);
@@ -719,8 +719,11 @@ class WebsitePage extends Model
                     'card_bg_color' => $cardBgColor,
                     'animation_speed' => $animationSpeed,
                     'items' => array_values(array_map(function ($row) {
+                        $iconColor = isset($row['icon_color']) && is_string($row['icon_color']) ? trim($row['icon_color']) : '';
+                        $iconColor = $iconColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $iconColor) ? $iconColor : '';
                         return [
                             'icon' => trim((string) ($row['icon'] ?? 'light-bulb')),
+                            'icon_color' => $iconColor,
                             'title' => trim((string) ($row['title'] ?? '')),
                             'description' => trim((string) ($row['description'] ?? '')),
                         ];

@@ -17,7 +17,7 @@
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($ride->vehicle?->image_url)
                 <img
-                    src="{{ asset(ltrim($ride->vehicle->image_url, '/')) }}"
+                    src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($ride->vehicle->image_url) }}"
                     alt="{{ $ride->vehicle->name ?? 'Voertuig' }}"
                     class="max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white"
                 >

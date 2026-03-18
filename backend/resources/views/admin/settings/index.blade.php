@@ -481,6 +481,169 @@
             </div>
         </div>
 
+        <!-- Google Reviews (zelfde Maps API-sleutel; Places API moet ingeschakeld zijn) -->
+        <div class="kt-card min-w-full" id="google-reviews">
+            <style>
+            #google-reviews input[type="number"]::-webkit-outer-spin-button,
+            #google-reviews input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+            #google-reviews input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+            #google-reviews .grw-cache-hours-input { width: 4.5rem; min-width: 4.5rem; padding-right: 0.5rem !important; }
+            </style>
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    <i class="ki-filled ki-star me-2"></i> Google Reviews
+                </h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <form method="POST" action="{{ route('admin.settings.google-reviews.update') }}" data-validate="true" id="google-reviews-form">
+                    @csrf
+                    <p class="text-sm text-muted-foreground mb-4 p-2">Toon Google-reviews in een carousel op de website. Vul <strong>ofwel</strong> het Place ID in (uit Google Maps/Business Profile) <strong>ofwel</strong> de bedrijfsnaam; bij bedrijfsnaam wordt gezocht en het eerste resultaat gebruikt. Dezelfde Maps API-sleutel wordt gebruikt; zorg dat de <strong>Places API</strong> is ingeschakeld.</p>
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Place ID</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('google_reviews_place_id') border-destructive @enderror"
+                                           id="google_reviews_place_id"
+                                           name="google_reviews_place_id"
+                                           value="{{ old('google_reviews_place_id', $googleReviewsPlaceId ?? '') }}"
+                                           maxlength="255"
+                                           placeholder="ChIJ...">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Optioneel. Google Place ID (bijv. ChIJ...) van je bedrijf. Heeft voorrang op bedrijfsnaam.</div>
+                                @error('google_reviews_place_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Bedrijfsnaam</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('google_reviews_business_name') border-destructive @enderror"
+                                           id="google_reviews_business_name"
+                                           name="google_reviews_business_name"
+                                           value="{{ old('google_reviews_business_name', $googleReviewsBusinessName ?? '') }}"
+                                           maxlength="255"
+                                           placeholder="bijv. Taxi Royaal Amsterdam">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Optioneel. Wordt gebruikt als Place ID leeg is; zoekt op naam en neemt het eerste resultaat (regio NL).</div>
+                                @error('google_reviews_business_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Aantal reviews</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="number"
+                                           class="kt-input w-24 @error('google_reviews_count') border-destructive @enderror"
+                                           id="google_reviews_count"
+                                           name="google_reviews_count"
+                                           value="{{ old('google_reviews_count', $googleReviewsCount ?? 5) }}"
+                                           min="1"
+                                           max="5">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Hoeveel reviews getoond worden in de carousel (1–5). De Google Places API levert maximaal 5 reviews per plaats. Het getal “Gebaseerd op X beoordelingen” is het totaal aantal beoordelingen van Google.</div>
+                                @error('google_reviews_count')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Min. sterren</td>
+                            <td class="min-w-48 w-full">
+                                <input type="hidden" name="google_reviews_min_stars" id="google_reviews_min_stars" value="{{ old('google_reviews_min_stars', $googleReviewsMinStars ?? 1) }}">
+                                <div class="grw-admin-star-picker flex items-center gap-1" role="group" aria-label="Minimaal aantal sterren">
+                                    @php $minStarsVal = (int) old('google_reviews_min_stars', $googleReviewsMinStars ?? 1); @endphp
+                                    @for($s = 1; $s <= 5; $s++)
+                                        <button type="button"
+                                                class="grw-admin-star w-8 h-8 rounded p-0 flex items-center justify-center text-xl text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors focus:outline-none {{ $s <= $minStarsVal ? 'text-yellow-500 dark:text-yellow-400' : '' }}"
+                                                data-value="{{ $s }}"
+                                                aria-label="Minimaal {{ $s }} {{ $s === 1 ? 'ster' : 'sterren' }}">
+                                            <span class="grw-admin-star-icon">★</span>
+                                        </button>
+                                    @endfor
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Alleen reviews met dit aantal sterren of meer tonen. Klik een ster om te selecteren.</div>
+                                @error('google_reviews_min_stars')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Cacheduur (uren)</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="number"
+                                           class="kt-input grw-cache-hours-input @error('google_reviews_cache_hours') border-destructive @enderror"
+                                           id="google_reviews_cache_hours"
+                                           name="google_reviews_cache_hours"
+                                           value="{{ old('google_reviews_cache_hours', $googleReviewsCacheHours ?? '24') }}"
+                                           min="1"
+                                           max="168"
+                                           size="3"
+                                           inputmode="numeric"
+                                           pattern="[0-9]*">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Hoe lang reviews gecached worden (1–168 uur)</div>
+                                @error('google_reviews_cache_hours')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
+                        <button type="submit" class="kt-btn kt-btn-primary">
+                            <i class="ki-filled ki-check me-2"></i> Google Reviews Opslaan
+                        </button>
+                    </div>
+                </form>
+                <script>
+                (function() {
+                    var picker = document.querySelector('#google-reviews .grw-admin-star-picker');
+                    var hidden = document.getElementById('google_reviews_min_stars');
+                    if (!picker || !hidden) return;
+                    var buttons = picker.querySelectorAll('.grw-admin-star');
+                    function updateStars(value) {
+                        var v = parseInt(value, 10) || 1;
+                        v = Math.max(1, Math.min(5, v));
+                        hidden.value = v;
+                        buttons.forEach(function(btn) {
+                            var starVal = parseInt(btn.getAttribute('data-value'), 10);
+                            if (starVal <= v) {
+                                btn.classList.add('text-yellow-500', 'dark:text-yellow-400');
+                                btn.classList.remove('text-muted-foreground');
+                            } else {
+                                btn.classList.remove('text-yellow-500', 'dark:text-yellow-400');
+                                btn.classList.add('text-muted-foreground');
+                            }
+                        });
+                    }
+                    buttons.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            updateStars(btn.getAttribute('data-value'));
+                        });
+                    });
+                    updateStars(hidden.value);
+                })();
+                (function() {
+                    var input = document.getElementById('google_reviews_cache_hours');
+                    if (input) {
+                        input.addEventListener('input', function() {
+                            var v = this.value.replace(/\D/g, '');
+                            if (v.length > 3) v = v.slice(0, 3);
+                            this.value = v === '' ? '' : Math.min(parseInt(v, 10) || 0, 999);
+                        });
+                    }
+                })();
+                </script>
+            </div>
+        </div>
+
         <!-- WhatsApp Business Instellingen -->
         <div class="kt-card min-w-full" id="whatsapp">
             <div class="kt-card-header">

@@ -442,6 +442,7 @@ class AdminWebsitePageController extends Controller
         if ($website_page->module_name) {
             $previewEditUrl .= '?module=' . rawurlencode($website_page->module_name);
         }
+        $googleReviews = $useThemeHomeLayout ? app(\App\Services\GoogleReviewsService::class)->getReviews() : [];
         return view('frontend.website.page', [
             'page' => $website_page,
             'theme' => $theme,
@@ -459,6 +460,7 @@ class AdminWebsitePageController extends Controller
             'loadAtomV2Styles' => $loadAtomV2Styles,
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
+            'googleReviews' => $googleReviews,
         ]);
     }
 
@@ -1078,7 +1080,7 @@ class AdminWebsitePageController extends Controller
                             $fontSize = isset($row['font_size']) ? (int) $row['font_size'] : 14;
                             $fontSize = max(10, min(24, $fontSize));
                             $fontStyle = isset($row['font_style']) && in_array($row['font_style'], ['normal', 'bold', 'italic'], true) ? $row['font_style'] : 'normal';
-                            $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'max', 'total_width'], true) ? $row['card_size'] : 'normal';
+                            $cardSize = isset($row['card_size']) && in_array($row['card_size'], ['small', 'normal', 'large', 'xlarge', 'max', 'total_width'], true) ? $row['card_size'] : 'normal';
                             $textAlign = isset($row['text_align']) && in_array($row['text_align'], ['left', 'center', 'right'], true) ? $row['text_align'] : 'left';
                             $imagePadding = isset($row['image_padding']) ? max(0, min(30, (int) $row['image_padding'])) : 2;
                             $imagePadding = (int) (round($imagePadding / 2) * 2);
@@ -1106,15 +1108,18 @@ class AdminWebsitePageController extends Controller
                 }
                 $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
                 $cardsPerRow = isset($raw['cards_per_row']) ? (int) $raw['cards_per_row'] : ($defaults['cards_ronde_hoeken']['cards_per_row'] ?? 4);
-                $cardsPerRow = in_array($cardsPerRow, [2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
+                $cardsPerRow = in_array($cardsPerRow, [1, 2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
                 return ['cards_per_row' => $cardsPerRow, 'items' => $items ?: $defItems];
             case 'featured_services':
                 $items = [];
                 if (! empty($raw['items']) && is_array($raw['items'])) {
                     foreach (array_values($raw['items']) as $row) {
                         if (is_array($row)) {
+                            $iconColor = isset($row['icon_color']) && is_string($row['icon_color']) ? trim($row['icon_color']) : '';
+                            $iconColor = $iconColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $iconColor) ? $iconColor : '';
                             $items[] = [
                                 'icon' => trim((string) ($row['icon'] ?? 'light-bulb')),
+                                'icon_color' => $iconColor,
                                 'title' => trim((string) ($row['title'] ?? '')),
                                 'description' => trim((string) ($row['description'] ?? '')),
                             ];
@@ -1217,8 +1222,8 @@ class AdminWebsitePageController extends Controller
             Storage::disk('public')->makeDirectory($dir);
         }
         $path = $logoFile->store($dir, 'public');
-        // Relatief pad zodat de afbeelding vanaf dezelfde origin wordt geladen (voorkomt ERR_CONNECTION_CLOSED)
-        $url = '/storage/' . ltrim($path, '/');
+        // Publieke URL (werkt ook voor niet-ingelogde bezoekers)
+        $url = $this->websiteBuilder->publicFileUrl(ltrim($path, '/'));
 
         return response()->json([
             'success' => true,

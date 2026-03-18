@@ -572,6 +572,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
         Route::post('settings/seo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
+        Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
         
@@ -603,6 +604,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('frontend-themes/preview', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
         Route::get('frontend-themes/staging', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');
         Route::post('frontend-themes/publish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'publish'])->name('frontend-themes.publish');
+        Route::post('frontend-themes/unpublish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'unpublish'])->name('frontend-themes.unpublish');
         Route::get('frontend-themes/setup', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'showSetup'])->name('frontend-themes.setup');
         Route::post('frontend-themes/module-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateModuleTheme'])->name('frontend-themes.update-module-theme');
         Route::post('frontend-themes/{frontend_theme}/set-active', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'setActive'])->name('frontend-themes.set-active');
@@ -615,13 +617,17 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     });
 });
 
-// Frontend home page: coming soon als geen actieve module; anders website-builder home indien geconfigureerd; anders app home
+// Frontend home page: coming soon als geen actief thema of geen actieve module; anders website-builder home; anders app home
 Route::get('/', function (\Illuminate\Http\Request $request) {
-    $moduleManager = app(\App\Services\ModuleManager::class);
-    if (!$moduleManager->hasAnyActiveModule()) {
+    $websiteBuilder = app(WebsiteBuilderService::class);
+    $activeTheme = $websiteBuilder->getActiveTheme();
+    if (! $activeTheme) {
         return app(\App\Http\Controllers\Frontend\ComingSoonController::class)->index();
     }
-    $websiteBuilder = app(WebsiteBuilderService::class);
+    $moduleManager = app(\App\Services\ModuleManager::class);
+    if (! $moduleManager->hasAnyActiveModule()) {
+        return app(\App\Http\Controllers\Frontend\ComingSoonController::class)->index();
+    }
     $homePage = $websiteBuilder->getHomePage();
     if ($homePage) {
         return app(WebsitePageController::class)->showHome($request);

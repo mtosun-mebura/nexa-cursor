@@ -13,6 +13,14 @@ return [
     */
     'components' => [
         [
+            'id' => 'website.google_reviews',
+            'name' => 'Google Reviews',
+            'module_name' => 'Algemeen',
+            'view' => 'frontend.website.components.google-reviews',
+            'description' => 'Carousel met Google-reviews (Place ID en cache in Configuraties > Algemeen).',
+            'available_on_all_pages' => true,
+        ],
+        [
             'id' => 'nexa.recente_vacatures',
             'name' => 'Recente Vacatures',
             'module_name' => 'Nexa Skillmatching',

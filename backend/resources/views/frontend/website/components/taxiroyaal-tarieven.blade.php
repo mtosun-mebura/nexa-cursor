@@ -1,4 +1,4 @@
-<section class="container-custom py-12 md:py-16" aria-labelledby="taxiroyaal-tarieven-heading">
+<section class="container-custom pt-12 md:pt-16" aria-labelledby="taxiroyaal-tarieven-heading">
     @php
         // Wanneer alleen homeSections + sectionKey worden doorgegeven (frontend home), data zelf ophalen
         if (isset($sectionKey) && isset($homeSections) && is_array($homeSections)) {
@@ -60,7 +60,21 @@
                             $isOverigeKosten = $rateType === 'overige_kosten';
                             $rate = $isOverigeKosten ? null : ($rateType === '5-8' ? $ratesData['rates_5_8'] : $ratesData['rates_1_4']);
                             $overigeKostenPrice = $isOverigeKosten ? (isset($item['cleaning_costs']) && $item['cleaning_costs'] !== '' && is_numeric($item['cleaning_costs']) ? (float)$item['cleaning_costs'] : (isset($ratesData['cleaning_costs']) && $ratesData['cleaning_costs'] !== null ? (float)$ratesData['cleaning_costs'] : null)) : null;
-                            $imageUrl = !empty($item['image_url']) ? (str_starts_with($item['image_url'], 'http') ? $item['image_url'] : asset(ltrim($item['image_url'], '/'))) : (!empty($item['vehicle_id']) ? $vehicleDisplayService->getImageUrl((int)$item['vehicle_id']) : null);
+                            $imageUrl = !empty($item['image_url']) ? (function($u) {
+                                $u = trim((string) $u);
+                                if (str_starts_with($u, 'http://') || str_starts_with($u, 'https://')) {
+                                    if (preg_match('#^https?://[^/]+/storage/(.+)$#', $u, $m)) {
+                                        $path = preg_replace('/[#?].*$/', '', $m[1]);
+                                        return app(\App\Services\WebsiteBuilderService::class)->publicFileUrl($path);
+                                    }
+                                    return $u;
+                                }
+                                if (str_starts_with($u, '/storage/')) {
+                                    $path = preg_replace('#^/storage/#', '', $u);
+                                    return app(\App\Services\WebsiteBuilderService::class)->publicFileUrl($path);
+                                }
+                                return asset(ltrim($u, '/'));
+                            })($item['image_url']) : (!empty($item['vehicle_id']) ? $vehicleDisplayService->getImageUrl((int)$item['vehicle_id']) : null);
                             if (!$isOverigeKosten && !$imageUrl && $fallbackVehicleImages->isNotEmpty()) {
                                 $imageUrl = $fallbackVehicleImages->get($itemIndex % $fallbackVehicleImages->count());
                             }

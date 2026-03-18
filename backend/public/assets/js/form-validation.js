@@ -358,6 +358,7 @@
             const type = input.type.toLowerCase();
             const name = input.name.toLowerCase();
 
+            if (type === 'number') return 'number';
             if (type === 'email' || name.includes('email')) return 'email';
             if (type === 'tel' || name.includes('phone') || name.includes('telefoon')) return 'phone';
             if (name.includes('postal_code') || name.includes('postcode')) return 'postal_code';
@@ -372,6 +373,10 @@
          * Get minimum lengte voor een veld
          */
         getMinLength(input, fieldType) {
+            // Number-velden: geen minimale tekenlengte (waarde 1 is geldig); min/max via HTML5
+            if (fieldType === 'number') {
+                return null;
+            }
             // Check HTML5 minlength attribute
             if (input.hasAttribute('minlength')) {
                 return parseInt(input.getAttribute('minlength'));

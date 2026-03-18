@@ -322,6 +322,18 @@
 <script>
 (function() {
     var uploadUrl = {!! json_encode(route('admin.taxiroyaal.vehicles.upload-image')) !!};
+    function storageUrlToFileUrl(url) {
+        if (!url || typeof url !== 'string') return url;
+        var u = url.trim();
+        var path = null;
+        if (u.indexOf('/storage/') === 0) {
+            path = u.replace(/^\/storage\//, '').split(/[#?]/)[0].replace(/\//g, '--');
+        } else if (/^https?:\/\/[^/]+\/storage\//.test(u)) {
+            path = u.replace(/^https?:\/\/[^/]+\/storage\//, '').split(/[#?]/)[0].replace(/\//g, '--');
+        }
+        if (path) return (window.location.origin || '') + '/file/' + path;
+        return u;
+    }
     var area = document.querySelector('.vehicle-image-upload-area');
     var fileInput = document.getElementById('vehicle-image-file');
     var urlInput = document.getElementById('vehicle_image_url');
@@ -339,7 +351,7 @@
             .then(function(d) {
                 if (d.success && d.url) {
                     urlInput.value = d.url;
-                    if (preview) { preview.src = d.url; preview.classList.remove('hidden'); }
+                    if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); }
                     if (removeBtn) removeBtn.classList.remove('hidden');
                 }
             })
@@ -359,7 +371,7 @@
             removeBtn.classList.add('hidden');
         });
     }
-    if (urlInput.value && preview) { preview.src = urlInput.value; preview.classList.remove('hidden'); if (removeBtn) removeBtn.classList.remove('hidden'); }
+    if (urlInput.value && preview) { preview.src = storageUrlToFileUrl(urlInput.value); preview.classList.remove('hidden'); if (removeBtn) removeBtn.classList.remove('hidden'); }
 })();
 </script>
 @endpush

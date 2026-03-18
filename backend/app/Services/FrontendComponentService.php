@@ -44,6 +44,7 @@ class FrontendComponentService
      * Componenten die op een pagina toegevoegd kunnen worden.
      * Geef de module-key van de pagina (bijv. uit $page->module_name). Alleen componenten
      * van die module worden getoond. Bij null (kernpagina) worden alle componenten getoond.
+     * Componenten met available_on_all_pages (bijv. Google Reviews) worden altijd getoond.
      */
     public function availableForPage(?string $pageModuleName = null): Collection
     {
@@ -58,7 +59,9 @@ class FrontendComponentService
             return $all->filter(fn ($c) => false);
         }
         $displayName = trim($module->display_name);
-        return $all->filter(fn ($c) => trim((string) ($c->module_name ?? '')) === $displayName)->values();
+        $forModule = $all->filter(fn ($c) => trim((string) ($c->module_name ?? '')) === $displayName);
+        $global = $all->filter(fn ($c) => !empty($c->available_on_all_pages));
+        return $forModule->merge($global)->unique('id')->values();
     }
 
     /** Controleer of een section_order key een component-key is (component:module.key). */

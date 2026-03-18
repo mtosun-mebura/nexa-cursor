@@ -2,7 +2,8 @@
     $content = $sectionData['content'] ?? '';
     $alignment = $sectionData['alignment'] ?? 'left';
     $sideKey = $sectionData['side_component_key'] ?? '';
-    $imageUrl = $sectionData['image_url'] ?? '';
+    $imageUrlRaw = $sectionData['image_url'] ?? '';
+    $imageUrl = $imageUrlRaw !== '' ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imageUrlRaw) : '';
     $widthPercent = (int) ($sectionData['width_percent'] ?? 100);
     $widthPercent = max(60, min(100, $widthPercent));
     $showSideComponent = $sideKey !== '' && in_array($alignment, ['left', 'right'], true);
@@ -50,7 +51,7 @@
                     <div class="order-2 lg:order-1 w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
                         <div class="flex justify-center lg:justify-start">
-                            <img src="{{ str_starts_with($imageUrl, 'http') || str_starts_with($imageUrl, '/') ? $imageUrl : asset($imageUrl) }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
+                            <img src="{{ $imageUrl }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
                         </div>
                         @endif
                         @if($showSideComponent && $sideTemplate)
@@ -68,7 +69,7 @@
                     <div class="w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
                         <div class="flex justify-center lg:justify-end">
-                            <img src="{{ str_starts_with($imageUrl, 'http') || str_starts_with($imageUrl, '/') ? $imageUrl : asset($imageUrl) }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
+                            <img src="{{ $imageUrl }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
                         </div>
                         @endif
                         @if($showSideComponent && $sideTemplate)

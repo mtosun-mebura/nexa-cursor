@@ -124,7 +124,7 @@
                 <div class="flex flex-col items-center justify-center text-center">
                     @if($hasSuccessImage)
                         <div class="mb-4" aria-hidden="true">
-                            <img src="{{ asset('storage/'.$successImagePath) }}" alt="" class="h-[300px] w-auto object-contain max-w-full">
+                            <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl('/storage/'.$successImagePath) }}" alt="" class="h-[300px] w-auto object-contain max-w-full">
                         </div>
                     @else
                         <span class="inline-flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 mb-4" style="width: {{ $successSize }}px; height: {{ $successSize }}px;" aria-hidden="true">
