@@ -47,7 +47,8 @@
                 </thead>
                 <tbody>
                     @forelse($pages as $page)
-                        <tr>
+                        @php $pageModule = $page->module_name ? '?module=' . rawurlencode($page->module_name) : ''; @endphp
+                        <tr class="website-page-row cursor-pointer hover:bg-muted/50 transition-colors" data-preview-url="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" role="button" tabindex="0">
                             <td>{{ $page->sort_order }}</td>
                             <td>{{ $page->title }}</td>
                             <td><code>{{ $page->slug }}</code></td>
@@ -61,15 +62,12 @@
                                     <span class="kt-badge kt-badge-secondary">Inactief</span>
                                 @endif
                             </td>
-                            <td class="text-end relative">
+                            <td class="text-end relative website-page-actions-cell" onclick="event.stopPropagation()">
                                 <div class="website-pages-actions-menu flex justify-end">
                                     <div class="relative">
                                         <button type="button" class="website-pages-actions-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties" aria-expanded="false" aria-haspopup="true">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
-                                        @php
-                                            $pageModule = $page->module_name ? '?module=' . rawurlencode($page->module_name) : '';
-                                        @endphp
                                         <div class="website-pages-actions-dropdown kt-menu-dropdown kt-menu-default hidden absolute end-0 top-full z-[100] mt-1 min-w-[175px] rounded-lg border border-border bg-background py-1 shadow-lg" role="menu">
                                             <div class="kt-menu-item">
                                                 <a class="kt-menu-link" href="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" target="_blank" rel="noopener">
@@ -128,6 +126,22 @@
 document.addEventListener('DOMContentLoaded', function() {
     var toggles = document.querySelectorAll('.website-pages-actions-toggle');
     var openDropdown = null;
+
+    document.querySelectorAll('.website-page-row').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('.website-page-actions-cell')) return;
+            var url = row.getAttribute('data-preview-url');
+            if (url) window.open(url, '_blank', 'noopener');
+        });
+        row.addEventListener('keydown', function(e) {
+            if (e.target.closest('.website-page-actions-cell')) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                var url = row.getAttribute('data-preview-url');
+                if (url) window.open(url, '_blank', 'noopener');
+            }
+        });
+    });
 
     function closeAll() {
         if (openDropdown) {

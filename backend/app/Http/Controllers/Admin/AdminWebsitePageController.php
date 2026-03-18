@@ -106,11 +106,13 @@ class AdminWebsitePageController extends Controller
             'module_name' => 'nullable|string|max:255',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'is_active' => 'boolean',
+            'show_in_menu' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ], [
             'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
+        $data['show_in_menu'] = $request->boolean('show_in_menu', true);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
@@ -488,11 +490,13 @@ class AdminWebsitePageController extends Controller
             'module_name' => 'nullable|string|max:255',
             'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
             'is_active' => 'boolean',
+            'show_in_menu' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ], [
             'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
+        $data['show_in_menu'] = $request->boolean('show_in_menu', true);
         $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;

@@ -26,11 +26,21 @@
             <x-error-card :errors="$errors" />
 
             <div class="kt-card min-w-full">
-                <div class="kt-card-header">
+                <div class="kt-card-header flex flex-wrap items-center gap-x-6 gap-y-2">
                     <h3 class="kt-card-title">
                         Pagina-informatie
                     </h3>
-                    <label class="kt-label" for="is_active">
+                    <label class="kt-label inline-flex items-center gap-2" for="show_in_menu">
+                        <input type="hidden" name="show_in_menu" value="0">
+                        <input type="checkbox"
+                               class="kt-switch kt-switch-sm"
+                               id="show_in_menu"
+                               name="show_in_menu"
+                               value="1"
+                               {{ old('show_in_menu', true) ? 'checked' : '' }}/>
+                        Menuitem
+                    </label>
+                    <label class="kt-label inline-flex items-center gap-2" for="is_active">
                         <input type="hidden" name="is_active" value="0">
                         <input type="checkbox"
                                class="kt-switch kt-switch-sm"

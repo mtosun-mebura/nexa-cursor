@@ -350,6 +350,7 @@ class WebsiteBuilderService
 
         $corePages = $this->websitePageQuery(null)->active()
             ->whereNull('module_name')
+            ->showInMenu()
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -363,6 +364,7 @@ class WebsiteBuilderService
         }
 
         $modulePages = $this->websitePageQuery($moduleName)->active()
+            ->showInMenu()
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -389,6 +391,7 @@ class WebsiteBuilderService
     {
         if ($moduleName !== null && $moduleName !== '') {
             return $this->websitePageQuery($moduleName)->active()
+                ->showInMenu()
                 ->orderBy('sort_order')
                 ->orderBy('title')
                 ->get();

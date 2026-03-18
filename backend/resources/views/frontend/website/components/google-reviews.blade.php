@@ -32,6 +32,36 @@ html.dark #{{ $componentId }} .grw-dot.grw-dot-active { background-color: #fffff
 #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-color: #6b7280 !important; }
 html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active) { background-color: #6b7280 !important; }
 html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-color: #9ca3af !important; }
+/* Scroll-animaties: startstaten */
+#{{ $componentId }}:not(.grw-in-view) .grw-summary { opacity: 0; transform: translateX(-48px); }
+#{{ $componentId }}:not(.grw-in-view) .grw-slider-wrapper .grw-header h2 { opacity: 0; transform: translateZ(-12px); }
+#{{ $componentId }}:not(.grw-in-view) .grw-slider-wrapper .grw-header p { opacity: 0; transform: translateZ(-12px); }
+#{{ $componentId }}:not(.grw-in-view) .grw-review-card .grw-card { opacity: 0; transform: translateY(32px); }
+#{{ $componentId }}:not(.grw-in-view) .grw-btn-prev,
+#{{ $componentId }}:not(.grw-in-view) .grw-btn-next,
+#{{ $componentId }}:not(.grw-in-view) .grw-dots { opacity: 0; transform: translateZ(-8px); }
+/* Overgangen */
+#{{ $componentId }} .grw-summary { transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
+#{{ $componentId }} .grw-slider-wrapper .grw-header h2 { transition: opacity 0.45s ease-out 0.12s, transform 0.45s ease-out 0.12s; }
+#{{ $componentId }} .grw-slider-wrapper .grw-header p { transition: opacity 0.45s ease-out 0.22s, transform 0.45s ease-out 0.22s; }
+#{{ $componentId }} .grw-review-card .grw-card { transition: opacity 0.4s ease-out, transform 0.45s ease-out; }
+#{{ $componentId }} .grw-review-card:nth-child(1) .grw-card { transition-delay: 0.32s; }
+#{{ $componentId }} .grw-review-card:nth-child(2) .grw-card { transition-delay: 0.42s; }
+#{{ $componentId }} .grw-review-card:nth-child(3) .grw-card { transition-delay: 0.52s; }
+#{{ $componentId }} .grw-review-card:nth-child(4) .grw-card { transition-delay: 0.62s; }
+#{{ $componentId }} .grw-review-card:nth-child(5) .grw-card { transition-delay: 0.72s; }
+#{{ $componentId }} .grw-review-card:nth-child(n+6) .grw-card { transition-delay: 0.82s; }
+#{{ $componentId }} .grw-btn-prev,
+#{{ $componentId }} .grw-btn-next,
+#{{ $componentId }} .grw-dots { transition: opacity 0.4s ease-out 0.85s, transform 0.4s ease-out 0.85s; }
+/* Eindstaten bij in view */
+#{{ $componentId }}.grw-in-view .grw-summary { opacity: 1; transform: translateX(0); }
+#{{ $componentId }}.grw-in-view .grw-slider-wrapper .grw-header h2 { opacity: 1; transform: translateZ(0); }
+#{{ $componentId }}.grw-in-view .grw-slider-wrapper .grw-header p { opacity: 1; transform: translateZ(0); }
+#{{ $componentId }}.grw-in-view .grw-review-card .grw-card { opacity: 1; transform: translateY(0); }
+#{{ $componentId }}.grw-in-view .grw-btn-prev,
+#{{ $componentId }}.grw-in-view .grw-btn-next,
+#{{ $componentId }}.grw-in-view .grw-dots { opacity: 1; transform: translateZ(0); }
 </style>
 <section class="google-reviews-section py-12 md:py-16 bg-gray-100 dark:bg-gray-800" aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
     <div class="container-custom">
@@ -173,8 +203,8 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 
     <script>
     (function() {
-        function initGrwCarousel() {
         var componentId = @json($componentId);
+        function initGrwCarousel() {
         var visibleCards = @json($visibleCards);
         var wrap = document.getElementById(componentId);
         if (!wrap) return;
@@ -308,6 +338,19 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
         } else {
             initGrwCarousel();
         }
+        (function initScrollAnimation() {
+            var section = document.getElementById(componentId);
+            if (!section || typeof IntersectionObserver === 'undefined') return;
+            var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('grw-in-view');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { rootMargin: '0px 0px -12% 0px', threshold: 0 });
+            observer.observe(section);
+        })();
     })();
     </script>
 </section>

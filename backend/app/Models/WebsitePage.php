@@ -20,6 +20,7 @@ class WebsitePage extends Model
             'page_type' => 'home',
             'frontend_theme_id' => $theme->id,
             'module_name' => $moduleName,
+            'show_in_menu' => true,
         ]);
         $page->exists = false;
         $page->setRelation('theme', $theme);
@@ -36,11 +37,13 @@ class WebsitePage extends Model
         'module_name',
         'frontend_theme_id',
         'is_active',
+        'show_in_menu',
         'sort_order',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'show_in_menu' => 'boolean',
         'home_sections' => 'array',
     ];
 
@@ -49,6 +52,19 @@ class WebsitePage extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Alleen pagina's die in het menu getoond moeten worden.
+     * Werkt ook als de kolom show_in_menu nog niet bestaat (bijv. module-DB niet gemigreerd).
+     */
+    public function scopeShowInMenu($query)
+    {
+        $connectionName = $query->getConnection()->getName();
+        if (\Illuminate\Support\Facades\Schema::connection($connectionName)->hasColumn($this->getTable(), 'show_in_menu')) {
+            return $query->where('show_in_menu', true);
+        }
+        return $query;
     }
 
     public function scopeForModule($query, ?string $moduleName)
