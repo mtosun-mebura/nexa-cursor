@@ -9,8 +9,6 @@ class WebsitePage extends Model
     /**
      * Demo-pagina voor staging wanneer er geen actieve pagina's zijn.
      * Niet opgeslagen; getHomeSections() gebruikt de defaults van het thema.
-     *
-     * @return WebsitePage
      */
     public static function demoPageForTheme(FrontendTheme $theme, ?string $moduleName): WebsitePage
     {
@@ -27,6 +25,7 @@ class WebsitePage extends Model
 
         return $page;
     }
+
     protected $fillable = [
         'slug',
         'title',
@@ -64,6 +63,7 @@ class WebsitePage extends Model
         if (\Illuminate\Support\Facades\Schema::connection($connectionName)->hasColumn($this->getTable(), 'show_in_menu')) {
             return $query->where('show_in_menu', true);
         }
+
         return $query;
     }
 
@@ -72,6 +72,7 @@ class WebsitePage extends Model
         if ($moduleName === null) {
             return $query->whereNull('module_name');
         }
+
         return $query->where('module_name', $moduleName);
     }
 
@@ -93,7 +94,7 @@ class WebsitePage extends Model
      */
     public function getContentBlocks(): ?array
     {
-        if (!$this->content || !is_string($this->content)) {
+        if (! $this->content || ! is_string($this->content)) {
             return null;
         }
         $trimmed = trim($this->content);
@@ -101,9 +102,10 @@ class WebsitePage extends Model
             return null;
         }
         $decoded = json_decode($this->content, true);
-        if (!is_array($decoded) || !isset($decoded['blocks']) || !is_array($decoded['blocks'])) {
+        if (! is_array($decoded) || ! isset($decoded['blocks']) || ! is_array($decoded['blocks'])) {
             return null;
         }
+
         return $decoded['blocks'];
     }
 
@@ -340,6 +342,7 @@ class WebsitePage extends Model
         if (isset($byTheme[$themeSlug])) {
             return $byTheme[$themeSlug];
         }
+
         return [
             ['type' => 'hero', 'label' => $defaults['hero']],
             ['type' => 'stats', 'label' => $defaults['stats']],
@@ -463,8 +466,10 @@ class WebsitePage extends Model
         $sectionOrder = array_map(function ($key) {
             if (is_string($key) && str_starts_with(strtolower($key), 'component:')) {
                 $rest = preg_replace('/^component:+/i', '', $key);
-                return $rest !== '' ? 'component:' . $rest : $key;
+
+                return $rest !== '' ? 'component:'.$rest : $key;
             }
+
             return $key;
         }, $sectionOrder);
         $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
@@ -521,7 +526,7 @@ class WebsitePage extends Model
                 if ($sectionKey === 'component:taxiroyaal.tarieven') {
                     $raw = $stored[$sectionKey] ?? [];
                     $items = isset($raw['items']) && is_array($raw['items']) ? $raw['items'] : $taxiroyaalTarievenDefault['items'];
-                    $allowedFontSizes = array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
+                    $allowedFontSizes = array_merge([''], array_map(fn ($px) => $px.'px', range(10, 40, 2)));
                     $title = isset($raw['title']) ? trim((string) $raw['title']) : $taxiroyaalTarievenDefault['title'];
                     if ($title === '') {
                         $title = $taxiroyaalTarievenDefault['title'];
@@ -554,6 +559,7 @@ class WebsitePage extends Model
                     }
                     $sections[$sectionKey] = app(\App\Services\TaxiRoyaalBookingPricingService::class)->mergeSectionConfig(array_replace_recursive($taxiroyaalBoekingsmoduleDefault, $raw));
                 }
+
                 continue;
             }
             $baseType = self::homeSectionBaseType($sectionKey);
@@ -612,7 +618,7 @@ class WebsitePage extends Model
                 return array_merge($defaults['hero'], $raw);
             case 'stats':
                 $stats = $stored[$sectionKey] ?? $defaults['stats'];
-                $defItems = $defaults['stats']['items'] ?? [['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16'],['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16'],['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16'],['value'=>'','label'=>'','value_color'=>'','value_size'=>'22','label_size'=>'16']];
+                $defItems = $defaults['stats']['items'] ?? [['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'], ['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'], ['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'], ['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16']];
                 if (isset($stats['items']) && is_array($stats['items'])) {
                     $items = [];
                     foreach (array_values($stats['items']) as $idx => $it) {
@@ -634,6 +640,7 @@ class WebsitePage extends Model
                     $items = array_slice($items, 0, 4);
                     $bg = isset($stats['background']) && is_string($stats['background']) && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $stats['background']) ? $stats['background'] : '';
                     $bgImage = isset($stats['background_image']) && is_string($stats['background_image']) ? trim($stats['background_image']) : '';
+
                     return ['items' => $items, 'background' => $bg, 'background_image' => $bgImage];
                 }
                 $legacy = is_array($stats) ? array_values($stats) : [];
@@ -651,6 +658,7 @@ class WebsitePage extends Model
                         'label_size' => $ls,
                     ];
                 }
+
                 return ['items' => $items, 'background' => '', 'background_image' => ''];
             case 'why_nexa':
                 return array_merge($defaults['why_nexa'], $raw);
@@ -659,6 +667,7 @@ class WebsitePage extends Model
                 if (! empty($raw['items']) && is_array($raw['items'])) {
                     $out['items'] = array_values($raw['items']);
                 }
+
                 return $out;
             case 'cta':
                 return array_merge($defaults['cta'], $raw);
@@ -667,6 +676,7 @@ class WebsitePage extends Model
                 if (! is_array($items)) {
                     $items = [];
                 }
+
                 return [
                     'items' => array_values($items),
                 ];
@@ -686,13 +696,14 @@ class WebsitePage extends Model
                     $imagePadding = isset($row['image_padding']) ? max(0, min(30, (int) $row['image_padding'])) : 2;
                     $imagePadding = (int) (round($imagePadding / 2) * 2);
                     $imageBgColor = isset($row['image_bg_color']) ? trim((string) $row['image_bg_color']) : '';
-                    if ($imageBgColor !== '' && !preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $imageBgColor)) {
+                    if ($imageBgColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $imageBgColor)) {
                         $imageBgColor = '';
                     }
                     $textColor = isset($row['text_color']) ? trim((string) $row['text_color']) : '';
-                    if ($textColor !== '' && !preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $textColor)) {
+                    if ($textColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $textColor)) {
                         $textColor = '';
                     }
+
                     return [
                         'image_url' => isset($row['image_url']) ? trim((string) $row['image_url']) : '',
                         'text' => isset($row['text']) ? trim((string) $row['text']) : '',
@@ -708,6 +719,7 @@ class WebsitePage extends Model
                 if (empty($out)) {
                     $out = $defItems;
                 }
+
                 return ['cards_per_row' => $cardsPerRow, 'items' => $out];
             case 'featured_services':
                 $items = $raw['items'] ?? [];
@@ -737,6 +749,7 @@ class WebsitePage extends Model
                     'items' => array_values(array_map(function ($row) {
                         $iconColor = isset($row['icon_color']) && is_string($row['icon_color']) ? trim($row['icon_color']) : '';
                         $iconColor = $iconColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $iconColor) ? $iconColor : '';
+
                         return [
                             'icon' => trim((string) ($row['icon'] ?? 'light-bulb')),
                             'icon_color' => $iconColor,
@@ -748,6 +761,7 @@ class WebsitePage extends Model
                 if (empty($out['items'])) {
                     $out['items'] = $defFs['items'] ?? [['icon' => 'light-bulb', 'title' => '', 'description' => '']];
                 }
+
                 return $out;
             case 'email_template':
                 $def = $defaults['email_template'] ?? ['title' => 'Informatie aanvragen', 'template_id' => null];
@@ -763,7 +777,8 @@ class WebsitePage extends Model
             case 'text_block':
                 $def = $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'image_url' => '', 'width_percent' => 100];
                 $wp = isset($raw['width_percent']) && is_numeric($raw['width_percent']) ? (int) $raw['width_percent'] : ($def['width_percent'] ?? 100);
-                $wp = max(60, min(100, $wp));
+                $wp = max(30, min(100, $wp));
+
                 return [
                     'content' => isset($raw['content']) && is_string($raw['content']) ? $raw['content'] : ($def['content'] ?? ''),
                     'alignment' => isset($raw['alignment']) && in_array($raw['alignment'], ['left', 'center', 'right', 'full'], true) ? $raw['alignment'] : ($def['alignment'] ?? 'left'),

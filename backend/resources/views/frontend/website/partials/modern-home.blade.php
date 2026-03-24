@@ -52,12 +52,25 @@
 @php
     $heroBgUrl = !empty($sectionData['background_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['background_image_url']) : '';
     $heroBgStyle = $heroBgUrl !== '' ? 'background-image: url(' . e($heroBgUrl) . ');' : '';
+    $overlayFrom = $sectionData['overlay_color_from'] ?? '#1e3a8a';
+    $overlayTo = $sectionData['overlay_color_to'] ?? '#312e81';
+    $overlayOpacity = max(0, min(100, (int) ($sectionData['overlay_opacity'] ?? 85)));
+    $overlayAlpha = $overlayOpacity / 100;
+    $hexToRgb = function($hex) {
+        $hex = ltrim($hex, '#');
+        if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        if (strlen($hex) !== 6) return [30, 58, 138];
+        return [ hexdec(substr($hex,0,2)), hexdec(substr($hex,2,2)), hexdec(substr($hex,4,2)) ];
+    };
+    $fromRgb = $hexToRgb($overlayFrom);
+    $toRgb = $hexToRgb($overlayTo);
+    $heroOverlayStyle = 'background-image: linear-gradient(to right, rgba('.$fromRgb[0].','.$fromRgb[1].','.$fromRgb[2].','.$overlayAlpha.'), rgba('.$toRgb[0].','.$toRgb[1].','.$toRgb[2].','.$overlayAlpha.'));';
 @endphp
 <!-- Hero -->
 <section class="py-16 md:py-24 relative overflow-hidden {{ $heroBgUrl === '' ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : '' }}">
     @if($heroBgUrl !== '')
     <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style="{{ $heroBgStyle }}" aria-hidden="true"></div>
-    <div class="absolute inset-0 z-[1] bg-gradient-to-br from-blue-600/85 via-blue-700/85 to-purple-800/85 dark:from-gray-900/90 dark:via-blue-900/90 dark:to-purple-900/90" aria-hidden="true"></div>
+    <div class="absolute inset-0 z-[1] bg-cover bg-center bg-no-repeat" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
     @endif
     @if(!empty($sectionData['overlay']))
     <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20" aria-hidden="true"></div>

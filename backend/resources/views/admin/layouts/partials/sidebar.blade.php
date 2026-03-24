@@ -374,7 +374,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Rollen & Permissies
+                            Toegang
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">

@@ -7,15 +7,15 @@ use App\Models\FrontendTheme;
 use App\Models\Module;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
+use App\Services\FrontendComponentService;
 use App\Services\ModuleContextService;
 use App\Services\ModuleDatabaseService;
-use Illuminate\Support\Facades\Cache;
-use App\Services\FrontendComponentService;
 use App\Services\ModuleManager;
 use App\Services\TaxiRoyaalBookingPricingService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -32,23 +32,25 @@ class AdminWebsitePageController extends Controller
     ) {}
 
     /**
-     * Lijst website-pagina's. Kernpagina's (geen module) uit hoofddatabase; plus bij actieve module
-     * de pagina's uit die module-DB. Alle pagina's zijn zichtbaar en worden in het actieve thema getoond.
+     * Lijst website-pagina's. Kernpagina's (geen module) uit hoofddatabase; plus alle module-pagina's
+     * (per module-DB of in hoofddatabase bij single-DB). Worden op de site in het actieve thema getoond.
      */
     public function index()
     {
         $this->ensureSuperAdmin();
         $activeModuleName = $this->getActiveModuleNameForFrontend();
 
-        $pages = $this->loadAllPagesForIndex($activeModuleName);
+        $pages = $this->loadAllPagesForIndex();
         $activeTheme = $this->websiteBuilder->getActiveTheme();
+
         return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme'));
     }
 
     /**
-     * Kernpagina's uit hoofddatabase + eventueel module-pagina's uit module-DB, samengevoegd en gesorteerd.
+     * Kernpagina's uit hoofddatabase (module_name null) + alle module-pagina's.
+     * Bij per-module databases: uit elke geïnstalleerde module-DB. Bij single-DB: zelfde DB, module_name gezet.
      */
-    private function loadAllPagesForIndex(?string $activeModuleName): \Illuminate\Support\Collection
+    private function loadAllPagesForIndex(): \Illuminate\Support\Collection
     {
         $kernel = WebsitePage::query()
             ->whereNull('module_name')
@@ -57,16 +59,48 @@ class AdminWebsitePageController extends Controller
             ->orderBy('title')
             ->get();
 
-        if ($activeModuleName === null || ! $this->moduleDb->supportsModuleDatabases()) {
-            return $kernel->values();
+        if (! $this->moduleDb->supportsModuleDatabases()) {
+            $modulePagesOnMain = WebsitePage::query()
+                ->whereNotNull('module_name')
+                ->with('theme')
+                ->orderBy('sort_order')
+                ->orderBy('title')
+                ->get();
+
+            return $kernel->concat($modulePagesOnMain)->sortBy([
+                ['sort_order', 'asc'],
+                ['title', 'asc'],
+            ])->values();
         }
 
-        $conn = $this->moduleDb->getModuleConnectionName($activeModuleName);
-        $modulePages = WebsitePage::on($conn)
-            ->with('theme')
-            ->orderBy('sort_order')
-            ->orderBy('title')
-            ->get();
+        $modulePages = collect();
+        foreach (Module::where('installed', true)->pluck('name') as $moduleName) {
+            if ($moduleName === null || $moduleName === '') {
+                continue;
+            }
+            $conn = $this->moduleDb->getModuleConnectionName($moduleName);
+            if (! Config::has("database.connections.{$conn}")) {
+                try {
+                    $this->moduleDb->registerConnection($moduleName);
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+            if (! Config::has("database.connections.{$conn}")) {
+                continue;
+            }
+            try {
+                $modulePages = $modulePages->concat(
+                    WebsitePage::on($conn)
+                        ->with('theme')
+                        ->orderBy('sort_order')
+                        ->orderBy('title')
+                        ->get()
+                );
+            } catch (\Throwable) {
+                continue;
+            }
+        }
 
         return $kernel->concat($modulePages)->sortBy([
             ['sort_order', 'asc'],
@@ -85,6 +119,7 @@ class AdminWebsitePageController extends Controller
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
         $googleMapsMapId = $env->getGoogleMapsMapId();
         $emailTemplates = $this->getEmailTemplatesForWebsiteForm();
+
         return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates'));
     }
 
@@ -112,8 +147,26 @@ class AdminWebsitePageController extends Controller
             'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
-        $data['show_in_menu'] = $request->boolean('show_in_menu', true);
-        $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+        $table = (new WebsitePage)->getTable();
+        if ($connection !== null) {
+            if (! \Illuminate\Support\Facades\Schema::connection($connection)->hasColumn($table, 'show_in_menu')) {
+                unset($data['show_in_menu']);
+            } else {
+                $data['show_in_menu'] = $this->requestHasInput($request, 'show_in_menu')
+                    ? $request->boolean('show_in_menu')
+                    : true;
+            }
+            if (! \Illuminate\Support\Facades\Schema::connection($connection)->hasColumn($table, 'sort_order')) {
+                unset($data['sort_order']);
+            } else {
+                $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+            }
+        } else {
+            $data['show_in_menu'] = $this->requestHasInput($request, 'show_in_menu')
+                ? $request->boolean('show_in_menu')
+                : true;
+            $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+        }
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         $data['module_name'] = $moduleName;
@@ -130,6 +183,7 @@ class AdminWebsitePageController extends Controller
         } else {
             WebsitePage::create($data);
         }
+
         return redirect()->route('admin.website-pages.index')->with('success', 'Pagina aangemaakt.');
     }
 
@@ -141,8 +195,9 @@ class AdminWebsitePageController extends Controller
     {
         $url = route('admin.website-pages.edit', $website_page);
         if ($website_page->module_name) {
-            $url .= '?module=' . rawurlencode($website_page->module_name);
+            $url .= '?module='.rawurlencode($website_page->module_name);
         }
+
         return redirect($url);
     }
 
@@ -151,7 +206,8 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         // Zorg dat bij een module-pagina altijd ?module= in de URL staat, zodat route binding de pagina uit de module-DB laadt (anders toont de select geen opgeslagen template_id).
         if ($website_page->module_name && trim((string) request()->query('module')) !== trim((string) $website_page->module_name)) {
-            $url = route('admin.website-pages.edit', ['website_page' => $website_page->id]) . '?module=' . rawurlencode($website_page->module_name);
+            $url = route('admin.website-pages.edit', ['website_page' => $website_page->id]).'?module='.rawurlencode($website_page->module_name);
+
             return redirect($url);
         }
         $installedModules = $this->moduleManager->getInstalledModules();
@@ -194,6 +250,7 @@ class AdminWebsitePageController extends Controller
                 $emailTemplateSelectedIds[$sectionKey] = $tid !== null && $tid !== '' ? (int) $tid : 0;
             }
         }
+
         return view('admin.website-pages.edit', [
             'page' => $website_page,
             'installedModules' => $installedModules,
@@ -223,19 +280,8 @@ class AdminWebsitePageController extends Controller
             }
         }
         $first = Module::where('installed', true)->where('active', true)->first();
-        return $first ? $first->name : null;
-    }
 
-    /**
-     * Query voor website-pagina's op de juiste database: module-DB bij actieve module (als ondersteund), anders hoofddatabase.
-     */
-    private function websitePagesQueryForIndex(?string $activeModuleName): \Illuminate\Database\Eloquent\Builder
-    {
-        if ($activeModuleName !== null && $this->moduleDb->supportsModuleDatabases()) {
-            $conn = $this->moduleDb->getModuleConnectionName($activeModuleName);
-            return WebsitePage::on($conn);
-        }
-        return WebsitePage::query();
+        return $first ? $first->name : null;
     }
 
     /**
@@ -259,6 +305,7 @@ class AdminWebsitePageController extends Controller
                 $ids->put(strtolower($name), $moduleModel->frontend_theme_id);
             }
         }
+
         return $ids;
     }
 
@@ -283,6 +330,7 @@ class AdminWebsitePageController extends Controller
                 $moduleThemes->put($name, $moduleModel);
             }
         }
+
         return $moduleThemes;
     }
 
@@ -301,10 +349,11 @@ class AdminWebsitePageController extends Controller
                 $theme = FrontendTheme::find($module->frontend_theme_id);
             }
         }
-        if (!$theme) {
+        if (! $theme) {
             $theme = $this->websiteBuilder->getActiveTheme();
         }
         $blocks = $theme && $theme->default_blocks ? $theme->default_blocks : [];
+
         return response()->json(['blocks' => $blocks, 'theme_slug' => $theme ? $theme->slug : null]);
     }
 
@@ -326,7 +375,7 @@ class AdminWebsitePageController extends Controller
             'section_order' => [$type],
             'visibility' => $defaults['visibility'] ?? [],
             'hero' => $defaults['hero'] ?? [],
-            'stats' => $defaults['stats'] ?? ['items' => [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']], 'background' => '', 'background_image' => ''],
+            'stats' => $defaults['stats'] ?? ['items' => [['value' => '', 'label' => ''], ['value' => '', 'label' => ''], ['value' => '', 'label' => ''], ['value' => '', 'label' => '']], 'background' => '', 'background_image' => ''],
             'why_nexa' => $defaults['why_nexa'] ?? [],
             'features' => $defaults['features'] ?? [],
             'cta' => $defaults['cta'] ?? [],
@@ -348,9 +397,9 @@ class AdminWebsitePageController extends Controller
         ])->render();
 
         // Eerste .home-section-card extraheren (bij sectionCardOnly rendert de partial precies één kaart)
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         libxml_use_internal_errors(true);
-        $dom->loadHTML('<?xml encoding="UTF-8"><div id="section-card-wrapper">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        $dom->loadHTML('<?xml encoding="UTF-8"><div id="section-card-wrapper">'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
         libxml_clear_errors();
         $xpath = new \DOMXPath($dom);
         $sortable = $xpath->query("//*[@id='home-sections-sortable']")->item(0);
@@ -368,6 +417,7 @@ class AdminWebsitePageController extends Controller
             }
         }
         $cardHtml = $card ? $dom->saveHTML($card) : '';
+
         return response($cardHtml, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
@@ -379,7 +429,9 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $theme = $this->websiteBuilder->getThemeForPage($website_page);
         $menuPages = $this->websiteBuilder->getActiveMenuPages();
-        $branding = $this->websiteBuilder->getSiteBranding();
+        $branding = $this->websiteBuilder->getSiteBranding(
+            $this->websiteBuilder->getBrandingModuleNameForWebsitePage($website_page)
+        );
         $themeSlug = $theme ? $theme->slug : 'modern';
         $themeSettings = $theme ? $theme->getSettings() : [];
 
@@ -404,9 +456,9 @@ class AdminWebsitePageController extends Controller
         }
 
         $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
-        $useThemeHomeLayout = $themeHasHomeSections && ($website_page->page_type === 'home' || $website_page->slug === 'home' || !empty($website_page->home_sections));
+        $useThemeHomeLayout = $themeHasHomeSections && ($website_page->page_type === 'home' || $website_page->slug === 'home' || ! empty($website_page->home_sections));
         // Altijd homeSections doorgeven wanneer de pagina home_sections heeft, zodat footer/visibility op preview werken
-        $homeSections = !empty($website_page->home_sections) ? $website_page->getHomeSections() : [];
+        $homeSections = ! empty($website_page->home_sections) ? $website_page->getHomeSections() : [];
         // E-mailtemplate per sectie (zelfde logica als frontend WebsitePageController: module-DB bij module-pagina)
         $emailTemplateBySectionKey = [];
         $templateConnection = null;
@@ -421,13 +473,14 @@ class AdminWebsitePageController extends Controller
             $base = is_string($sectionKey) ? preg_replace('/_\d+$/', '', $sectionKey) : '';
             if ($base === 'email_template') {
                 $tid = $homeSections[$sectionKey]['template_id'] ?? null;
-                if (!$tid) {
+                if (! $tid) {
                     $emailTemplateBySectionKey[$sectionKey] = null;
+
                     continue;
                 }
                 $tidInt = (int) $tid;
                 $template = \App\Models\EmailTemplate::find($tidInt);
-                if (!$template && $templateConnection) {
+                if (! $template && $templateConnection) {
                     $template = \App\Models\EmailTemplate::on($templateConnection)->find($tidInt);
                 }
                 $emailTemplateBySectionKey[$sectionKey] = $template;
@@ -442,9 +495,10 @@ class AdminWebsitePageController extends Controller
 
         $previewEditUrl = route('admin.website-pages.edit', $website_page);
         if ($website_page->module_name) {
-            $previewEditUrl .= '?module=' . rawurlencode($website_page->module_name);
+            $previewEditUrl .= '?module='.rawurlencode($website_page->module_name);
         }
         $googleReviews = $useThemeHomeLayout ? app(\App\Services\GoogleReviewsService::class)->getReviews() : [];
+
         return view('frontend.website.page', [
             'page' => $website_page,
             'theme' => $theme,
@@ -496,8 +550,25 @@ class AdminWebsitePageController extends Controller
             'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
-        $data['show_in_menu'] = $request->boolean('show_in_menu', true);
-        $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+        $table = $website_page->getTable();
+        // Altijd het connection-naam van het model zelf (nooit alleen ?module= uit de request):
+        // bij kern-pagina's is getConnectionName() vaak null terwijl $connection wél een module-DB kan zijn
+        // → hasColumn op de verkeerde DB → show_in_menu uit $data halen → waarde blijft altijd "Ja".
+        $connForSchema = $website_page->getConnection()->getName();
+        // show_in_menu: requestHasInput i.p.v. has() — "0" moet meetellen.
+        $showInMenuValue = $this->requestHasInput($request, 'show_in_menu')
+            ? $request->boolean('show_in_menu')
+            : (bool) $website_page->getAttribute('show_in_menu');
+        if (! \Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($table, 'show_in_menu')) {
+            unset($data['show_in_menu']);
+        } else {
+            $data['show_in_menu'] = $showInMenuValue;
+        }
+        if (! \Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($table, 'sort_order')) {
+            unset($data['sort_order']);
+        } else {
+            $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+        }
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         $data['module_name'] = $moduleName;
@@ -505,7 +576,7 @@ class AdminWebsitePageController extends Controller
         // home_sections niet meenemen in validate() om BadRequestException te voorkomen (ParameterBag verwacht array;
         // bij PUT kan de structuur anders zijn). We halen het veilig op en normaliseren zelf.
         $input = $this->getHomeSectionsInput($request);
-        if (!is_array($input)) {
+        if (! is_array($input)) {
             $input = [];
         }
         if (config('app.debug')) {
@@ -516,13 +587,13 @@ class AdminWebsitePageController extends Controller
             ]);
         }
         // Als de request helemaal geen home_sections bevat (bijv. request bag leeg), bestaande niet overschrijven
-        if (empty($input) && !empty($website_page->home_sections)) {
+        if (empty($input) && ! empty($website_page->home_sections)) {
             $input = $website_page->getHomeSections();
         }
         // Altijd _section_order uit de request laten voorgaan (staat bovenaan form, wordt door JS bijgewerkt bij verwijderen/sorteren).
         // Zo blijft een verwijderde sectie ook weg als home_sections door max_input_vars werd afgekapt of leeg was.
         $fallbackOrder = $request->input('_section_order');
-        if ((!is_string($fallbackOrder) || trim($fallbackOrder) === '') && $request->getContent() !== '') {
+        if ((! is_string($fallbackOrder) || trim($fallbackOrder) === '') && $request->getContent() !== '') {
             parse_str($request->getContent(), $parsed);
             $fallbackOrder = $parsed['_section_order'] ?? null;
         }
@@ -575,10 +646,12 @@ class AdminWebsitePageController extends Controller
             }
             $website_page->update($data);
 
-            // Footer en visibility worden op de frontend altijd van de home-pagina geladen. Sync ze
-            // naar de home-pagina zodat wijzigingen (zichtbaarheid, uitlijning) op elke bewerkpagina op de site zichtbaar zijn.
+            // Footer op de site komt van de home-pagina. Sync vanuit een andere pagina alleen als die pagina
+            // de footer zelf beheert (geen "Overnemen van Home"); anders zou een save van bv. Over ons de
+            // home-footer overschrijven met lege/verouderde data uit het verborgen formulier.
             $homePage = $this->websiteBuilder->getHomePage();
-            if ($homePage && $homePage->id !== $website_page->id && $homePage->frontend_theme_id == $website_page->frontend_theme_id) {
+            $footerInheritsFromHome = ! empty($data['home_sections']['footer']['inherit_from_home'] ?? false);
+            if ($homePage && $homePage->id !== $website_page->id && $homePage->frontend_theme_id == $website_page->frontend_theme_id && ! $footerInheritsFromHome) {
                 $current = is_array($homePage->home_sections) ? $homePage->home_sections : [];
                 $current['footer'] = $data['home_sections']['footer'] ?? ($current['footer'] ?? []);
                 $current['visibility'] = array_merge($current['visibility'] ?? [], $data['home_sections']['visibility'] ?? []);
@@ -592,18 +665,34 @@ class AdminWebsitePageController extends Controller
                 'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return redirect()->back()
                 ->withInput()
-                ->withErrors(['home_sections' => 'Opslaan mislukt: ' . $e->getMessage()]);
+                ->withErrors(['home_sections' => 'Opslaan mislukt: '.$e->getMessage()]);
         }
         $editUrl = route('admin.website-pages.edit', $website_page);
         $separator = '?';
         if ($website_page->module_name) {
-            $editUrl .= '?module=' . rawurlencode($website_page->module_name);
+            $editUrl .= '?module='.rawurlencode($website_page->module_name);
             $separator = '&';
         }
-        $editUrl .= $separator . 'saved=1';
+        $editUrl .= $separator.'saved=1';
+
         return redirect($editUrl)->with('success', 'Pagina bijgewerkt.');
+    }
+
+    /**
+     * Of een input-key expliciet in de request zit (ook waarde "0").
+     * Laravel's Request::has() kan "0" als afwezig behandelen; query/request-bag has() gebruikt array_key_exists.
+     */
+    private function requestHasInput(Request $request, string $key): bool
+    {
+        if ($request->query->has($key) || $request->request->has($key)) {
+            return true;
+        }
+
+        // Fallback: merged input (zeldzaam edge-case waarbij de waarde niet in query/request-bag zit)
+        return array_key_exists($key, $request->all());
     }
 
     /**
@@ -631,6 +720,28 @@ class AdminWebsitePageController extends Controller
                 $input = is_array($raw) ? $raw : [];
             }
         }
+        // Visibility footer: fallback-JSON bovenaan formulier is leidend (voorkomt verlies door max_input_vars)
+        $visibilityFooterFallback = $request->input('_visibility_footer_fallback');
+        if ((! is_string($visibilityFooterFallback) || $visibilityFooterFallback === '') && $request->getContent() !== '') {
+            parse_str($request->getContent(), $parsedVisibility);
+            $fromBody = $parsedVisibility['_visibility_footer_fallback'] ?? null;
+            if (is_string($fromBody) && $fromBody !== '') {
+                $visibilityFooterFallback = $fromBody;
+            }
+        }
+        if (is_string($visibilityFooterFallback) && $visibilityFooterFallback !== '') {
+            $decoded = json_decode($visibilityFooterFallback, true);
+            if (is_array($decoded)) {
+                if (! isset($input['visibility']) || ! is_array($input['visibility'])) {
+                    $input['visibility'] = [];
+                }
+                foreach ($decoded as $key => $value) {
+                    if (is_string($key) && str_starts_with($key, 'footer_')) {
+                        $input['visibility'][$key] = $value;
+                    }
+                }
+            }
+        }
         // Section order kan ontbreken bij grote body (max_input_vars): vul aan uit fallback-veld bovenaan formulier
         $orderFromFallback = $request->input('_section_order');
         if (is_string($orderFromFallback) && trim($orderFromFallback) !== '') {
@@ -656,7 +767,7 @@ class AdminWebsitePageController extends Controller
                 if ($base !== 'email_template') {
                     continue;
                 }
-                $tid = $request->input('_email_template_tid_' . $sk);
+                $tid = $request->input('_email_template_tid_'.$sk);
                 if ($tid !== null && $tid !== '' && is_numeric($tid)) {
                     if (! isset($input[$sk]) || ! is_array($input[$sk])) {
                         $input[$sk] = [];
@@ -666,6 +777,7 @@ class AdminWebsitePageController extends Controller
                 }
             }
         }
+
         return $input;
     }
 
@@ -711,6 +823,7 @@ class AdminWebsitePageController extends Controller
                 }
             }
         }
+
         return $templates;
     }
 
@@ -720,6 +833,7 @@ class AdminWebsitePageController extends Controller
             return $sectionKey;
         }
         $base = preg_replace('/_\d+$/', '', $sectionKey);
+
         return in_array($base, self::HOME_SECTION_BASE_TYPES, true) ? $base : null;
     }
 
@@ -739,7 +853,7 @@ class AdminWebsitePageController extends Controller
         $fontStyles = ['normal', 'bold', 'italic'];
         $textAligns = ['left', 'center', 'right'];
         $fontFamilies = ['', 'sans-serif', 'serif', 'monospace', 'Inter', 'Georgia'];
-        $fontSizes = array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
+        $fontSizes = array_merge([''], array_map(fn ($px) => $px.'px', range(10, 40, 2)));
         $sectionTitle = isset($raw['title']) ? trim((string) $raw['title']) : 'Onze tarieven';
         if ($sectionTitle === '') {
             $sectionTitle = 'Onze tarieven';
@@ -815,6 +929,7 @@ class AdminWebsitePageController extends Controller
         if (array_key_exists('image_fade_duration', $raw) && is_numeric($raw['image_fade_duration'])) {
             $imageFadeDuration = max(300, min(5000, (int) $raw['image_fade_duration']));
         }
+
         return [
             'title' => $sectionTitle,
             'title_font_size' => $sectionTitleFontSize,
@@ -863,6 +978,7 @@ class AdminWebsitePageController extends Controller
                 } else {
                     $sections[$sectionKey] = [];
                 }
+
                 continue;
             }
             $baseType = self::homeSectionBaseType($sectionKey);
@@ -874,7 +990,7 @@ class AdminWebsitePageController extends Controller
 
         $footerInput = $input['footer'] ?? [];
         $quickLinks = [];
-        if (!empty($footerInput['quick_links']) && is_array($footerInput['quick_links'])) {
+        if (! empty($footerInput['quick_links']) && is_array($footerInput['quick_links'])) {
             foreach (array_values($footerInput['quick_links']) as $row) {
                 if (is_array($row) && trim((string) ($row['label'] ?? '')) !== '') {
                     $quickLinks[] = [
@@ -885,7 +1001,7 @@ class AdminWebsitePageController extends Controller
             }
         }
         $supportLinks = [];
-        if (!empty($footerInput['support_links']) && is_array($footerInput['support_links'])) {
+        if (! empty($footerInput['support_links']) && is_array($footerInput['support_links'])) {
             foreach (array_values($footerInput['support_links']) as $row) {
                 if (is_array($row) && trim((string) ($row['label'] ?? '')) !== '') {
                     $supportLinks[] = [
@@ -920,10 +1036,10 @@ class AdminWebsitePageController extends Controller
         $footer['map_huisnummer'] = isset($footerInput['map_huisnummer']) ? trim((string) $footerInput['map_huisnummer']) : ($defaults['footer']['map_huisnummer'] ?? '');
         $footer['map_street'] = isset($footerInput['map_street']) ? trim((string) $footerInput['map_street']) : ($defaults['footer']['map_street'] ?? '');
         $footer['map_city'] = isset($footerInput['map_city']) ? trim((string) $footerInput['map_city']) : ($defaults['footer']['map_city'] ?? '');
-        $footer['map_city_only'] = !empty($footerInput['map_city_only']);
+        $footer['map_city_only'] = ! empty($footerInput['map_city_only']);
         $footer['map_lat'] = isset($footerInput['map_lat']) && $footerInput['map_lat'] !== '' ? (is_numeric($footerInput['map_lat']) ? (float) $footerInput['map_lat'] : null) : null;
         $footer['map_lng'] = isset($footerInput['map_lng']) && $footerInput['map_lng'] !== '' ? (is_numeric($footerInput['map_lng']) ? (float) $footerInput['map_lng'] : null) : null;
-        if (!empty($footer['map_city_only'])) {
+        if (! empty($footer['map_city_only'])) {
             // Stad-modus: adres wordt op basis van alleen plaats bepaald.
             $footer['map_postcode'] = '';
             $footer['map_huisnummer'] = '';
@@ -934,28 +1050,40 @@ class AdminWebsitePageController extends Controller
         $footer['map_size'] = isset($footerInput['map_size']) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true) ? $footerInput['map_size'] : ($defaults['footer']['map_size'] ?? 'normal');
         $mapZoom = isset($footerInput['map_zoom']) && is_numeric($footerInput['map_zoom']) ? (int) $footerInput['map_zoom'] : (int) ($defaults['footer']['map_zoom'] ?? 17);
         $footer['map_zoom'] = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17;
-        $footer['map_show_address_balloon'] = !empty($footerInput['map_show_address_balloon']);
+        $footer['map_show_address_balloon'] = ! empty($footerInput['map_show_address_balloon']);
         $footer['logo_align'] = isset($footerInput['logo_align']) && in_array($footerInput['logo_align'], ['left', 'center', 'right'], true) ? $footerInput['logo_align'] : ($defaults['footer']['logo_align'] ?? 'left');
         $footer['quick_links_align'] = isset($footerInput['quick_links_align']) && in_array($footerInput['quick_links_align'], ['left', 'center', 'right'], true) ? $footerInput['quick_links_align'] : ($defaults['footer']['quick_links_align'] ?? 'left');
         $footer['support_links_align'] = isset($footerInput['support_links_align']) && in_array($footerInput['support_links_align'], ['left', 'center', 'right'], true) ? $footerInput['support_links_align'] : ($defaults['footer']['support_links_align'] ?? 'left');
         foreach (['social_facebook', 'social_instagram', 'social_x', 'social_linkedin', 'social_youtube', 'social_tiktok'] as $socialKey) {
             $footer[$socialKey] = isset($footerInput[$socialKey]) ? trim((string) $footerInput[$socialKey]) : '';
         }
+        $footer['inherit_from_home'] = ! empty($footerInput['inherit_from_home']);
 
         $visibilityInput = $input['visibility'] ?? [];
+        if (! is_array($visibilityInput)) {
+            $visibilityInput = [];
+        }
         $visibilityOverlay = [];
         foreach (['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block', 'footer'] as $k) {
             if (array_key_exists($k, $visibilityInput)) {
-                $visibilityOverlay[$k] = !empty($visibilityInput[$k]);
+                $visibilityOverlay[$k] = ! empty($visibilityInput[$k]);
             }
         }
         $visibility = array_merge($defaults['visibility'], $visibilityOverlay);
         foreach (array_keys($visibilityInput) as $key) {
-            if (preg_match('/^(hero|stats|why_nexa|features|cta|cards_ronde_hoeken|text_block)(_[a-z0-9_]+)?$/i', $key)) {
-                $visibility[$key] = !empty($visibilityInput[$key]);
+            if (is_string($key) && $key !== '') {
+                if (preg_match('/^(hero|stats|why_nexa|features|cta|cards_ronde_hoeken|text_block)(_[a-z0-9_]+)?$/i', $key)) {
+                    $visibility[$key] = ! empty($visibilityInput[$key]);
+                }
+                if (preg_match('/^footer_[a-z0-9_]+$/i', $key)) {
+                    $visibility[$key] = ! empty($visibilityInput[$key]);
+                }
             }
-            if (preg_match('/^footer_[a-z0-9_]+$/i', $key)) {
-                $visibility[$key] = !empty($visibilityInput[$key]);
+        }
+        // Expliciet alle footer_* visibility-keys uit de request overnemen (o.a. footer_quick_links, footer_support_links, footer_social)
+        foreach ($visibilityInput as $key => $value) {
+            if (is_string($key) && str_starts_with($key, 'footer_')) {
+                $visibility[$key] = ! empty($value);
             }
         }
 
@@ -980,20 +1108,21 @@ class AdminWebsitePageController extends Controller
     private function normalizeOneHomeSection(array $input, string $sectionKey, string $baseType, array $defaults): array
     {
         $raw = $input[$sectionKey] ?? [];
-        if (!is_array($raw)) {
+        if (! is_array($raw)) {
             $raw = [];
         }
         switch ($baseType) {
             case 'hero':
                 $data = array_merge($defaults['hero'], $raw);
                 $data = $this->sanitizeButtonColors($data);
-                $data['overlay'] = !empty($raw['overlay']);
+                $data['overlay'] = ! empty($raw['overlay']);
                 // Behoud hero-afbeeldingen (atom-v2) ook als leeg, zodat "geen custom" = thema-default
                 $keepEmptyKeys = ['overlay', 'background_image_url', 'author_image_url'];
+
                 return array_filter($data, fn ($v, $k) => in_array($k, $keepEmptyKeys, true) ? true : $v !== '' && $v !== null, ARRAY_FILTER_USE_BOTH);
             case 'stats':
                 $stats = [];
-                if (!empty($raw) && is_array($raw)) {
+                if (! empty($raw) && is_array($raw)) {
                     foreach ([0, 1, 2, 3] as $i) {
                         $row = $raw[$i] ?? null;
                         if (is_array($row)) {
@@ -1018,7 +1147,9 @@ class AdminWebsitePageController extends Controller
                     }
                 }
                 $defStats = $defaults['stats']['items'] ?? $defaults['stats'];
-                if (!is_array($defStats)) $defStats = [];
+                if (! is_array($defStats)) {
+                    $defStats = [];
+                }
                 while (count($stats) < 4) {
                     $di = $defStats[count($stats)] ?? null;
                     $stats[] = is_array($di) ? ['value' => $di['value'] ?? '', 'label' => $di['label'] ?? '', 'value_color' => $di['value_color'] ?? '', 'value_size' => $di['value_size'] ?? '22', 'label_size' => $di['label_size'] ?? '16'] : ['value' => '', 'label' => '', 'value_color' => '', 'value_size' => '22', 'label_size' => '16'];
@@ -1026,6 +1157,7 @@ class AdminWebsitePageController extends Controller
                 $bg = isset($raw['background']) && is_string($raw['background']) ? trim($raw['background']) : '';
                 $bg = $bg !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $bg) ? $bg : '';
                 $bgImage = isset($raw['background_image']) && is_string($raw['background_image']) ? trim($raw['background_image']) : '';
+
                 return [
                     'items' => array_values($stats),
                     'background' => $bg,
@@ -1035,7 +1167,7 @@ class AdminWebsitePageController extends Controller
                 return array_filter(array_merge($defaults['why_nexa'], $raw));
             case 'features':
                 $items = [];
-                if (!empty($raw['items']) && is_array($raw['items'])) {
+                if (! empty($raw['items']) && is_array($raw['items'])) {
                     foreach (array_values($raw['items']) as $i => $row) {
                         if (is_array($row)) {
                             $items[] = [
@@ -1056,18 +1188,20 @@ class AdminWebsitePageController extends Controller
                 if (array_key_exists('illustration_url', $raw)) {
                     $out['illustration_url'] = trim((string) $raw['illustration_url']);
                 }
+
                 return $out;
             case 'cta':
                 $data = array_merge($defaults['cta'], $raw);
                 $data = $this->sanitizeButtonColors($data);
                 // Behoud background_image_url ook als leeg (Atom-v2 CTA achtergrond)
                 $keepEmptyCta = ['background_image_url'];
+
                 return array_filter($data, fn ($v, $k) => in_array($k, $keepEmptyCta, true) ? true : $v !== '' && $v !== null, ARRAY_FILTER_USE_BOTH);
             case 'carousel':
                 $items = [];
-                if (!empty($raw['items']) && is_array($raw['items'])) {
+                if (! empty($raw['items']) && is_array($raw['items'])) {
                     foreach (array_values($raw['items']) as $row) {
-                        if (is_array($row) && !empty($row['uuid'])) {
+                        if (is_array($row) && ! empty($row['uuid'])) {
                             $items[] = [
                                 'uuid' => (string) $row['uuid'],
                                 'alt' => isset($row['alt']) ? trim((string) $row['alt']) : '',
@@ -1075,10 +1209,11 @@ class AdminWebsitePageController extends Controller
                         }
                     }
                 }
+
                 return ['items' => $items];
             case 'cards_ronde_hoeken':
                 $items = [];
-                if (!empty($raw['items']) && is_array($raw['items'])) {
+                if (! empty($raw['items']) && is_array($raw['items'])) {
                     foreach (array_values($raw['items']) as $row) {
                         if (is_array($row)) {
                             $fontSize = isset($row['font_size']) ? (int) $row['font_size'] : 14;
@@ -1113,6 +1248,7 @@ class AdminWebsitePageController extends Controller
                 $defItems = $defaults['cards_ronde_hoeken']['items'] ?? [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']];
                 $cardsPerRow = isset($raw['cards_per_row']) ? (int) $raw['cards_per_row'] : ($defaults['cards_ronde_hoeken']['cards_per_row'] ?? 4);
                 $cardsPerRow = in_array($cardsPerRow, [1, 2, 3, 4, 5, 6], true) ? $cardsPerRow : 4;
+
                 return ['cards_per_row' => $cardsPerRow, 'items' => $items ?: $defItems];
             case 'featured_services':
                 $items = [];
@@ -1140,6 +1276,7 @@ class AdminWebsitePageController extends Controller
                 $cardBgColor = isset($raw['card_bg_color']) && is_string($raw['card_bg_color']) ? trim($raw['card_bg_color']) : ($defaults['featured_services']['card_bg_color'] ?? '');
                 $cardBgColor = $cardBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $cardBgColor) ? $cardBgColor : '';
                 $animationSpeed = isset($raw['animation_speed']) && in_array($raw['animation_speed'], ['fast', 'normal', 'slow', 'slower'], true) ? $raw['animation_speed'] : ($defaults['featured_services']['animation_speed'] ?? 'slow');
+
                 return [
                     'title' => trim((string) ($raw['title'] ?? ($defaults['featured_services']['title'] ?? 'Diensten'))),
                     'subtitle' => trim((string) ($raw['subtitle'] ?? ($defaults['featured_services']['subtitle'] ?? ''))),
@@ -1156,6 +1293,7 @@ class AdminWebsitePageController extends Controller
                 $templateId = isset($raw['template_id']) && $raw['template_id'] !== '' && is_numeric($raw['template_id'])
                     ? (int) $raw['template_id']
                     : null;
+
                 return [
                     'title' => trim((string) ($raw['title'] ?? ($defaults['email_template']['title'] ?? 'Informatie aanvragen'))),
                     'template_id' => $templateId,
@@ -1172,7 +1310,8 @@ class AdminWebsitePageController extends Controller
                 $widthPercent = isset($raw['width_percent']) && is_numeric($raw['width_percent'])
                     ? (int) $raw['width_percent']
                     : (int) ($defaults['text_block']['width_percent'] ?? 100);
-                $widthPercent = max(60, min(100, $widthPercent));
+                $widthPercent = max(30, min(100, $widthPercent));
+
                 return [
                     'content' => $content,
                     'alignment' => $alignment,
@@ -1194,13 +1333,14 @@ class AdminWebsitePageController extends Controller
         foreach ($colorKeys as $key) {
             if (array_key_exists($key, $data) && is_string($data[$key])) {
                 $v = trim($data[$key]);
-                $v = preg_match('/^#?[0-9a-fA-F]{3,6}$/', $v) ? (str_starts_with($v, '#') ? $v : '#' . $v) : '';
+                $v = preg_match('/^#?[0-9a-fA-F]{3,6}$/', $v) ? (str_starts_with($v, '#') ? $v : '#'.$v) : '';
                 if (strlen($v) === 4) {
-                    $v = '#' . $v[1] . $v[1] . $v[2] . $v[2] . $v[3] . $v[3];
+                    $v = '#'.$v[1].$v[1].$v[2].$v[2].$v[3].$v[3];
                 }
                 $data[$key] = $v;
             }
         }
+
         return $data;
     }
 
@@ -1221,7 +1361,7 @@ class AdminWebsitePageController extends Controller
         $logoFile = $request->file('logo');
         $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
         $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
-        $dir = $prefix . 'website';
+        $dir = $prefix.'website';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
@@ -1254,10 +1394,11 @@ class AdminWebsitePageController extends Controller
             if ($err === \UPLOAD_ERR_INI_SIZE || $err === \UPLOAD_ERR_FORM_SIZE) {
                 $uploadMax = ini_get('upload_max_filesize');
                 $postMax = ini_get('post_max_size');
-                $msg = 'Het bestand wordt door de server geweigerd (te groot). Serverlimiet: upload_max_filesize=' . $uploadMax . ', post_max_size=' . $postMax . '. Stel in php.ini beide in op minimaal 6M en herstart de webserver.';
+                $msg = 'Het bestand wordt door de server geweigerd (te groot). Serverlimiet: upload_max_filesize='.$uploadMax.', post_max_size='.$postMax.'. Stel in php.ini beide in op minimaal 6M en herstart de webserver.';
             } else {
                 $msg = 'Upload mislukt. Probeer een kleiner bestand of controleer de serverinstellingen.';
             }
+
             return response()->json([
                 'message' => $msg,
                 'errors' => ['image' => [$msg]],
@@ -1287,7 +1428,7 @@ class AdminWebsitePageController extends Controller
 
         $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
         $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
-        $dir = $prefix . 'website/hero';
+        $dir = $prefix.'website/hero';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
@@ -1299,7 +1440,7 @@ class AdminWebsitePageController extends Controller
             }
         }
         $path = $file->store($dir, 'public');
-        $url = '/storage/' . ltrim($path, '/');
+        $url = '/storage/'.ltrim($path, '/');
 
         return response()->json([
             'success' => true,
@@ -1324,12 +1465,12 @@ class AdminWebsitePageController extends Controller
         $file = $request->file('document');
         $moduleName = $this->moduleContext->getModuleNameFromRequest($request);
         $prefix = $moduleName ? $this->moduleContext->getUploadPathPrefix($moduleName) : '';
-        $dir = $prefix . 'website/documents';
+        $dir = $prefix.'website/documents';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
         $path = $file->store($dir, 'public');
-        $url = '/storage/' . ltrim($path, '/');
+        $url = '/storage/'.ltrim($path, '/');
 
         return response()->json([
             'success' => true,
@@ -1342,6 +1483,7 @@ class AdminWebsitePageController extends Controller
     {
         $this->ensureSuperAdmin();
         $website_page->delete();
+
         return redirect()->route('admin.website-pages.index')->with('success', 'Pagina verwijderd.');
     }
 
@@ -1351,7 +1493,6 @@ class AdminWebsitePageController extends Controller
      * connection()-methode op de Unique-rule aanroept.
      *
      * @param  string|null  $connection  Database connection (bijv. module_taxiroyaal) of null voor default
-     * @param  string|null  $moduleName
      * @param  int|null  $ignoreId  Bij update: id van de huidige pagina om te negeren
      * @return \Closure|Rule
      */
@@ -1385,6 +1526,7 @@ class AdminWebsitePageController extends Controller
         if ($ignoreId !== null) {
             $rule->ignore($ignoreId);
         }
+
         return $rule;
     }
 
@@ -1441,12 +1583,13 @@ class AdminWebsitePageController extends Controller
             return (int) $module->frontend_theme_id;
         }
         $active = $this->websiteBuilder->getActiveTheme();
+
         return $active ? (int) $active->id : null;
     }
 
     protected function ensureSuperAdmin(): void
     {
-        if (!auth()->check() || !auth()->user()->hasRole('super-admin')) {
+        if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Alleen super-admins hebben toegang tot website-pagina\'s.');
         }
     }

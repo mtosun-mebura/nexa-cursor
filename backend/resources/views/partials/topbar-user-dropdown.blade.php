@@ -10,7 +10,7 @@
         @else
             <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
                 class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
-                src="{{ asset('assets/media/avatars/300-2.png') }}" />
+                src="{{ asset(config('nexa.default_user_avatar')) }}" />
         @endif
     </div>
     <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
@@ -22,7 +22,7 @@
             @else
                 <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
                     class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
-                    src="{{ asset('assets/media/avatars/300-2.png') }}" />
+                    src="{{ asset(config('nexa.default_user_avatar')) }}" />
             @endif
             <div class="flex flex-col gap-1.5">
                 <span class="text-sm font-semibold leading-none text-foreground">

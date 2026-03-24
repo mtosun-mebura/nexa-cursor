@@ -140,9 +140,15 @@
                         <textarea name="app_description" id="app_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('app_description', $app_description ?? '') }}</textarea>
                         <p class="text-xs text-muted-foreground mt-1">Gebruikt o.a. in meta description voor zoekmachines.</p>
                     </div>
+                    @php
+                        $dashOld = old('dashboard_link_visible', $dashboard_link_visible ?? false);
+                        $dashChecked = $dashOld === true || $dashOld === 1 || $dashOld === '1' || $dashOld === 'true';
+                    @endphp
                     <div class="mb-6 flex flex-wrap items-center gap-3">
                         <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
-                        <input type="checkbox" name="dashboard_link_visible" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ old('dashboard_link_visible', $dashboard_link_visible ?? true) ? 'checked' : '' }}>
+                        {{-- Eén POST-veld: hidden. kt-switch + dubbele name= veroorzaakte array/false boolean in Laravel → sleutel werd nooit betrouwbaar opgeslagen. --}}
+                        <input type="hidden" name="dashboard_link_visible" id="dashboard_link_visible_hidden" value="{{ $dashChecked ? '1' : '0' }}">
+                        <input type="checkbox" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ $dashChecked ? 'checked' : '' }} autocomplete="off">
                         <span class="text-sm text-muted-foreground">Toon de knop in de header die naar het dashboard gaat.</span>
                     </div>
                     <div class="mb-6">
@@ -228,5 +234,19 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    var form = document.querySelector('form.module-config-form');
+    var cb = document.getElementById('dashboard_link_visible');
+    var hidden = document.getElementById('dashboard_link_visible_hidden');
+    if (!form || !cb || !hidden) return;
+    function syncDashboardHidden() {
+        hidden.value = cb.checked ? '1' : '0';
+    }
+    cb.addEventListener('change', syncDashboardHidden);
+    form.addEventListener('submit', syncDashboardHidden);
+})();
+</script>
 
 @endsection

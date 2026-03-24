@@ -473,6 +473,28 @@
     }
   }
 
+  /*
+   * Home-secties dropdown (website-pagina bewerken): in dark mode moet hover grijs zijn.
+   * Tailwind `dark:hover:*` kan hier verliezen van `hover:bg-gray-100` (cascade / custom dark-variant),
+   * waardoor het lijkt alsof dark mode niet werkt (wit vlak). Vaste selector + !important wint altijd.
+   */
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover,
+  body.dark #home-sections-add-menu button.home-sections-add-type:hover,
+  body.dark #home-sections-add-menu button.home-sections-add-component:hover {
+    background-color: #9ca3af !important; /* gray-400 */
+    color: #0f172a !important;
+  }
+
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover .text-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover .text-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover .text-muted-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover .text-muted-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover svg,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover svg {
+    color: #0f172a !important;
+  }
+
   /* Home-sections: vaste breedte 400px voor korte tekstvelden (max-width werkt gegarandeerd) */
   .home-section-input-400 {
     width: 100%;

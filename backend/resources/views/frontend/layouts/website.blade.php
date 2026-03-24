@@ -61,21 +61,43 @@
         .fe-logo-dark { display: none !important; }
         html.dark .fe-logo-light { display: none !important; }
         html.dark .fe-logo-dark { display: block !important; }
-        /* Previewbalk: zachtere, minder felle kleur in light en dark mode */
+        /* Previewbalk: zachter oranje; één regel; knop links, titel gecentreerd in resterende ruimte */
         .preview-bar {
-            background-color: #9a3412 !important;
-            color: #fff7ed;
-            border-bottom: 1px solid rgba(255, 237, 213, 0.24);
+            background-color: #f97316 !important;
+            color: #ffffff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .preview-bar a { color: #fff7ed; }
-        .preview-bar a:hover { color: #fff; }
         html.dark .preview-bar {
-            background-color: #7c2d12 !important;
-            color: #fff7ed;
-            border-bottom: 1px solid rgba(255, 237, 213, 0.2);
+            background-color: #f97316 !important;
+            color: #ffffff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
-        html.dark .preview-bar a { color: #fff7ed; }
-        html.dark .preview-bar a:hover { color: #fff; }
+        .preview-bar-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            line-height: 1.2;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 0.375rem;
+            background-color: transparent;
+            border: 1px solid #ffffff;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .preview-bar-back:hover {
+            background-color: rgba(255, 255, 255, 0.12);
+            color: #ffffff !important;
+        }
+        .preview-bar-back:focus {
+            outline: 2px solid rgba(255, 255, 255, 0.85);
+            outline-offset: 2px;
+        }
+        .preview-bar-back svg {
+            flex-shrink: 0;
+        }
         /* Modern home: donkere secties in dark mode (fallback zodat blokken altijd donker zijn) */
         html.dark .modern-home-stats,
         html.dark .modern-home-waarom,
@@ -202,9 +224,12 @@
 <body class="min-h-screen antialiased flex flex-col theme-{{ $themeSlug ?? 'modern' }} bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" style="font-family: var(--theme-font-body);">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">Spring naar hoofdinhoud</a>
     @if(isset($isPreview) && $isPreview && isset($previewEditUrl))
-    <div class="preview-bar sticky top-0 z-[100] flex items-center justify-center gap-4 py-2 px-4 text-sm font-medium">
-        <span>Dit is een voorbeeld met het gekozen thema.</span>
-        <a href="{{ $previewEditUrl }}" class="underline hover:no-underline font-semibold">Terug naar bewerken</a>
+    <div class="preview-bar sticky top-0 z-[100] flex h-10 w-full flex-nowrap items-center gap-3 px-4 text-sm font-medium leading-none text-white" role="banner" aria-label="Voorbeeldmodus">
+        <a href="{{ $previewEditUrl }}" class="preview-bar-back shrink-0">
+            <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Terug naar bewerken
+        </a>
+        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-none">Dit is een voorbeeld met het gekozen thema.</span>
     </div>
     @endif
     @if(!empty($isStaging) && !empty($stagingBackUrl))
@@ -281,7 +306,7 @@
                         <svg id="theme-icon-moon" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>
                     @endif
-                    @if($branding['dashboard_link_visible'] ?? true)
+                    @if($branding['dashboard_link_visible'] ?? false)
                     @guest
                     <a href="{{ route('login') }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">Inloggen</a>
                     @else
@@ -289,8 +314,15 @@
                     @endguest
                     @endif
                 </div>
-                {{-- Hamburger rechtsboven: rechts van thema-icoon; zichtbaar onder 1025px (via CSS media query) --}}
+                {{-- Smalle viewport: desktop-kolom met Mijn Nexa is verborgen; knop hier tonen zodat hij niet alleen in het dichte hamburgerpaneel zit --}}
                 <div id="website-hamburger-row" class="hidden items-center gap-2 ml-auto flex-shrink-0">
+                    @if($branding['dashboard_link_visible'] ?? false)
+                    @guest
+                    <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">Inloggen</a>
+                    @else
+                    <a href="{{ route('dashboard') }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
+                    @endguest
+                    @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
                     <button type="button" id="theme-toggle-btn-mobile" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Wissel thema">
                         <svg id="theme-icon-sun-mobile" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -327,16 +359,7 @@
                 <a href="{{ route('agenda') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Agenda</a>
                 @endif
                 @endauth
-                @if($branding['dashboard_link_visible'] ?? true)
-                {{-- Streep boven dashboard-link/Inloggen als onderscheid met normale menuitems --}}
-                <div class="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
-                    @guest
-                    <a href="{{ route('login') }}" class="block px-4 py-3 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">Inloggen</a>
-                    @else
-                    <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
-                    @endguest
-                </div>
-                @endif
+                {{-- Mijn Nexa / Inloggen: zie #website-hamburger-row (smalle viewport) en #website-desktop-right (breed) --}}
             </div>
         </div>
     </header>

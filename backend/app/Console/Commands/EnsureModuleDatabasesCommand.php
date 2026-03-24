@@ -16,8 +16,14 @@ class EnsureModuleDatabasesCommand extends Command
 
     public function handle(ModuleDatabaseService $dbService): int
     {
-        if (!$dbService->supportsModuleDatabases()) {
+        if (config('module_database.use_single_database', false)) {
+            $this->info('Single-database mode is aan (MODULE_USE_SINGLE_DATABASE). Geen aparte module-databases; alle tabellen staan in de hoofddatabase.');
+
+            return self::SUCCESS;
+        }
+        if (! $dbService->supportsModuleDatabases()) {
             $this->error('Module-databases worden alleen ondersteund bij MySQL of PostgreSQL.');
+
             return self::FAILURE;
         }
 
@@ -28,6 +34,7 @@ class EnsureModuleDatabasesCommand extends Command
 
         if (empty($modules)) {
             $this->warn($moduleName ? "Geen geïnstalleerde module gevonden met naam: {$moduleName}." : 'Geen geïnstalleerde modules.');
+
             return self::SUCCESS;
         }
 
@@ -35,23 +42,24 @@ class EnsureModuleDatabasesCommand extends Command
             $dbName = $dbService->getModuleDatabaseName($name);
             $exists = false;
             if (config('database.default') === 'pgsql') {
-                $exists = DB::selectOne("SELECT 1 FROM pg_database WHERE datname = ?", [$dbName]) !== null;
+                $exists = DB::selectOne('SELECT 1 FROM pg_database WHERE datname = ?', [$dbName]) !== null;
             } elseif (in_array(config('database.default'), ['mysql', 'mariadb'], true)) {
-                $r = DB::select("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?", [$dbName]);
-                $exists = !empty($r);
+                $r = DB::select('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?', [$dbName]);
+                $exists = ! empty($r);
             }
 
             if ($exists) {
                 $this->info("Database {$dbName} bestaat al.");
+
                 continue;
             }
 
             $this->info("Database {$dbName} aanmaken voor module {$name}...");
             try {
                 $dbService->setupModuleDatabase($name);
-                $this->info("  → Klaar.");
+                $this->info('  → Klaar.');
             } catch (\Throwable $e) {
-                $this->error("  → Fout: " . $e->getMessage());
+                $this->error('  → Fout: '.$e->getMessage());
             }
         }
 

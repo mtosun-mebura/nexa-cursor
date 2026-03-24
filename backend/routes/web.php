@@ -589,7 +589,10 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('settings/favicon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getFavicon'])->name('settings.favicon');
         Route::post('settings/upload-success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadSuccessImage'])->name('settings.upload-success-image');
         Route::delete('settings/remove-success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeSuccessImage'])->name('settings.remove-success-image');
+        Route::post('settings/upload-coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'uploadComingSoonImage'])->name('settings.upload-coming-soon-image');
+        Route::delete('settings/remove-coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeComingSoonImage'])->name('settings.remove-coming-soon-image');
         Route::get('settings/success-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getSuccessImage'])->name('settings.success-image');
+        Route::get('settings/coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getComingSoonImage'])->name('settings.coming-soon-image');
         
         // Website builder (Super Admin only)
         Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');

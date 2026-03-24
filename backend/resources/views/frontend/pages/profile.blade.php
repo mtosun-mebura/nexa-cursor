@@ -38,12 +38,12 @@
                  draggable="false"
                  style="transform: scale(1) translate(0px, 0px);">
           @else
-            <!-- Default Avatar Icon -->
-            <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-              <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-        </svg>
-      </div>
+            <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 p-8">
+              <img src="{{ asset(config('nexa.default_user_avatar')) }}"
+                   alt=""
+                   class="max-w-full max-h-full w-auto h-auto object-contain select-none"
+                   draggable="false">
+            </div>
           @endif
 
           <!-- Drag Overlay -->

@@ -61,133 +61,7 @@
 
         <form action="{{ route('admin.settings.general.update') }}" method="POST" enctype="multipart/form-data" id="general-settings-form">
             @csrf
-        <!-- Algemene opties. Applicatienaam, omschrijving en Mijn-omgeving-knop staan per module onder Modules Beheer > [module] > Configureren. -->
         <div class="kt-card mb-8">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Algemene opties</h3>
-            </div>
-            <div class="kt-card-content">
-                    <div class="mb-6 flex flex-wrap items-center gap-3">
-                        <label class="kt-form-label mb-0">AI-assistent tonen</label>
-                        <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
-                        <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
-                    </div>
-                    <div class="flex justify-end">
-                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-                    </div>
-            </div>
-        </div>
-
-        <!-- Formulier succesbericht (informatieaanvraag / contactformulier op de website) -->
-        <div class="kt-card mb-8">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Formulier succesbericht</h3>
-            </div>
-            <div class="kt-card-content">
-                <p class="text-sm text-muted-foreground mb-4">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
-                    <div class="mb-4">
-                        <label for="info_request_success_title" class="kt-form-label mb-2">Hoofdtekst</label>
-                        <input type="text" name="info_request_success_title" id="info_request_success_title" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_title', $infoRequestSuccessTitle ?? 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.') }}" maxlength="500" placeholder="Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.">
-                        <p class="text-xs text-muted-foreground mt-1">Grote regel onder het icoon/plaatje (max. 500 tekens)</p>
-                    </div>
-                    <div class="mb-4">
-                        <label for="info_request_success_subtitle" class="kt-form-label mb-2">Ondertitel</label>
-                        <input type="text" name="info_request_success_subtitle" id="info_request_success_subtitle" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? 'Er wordt binnenkort contact met u opgenomen.') }}" maxlength="500" placeholder="Er wordt binnenkort contact met u opgenomen.">
-                        <p class="text-xs text-muted-foreground mt-1">Kleinere regel eronder (max. 500 tekens)</p>
-                    </div>
-                    <div class="mb-4">
-                        <label for="info_request_success_footer" class="kt-form-label mb-2">Footertekst</label>
-                        <input type="text" name="info_request_success_footer" id="info_request_success_footer" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_footer', $infoRequestSuccessFooter ?? 'Uw bericht is succesvol verzonden.') }}" maxlength="500" placeholder="Uw bericht is succesvol verzonden.">
-                        <p class="text-xs text-muted-foreground mt-1">Regel onderaan de bedanktmelding (max. 500 tekens)</p>
-                    </div>
-                    <div class="mb-4">
-                        <div class="flex items-center gap-3 flex-nowrap">
-                            <input type="checkbox" name="info_request_success_texts_enabled" id="info_request_success_texts_enabled" class="kt-switch kt-switch-sm shrink-0" value="0" {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'checked' : '' }}>
-                            <label for="info_request_success_texts_enabled" class="kt-form-label mb-0">Teksten uitschakelen</label>
-                        </div>
-                        <p class="text-sm text-muted-foreground mt-1">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</p>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="kt-form-label mb-2">Plaatje of icoon</label>
-                        <p class="text-sm text-muted-foreground mb-3">Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.</p>
-                        <div class="flex flex-wrap gap-6 items-start">
-                            <div class="flex flex-col gap-2">
-                                <span class="text-xs font-medium text-secondary-foreground">Plaatje</span>
-                                <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full items-start">
-                                    <div id="success-image-preview-wrap" class="flex flex-col items-center {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
-                                        <img alt="Success preview" class="h-[200px] w-auto object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
-                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive mt-2" id="success-image-remove-btn" title="Plaatje verwijderen" aria-label="Plaatje verwijderen">
-                                            <i class="ki-filled ki-trash text-lg"></i>
-                                        </button>
-                                    </div>
-                                    <div class="flex flex-col flex-1 min-w-[180px]" id="success-image-upload-wrap">
-                                        <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg cursor-pointer hover:border-primary transition-colors" id="success-image-upload-area" role="button" tabindex="0" title="Klik of sleep een afbeelding">
-                                            <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full pointer-events-none">
-                                                <i class="ki-filled ki-picture text-2xl text-primary mb-1"></i>
-                                                <span class="text-mono text-xs font-medium text-primary">Klik of Sleep & Drop</span>
-                                                <span class="text-xs text-secondary-foreground mt-0.5">SVG, PNG, JPG, GIF, WebP (max. 5MB)</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <input type="file" name="info_request_success_image_file" id="success-image-input" accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml,image/webp" class="hidden">
-                                <p id="success-image-error" class="text-sm text-destructive mt-2 hidden" role="alert"></p>
-                                {{-- Modal: plaatje groot bekijken --}}
-                                <div id="success-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Afbeelding groot">
-                                    <div class="relative max-h-[90vh] max-w-[90vw] p-4" id="success-image-modal-inner">
-                                        <button type="button" id="success-image-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="Sluiten">
-                                            <i class="ki-filled ki-cross text-xl"></i>
-                                        </button>
-                                        <img id="success-image-modal-img" src="" alt="Grote weergave" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <span class="text-xs font-medium text-secondary-foreground">Icoon (als geen plaatje)</span>
-                                <div class="flex items-start gap-3">
-                                    <div class="flex items-center justify-center w-16 h-16 rounded-lg border border-input bg-muted/30 shrink-0" id="success-icon-preview">
-                                        <i class="ki-filled {{ old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-check-circle') }} text-3xl text-green-600"></i>
-                                    </div>
-                                    <select name="info_request_success_icon" id="info_request_success_icon" class="kt-select w-56" data-kt-select="true">
-                                        @php
-                                            $successIcons = [
-                                                'ki-filled ki-check-circle' => 'Vink in cirkel',
-                                                'ki-filled ki-check' => 'Vinkje',
-                                                'ki-filled ki-like' => 'Duim omhoog',
-                                                'ki-filled ki-love' => 'Hart (like)',
-                                                'ki-filled ki-heart' => 'Hart',
-                                                'ki-filled ki-star' => 'Ster',
-                                                'ki-filled ki-sms' => 'Bericht',
-                                                'ki-filled ki-rocket' => 'Raket',
-                                            ];
-                                            $currentIcon = old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-filled ki-check-circle');
-                                        @endphp
-                                        @foreach($successIcons as $class => $label)
-                                            <option value="{{ $class }}" {{ $currentIcon === $class ? 'selected' : '' }}>{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <span class="text-xs font-medium text-secondary-foreground">Grootte</span>
-                                <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-24">
-                                    @foreach([48, 64, 80, 96, 120] as $px)
-                                        <option value="{{ $px }}" {{ (old('info_request_success_icon_size', $infoRequestSuccessSize ?? '80')) == (string)$px ? 'selected' : '' }}>{{ $px }}px</option>
-                                    @endforeach
-                                </select>
-                                <p class="text-xs text-muted-foreground">Grootte icoon of plaatje</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-                    </div>
-            </div>
-        </div>
-
-        <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">Logo & Favicon</h3>
             </div>
@@ -363,6 +237,132 @@
 
             </div>
         </div>
+        <!-- Algemene opties. Applicatienaam, omschrijving en Mijn-omgeving-knop staan per module onder Modules Beheer > [module] > Configureren. -->
+        <div class="kt-card mb-8">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Algemene opties</h3>
+            </div>
+            <div class="kt-card-content">
+                    <div class="mb-6 flex flex-wrap items-center gap-3">
+                        <label class="kt-form-label mb-0">AI-assistent tonen</label>
+                        <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
+                        <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                    </div>
+            </div>
+        </div>
+
+        <!-- Formulier succesbericht (informatieaanvraag / contactformulier op de website) -->
+        <div class="kt-card mb-8">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Formulier succesbericht</h3>
+            </div>
+            <div class="kt-card-content">
+                <p class="text-sm text-muted-foreground mb-4">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
+                    <div class="mb-4">
+                        <label for="info_request_success_title" class="kt-form-label mb-2">Hoofdtekst</label>
+                        <input type="text" name="info_request_success_title" id="info_request_success_title" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_title', $infoRequestSuccessTitle ?? 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.') }}" maxlength="500" placeholder="Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.">
+                        <p class="text-xs text-muted-foreground mt-1">Grote regel onder het icoon/plaatje (max. 500 tekens)</p>
+                    </div>
+                    <div class="mb-4">
+                        <label for="info_request_success_subtitle" class="kt-form-label mb-2">Ondertitel</label>
+                        <input type="text" name="info_request_success_subtitle" id="info_request_success_subtitle" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? 'Er wordt binnenkort contact met u opgenomen.') }}" maxlength="500" placeholder="Er wordt binnenkort contact met u opgenomen.">
+                        <p class="text-xs text-muted-foreground mt-1">Kleinere regel eronder (max. 500 tekens)</p>
+                    </div>
+                    <div class="mb-4">
+                        <label for="info_request_success_footer" class="kt-form-label mb-2">Footertekst</label>
+                        <input type="text" name="info_request_success_footer" id="info_request_success_footer" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_footer', $infoRequestSuccessFooter ?? 'Uw bericht is succesvol verzonden.') }}" maxlength="500" placeholder="Uw bericht is succesvol verzonden.">
+                        <p class="text-xs text-muted-foreground mt-1">Regel onderaan de bedanktmelding (max. 500 tekens)</p>
+                    </div>
+                    <div class="mb-4">
+                        <div class="flex items-center gap-3 flex-nowrap">
+                            <input type="checkbox" name="info_request_success_texts_enabled" id="info_request_success_texts_enabled" class="kt-switch kt-switch-sm shrink-0" value="0" {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'checked' : '' }}>
+                            <label for="info_request_success_texts_enabled" class="kt-form-label mb-0">Teksten uitschakelen</label>
+                        </div>
+                        <p class="text-sm text-muted-foreground mt-1">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="kt-form-label mb-2">Plaatje of icoon</label>
+                        <p class="text-sm text-muted-foreground mb-3">Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.</p>
+                        <div class="flex flex-wrap gap-6 items-start">
+                            <div class="flex flex-col gap-2">
+                                <span class="text-xs font-medium text-secondary-foreground">Plaatje</span>
+                                <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full items-start">
+                                    <div id="success-image-preview-wrap" class="flex flex-col items-center {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
+                                        <img alt="Success preview" class="h-[200px] w-auto object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive mt-2" id="success-image-remove-btn" title="Plaatje verwijderen" aria-label="Plaatje verwijderen">
+                                            <i class="ki-filled ki-trash text-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-col flex-1 min-w-[180px]" id="success-image-upload-wrap">
+                                        <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg cursor-pointer hover:border-primary transition-colors" id="success-image-upload-area" role="button" tabindex="0" title="Klik of sleep een afbeelding">
+                                            <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full pointer-events-none">
+                                                <i class="ki-filled ki-picture text-2xl text-primary mb-1"></i>
+                                                <span class="text-mono text-xs font-medium text-primary">Klik of Sleep & Drop</span>
+                                                <span class="text-xs text-secondary-foreground mt-0.5">SVG, PNG, JPG, GIF, WebP (max. 5MB)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="file" name="info_request_success_image_file" id="success-image-input" accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml,image/webp" class="hidden">
+                                <p id="success-image-error" class="text-sm text-destructive mt-2 hidden" role="alert"></p>
+                                {{-- Modal: plaatje groot bekijken --}}
+                                <div id="success-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Afbeelding groot">
+                                    <div class="relative max-h-[90vh] max-w-[90vw] p-4" id="success-image-modal-inner">
+                                        <button type="button" id="success-image-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="Sluiten">
+                                            <i class="ki-filled ki-cross text-xl"></i>
+                                        </button>
+                                        <img id="success-image-modal-img" src="" alt="Grote weergave" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="text-xs font-medium text-secondary-foreground">Icoon (als geen plaatje)</span>
+                                <div class="flex items-start gap-3">
+                                    <div class="flex items-center justify-center w-16 h-16 rounded-lg border border-input bg-muted/30 shrink-0" id="success-icon-preview">
+                                        <i class="ki-filled {{ old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-check-circle') }} text-3xl text-green-600"></i>
+                                    </div>
+                                    <select name="info_request_success_icon" id="info_request_success_icon" class="kt-select w-56" data-kt-select="true">
+                                        @php
+                                            $successIcons = [
+                                                'ki-filled ki-check-circle' => 'Vink in cirkel',
+                                                'ki-filled ki-check' => 'Vinkje',
+                                                'ki-filled ki-like' => 'Duim omhoog',
+                                                'ki-filled ki-love' => 'Hart (like)',
+                                                'ki-filled ki-heart' => 'Hart',
+                                                'ki-filled ki-star' => 'Ster',
+                                                'ki-filled ki-sms' => 'Bericht',
+                                                'ki-filled ki-rocket' => 'Raket',
+                                            ];
+                                            $currentIcon = old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-filled ki-check-circle');
+                                        @endphp
+                                        @foreach($successIcons as $class => $label)
+                                            <option value="{{ $class }}" {{ $currentIcon === $class ? 'selected' : '' }}>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <span class="text-xs font-medium text-secondary-foreground">Grootte</span>
+                                <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-24">
+                                    @foreach([48, 64, 80, 96, 120] as $px)
+                                        <option value="{{ $px }}" {{ (old('info_request_success_icon_size', $infoRequestSuccessSize ?? '80')) == (string)$px ? 'selected' : '' }}>{{ $px }}px</option>
+                                    @endforeach
+                                </select>
+                                <p class="text-xs text-muted-foreground">Grootte icoon of plaatje</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                    </div>
+            </div>
+        </div>
+
         </form>
     </div>
 </div>

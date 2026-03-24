@@ -127,26 +127,21 @@ De kolom `job_title_id` / `function` op `users` is ook Skillmatching-specifiek (
 
 ## Migratie-paden en gedrag
 
-Migraties zijn opgesplitst in:
+De pre-2026-baseline staat geconsolideerd in **`app/Database/Pre2026Baseline.php`**. Elke stap is getagd met een set: **`core`**, **`shared`**, **`taxiroyaal`**, **`skillmatching`** (zelfde inhoud als vroeger per map).
 
-- **`database/migrations/core`** – o.a. `modules`-tabel (wordt als eerste gedraaid).
-- **`database/migrations/shared`** – standaard tabellen (users, companies, permissions, notifications, chats, payments, branches, website, enz.).
-- **`database/migrations/modules/taxiroyaal`** – alleen `vehicles` en `ride_requests` (+ aanpassingen).
-- **`database/migrations/modules/skillmatching`** – alleen Skillmatching-tabellen (vacancies, candidates, matches, interviews, enz.).
+Ze worden uitgevoerd door **`database/migrations/2026_04_20_000001_install_nexa_application_schema.php`** (één rij in `migrations`), of gefilterd per set voor een **module-database** via `Pre2026Baseline::runForSetsOnConnection`.
 
-Configuratie: `config/module_migrations.php` (paths en `module_migration_sets`).
+Configuratie: `config/module_migrations.php` (`module_migration_sets`). Live map **`database/migrations/modules/{naam}/`** voor incrementele module-migraties op de standaard-DB (`ModuleMigrationPathResolver`).
 
 ### Hoofddatabase (nexa)
 
 Voor een **nieuwe of volledige install** van de hoofddatabase:
 
 ```bash
-php artisan migrate:all
+php artisan migrate
 ```
 
-Dit draait achtereenvolgens: core → shared → modules/taxiroyaal → modules/skillmatching. Daarna eventueel `db:seed` (RoleSeeder) voor rollen/superadmin op de hoofddatabase.
-
-Standaard `php artisan migrate` gebruikt alleen het pad `database/migrations` (root); voor een volledig schema gebruik `migrate:all`.
+(`migrate:all` is een alias.) Daarna eventueel `db:seed` (RoleSeeder) voor rollen/superadmin op de hoofddatabase.
 
 ### Module-databases (nexa_taxiroyaal, nexa_skillmatching)
 
@@ -155,3 +150,11 @@ Standaard `php artisan migrate` gebruikt alleen het pad `database/migrations` (r
   - **nexa_taxiroyaal**: core + shared + modules/taxiroyaal (geen Skillmatching-tabellen).
   - **nexa_skillmatching**: core + shared + modules/skillmatching (geen vehicles/ride_requests).
 - Daarna wordt alleen de **superadmin** ge seed (RoleSeeder); rechten en rollen zijn gebaseerd op de **pagina’s van die module** (via `registerPermissions()`). Tabellen blijven verder leeg.
+
+### Eén database (single-database mode)
+
+Met `MODULE_USE_SINGLE_DATABASE=true` in je `.env` worden **geen** aparte module-databases aangemaakt. Alle tabellen (core, shared én alle module-tabellen zoals `vehicles`, `ride_requests`) staan dan in de **hoofddatabase** (bijv. `nexa`). Handig als je maar één schema/database wilt beheren.
+
+- Bij **installatie** van een module worden de **module-migraties** op de hoofddatabase gedraaid (archief of `database/migrations/modules/{module}/` als die map gevuld is).
+- Bij **verwijderen** van een module wordt geen database gedropt; de module-tabellen blijven in de hoofddatabase staan.
+- In de admin (Modules) verdwijnen de knoppen "Database reset" en "Database dummydata" en de vermelding van een aparte databasenaam.

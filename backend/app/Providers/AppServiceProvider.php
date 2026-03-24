@@ -4,15 +4,16 @@ namespace App\Providers;
 
 use App\Models\Module as ModuleModel;
 use App\Models\WebsitePage;
-use App\Services\ModuleDatabaseService;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\View;
-use Illuminate\Support\Facades\Route;
 use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
+use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -33,25 +34,18 @@ class AppServiceProvider extends ServiceProvider
         $this->registerWebsitePageRouteBinding();
         $this->loadGoogleMapsApiKeyFromRootEnv();
 
-        if ($this->app->environment('testing')) {
-            $this->loadMigrationsFrom(database_path('migrations/shared'));
-            if (is_dir(database_path('migrations/core'))) {
-                $this->loadMigrationsFrom(database_path('migrations/core'));
-            }
-        }
-
         View::composer('frontend.layouts.website', function ($view) {
-            if (!isset($view->getData()['googleMapsApiKey']) || $view->getData()['googleMapsApiKey'] === '') {
+            if (! isset($view->getData()['googleMapsApiKey']) || $view->getData()['googleMapsApiKey'] === '') {
                 $key = trim((string) (config('maps.api_key') ?? ''));
                 if ($key === '') {
                     $key = app(EnvService::class)->getGoogleMapsApiKey();
                 }
                 $view->with('googleMapsApiKey', $key);
             }
-            if (!array_key_exists('googleMapsMapId', $view->getData())) {
+            if (! array_key_exists('googleMapsMapId', $view->getData())) {
                 $view->with('googleMapsMapId', app(EnvService::class)->getGoogleMapsMapId());
             }
-            if (!array_key_exists('showSkillmatchingAppLinks', $view->getData())) {
+            if (! array_key_exists('showSkillmatchingAppLinks', $view->getData())) {
                 $view->with('showSkillmatchingAppLinks', app(ModuleManager::class)->isActive('skillmatching'));
             }
         });
@@ -60,15 +54,15 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
-        
+
         // Ensure Sanctum uses api guard by default for SPA/API
         config(['auth.defaults.guard' => 'api']);
-        
+
         // Register SMS notification channel
         Notification::extend('sms', function ($app) {
-            return new SmsChannel();
+            return new SmsChannel;
         });
-        
+
         // Register ModuleServiceProvider
         $this->app->register(\App\Providers\ModuleServiceProvider::class);
     }
@@ -79,12 +73,35 @@ class AppServiceProvider extends ServiceProvider
     private function registerWebsitePageRouteBinding(): void
     {
         Route::bind('website_page', function (string $value) {
-            $module = request()->query('module');
             $dbService = $this->app->make(ModuleDatabaseService::class);
-            if ($module && is_string($module) && trim($module) !== '' && $dbService->supportsModuleDatabases()) {
-                $conn = $dbService->getModuleConnectionName(trim($module));
-                return WebsitePage::on($conn)->with('theme')->findOrFail($value);
+            $module = request()->query('module');
+            // Bij POST/PUT kan ?module= soms ontbreken (proxy, redirect, bookmark); het formulier stuurt
+            // altijd module_name mee → zelfde DB als bij bewerken, anders wordt de verkeerde connection
+            // geüpdatet en lijkt o.a. show_in_menu niet opgeslagen.
+            if ((! is_string($module) || trim($module) === '') && $dbService->supportsModuleDatabases()) {
+                if (request()->isMethod('post') || request()->isMethod('put') || request()->isMethod('patch')) {
+                    $fromBody = request()->input('module_name');
+                    if (is_string($fromBody) && trim($fromBody) !== '') {
+                        $module = trim($fromBody);
+                    }
+                }
             }
+            if ($module && is_string($module) && trim($module) !== '' && $dbService->supportsModuleDatabases()) {
+                $moduleTrim = trim($module);
+                $conn = $dbService->getModuleConnectionName($moduleTrim);
+                // Boot registreert alleen geïnstalleerde modules; ?module= kan eerder komen of ontbreken in de lijst.
+                if (! Config::has("database.connections.{$conn}")) {
+                    try {
+                        $dbService->registerConnection($moduleTrim);
+                    } catch (\Throwable) {
+                        // Geen geldige module-DB-config: val terug op standaard-connection (geen 500).
+                    }
+                }
+                if (Config::has("database.connections.{$conn}")) {
+                    return WebsitePage::on($conn)->with('theme')->findOrFail($value);
+                }
+            }
+
             return WebsitePage::with('theme')->findOrFail($value);
         });
     }
@@ -95,11 +112,11 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registerModuleDatabaseConnections(): void
     {
-        if (!Schema::hasTable('modules')) {
+        if (! Schema::hasTable('modules')) {
             return;
         }
         $dbService = $this->app->make(ModuleDatabaseService::class);
-        if (!$dbService->supportsModuleDatabases()) {
+        if (! $dbService->supportsModuleDatabases()) {
             return;
         }
         foreach (ModuleModel::where('installed', true)->pluck('name') as $name) {
@@ -120,11 +137,11 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
         $rootEnv = \App\Services\EnvService::getRootEnvPath();
-        if (!is_readable($rootEnv)) {
+        if (! is_readable($rootEnv)) {
             return;
         }
         $lines = @file($rootEnv, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (!is_array($lines)) {
+        if (! is_array($lines)) {
             return;
         }
         foreach ($lines as $line) {
@@ -139,6 +156,7 @@ class AppServiceProvider extends ServiceProvider
                     $value = substr($value, 1, -1);
                 }
                 config(['maps.api_key' => trim($value)]);
+
                 return;
             }
         }

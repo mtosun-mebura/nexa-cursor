@@ -231,7 +231,22 @@
             extensions: extensions,
             content: initialContent || undefined,
             editorProps: {
-                attributes: { class: 'format lg:format-lg dark:format-invert focus:outline-none format-blue max-w-none min-h-[280px]' }
+                attributes: { class: 'format lg:format-lg dark:format-invert focus:outline-none format-blue max-w-none min-h-[280px]' },
+                handleDOMEvents: {
+                    keydown: function (_view, event) {
+                        if ((event.metaKey || event.ctrlKey) && (event.key === 's' || event.key === 'S' || event.keyCode === 83 || event.which === 83)) {
+                            event.preventDefault();
+                            if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') {
+                                window.syncAllFlowbiteWysiwygEditors();
+                            }
+                            if (typeof window.__submitWebsitePageFormFromShortcut === 'function') {
+                                window.__submitWebsitePageFormFromShortcut();
+                            }
+                            return true;
+                        }
+                        return false;
+                    }
+                }
             },
             onUpdate: ({ editor: e }) => { textarea.value = e.getHTML(); }
         });

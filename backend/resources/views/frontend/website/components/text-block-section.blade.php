@@ -5,7 +5,7 @@
     $imageUrlRaw = $sectionData['image_url'] ?? '';
     $imageUrl = $imageUrlRaw !== '' ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imageUrlRaw) : '';
     $widthPercent = (int) ($sectionData['width_percent'] ?? 100);
-    $widthPercent = max(60, min(100, $widthPercent));
+    $widthPercent = max(30, min(100, $widthPercent));
     $showSideComponent = $sideKey !== '' && in_array($alignment, ['left', 'right'], true);
     $showSideImage = $imageUrl !== '' && in_array($alignment, ['left', 'right'], true);
     $showSideColumn = $showSideComponent || $showSideImage;

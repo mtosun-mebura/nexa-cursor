@@ -48,7 +48,7 @@
                 <tbody>
                     @forelse($pages as $page)
                         @php $pageModule = $page->module_name ? '?module=' . rawurlencode($page->module_name) : ''; @endphp
-                        <tr class="website-page-row cursor-pointer hover:bg-muted/50 transition-colors" data-preview-url="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" role="button" tabindex="0">
+                        <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-preview-url="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" role="button" tabindex="0">
                             <td>{{ $page->sort_order }}</td>
                             <td>{{ $page->title }}</td>
                             <td><code>{{ $page->slug }}</code></td>

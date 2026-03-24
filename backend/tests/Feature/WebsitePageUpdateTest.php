@@ -6,6 +6,7 @@ use App\Models\FrontendTheme;
 use App\Models\User;
 use App\Models\WebsitePage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -18,7 +19,7 @@ class WebsitePageUpdateTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (!\Illuminate\Support\Facades\Schema::hasTable('roles')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('roles')) {
             $this->markTestSkipped('roles table (permission migrations) not available');
         }
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
@@ -78,7 +79,7 @@ class WebsitePageUpdateTest extends TestCase
         ];
 
         $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
- 
+
         $response->assertRedirect();
         $this->assertStringContainsString(route('admin.website-pages.edit', $page), $response->headers->get('Location') ?? '');
         $response->assertSessionHas('success');
@@ -136,7 +137,7 @@ class WebsitePageUpdateTest extends TestCase
         ];
 
         $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
- 
+
         $response->assertRedirect();
         $this->assertStringContainsString(route('admin.website-pages.edit', $page), $response->headers->get('Location') ?? '');
         $page->refresh();
@@ -203,5 +204,67 @@ class WebsitePageUpdateTest extends TestCase
         $order = $sections['section_order'] ?? [];
         $this->assertNotContains('component:nexa.recente_vacatures', $order, 'Removed component must not be in section_order after save');
         $this->assertSame(['hero', 'stats', 'cta'], $order);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_unchecks_show_in_menu_persists_false(): void
+    {
+        if (! Schema::hasColumn('website_pages', 'show_in_menu')) {
+            $this->markTestSkipped('show_in_menu column not migrated');
+        }
+
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $page = WebsitePage::create([
+            'slug' => 'menu-toggle-test',
+            'title' => 'Menu toggle',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'is_active' => true,
+            'show_in_menu' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => ['inherit_from_home' => false],
+                'copyright' => '',
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        // Alleen hidden input (uitgevinkt): show_in_menu=0 — geen tweede veld met dezelfde name
+        $payload = [
+            'slug' => 'menu-toggle-test',
+            'title' => 'Menu toggle',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'meta_description' => '',
+            'content' => '',
+            'is_active' => '1',
+            'show_in_menu' => '0',
+            'sort_order' => '0',
+            '_section_order' => 'hero,footer,copyright',
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+                'copyright' => '',
+                'footer' => ['inherit_from_home' => '0'],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $page->refresh();
+        $this->assertFalse(
+            (bool) $page->show_in_menu,
+            'show_in_menu moet false zijn na opslaan met alleen waarde 0'
+        );
     }
 }

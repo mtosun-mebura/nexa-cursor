@@ -30,15 +30,22 @@
                     <h3 class="kt-card-title">
                         Pagina-informatie
                     </h3>
-                    <label class="kt-label inline-flex items-center gap-2" for="show_in_menu">
-                        <input type="hidden" name="show_in_menu" value="0">
-                        <input type="checkbox"
-                               class="kt-switch kt-switch-sm"
-                               id="show_in_menu"
-                               name="show_in_menu"
-                               value="1"
-                               {{ old('show_in_menu', true) ? 'checked' : '' }}/>
-                        Menuitem
+                    @php
+                        $__menuOldSentinel = new \stdClass;
+                        $__menuOld = old('show_in_menu', $__menuOldSentinel);
+                        if ($__menuOld !== $__menuOldSentinel) {
+                            $__menuParsed = filter_var($__menuOld, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                            $__menuOn = ($__menuParsed === null) ? true : $__menuParsed;
+                        } else {
+                            $__menuOn = true;
+                        }
+                    @endphp
+                    <label class="kt-label inline-flex items-center gap-2 flex-wrap">
+                        <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
+                        <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-[120px] max-w-full shrink-0" autocomplete="off">
+                            <option value="1" {{ $__menuOn ? 'selected' : '' }}>Ja</option>
+                            <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>Nee</option>
+                        </select>
                     </label>
                     <label class="kt-label inline-flex items-center gap-2" for="is_active">
                         <input type="hidden" name="is_active" value="0">
@@ -86,7 +93,7 @@
                             </td>
                             <td>
                                 <input type="hidden" name="frontend_theme_id" id="frontend_theme_id_fixed" value="{{ $defaultTheme?->id ?? '' }}">
-                                <span class="inline-flex items-center rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-foreground border border-border dark:bg-white/15 dark:text-white dark:border-white/20">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
+                                <span class="inline-flex items-center rounded-md bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-900 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-100 dark:border-orange-400/40">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
                                 <div class="text-xs text-muted-foreground mt-1">Pagina's worden altijd getoond in het actieve thema. Wijzig het thema onder Frontend Thema's.</div>
                             </td>
                         </tr>
@@ -225,7 +232,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor het gekozen thema ({{ $defaultTheme->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde en beschikbare secties hangen af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => $createPageType !== 'home', 'emailTemplates' => $emailTemplates ?? collect()])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => true, 'emailTemplates' => $emailTemplates ?? collect()])
                 </div>
             </div>
 
@@ -242,6 +249,44 @@
         </div>
     </form>
 </div>
+<script>
+(function() {
+    var form = document.getElementById('website-page-form');
+    if (!form) return;
+    function submitPageFormFromShortcut() {
+        try {
+            sessionStorage.setItem('admin-scroll-after-save', String(window.scrollY || window.pageYOffset || 0));
+        } catch (err) {}
+        if (typeof tinymce !== 'undefined' && tinymce.triggerSave) tinymce.triggerSave();
+        if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
+        var btn = form.querySelector('button[type="submit"].kt-btn-primary') || form.querySelector('button[type="submit"]');
+        if (!btn) return;
+        if (btn.disabled) btn.disabled = false;
+        try {
+            if (typeof form.requestSubmit === 'function') form.requestSubmit(btn);
+            else btn.click();
+        } catch (err) {
+            try { btn.disabled = false; btn.click(); } catch (e2) {}
+        }
+    }
+    window.__submitWebsitePageFormFromShortcut = submitPageFormFromShortcut;
+    document.addEventListener('keydown', function(e) {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        var keyOk = (e.key === 's' || e.key === 'S');
+        var codeOk = e.keyCode === 83 || e.which === 83;
+        if (!keyOk && !codeOk) return;
+        var t = e.target;
+        if (t && typeof t.closest === 'function') {
+            if (t.closest('[role="dialog"]') || t.closest('[aria-modal="true"]') || t.closest('.modal')) return;
+            var otherForm = t.closest('form');
+            if (otherForm && otherForm !== form) return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        submitPageFormFromShortcut();
+    }, true);
+})();
+</script>
 <script>
 (function() {
     var moduleChoice = document.getElementById('module_choice');

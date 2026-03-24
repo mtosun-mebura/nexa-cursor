@@ -7,22 +7,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nexa_backend_dev  # Verschillende naam dan productie
+    container_name: nexa_backend  # Verschillende naam dan productie
     ports:
       - "8000:8000"  # Lokale development op localhost:8000
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8000
-      
-      # Database - Externe PostgreSQL (mdb.tosun.nl)
-      DB_CONNECTION: pgsql
-      DB_HOST: 192.168.178.249
-      DB_PORT: 5432
-      DB_DATABASE: nexa
-      DB_USERNAME: mtosun
-      DB_PASSWORD: ${DB_PASSWORD:-Memmo@Mdb!}  # Default voor lokale dev
-      
+      # DB_* komt uit de gemounte ./.env (o.a. DB_HOST=192.168.178.249) — niet hier overschrijven.
+
       # N8N - Externe service
       N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
       N8N_PORT: ${N8N_PORT:-5678}

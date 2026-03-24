@@ -239,6 +239,36 @@
             </div>
             @endif
             @endif
+            {{-- Overloop (gradient) over achtergrond: kleur van/naar + helderheid — alleen bij thema's met hero-achtergrond --}}
+            @if(in_array($themeSlugForOrder ?? '', ['modern', 'atom-v2'], true))
+            <div class="row-visibility-row grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border hero-overlay-row" data-section-key="{{ $sectionKey }}">
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Overloop kleur van</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="hero-{{ $sectionKey }}-overlay_color_from_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-overlay_color_from">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_from]" id="hero-{{ $sectionKey }}-overlay_color_from" class="kt-input flex-1 font-mono text-sm hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" placeholder="#1e3a8a" maxlength="7">
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-1">Startkleur van de gradient over de afbeelding.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Overloop kleur naar</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="hero-{{ $sectionKey }}-overlay_color_to_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-overlay_color_to">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_to]" id="hero-{{ $sectionKey }}-overlay_color_to" class="kt-input flex-1 font-mono text-sm hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" placeholder="#312e81" maxlength="7">
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-1">Eindkleur van de gradient.</p>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Helderheid overloop</label>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-muted-foreground shrink-0">Lichter (afbeelding duidelijker)</span>
+                        <input type="range" name="home_sections[{{ $sectionKey }}][overlay_opacity]" id="hero-{{ $sectionKey }}-overlay_opacity" class="flex-1 h-2 rounded appearance-none bg-muted accent-primary" min="0" max="100" value="{{ old('home_sections.'.$sectionKey.'.overlay_opacity', $sectionData['overlay_opacity'] ?? '85') }}">
+                        <span class="text-xs text-muted-foreground shrink-0">Donkerder</span>
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-1">0 = overloop bijna transparant (achtergrond goed zichtbaar), 100 = donkerste overloop.</p>
+                </div>
+            </div>
+            @endif
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Ondertitel</label>
@@ -914,12 +944,15 @@
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Sectiebreedte op de website</label>
                     <select name="home_sections[{{ $sectionKey }}][width_percent]" id="text-block-{{ $sectionKey }}-width-percent" class="kt-input w-full max-w-xs">
-                        @php $textBlockWidth = (int) old('home_sections.'.$sectionKey.'.width_percent', $sectionData['width_percent'] ?? 100); $textBlockWidth = max(60, min(100, $textBlockWidth)); @endphp
+                        @php $textBlockWidth = (int) old('home_sections.'.$sectionKey.'.width_percent', $sectionData['width_percent'] ?? 100); $textBlockWidth = max(30, min(100, $textBlockWidth)); @endphp
                         <option value="100" {{ $textBlockWidth === 100 ? 'selected' : '' }}>100%</option>
                         <option value="90" {{ $textBlockWidth === 90 ? 'selected' : '' }}>90%</option>
                         <option value="80" {{ $textBlockWidth === 80 ? 'selected' : '' }}>80%</option>
                         <option value="70" {{ $textBlockWidth === 70 ? 'selected' : '' }}>70%</option>
                         <option value="60" {{ $textBlockWidth === 60 ? 'selected' : '' }}>60%</option>
+                        <option value="50" {{ $textBlockWidth === 50 ? 'selected' : '' }}>50%</option>
+                        <option value="40" {{ $textBlockWidth === 40 ? 'selected' : '' }}>40%</option>
+                        <option value="30" {{ $textBlockWidth === 30 ? 'selected' : '' }}>30%</option>
                     </select>
                     <p class="text-xs text-muted-foreground mt-1">Breedte van de sectie ten opzichte van de pagina (in procenten).</p>
                 </div>
@@ -1439,6 +1472,12 @@
                         <option value="person_range" {{ $offerDisplayMode === 'person_range' ? 'selected' : '' }}>Per aantal personen</option>
                     </select>
                 </div>
+                <div class="flex items-center gap-3 p-2 rounded-lg">
+                    @php $useEveningNightTariff = old('home_sections.'.$sectionKey.'.logic.use_evening_night_tariff', $bookingData['logic']['use_evening_night_tariff'] ?? true); @endphp
+                    <input type="hidden" name="home_sections[{{ $sectionKey }}][logic][use_evening_night_tariff]" value="0">
+                    <input type="checkbox" id="bookingsmodule-use-evening-night-{{ $sectionKey }}" name="home_sections[{{ $sectionKey }}][logic][use_evening_night_tariff]" value="1" class="kt-switch kt-switch-sm" {{ $useEveningNightTariff ? 'checked' : '' }}>
+                    <label for="bookingsmodule-use-evening-night-{{ $sectionKey }}" class="text-sm text-muted-foreground cursor-pointer">Avond/nacht tarief gebruiken (22:00–06:00 ×1,2)</label>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
@@ -1643,6 +1682,17 @@
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
+            @if($isNonHomePage ?? false)
+            <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 mb-4 flex-shrink-0" id="footer-inherit-from-home-row">
+                <input type="hidden" name="home_sections[footer][inherit_from_home]" value="0">
+                <input type="checkbox" name="home_sections[footer][inherit_from_home]" id="footer-inherit-from-home" value="1" class="kt-switch kt-switch-sm"
+                    {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'checked' : '' }}
+                    data-toggle-target="footer-config-content">
+                <label for="footer-inherit-from-home" class="text-sm font-medium text-secondary-foreground cursor-pointer whitespace-nowrap shrink-0">Overnemen van Home</label>
+                <span class="text-xs text-muted-foreground">Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.</span>
+            </div>
+            @endif
+            <div id="footer-config-content" class="space-y-6 {{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
             @php
                 $footerLogoUrl = old('home_sections.footer.logo_url', $footer['logo_url'] ?? '');
                 $footerLogoPreviewUrl = $footerLogoUrl ?: (app(\App\Services\WebsiteBuilderService::class)->getSiteBranding()['logo_url'] ?? '');
@@ -1888,10 +1938,11 @@
                     </div>
                 </div>
             </div>
+            </div>
         </div>
     </div>
 
-    <div class="kt-card home-section-card home-section-card--no-drag">
+    <div class="kt-card home-section-card home-section-card--no-drag" id="copyright-section-card">
         <div class="kt-card-header home-section-header home-section-header--copyright flex items-center justify-between gap-2">
             <h3 class="kt-card-title">Copyright (onderste balk)</h3>
             <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
@@ -1899,9 +1950,15 @@
             </button>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
-            <div>
+            @if($isNonHomePage ?? false)
+            <div id="copyright-inherit-notice" class="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? '' : 'hidden' }}">
+                <p class="font-medium text-secondary-foreground mb-1">Overgenomen van Home</p>
+                <p>Als <strong>Overnemen van Home</strong> bij Footer aan staat, wordt de copyrighttekst op de website overgenomen van de Home-pagina. Zet die optie uit om hier een eigen copyrighttekst voor deze pagina in te stellen.</p>
+            </div>
+            @endif
+            <div id="copyright-editable-block" class="{{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Copyrighttekst</label>
-                <input type="text" name="home_sections[copyright]" class="kt-input home-section-input-400" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} Nexa Skillmatching. Alle rechten voorbehouden.">
+                <input type="text" name="home_sections[copyright]" id="copyright-text-input" class="kt-input home-section-input-400" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} Nexa Skillmatching. Alle rechten voorbehouden.">
                 <p class="text-xs text-muted-foreground mt-1">Gebruik <code>{year}</code> voor het huidige jaar.</p>
             </div>
         </div>
@@ -1911,6 +1968,22 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js" crossorigin="anonymous"></script>
 <script>
 window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) !!};
+(function() {
+    var inheritCheck = document.getElementById('footer-inherit-from-home');
+    var footerConfig = document.getElementById('footer-config-content');
+    var copyrightNotice = document.getElementById('copyright-inherit-notice');
+    var copyrightEditable = document.getElementById('copyright-editable-block');
+    function syncFooterInheritUi() {
+        var on = inheritCheck && inheritCheck.checked;
+        if (footerConfig) footerConfig.classList.toggle('hidden', !!on);
+        if (copyrightNotice) copyrightNotice.classList.toggle('hidden', !on);
+        if (copyrightEditable) copyrightEditable.classList.toggle('hidden', !!on);
+    }
+    if (inheritCheck) {
+        inheritCheck.addEventListener('change', syncFooterInheritUi);
+        syncFooterInheritUi();
+    }
+})();
 (function() {
     var uploadUrl = {!! json_encode(route('admin.website-pages.upload-footer-logo')) !!};
     var csrfToken = document.querySelector('meta[name="csrf-token"]');
@@ -2308,6 +2381,28 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     }
     bindHeroUploadAreasIn(document);
     window.bindHeroUploadAreasIn = bindHeroUploadAreasIn;
+
+    document.querySelectorAll('.hero-overlay-color-picker').forEach(function(picker) {
+        var targetId = picker.getAttribute('data-target-input');
+        if (!targetId) return;
+        var textInput = document.getElementById(targetId);
+        if (!textInput) return;
+        picker.addEventListener('input', function() { textInput.value = picker.value; });
+        picker.addEventListener('change', function() { textInput.value = picker.value; });
+    });
+    document.querySelectorAll('.hero-overlay-hex-input').forEach(function(textInput) {
+        var id = textInput.id;
+        if (!id) return;
+        var colorPicker = document.getElementById(id + '_color');
+        if (!colorPicker) return;
+        function syncToPicker() {
+            var v = (textInput.value || '').trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(v)) colorPicker.value = v;
+        }
+        textInput.addEventListener('input', syncToPicker);
+        textInput.addEventListener('change', syncToPicker);
+        syncToPicker();
+    });
 
     document.querySelectorAll('.cta-image-upload-area').forEach(function(area) {
         var sectionKey = area.getAttribute('data-section-key');
@@ -3772,6 +3867,19 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
             file_picker_types: 'image',
             setup: function(editor) {
                 editor.on('change keyup', function() { editor.save(); });
+                editor.on('keydown', function(ev) {
+                    // TinyMCE 6: modifiers/key staan vaak op originalEvent, niet op het wrapper-object
+                    var e = (ev && ev.originalEvent) ? ev.originalEvent : ev;
+                    var isS = (e.key === 's' || e.key === 'S' || e.keyCode === 83 || e.which === 83);
+                    if (!(e.ctrlKey || e.metaKey) || !isS) return;
+                    if (e.preventDefault) e.preventDefault();
+                    if (e.stopPropagation) e.stopPropagation();
+                    try { editor.save(); } catch (err) {}
+                    if (typeof window.__submitWebsitePageFormFromShortcut === 'function') {
+                        window.__submitWebsitePageFormFromShortcut();
+                    }
+                    return false;
+                });
             },
             init_instance_callback: function(editor) {
                 var container = editor.getContainer();

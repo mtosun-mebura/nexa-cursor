@@ -1,19 +1,14 @@
 <?php
 
-return [
-    /*
-    | Migratie-paden per type. Module-databases krijgen alleen core + shared + hun eigen module-pad.
-    | Zo komt nexa_taxiroyaal geen skillmatching-tabellen in, en nexa_skillmatching geen vehicles/ride_requests.
-    */
-    'paths' => [
-        'core'    => 'database/migrations/core',
-        'shared'  => 'database/migrations/shared',
-        'taxiroyaal' => 'database/migrations/modules/taxiroyaal',
-        'skillmatching' => 'database/migrations/modules/skillmatching',
-    ],
+/*
+| Pre-2026 schema staat in App\Database\Pre2026Baseline (gegenereerd uit het vroegere archief).
+| Module-databases: zie module_migration_sets — zelfde baseline gefilterd op set (core/shared/module).
+| Losse module-updates: database/migrations/modules/{naam} via ModuleMigrationPathResolver.
+*/
 
+return [
     'module_migration_sets' => [
-        'taxiroyaal'   => ['core', 'shared', 'taxiroyaal'],
+        'taxiroyaal' => ['core', 'shared', 'taxiroyaal'],
         'skillmatching' => ['core', 'shared', 'skillmatching'],
     ],
 

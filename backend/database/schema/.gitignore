@@ -1,0 +1,2 @@
+# Optioneel: baseline SQL na pg_dump — niet verplicht in repo
+*.sql

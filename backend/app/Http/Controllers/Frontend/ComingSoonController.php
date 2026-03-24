@@ -54,6 +54,12 @@ class ComingSoonController extends Controller
 
         $settings['site_name'] = GeneralSetting::get('site_name', config('app.name', 'Nexa'));
 
+        $comingSoonImagePath = GeneralSetting::get('coming_soon_image');
+        $settings['coming_soon_image_url'] = null;
+        if ($comingSoonImagePath && Storage::disk('public')->exists($comingSoonImagePath)) {
+            $settings['coming_soon_image_url'] = app(WebsiteBuilderService::class)->publicFileUrl(ltrim($comingSoonImagePath, '/'));
+        }
+
         return $settings;
     }
 
@@ -68,6 +74,7 @@ class ComingSoonController extends Controller
             'settings' => $settings,
             'showEmail' => !empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0',
             'contactEmail' => $settings['coming_soon_contact_email'] ?? '',
+            'adminPreview' => false,
         ]);
     }
 }

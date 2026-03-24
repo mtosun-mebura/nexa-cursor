@@ -94,7 +94,8 @@ class AdminFrontendThemeController extends Controller
         $installedModules = $this->moduleManager->getInstalledModules();
         $activeModulesForThemes = $this->moduleManager->getActiveModules();
         $activeTheme = FrontendTheme::getActive();
-        $activeThemeId = $activeTheme ? $activeTheme->id : $themes->first()?->id;
+        // Geen fallback naar eerste thema: bij lege installatie is niets actief tot de beheerder op Activeren klikt.
+        $activeThemeId = $activeTheme?->id;
 
         // Modulemodels opzoeken met dezelfde case-insensitive lookup als bij opslaan (key = getName())
         $moduleModels = collect();
@@ -113,9 +114,12 @@ class AdminFrontendThemeController extends Controller
             }
         }
 
-        $stagingModuleTop = $activeThemeId ? $this->websiteBuilder->getStagingModuleNameForTheme($activeThemeId) : null;
+        $stagingModuleTop = $activeThemeId ? $this->websiteBuilder->resolveStagingModuleQueryParameterForTheme($activeThemeId) : null;
         $stagingUrlTop = $activeThemeId
-            ? route('admin.frontend-themes.staging', ['theme_id' => $activeThemeId, 'module' => $stagingModuleTop ?? ''])
+            ? route('admin.frontend-themes.staging', array_filter([
+                'theme_id' => $activeThemeId,
+                'module' => $stagingModuleTop,
+            ], static fn ($v) => $v !== null && $v !== ''))
             : null;
 
         $moduleFirstPageUrls = [];
@@ -135,15 +139,20 @@ class AdminFrontendThemeController extends Controller
                 : $stagingUrlTop;
         }
 
-        $themeStagingModules = [];
+        $themeStagingUrls = [];
         foreach ($themes as $theme) {
-            $themeStagingModules[$theme->id] = $this->websiteBuilder->getStagingModuleNameForTheme($theme->id);
+            $mod = $this->websiteBuilder->resolveStagingModuleQueryParameterForTheme($theme->id);
+            $params = ['theme_id' => $theme->id];
+            if ($mod !== null && $mod !== '') {
+                $params['module'] = $mod;
+            }
+            $themeStagingUrls[$theme->id] = route('admin.frontend-themes.staging', $params);
         }
 
         $websiteUrl = url('/');
         return view('admin.frontend-themes.index', compact(
             'themes', 'installedModules', 'activeModulesForThemes', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
-            'websiteUrl', 'stagingUrlTop', 'activeThemeId', 'themeStagingModules'
+            'websiteUrl', 'stagingUrlTop', 'activeThemeId', 'themeStagingUrls'
         ));
     }
 
@@ -190,7 +199,7 @@ class AdminFrontendThemeController extends Controller
         }
 
         if ($module === null || $module === '') {
-            $module = $this->websiteBuilder->getFirstModuleNameWithWebsiteForTheme($theme->id);
+            $module = $this->websiteBuilder->getStagingModuleNameForTheme($theme->id);
         }
 
         // Zet dit thema vast op de getoonde module, zodat localhost:8000 dezelfde module toont
@@ -221,13 +230,39 @@ class AdminFrontendThemeController extends Controller
         }
         // Geen actieve pagina's: toon demo-home voor het gekozen thema zodat het thema altijd bekeken kan worden
         if (! $page) {
-            $page = WebsitePage::demoPageForTheme($theme, $module);
+            $moduleForDemo = $module;
+            if (($moduleForDemo === null || $moduleForDemo === '') && $theme->active_module_id) {
+                $pinnedForDemo = Module::find($theme->active_module_id);
+                if ($pinnedForDemo && $pinnedForDemo->name !== null && $pinnedForDemo->name !== '') {
+                    $moduleForDemo = $pinnedForDemo->name;
+                }
+            }
+            $page = WebsitePage::demoPageForTheme($theme, $moduleForDemo);
             $menuPages = collect([$page]);
         }
 
         $themeSlug = $theme->slug;
         $themeSettings = $theme->getSettings();
-        $branding = $this->websiteBuilder->getSiteBranding();
+        // Staging: branding volgt URL-query → geresolveerde $module → vastgezette module op het thema.
+        // Niet eerst $page->module_name: de getoonde home kan nog van Skillmatching komen terwijl het thema op Taxi Royaal
+        // staat — dan zou de verkeerde module-config (dashboard uit) worden toegepast.
+        $brandingModuleKey = null;
+        if ($module !== null && trim((string) $module) !== '') {
+            $brandingModuleKey = trim((string) $module);
+        }
+        if ($brandingModuleKey === null && $theme->active_module_id) {
+            $pinnedForBranding = Module::find($theme->active_module_id);
+            if ($pinnedForBranding && $pinnedForBranding->name !== null && $pinnedForBranding->name !== '') {
+                $brandingModuleKey = trim((string) $pinnedForBranding->name);
+            }
+        }
+        if ($brandingModuleKey === null && filled($page->module_name)) {
+            $brandingModuleKey = trim((string) $page->module_name);
+        }
+        if ($brandingModuleKey !== null && trim((string) $brandingModuleKey) === '') {
+            $brandingModuleKey = null;
+        }
+        $branding = $this->websiteBuilder->getSiteBranding($brandingModuleKey, true);
         $showContactForm = $page->page_type === 'contact';
 
         $stagingParams = [

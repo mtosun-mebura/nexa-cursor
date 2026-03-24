@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Artisan;
+use App\Database\Pre2026Baseline;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,7 +21,8 @@ class ModuleDatabaseService
     public function getModuleDatabaseName(string $moduleName): string
     {
         $name = strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
-        return 'nexa_' . $name;
+
+        return 'nexa_'.$name;
     }
 
     /**
@@ -30,7 +31,8 @@ class ModuleDatabaseService
     public function getModuleConnectionName(string $moduleName): string
     {
         $name = strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
-        return 'module_' . $name;
+
+        return 'module_'.$name;
     }
 
     /**
@@ -43,11 +45,16 @@ class ModuleDatabaseService
     }
 
     /**
-     * Of de huidige driver ondersteund wordt (mysql, pgsql).
+     * Of de huidige driver ondersteund wordt (mysql, pgsql) én we geen single-DB mode gebruiken.
+     * Bij single-DB (MODULE_USE_SINGLE_DATABASE=true) blijven alle tabellen in de hoofddatabase.
      */
     public function supportsModuleDatabases(): bool
     {
+        if (config('module_database.use_single_database', false)) {
+            return false;
+        }
         $driver = config('database.default');
+
         return in_array($driver, ['mysql', 'mariadb', 'pgsql'], true);
     }
 
@@ -61,24 +68,26 @@ class ModuleDatabaseService
         $driver = config('database.default');
 
         if ($driver === 'pgsql') {
-            $exists = DB::selectOne("SELECT 1 FROM pg_database WHERE datname = ?", [$dbName]);
+            $exists = DB::selectOne('SELECT 1 FROM pg_database WHERE datname = ?', [$dbName]);
             if ($exists) {
                 $this->terminateAndDropDatabase($moduleName);
             }
-            $quoted = '"' . str_replace('"', '""', $dbName) . '"';
+            $quoted = '"'.str_replace('"', '""', $dbName).'"';
             DB::statement("CREATE DATABASE {$quoted}");
             Log::info("Module database created: {$dbName} (pgsql)");
+
             return;
         }
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            $r = DB::select("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?", [$dbName]);
-            if (!empty($r)) {
+            $r = DB::select('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?', [$dbName]);
+            if (! empty($r)) {
                 $this->terminateAndDropDatabase($moduleName);
             }
-            $quoted = '`' . str_replace('`', '``', $dbName) . '`';
+            $quoted = '`'.str_replace('`', '``', $dbName).'`';
             DB::statement("CREATE DATABASE {$quoted}");
             Log::info("Module database created: {$dbName} (mysql)");
+
             return;
         }
 
@@ -95,7 +104,7 @@ class ModuleDatabaseService
         $default = config('database.default');
         $config = config("database.connections.{$default}");
 
-        if (!is_array($config)) {
+        if (! is_array($config)) {
             throw new \RuntimeException("Default database connection '{$default}' not found.");
         }
 
@@ -113,25 +122,8 @@ class ModuleDatabaseService
         $conn = $this->getModuleConnectionName($moduleName);
         $sets = config('module_migrations.module_migration_sets', [])[$moduleName]
             ?? config('module_migrations.default_set', ['core', 'shared']);
-        $pathConfig = config('module_migrations.paths', []);
 
-        foreach ($sets as $setName) {
-            $path = $pathConfig[$setName] ?? null;
-            if (!$path || !is_dir(base_path($path))) {
-                continue;
-            }
-            $exitCode = Artisan::call('migrate', [
-                '--database' => $conn,
-                '--path' => $path,
-                '--force' => true,
-            ]);
-            if ($exitCode !== 0) {
-                $output = trim(Artisan::output());
-                throw new \RuntimeException(
-                    "Migraties mislukt voor module-database {$conn} (path: {$path}). " . ($output ?: "Exit code: {$exitCode}")
-                );
-            }
-        }
+        Pre2026Baseline::runForSetsOnConnection($sets, $conn);
 
         Log::info("Migrations run on module database: {$conn}");
     }
@@ -194,7 +186,7 @@ class ModuleDatabaseService
      */
     public function setupModuleDatabase(string $moduleName): void
     {
-        if (!$this->supportsModuleDatabases()) {
+        if (! $this->supportsModuleDatabases()) {
             throw new \RuntimeException('Module databases are only supported for MySQL/MariaDB or PostgreSQL.');
         }
 
@@ -240,7 +232,7 @@ class ModuleDatabaseService
                 }
                 $source->chunk($chunkSize, function ($rows) use ($conn, $table) {
                     $values = $rows->map(fn ($row) => (array) $row)->toArray();
-                    if (!empty($values)) {
+                    if (! empty($values)) {
                         DB::connection($conn)->table($table)->insert($values);
                     }
                 });
@@ -269,9 +261,9 @@ class ModuleDatabaseService
             $columnName = $col->column_name;
             $max = DB::connection($conn)->table($table)->max($columnName);
             if ($max !== null) {
-                $seq = DB::connection($conn)->selectOne("SELECT pg_get_serial_sequence(?, ?) as seq", ['public.' . $table, $columnName]);
-                if (!empty($seq->seq)) {
-                    DB::connection($conn)->statement("SELECT setval(?, ?)", [$seq->seq, $max + 1]);
+                $seq = DB::connection($conn)->selectOne('SELECT pg_get_serial_sequence(?, ?) as seq', ['public.'.$table, $columnName]);
+                if (! empty($seq->seq)) {
+                    DB::connection($conn)->statement('SELECT setval(?, ?)', [$seq->seq, $max + 1]);
                 }
             }
         }
@@ -297,17 +289,19 @@ class ModuleDatabaseService
         $driver = config('database.default');
 
         if ($driver === 'pgsql') {
-            DB::statement("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()", [$dbName]);
-            $quoted = '"' . str_replace('"', '""', $dbName) . '"';
+            DB::statement('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()', [$dbName]);
+            $quoted = '"'.str_replace('"', '""', $dbName).'"';
             DB::statement("DROP DATABASE IF EXISTS {$quoted}");
             Log::info("Module database dropped: {$dbName} (pgsql)");
+
             return;
         }
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            $quoted = '`' . str_replace('`', '``', $dbName) . '`';
+            $quoted = '`'.str_replace('`', '``', $dbName).'`';
             DB::statement("DROP DATABASE IF EXISTS {$quoted}");
             Log::info("Module database dropped: {$dbName} (mysql)");
+
             return;
         }
 

@@ -207,9 +207,15 @@
                                     </label>
                                 </div>
                                 @endif
-                                <div class="mt-3 hidden rounded-lg border border-orange-300 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/80 px-3 py-2.5 text-base text-orange-900 dark:text-orange-50 shadow-xs" data-route-details-banner>
+                                <div class="mt-3 hidden rounded-lg border px-3 py-2.5 text-base shadow-xs booking-route-details-banner" data-route-details-banner style="--booking-primary: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">
                                     <div class="text-lg font-semibold mb-0.5">Route informatie</div>
-                                    <div data-route-details></div>
+                                    <div class="min-h-[1.5rem] flex flex-col justify-center">
+                                        <div class="hidden items-center gap-2" data-route-details-loading>
+                                            <span class="booking-route-details-spinner" aria-hidden="true"></span>
+                                            <span class="text-sm font-medium booking-route-details-loading-text">Route wordt berekend…</span>
+                                        </div>
+                                        <div class="hidden" data-route-details aria-live="polite"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -222,6 +228,9 @@
                                     </svg>
                                     <input type="datetime-local" style="padding-left: 50px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer" data-field="pickup_at" data-datetime-input data-placeholder-target="pickup_at" placeholder="{{ e($texts['pickup_datetime_placeholder'] ?? '') }}">
                                     <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="pickup_at">{{ e($texts['pickup_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
+                                </div>
+                                <div class="hidden mt-2 text-sm text-red-600 dark:text-red-400" data-pickup-datetime-future-error role="alert">
+                                    Kies een ophaalmoment in de toekomst.
                                 </div>
                             </div>
                             <div>
@@ -273,27 +282,46 @@
                                 </div>
                             </div>
                             <div>
-                                <div class="grid justify-center gap-1.5 mb-2 text-center">
-                                    <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Rit</div>
-                                </div>
-                                <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs max-w-3xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
-                                    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
-                                        <div class="min-w-0 flex-1 text-center">
-                                            <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Van</div>
-                                            <div class="text-base font-semibold text-heading truncate" data-summary-pickup-line1>—</div>
-                                            <div class="text-base text-body truncate" data-summary-pickup-line2>—</div>
-                                            <div class="text-base text-body truncate" data-summary-pickup-line3>—</div>
+                                <div class="mb-3 text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Rit</div>
+                                <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-4 shadow-xs mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
+                                    <div class="flex flex-col gap-4">
+                                        <div class="booking-summary-route-map relative w-full shrink-0 overflow-hidden rounded-lg border bg-slate-200/50 dark:bg-slate-800/50" style="border-color: rgba(148, 163, 184, 0.45); min-height: 280px; height: clamp(280px, 42vh, 520px); max-height: min(56vh, 32rem);" data-summary-route-map-wrap>
+                                            <img src="" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-cover" loading="lazy" decoding="async" data-summary-route-map-static>
+                                            <iframe
+                                                title="Route op de kaart (alleen weergave)"
+                                                class="absolute inset-0 z-0 hidden h-full w-full border-0"
+                                                loading="lazy"
+                                                referrerpolicy="no-referrer-when-downgrade"
+                                                data-summary-route-map-iframe
+                                            ></iframe>
+                                            <div class="absolute inset-0 z-10 hidden cursor-default bg-transparent" data-summary-route-map-blocker aria-hidden="true"></div>
+                                            <div class="absolute inset-0 z-20 hidden flex items-center justify-center p-4 text-center text-sm text-slate-500 dark:text-slate-400" data-summary-route-map-empty>
+                                                Route wordt getoond zodra vertrek- en bestemming zijn ingevuld.
+                                            </div>
+                                            <div class="absolute inset-0 z-20 hidden flex-col items-center justify-center p-6 text-center text-sm text-slate-600 dark:text-slate-300" data-summary-route-map-fallback>
+                                                <a href="#" class="font-semibold text-fg-brand underline hover:no-underline" data-summary-route-map-link target="_blank" rel="noopener noreferrer">Route openen in Google Maps</a>
+                                            </div>
                                         </div>
-                                        <div class="inline-flex items-center justify-center text-fg-brand shrink-0" aria-hidden="true">
-                                            <svg class="w-8 h-8 md:w-10 md:h-10" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m0 0-4-4m4 4 4-4"/>
-                                            </svg>
-                                        </div>
-                                        <div class="min-w-0 flex-1 text-center">
-                                            <div class="text-sm md:text-base uppercase tracking-wide text-slate-500 dark:text-slate-300 font-bold mb-1">Naar</div>
-                                            <div class="text-base font-semibold text-heading truncate" data-summary-dropoff-line1>—</div>
-                                            <div class="text-base text-body truncate" data-summary-dropoff-line2>—</div>
-                                            <div class="text-base text-body truncate" data-summary-dropoff-line3>—</div>
+                                        <div class="flex flex-row items-stretch gap-2 sm:gap-3 min-w-0">
+                                            <div class="min-w-0 flex-1 text-left">
+                                                <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-bold mb-1.5">Van</div>
+                                                <div class="text-base font-semibold text-heading break-words" data-summary-pickup-line1>—</div>
+                                                <div class="text-base text-body break-words" data-summary-pickup-line2>—</div>
+                                                <div class="text-base text-body break-words" data-summary-pickup-line3>—</div>
+                                            </div>
+                                            <div class="flex shrink-0 items-center justify-center self-center px-0.5 sm:px-1" aria-hidden="true">
+                                                <svg class="w-7 h-7 sm:w-8 sm:h-8 text-slate-400 dark:text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0 flex-1 flex justify-end">
+                                                <div class="text-left min-w-0 max-w-full">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-bold mb-1.5">Naar</div>
+                                                    <div class="text-base font-semibold text-heading break-words" data-summary-dropoff-line1>—</div>
+                                                    <div class="text-base text-body break-words" data-summary-dropoff-line2>—</div>
+                                                    <div class="text-base text-body break-words" data-summary-dropoff-line3>—</div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -417,23 +445,27 @@
     box-shadow: 0 26px 58px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* Route-informatiebanner: licht oranje achtergrond zodat deze opvalt (ook in dark mode) */
-[data-taxiroyaal-booking-module] [data-route-details-banner] {
-    background-color: #fff7ed !important;
-    border-color: #fdba74;
-    color: #9a3412;
+/* Route-informatiebanner: primaire kleur uit sectie (admin) */
+[data-taxiroyaal-booking-module] .booking-route-details-banner {
+    background-color: var(--booking-primary, #5b21b6) !important;
+    border-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 72%, #0f172a) !important;
+    color: #fff;
 }
-@media (prefers-color-scheme: dark) {
-    [data-taxiroyaal-booking-module] [data-route-details-banner] {
-        background-color: rgba(154, 52, 18, 0.45) !important;
-        border-color: rgba(234, 88, 12, 0.6);
-        color: #fed7aa;
-    }
+[data-taxiroyaal-booking-module] .booking-route-details-loading-text {
+    color: rgba(255, 255, 255, 0.92);
 }
-.dark [data-taxiroyaal-booking-module] [data-route-details-banner] {
-    background-color: rgba(154, 52, 18, 0.45) !important;
-    border-color: rgba(234, 88, 12, 0.6);
-    color: #fed7aa;
+@keyframes booking-route-details-spin {
+    to { transform: rotate(360deg); }
+}
+[data-taxiroyaal-booking-module] .booking-route-details-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: rgba(255, 255, 255, 0.95);
+    border-radius: 9999px;
+    animation: booking-route-details-spin 0.65s linear infinite;
+    flex-shrink: 0;
 }
 
 [data-taxiroyaal-booking-module] .booking-trip-layout {
@@ -844,6 +876,19 @@ body.booking-modal-open {
     opacity: 0;
 }
 
+[data-taxiroyaal-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid {
+    border-color: rgb(239 68 68) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.28);
+}
+[data-taxiroyaal-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid:focus {
+    border-color: rgb(239 68 68) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
+}
+.dark [data-taxiroyaal-booking-module] .booking-datetime-input.booking-datetime-input--past-invalid {
+    border-color: rgb(248 113 113) !important;
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3);
+}
+
 [data-taxiroyaal-booking-module] input[type="checkbox"] {
     accent-color: #6366f1;
     border-color: rgba(148, 163, 184, 0.55) !important;
@@ -922,6 +967,7 @@ body.booking-modal-open {
         dropoff_lng: null,
         distance_meters: 0,
         duration_seconds: 0,
+        summary_route_polyline: '',
         baggage: {},
         special_baggage: {},
         offers: [],
@@ -1241,13 +1287,33 @@ body.booking-modal-open {
         updateBaggageStepAvailability();
     }
 
+    function showRouteDetailsLoading() {
+        var banner = root.querySelector('[data-route-details-banner]');
+        var loading = root.querySelector('[data-route-details-loading]');
+        var details = root.querySelector('[data-route-details]');
+        if (!banner || !loading || !details) return;
+        banner.classList.remove('hidden');
+        banner.setAttribute('aria-busy', 'true');
+        loading.classList.remove('hidden');
+        loading.classList.add('flex');
+        details.classList.add('hidden');
+        details.textContent = '';
+    }
+
     function renderRouteDetailsText(text) {
         var details = root.querySelector('[data-route-details]');
         var banner = root.querySelector('[data-route-details-banner]');
+        var loading = root.querySelector('[data-route-details-loading]');
         if (!details || !banner) return;
         var normalized = String(text || '').trim();
+        if (loading) {
+            loading.classList.add('hidden');
+            loading.classList.remove('flex');
+        }
         details.textContent = normalized;
+        details.classList.toggle('hidden', normalized === '');
         banner.classList.toggle('hidden', normalized === '');
+        banner.setAttribute('aria-busy', 'false');
     }
 
     function setStep(nextStep) {
@@ -1295,7 +1361,11 @@ body.booking-modal-open {
         var prevBtn = root.querySelector('[data-booking-prev]');
         if (prevBtn) prevBtn.style.visibility = state.step === 1 ? 'hidden' : 'visible';
         if (currentStepKey === 'trip') {
-            window.requestAnimationFrame(syncRouteIconAlignment);
+            window.requestAnimationFrame(function() {
+                syncRouteIconAlignment();
+                refreshPickupDatetimeMin();
+                syncPickupDatetimeFutureValidation();
+            });
         }
     }
 
@@ -1335,6 +1405,50 @@ body.booking-modal-open {
         syncReturnTripUi();
         syncDateTimePlaceholder();
         syncBaggageChoiceFromUi();
+        syncPickupDatetimeFutureValidation();
+    }
+
+    function formatDateTimeLocalValueFromDate(d) {
+        var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    function parseLocalDateTimeMs(str) {
+        if (!str || typeof str !== 'string') return NaN;
+        var m = str.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+        if (!m) return NaN;
+        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), 0, 0).getTime();
+    }
+
+    function refreshPickupDatetimeMin() {
+        var input = root.querySelector('[data-field="pickup_at"]');
+        if (!input || input.disabled) return;
+        input.setAttribute('min', formatDateTimeLocalValueFromDate(new Date()));
+    }
+
+    function syncPickupDatetimeFutureValidation() {
+        var input = root.querySelector('[data-field="pickup_at"]');
+        var errEl = root.querySelector('[data-pickup-datetime-future-error]');
+        if (!input || !errEl) return;
+        var v = String(input.value || '').trim();
+        if (!v) {
+            errEl.classList.add('hidden');
+            input.classList.remove('booking-datetime-input--past-invalid');
+            return;
+        }
+        var t = parseLocalDateTimeMs(v);
+        if (isNaN(t)) {
+            errEl.classList.add('hidden');
+            input.classList.remove('booking-datetime-input--past-invalid');
+            return;
+        }
+        if (t < Date.now()) {
+            errEl.classList.remove('hidden');
+            input.classList.add('booking-datetime-input--past-invalid');
+        } else {
+            errEl.classList.add('hidden');
+            input.classList.remove('booking-datetime-input--past-invalid');
+        }
     }
 
     function syncStopoverHint() {
@@ -1561,6 +1675,156 @@ body.booking-modal-open {
         });
     }
 
+    function buildSummaryStaticMapUrl(encodedPolyline, pickupAddr, dropoffAddr, pickupLat, pickupLng, dropoffLat, dropoffLng) {
+        if (!encodedPolyline || !mapsApiKey) return '';
+        var pathParam = 'weight:8|color:0x1D4ED8|enc:' + encodedPolyline;
+        var base = 'https://maps.googleapis.com/maps/api/staticmap?size=640x400&scale=2&maptype=roadmap&format=png&path='
+            + encodeURIComponent(pathParam);
+
+        function appendMarker(label, addr, lat, lng) {
+            var style = 'size:mid|color:red|label:' + label;
+            var loc = '';
+            if (lat != null && lng != null && isFinite(Number(lat)) && isFinite(Number(lng))) {
+                loc = Number(lat) + ',' + Number(lng);
+            } else if (addr && String(addr).trim() !== '') {
+                loc = String(addr).trim();
+            }
+            if (!loc) return;
+            base += '&markers=' + encodeURIComponent(style + '|' + loc);
+        }
+        appendMarker('A', pickupAddr, pickupLat, pickupLng);
+        appendMarker('B', dropoffAddr, dropoffLat, dropoffLng);
+
+        base += '&key=' + encodeURIComponent(mapsApiKey);
+        return base;
+    }
+
+    function updateSummaryRouteMap() {
+        var staticEl = root.querySelector('[data-summary-route-map-static]');
+        var iframe = root.querySelector('[data-summary-route-map-iframe]');
+        var blockerEl = root.querySelector('[data-summary-route-map-blocker]');
+        var emptyEl = root.querySelector('[data-summary-route-map-empty]');
+        var fallbackEl = root.querySelector('[data-summary-route-map-fallback]');
+        var linkEl = root.querySelector('[data-summary-route-map-link]');
+        var pickup = String(state.pickup_address || '').trim();
+        var dropoff = String(state.dropoff_address || '').trim();
+        var stops = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
+
+        function showEmptyState() {
+            if (staticEl) {
+                staticEl.removeAttribute('src');
+                staticEl.classList.add('hidden');
+            }
+            if (blockerEl) blockerEl.classList.add('hidden');
+            if (iframe) {
+                iframe.removeAttribute('src');
+                iframe.classList.add('hidden');
+            }
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            if (fallbackEl) {
+                fallbackEl.classList.add('hidden');
+                fallbackEl.classList.remove('flex');
+            }
+        }
+
+        function showFallbackState(dirUrl) {
+            if (staticEl) {
+                staticEl.removeAttribute('src');
+                staticEl.classList.add('hidden');
+            }
+            if (blockerEl) blockerEl.classList.add('hidden');
+            if (iframe) {
+                iframe.removeAttribute('src');
+                iframe.classList.add('hidden');
+            }
+            if (emptyEl) emptyEl.classList.add('hidden');
+            if (fallbackEl) {
+                fallbackEl.classList.remove('hidden');
+                fallbackEl.classList.add('flex');
+            }
+            if (linkEl && dirUrl) linkEl.href = dirUrl;
+        }
+
+        function showEmbedState(dirUrl, embedUrl) {
+            if (staticEl) {
+                staticEl.removeAttribute('src');
+                staticEl.classList.add('hidden');
+            }
+            if (emptyEl) emptyEl.classList.add('hidden');
+            if (fallbackEl) {
+                fallbackEl.classList.add('hidden');
+                fallbackEl.classList.remove('flex');
+            }
+            if (linkEl && dirUrl) linkEl.href = dirUrl;
+            if (iframe) {
+                iframe.src = embedUrl;
+                iframe.classList.remove('hidden');
+            }
+            if (blockerEl) blockerEl.classList.remove('hidden');
+        }
+
+        function showStaticMapState(dirUrl, imageUrl) {
+            if (iframe) {
+                iframe.removeAttribute('src');
+                iframe.classList.add('hidden');
+            }
+            if (blockerEl) blockerEl.classList.add('hidden');
+            if (emptyEl) emptyEl.classList.add('hidden');
+            if (fallbackEl) {
+                fallbackEl.classList.add('hidden');
+                fallbackEl.classList.remove('flex');
+            }
+            if (linkEl && dirUrl) linkEl.href = dirUrl;
+            if (staticEl && imageUrl) {
+                staticEl.alt = 'Route van ' + pickup + ' naar ' + dropoff;
+                staticEl.src = imageUrl;
+                staticEl.classList.remove('hidden');
+            }
+        }
+
+        if (!pickup || !dropoff) {
+            state.summary_route_polyline = '';
+            showEmptyState();
+            return;
+        }
+
+        var dirParams = 'origin=' + encodeURIComponent(pickup) + '&destination=' + encodeURIComponent(dropoff) + '&travelmode=driving';
+        if (stops.length) {
+            dirParams += '&waypoints=' + encodeURIComponent(stops.join('|'));
+        }
+        var dirUrl = 'https://www.google.com/maps/dir/?api=1&' + dirParams;
+
+        if (mapsApiKey) {
+            var mapLang = (config.maps && config.maps.language) ? config.maps.language : 'nl';
+            var embed = 'https://www.google.com/maps/embed/v1/directions?key=' + encodeURIComponent(mapsApiKey)
+                + '&origin=' + encodeURIComponent(pickup)
+                + '&destination=' + encodeURIComponent(dropoff)
+                + '&mode=driving'
+                + '&units=metric'
+                + '&region=nl'
+                + '&language=' + encodeURIComponent(mapLang);
+            if (stops.length) {
+                embed += '&waypoints=' + encodeURIComponent(stops.join('|'));
+            }
+            var staticUrl = buildSummaryStaticMapUrl(
+                state.summary_route_polyline || '',
+                pickup,
+                dropoff,
+                state.pickup_lat,
+                state.pickup_lng,
+                state.dropoff_lat,
+                state.dropoff_lng
+            );
+            if (staticUrl && staticUrl.length < 7800) {
+                showStaticMapState(dirUrl, staticUrl);
+            } else {
+                showEmbedState(dirUrl, embed);
+            }
+        } else {
+            showFallbackState(dirUrl);
+        }
+    }
+
     function updateSummary() {
         var selected = state.offers.find(function(offer) { return offer.id === state.selected_offer_id; }) || null;
         var hasPickup = String(state.pickup_address || '').trim() !== '';
@@ -1689,6 +1953,8 @@ body.booking-modal-open {
         if (offerEl) offerEl.textContent = offerName;
         var pickupEl = root.querySelector('[data-summary-pickup-at]');
         if (pickupEl) pickupEl.textContent = pickupAt;
+
+        updateSummaryRouteMap();
     }
 
     function requestQuotes() {
@@ -1789,11 +2055,13 @@ body.booking-modal-open {
 
     function calculateRouteFallback() {
         if (!state.pickup_address || !state.dropoff_address) {
+            renderRouteDetailsText('');
             requestQuotes();
             return;
         }
 
         var seq = ++routeCalcSeq;
+        showRouteDetailsLoading();
         var addressChain = [state.pickup_address]
             .concat((state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; }))
             .concat([state.dropoff_address]);
@@ -1806,36 +2074,49 @@ body.booking-modal-open {
             .then(function(points) {
                 if (seq !== routeCalcSeq) return;
                 if (!Array.isArray(points) || points.some(function(p) { return !p; })) {
+                    state.summary_route_polyline = '';
+                    renderRouteDetailsText('');
                     requestQuotes();
                     return;
                 }
                 var coordsPath = points.map(function(p) { return p.lng + ',' + p.lat; }).join(';');
-                return fetchWithTimeout('https://router.project-osrm.org/route/v1/driving/' + coordsPath + '?overview=false', OSRM_TIMEOUT_MS)
+                return fetchWithTimeout('https://router.project-osrm.org/route/v1/driving/' + coordsPath + '?overview=simplified&geometries=polyline', OSRM_TIMEOUT_MS)
                     .then(function(res) { return res.ok ? res.json() : null; })
                     .then(function(payload) {
                         if (seq !== routeCalcSeq) return;
                         var route = payload && Array.isArray(payload.routes) && payload.routes[0] ? payload.routes[0] : null;
                         if (!route) {
+                            state.summary_route_polyline = '';
+                            renderRouteDetailsText('');
                             requestQuotes();
                             return;
                         }
                         state.distance_meters = Math.max(0, Math.round(parseFloat(route.distance || 0)));
                         state.duration_seconds = Math.max(0, Math.round(parseFloat(route.duration || 0)));
+                        state.summary_route_polyline = (route.geometry && typeof route.geometry === 'string') ? route.geometry : '';
                         var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
                         var min = Math.round(state.duration_seconds / 60);
-                        renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ' + min + ' min');
+                        renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ± ' + min + ' min');
                         requestQuotes();
                     })
                     .catch(function() {
+                        state.summary_route_polyline = '';
+                        renderRouteDetailsText('');
                         requestQuotes();
                     });
             })
             .catch(function() {
+                state.summary_route_polyline = '';
+                renderRouteDetailsText('');
                 requestQuotes();
             });
 
         Promise.race([routePromise, totalTimeout]).catch(function() {
-            if (seq === routeCalcSeq) requestQuotes();
+            if (seq === routeCalcSeq) {
+                state.summary_route_polyline = '';
+                renderRouteDetailsText('');
+                requestQuotes();
+            }
         });
     }
 
@@ -1856,6 +2137,12 @@ body.booking-modal-open {
         if (currentStepKey === 'trip') {
             if (!state.pickup_address || !state.dropoff_address || !state.pickup_at) {
                 showError('Vul alle reisgegevens in: kies een ophaaladres, een afzetadres en selecteer datum en tijd voor ophalen.');
+                return false;
+            }
+            var pickupMs = parseLocalDateTimeMs(String(state.pickup_at || '').trim());
+            if (!isNaN(pickupMs) && pickupMs < Date.now()) {
+                syncPickupDatetimeFutureValidation();
+                showError('Kies een ophaalmoment in de toekomst.');
                 return false;
             }
             if (state.return_trip && !state.return_at) {
@@ -1884,6 +2171,12 @@ body.booking-modal-open {
         }
         if (!String(state.pickup_at || '').trim()) {
             showError('Vul datum en tijd van ophalen in.');
+            return false;
+        }
+        var submitPickupMs = parseLocalDateTimeMs(String(state.pickup_at || '').trim());
+        if (!isNaN(submitPickupMs) && submitPickupMs < Date.now()) {
+            syncPickupDatetimeFutureValidation();
+            showError('Kies een ophaalmoment in de toekomst.');
             return false;
         }
         if (state.return_trip && !String(state.return_at || '').trim()) {
@@ -2008,9 +2301,11 @@ body.booking-modal-open {
 
         function calculateRoute() {
             if (!state.pickup_address || !state.dropoff_address) {
+                renderRouteDetailsText('');
                 requestQuotes();
                 return;
             }
+            showRouteDetailsLoading();
             if (!window.google || !google.maps || typeof google.maps.importLibrary !== 'function') {
                 calculateRouteFallback();
                 return;
@@ -2025,8 +2320,8 @@ body.booking-modal-open {
                     origin: state.pickup_address,
                     destination: state.dropoff_address,
                     travelMode: 'DRIVING',
-                    fields: ['distanceMeters', 'durationMillis'],
-                    regionCode: 'nl'
+                    regionCode: 'nl',
+                    computeAlternativeRoutes: false
                 };
                 var stopovers = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
                 if (stopovers.length > 0) request.intermediates = stopovers;
@@ -2045,9 +2340,18 @@ body.booking-modal-open {
                     }
                     state.distance_meters = Math.round(Number(dist));
                     state.duration_seconds = Math.round(Number(durMs) / 1000);
+                    var polyEnc = '';
+                    if (route.polyline) {
+                        if (typeof route.polyline.encodedPolyline === 'string') {
+                            polyEnc = route.polyline.encodedPolyline;
+                        } else if (typeof route.polyline === 'string') {
+                            polyEnc = route.polyline;
+                        }
+                    }
+                    state.summary_route_polyline = polyEnc;
                     var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
                     var min = Math.round(state.duration_seconds / 60);
-                    renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ' + min + ' min');
+                    renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ± ' + min + ' min');
                     requestQuotes();
                 }).catch(function() {
                     calculateRouteFallback();
@@ -2667,6 +2971,13 @@ body.booking-modal-open {
         setStep(1);
         updateBaggageStepAvailability();
         syncStateFromFields();
+        refreshPickupDatetimeMin();
+        var pickupAtInput = root.querySelector('[data-field="pickup_at"]');
+        if (pickupAtInput) {
+            pickupAtInput.addEventListener('focus', function() {
+                refreshPickupDatetimeMin();
+            });
+        }
         setupAddressTypeaheadFallback();
         initGoogleMaps();
         recalculateRouteOrQuote();

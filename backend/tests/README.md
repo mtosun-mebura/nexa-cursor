@@ -36,7 +36,7 @@ php artisan test --filter=admin_dashboard_redirects_guest_to_login
 - **Database:** sqlite in-memory (`DB_DATABASE=:memory:`)
 - **RefreshDatabase** in de base TestCase
 
-In de **testomgeving** laadt de app automatisch migraties uit `database/migrations/shared` en `database/migrations/core` (zie `AppServiceProvider`). Daarmee ontstaan o.a. `users`, `general_settings`, `frontend_themes`, `website_pages`. De test **admin dashboard returns 200** wordt overgeslagen als de tabel `vacancies` ontbreekt (die zit in module-migraties).
+Migraties komen uit **`database/migrations/`** (bundel `2026_04_20_000001_install_nexa_application_schema.php`), die op SQLite alleen **core + shared** uit het archief uitvoert — geen module-migraties (PostgreSQL-specifieke SQL). Daarmee ontstaan o.a. `users`, `general_settings`, `frontend_themes`, `website_pages`. De test **admin dashboard returns 200** wordt overgeslagen als de tabel `vacancies` ontbreekt (die zit in module-migraties).
 
 ## Wat wordt getest
 

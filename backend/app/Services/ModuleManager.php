@@ -4,9 +4,8 @@ namespace App\Services;
 
 use App\Models\Module as ModuleModel;
 use App\Modules\Base\Module;
-use App\Services\ModuleDatabaseService;
-use App\Services\ModuleSchemaService;
-use App\Services\ThemeCopyService;
+use App\Support\ModuleMigrationPathResolver;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -17,6 +16,7 @@ use Spatie\Permission\Models\Permission;
 class ModuleManager
 {
     protected array $modules = [];
+
     protected array $loadedModules = [];
 
     /**
@@ -49,34 +49,34 @@ class ModuleManager
      */
     protected function cleanupOrphanedModules(array $discoveredModules): void
     {
-        if (!Schema::hasTable('modules')) {
+        if (! Schema::hasTable('modules')) {
             return;
         }
 
         $discoveredNames = array_column($discoveredModules, 'name');
-        
+
         // Find modules in database that are not in discovered modules
         $orphanedModules = ModuleModel::whereNotIn('name', $discoveredNames)->get();
-        
+
         foreach ($orphanedModules as $orphaned) {
             // Only remove if the directory doesn't exist
             $possiblePaths = [
-                app_path('Modules/' . $orphaned->name),
-                app_path('Modules/' . ucfirst($orphaned->name)),
-                base_path('modules/' . $orphaned->name),
-                base_path('modules/' . ucfirst($orphaned->name)),
+                app_path('Modules/'.$orphaned->name),
+                app_path('Modules/'.ucfirst($orphaned->name)),
+                base_path('modules/'.$orphaned->name),
+                base_path('modules/'.ucfirst($orphaned->name)),
             ];
-            
+
             $exists = false;
             foreach ($possiblePaths as $path) {
-                if (File::exists($path) && File::exists($path . '/Module.php')) {
+                if (File::exists($path) && File::exists($path.'/Module.php')) {
                     $exists = true;
                     break;
                 }
             }
-            
+
             // If directory doesn't exist, remove from database
-            if (!$exists) {
+            if (! $exists) {
                 $orphaned->delete();
                 Log::info("Removed orphaned module record: {$orphaned->name}");
             }
@@ -89,8 +89,8 @@ class ModuleManager
     protected function scanDirectory(string $path, string $type): array
     {
         $modules = [];
-        
-        if (!File::exists($path)) {
+
+        if (! File::exists($path)) {
             return $modules;
         }
 
@@ -98,23 +98,23 @@ class ModuleManager
 
         foreach ($directories as $directory) {
             $moduleName = basename($directory);
-            
+
             // Skip Base directory
             if ($moduleName === 'Base') {
                 continue;
             }
-            
-            $moduleFile = $directory . '/Module.php';
+
+            $moduleFile = $directory.'/Module.php';
 
             if (File::exists($moduleFile)) {
                 try {
                     // Try to load with original name first
                     $module = $this->loadModule($moduleName);
-                    if (!$module) {
+                    if (! $module) {
                         // Try with lowercase
                         $module = $this->loadModule(strtolower($moduleName));
                     }
-                    
+
                     if ($module) {
                         // Use the actual module name from the module itself
                         $actualModuleName = $module->getName();
@@ -131,7 +131,7 @@ class ModuleManager
                         ];
                     }
                 } catch (\Exception $e) {
-                    Log::error("Error loading module {$moduleName}: " . $e->getMessage());
+                    Log::error("Error loading module {$moduleName}: ".$e->getMessage());
                 }
             }
         }
@@ -146,42 +146,43 @@ class ModuleManager
     {
         // Normalize module name (try both original and capitalized)
         $normalizedName = ucfirst($moduleName);
-        
+
         if (isset($this->loadedModules[$moduleName])) {
             return $this->loadedModules[$moduleName];
         }
-        
+
         if (isset($this->loadedModules[$normalizedName])) {
             return $this->loadedModules[$normalizedName];
         }
 
         // Try internal modules first with original name
         $moduleClass = "App\\Modules\\{$moduleName}\\Module";
-        if (!class_exists($moduleClass)) {
+        if (! class_exists($moduleClass)) {
             // Try with capitalized name
             $moduleClass = "App\\Modules\\{$normalizedName}\\Module";
         }
-        
-        if (!class_exists($moduleClass)) {
+
+        if (! class_exists($moduleClass)) {
             // Try external modules
             $moduleClass = "Modules\\{$moduleName}\\Module";
-            if (!class_exists($moduleClass)) {
+            if (! class_exists($moduleClass)) {
                 $moduleClass = "Modules\\{$normalizedName}\\Module";
             }
         }
 
-        if (!class_exists($moduleClass)) {
+        if (! class_exists($moduleClass)) {
             return null;
         }
 
         try {
-            $module = new $moduleClass();
+            $module = new $moduleClass;
             $this->loadedModules[$moduleName] = $module;
             $this->modules[$moduleName] = $module;
 
             return $module;
         } catch (\Exception $e) {
-            Log::error("Error instantiating module {$moduleName}: " . $e->getMessage());
+            Log::error("Error instantiating module {$moduleName}: ".$e->getMessage());
+
             return null;
         }
     }
@@ -191,7 +192,7 @@ class ModuleManager
      */
     public function getInstalledModules(): array
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('modules')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('modules')) {
             return [];
         }
 
@@ -209,7 +210,7 @@ class ModuleManager
      */
     public function getActiveModules(): array
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('modules')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('modules')) {
             return [];
         }
 
@@ -229,6 +230,7 @@ class ModuleManager
     public function hasAnyActiveModule(): bool
     {
         $active = $this->getActiveModules();
+
         return count($active) > 0;
     }
 
@@ -237,7 +239,7 @@ class ModuleManager
      */
     public function isInstalled(string $moduleName): bool
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('modules')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('modules')) {
             return false;
         }
 
@@ -251,7 +253,7 @@ class ModuleManager
      */
     public function isActive(string $moduleName): bool
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('modules')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('modules')) {
             return false;
         }
 
@@ -269,14 +271,14 @@ class ModuleManager
         $mainConnection = config('database.main_connection', config('database.default'));
 
         $module = $this->loadModule($moduleName);
-        if (!$module) {
+        if (! $module) {
             throw new \Exception("Module {$moduleName} niet gevonden");
         }
 
         // Check dependencies
         $dependencies = $module->getDependencies();
         foreach ($dependencies as $dep) {
-            if (!$this->isInstalled($dep)) {
+            if (! $this->isInstalled($dep)) {
                 throw new \Exception("Dependency {$dep} is niet geïnstalleerd");
             }
         }
@@ -285,13 +287,13 @@ class ModuleManager
         $migrationsPath = $module->getMigrationsPath();
         if ($migrationsPath && File::exists($migrationsPath)) {
             $targetDir = database_path("migrations/modules/{$moduleName}");
-            if (!File::exists($targetDir)) {
+            if (! File::exists($targetDir)) {
                 File::makeDirectory($targetDir, 0755, true);
             }
-            $migrationFiles = File::glob($migrationsPath . '/*.php');
+            $migrationFiles = File::glob($migrationsPath.'/*.php');
             foreach ($migrationFiles as $migrationFile) {
-                $targetFile = $targetDir . '/' . basename($migrationFile);
-                if (!File::exists($targetFile)) {
+                $targetFile = $targetDir.'/'.basename($migrationFile);
+                if (! File::exists($targetFile)) {
                     File::copy($migrationFile, $targetFile);
                 }
             }
@@ -300,16 +302,24 @@ class ModuleManager
         // Eerst op hoofddatabase zetten: module als geïnstalleerd (zodat UI direct "Geïnstalleerd" toont na refresh)
         $this->saveModuleAsInstalled($moduleName, $module, $mainConnection);
 
-        // Per-module standalone database (mysql/pgsql): eigen DB met alle standaardtabellen en superadmin
-        // Bestaande module-DB wordt bij install altijd gedropt en opnieuw aangemaakt.
         $dbService = app(ModuleDatabaseService::class);
         $schemaService = app(ModuleSchemaService::class);
-        if ($dbService->supportsModuleDatabases()) {
+
+        // Single database: alle module-tabellen in de hoofddatabase; alleen module-migraties draaien.
+        if (config('module_database.use_single_database', false)) {
+            try {
+                $this->runModuleMigrationsOnDefaultConnection($moduleName);
+            } catch (\Throwable $e) {
+                $this->saveModuleAsUninstalled($moduleName, $mainConnection);
+                throw new \Exception("Module-migraties op hoofddatabase mislukt voor {$moduleName}: ".$e->getMessage(), 0, $e);
+            }
+        } elseif ($dbService->supportsModuleDatabases()) {
+            // Per-module standalone database (mysql/pgsql): eigen DB met alle standaardtabellen en superadmin
             try {
                 $dbService->setupModuleDatabase($moduleName);
             } catch (\Throwable $e) {
                 $this->saveModuleAsUninstalled($moduleName, $mainConnection);
-                throw new \Exception("Module-database kon niet worden opgezet voor {$moduleName}: " . $e->getMessage(), 0, $e);
+                throw new \Exception("Module-database kon niet worden opgezet voor {$moduleName}: ".$e->getMessage(), 0, $e);
             }
         } elseif ($schemaService->supportsModuleSchemas()) {
             $schemaName = $module->getSchemaName();
@@ -371,10 +381,20 @@ class ModuleManager
             'updated_at' => now(),
         ];
         if ($row) {
+            $existingConfig = [];
+            if (isset($row->configuration) && $row->configuration !== null && $row->configuration !== '') {
+                $decoded = is_string($row->configuration) ? json_decode($row->configuration, true) : $row->configuration;
+                $existingConfig = is_array($decoded) ? $decoded : [];
+            }
+            if (! array_key_exists('dashboard_link_visible', $existingConfig)) {
+                $existingConfig['dashboard_link_visible'] = '0';
+            }
+            $data['configuration'] = json_encode($existingConfig);
             $table->where('name', $moduleName)->update($data);
         } else {
             $table->insert(array_merge($data, [
                 'name' => $moduleName,
+                'configuration' => json_encode(['dashboard_link_visible' => '0']),
                 'created_at' => now(),
             ]));
         }
@@ -396,11 +416,11 @@ class ModuleManager
     public function activateModule(string $moduleName): bool
     {
         $module = $this->loadModule($moduleName);
-        if (!$module) {
+        if (! $module) {
             throw new \Exception("Module {$moduleName} niet gevonden");
         }
 
-        if (!$this->isInstalled($moduleName)) {
+        if (! $this->isInstalled($moduleName)) {
             throw new \Exception("Module {$moduleName} is niet geïnstalleerd");
         }
 
@@ -422,7 +442,7 @@ class ModuleManager
     public function deactivateModule(string $moduleName): bool
     {
         $module = $this->loadModule($moduleName);
-        if (!$module) {
+        if (! $module) {
             throw new \Exception("Module {$moduleName} niet gevonden");
         }
 
@@ -444,7 +464,7 @@ class ModuleManager
     public function uninstallModule(string $moduleName): bool
     {
         $module = $this->loadModule($moduleName);
-        if (!$module) {
+        if (! $module) {
             throw new \Exception("Module {$moduleName} niet gevonden");
         }
 
@@ -456,15 +476,17 @@ class ModuleManager
         // Call module uninstall
         $module->uninstall();
 
-        // Altijd module-database of schema verwijderen bij Verwijderen
+        // Module-database of schema verwijderen bij Verwijderen (niet bij single-DB: alles staat in hoofddatabase)
         $dbService = app(ModuleDatabaseService::class);
         $schemaService = app(ModuleSchemaService::class);
-        if ($dbService->supportsModuleDatabases()) {
+        if (config('module_database.use_single_database', false)) {
+            // Geen aparte DB om te droppen; module-tabellen blijven in hoofddatabase
+        } elseif ($dbService->supportsModuleDatabases()) {
             try {
                 $dbService->dropDatabase($moduleName);
             } catch (\Throwable $e) {
-                Log::warning("Module database drop bij uninstall: " . $e->getMessage(), ['module' => $moduleName]);
-                throw new \Exception("Module verwijderd, maar database kon niet worden gedropt: " . $e->getMessage(), 0, $e);
+                Log::warning('Module database drop bij uninstall: '.$e->getMessage(), ['module' => $moduleName]);
+                throw new \Exception('Module verwijderd, maar database kon niet worden gedropt: '.$e->getMessage(), 0, $e);
             }
         } elseif ($schemaService->supportsModuleSchemas()) {
             $schemaName = $module->getSchemaName();
@@ -481,20 +503,47 @@ class ModuleManager
     }
 
     /**
+     * Run alleen de module-migraties (database/migrations/modules/{slug}) op de standaard-DB.
+     * Gebruikt bij MODULE_USE_SINGLE_DATABASE: alle tabellen in één database.
+     */
+    protected function runModuleMigrationsOnDefaultConnection(string $moduleName): void
+    {
+        $canonical = strtolower(trim($moduleName));
+        $relative = ModuleMigrationPathResolver::pathForModule($canonical);
+        $fullPath = base_path($relative);
+        if (! is_dir($fullPath)) {
+            Log::info("No module migrations path for single-DB mode: {$relative}");
+
+            return;
+        }
+        $exitCode = Artisan::call('migrate', [
+            '--path' => $relative,
+            '--force' => true,
+        ]);
+        if ($exitCode !== 0) {
+            throw new \RuntimeException('Module-migraties mislukt: '.trim(Artisan::output()));
+        }
+        Log::info("Module migrations run on default connection for: {$moduleName}");
+    }
+
+    /**
      * Run module-migraties (database/migrations/modules/{name}/*.php) binnen het module-schema (alleen pgsql).
-     * @param string $schemaName Schema waarin de migraties draaien (uit Module::getSchemaName() of module_{naam})
+     *
+     * @param  string  $schemaName  Schema waarin de migraties draaien (uit Module::getSchemaName() of module_{naam})
      */
     protected function runModuleMigrationsInSchema(string $moduleName, string $schemaName): void
     {
         $schemaService = app(ModuleSchemaService::class);
-        if (!$schemaService->supportsModuleSchemas()) {
+        if (! $schemaService->supportsModuleSchemas()) {
             return;
         }
-        $targetDir = database_path("migrations/modules/{$moduleName}");
-        if (!File::exists($targetDir)) {
+        $canonical = strtolower(trim((string) $moduleName));
+        $relative = ModuleMigrationPathResolver::pathForModule($canonical);
+        $targetDir = base_path($relative);
+        if (! File::exists($targetDir)) {
             return;
         }
-        $files = File::glob($targetDir . '/*.php');
+        $files = File::glob($targetDir.'/*.php');
         sort($files);
         foreach ($files as $file) {
             $schemaService->runInSchema($schemaName, function () use ($file) {

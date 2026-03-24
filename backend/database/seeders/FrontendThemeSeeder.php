@@ -21,7 +21,7 @@ class FrontendThemeSeeder extends Seeder
                 'name' => 'Metronic',
                 'description' => 'Strak Metronic-design met veel witruimte. Huidige website-layout (Home-pagina).',
                 'preview_path' => 'frontend-themes/modern-home.png',
-                'is_active' => true,
+                'is_active' => false,
                 'settings' => [
                     'primary_color' => '#2563eb',
                     'font_heading' => 'Inter',

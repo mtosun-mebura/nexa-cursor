@@ -342,7 +342,7 @@
         html.dark .logo-dark, body.dark .logo-dark, .dark .logo-dark { display: block !important; }
     </style>
 </head>
-<body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased">
+<body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
     <!-- Page -->
     <!-- Main -->
     <div class="flex grow">
@@ -448,18 +448,30 @@
     <script>
     (function() {
         document.addEventListener('keydown', function(e) {
-            var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
+            var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.keyCode === 83 || e.which === 83);
             if (!isSave) return;
 
             var active = document.activeElement;
             if (!active || typeof active.closest !== 'function') return;
             var form = active.closest('form');
+            var content = document.getElementById('content');
+            // Website-pagina bewerken: focus zit vaak in WYSIWYG (iframe / contenteditable) buiten het <form>
+            // in de DOM; val dan terug op #website-page-form als de focus wel in main#content hoort.
+            if (!form) {
+                var websitePageForm = document.getElementById('website-page-form');
+                if (websitePageForm && content && content.contains(websitePageForm)) {
+                    var inMainContent = content.contains(active);
+                    var isIframeInPage = active.tagName === 'IFRAME' && content.contains(active);
+                    if (inMainContent || isIframeInPage) {
+                        form = websitePageForm;
+                    }
+                }
+            }
             if (!form) return;
 
             if (form.closest('[role="dialog"]') || form.closest('.modal')) return;
 
             e.preventDefault();
-            var content = document.getElementById('content');
             if (content && !content.contains(form)) return;
 
             var btn = form.querySelector('button[type="submit"].kt-btn-primary');
@@ -469,11 +481,71 @@
             var isSaveBtn = /opslaan|opsla|save|wijzigingen opslaan|template opslaan|gebruiker opslaan|vestiging opslaan|match opslaan|toevoegen/i.test(text) || form.id === 'website-page-form' || form.id === 'general-settings-form' || form.id === 'coming-soon-form';
             if (!isSaveBtn) return;
 
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit(btn);
-            } else {
-                form.submit();
+            if (btn.disabled) btn.disabled = false;
+            try {
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(btn);
+                } else {
+                    form.submit();
+                }
+            } catch (err) {
+                try { btn.disabled = false; btn.click(); } catch (e2) {}
             }
+        });
+    })();
+    </script>
+
+    <!-- Scrollpositie na opslaan: standaard voor alle admin-pagina's -->
+    <script>
+    (function() {
+        var SCROLL_KEY = 'admin-scroll-after-save';
+        function saveScroll() {
+            try {
+                var y = window.scrollY || window.pageYOffset || 0;
+                sessionStorage.setItem(SCROLL_KEY, String(y));
+            } catch (err) {}
+        }
+        var scrollSaveTimer;
+        document.addEventListener('scroll', function() {
+            clearTimeout(scrollSaveTimer);
+            scrollSaveTimer = setTimeout(saveScroll, 150);
+        }, { passive: true });
+        document.addEventListener('submit', function(e) {
+            var form = e.target && e.target.tagName === 'FORM' ? e.target : (e.target && e.target.closest ? e.target.closest('form') : null);
+            if (form && (form.method === 'post' || form.method === 'POST') && form.action) {
+                saveScroll();
+            }
+        }, true);
+        function restoreScrollAfterSave() {
+            var justSaved = document.body && document.body.getAttribute('data-admin-just-saved') === '1';
+            var u;
+            try { u = window.location.href ? new URL(window.location.href) : null; } catch (e) { u = null; }
+            var hasSavedParam = u && (u.searchParams.get('saved') || u.searchParams.get('updated') || u.searchParams.get('created'));
+            if (!justSaved && !hasSavedParam) return;
+            try {
+                var saved = sessionStorage.getItem(SCROLL_KEY);
+                if (saved !== null) {
+                    var y = parseInt(saved, 10);
+                    if (!isNaN(y) && y >= 0) {
+                        function doScroll() { window.scrollTo(0, y); }
+                        doScroll();
+                        requestAnimationFrame(function() { doScroll(); });
+                        setTimeout(doScroll, 100);
+                        setTimeout(doScroll, 350);
+                        setTimeout(doScroll, 800);
+                        setTimeout(doScroll, 1500);
+                        setTimeout(function() { doScroll(); sessionStorage.removeItem(SCROLL_KEY); }, 2500);
+                    }
+                }
+            } catch (err) {}
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', restoreScrollAfterSave);
+        } else {
+            restoreScrollAfterSave();
+        }
+        window.addEventListener('load', function() {
+            restoreScrollAfterSave();
         });
     })();
     </script>

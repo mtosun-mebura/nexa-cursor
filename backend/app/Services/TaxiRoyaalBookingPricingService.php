@@ -48,6 +48,7 @@ class TaxiRoyaalBookingPricingService
                 'offer_display_mode' => 'vehicle',
                 'person_range_base_price_multiplier' => 1.0,
                 'person_range_base_old_price_multiplier' => 1.2,
+                'use_evening_night_tariff' => true,
             ],
             'texts' => [
                 'pickup_placeholder' => 'straatnaam met huisnummer',
@@ -96,7 +97,7 @@ class TaxiRoyaalBookingPricingService
         $normalizedOrder = [];
         foreach ($rawStepOrder as $stepKey) {
             $stepKey = trim((string) $stepKey);
-            if ($stepKey !== '' && in_array($stepKey, $allowedStepKeys, true) && !in_array($stepKey, $normalizedOrder, true)) {
+            if ($stepKey !== '' && in_array($stepKey, $allowedStepKeys, true) && ! in_array($stepKey, $normalizedOrder, true)) {
                 $normalizedOrder[] = $stepKey;
             }
         }
@@ -121,12 +122,13 @@ class TaxiRoyaalBookingPricingService
         $section['logic']['min_passengers'] = max(1, min(8, (int) ($logic['min_passengers'] ?? $defaults['logic']['min_passengers'])));
         $section['logic']['max_passengers'] = max($section['logic']['min_passengers'], min(20, (int) ($logic['max_passengers'] ?? $defaults['logic']['max_passengers'])));
         $section['logic']['default_passengers'] = max($section['logic']['min_passengers'], min($section['logic']['max_passengers'], (int) ($logic['default_passengers'] ?? $defaults['logic']['default_passengers'])));
-        $section['logic']['return_enabled_by_default'] = !empty($logic['return_enabled_by_default']);
-        $section['logic']['skip_baggage_step'] = !empty($logic['skip_baggage_step']);
+        $section['logic']['return_enabled_by_default'] = ! empty($logic['return_enabled_by_default']);
+        $section['logic']['skip_baggage_step'] = ! empty($logic['skip_baggage_step']);
         $section['logic']['max_stopovers'] = max(0, min(6, (int) ($logic['max_stopovers'] ?? $defaults['logic']['max_stopovers'])));
         $section['logic']['return_price_multiplier'] = max(1, min(3, (float) ($logic['return_price_multiplier'] ?? $defaults['logic']['return_price_multiplier'])));
         $offerDisplayMode = trim((string) ($logic['offer_display_mode'] ?? $defaults['logic']['offer_display_mode']));
         $section['logic']['offer_display_mode'] = in_array($offerDisplayMode, ['vehicle', 'person_range'], true) ? $offerDisplayMode : $defaults['logic']['offer_display_mode'];
+        $section['logic']['use_evening_night_tariff'] = ! empty($logic['use_evening_night_tariff']);
         $section['logic']['person_range_base_price_multiplier'] = max(0.1, min(5, (float) ($logic['person_range_base_price_multiplier'] ?? $defaults['logic']['person_range_base_price_multiplier'])));
         $section['logic']['person_range_base_old_price_multiplier'] = max(1, min(5, (float) ($logic['person_range_base_old_price_multiplier'] ?? $defaults['logic']['person_range_base_old_price_multiplier'])));
 
@@ -166,7 +168,7 @@ class TaxiRoyaalBookingPricingService
         );
         $distanceMeters = max(0, (int) ($input['distance_meters'] ?? 0));
         $durationSeconds = max(0, (int) ($input['duration_seconds'] ?? 0));
-        $returnTrip = !empty($input['return_trip']);
+        $returnTrip = ! empty($input['return_trip']);
         $pickupAt = isset($input['pickup_at']) && trim((string) $input['pickup_at']) !== '' ? (string) $input['pickup_at'] : null;
         $waitingMinutes = max(0, (float) ($input['waiting_minutes'] ?? 0));
         $range = $this->resolvePersonRangeForPassengers($passengers);
@@ -180,17 +182,18 @@ class TaxiRoyaalBookingPricingService
             $offers = $this->buildDefaultOffersFromVehicles(array_values($vehicleMap));
         }
         $offerDisplayMode = (string) ($sectionConfig['logic']['offer_display_mode'] ?? 'vehicle');
-        if (!in_array($offerDisplayMode, ['vehicle', 'person_range'], true)) {
+        if (! in_array($offerDisplayMode, ['vehicle', 'person_range'], true)) {
             $offerDisplayMode = 'vehicle';
         }
+        $useEveningNightTariff = ! empty($sectionConfig['logic']['use_evening_night_tariff'] ?? true);
 
         $resultOffers = [];
         if ($offerDisplayMode === 'person_range') {
             $matchingOffers = array_values(array_filter($offers, fn (array $offer) => $this->offerMatchesPersonRange($offer, $range)));
             $personRangeVehicle = null;
-            if (!empty($vehicleMap)) {
+            if (! empty($vehicleMap)) {
                 $personRangeVehicle = collect($vehicleMap)->sortBy('name')->first();
-            } elseif (!empty($allVehicleMap)) {
+            } elseif (! empty($allVehicleMap)) {
                 $personRangeVehicle = collect($allVehicleMap)->sortBy('name')->first();
             }
             $baseRate = $this->resolveRateForVehicle(null, $defaultRates);
@@ -201,7 +204,8 @@ class TaxiRoyaalBookingPricingService
                 $returnTrip,
                 (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
                 $pickupAt,
-                $waitingMinutes
+                $waitingMinutes,
+                $useEveningNightTariff
             );
             $baseMultiplier = max(0.1, (float) ($sectionConfig['logic']['person_range_base_price_multiplier'] ?? 1.0));
             $baseOldMultiplier = max(1.0, (float) ($sectionConfig['logic']['person_range_base_old_price_multiplier'] ?? 1.2));
@@ -210,7 +214,7 @@ class TaxiRoyaalBookingPricingService
             $rangeTitle = DefaultRate::formatPersonRangeLabel($range);
             $personRangeImageUrl = $this->resolvePersonRangeImageUrl($vehicleMap) ?: $this->resolvePersonRangeImageUrl($allVehicleMap);
             $resultOffers[] = [
-                'id' => 'person_range_' . str_replace('-', '_', $range),
+                'id' => 'person_range_'.str_replace('-', '_', $range),
                 'title' => $rangeTitle,
                 'badge' => $rangeTitle,
                 'button_text' => $sectionConfig['texts']['offer_button_text'] ?? 'Selecteer',
@@ -237,14 +241,15 @@ class TaxiRoyaalBookingPricingService
                     $returnTrip,
                     (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
                     $pickupAt,
-                    $waitingMinutes
+                    $waitingMinutes,
+                    $useEveningNightTariff
                 );
                 $multiplier = max(0.1, (float) ($offer['price_multiplier'] ?? 1.0));
                 $surcharge = max(0, (float) ($offer['fixed_surcharge'] ?? 0));
                 $total = round(($offerBaseFare * $multiplier) + $surcharge + $extraTotal, 2);
                 $oldMultiplier = max(1.0, (float) ($offer['old_price_multiplier'] ?? 1.0));
                 $oldTotal = round($total * $oldMultiplier, 2);
-                $id = trim((string) ($offer['id'] ?? ('person_offer_' . ($idx + 1))));
+                $id = trim((string) ($offer['id'] ?? ('person_offer_'.($idx + 1))));
                 $rawTitle = isset($offer['title']) ? trim((string) $offer['title']) : '';
                 $rawBadge = isset($offer['badge']) ? trim((string) $offer['badge']) : '';
                 $features = [];
@@ -256,8 +261,8 @@ class TaxiRoyaalBookingPricingService
                 }
 
                 $resultOffers[] = [
-                    'id' => $id !== '' ? $id : ('person_offer_' . ($idx + 1)),
-                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding ' . ($idx + 1))),
+                    'id' => $id !== '' ? $id : ('person_offer_'.($idx + 1)),
+                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding '.($idx + 1))),
                     'badge' => $rawBadge,
                     'button_text' => $offer['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
                     'features' => $features,
@@ -286,14 +291,15 @@ class TaxiRoyaalBookingPricingService
                     $returnTrip,
                     (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
                     $pickupAt,
-                    $waitingMinutes
+                    $waitingMinutes,
+                    $useEveningNightTariff
                 );
                 $multiplier = max(0.1, (float) ($offer['price_multiplier'] ?? 1.0));
                 $surcharge = max(0, (float) ($offer['fixed_surcharge'] ?? 0));
                 $total = round(($baseFare * $multiplier) + $surcharge + $extraTotal, 2);
                 $oldMultiplier = max(1.0, (float) ($offer['old_price_multiplier'] ?? 1.0));
                 $oldTotal = round($total * $oldMultiplier, 2);
-                $id = trim((string) ($offer['id'] ?? ('offer_' . ($idx + 1))));
+                $id = trim((string) ($offer['id'] ?? ('offer_'.($idx + 1))));
                 $rawTitle = isset($offer['title']) ? trim((string) $offer['title']) : '';
                 $rawBadge = isset($offer['badge']) ? trim((string) $offer['badge']) : '';
                 $features = [];
@@ -304,8 +310,8 @@ class TaxiRoyaalBookingPricingService
                     $features = $this->resolveVehicleFeatures($vehicleForDisplay);
                 }
                 $resultOffers[] = [
-                    'id' => $id !== '' ? $id : ('offer_' . ($idx + 1)),
-                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding ' . ($idx + 1))),
+                    'id' => $id !== '' ? $id : ('offer_'.($idx + 1)),
+                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding '.($idx + 1))),
                     'badge' => $rawBadge,
                     'button_text' => $offer['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
                     'features' => $features,
@@ -360,7 +366,7 @@ class TaxiRoyaalBookingPricingService
             ];
         }
 
-        return !empty($out) ? $out : $fallback;
+        return ! empty($out) ? $out : $fallback;
     }
 
     private function normalizeOffers(mixed $offers): array
@@ -396,7 +402,7 @@ class TaxiRoyaalBookingPricingService
             }
             $id = trim((string) ($row['id'] ?? ''));
             if ($id === '') {
-                $id = 'offer_' . ($idx + 1);
+                $id = 'offer_'.($idx + 1);
             }
             $out[] = [
                 'id' => $id,
@@ -430,7 +436,7 @@ class TaxiRoyaalBookingPricingService
             return null;
         }
 
-        return $start . '-' . $end;
+        return $start.'-'.$end;
     }
 
     private function offerMatchesPersonRange(array $offer, string $activeRange): bool
@@ -478,6 +484,7 @@ class TaxiRoyaalBookingPricingService
             ?? DefaultRate::on($conn)->where('person_range', '1-4')->first()
             ?? DefaultRate::on($conn)->get()->sortBy(function (DefaultRate $rate) {
                 [$start, $end] = DefaultRate::parseRangeBounds((string) $rate->person_range);
+
                 return ($start * 1000) + $end;
             })->first();
     }
@@ -533,6 +540,7 @@ class TaxiRoyaalBookingPricingService
         usort($ranges, function (string $a, string $b) {
             [$aStart, $aEnd] = DefaultRate::parseRangeBounds($a);
             [$bStart, $bEnd] = DefaultRate::parseRangeBounds($b);
+
             return ($aStart <=> $bStart) ?: ($aEnd <=> $bEnd);
         });
 
@@ -548,6 +556,7 @@ class TaxiRoyaalBookingPricingService
     private function rangeIncludesPassengers(string $range, int $passengers): bool
     {
         [$start, $end] = DefaultRate::parseRangeBounds($range);
+
         return $passengers >= $start && $passengers <= $end;
     }
 
@@ -561,6 +570,7 @@ class TaxiRoyaalBookingPricingService
         // Backward compatibility for older rows without person_range.
         $seats = (int) ($vehicle->seats ?? 0);
         [$start, $end] = DefaultRate::parseRangeBounds($personRange);
+
         return $seats >= $start && $seats <= $end;
     }
 
@@ -592,11 +602,12 @@ class TaxiRoyaalBookingPricingService
         bool $returnTrip,
         float $returnMultiplier,
         ?string $rideDateTime = null,
-        float $waitingMinutes = 0
+        float $waitingMinutes = 0,
+        bool $useEveningNightTariff = true
     ): float {
         $distanceKm = $distanceMeters / 1000;
         $durationMin = $durationSeconds / 60;
-        $nightMultiplier = $this->isNightRide($rideDateTime) ? 1.2 : 1.0;
+        $nightMultiplier = ($useEveningNightTariff && $this->isNightRide($rideDateTime)) ? 1.2 : 1.0;
         $baseFare = (float) ($rate['base_fare'] ?? 0);
         $pricePerKm = (float) ($rate['price_per_km'] ?? 0) * $nightMultiplier;
         $pricePerMin = (float) ($rate['price_per_min'] ?? 0) * $nightMultiplier;
@@ -623,6 +634,7 @@ class TaxiRoyaalBookingPricingService
         }
 
         $hour = (int) $dt->format('G');
+
         return $hour >= 22 || $hour < 6;
     }
 
@@ -632,6 +644,7 @@ class TaxiRoyaalBookingPricingService
             return null;
         }
         $displayUrl = $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $vehicle->image_url));
+
         return $displayUrl === '' ? null : $displayUrl;
     }
 
@@ -644,11 +657,12 @@ class TaxiRoyaalBookingPricingService
             return null;
         }
         $displayUrl = $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $vehicle->image_url));
+
         return $displayUrl === '' ? null : $displayUrl;
     }
 
     /**
-     * @param array<int, Vehicle> $vehicleMap
+     * @param  array<int, Vehicle>  $vehicleMap
      */
     private function resolvePersonRangeImageUrl(array $vehicleMap): ?string
     {
@@ -684,7 +698,7 @@ class TaxiRoyaalBookingPricingService
                 continue;
             }
             $normalized = ltrim($normalized, "-*• \t");
-            $normalized = ltrim($normalized, "✓");
+            $normalized = ltrim($normalized, '✓');
             $normalized = trim($normalized);
             if ($normalized !== '') {
                 $features[] = $normalized;
@@ -707,7 +721,7 @@ class TaxiRoyaalBookingPricingService
     }
 
     /**
-     * @param array<int, Vehicle> $vehicles
+     * @param  array<int, Vehicle>  $vehicles
      * @return array<int, array<string, mixed>>
      */
     private function buildDefaultOffersFromVehicles(array $vehicles): array
@@ -730,7 +744,7 @@ class TaxiRoyaalBookingPricingService
         $defaults = [];
         foreach (array_slice($vehicles, 0, 4) as $index => $vehicle) {
             $defaults[] = [
-                'id' => 'offer_' . ($index + 1),
+                'id' => 'offer_'.($index + 1),
                 'title' => $vehicle->name,
                 'badge' => '',
                 'button_text' => 'Selecteer',
@@ -745,4 +759,3 @@ class TaxiRoyaalBookingPricingService
         return $defaults;
     }
 }
-

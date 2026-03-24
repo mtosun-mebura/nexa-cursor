@@ -2,12 +2,11 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\Vacancy;
-use App\Models\Company;
-use App\Models\Category;
 use App\Helpers\GeoHelper;
+use App\Models\Category;
+use App\Models\Company;
+use App\Models\Vacancy;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class VacancySeeder extends Seeder
@@ -19,15 +18,16 @@ class VacancySeeder extends Seeder
     {
         // Maak bedrijven aan als ze niet bestaan
         $this->ensureCompaniesExist();
-        
+
         // Maak categorieën aan als ze niet bestaan
         $this->ensureCategoriesExist();
-        
+
         $companies = Company::all();
         $categories = Category::all();
-        
+
         if ($companies->isEmpty() || $categories->isEmpty()) {
             $this->command->error('Kon geen bedrijven of categorieën aanmaken. Controleer database configuratie.');
+
             return;
         }
 
@@ -37,28 +37,29 @@ class VacancySeeder extends Seeder
 
         // Maak 5 vacatures voor Tosun
         $this->createTosunVacancies($companies, $categories);
-        
+
         // Maak 5 vacatures voor Mali bedrijf
         $this->createMaliBedrijfVacancies($companies, $categories);
-        
+
         // Maak extra vacatures voor meer diversiteit
         $this->createExtraVacancies($companies, $categories);
-        
+
         $this->command->info('Extra vacatures succesvol aangemaakt!');
     }
-    
+
     /**
      * Maak 5 vacatures aan voor Tosun
      */
     private function createTosunVacancies($companies, $categories)
     {
         $tosun = Company::where('name', 'Tosun')->first();
-        
-        if (!$tosun) {
+
+        if (! $tosun) {
             $this->command->warn('Tosun niet gevonden in database.');
+
             return;
         }
-        
+
         $tosunVacancies = [
             [
                 'title' => 'Senior Full Stack Developer',
@@ -151,64 +152,65 @@ class VacancySeeder extends Seeder
                 'logo' => 'https://via.placeholder.com/150x50/607D8B/ffffff?text=Tosun',
             ],
         ];
-        
+
         foreach ($tosunVacancies as $vacancyData) {
             $category = $categories->random();
-            
-            // Voeg company_id en category_id toe
+
+            // Voeg company_id en branch_id toe (tabel categories → branches)
             $vacancyData['company_id'] = $tosun->id;
-            $vacancyData['category_id'] = $category->id;
-            
+            $vacancyData['branch_id'] = $category->id;
+
             // Genereer een publicatiedatum (laatste 30 dagen)
             $vacancyData['publication_date'] = now()->subDays(rand(1, 30));
             $vacancyData['published_at'] = $vacancyData['publication_date'];
-            
+
             // Genereer een sluitdatum (binnen 30 dagen)
             $vacancyData['closing_date'] = now()->addDays(rand(7, 30));
-            
+
             // Parse salary_range naar salary_min en salary_max
             $this->parseSalaryRange($vacancyData);
-            
+
             // Zet vacature als actief
             $vacancyData['is_active'] = true;
-            
+
             // Genereer experience_level als het niet is ingesteld
-            if (!isset($vacancyData['experience_level'])) {
+            if (! isset($vacancyData['experience_level'])) {
                 $vacancyData['experience_level'] = $this->extractExperienceLevel($vacancyData);
             }
-            
+
             // Genereer coordinaten voor location-based matching
-            if (isset($vacancyData['location']) && !empty($vacancyData['location'])) {
+            if (isset($vacancyData['location']) && ! empty($vacancyData['location'])) {
                 $coordinates = GeoHelper::getCityCoordinates($vacancyData['location']);
                 if ($coordinates) {
                     $vacancyData['latitude'] = $coordinates['latitude'];
                     $vacancyData['longitude'] = $coordinates['longitude'];
                 }
             }
-            
+
             // Genereer SEO velden
-            $vacancyData['meta_title'] = $vacancyData['title'] . ' - Tosun';
+            $vacancyData['meta_title'] = $vacancyData['title'].' - Tosun';
             $vacancyData['meta_description'] = $this->generateMetaDescription($vacancyData);
             $vacancyData['meta_keywords'] = $this->generateMetaKeywords($vacancyData, $tosun, $category);
 
             Vacancy::create($vacancyData);
         }
-        
+
         $this->command->info('5 vacatures voor Tosun succesvol aangemaakt!');
     }
-    
+
     /**
      * Maak specifieke vacatures aan voor Mali bedrijf
      */
     private function createMaliBedrijfVacancies($companies, $categories)
     {
         $maliBedrijf = Company::where('name', 'Mali bedrijf')->first();
-        
-        if (!$maliBedrijf) {
+
+        if (! $maliBedrijf) {
             $this->command->warn('Mali bedrijf niet gevonden in database.');
+
             return;
         }
-        
+
         $maliVacancies = [
             [
                 'title' => 'Frontend Developer React',
@@ -301,49 +303,49 @@ class VacancySeeder extends Seeder
                 'logo' => 'https://via.placeholder.com/150x50/FF5722/ffffff?text=MaliBedrijf',
             ],
         ];
-        
+
         foreach ($maliVacancies as $vacancyData) {
             $category = $categories->random();
-            
-            // Voeg company_id en category_id toe
+
+            // Voeg company_id en branch_id toe
             $vacancyData['company_id'] = $maliBedrijf->id;
-            $vacancyData['category_id'] = $category->id;
-            
+            $vacancyData['branch_id'] = $category->id;
+
             // Genereer een publicatiedatum (laatste 30 dagen)
             $vacancyData['publication_date'] = now()->subDays(rand(1, 30));
             $vacancyData['published_at'] = $vacancyData['publication_date'];
-            
+
             // Genereer een sluitdatum (binnen 30 dagen)
             $vacancyData['closing_date'] = now()->addDays(rand(7, 30));
-            
+
             // Parse salary_range naar salary_min en salary_max
             $this->parseSalaryRange($vacancyData);
-            
+
             // Zet vacature als actief
             $vacancyData['is_active'] = true;
-            
+
             // Genereer experience_level als het niet is ingesteld
-            if (!isset($vacancyData['experience_level'])) {
+            if (! isset($vacancyData['experience_level'])) {
                 $vacancyData['experience_level'] = $this->extractExperienceLevel($vacancyData);
             }
-            
+
             // Genereer coordinaten voor location-based matching
-            if (isset($vacancyData['location']) && !empty($vacancyData['location'])) {
+            if (isset($vacancyData['location']) && ! empty($vacancyData['location'])) {
                 $coordinates = GeoHelper::getCityCoordinates($vacancyData['location']);
                 if ($coordinates) {
                     $vacancyData['latitude'] = $coordinates['latitude'];
                     $vacancyData['longitude'] = $coordinates['longitude'];
                 }
             }
-            
+
             // Genereer SEO velden
-            $vacancyData['meta_title'] = $vacancyData['title'] . ' - Mali bedrijf';
+            $vacancyData['meta_title'] = $vacancyData['title'].' - Mali bedrijf';
             $vacancyData['meta_description'] = $this->generateMetaDescription($vacancyData);
             $vacancyData['meta_keywords'] = $this->generateMetaKeywords($vacancyData, $maliBedrijf, $category);
 
             Vacancy::create($vacancyData);
         }
-        
+
         $this->command->info('5 vacatures voor Mali bedrijf succesvol aangemaakt!');
     }
 
@@ -353,19 +355,19 @@ class VacancySeeder extends Seeder
     private function generateMetaDescription($vacancyData)
     {
         $description = $vacancyData['title'];
-        
+
         if ($vacancyData['location']) {
-            $description .= ' in ' . $vacancyData['location'];
+            $description .= ' in '.$vacancyData['location'];
         }
-        
+
         if ($vacancyData['employment_type']) {
-            $description .= ' - ' . $vacancyData['employment_type'];
+            $description .= ' - '.$vacancyData['employment_type'];
         }
-        
+
         if ($vacancyData['description']) {
-            $description .= '. ' . Str::limit(strip_tags($vacancyData['description']), 120);
+            $description .= '. '.Str::limit(strip_tags($vacancyData['description']), 120);
         }
-        
+
         return Str::limit($description, 160);
     }
 
@@ -375,51 +377,51 @@ class VacancySeeder extends Seeder
     private function generateMetaKeywords($vacancyData, $company, $category)
     {
         $keywords = [];
-        
+
         // Basis keywords
         $keywords[] = 'vacature';
         $keywords[] = 'werk';
         $keywords[] = 'baan';
         $keywords[] = 'sollicitatie';
         $keywords[] = 'carrière';
-        
+
         // Titel keywords
         $titleWords = explode(' ', strtolower($vacancyData['title']));
         $keywords = array_merge($keywords, array_slice($titleWords, 0, 5));
-        
+
         // Locatie
         if ($vacancyData['location']) {
             $keywords[] = strtolower($vacancyData['location']);
             $keywords[] = 'nederland';
         }
-        
+
         // Werktype
         if ($vacancyData['employment_type']) {
             $keywords[] = strtolower($vacancyData['employment_type']);
         }
-        
+
         // Categorie
         $keywords[] = strtolower($category->name);
-        
+
         // Bedrijf
         $keywords[] = strtolower($company->name);
-        
+
         // Remote werk
         if ($vacancyData['remote_work']) {
             $keywords[] = 'remote';
             $keywords[] = 'thuiswerken';
             $keywords[] = 'hybride';
         }
-        
+
         // Salaris
         if ($vacancyData['salary_range']) {
             $keywords[] = 'salaris';
             $keywords[] = 'loon';
         }
-        
+
         return implode(', ', array_unique($keywords));
     }
-    
+
     /**
      * Maak extra vacatures aan voor meer diversiteit
      */
@@ -499,53 +501,53 @@ class VacancySeeder extends Seeder
                 'logo' => 'https://via.placeholder.com/150x50/2196F3/ffffff?text=Company',
             ],
         ];
-        
+
         foreach ($extraVacancies as $vacancyData) {
             $company = $companies->random();
             $category = $categories->random();
-            
-            // Voeg company_id en category_id toe
+
+            // Voeg company_id en branch_id toe
             $vacancyData['company_id'] = $company->id;
-            $vacancyData['category_id'] = $category->id;
-            
+            $vacancyData['branch_id'] = $category->id;
+
             // Genereer een publicatiedatum (laatste 30 dagen)
             $vacancyData['publication_date'] = now()->subDays(rand(1, 30));
             $vacancyData['published_at'] = $vacancyData['publication_date'];
-            
+
             // Genereer een sluitdatum (binnen 30 dagen)
             $vacancyData['closing_date'] = now()->addDays(rand(7, 30));
-            
+
             // Parse salary_range naar salary_min en salary_max
             $this->parseSalaryRange($vacancyData);
-            
+
             // Zet vacature als actief
             $vacancyData['is_active'] = true;
-            
+
             // Genereer experience_level als het niet is ingesteld
-            if (!isset($vacancyData['experience_level'])) {
+            if (! isset($vacancyData['experience_level'])) {
                 $vacancyData['experience_level'] = $this->extractExperienceLevel($vacancyData);
             }
-            
+
             // Genereer coordinaten voor location-based matching
-            if (isset($vacancyData['location']) && !empty($vacancyData['location'])) {
+            if (isset($vacancyData['location']) && ! empty($vacancyData['location'])) {
                 $coordinates = GeoHelper::getCityCoordinates($vacancyData['location']);
                 if ($coordinates) {
                     $vacancyData['latitude'] = $coordinates['latitude'];
                     $vacancyData['longitude'] = $coordinates['longitude'];
                 }
             }
-            
+
             // Genereer SEO velden
-            $vacancyData['meta_title'] = $vacancyData['title'] . ' - ' . $company->name;
+            $vacancyData['meta_title'] = $vacancyData['title'].' - '.$company->name;
             $vacancyData['meta_description'] = $this->generateMetaDescription($vacancyData);
             $vacancyData['meta_keywords'] = $this->generateMetaKeywords($vacancyData, $company, $category);
 
             Vacancy::create($vacancyData);
         }
-        
+
         $this->command->info('4 extra vacatures succesvol aangemaakt!');
     }
-    
+
     /**
      * Parse salary_range string naar salary_min en salary_max
      */
@@ -553,29 +555,29 @@ class VacancySeeder extends Seeder
     {
         if (isset($vacancyData['salary_range'])) {
             $salaryRange = $vacancyData['salary_range'];
-            
+
             // Verwijder euro teken, komma's, en andere tekens
             $salaryRange = preg_replace('/[€,\s]/', '', $salaryRange);
-            
+
             // Probeer range te vinden (bijv. "4500-6500" of "4500 tot 6500")
             if (preg_match('/(\d+)[\s\-]+(?:tot|to|en|-)[\s\-]*(\d+)/i', $salaryRange, $matches)) {
-                $vacancyData['salary_min'] = (int)$matches[1];
-                $vacancyData['salary_max'] = (int)$matches[2];
+                $vacancyData['salary_min'] = (int) $matches[1];
+                $vacancyData['salary_max'] = (int) $matches[2];
             } elseif (preg_match('/(\d+)\s*-\s*(\d+)/', $salaryRange, $matches)) {
-                $vacancyData['salary_min'] = (int)$matches[1];
-                $vacancyData['salary_max'] = (int)$matches[2];
+                $vacancyData['salary_min'] = (int) $matches[1];
+                $vacancyData['salary_max'] = (int) $matches[2];
             } elseif (preg_match('/(\d+)/', $salaryRange, $matches)) {
                 // Alleen één nummer gevonden, gebruik als min en max
-                $salary = (int)$matches[1];
+                $salary = (int) $matches[1];
                 $vacancyData['salary_min'] = $salary;
                 $vacancyData['salary_max'] = $salary + 500; // Voeg 500 toe voor range
             }
         }
-        
+
         // Als er nog geen salary_min/max is, probeer uit title/requirements te halen
-        if (!isset($vacancyData['salary_min']) && isset($vacancyData['title'])) {
+        if (! isset($vacancyData['salary_min']) && isset($vacancyData['title'])) {
             // Basis salaris ranges op basis van titel
-            if (stripos($vacancyData['title'], 'senior') !== false || 
+            if (stripos($vacancyData['title'], 'senior') !== false ||
                 stripos($vacancyData['title'], 'lead') !== false) {
                 $vacancyData['salary_min'] = 5000;
                 $vacancyData['salary_max'] = 7000;
@@ -588,7 +590,7 @@ class VacancySeeder extends Seeder
             }
         }
     }
-    
+
     /**
      * Extract experience level uit titel of requirements
      */
@@ -596,8 +598,8 @@ class VacancySeeder extends Seeder
     {
         $title = strtolower($vacancyData['title'] ?? '');
         $requirements = strtolower($vacancyData['requirements'] ?? '');
-        $text = $title . ' ' . $requirements;
-        
+        $text = $title.' '.$requirements;
+
         if (stripos($text, 'lead') !== false || stripos($text, 'architect') !== false) {
             return 'Lead';
         } elseif (stripos($text, 'senior') !== false) {
@@ -607,7 +609,7 @@ class VacancySeeder extends Seeder
         } else {
             // Bepaal op basis van jaren ervaring in requirements
             if (preg_match('/(\d+)\s*(?:jaar|years?)\s*(?:ervaring|experience)/i', $requirements, $matches)) {
-                $years = (int)$matches[1];
+                $years = (int) $matches[1];
                 if ($years >= 5) {
                     return 'Senior';
                 } elseif ($years >= 2) {
@@ -616,10 +618,11 @@ class VacancySeeder extends Seeder
                     return 'Junior';
                 }
             }
+
             return 'Medior'; // Default
         }
     }
-    
+
     /**
      * Zorg dat benodigde bedrijven bestaan
      */
@@ -636,7 +639,7 @@ class VacancySeeder extends Seeder
                 'is_intermediary' => true,
             ]
         );
-        
+
         // Mali bedrijf
         $mali = Company::firstOrCreate(
             ['name' => 'Mali bedrijf'],
@@ -648,10 +651,10 @@ class VacancySeeder extends Seeder
                 'is_intermediary' => false,
             ]
         );
-        
+
         $this->command->info('Bedrijven gecontroleerd/aangemaakt.');
     }
-    
+
     /**
      * Zorg dat benodigde categorieën bestaan
      */
@@ -665,19 +668,19 @@ class VacancySeeder extends Seeder
             ['name' => 'Sales', 'slug' => 'sales'],
             ['name' => 'Engineering', 'slug' => 'engineering'],
         ];
-        
+
         foreach ($defaultCategories as $cat) {
             Category::firstOrCreate(
                 ['name' => $cat['name']],
                 [
                     'name' => $cat['name'],
                     'slug' => $cat['slug'],
-                    'description' => 'Vacatures in de ' . $cat['name'] . ' sector',
+                    'description' => 'Vacatures in de '.$cat['name'].' sector',
                     'is_active' => true,
                 ]
             );
         }
-        
+
         $this->command->info('Categorieën gecontroleerd/aangemaakt.');
     }
 }

@@ -486,7 +486,13 @@ class AdminSettingsController extends Controller
             'coming_soon_footer_text' => GeneralSetting::get('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'),
         ];
 
-        return view('admin.settings.frontend', compact('comingSoonSettings'));
+        $comingSoonImagePath = GeneralSetting::get('coming_soon_image');
+        $comingSoonImageUrl = null;
+        if ($comingSoonImagePath && Storage::disk('public')->exists($comingSoonImagePath)) {
+            $comingSoonImageUrl = app(\App\Services\WebsiteBuilderService::class)->publicFileUrl(ltrim($comingSoonImagePath, '/'));
+        }
+
+        return view('admin.settings.frontend', compact('comingSoonSettings', 'comingSoonImageUrl'));
     }
 
     /**
@@ -504,6 +510,7 @@ class AdminSettingsController extends Controller
             'settings' => $settings,
             'showEmail' => $showEmail,
             'contactEmail' => $contactEmail,
+            'adminPreview' => true,
         ]);
     }
 
@@ -939,6 +946,74 @@ class AdminSettingsController extends Controller
     }
 
     /**
+     * Upload centrale afbeelding voor Coming Soon-pagina (AJAX)
+     */
+    public function uploadComingSoonImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $request->validate([
+                'coming_soon_image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
+            ], [
+                'coming_soon_image.required' => 'Selecteer een afbeelding.',
+                'coming_soon_image.file' => 'Het bestand is ongeldig of kon niet worden gelezen.',
+                'coming_soon_image.mimes' => 'Ongeldig bestandstype. Alleen JPEG, PNG, JPG, GIF, SVG en WebP zijn toegestaan.',
+                'coming_soon_image.max' => 'Het bestand is te groot. Maximaal 5MB (5120 KB) toegestaan. Uw bestand is groter.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $errors = $e->errors();
+            $message = isset($errors['coming_soon_image'][0])
+                ? $errors['coming_soon_image'][0]
+                : 'De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).';
+            return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
+        }
+
+        try {
+            $settingsDir = storage_path('app/public/settings');
+            if (!file_exists($settingsDir)) {
+                File::makeDirectory($settingsDir, 0755, true);
+            }
+
+            $oldPath = GeneralSetting::get('coming_soon_image');
+            if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            $path = $request->file('coming_soon_image')->store('settings', 'public');
+            if (!$path || !Storage::disk('public')->exists($path)) {
+                return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
+            }
+
+            GeneralSetting::set('coming_soon_image', $path);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Afbeelding geüpload.',
+                'image_url' => route('admin.settings.coming-soon-image').'?t='.time(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error uploading coming soon image', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: '.$e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Verwijder centrale Coming Soon-afbeelding
+     */
+    public function removeComingSoonImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $oldPath = GeneralSetting::get('coming_soon_image');
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+        GeneralSetting::set('coming_soon_image', '');
+
+        return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
+    }
+
+    /**
      * Get logo file (toegankelijk voor alle ingelogde admins, o.a. voor sidebar)
      */
     public function getLogo()
@@ -987,6 +1062,23 @@ class AdminSettingsController extends Controller
         return response($file, 200)
             ->header('Content-Type', $mimeType)
             ->header('Content-Disposition', 'inline; filename="success-image"');
+    }
+
+    /**
+     * Get Coming Soon centrale afbeelding (admin preview)
+     */
+    public function getComingSoonImage()
+    {
+        $path = GeneralSetting::get('coming_soon_image');
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            abort(404, 'Afbeelding niet gevonden');
+        }
+        $file = Storage::disk('public')->get($path);
+        $mimeType = Storage::disk('public')->mimeType($path);
+
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="coming-soon-image"');
     }
 
     /**

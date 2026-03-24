@@ -56,10 +56,23 @@
     @php
         $heroBgUrl = !empty($sectionData['background_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['background_image_url']) : $atomAsset('assets/img/bg-hero.jpg');
         $heroAuthorUrl = !empty($sectionData['author_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['author_image_url']) : $atomAsset('assets/img/blog-author.jpg');
+        $overlayFrom = $sectionData['overlay_color_from'] ?? '#5540ae';
+        $overlayTo = $sectionData['overlay_color_to'] ?? '#412f90';
+        $overlayOpacity = max(0, min(100, (int) ($sectionData['overlay_opacity'] ?? 95)));
+        $overlayAlpha = $overlayOpacity / 100;
+        $hexToRgb = function($hex) {
+            $hex = ltrim($hex, '#');
+            if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+            if (strlen($hex) !== 6) return [85, 64, 174];
+            return [ hexdec(substr($hex,0,2)), hexdec(substr($hex,2,2)), hexdec(substr($hex,4,2)) ];
+        };
+        $fromRgb = $hexToRgb($overlayFrom);
+        $toRgb = $hexToRgb($overlayTo);
+        $heroOverlayStyle = 'background-image: linear-gradient(to right, rgba('.$fromRgb[0].','.$fromRgb[1].','.$fromRgb[2].','.$overlayAlpha.'), rgba('.$toRgb[0].','.$toRgb[1].','.$toRgb[2].','.$overlayAlpha.'));';
     @endphp
-    {{-- Hero: full-width bg, gradient, title, CTA; afbeeldingen aanpasbaar via Admin > Website-pagina's > Hero --}}
+    {{-- Hero: full-width bg, gradient, title, CTA; afbeeldingen en overloop aanpasbaar via Admin > Website-pagina's > Hero --}}
     <div class="relative bg-cover bg-center bg-no-repeat py-8" style="background-image: url({{ $heroBgUrl }});">
-        <div class="absolute inset-0 z-20 bg-gradient-to-r from-hero-gradient-from to-hero-gradient-to bg-cover bg-center bg-no-repeat" style="--tw-gradient-from: rgba(85, 64, 174, 0.95); --tw-gradient-to: rgba(65, 47, 144, 0.93); background-image: linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to));"></div>
+        <div class="absolute inset-0 z-20 bg-cover bg-center bg-no-repeat" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
         <div class="container relative z-30 pt-20 pb-12 sm:pt-56 sm:pb-48 lg:pt-64 lg:pb-48">
             <div class="flex flex-col items-center justify-center lg:flex-row">
                 <div class="rounded-full border-8 shadow-xl flex-shrink-0" style="border-color: {{ $primaryColor }};">

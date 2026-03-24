@@ -149,6 +149,10 @@
                                             <span class="text-xs text-muted-foreground" title="Aparte database op je DB-server. In pgAdmin/DBeaver: kijk onder &#39;Databases&#39;, niet onder Schemas.">
                                                 Database: <code class="bg-muted/50 px-1 rounded">{{ $module['database_name'] }}</code>
                                             </span>
+                                        @elseif(!empty($useSingleDatabase) && $module['installed'])
+                                            <span class="text-xs text-muted-foreground" title="Zelfde database als DB_DATABASE in .env">
+                                                Hoofddatabase: <code class="bg-muted/50 px-1 rounded">{{ config('database.connections.' . config('database.default') . '.database') ?: env('DB_DATABASE', '—') }}</code>
+                                            </span>
                                         @endif
                                     </div>
                                 </td>
@@ -232,6 +236,7 @@
                                                             </div>
                                                         @endif
                                                     @endif
+                                                    @if($hasModuleDatabases)
                                                     <div class="kt-menu-separator"></div>
                                                     <div class="kt-menu-item">
                                                         <form action="{{ route('admin.modules.database-reset') }}" method="POST" style="display: inline;"
@@ -257,6 +262,7 @@
                                                             </button>
                                                         </form>
                                                     </div>
+                                                    @endif
                                                     <div class="kt-menu-separator"></div>
                                                     <div class="kt-menu-item">
                                                         <form action="{{ route('admin.modules.uninstall', $module['name']) }}" 
@@ -302,7 +308,13 @@
                             Modules zijn uitbreidbare functionaliteiten die kunnen worden geïnstalleerd en geactiveerd. Wanneer een module geactiveerd is, worden de routes automatisch geregistreerd onder <code class="px-1 py-0.5 bg-background rounded">/admin/{module-name}/</code>
                         </p>
                         <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                            <li>Bij <strong>MySQL of PostgreSQL</strong> krijgt elke geïnstalleerde module een eigen <strong>database</strong> (bijv. <code class="px-1 py-0.5 bg-background rounded">nexa_taxiroyaal</code>). In pgAdmin/DBeaver: kijk onder <strong>Databases</strong>, niet onder Schemas.</li>
+                            @if(!empty($useSingleDatabase))
+                            <li><strong>Eén database:</strong> <code class="px-1 py-0.5 bg-background rounded">MODULE_USE_SINGLE_DATABASE=true</code> — alle module-tabellen staan in <code class="px-1 py-0.5 bg-background rounded">{{ config('database.connections.' . config('database.default') . '.database') ?: env('DB_DATABASE') }}</code> (je <code class="px-1 py-0.5 bg-background rounded">DB_DATABASE</code>). Geen <code class="px-1 py-0.5 bg-background rounded">nexa_*</code> per module.</li>
+                            @elseif($hasModuleDatabases)
+                            <li>Bij <strong>MySQL of PostgreSQL</strong> krijgt elke geïnstalleerde module een eigen <strong>database</strong> (bijv. <code class="px-1 py-0.5 bg-background rounded">nexa_skillmatching</code>). In pgAdmin/DBeaver: kijk onder <strong>Databases</strong>, niet onder Schemas.</li>
+                            @else
+                            <li>Geen aparte module-databases in deze setup (bijv. SQLite of single-DB gedrag).</li>
+                            @endif
                             <li>Na activatie: Routes beschikbaar op <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/*</code></li>
                             <li>Test route: <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/test</code> (werkt alleen als module actief is)</li>
                             <li>Menu items worden automatisch toegevoegd wanneer module actief is</li>

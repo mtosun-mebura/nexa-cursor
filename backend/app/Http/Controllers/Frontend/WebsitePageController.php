@@ -11,8 +11,8 @@ use App\Services\GoogleReviewsService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\View\View;
 
 /**
@@ -40,9 +40,10 @@ class WebsitePageController extends Controller
     public function showHome(Request $request): View
     {
         $page = $this->websiteBuilder->getHomePage();
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page);
     }
 
@@ -52,9 +53,10 @@ class WebsitePageController extends Controller
     public function showAbout(): View
     {
         $page = $this->websiteBuilder->getAboutPage();
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page);
     }
 
@@ -64,9 +66,10 @@ class WebsitePageController extends Controller
     public function showContact(): View
     {
         $page = $this->websiteBuilder->getContactPage();
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page, true);
     }
 
@@ -79,22 +82,25 @@ class WebsitePageController extends Controller
             abort(404);
         }
         $page = $this->websiteBuilder->getPageBySlug($slug);
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page);
     }
 
     /**
      * Render een WebsitePage met het actieve thema-layout.
      *
-     * @param bool $showContactForm Of het contactformulier onder de content getoond moet worden (voor page_type contact)
+     * @param  bool  $showContactForm  Of het contactformulier onder de content getoond moet worden (voor page_type contact)
      */
     protected function renderPage(WebsitePage $page, bool $showContactForm = false): View
     {
         $theme = $this->websiteBuilder->getThemeForPage($page);
         $menuPages = $this->websiteBuilder->getActiveMenuPages();
-        $branding = $this->websiteBuilder->getSiteBranding();
+        $branding = $this->websiteBuilder->getSiteBranding(
+            $this->websiteBuilder->getBrandingModuleNameForWebsitePage($page)
+        );
 
         $themeSlug = $theme ? $theme->slug : 'modern';
         $themeSettings = $theme ? $theme->getSettings() : [];
@@ -124,15 +130,31 @@ class WebsitePageController extends Controller
         $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
         $isRenderingHome = $page->page_type === 'home' || $page->slug === 'home';
         $useThemeHomeLayout = $themeHasHomeSections && (
-            !empty($page->home_sections) || $isRenderingHome
+            ! empty($page->home_sections) || $isRenderingHome
         );
         // Gebruik secties van de huidige pagina als die eigen home_sections heeft (o.a. modulepagina's);
         // anders bij home de home-secties, anders secties van de hoofdpagina (footer e.d.).
         $homePage = $themeHasHomeSections ? $this->websiteBuilder->getHomePage() : null;
-        $useCurrentPageSections = $useThemeHomeLayout && ($isRenderingHome || !empty($page->home_sections));
+        $useCurrentPageSections = $useThemeHomeLayout && ($isRenderingHome || ! empty($page->home_sections));
         $homeSections = $useCurrentPageSections
             ? $page->getHomeSections()
             : ($homePage ? $homePage->getHomeSections() : []);
+
+        if (! $isRenderingHome && $homePage && ! empty($homeSections['footer']['inherit_from_home'])) {
+            $homeFooterSections = $homePage->getHomeSections();
+            $homeSections['footer'] = $homeFooterSections['footer'] ?? [];
+            $homeSections['copyright'] = $homeFooterSections['copyright'] ?? ($homeSections['copyright'] ?? '');
+            $footerVisibilityKeys = ['footer', 'footer_logo', 'footer_tagline', 'footer_quick_links', 'footer_support_links', 'footer_social', 'footer_map'];
+            foreach ($footerVisibilityKeys as $k) {
+                if (array_key_exists($k, $homeFooterSections['visibility'] ?? [])) {
+                    $homeSections['visibility'][$k] = $homeFooterSections['visibility'][$k];
+                }
+            }
+            $sectionOrder = $homeSections['section_order'] ?? [];
+            if (is_array($sectionOrder) && ! in_array('footer', $sectionOrder, true)) {
+                $homeSections['section_order'] = array_merge(array_values($sectionOrder), ['footer']);
+            }
+        }
         $emailTemplateBySectionKey = [];
         $templateConnection = null;
         $moduleName = $page->module_name;
@@ -146,13 +168,14 @@ class WebsitePageController extends Controller
             $base = is_string($sectionKey) ? preg_replace('/_\d+$/', '', $sectionKey) : '';
             if ($base === 'email_template') {
                 $tid = $homeSections[$sectionKey]['template_id'] ?? null;
-                if (!$tid) {
+                if (! $tid) {
                     $emailTemplateBySectionKey[$sectionKey] = null;
+
                     continue;
                 }
                 $tidInt = (int) $tid;
                 $template = EmailTemplate::find($tidInt);
-                if (!$template && $templateConnection) {
+                if (! $template && $templateConnection) {
                     $template = EmailTemplate::on($templateConnection)->find($tidInt);
                 }
                 $emailTemplateBySectionKey[$sectionKey] = $template;
@@ -215,11 +238,11 @@ class WebsitePageController extends Controller
             $paths[] = $backendEnv;
         }
         foreach ($paths as $path) {
-            if (!is_readable($path)) {
+            if (! is_readable($path)) {
                 continue;
             }
             $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if (!is_array($lines)) {
+            if (! is_array($lines)) {
                 continue;
             }
             foreach ($lines as $line) {
@@ -227,16 +250,18 @@ class WebsitePageController extends Controller
                 if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
                     continue;
                 }
-                list($k, $value) = explode('=', $line, 2);
+                [$k, $value] = explode('=', $line, 2);
                 if (trim($k) === $keyName) {
                     $value = trim($value);
                     if (strlen($value) >= 2 && ($value[0] === '"' && $value[strlen($value) - 1] === '"' || $value[0] === "'" && $value[strlen($value) - 1] === "'")) {
                         $value = substr($value, 1, -1);
                     }
+
                     return trim($value);
                 }
             }
         }
+
         return '';
     }
 }

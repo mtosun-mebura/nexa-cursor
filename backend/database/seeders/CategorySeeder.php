@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Category;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
@@ -58,12 +57,14 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categories as $index => $category) {
+            $slug = Str::slug($category['name']);
+            // Unieke index staat op slug (tabel heet branches / model Category)
             Category::updateOrCreate(
-                ['name' => $category['name']],
+                ['slug' => $slug],
                 [
                     'name' => $category['name'],
-                    'slug' => Str::slug($category['name']),
-                    'description' => 'Vacatures in de ' . $category['name'] . ' sector',
+                    'slug' => $slug,
+                    'description' => 'Vacatures in de '.$category['name'].' sector',
                     'icon' => $category['icon'],
                     'color' => $category['color'],
                     'is_active' => true,
