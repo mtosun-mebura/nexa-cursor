@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\WebsiteBuilderService;
 use Closure;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -27,13 +28,19 @@ class AdminMiddleware
 
             // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+                $relative = '/admin/meld/sessie-verlopen?' . http_build_query(['intended' => $request->fullUrl()]);
+
                 return response()->json([
                     'message' => 'Je sessie is verlopen. Log opnieuw in.',
-                    'redirect' => route('admin.meld.sessie-verlopen', ['intended' => $request->fullUrl()])
+                    'redirect' => $relative,
                 ], 401);
             }
-            
-            return redirect()->route('admin.meld.sessie-verlopen', ['intended' => $request->fullUrl()]);
+
+            // Relatief pad i.p.v. route(): voorkomt absolute https://… URL’s terwijl Docker op :8000 geen TLS heeft
+            // (anders ERR_CONNECTION_CLOSED in de browser).
+            return new RedirectResponse(
+                '/admin/meld/sessie-verlopen?' . http_build_query(['intended' => $request->fullUrl()])
+            );
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)

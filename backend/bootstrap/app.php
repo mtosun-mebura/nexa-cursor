@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Achter reverse proxy (Apache/Varnish/Nginx): juiste scheme/host voor URL’s, sessiecookies en CSRF.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
@@ -25,7 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         
         // Ongeauthenticeerde frontend-gebruikers naar meld-pagina (sessie verlopen) i.p.v. direct naar login, met intended voor redirect na inloggen
-        $middleware->redirectGuestsTo(fn (Request $request) => route('meld.sessie-verlopen') . '?intended=' . rawurlencode($request->url()));
+        // Relatief pad i.p.v. route(): voorkomt absolute https://-URL’s op :8000 zonder TLS (ERR_CONNECTION_CLOSED).
+        $middleware->redirectGuestsTo(fn (Request $request) => '/meld/sessie-verlopen?' . http_build_query(['intended' => $request->url()]));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Ensure JSON response for favorite routes so frontend can show the error

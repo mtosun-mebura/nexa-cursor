@@ -50,10 +50,11 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
-        // Force HTTPS in production
-        if ($this->app->environment('production')) {
-            \Illuminate\Support\Facades\URL::forceScheme('https');
-        }
+        // Geen globale URL::forceScheme('https'): dat dwingt ook bij een gewone HTTP-request
+        // (bijv. http://192.168.178.116:8000) alle gegenereerde URL’s naar https om, terwijl
+        // de container op :8000 geen TLS heeft → assets laden als https://…:8000/build/… en
+        // de browser geeft net::ERR_CONNECTION_CLOSED. Achter een echte SSL-proxy volstaat
+        // TrustProxies (bootstrap/app.php) + X-Forwarded-Proto om het juiste scheme te krijgen.
 
         // Ensure Sanctum uses api guard by default for SPA/API
         config(['auth.defaults.guard' => 'api']);
