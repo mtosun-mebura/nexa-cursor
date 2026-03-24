@@ -94,6 +94,13 @@ jobs:
             ./ "$DEPLOY_DIR"/
           echo "✅ Synced to $DEPLOY_DIR"
 
+      # sudo rsync maakt bestanden als root; runner moet kunnen schrijven voor npm build
+      - name: Fix deploy tree ownership (runner + www-data)
+        run: |
+          set -e
+          sudo chown -R "$USER:www-data" "$DEPLOY_DIR"
+          echo "✅ $DEPLOY_DIR owned by $USER:www-data"
+
       - name: Ensure Laravel dirs & .env exist
         run: |
           set -e
@@ -119,13 +126,20 @@ jobs:
           fi
           echo "✅ .env in root aanwezig"
 
+      - name: Setup Node.js for Vite build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
       - name: Build Vite assets (production)
         run: |
           set -e
           cd "$BACKEND_DIR"
           
-          # Clean previous build
-          rm -rf public/build || true
+          # Clean previous build (fallback: sudo als oude build als root stond)
+          rm -rf public/build 2>/dev/null || sudo rm -rf public/build || true
           
           # Install dependencies
           npm ci
@@ -214,11 +228,13 @@ jobs:
 
       - name: Laravel post-deploy
         run: |
-          cd /var/www/nexa
-          docker compose -f docker-compose.prod.yml exec -T backend sh -c "chown www-data:www-data /var/www/html/.env && chmod 644 /var/www/html/.env" || true
-          docker compose -f docker-compose.prod.yml exec -T backend php artisan config:clear
-          docker compose -f docker-compose.prod.yml exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
-          docker compose -f docker-compose.prod.yml exec -T backend php artisan config:cache
+          set -e
+          cd "$DEPLOY_DIR"
+          dc="${{ steps.pickdc.outputs.dc }}"
+          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "chown www-data:www-data /var/www/html/.env && chmod 644 /var/www/html/.env" || true
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
+          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
+          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:cache
 
       - name: Fix .env permissions before key:generate
         run: |
