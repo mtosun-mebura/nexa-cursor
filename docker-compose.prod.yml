@@ -3,7 +3,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    container_name: nexa_backend
+    # Geen container_name: vaste namen zijn globaal uniek en geven conflicten bij
+    # meerdere deploy-paden of als 'compose down' niet dezelfde projectnaam gebruikt.
+    # Compose gebruikt dan bv. <project>-backend-1; exec: docker compose exec backend …
     ports:
       - "8000:8000"
     environment:

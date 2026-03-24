@@ -186,12 +186,16 @@ jobs:
           dc="${{ steps.pickdc.outputs.dc }}"
           $dc -f "$COMPOSE_FILE" down --remove-orphans || true
           
+          # Legacy / handmatige container met oude vaste naam (nexa_backend) blokkeert anders 'create'
+          echo "🧹 Verwijderen eventuele oude backend-container met vaste naam..."
+          docker rm -f nexa_backend 2>/dev/null || true
+          
           # Clean Docker build cache before building to save space
           echo "🧹 Cleaning Docker build cache..."
           docker builder prune -af || true
           
           $dc -f "$COMPOSE_FILE" build --no-cache
-          $dc -f "$COMPOSE_FILE" up -d
+          $dc -f "$COMPOSE_FILE" up -d --force-recreate
           echo "⏳ Wachten tot backend luistert..."
           tries=0
           until curl -fs http://127.0.0.1:8000 -I >/dev/null 2>&1; do
