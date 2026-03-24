@@ -224,12 +224,12 @@
 <body class="min-h-screen antialiased flex flex-col theme-{{ $themeSlug ?? 'modern' }} bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" style="font-family: var(--theme-font-body);">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">Spring naar hoofdinhoud</a>
     @if(isset($isPreview) && $isPreview && isset($previewEditUrl))
-    <div class="preview-bar sticky top-0 z-[100] flex h-10 w-full flex-nowrap items-center gap-3 px-4 text-sm font-medium leading-none text-white" role="banner" aria-label="Voorbeeldmodus">
+    <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" role="banner" aria-label="Voorbeeldmodus">
         <a href="{{ $previewEditUrl }}" class="preview-bar-back shrink-0">
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
             Terug naar bewerken
         </a>
-        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-none">Dit is een voorbeeld met het gekozen thema.</span>
+        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema.</span>
     </div>
     @endif
     @if(!empty($isStaging) && !empty($stagingBackUrl))

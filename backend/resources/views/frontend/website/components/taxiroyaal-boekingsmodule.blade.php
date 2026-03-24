@@ -30,9 +30,13 @@
     $whatsappClickToChatEnabled = (string) $envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0') === '1';
     $whatsappClickToChatNumber = trim((string) $envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''));
     $bookingConfig['address_search_url'] = url()->route('taxiroyaal.booking.address-search');
+    $tabFontPxVal = (int) ($sectionStyle['tab_font_size_px'] ?? 14);
+    $routeMapZoomVal = max(1, min(21, (int) ($sectionStyle['route_map_zoom'] ?? 14)));
+    $routeMapImgScale = 0.68 + ($routeMapZoomVal - 1) * (0.64 / 20);
+    $routeMapImgScale = round(max(0.65, min(1.35, $routeMapImgScale)), 4);
 @endphp
 
-<section class="container-custom py-8 md:py-12 booking-module-scroll-reveal" data-taxiroyaal-booking-module data-booking-module-scroll-reveal>
+<section class="container-custom py-8 md:py-12 booking-module-scroll-reveal" data-taxiroyaal-booking-module data-booking-module-scroll-reveal style="--booking-tab-font-size: {{ $tabFontPxVal }}px; --booking-route-map-img-scale: {{ $routeMapImgScale }};">
     <div class="flex {{ $moduleAlignClass }}">
     <div class="w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
     <div class="booking-module-card booking-module-reveal-item rounded-xl border p-0 shadow-sm bg-neutral-primary text-heading"
@@ -209,6 +213,23 @@
                                 @endif
                                 <div class="mt-3 hidden rounded-lg border px-3 py-2.5 text-base shadow-xs booking-route-details-banner" data-route-details-banner style="--booking-primary: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">
                                     <div class="text-lg font-semibold mb-0.5">Route informatie</div>
+                                    <div class="booking-trip-route-map relative w-full shrink-0 overflow-hidden rounded-lg border bg-slate-200/50 dark:bg-slate-800/50 mb-3" style="border-color: rgba(148, 163, 184, 0.45); min-height: 200px; height: clamp(200px, 28vh, 360px); max-height: min(40vh, 22rem);" data-trip-route-map-wrap>
+                                        <img src="" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-cover" loading="lazy" decoding="async" data-trip-route-map-static>
+                                        <iframe
+                                            title="Route op de kaart (alleen weergave)"
+                                            class="absolute inset-0 z-0 hidden h-full w-full border-0"
+                                            loading="lazy"
+                                            referrerpolicy="no-referrer-when-downgrade"
+                                            data-trip-route-map-iframe
+                                        ></iframe>
+                                        <div class="absolute inset-0 z-10 hidden cursor-default bg-transparent" data-trip-route-map-blocker aria-hidden="true"></div>
+                                        <div class="absolute inset-0 z-20 hidden flex items-center justify-center p-3 text-center text-xs sm:text-sm text-slate-500 dark:text-slate-400" data-trip-route-map-empty>
+                                            Route wordt getoond zodra vertrek- en bestemming zijn ingevuld.
+                                        </div>
+                                        <div class="absolute inset-0 z-20 hidden flex-col items-center justify-center p-4 text-center text-xs sm:text-sm text-slate-600 dark:text-slate-300" data-trip-route-map-fallback>
+                                            <a href="#" class="font-semibold text-fg-brand underline hover:no-underline" data-trip-route-map-link target="_blank" rel="noopener noreferrer">Route openen in Google Maps</a>
+                                        </div>
+                                    </div>
                                     <div class="min-h-[1.5rem] flex flex-col justify-center">
                                         <div class="hidden items-center gap-2" data-route-details-loading>
                                             <span class="booking-route-details-spinner" aria-hidden="true"></span>
@@ -445,14 +466,40 @@
     box-shadow: 0 26px 58px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-/* Route-informatiebanner: primaire kleur uit sectie (admin) */
+/* Route-informatiebanner: zeer lichte tint van primaire kleur (admin) */
 [data-taxiroyaal-booking-module] .booking-route-details-banner {
-    background-color: var(--booking-primary, #5b21b6) !important;
-    border-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 72%, #0f172a) !important;
-    color: #fff;
+    background-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 11%, white) !important;
+    border-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 32%, rgba(148, 163, 184, 0.55)) !important;
+    color: #0f172a;
+}
+.dark [data-taxiroyaal-booking-module] .booking-route-details-banner {
+    background-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 14%, rgb(30 41 59)) !important;
+    border-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 38%, rgb(71 85 105)) !important;
+    color: #f8fafc;
+}
+[data-taxiroyaal-booking-module] .booking-route-details-banner .text-lg {
+    color: color-mix(in srgb, var(--booking-primary, #5b21b6) 55%, #0f172a);
+}
+.dark [data-taxiroyaal-booking-module] .booking-route-details-banner .text-lg {
+    color: #ffffff;
+    font-weight: 700;
+}
+[data-taxiroyaal-booking-module] [data-booking-steps-nav] .booking-step-tab,
+[data-taxiroyaal-booking-module] #booking-steps-select {
+    font-size: var(--booking-tab-font-size, 14px) !important;
+}
+[data-taxiroyaal-booking-module] [data-summary-route-map-static],
+[data-taxiroyaal-booking-module] [data-trip-route-map-static],
+[data-taxiroyaal-booking-module] [data-summary-route-map-iframe],
+[data-taxiroyaal-booking-module] [data-trip-route-map-iframe] {
+    transform: scale(var(--booking-route-map-img-scale, 1));
+    transform-origin: center center;
 }
 [data-taxiroyaal-booking-module] .booking-route-details-loading-text {
-    color: rgba(255, 255, 255, 0.92);
+    color: #334155;
+}
+.dark [data-taxiroyaal-booking-module] .booking-route-details-loading-text {
+    color: #e2e8f0;
 }
 @keyframes booking-route-details-spin {
     to { transform: rotate(360deg); }
@@ -461,11 +508,15 @@
     display: inline-block;
     width: 1rem;
     height: 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: rgba(255, 255, 255, 0.95);
+    border: 2px solid color-mix(in srgb, var(--booking-primary, #5b21b6) 35%, #cbd5e1);
+    border-top-color: var(--booking-primary, #5b21b6);
     border-radius: 9999px;
     animation: booking-route-details-spin 0.65s linear infinite;
     flex-shrink: 0;
+}
+.dark [data-taxiroyaal-booking-module] .booking-route-details-spinner {
+    border: 2px solid color-mix(in srgb, var(--booking-primary, #5b21b6) 40%, #64748b);
+    border-top-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 85%, white);
 }
 
 [data-taxiroyaal-booking-module] .booking-trip-layout {
@@ -927,6 +978,7 @@ body.booking-modal-open {
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var mapsApiKey = @json($mapsApiKey);
     var activeTabColor = @json($sectionStyle['active_tab_color'] ?? '#5b21b6');
+    var routeMapZoom = @json($routeMapZoomVal);
     var whatsappClickToChatEnabled = @json($whatsappClickToChatEnabled);
     var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
     var whatsappDraftWindow = null;
@@ -1695,96 +1747,114 @@ body.booking-modal-open {
         appendMarker('A', pickupAddr, pickupLat, pickupLng);
         appendMarker('B', dropoffAddr, dropoffLat, dropoffLng);
 
+        base += '&zoom=' + encodeURIComponent(String(routeMapZoom));
         base += '&key=' + encodeURIComponent(mapsApiKey);
         return base;
     }
 
     function updateSummaryRouteMap() {
-        var staticEl = root.querySelector('[data-summary-route-map-static]');
-        var iframe = root.querySelector('[data-summary-route-map-iframe]');
-        var blockerEl = root.querySelector('[data-summary-route-map-blocker]');
-        var emptyEl = root.querySelector('[data-summary-route-map-empty]');
-        var fallbackEl = root.querySelector('[data-summary-route-map-fallback]');
-        var linkEl = root.querySelector('[data-summary-route-map-link]');
         var pickup = String(state.pickup_address || '').trim();
         var dropoff = String(state.dropoff_address || '').trim();
         var stops = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
 
-        function showEmptyState() {
-            if (staticEl) {
-                staticEl.removeAttribute('src');
-                staticEl.classList.add('hidden');
+        var mapSlices = [
+            {
+                staticEl: root.querySelector('[data-summary-route-map-static]'),
+                iframe: root.querySelector('[data-summary-route-map-iframe]'),
+                blockerEl: root.querySelector('[data-summary-route-map-blocker]'),
+                emptyEl: root.querySelector('[data-summary-route-map-empty]'),
+                fallbackEl: root.querySelector('[data-summary-route-map-fallback]'),
+                linkEl: root.querySelector('[data-summary-route-map-link]')
+            },
+            {
+                staticEl: root.querySelector('[data-trip-route-map-static]'),
+                iframe: root.querySelector('[data-trip-route-map-iframe]'),
+                blockerEl: root.querySelector('[data-trip-route-map-blocker]'),
+                emptyEl: root.querySelector('[data-trip-route-map-empty]'),
+                fallbackEl: root.querySelector('[data-trip-route-map-fallback]'),
+                linkEl: root.querySelector('[data-trip-route-map-link]')
             }
-            if (blockerEl) blockerEl.classList.add('hidden');
-            if (iframe) {
-                iframe.removeAttribute('src');
-                iframe.classList.add('hidden');
+        ];
+
+        function showEmptySlice(s) {
+            if (!s || !s.emptyEl) return;
+            if (s.staticEl) {
+                s.staticEl.removeAttribute('src');
+                s.staticEl.classList.add('hidden');
             }
-            if (emptyEl) emptyEl.classList.remove('hidden');
-            if (fallbackEl) {
-                fallbackEl.classList.add('hidden');
-                fallbackEl.classList.remove('flex');
+            if (s.blockerEl) s.blockerEl.classList.add('hidden');
+            if (s.iframe) {
+                s.iframe.removeAttribute('src');
+                s.iframe.classList.add('hidden');
+            }
+            s.emptyEl.classList.remove('hidden');
+            if (s.fallbackEl) {
+                s.fallbackEl.classList.add('hidden');
+                s.fallbackEl.classList.remove('flex');
             }
         }
 
-        function showFallbackState(dirUrl) {
-            if (staticEl) {
-                staticEl.removeAttribute('src');
-                staticEl.classList.add('hidden');
+        function showFallbackSlice(s, dirUrl) {
+            if (!s) return;
+            if (s.staticEl) {
+                s.staticEl.removeAttribute('src');
+                s.staticEl.classList.add('hidden');
             }
-            if (blockerEl) blockerEl.classList.add('hidden');
-            if (iframe) {
-                iframe.removeAttribute('src');
-                iframe.classList.add('hidden');
+            if (s.blockerEl) s.blockerEl.classList.add('hidden');
+            if (s.iframe) {
+                s.iframe.removeAttribute('src');
+                s.iframe.classList.add('hidden');
             }
-            if (emptyEl) emptyEl.classList.add('hidden');
-            if (fallbackEl) {
-                fallbackEl.classList.remove('hidden');
-                fallbackEl.classList.add('flex');
+            if (s.emptyEl) s.emptyEl.classList.add('hidden');
+            if (s.fallbackEl) {
+                s.fallbackEl.classList.remove('hidden');
+                s.fallbackEl.classList.add('flex');
             }
-            if (linkEl && dirUrl) linkEl.href = dirUrl;
+            if (s.linkEl && dirUrl) s.linkEl.href = dirUrl;
         }
 
-        function showEmbedState(dirUrl, embedUrl) {
-            if (staticEl) {
-                staticEl.removeAttribute('src');
-                staticEl.classList.add('hidden');
+        function showEmbedSlice(s, dirUrl, embedUrl) {
+            if (!s) return;
+            if (s.staticEl) {
+                s.staticEl.removeAttribute('src');
+                s.staticEl.classList.add('hidden');
             }
-            if (emptyEl) emptyEl.classList.add('hidden');
-            if (fallbackEl) {
-                fallbackEl.classList.add('hidden');
-                fallbackEl.classList.remove('flex');
+            if (s.emptyEl) s.emptyEl.classList.add('hidden');
+            if (s.fallbackEl) {
+                s.fallbackEl.classList.add('hidden');
+                s.fallbackEl.classList.remove('flex');
             }
-            if (linkEl && dirUrl) linkEl.href = dirUrl;
-            if (iframe) {
-                iframe.src = embedUrl;
-                iframe.classList.remove('hidden');
+            if (s.linkEl && dirUrl) s.linkEl.href = dirUrl;
+            if (s.iframe) {
+                s.iframe.src = embedUrl;
+                s.iframe.classList.remove('hidden');
             }
-            if (blockerEl) blockerEl.classList.remove('hidden');
+            if (s.blockerEl) s.blockerEl.classList.remove('hidden');
         }
 
-        function showStaticMapState(dirUrl, imageUrl) {
-            if (iframe) {
-                iframe.removeAttribute('src');
-                iframe.classList.add('hidden');
+        function showStaticMapSlice(s, dirUrl, imageUrl) {
+            if (!s) return;
+            if (s.iframe) {
+                s.iframe.removeAttribute('src');
+                s.iframe.classList.add('hidden');
             }
-            if (blockerEl) blockerEl.classList.add('hidden');
-            if (emptyEl) emptyEl.classList.add('hidden');
-            if (fallbackEl) {
-                fallbackEl.classList.add('hidden');
-                fallbackEl.classList.remove('flex');
+            if (s.blockerEl) s.blockerEl.classList.add('hidden');
+            if (s.emptyEl) s.emptyEl.classList.add('hidden');
+            if (s.fallbackEl) {
+                s.fallbackEl.classList.add('hidden');
+                s.fallbackEl.classList.remove('flex');
             }
-            if (linkEl && dirUrl) linkEl.href = dirUrl;
-            if (staticEl && imageUrl) {
-                staticEl.alt = 'Route van ' + pickup + ' naar ' + dropoff;
-                staticEl.src = imageUrl;
-                staticEl.classList.remove('hidden');
+            if (s.linkEl && dirUrl) s.linkEl.href = dirUrl;
+            if (s.staticEl && imageUrl) {
+                s.staticEl.alt = 'Route van ' + pickup + ' naar ' + dropoff;
+                s.staticEl.src = imageUrl;
+                s.staticEl.classList.remove('hidden');
             }
         }
 
         if (!pickup || !dropoff) {
             state.summary_route_polyline = '';
-            showEmptyState();
+            mapSlices.forEach(showEmptySlice);
             return;
         }
 
@@ -1802,7 +1872,8 @@ body.booking-modal-open {
                 + '&mode=driving'
                 + '&units=metric'
                 + '&region=nl'
-                + '&language=' + encodeURIComponent(mapLang);
+                + '&language=' + encodeURIComponent(mapLang)
+                + '&zoom=' + encodeURIComponent(String(routeMapZoom));
             if (stops.length) {
                 embed += '&waypoints=' + encodeURIComponent(stops.join('|'));
             }
@@ -1815,13 +1886,17 @@ body.booking-modal-open {
                 state.dropoff_lat,
                 state.dropoff_lng
             );
-            if (staticUrl && staticUrl.length < 7800) {
-                showStaticMapState(dirUrl, staticUrl);
-            } else {
-                showEmbedState(dirUrl, embed);
-            }
+            mapSlices.forEach(function(s) {
+                if (staticUrl && staticUrl.length < 7800) {
+                    showStaticMapSlice(s, dirUrl, staticUrl);
+                } else {
+                    showEmbedSlice(s, dirUrl, embed);
+                }
+            });
         } else {
-            showFallbackState(dirUrl);
+            mapSlices.forEach(function(s) {
+                showFallbackSlice(s, dirUrl);
+            });
         }
     }
 

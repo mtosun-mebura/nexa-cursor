@@ -30,6 +30,8 @@ class TaxiRoyaalBookingPricingService
             'style' => [
                 'primary_color' => '#5b21b6',
                 'active_tab_color' => '#5b21b6',
+                'tab_font_size_px' => '14',
+                'route_map_zoom' => '14',
                 'background_color' => '#ffffff',
                 'text_color' => '#111827',
                 'card_bg_color' => '#ffffff',
@@ -117,6 +119,16 @@ class TaxiRoyaalBookingPricingService
         $section['style']['container_max_width'] = preg_match('/^(100|[1-9]\d?)%$/', $width) ? $width : $defaults['style']['container_max_width'];
         $align = trim((string) ($section['style']['align'] ?? $defaults['style']['align']));
         $section['style']['align'] = in_array($align, ['left', 'center', 'right'], true) ? $align : $defaults['style']['align'];
+
+        $tabFontPx = (int) ($section['style']['tab_font_size_px'] ?? $defaults['style']['tab_font_size_px']);
+        $tabFontPx = ($tabFontPx >= 10 && $tabFontPx <= 24 && $tabFontPx % 2 === 0)
+            ? $tabFontPx
+            : (int) $defaults['style']['tab_font_size_px'];
+        $section['style']['tab_font_size_px'] = (string) $tabFontPx;
+
+        $routeMapZoom = (int) ($section['style']['route_map_zoom'] ?? $defaults['style']['route_map_zoom']);
+        $routeMapZoom = max(1, min(21, $routeMapZoom));
+        $section['style']['route_map_zoom'] = (string) $routeMapZoom;
 
         $logic = is_array($raw['logic'] ?? null) ? $raw['logic'] : [];
         $section['logic']['min_passengers'] = max(1, min(8, (int) ($logic['min_passengers'] ?? $defaults['logic']['min_passengers'])));

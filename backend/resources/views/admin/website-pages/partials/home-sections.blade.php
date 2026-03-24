@@ -1451,6 +1451,24 @@
                 <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? '#5b21b6') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? '#5b21b6') }}"></div>
                 <div>
+                    <label class="text-sm text-muted-foreground">Tekstgrootte tabbladen</label>
+                    @php $bookingTabFontPx = old('home_sections.'.$sectionKey.'.style.tab_font_size_px', $bookingData['style']['tab_font_size_px'] ?? '14'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][tab_font_size_px]">
+                        @foreach(range(10, 24, 2) as $px)
+                            <option value="{{ $px }}" {{ (string) $bookingTabFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Zoomniveau routekaarten (reis + bevestiging)</label>
+                    @php $bookingRouteMapZoom = old('home_sections.'.$sectionKey.'.style.route_map_zoom', $bookingData['style']['route_map_zoom'] ?? '14'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][route_map_zoom]">
+                        @for($z = 1; $z <= 21; $z++)
+                            <option value="{{ $z }}" {{ (string) $bookingRouteMapZoom === (string) $z ? 'selected' : '' }}>{{ $z }}</option>
+                        @endfor
+                    </select>
+                </div>
+                <div>
                     <label class="text-sm text-muted-foreground">Max breedte (%)</label>
                     <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_max_width]" value="{{ old('home_sections.'.$sectionKey.'.style.container_max_width', $bookingData['style']['container_max_width'] ?? '100%') }}" placeholder="100%">
                 </div>
