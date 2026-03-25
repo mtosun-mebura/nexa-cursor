@@ -169,12 +169,20 @@ return [
     |
     */
 
-    // Prevent 419 CSRF issues on HTTP (local dev) when cookies are marked secure.
-    // - In local/dev environments we force secure cookies off for http://localhost.
-    // - Otherwise, default to secure only when APP_URL is https (unless explicitly configured).
-    'secure' => env('APP_ENV') === 'local'
-        ? false
-        : env('SESSION_SECURE_COOKIE', Str::startsWith((string) env('APP_URL', ''), 'https://')),
+    // Secure cookies: alleen over HTTPS meesturen. Als APP_URL=https maar je opent de site
+    // via http://IP:8000 (Docker/LAN), worden Secure-cookies niet meegestuurd → geen sessie
+    // → CSRF faalt met HTTP 419. Zet dan SESSION_SECURE_COOKIE=false in .env.
+    'secure' => (function () {
+        if (env('APP_ENV') === 'local') {
+            return false;
+        }
+        $explicit = env('SESSION_SECURE_COOKIE');
+        if ($explicit !== null && $explicit !== '') {
+            return filter_var($explicit, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return Str::startsWith((string) env('APP_URL', ''), 'https://');
+    })(),
 
     /*
     |--------------------------------------------------------------------------
