@@ -665,6 +665,12 @@
             if (typeof window.CookieConsent === 'undefined') return;
 
             window.CookieConsent.run({
+                // Standaard true: modal-HTML pas “als hij zichtbaar wordt” → kan na lege cache / eerste paint uitblijven
+                lazyHtmlGeneration: false,
+                autoShow: true,
+                cookie: {
+                    secure: window.location.protocol === 'https:',
+                },
                 guiOptions: {
                     consentModal: {
                         layout: 'box',
@@ -736,7 +742,7 @@
                 },
                 onConsent: function() {
                     var btn = document.getElementById('cookie-settings-btn');
-                    if (btn) btn.style.display = 'none';
+                    if (btn && window.CookieConsent.validConsent()) btn.style.display = 'none';
                     window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
                         detail: {
                             analytics: window.CookieConsent.acceptedCategory('analytics'),
@@ -746,7 +752,7 @@
                 },
                 onChange: function() {
                     var btn = document.getElementById('cookie-settings-btn');
-                    if (btn) btn.style.display = 'none';
+                    if (btn && window.CookieConsent.validConsent()) btn.style.display = 'none';
                     window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
                         detail: {
                             analytics: window.CookieConsent.acceptedCategory('analytics'),
@@ -754,20 +760,17 @@
                         }
                     }));
                 }
+            }).then(function() {
+                var cookieSettingsBtn = document.getElementById('cookie-settings-btn');
+                if (cookieSettingsBtn) {
+                    cookieSettingsBtn.style.display = window.CookieConsent.validConsent() ? 'none' : '';
+                    cookieSettingsBtn.addEventListener('click', function() {
+                        if (window.CookieConsent && typeof window.CookieConsent.showPreferences === 'function') {
+                            window.CookieConsent.showPreferences();
+                        }
+                    });
+                }
             });
-
-            var cookieSettingsBtn = document.getElementById('cookie-settings-btn');
-            if (cookieSettingsBtn) {
-                cookieSettingsBtn.addEventListener('click', function() {
-                    if (window.CookieConsent && typeof window.CookieConsent.showPreferences === 'function') {
-                        window.CookieConsent.showPreferences();
-                    }
-                });
-                try {
-                    var hasStored = localStorage.getItem('cc_cookie') || (document.cookie.indexOf('cc_cookie=') !== -1);
-                    if (hasStored) cookieSettingsBtn.style.display = 'none';
-                } catch (e) {}
-            }
         })();
 
         (function() {
