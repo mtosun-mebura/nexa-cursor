@@ -18,9 +18,16 @@ jobs:
           hostname
           pwd
 
+      # Geen `sudo` naar root: in CI is er geen TTY en krijg je een wachtwoordprompt.
+      # Opties: (1) runner draait als nexas4479 → direct dit script; (2) runner als andere user
+      # → sudoers NOPASSWD voor `sudo -u nexas4479` op dit pad (zie deploy/github-runner-sudoers.example).
       - name: Run server deploy script
         run: |
-          sudo /usr/local/bin/deploy-taxiroyaal.sh
+          if [ "$(id -un)" = "nexas4479" ]; then
+            /usr/local/bin/deploy-taxiroyaal.sh
+          else
+            sudo -n -u nexas4479 /usr/local/bin/deploy-taxiroyaal.sh
+          fi
 
       - name: Verify public site
         run: |
