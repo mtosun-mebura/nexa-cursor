@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
-use App\Services\EnvService;
 use App\Models\GeneralSetting;
+use App\Services\EnvService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+
 class AdminSettingsController extends Controller
 {
     protected $envService;
@@ -24,7 +25,7 @@ class AdminSettingsController extends Controller
      */
     protected function ensureSuperAdmin()
     {
-        if (!auth()->check() || !auth()->user()->hasRole('super-admin')) {
+        if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Je hebt geen rechten om deze pagina te bekijken. Alleen super-admins hebben toegang tot instellingen.');
         }
     }
@@ -102,7 +103,7 @@ class AdminSettingsController extends Controller
     public function updateMail(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $validator = Validator::make($request->all(), [
             'MAIL_MAILER' => 'required|in:log,smtp,sendmail,mailgun,ses,postmark,resend',
             'MAIL_HOST' => 'required_if:MAIL_MAILER,smtp|nullable|string|max:255',
@@ -150,7 +151,7 @@ class AdminSettingsController extends Controller
                 ->with('success', 'Mail instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
-                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -162,7 +163,7 @@ class AdminSettingsController extends Controller
     public function testEmail(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $validator = Validator::make($request->all(), [
             'test_email' => 'required|email',
         ]);
@@ -181,12 +182,12 @@ class AdminSettingsController extends Controller
             $smtpUsername = $this->envService->get('MAIL_USERNAME', '');
             $configuredFromAddress = $this->envService->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@nexa-skillmatching.nl'));
             $fromName = $this->envService->get('MAIL_FROM_NAME', config('mail.from.name', 'NEXA Skillmatching'));
-            
+
             // Gebruik SMTP username als from address als deze beschikbaar is EN verschilt van configured address
             // Dit voorkomt "not authorized to send on behalf of" errors wanneer de server dit niet toestaat
             // Als SMTP username niet beschikbaar is of gelijk is aan configured address, gebruik de configured from address
-            $fromAddress = (!empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
-            
+            $fromAddress = (! empty($smtpUsername) && $smtpUsername !== $configuredFromAddress) ? $smtpUsername : $configuredFromAddress;
+
             \Mail::raw('Dit is een test email van NEXA Skillmatching. Als je dit bericht ontvangt, werkt de mailserver correct!', function ($message) use ($request, $fromAddress, $fromName) {
                 $message->to($request->input('test_email'))
                     ->subject('Test Email - NEXA Skillmatching')
@@ -203,12 +204,12 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Test email succesvol verzonden naar ' . $request->input('test_email') . '!',
+                'message' => 'Test email succesvol verzonden naar '.$request->input('test_email').'!',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden bij het verzenden: ' . $e->getMessage(),
+                'message' => 'Er is een fout opgetreden bij het verzenden: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -220,7 +221,7 @@ class AdminSettingsController extends Controller
     public function updateSeo(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $validator = Validator::make($request->all(), [
             'GOOGLE_SEO_PROPERTY_ID' => 'nullable|string|max:255',
             'GOOGLE_ANALYTICS_ID' => 'nullable|string|max:255',
@@ -254,7 +255,7 @@ class AdminSettingsController extends Controller
                 ->with('success', 'SEO instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
-                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -266,7 +267,7 @@ class AdminSettingsController extends Controller
     public function updateMaps(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $validator = Validator::make($request->all(), [
             'GOOGLE_MAPS_API_KEY' => 'required|string|max:255',
             'GOOGLE_MAPS_MAP_ID' => 'nullable|string|max:255',
@@ -310,7 +311,7 @@ class AdminSettingsController extends Controller
                 ->with('success', 'Google Maps instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
-                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -337,7 +338,7 @@ class AdminSettingsController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->to(route('admin.settings.index') . '#google-reviews')
+            return redirect()->to(route('admin.settings.index').'#google-reviews')
                 ->withErrors($validator)
                 ->withInput();
         }
@@ -359,17 +360,17 @@ class AdminSettingsController extends Controller
 
             // Cache legen (oude en nieuwe key) zodat verse data wordt opgehaald
             try {
-                \Illuminate\Support\Facades\Cache::forget('google_reviews_' . md5($oldPlaceId . '|' . $oldBusinessName));
-                \Illuminate\Support\Facades\Cache::forget('google_reviews_' . md5($newPlaceId . '|' . $newBusinessName));
+                \Illuminate\Support\Facades\Cache::forget('google_reviews_'.md5($oldPlaceId.'|'.$oldBusinessName));
+                \Illuminate\Support\Facades\Cache::forget('google_reviews_'.md5($newPlaceId.'|'.$newBusinessName));
             } catch (\Throwable $e) {
                 // Negeer cachefouten; redirect gaat gewoon door
             }
 
-            return redirect()->to(route('admin.settings.index') . '#google-reviews')
+            return redirect()->to(route('admin.settings.index').'#google-reviews')
                 ->with('success', 'Google Reviews instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
-            return redirect()->to(route('admin.settings.index') . '#google-reviews')
-                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+            return redirect()->to(route('admin.settings.index').'#google-reviews')
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -381,7 +382,7 @@ class AdminSettingsController extends Controller
     public function updateWhatsapp(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $validator = Validator::make($request->all(), [
             'WHATSAPP_API_TOKEN' => 'nullable|string|max:500',
             'WHATSAPP_PHONE_NUMBER_ID' => 'nullable|string|max:255',
@@ -425,7 +426,7 @@ class AdminSettingsController extends Controller
                 ->with('success', 'WhatsApp Business instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
-                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -503,14 +504,14 @@ class AdminSettingsController extends Controller
         $this->ensureSuperAdmin();
 
         $settings = ComingSoonController::getSettings();
-        $showEmail = !empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0';
+        $showEmail = ! empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0';
         $contactEmail = $settings['coming_soon_contact_email'] ?? '';
 
         return view('frontend.coming-soon', [
             'settings' => $settings,
             'showEmail' => $showEmail,
             'contactEmail' => $contactEmail,
-            'adminPreview' => true,
+            'adminPreviewReturnUrl' => route('admin.settings.frontend.index'),
         ]);
     }
 
@@ -521,7 +522,7 @@ class AdminSettingsController extends Controller
     public function generalIndex()
     {
         $this->ensureSuperAdmin();
-        
+
         $logo = GeneralSetting::get('logo');
         $favicon = GeneralSetting::get('favicon');
         $logoSize = GeneralSetting::get('logo_size', '26');
@@ -536,23 +537,23 @@ class AdminSettingsController extends Controller
         $infoRequestSuccessIcon = GeneralSetting::get('info_request_success_icon', 'ki-filled ki-check-circle');
         $infoRequestSuccessSize = GeneralSetting::get('info_request_success_icon_size', '80');
 
-        if ($infoRequestSuccessImage && !Storage::disk('public')->exists($infoRequestSuccessImage)) {
+        if ($infoRequestSuccessImage && ! Storage::disk('public')->exists($infoRequestSuccessImage)) {
             \Log::warning('Success image file not found in storage', ['path' => $infoRequestSuccessImage]);
             $infoRequestSuccessImage = null;
         }
 
         // Verify files exist
-        if ($logo && !Storage::disk('public')->exists($logo)) {
+        if ($logo && ! Storage::disk('public')->exists($logo)) {
             \Log::warning('Logo file not found in storage', ['path' => $logo]);
             $logo = null;
         }
 
         $logoMode = GeneralSetting::get('logo_mode', 'single');
-        if (!in_array($logoMode, ['single', 'light_dark'], true)) {
+        if (! in_array($logoMode, ['single', 'light_dark'], true)) {
             $logoMode = 'single';
         }
         $logoDark = GeneralSetting::get('logo_dark');
-        if ($logoDark && !Storage::disk('public')->exists($logoDark)) {
+        if ($logoDark && ! Storage::disk('public')->exists($logoDark)) {
             \Log::warning('Dark logo file not found in storage', ['path' => $logoDark]);
             $logoDark = null;
         }
@@ -561,12 +562,12 @@ class AdminSettingsController extends Controller
             GeneralSetting::set('logo_mode', 'light_dark');
             $logoMode = 'light_dark';
         }
-        
-        if ($favicon && !Storage::disk('public')->exists($favicon)) {
+
+        if ($favicon && ! Storage::disk('public')->exists($favicon)) {
             \Log::warning('Favicon file not found in storage', ['path' => $favicon]);
             $favicon = null;
         }
-        
+
         return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize'));
     }
 
@@ -641,25 +642,25 @@ class AdminSettingsController extends Controller
 
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
-            if (!file_exists($settingsDir)) {
+            if (! file_exists($settingsDir)) {
                 File::makeDirectory($settingsDir, 0755, true);
             }
-            
+
             // Handle logo upload (only if not already uploaded via AJAX)
-            if ($request->hasFile('logo') && !$request->ajax()) {
+            if ($request->hasFile('logo') && ! $request->ajax()) {
                 $logoFile = $request->file('logo');
-                
+
                 // Delete old logo if exists
                 $oldLogo = GeneralSetting::get('logo');
                 if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
                     Storage::disk('public')->delete($oldLogo);
                 }
-                
+
                 // Store new logo
                 $logoPath = $logoFile->store('settings', 'public');
-                
+
                 // Verify file was stored
-                if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+                if (! $logoPath || ! Storage::disk('public')->exists($logoPath)) {
                     \Log::error('Logo storage failed', [
                         'path' => $logoPath,
                         'file_exists' => $logoPath ? Storage::disk('public')->exists($logoPath) : false,
@@ -668,32 +669,32 @@ class AdminSettingsController extends Controller
                     ]);
                     throw new \Exception('Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.');
                 }
-                
+
                 // Save path to database
                 GeneralSetting::set('logo', $logoPath);
-                
+
                 \Log::info('Logo uploaded successfully', [
                     'path' => $logoPath,
-                    'full_path' => storage_path('app/public/' . $logoPath),
+                    'full_path' => storage_path('app/public/'.$logoPath),
                     'file_exists' => Storage::disk('public')->exists($logoPath),
                 ]);
             }
 
             // Handle favicon upload (only if not already uploaded via AJAX)
-            if ($request->hasFile('favicon') && !$request->ajax()) {
+            if ($request->hasFile('favicon') && ! $request->ajax()) {
                 $faviconFile = $request->file('favicon');
-                
+
                 // Delete old favicon if exists
                 $oldFavicon = GeneralSetting::get('favicon');
                 if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
                     Storage::disk('public')->delete($oldFavicon);
                 }
-                
+
                 // Store new favicon
                 $faviconPath = $faviconFile->store('settings', 'public');
-                
+
                 // Verify file was stored
-                if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {
+                if (! $faviconPath || ! Storage::disk('public')->exists($faviconPath)) {
                     \Log::error('Favicon storage failed', [
                         'path' => $faviconPath,
                         'file_exists' => $faviconPath ? Storage::disk('public')->exists($faviconPath) : false,
@@ -702,13 +703,13 @@ class AdminSettingsController extends Controller
                     ]);
                     throw new \Exception('Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.');
                 }
-                
+
                 // Save path to database
                 GeneralSetting::set('favicon', $faviconPath);
-                
+
                 \Log::info('Favicon uploaded successfully', [
                     'path' => $faviconPath,
-                    'full_path' => storage_path('app/public/' . $faviconPath),
+                    'full_path' => storage_path('app/public/'.$faviconPath),
                     'file_exists' => Storage::disk('public')->exists($faviconPath),
                 ]);
             }
@@ -727,10 +728,11 @@ class AdminSettingsController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error updating general settings', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return redirect()->route('admin.settings.general.index')
-                ->with('error', 'Er is een fout opgetreden: ' . $e->getMessage())
+                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -741,7 +743,7 @@ class AdminSettingsController extends Controller
     public function uploadLogo(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $request->validate([
             'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'logo_type' => 'nullable|string|in:light,dark',
@@ -757,12 +759,12 @@ class AdminSettingsController extends Controller
         try {
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
-            if (!file_exists($settingsDir)) {
+            if (! file_exists($settingsDir)) {
                 File::makeDirectory($settingsDir, 0755, true);
             }
-            
+
             $logoFile = $request->file('logo');
-            
+
             if ($isDark) {
                 $oldLogo = GeneralSetting::get('logo_dark');
                 $settingKey = 'logo_dark';
@@ -773,31 +775,32 @@ class AdminSettingsController extends Controller
             if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
                 Storage::disk('public')->delete($oldLogo);
             }
-            
+
             $logoPath = $logoFile->store('settings', 'public');
-            
-            if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+
+            if (! $logoPath || ! Storage::disk('public')->exists($logoPath)) {
                 \Log::error('Logo storage failed', [
                     'path' => $logoPath,
                     'file_exists' => $logoPath ? Storage::disk('public')->exists($logoPath) : false,
                 ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.'
+                    'message' => 'Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.',
                 ], 500);
             }
-            
+
             GeneralSetting::set($settingKey, $logoPath);
             if ($isDark) {
                 GeneralSetting::set('logo_mode', 'light_dark');
             }
-            
+
             \Log::info('Logo uploaded successfully', ['path' => $logoPath, 'type' => $isDark ? 'dark' : 'light']);
-            
+
             $logoUrl = $isDark
-                ? route('admin.settings.logo-dark') . '?t=' . time()
-                : route('admin.settings.logo') . '?t=' . time();
-            
+                ? route('admin.settings.logo-dark').'?t='.time()
+                : route('admin.settings.logo').'?t='.time();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Logo succesvol geüpload.',
@@ -806,11 +809,51 @@ class AdminSettingsController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading logo', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Verwijder light mode-logo (bestand en instelling)
+     */
+    public function removeLogoLight()
+    {
+        $this->ensureSuperAdmin();
+
+        $path = GeneralSetting::get('logo');
+        if ($path && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+        GeneralSetting::set('logo', '');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Light logo verwijderd.',
+        ]);
+    }
+
+    /**
+     * Verwijder dark mode-logo (terug naar één logo voor beide modi)
+     */
+    public function removeLogoDark()
+    {
+        $this->ensureSuperAdmin();
+
+        $path = GeneralSetting::get('logo_dark');
+        if ($path && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+        GeneralSetting::set('logo_dark', '');
+        GeneralSetting::set('logo_mode', 'single');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dark logo verwijderd. Er wordt weer het light mode-logo gebruikt.',
+        ]);
     }
 
     /**
@@ -819,7 +862,7 @@ class AdminSettingsController extends Controller
     public function uploadFavicon(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $request->validate([
             'favicon' => 'required|file|mimes:ico,png,jpg|max:2048',
         ], [
@@ -832,48 +875,50 @@ class AdminSettingsController extends Controller
         try {
             // Ensure settings directory exists
             $settingsDir = storage_path('app/public/settings');
-            if (!file_exists($settingsDir)) {
+            if (! file_exists($settingsDir)) {
                 File::makeDirectory($settingsDir, 0755, true);
             }
-            
+
             $faviconFile = $request->file('favicon');
-            
+
             // Delete old favicon if exists
             $oldFavicon = GeneralSetting::get('favicon');
             if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
                 Storage::disk('public')->delete($oldFavicon);
             }
-            
+
             // Store new favicon
             $faviconPath = $faviconFile->store('settings', 'public');
-            
+
             // Verify file was stored
-            if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {
+            if (! $faviconPath || ! Storage::disk('public')->exists($faviconPath)) {
                 \Log::error('Favicon storage failed', [
                     'path' => $faviconPath,
                     'file_exists' => $faviconPath ? Storage::disk('public')->exists($faviconPath) : false,
                 ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.'
+                    'message' => 'Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.',
                 ], 500);
             }
-            
+
             // Save path to database
             GeneralSetting::set('favicon', $faviconPath);
-            
+
             \Log::info('Favicon uploaded successfully', ['path' => $faviconPath]);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Favicon succesvol geüpload.',
-                'favicon_url' => route('admin.settings.favicon') . '?t=' . time()
+                'favicon_url' => route('admin.settings.favicon').'?t='.time(),
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading favicon', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -899,12 +944,13 @@ class AdminSettingsController extends Controller
             $message = isset($errors['info_request_success_image'][0])
                 ? $errors['info_request_success_image'][0]
                 : 'De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).';
+
             return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
         }
 
         try {
             $settingsDir = storage_path('app/public/settings');
-            if (!file_exists($settingsDir)) {
+            if (! file_exists($settingsDir)) {
                 File::makeDirectory($settingsDir, 0755, true);
             }
 
@@ -914,7 +960,7 @@ class AdminSettingsController extends Controller
             }
 
             $path = $request->file('info_request_success_image')->store('settings', 'public');
-            if (!$path || !Storage::disk('public')->exists($path)) {
+            if (! $path || ! Storage::disk('public')->exists($path)) {
                 return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
             }
 
@@ -923,11 +969,12 @@ class AdminSettingsController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Afbeelding geüpload.',
-                'image_url' => route('admin.settings.success-image') . '?t=' . time(),
+                'image_url' => route('admin.settings.success-image').'?t='.time(),
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading success image', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: ' . $e->getMessage()], 500);
+
+            return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: '.$e->getMessage()], 500);
         }
     }
 
@@ -942,6 +989,7 @@ class AdminSettingsController extends Controller
             Storage::disk('public')->delete($oldPath);
         }
         GeneralSetting::set('info_request_success_image', '');
+
         return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
     }
 
@@ -966,12 +1014,13 @@ class AdminSettingsController extends Controller
             $message = isset($errors['coming_soon_image'][0])
                 ? $errors['coming_soon_image'][0]
                 : 'De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).';
+
             return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
         }
 
         try {
             $settingsDir = storage_path('app/public/settings');
-            if (!file_exists($settingsDir)) {
+            if (! file_exists($settingsDir)) {
                 File::makeDirectory($settingsDir, 0755, true);
             }
 
@@ -981,7 +1030,7 @@ class AdminSettingsController extends Controller
             }
 
             $path = $request->file('coming_soon_image')->store('settings', 'public');
-            if (!$path || !Storage::disk('public')->exists($path)) {
+            if (! $path || ! Storage::disk('public')->exists($path)) {
                 return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
             }
 
@@ -994,6 +1043,7 @@ class AdminSettingsController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading coming soon image', ['error' => $e->getMessage()]);
+
             return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: '.$e->getMessage()], 500);
         }
     }
@@ -1019,14 +1069,14 @@ class AdminSettingsController extends Controller
     public function getLogo()
     {
         $logoPath = GeneralSetting::get('logo');
-        
-        if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+
+        if (! $logoPath || ! Storage::disk('public')->exists($logoPath)) {
             abort(404, 'Logo niet gevonden');
         }
-        
+
         $file = Storage::disk('public')->get($logoPath);
         $mimeType = Storage::disk('public')->mimeType($logoPath);
-        
+
         return response($file, 200)
             ->header('Content-Type', $mimeType)
             ->header('Content-Disposition', 'inline; filename="logo"');
@@ -1038,11 +1088,12 @@ class AdminSettingsController extends Controller
     public function getLogoDark()
     {
         $logoPath = GeneralSetting::get('logo_dark');
-        if (!$logoPath || !Storage::disk('public')->exists($logoPath)) {
+        if (! $logoPath || ! Storage::disk('public')->exists($logoPath)) {
             abort(404, 'Dark logo niet gevonden');
         }
         $file = Storage::disk('public')->get($logoPath);
         $mimeType = Storage::disk('public')->mimeType($logoPath);
+
         return response($file, 200)
             ->header('Content-Type', $mimeType)
             ->header('Content-Disposition', 'inline; filename="logo-dark"');
@@ -1054,11 +1105,12 @@ class AdminSettingsController extends Controller
     public function getSuccessImage()
     {
         $path = GeneralSetting::get('info_request_success_image');
-        if (!$path || !Storage::disk('public')->exists($path)) {
+        if (! $path || ! Storage::disk('public')->exists($path)) {
             abort(404, 'Afbeelding niet gevonden');
         }
         $file = Storage::disk('public')->get($path);
         $mimeType = Storage::disk('public')->mimeType($path);
+
         return response($file, 200)
             ->header('Content-Type', $mimeType)
             ->header('Content-Disposition', 'inline; filename="success-image"');
@@ -1070,7 +1122,7 @@ class AdminSettingsController extends Controller
     public function getComingSoonImage()
     {
         $path = GeneralSetting::get('coming_soon_image');
-        if (!$path || !Storage::disk('public')->exists($path)) {
+        if (! $path || ! Storage::disk('public')->exists($path)) {
             abort(404, 'Afbeelding niet gevonden');
         }
         $file = Storage::disk('public')->get($path);
@@ -1089,14 +1141,14 @@ class AdminSettingsController extends Controller
         $this->ensureSuperAdmin();
 
         $faviconPath = GeneralSetting::get('favicon');
-        
-        if (!$faviconPath || !Storage::disk('public')->exists($faviconPath)) {
+
+        if (! $faviconPath || ! Storage::disk('public')->exists($faviconPath)) {
             abort(404, 'Favicon niet gevonden');
         }
-        
+
         $file = Storage::disk('public')->get($faviconPath);
         $mimeType = Storage::disk('public')->mimeType($faviconPath);
-        
+
         return response($file, 200)
             ->header('Content-Type', $mimeType)
             ->header('Content-Disposition', 'inline; filename="favicon"');
@@ -1108,7 +1160,7 @@ class AdminSettingsController extends Controller
     public function updateLogoSize(Request $request)
     {
         $this->ensureSuperAdmin();
-        
+
         $request->validate([
             'logo_size' => 'required|integer|min:10|max:100',
         ], [
@@ -1121,21 +1173,21 @@ class AdminSettingsController extends Controller
         try {
             $logoSize = $request->input('logo_size');
             GeneralSetting::set('logo_size', $logoSize);
-            
+
             \Log::info('Logo size updated', ['size' => $logoSize]);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Logo grootte succesvol bijgewerkt.',
-                'logo_size' => $logoSize
+                'logo_size' => $logoSize,
             ]);
         } catch (\Exception $e) {
             \Log::error('Error updating logo size', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: ' . $e->getMessage()
+                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
             ], 500);
         }
     }
 }
-

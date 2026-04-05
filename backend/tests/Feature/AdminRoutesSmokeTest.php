@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use PHPUnit\Framework\Attributes\Test;
 use App\Models\User;
+use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -58,12 +58,27 @@ class AdminRoutesSmokeTest extends TestCase
     #[Test]
     public function admin_dashboard_returns_200_for_super_admin(): void
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('vacancies')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('vacancies')) {
             $this->markTestSkipped('vacancies table required (e.g. run module migrations)');
         }
         $user = User::factory()->create();
         $user->assignRole('super-admin');
         $response = $this->actingAs($user)->get(route('admin.dashboard'));
+        $response->assertStatus(200);
+    }
+
+    #[Test]
+    public function admin_dashboard_returns_200_for_super_admin_when_default_guard_is_api(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('vacancies')) {
+            $this->markTestSkipped('vacancies table required (e.g. run module migrations)');
+        }
+        config(['auth.defaults.guard' => 'api']);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user, 'web')->get(route('admin.dashboard'));
         $response->assertStatus(200);
     }
 

@@ -25,8 +25,14 @@
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($company->logo_blob)
+                @php
+                    $companyHeroLogoDarkUrl = ! empty($company->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $company)
+                        : route('admin.companies.logo', $company);
+                @endphp
                 <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
-                    <img class="rounded-lg w-auto object-contain bg-transparent dark:bg-transparent" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
+                    <img class="logo-light rounded-lg w-auto object-contain bg-transparent dark:hidden" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
+                    <img class="logo-dark rounded-lg w-auto object-contain bg-transparent hidden dark:block" style="height: 80px; display: block; padding: 8px;" src="{{ $companyHeroLogoDarkUrl }}" alt="{{ $company->name }}">
                 </div>
             @else
                 <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
@@ -284,36 +290,32 @@
                         <h3 class="text-base font-semibold text-mono leading-none mb-5">
                             Hoofdkantoor
                         </h3>
-                        <div class="flex flex-wrap items-center gap-5 mb-10">
-                            <div class="rounded-xl w-full md:w-80 min-h-52" id="company_profile_map">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-10 items-stretch">
+                            {{-- Expliciete px-hoogte: Google Maps vult anders een 0px canvas in grid/flex layouts. --}}
+                            <div class="w-full min-w-0 min-h-[220px] self-stretch">
+                                <div id="company_profile_map" class="w-full rounded-xl overflow-hidden bg-muted/20 shadow-sm" style="height: 220px; min-height: 220px; position: relative;" aria-label="Kaart hoofdkantoor"></div>
                             </div>
-                            <div class="flex flex-col gap-2.5">
+                            <div class="flex flex-col gap-3.5 min-w-0">
                                 @if($company->website)
-                                <div class="flex items-center gap-2.5">
-                                    <span>
-                                        <i class="ki-filled ki-dribbble text-lg text-muted-foreground"></i>
-                                    </span>
-                                    <a class="link text-sm font-medium" href="{{ $company->website }}" target="_blank">
+                                <div class="flex items-start gap-3">
+                                    <i class="ki-filled ki-dribbble text-lg text-muted-foreground shrink-0 mt-0.5" aria-hidden="true"></i>
+                                    <a class="link text-sm font-medium text-foreground leading-snug break-all min-w-0" href="{{ $company->website }}" target="_blank" rel="noopener noreferrer">
                                         {{ $company->website }}
                                     </a>
                                 </div>
                                 @endif
                                 @if($company->email)
-                                <div class="flex items-center gap-2.5">
-                                    <span>
-                                        <i class="ki-filled ki-sms text-lg text-muted-foreground"></i>
-                                    </span>
-                                    <a class="link text-sm font-medium" href="mailto:{{ $company->email }}">
+                                <div class="flex items-start gap-3">
+                                    <i class="ki-filled ki-sms text-lg text-muted-foreground shrink-0 mt-0.5" aria-hidden="true"></i>
+                                    <a class="link text-sm font-medium text-foreground leading-snug break-all min-w-0" href="mailto:{{ $company->email }}">
                                         {{ $company->email }}
                                     </a>
                                 </div>
                                 @endif
                                 @if($company->phone)
-                                <div class="flex items-center gap-2.5">
-                                    <span>
-                                        <i class="ki-filled ki-whatsapp text-lg text-muted-foreground"></i>
-                                    </span>
-                                    <span class="text-sm text-mono">
+                                <div class="flex items-start gap-3">
+                                    <i class="ki-filled ki-whatsapp text-lg text-muted-foreground shrink-0 mt-0.5" aria-hidden="true"></i>
+                                    <span class="text-sm font-medium text-foreground tabular-nums tracking-tight min-w-0">
                                         {{ $company->phone }}
                                     </span>
                                 </div>
@@ -329,11 +331,9 @@
                                     }
                                 @endphp
                                 @if($address)
-                                <div class="flex items-center gap-2.5">
-                                    <span>
-                                        <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
-                                    </span>
-                                    <span class="text-sm text-mono">
+                                <div class="flex items-start gap-3">
+                                    <i class="ki-filled ki-map text-lg text-muted-foreground shrink-0 mt-0.5" aria-hidden="true"></i>
+                                    <span class="text-sm font-medium text-foreground leading-relaxed min-w-0">
                                         {{ $address }}
                                     </span>
                                 </div>
@@ -362,9 +362,35 @@
                     </div>
                     <div class="kt-card-content p-5 lg:p-7.5 lg:pb-7">
                         <div class="flex gap-5 kt-scrollable-x">
+                            @php
+                                $showHoofdkantoorCard = $company->shouldShowHoofdkantoorCardFromCompany();
+                            @endphp
+                            @if($showHoofdkantoorCard)
+                                <div class="kt-card shadow-none w-[280px] border-0 mb-4 shrink-0">
+                                    @if($company->buildingImageAssetUrl())
+                                        <img alt="Hoofdkantoor" class="rounded-t-xl w-full max-w-[280px] h-[160px] object-cover shrink-0 bg-muted" src="{{ $company->buildingImageAssetUrl() }}"/>
+                                    @elseif($company->logo_blob)
+                                        <img alt="Hoofdkantoor" class="rounded-t-xl w-full max-w-[280px] h-[160px] object-cover shrink-0 bg-muted" src="{{ route('admin.companies.logo', $company) }}"/>
+                                    @else
+                                        <div class="rounded-t-xl w-full max-w-[280px] h-[160px] shrink-0 bg-primary/10 flex items-center justify-center text-primary text-2xl font-semibold">
+                                            {{ strtoupper(substr($company->name, 0, 2)) }}
+                                        </div>
+                                    @endif
+                                    <div class="kt-card-border kt-card-rounded-b px-3.5 h-full pt-3 pb-3.5">
+                                        <a class="font-medium block text-mono hover:text-primary text-base mb-2" href="{{ route('admin.companies.edit', $company) }}">
+                                            Hoofdkantoor
+                                        </a>
+                                        <p class="text-sm text-secondary-foreground">
+                                            {{ $company->street }} {{ $company->house_number }}{{ $company->house_number_extension ? '-' . $company->house_number_extension : '' }} <br>
+                                            {{ $company->postal_code }} {{ $company->city }} <br>
+                                            {{ $company->country ? $company->country : '' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            @endif
                             @if($company->locations->count() > 0)
                                 @foreach($company->locations as $index => $location)
-                                    <div class="kt-card shadow-none w-[280px] border-0 mb-4">
+                                    <div class="kt-card shadow-none w-[280px] border-0 mb-4 shrink-0">
                                         <img alt="{{ $location->name }}" class="rounded-t-xl max-w-[280px] shrink-0" src="{{ asset('assets/media/images/600x400/' . (($index % 3) + 10) . '.jpg') }}"/>
                                         <div class="kt-card-border kt-card-rounded-b px-3.5 h-full pt-3 pb-3.5">
                                             <a class="font-medium block text-mono hover:text-primary text-base mb-2" href="{{ route('admin.companies.locations.show', [$company, $location]) }}">
@@ -376,41 +402,13 @@
                                         </div>
                                     </div>
                                 @endforeach
-                            @else
-                                {{-- Dummy locations --}}
-                                <div class="kt-card shadow-none w-[280px] border-0 mb-4">
-                                    <img alt="Duolingo Tech Hub" class="rounded-t-xl max-w-[280px] shrink-0" src="{{ asset('assets/media/images/600x400/10.jpg') }}"/>
-                                    <div class="kt-card-border kt-card-rounded-b px-3.5 h-full pt-3 pb-3.5">
-                                        <a class="font-medium block text-mono hover:text-primary text-base mb-2" href="#">
-                                            Duolingo Tech Hub
-                                        </a>
-                                        <p class="text-sm text-secondary-foreground">
-                                            456 Innovation Street, Floor 6, Techland, New York 54321
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="kt-card shadow-none w-[280px] border-0 mb-4">
-                                    <img alt="Duolingo Language Lab" class="rounded-t-xl max-w-[280px] shrink-0" src="{{ asset('assets/media/images/600x400/11.jpg') }}"/>
-                                    <div class="kt-card-border kt-card-rounded-b px-3.5 h-full pt-3 pb-3.5">
-                                        <a class="font-medium block text-mono hover:text-primary text-base mb-2" href="#">
-                                            Duolingo Language Lab
-                                        </a>
-                                        <p class="text-sm text-secondary-foreground">
-                                            789 Learning Lane, 3rd Floor, Lingoville, Texas 98765
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="kt-card shadow-none w-[280px] border-0 mb-4">
-                                    <img alt="Duolingo Research Institute" class="rounded-t-xl max-w-[280px] shrink-0" src="{{ asset('assets/media/images/600x400/12.jpg') }}"/>
-                                    <div class="kt-card-border kt-card-rounded-b px-3.5 h-full pt-3 pb-3.5">
-                                        <a class="font-medium block text-mono hover:text-primary text-base mb-2" href="#">
-                                            Duolingo Research Institute
-                                        </a>
-                                        <p class="text-sm text-secondary-foreground">
-                                            246 Innovation Road, Research Wing, Innovacity, Arizona 13579
-                                        </p>
-                                    </div>
-                                </div>
+                            @elseif(!$showHoofdkantoorCard)
+                                <p class="text-sm text-secondary-foreground">
+                                    Nog geen vestigingen. Voeg vestigingen toe via
+                                    <a class="link font-medium" href="{{ route('admin.companies.locations.create', $company) }}">nieuwe vestiging</a>
+                                    of vul het bedrijfsadres in bij
+                                    <a class="link font-medium" href="{{ route('admin.companies.edit', $company) }}">bedrijfsgegevens</a>.
+                                </p>
                             @endif
                         </div>
                     </div>
@@ -422,7 +420,7 @@
 
 @push('scripts')
 @if(!empty($googleMapsApiKey))
-<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}&libraries=places,geocoding"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const mapElement = document.getElementById('company_profile_map');
@@ -465,25 +463,25 @@ document.addEventListener('DOMContentLoaded', function() {
             mapTypeControl: false
         });
 
+        function triggerMapResize() {
+            if (google.maps && google.maps.event) {
+                google.maps.event.trigger(googleMap, 'resize');
+            }
+        }
+        google.maps.event.addListenerOnce(googleMap, 'idle', triggerMapResize);
+        setTimeout(triggerMapResize, 250);
+        window.addEventListener('resize', triggerMapResize);
+
         @if($address)
         const addressText = @json($address);
         
         @if($lat && $lng)
-        // Use stored coordinates
-        const marker = new google.maps.Marker({
+        // Alleen marker + tooltip (title); geen InfoWindow-ballon met sluitknop.
+        new google.maps.Marker({
             position: { lat: {{ $lat }}, lng: {{ $lng }} },
             map: googleMap,
             title: addressText
         });
-
-        const infoWindow = new google.maps.InfoWindow({
-            content: `<div style="padding: 8px 12px; color: #1f2937; font-size: 14px; line-height: 1.5;"><strong style="color: #111827;">${addressText}</strong></div>`
-        });
-        
-        marker.addListener('click', function() {
-            infoWindow.open(googleMap, marker);
-        });
-        infoWindow.open(googleMap, marker);
         @else
         // Geocode address if no coordinates
         const geocoder = new google.maps.Geocoder();
@@ -493,20 +491,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 googleMap.setCenter(location);
                 googleMap.setZoom(16);
 
-                const marker = new google.maps.Marker({
+                new google.maps.Marker({
                     position: location,
                     map: googleMap,
                     title: addressText
                 });
-
-                const infoWindow = new google.maps.InfoWindow({
-                    content: `<div style="padding: 8px 12px; color: #1f2937; font-size: 14px; line-height: 1.5;"><strong style="color: #111827;">${addressText}</strong></div>`
-                });
-                
-                marker.addListener('click', function() {
-                    infoWindow.open(googleMap, marker);
-                });
-                infoWindow.open(googleMap, marker);
             }
         });
         @endif

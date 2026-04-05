@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
-use App\Models\User;
+use App\Http\Controllers\Controller;
 use App\Models\Company;
-use App\Models\Payment;
-use App\Modules\Skillmatching\Models\Vacancy;
-use App\Modules\Skillmatching\Models\JobMatch;
-use App\Modules\Skillmatching\Models\Interview;
 use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\User;
+use App\Modules\Skillmatching\Models\Interview;
+use App\Modules\Skillmatching\Models\JobMatch;
+use App\Modules\Skillmatching\Models\Vacancy;
+use App\Services\EnvService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Services\EnvService;
 
 class AdminDashboardController extends Controller
 {
@@ -25,13 +25,13 @@ class AdminDashboardController extends Controller
     {
         $this->envService = $envService;
     }
-    
+
     public function index()
     {
         $tenantId = $this->getTenantId();
-        
+
         // Voor Super Admin, toon alle data als geen tenant geselecteerd
-        if (auth()->user()->hasRole('super-admin') && !session('selected_tenant')) {
+        if (auth()->user()->hasRole('super-admin') && ! session('selected_tenant')) {
             $tenantId = null; // Reset voor super admin zonder tenant
             $stats = $this->buildSuperAdminStats();
 
@@ -51,7 +51,7 @@ class AdminDashboardController extends Controller
                 ->get();
         } else {
             // Tenant-specifieke data
-            if (!$tenantId) {
+            if (! $tenantId) {
                 // Fallback naar super admin view als geen tenantId
                 $stats = [
                     'total_users' => User::count(),
@@ -80,12 +80,12 @@ class AdminDashboardController extends Controller
                     'total_users' => User::where('company_id', $tenantId)->count(),
                     'total_companies' => Company::where('id', $tenantId)->count(),
                     'total_vacancies' => Vacancy::where('company_id', $tenantId)->count(),
-                    'total_matches' => \App\Models\JobMatch::whereHas('vacancy', function($q) use ($tenantId) {
+                    'total_matches' => \App\Models\JobMatch::whereHas('vacancy', function ($q) use ($tenantId) {
                         $q->where('company_id', $tenantId);
                     })->count(),
                     'total_interviews' => Interview::where('company_id', $tenantId)->count(),
                     'active_vacancies' => Vacancy::where('company_id', $tenantId)->where('status', 'active')->count(),
-                    'pending_matches' => \App\Models\JobMatch::whereHas('vacancy', function($q) use ($tenantId) {
+                    'pending_matches' => \App\Models\JobMatch::whereHas('vacancy', function ($q) use ($tenantId) {
                         $q->where('company_id', $tenantId);
                     })->where('status', 'pending')->count(),
                     'completed_interviews' => Interview::where('company_id', $tenantId)->where('scheduled_at', '<', now())->count(),
@@ -138,21 +138,21 @@ class AdminDashboardController extends Controller
         $isCompanyView = false;
         if ($tenantId) {
             $selectedCompany = Company::with([
-                'locations', 
-                'mainLocation', 
-                'vacancies' => function($q) {
+                'locations',
+                'mainLocation',
+                'vacancies' => function ($q) {
                     $q->where('status', 'active');
                 },
-                'users' => function($q) {
+                'users' => function ($q) {
                     $q->limit(8); // Limit for avatar display
-                }
+                },
             ])->find($tenantId);
-            
+
             // Als company niet gevonden wordt, maar tenantId bestaat, probeer zonder eager loading
-            if (!$selectedCompany && $tenantId) {
+            if (! $selectedCompany && $tenantId) {
                 $selectedCompany = Company::find($tenantId);
             }
-            
+
             // Alleen company view tonen als company gevonden is
             $isCompanyView = $selectedCompany !== null;
         }
@@ -187,23 +187,51 @@ class AdminDashboardController extends Controller
     public function switchTenant(Request $request)
     {
         $tenantId = $request->input('tenant_id');
-        
+
         if ($tenantId) {
             session(['selected_tenant' => $tenantId]);
         } else {
             session()->forget('selected_tenant');
         }
-        
+
+        $afterUrl = $this->sanitizeTenantSwitchRedirect($request->input('redirect'))
+            ?? route('admin.dashboard');
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.',
-                'redirect' => route('admin.dashboard') // Altijd naar dashboard redirecten
+                'redirect' => $afterUrl,
             ]);
         }
-        
-        // Redirect naar dashboard om company-profile te tonen
-        return redirect()->route('admin.dashboard')->with('success', $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.');
+
+        return redirect()->to($afterUrl)
+            ->with('success', $tenantId ? 'Tenant succesvol geselecteerd.' : 'Alle tenants geselecteerd.');
+    }
+
+    /**
+     * Alleen interne admin-paden toestaan (geen open redirect).
+     */
+    private function sanitizeTenantSwitchRedirect(mixed $raw): ?string
+    {
+        if (! is_string($raw)) {
+            return null;
+        }
+        $path = trim($raw);
+        if ($path === '' || strlen($path) > 2048) {
+            return null;
+        }
+        if (str_contains($path, "\r") || str_contains($path, "\n")) {
+            return null;
+        }
+        if (str_starts_with($path, '//')) {
+            return null;
+        }
+        if (! str_starts_with($path, '/admin')) {
+            return null;
+        }
+
+        return $path;
     }
 
     /**
@@ -217,66 +245,66 @@ class AdminDashboardController extends Controller
         $totalVacancies = Vacancy::count();
         $totalMatches = JobMatch::count();
         $totalInterviews = Interview::count();
-        
+
         // Gebruikers per bedrijf
         $usersPerCompany = User::select('company_id', DB::raw('count(*) as user_count'))
             ->whereNotNull('company_id')
             ->groupBy('company_id')
             ->with('company:id,name')
             ->get()
-            ->map(function($item) {
+            ->map(function ($item) {
                 return [
                     'company_name' => $item->company->name ?? 'Onbekend',
-                    'user_count' => $item->user_count
+                    'user_count' => $item->user_count,
                 ];
             });
-        
+
         // Vacatures per bedrijf
         $vacanciesPerCompany = Vacancy::select('company_id', DB::raw('count(*) as vacancy_count'))
             ->whereNotNull('company_id')
             ->groupBy('company_id')
             ->with('company:id,name')
             ->get()
-            ->map(function($item) {
+            ->map(function ($item) {
                 return [
                     'company_name' => $item->company->name ?? 'Onbekend',
-                    'vacancy_count' => $item->vacancy_count
+                    'vacancy_count' => $item->vacancy_count,
                 ];
             });
-        
+
         // Kandidaten (gebruikers zonder company_id of met specifieke rollen)
-        $candidates = User::whereDoesntHave('roles', function($q) {
+        $candidates = User::whereDoesntHave('roles', function ($q) {
             $q->whereIn('name', ['super-admin', 'company-admin', 'company-staff']);
         })->count();
-        
+
         // Match statussen
         $matchStatuses = JobMatch::select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->pluck('count', 'status')
             ->toArray();
-        
+
         // Interviews die tot match hebben geleid (interviews waarvan de match status 'hired' of 'accepted' is)
-        $interviewsLeadingToMatch = Interview::whereHas('match', function($q) {
+        $interviewsLeadingToMatch = Interview::whereHas('match', function ($q) {
             $q->whereIn('status', ['hired', 'accepted']);
         })->count();
-        
+
         // Facturen per jaar (PostgreSQL compatible)
         $invoicesPerYear = Invoice::select(
-                DB::raw('EXTRACT(YEAR FROM invoice_date)::integer as year'),
-                DB::raw('count(*) as invoice_count'),
-                DB::raw('COALESCE(sum(total_amount), 0) as total_revenue')
-            )
+            DB::raw('EXTRACT(YEAR FROM invoice_date)::integer as year'),
+            DB::raw('count(*) as invoice_count'),
+            DB::raw('COALESCE(sum(total_amount), 0) as total_revenue')
+        )
             ->whereNotNull('invoice_date')
             ->groupBy(DB::raw('EXTRACT(YEAR FROM invoice_date)'))
             ->orderBy('year', 'desc')
             ->get();
-        
+
         // Facturen van dit jaar
         $currentYearInvoices = Invoice::whereYear('invoice_date', now()->year)->count();
         $currentYearRevenue = Invoice::whereYear('invoice_date', now()->year)
             ->where('status', 'paid')
             ->sum('total_amount') ?? 0;
-        
+
         return [
             'total_users' => $totalUsers,
             'total_companies' => $totalCompanies,
@@ -315,9 +343,9 @@ class AdminDashboardController extends Controller
             })
             ->where(function ($q) use ($startDate) {
                 $q->whereDate('paid_at', '>=', $startDate)
-                  ->orWhere(function ($nested) use ($startDate) {
-                      $nested->whereNull('paid_at')->whereDate('created_at', '>=', $startDate);
-                  });
+                    ->orWhere(function ($nested) use ($startDate) {
+                        $nested->whereNull('paid_at')->whereDate('created_at', '>=', $startDate);
+                    });
             })
             ->get(['amount', 'paid_at', 'created_at'])
             ->groupBy(function ($payment) {

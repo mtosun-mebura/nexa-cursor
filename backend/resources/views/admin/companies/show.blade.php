@@ -4,6 +4,13 @@
 
 @section('content')
 
+@if(session('success'))
+    <div class="kt-alert kt-alert-success mb-5" role="alert">
+        <i class="ki-filled ki-check-circle me-2"></i>
+        {{ session('success') }}
+    </div>
+@endif
+
 <style>
     .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
@@ -30,8 +37,14 @@
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($company->logo_blob)
+                @php
+                    $companyHeroLogoDarkUrl = ! empty($company->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $company)
+                        : route('admin.companies.logo', $company);
+                @endphp
                 <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
-                    <img class="rounded-lg w-auto object-contain bg-transparent dark:bg-transparent" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
+                    <img class="logo-light rounded-lg w-auto object-contain bg-transparent dark:hidden" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
+                    <img class="logo-dark rounded-lg w-auto object-contain bg-transparent hidden dark:block" style="height: 80px; display: block; padding: 8px;" src="{{ $companyHeroLogoDarkUrl }}" alt="{{ $company->name }}">
                 </div>
             @else
                 <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
@@ -114,11 +127,13 @@
                     </label>
                 </form>
             </div>
+            @if($company->hasSkillmatchingModule())
             <span class="text-orange-500 dark:text-orange-400 flex items-center">|</span>
             <a href="{{ route('admin.companies.pipeline-templates.index', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-diagram-3 me-2"></i>
                 Pipeline Templates
             </a>
+            @endif
             <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-primary ml-auto">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
                 Bewerken
@@ -131,16 +146,16 @@
 
 <!-- Container -->
 <div class="kt-container-fixed">
-    <!-- begin: grid -->
-    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 items-stretch">
+    <!-- begin: grid — bedrijfsinfo eerst, contact eronder (volle breedte i.p.v. smalle kolom) -->
+    <div class="flex flex-col gap-5 lg:gap-7.5 items-stretch">
         <!-- Bedrijfsinformatie -->
-        <div class="kt-card flex-1 flex flex-col">
+        <div class="kt-card w-full flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Bedrijfsinformatie
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3 flex-1">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
@@ -175,7 +190,7 @@
                         </td>
                         <td class="text-foreground font-normal">
                             @if($company->is_intermediary)
-                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij / Recruiter</span>
                             @else
                                 <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
                             @endif
@@ -194,13 +209,13 @@
         </div>
 
         <!-- Contact Informatie -->
-        <div class="kt-card flex-1 flex flex-col">
+        <div class="kt-card w-full flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Contact Informatie
                 </h3>
             </div>
-            <div class="kt-card-content flex-1">
+            <div class="kt-card-content">
                 @php
                     // Eén adresbron voor weergave én kaart: hoofdkantoor of bedrijfsadres
                     $contactSource = $company->mainLocation ?: $company;
@@ -209,10 +224,10 @@
                     $addressLine3 = $contactSource->country ?? '';
                     $addressParts = array_filter([$addressLine1, $addressLine2, $addressLine3]);
                 @endphp
-                <div class="flex flex-wrap items-start gap-5">
-                    <div class="rounded-xl w-full md:w-80 flex-shrink-0 bg-muted/30" id="company_contact_map" style="height: 208px;">
+                <div class="flex flex-col md:flex-row md:items-stretch gap-5">
+                    <div class="rounded-xl w-full md:w-1/2 min-w-0 bg-muted/30" id="company_contact_map" style="height: 208px;">
                     </div>
-                    <div class="flex flex-col gap-2.5 flex-1 min-w-0">
+                    <div class="flex flex-col gap-2.5 w-full md:w-1/2 min-w-0">
                         @if(!empty($addressParts))
                         <div class="flex items-start gap-2.5">
                             <span class="mt-0.5">
@@ -261,6 +276,106 @@
         </div>
     </div>
     <!-- end: grid -->
+</div>
+<!-- End of Container -->
+
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                Tenant domeinen (SaaS)
+            </h3>
+        </div>
+        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
+            Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit <code class="text-xs">APP_URL</code> en domeinen in <code class="text-xs">TENANCY_CENTRAL_DOMAINS</code> worden niet als tenant opgelost.
+        </p>
+
+        @if($company->domains->isNotEmpty())
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <thead>
+                        <tr>
+                            <th class="min-w-48 text-start">Host</th>
+                            <th class="min-w-32 text-start">Primair</th>
+                            @can('edit-companies')
+                            <th class="w-[120px] text-center">Acties</th>
+                            @endcan
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($company->domains->sortByDesc('is_primary') as $d)
+                            <tr>
+                                <td class="font-mono text-sm text-foreground">{{ $d->host }}</td>
+                                <td>
+                                    @if($d->is_primary)
+                                        <span class="kt-badge kt-badge-sm kt-badge-success">Primair</span>
+                                    @else
+                                        <span class="text-muted-foreground text-sm">—</span>
+                                    @endif
+                                </td>
+                                @can('edit-companies')
+                                <td class="text-center">
+                                    @if(!$d->is_primary)
+                                    <form action="{{ route('admin.companies.domains.primary', [$company, $d]) }}" method="post" class="inline">
+                                        @csrf
+                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Maak primair</button>
+                                    </form>
+                                    @endif
+                                    <form action="{{ route('admin.companies.domains.destroy', [$company, $d]) }}" method="post" class="inline ms-1" onsubmit="return confirm('Domein verwijderen?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-danger">Verwijderen</button>
+                                    </form>
+                                </td>
+                                @endcan
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <p class="text-sm text-secondary-foreground px-6 pb-4 mb-0">Nog geen domeinen gekoppeld.</p>
+        @endif
+
+        @can('edit-companies')
+        <form action="{{ route('admin.companies.domains.store', $company) }}" method="post" class="{{ $company->domains->isNotEmpty() ? 'border-t border-border' : 'pt-2' }}">
+            @csrf
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Hostnaam</td>
+                        <td class="min-w-48 w-full">
+                            <input type="text" name="host" id="domain_host" value="{{ old('host') }}" class="kt-input @error('host') border-destructive @enderror" placeholder="bijv. klant.jouwdomein.nl" required autocomplete="off" @error('host') data-server-error="1" @enderror>
+                            @error('host')
+                                <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="host">{{ $message }}</div>
+                            @enderror
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Primair domein</td>
+                        <td class="min-w-48 w-full">
+                            <input type="hidden" name="is_primary" value="0">
+                            <label class="kt-label flex items-center gap-2 mb-0">
+                                <input type="checkbox" name="is_primary" value="1" class="kt-switch kt-switch-sm" {{ old('is_primary') ? 'checked' : '' }}>
+                                Instellen als primair domein
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top"></td>
+                        <td class="min-w-48 w-full">
+                            <button type="submit" class="kt-btn kt-btn-primary">
+                                <i class="ki-filled ki-plus me-2"></i>
+                                Domein toevoegen
+                            </button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </form>
+        @endcan
+    </div>
 </div>
 <!-- End of Container -->
 

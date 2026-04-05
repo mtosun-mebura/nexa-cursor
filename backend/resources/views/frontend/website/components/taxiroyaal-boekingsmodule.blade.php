@@ -4,6 +4,7 @@
     $bookingPageId = $page->id ?? null;
     $mapsApiKey = trim((string) ($googleMapsApiKey ?? ''));
     $sectionStyle = $bookingConfig['style'] ?? [];
+    $bookingDefaultAccent = \App\Services\TaxiRoyaalBookingPricingService::DEFAULT_BRAND_ACCENT_HEX;
     $stepLabels = $bookingConfig['step_labels'] ?? [];
     $texts = $bookingConfig['texts'] ?? [];
     $logic = $bookingConfig['logic'] ?? [];
@@ -41,14 +42,14 @@
     <div class="w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
     <div class="booking-module-card booking-module-reveal-item rounded-xl border p-0 shadow-sm bg-neutral-primary text-heading"
         style="{{ $moduleShellStyle }}">
-        <div class="px-6 py-5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}33;">
-            <h2 class="text-3xl md:text-4xl font-bold" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
+        <div class="px-6 py-5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}33;">
+            <h2 class="text-3xl md:text-4xl font-bold" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
             @if(!empty($bookingConfig['subtitle']))
             <p class="mt-2 text-body">{{ e($bookingConfig['subtitle']) }}</p>
             @endif
         </div>
 
-        <div class="px-3 pt-2 border-b bg-neutral-primary" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}22; border-bottom: 0 !important;">
+        <div class="px-3 pt-2 border-b bg-neutral-primary" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22; border-bottom: 0 !important;">
             <div class="border-b border-default">
                 <div class="sm:hidden">
                     <label for="booking-steps-select" class="sr-only">Selecteer stap</label>
@@ -107,15 +108,16 @@
 
         <div class="p-6 bg-neutral-secondary-soft">
             <div class="space-y-8">
+                <div class="booking-step-panels-shell w-full" data-booking-step-panels-shell>
                 <div class="hidden" id="booking-panel-baggage" role="tabpanel" aria-labelledby="booking-tab-baggage" data-step-panel="baggage">
-                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['baggage'] ?? 'Bagage') }}</h3>
+                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($stepLabelByLogical['baggage'] ?? 'Bagage') }}</h3>
                     <div class="booking-baggage-layout">
                         <div class="space-y-4">
                             <p class="text-sm text-body">Kies je bagage en geef per type het aantal door.</p>
                             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                 @foreach(($bookingConfig['baggage_items'] ?? []) as $row)
                                 @php $key = $row['key'] ?? ''; @endphp
-                                <div class="booking-baggage-card rounded-xl border p-4 bg-neutral-primary shadow-xs flex flex-col h-full" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}22;">
+                                <div class="booking-baggage-card rounded-xl border p-4 bg-neutral-primary shadow-xs flex flex-col h-full" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22;">
                                     <div class="space-y-1 flex-1 min-h-0">
                                         <div class="text-base font-semibold text-heading">{{ e($row['title'] ?? '') }}</div>
                                         @if(!empty($row['subtitle']))<div class="text-sm text-body">{{ e($row['subtitle']) }}</div>@endif
@@ -131,7 +133,7 @@
                             </div>
                         </div>
 
-                        <div class="rounded-xl border p-4 bg-neutral-primary shadow-xs booking-baggage-special" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}22;">
+                        <div class="rounded-xl border p-4 bg-neutral-primary shadow-xs booking-baggage-special" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22;">
                             <label class="inline-flex items-center gap-3">
                                 <input type="checkbox" class="h-5 w-5 rounded border border-default-medium bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-toggle-special-baggage>
                                 <span class="text-base font-semibold text-heading">Wil je bijzondere bagage meenemen?</span>
@@ -140,7 +142,7 @@
                             <div class="hidden mt-4 grid grid-cols-1 gap-3" data-special-baggage-wrap>
                                 @foreach(($bookingConfig['special_items'] ?? []) as $row)
                                 @php $key = $row['key'] ?? ''; @endphp
-                                <div class="rounded-lg border p-3 flex items-center justify-between bg-neutral-secondary-medium" style="border-color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }}22;">
+                                <div class="rounded-lg border p-3 flex items-center justify-between bg-neutral-secondary-medium" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}22;">
                                     <div class="pe-3">
                                         <div class="font-semibold text-heading">{{ e($row['title'] ?? '') }}</div>
                                         @if(!empty($row['price']) && (float)$row['price'] > 0)<div class="text-xs text-body">+ € {{ number_format((float)$row['price'], 2, ',', '.') }}</div>@endif
@@ -159,7 +161,7 @@
 
                 <div class="hidden" id="booking-panel-offers" role="tabpanel" aria-labelledby="booking-tab-offers" data-step-panel="offers">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-3xl font-semibold" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['offers'] ?? 'Aanbiedingen') }}</h3>
+                        <h3 class="text-3xl font-semibold" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($stepLabelByLogical['offers'] ?? 'Aanbiedingen') }}</h3>
                         <div class="text-sm text-slate-600 dark:text-slate-300">Passagiers: <span data-summary-passengers>1</span></div>
                     </div>
                     <div class="space-y-4" data-offers-list></div>
@@ -167,7 +169,7 @@
                 </div>
 
                 <div class="hidden" id="booking-panel-trip" role="tabpanel" aria-labelledby="booking-tab-trip" data-step-panel="trip">
-                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['trip'] ?? 'Reisgegevens') }}</h3>
+                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($stepLabelByLogical['trip'] ?? 'Reisgegevens') }}</h3>
                     <div class="booking-trip-layout">
                         <div class="booking-trip-left space-y-5">
                             <label class="block text-base font-semibold text-heading">Waar wil je heen?</label>
@@ -177,8 +179,11 @@
                                 </div>
                                 <div class="booking-route-fields flex-1">
                                     <div class="relative booking-route-field-row" data-route-row="pickup">
-                                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none">van</span>
-                                        <input type="text" style="padding-left: 70px;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full pe-3 py-3.5 shadow-xs placeholder:text-body" data-field="pickup_address" name="pickup_address" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="{{ e($texts['pickup_placeholder'] ?? 'straatnaam met huisnummer') }}">
+                                        <div class="relative w-full min-w-0" data-route-icon-align-target>
+                                            <span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none z-[1] pointer-events-none">van</span>
+                                            <input type="text" style="padding-left: 70px;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full pe-3 py-3.5 shadow-xs placeholder:text-body" data-field="pickup_address" name="pickup_address" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="{{ e($texts['pickup_placeholder'] ?? 'straatnaam met huisnummer') }}">
+                                        </div>
+                                        <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300 w-full" data-booking-field-error="pickup_address" role="alert"></p>
                                     </div>
                                     <div class="booking-route-middle booking-route-field-row flex items-center justify-between" data-route-row="middle">
                                         <span class="inline-flex items-center text-fg-brand text-xs md:text-sm font-medium" data-stopover-text>
@@ -192,8 +197,11 @@
                                     </div>
                                     <div data-stopovers-list></div>
                                     <div class="relative booking-route-field-row" data-route-row="dropoff">
-                                        <span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none">naar</span>
-                                        <input type="text" style="padding-left: 70px;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full pe-3 py-3.5 shadow-xs placeholder:text-body" data-field="dropoff_address" name="dropoff_address" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="{{ e($texts['dropoff_placeholder'] ?? 'straatnaam met huisnummer') }}">
+                                        <div class="relative w-full min-w-0" data-route-icon-align-target>
+                                            <span class="absolute left-5 top-1/2 -translate-y-1/2 text-fg-brand text-base font-semibold leading-none z-[1] pointer-events-none">naar</span>
+                                            <input type="text" style="padding-left: 70px;" class="booking-route-input-short bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full pe-3 py-3.5 shadow-xs placeholder:text-body" data-field="dropoff_address" name="dropoff_address" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="{{ e($texts['dropoff_placeholder'] ?? 'straatnaam met huisnummer') }}">
+                                        </div>
+                                        <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300 w-full" data-booking-field-error="dropoff_address" role="alert"></p>
                                     </div>
                                 </div>
                             </div>
@@ -211,14 +219,39 @@
                                     </label>
                                 </div>
                                 @endif
-                                <div class="mt-3 hidden rounded-lg border px-3 py-2.5 text-base shadow-xs booking-route-details-banner" data-route-details-banner style="--booking-primary: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">
-                                    <div class="text-lg font-semibold mb-0.5">Route informatie</div>
-                                    <div class="booking-trip-route-map relative w-full shrink-0 overflow-hidden rounded-lg border bg-slate-200/50 dark:bg-slate-800/50 mb-3" style="border-color: rgba(148, 163, 184, 0.45); min-height: 200px; height: clamp(200px, 28vh, 360px); max-height: min(40vh, 22rem);" data-trip-route-map-wrap>
-                                        <img src="" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-cover" loading="lazy" decoding="async" data-trip-route-map-static>
+                                <div class="mt-3 hidden booking-route-details-banner" data-route-details-banner style="--booking-primary: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">
+                                    <div class="rounded-2xl border border-slate-200/90 dark:border-slate-600/40 bg-stone-100/90 dark:bg-slate-950/40 shadow-[0_2px_12px_rgba(15,23,42,0.06)] overflow-hidden w-full booking-trip-route-card">
+                                        <div class="px-4 pt-4 pb-2.5">
+                                            <div class="text-sm sm:text-base font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-center w-full">Route</div>
+                                        </div>
+                                        <div class="px-4 pb-3">
+                                            <div class="min-h-[4.5rem] flex flex-col justify-center">
+                                                <div class="hidden items-center justify-center gap-2 py-2" data-route-details-loading>
+                                                    <span class="booking-route-details-spinner" aria-hidden="true"></span>
+                                                    <span class="text-sm font-medium booking-route-details-loading-text">Route wordt berekend…</span>
+                                                </div>
+                                                <div class="hidden grid grid-cols-2 gap-3 sm:gap-4" data-route-details-stats aria-live="polite">
+                                                    <div class="rounded-xl border border-slate-200/90 dark:border-slate-600/40 bg-neutral-primary px-3 py-2.5 sm:py-3 text-center shadow-sm">
+                                                        <div class="text-[0.55rem] sm:text-[0.6rem] font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400 mb-0.5">Afstand</div>
+                                                        <div class="text-lg sm:text-xl md:text-2xl font-bold text-heading tabular-nums leading-tight tracking-tight" data-route-details-km>—</div>
+                                                    </div>
+                                                    <div class="rounded-xl border border-slate-200/90 dark:border-slate-600/40 bg-neutral-primary px-3 py-2.5 sm:py-3 text-center shadow-sm">
+                                                        <div class="text-[0.55rem] sm:text-[0.6rem] font-black uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400 mb-0.5">Reistijd</div>
+                                                        <div class="text-lg sm:text-xl md:text-2xl font-bold text-heading tabular-nums leading-tight tracking-tight" data-route-details-min>—</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <div class="booking-trip-route-map relative w-full shrink-0 overflow-hidden border-t border-slate-200/90 dark:border-slate-600/35 bg-slate-200/50 dark:bg-slate-800/50" style="min-height: 200px; height: clamp(200px, 28vh, 360px); max-height: min(40vh, 22rem);" data-trip-route-map-wrap>
+                                        <div class="absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-slate-200/85 dark:bg-slate-800/85 p-4 text-center" data-trip-route-map-loading aria-hidden="true">
+                                            <span class="booking-route-map-spinner" aria-hidden="true"></span>
+                                            <span class="text-xs sm:text-sm font-medium booking-route-details-loading-text">Kaart laden…</span>
+                                        </div>
+                                        <img src="" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-cover" loading="eager" decoding="async" data-trip-route-map-static>
                                         <iframe
                                             title="Route op de kaart (alleen weergave)"
                                             class="absolute inset-0 z-0 hidden h-full w-full border-0"
-                                            loading="lazy"
+                                            loading="eager"
                                             referrerpolicy="no-referrer-when-downgrade"
                                             data-trip-route-map-iframe
                                         ></iframe>
@@ -230,12 +263,6 @@
                                             <a href="#" class="font-semibold text-fg-brand underline hover:no-underline" data-trip-route-map-link target="_blank" rel="noopener noreferrer">Route openen in Google Maps</a>
                                         </div>
                                     </div>
-                                    <div class="min-h-[1.5rem] flex flex-col justify-center">
-                                        <div class="hidden items-center gap-2" data-route-details-loading>
-                                            <span class="booking-route-details-spinner" aria-hidden="true"></span>
-                                            <span class="text-sm font-medium booking-route-details-loading-text">Route wordt berekend…</span>
-                                        </div>
-                                        <div class="hidden" data-route-details aria-live="polite"></div>
                                     </div>
                                 </div>
                             </div>
@@ -250,14 +277,15 @@
                                     <input type="datetime-local" style="padding-left: 50px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer" data-field="pickup_at" data-datetime-input data-placeholder-target="pickup_at" placeholder="{{ e($texts['pickup_datetime_placeholder'] ?? '') }}">
                                     <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="pickup_at">{{ e($texts['pickup_datetime_placeholder'] ?? 'Selecteer datum en tijd') }}</span>
                                 </div>
+                                <p class="hidden mt-2 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="pickup_at" role="alert"></p>
                                 <div class="hidden mt-2 text-sm text-red-600 dark:text-red-400" data-pickup-datetime-future-error role="alert">
                                     Kies een ophaalmoment in de toekomst.
                                 </div>
                             </div>
                             <div>
-                                <label class="inline-flex items-center gap-2">
-                                    <input type="checkbox" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft" data-field="return_trip" {{ !empty($logic['return_enabled_by_default']) ? 'checked' : '' }}>
-                                    <span class="text-heading">Retour</span>
+                                <label class="inline-flex cursor-pointer select-none items-center gap-2.5">
+                                    <input type="checkbox" role="switch" class="kt-switch kt-switch-sm shrink-0" data-field="return_trip" {{ !empty($logic['return_enabled_by_default']) ? 'checked' : '' }}>
+                                    <span class="text-heading text-base font-semibold">Retour</span>
                                 </label>
                                 <div class="relative mt-3 booking-datetime-wrap booking-return-datetime-wrap">
                                     <svg class="w-5 h-5 text-fg-brand absolute top-1/2 -translate-y-1/2 pointer-events-none z-10 ml-2" style="left: 3px;" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -266,13 +294,14 @@
                                     <input type="datetime-local" style="padding-left: 70px; width: 300px; max-width: 100%;" class="booking-datetime-input bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-auto pe-3 py-2.5 shadow-xs cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed" data-field="return_at" data-datetime-input data-placeholder-target="return_at" placeholder="Selecteer datum en tijd" {{ !empty($logic['return_enabled_by_default']) ? '' : 'disabled' }}>
                                     <span class="booking-datetime-placeholder absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 text-sm leading-tight pointer-events-none truncate" style="left: 50px;" data-datetime-placeholder-for="return_at">Selecteer datum en tijd</span>
                                 </div>
+                                <p class="hidden mt-2 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="return_at" role="alert"></p>
                             </div>
                             <div>
                                 <label class="block mb-2.5 text-sm font-medium text-heading">Aantal reizigers</label>
-                                <div class="mt-1 inline-flex items-center gap-2 px-1.5 py-1 rounded-lg border border-default-medium bg-neutral-secondary-medium shadow-xs">
-                                    <button type="button" class="booking-passenger-btn inline-flex items-center justify-center rounded-base h-8 w-8 text-heading hover:bg-neutral-secondary-soft transition-colors" data-delta="-1">-</button>
-                                    <span class="min-w-4 text-center font-semibold text-base leading-none text-heading" data-passengers-display>{{ (int)($logic['default_passengers'] ?? 1) }}</span>
-                                    <button type="button" class="booking-passenger-btn inline-flex items-center justify-center rounded-base h-8 w-8 text-fg-brand hover:bg-neutral-secondary-soft transition-colors" data-delta="1">+</button>
+                                <div class="booking-trip-passenger-stepper mt-1 inline-flex h-10 min-h-[2.5rem] box-border items-center gap-1.5 px-2 rounded-lg border border-default-medium bg-neutral-secondary-medium shadow-xs">
+                                    <button type="button" class="booking-passenger-btn inline-flex items-center justify-center rounded-md h-8 w-8 text-sm text-heading hover:bg-neutral-secondary-soft transition-colors" data-delta="-1">-</button>
+                                    <span class="min-w-[1.25rem] text-center font-semibold text-sm tabular-nums leading-none text-heading" data-passengers-display>{{ (int)($logic['default_passengers'] ?? 1) }}</span>
+                                    <button type="button" class="booking-passenger-btn inline-flex items-center justify-center rounded-md h-8 w-8 text-sm text-fg-brand hover:bg-neutral-secondary-soft transition-colors" data-delta="1">+</button>
                                 </div>
                             </div>
                             <div>
@@ -284,34 +313,56 @@
                 </div>
 
                 <div class="hidden" id="booking-panel-contact" role="tabpanel" aria-labelledby="booking-tab-contact" data-step-panel="contact">
-                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['contact'] ?? 'Contactgegevens') }}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label class="block mb-2.5 text-sm font-medium text-heading">Voornaam</label><input type="text" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="first_name"></div>
-                        <div><label class="block mb-2.5 text-sm font-medium text-heading">Achternaam</label><input type="text" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="last_name"></div>
-                        <div><label class="block mb-2.5 text-sm font-medium text-heading">Telefoonnummer</label><input type="text" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="phone"></div>
-                        <div><label class="block mb-2.5 text-sm font-medium text-heading">E-mailadres</label><input type="email" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="email"></div>
+                    <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($stepLabelByLogical['contact'] ?? 'Contactgegevens') }}</h3>
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-first_name">Voornaam <span class="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
+                            <input id="booking-field-first_name" type="text" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="first_name" autocomplete="given-name" aria-required="true">
+                            <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="first_name" role="alert"></p>
+                        </div>
+                        <div>
+                            <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-last_name">Achternaam <span class="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
+                            <input id="booking-field-last_name" type="text" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="last_name" autocomplete="family-name" aria-required="true">
+                            <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="last_name" role="alert"></p>
+                        </div>
+                        <div>
+                            <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-phone">Telefoonnummer <span class="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
+                            <input id="booking-field-phone" type="text" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="phone" autocomplete="tel" aria-required="true">
+                            <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="phone" role="alert"></p>
+                        </div>
+                        <div>
+                            <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-email">E-mailadres</label>
+                            <input id="booking-field-email" type="email" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="email" autocomplete="email" inputmode="email">
+                            <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="email" role="alert"></p>
+                        </div>
                     </div>
+                    <p class="mt-6 text-sm text-body text-left" role="note"><span class="text-red-600 dark:text-red-400 font-medium" aria-hidden="true">*</span> Verplicht veld</p>
                 </div>
 
-                <div class="hidden" id="booking-panel-confirm" role="tabpanel" aria-labelledby="booking-tab-confirm" data-step-panel="confirm">
-                    <h3 class="text-3xl font-semibold mb-4 text-center" style="color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
-                    <div class="rounded-xl border shadow-sm bg-transparent overflow-hidden max-w-4xl mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
-                        <div class="kt-card-content lg:pt-9 lg:pb-7.5 px-4 py-4 md:px-6 md:py-5 space-y-5">
-                            <div class="hidden flex justify-center" data-summary-vehicle-image-wrap>
-                                <div class="w-full max-w-md rounded-lg border bg-neutral-secondary-medium p-0 overflow-hidden" style="border-color: rgba(148, 163, 184, 0.45);">
-                                    <img src="" alt="" class="w-full h-44 md:h-52 object-cover rounded-md mx-auto" data-summary-vehicle-image>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="mb-3 text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Rit</div>
-                                <div class="rounded-lg border bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-4 shadow-xs mx-auto" style="border-color: rgba(148, 163, 184, 0.45);">
-                                    <div class="flex flex-col gap-4">
-                                        <div class="booking-summary-route-map relative w-full shrink-0 overflow-hidden rounded-lg border bg-slate-200/50 dark:bg-slate-800/50" style="border-color: rgba(148, 163, 184, 0.45); min-height: 280px; height: clamp(280px, 42vh, 520px); max-height: min(56vh, 32rem);" data-summary-route-map-wrap>
-                                            <img src="" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-cover" loading="lazy" decoding="async" data-summary-route-map-static>
+                <div class="hidden w-full" id="booking-panel-confirm" role="tabpanel" aria-labelledby="booking-tab-confirm" data-step-panel="confirm">
+                    <div class="booking-confirm-root w-full max-w-none mx-0">
+                        <h3 class="text-3xl font-semibold mb-4" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
+
+                        <div class="booking-confirm-wireframe rounded-2xl border bg-stone-100/90 dark:bg-slate-950/40 shadow-[0_2px_12px_rgba(15,23,42,0.06)] overflow-hidden w-full">
+                            {{-- 50/50: links route, kaart, opmerking; rechts overige details --}}
+                            <div class="booking-confirm-grid grid grid-cols-1 lg:grid-cols-2 gap-0 min-w-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-200/90 dark:divide-slate-600/35">
+                                <div class="p-5 md:p-6 space-y-4 min-w-0 bg-white/70 dark:bg-slate-900/30 booking-confirm-col-left">
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 min-w-0 w-full max-w-full overflow-hidden">
+                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2 text-center w-full">Route</div>
+                                        <div class="booking-confirm-route-stack" data-summary-route-stacked></div>
+                                    </div>
+                                    <div class="booking-confirm-surface booking-confirm-map-surface rounded-xl border bg-neutral-primary p-0 min-w-0 overflow-hidden">
+                                        <div class="booking-confirm-map-host relative w-full">
+                                        <div class="booking-summary-route-map booking-confirm-summary-route-map overflow-hidden bg-slate-200/50 dark:bg-slate-800/50" data-summary-route-map-wrap>
+                                            <div class="absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-slate-200/85 dark:bg-slate-800/85 p-4 text-center" data-summary-route-map-loading aria-hidden="true">
+                                                <span class="booking-route-map-spinner" aria-hidden="true"></span>
+                                                <span class="text-sm font-medium booking-route-details-loading-text">Kaart laden…</span>
+                                            </div>
+                                            <img src="" alt="" class="absolute inset-0 z-0 hidden h-full w-full object-cover" loading="eager" decoding="async" data-summary-route-map-static>
                                             <iframe
                                                 title="Route op de kaart (alleen weergave)"
                                                 class="absolute inset-0 z-0 hidden h-full w-full border-0"
-                                                loading="lazy"
+                                                loading="eager"
                                                 referrerpolicy="no-referrer-when-downgrade"
                                                 data-summary-route-map-iframe
                                             ></iframe>
@@ -323,63 +374,61 @@
                                                 <a href="#" class="font-semibold text-fg-brand underline hover:no-underline" data-summary-route-map-link target="_blank" rel="noopener noreferrer">Route openen in Google Maps</a>
                                             </div>
                                         </div>
-                                        <div class="flex flex-row items-stretch gap-2 sm:gap-3 min-w-0">
-                                            <div class="min-w-0 flex-1 text-left">
-                                                <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-bold mb-1.5">Van</div>
-                                                <div class="text-base font-semibold text-heading break-words" data-summary-pickup-line1>—</div>
-                                                <div class="text-base text-body break-words" data-summary-pickup-line2>—</div>
-                                                <div class="text-base text-body break-words" data-summary-pickup-line3>—</div>
+                                        </div>
+                                    </div>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
+                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Opmerking</div>
+                                        <p class="text-sm text-body whitespace-pre-wrap break-words min-w-0" data-summary-remarks>—</p>
+                                    </div>
+                                </div>
+
+                                <div class="p-5 md:p-6 space-y-4 min-w-0 bg-stone-50/90 dark:bg-slate-900/40 booking-confirm-col-right">
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
+                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Ophaalmoment</div>
+                                        <div class="text-lg sm:text-xl font-bold text-heading tabular-nums tracking-tight" data-summary-pickup-at>—</div>
+                                    </div>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
+                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Passagiers</div>
+                                        <div class="text-lg font-bold text-heading tabular-nums" data-summary-confirm-passengers>—</div>
+                                    </div>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary shadow-sm overflow-hidden">
+                                        <div class="px-4 pt-4 pb-2">
+                                            <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Voertuig / aanbieding</div>
+                                        </div>
+                                        <div class="hidden w-full" data-summary-vehicle-image-wrap>
+                                            <div class="flex items-center justify-center bg-neutral-secondary/30 dark:bg-slate-800/45 min-h-[11rem] sm:min-h-[12rem]">
+                                                <img src="" alt="" class="w-full max-h-52 sm:max-h-60 h-auto object-contain object-center block" data-summary-vehicle-image>
                                             </div>
-                                            <div class="flex shrink-0 items-center justify-center self-center px-0.5 sm:px-1" aria-hidden="true">
-                                                <svg class="w-7 h-7 sm:w-8 sm:h-8 text-slate-400 dark:text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                                                </svg>
-                                            </div>
-                                            <div class="min-w-0 flex-1 flex justify-end">
-                                                <div class="text-left min-w-0 max-w-full">
-                                                    <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-bold mb-1.5">Naar</div>
-                                                    <div class="text-base font-semibold text-heading break-words" data-summary-dropoff-line1>—</div>
-                                                    <div class="text-base text-body break-words" data-summary-dropoff-line2>—</div>
-                                                    <div class="text-base text-body break-words" data-summary-dropoff-line3>—</div>
-                                                </div>
-                                            </div>
+                                        </div>
+                                        <div class="px-4 py-3 text-center">
+                                            <div class="text-base font-bold text-heading leading-snug" data-summary-offer>—</div>
+                                        </div>
+                                    </div>
+                                    <div class="booking-confirm-surface rounded-xl border bg-neutral-primary p-4 shadow-sm">
+                                        <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-2">Bagage</div>
+                                        <div class="flex flex-wrap items-start gap-2" data-summary-baggage-list>
+                                            <span class="inline-flex items-center rounded-full bg-neutral-secondary-medium px-2.5 py-1 text-sm text-body border border-default-medium/60">Geen bagage geselecteerd</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="grid justify-center gap-1.5 mb-1 text-center">
-                                <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Ophaalmoment</div>
-                                <div class="text-lg md:text-xl font-bold text-heading" data-summary-pickup-at>—</div>
-                            </div>
-
-                            <div class="rounded-lg bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs text-center">
-                                <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Aanbieding</div>
-                                <div class="mt-1 text-base md:text-lg font-semibold text-heading text-center" data-summary-offer>—</div>
-                            </div>
-
-                            <div class="rounded-lg bg-neutral-secondary-medium px-3 py-3 md:px-4 md:py-3 shadow-xs">
-                                <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold text-center">Gekozen bagage</div>
-                                <div class="mt-2 flex flex-wrap items-center justify-center gap-2" data-summary-baggage-list>
-                                    <span class="inline-flex items-center rounded-full bg-neutral-primary px-2.5 py-1 text-sm text-body">Geen bagage geselecteerd</span>
-                                </div>
+                            <div class="booking-confirm-total-strip flex flex-row items-center justify-between gap-4 border-t border-slate-200/90 dark:border-slate-600/40 px-5 py-3 md:px-8 md:py-4 bg-white/80 dark:bg-slate-900/50">
+                                <span class="text-sm font-bold uppercase tracking-wide text-heading">Totaalbedrag</span>
+                                <span class="text-lg md:text-xl font-bold tabular-nums text-heading" data-summary-total>—</span>
                             </div>
                         </div>
-
-                        <div class="border-t px-4 py-4 md:px-6 md:py-5 text-center" style="border-color: rgba(148, 163, 184, 0.45);">
-                            <div class="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Totaalbedrag</div>
-                            <div class="mt-1 text-3xl md:text-4xl font-black text-violet-700 dark:text-violet-300" data-summary-total>—</div>
-                        </div>
+                        <p class="text-sm mt-4 text-slate-600 dark:text-slate-300 text-center">Controleer je gegevens en verstuur je boeking.</p>
                     </div>
-                    <p class="text-sm mt-3 text-slate-600 dark:text-slate-300 text-center">Controleer je gegevens en verstuur je boeking.</p>
+                </div>
                 </div>
             </div>
 
+            <p class="mb-4 text-sm font-medium text-red-600 dark:text-red-300 hidden" data-booking-error role="alert"></p>
             <div class="mt-8 flex items-center justify-between">
-                <button type="button" class="inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:bg-white/15 hover:shadow-xl hover:-translate-y-1" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }} 45%, transparent); color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};" data-booking-prev>&larr; terug</button>
-                <button type="button" class="inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:bg-white/15 hover:shadow-xl hover:-translate-y-1" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }} 45%, transparent); color: {{ e($sectionStyle['primary_color'] ?? '#5b21b6') }};" data-booking-next>Verder</button>
+                <button type="button" class="inline-flex items-center justify-center gap-2 w-max shrink-0 whitespace-nowrap px-4 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:bg-white/15 hover:shadow-xl hover:-translate-y-1" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }} 45%, transparent); color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};" data-booking-prev><span class="inline-flex shrink-0 leading-none" aria-hidden="true">&larr;</span><span>terug</span></button>
+                <button type="button" class="inline-flex justify-center items-center px-6 py-3 text-sm font-bold border-2 rounded-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-1 booking-next-default" style="background-color: transparent; border-color: color-mix(in srgb, {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }} 45%, transparent); color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};" data-booking-next>Verder</button>
             </div>
-            <p class="mt-3 text-sm font-medium text-red-600 dark:text-red-300 hidden" data-booking-error></p>
             <p class="mt-3 text-sm font-medium text-green-700 dark:text-green-300 hidden" data-booking-success></p>
         </div>
     </div>
@@ -446,47 +495,137 @@
     overflow: visible;
 }
 
-/* Geselecteerde aanbiedingskaart: groene border (#0cea36) – via CSS i.p.v. Tailwind i.v.m. dynamische classes */
-[data-taxiroyaal-booking-module] [data-offer-id][aria-pressed="true"] {
+/* Vaste min-hoogte voor stap-panels (trip/baggage/offers/contact) om verspringen te beperken; Bevestiging buiten deze shell */
+[data-taxiroyaal-booking-module] .booking-step-panels-shell {
+    position: relative;
+    width: 100%;
+    transition: min-height 0.2s ease;
+}
+
+[data-taxiroyaal-booking-module] [data-booking-next].booking-next-default:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+[data-taxiroyaal-booking-module] [data-booking-next].booking-next--final {
+    border-color: color-mix(in srgb, rgb(22 163 74) 50%, transparent) !important;
+    color: rgb(22 163 74) !important;
+}
+[data-taxiroyaal-booking-module] [data-booking-next].booking-next--final:hover {
+    background-color: rgba(22, 163, 74, 0.14) !important;
+}
+.dark [data-taxiroyaal-booking-module] [data-booking-next].booking-next--final,
+html.dark [data-taxiroyaal-booking-module] [data-booking-next].booking-next--final {
+    border-color: color-mix(in srgb, rgb(52 211 153) 55%, transparent) !important;
+    color: rgb(52 211 153) !important;
+}
+.dark [data-taxiroyaal-booking-module] [data-booking-next].booking-next--final:hover,
+html.dark [data-taxiroyaal-booking-module] [data-booking-next].booking-next--final:hover {
+    background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+[data-taxiroyaal-booking-module] .booking-confirm-route-stack {
+    width: 100%;
+}
+[data-taxiroyaal-booking-module] .booking-confirm-map-host {
+    position: relative;
+    min-height: 280px;
+    height: clamp(280px, 38vh, 420px);
+    max-height: min(48vh, 28rem);
+}
+[data-taxiroyaal-booking-module] .booking-confirm-map-host .booking-summary-route-map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+}
+/* Geen grijze naad onderaan: slate-placeholder onder geschaalde kaart leek een losse lijn; host erft bg van kaart-surface */
+[data-taxiroyaal-booking-module] .booking-confirm-map-surface .booking-confirm-summary-route-map {
+    background-color: transparent !important;
+}
+[data-taxiroyaal-booking-module] .booking-confirm-map-surface .booking-confirm-map-host {
+    background-color: inherit;
+}
+/* Linkerkolom: geen extra rand/schaduw onderaan de kolom */
+[data-taxiroyaal-booking-module] .booking-confirm-col-left {
+    border-bottom: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Bevestiging: lichte borders — expliciet !important i.v.m. theme die .border / kaart-randen overschrijft */
+[data-taxiroyaal-booking-module] .booking-confirm-wireframe {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: rgb(241 245 249) !important; /* slate-100 */
+}
+[data-taxiroyaal-booking-module] .booking-confirm-surface {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: rgb(241 245 249) !important;
+}
+[data-taxiroyaal-booking-module] .booking-confirm-total-strip {
+    border-top-width: 1px !important;
+    border-top-style: solid !important;
+    border-top-color: rgb(241 245 249) !important; /* slate-100, gelijk aan overige bevestigingsranden */
+}
+.dark [data-taxiroyaal-booking-module] .booking-confirm-total-strip,
+html.dark [data-taxiroyaal-booking-module] .booking-confirm-total-strip {
+    border-top-color: rgba(71, 85, 105, 0.42) !important;
+}
+.dark [data-taxiroyaal-booking-module] .booking-confirm-wireframe,
+html.dark [data-taxiroyaal-booking-module] .booking-confirm-wireframe {
+    border-color: rgba(71, 85, 105, 0.42) !important;
+}
+.dark [data-taxiroyaal-booking-module] .booking-confirm-surface,
+html.dark [data-taxiroyaal-booking-module] .booking-confirm-surface {
+    border-color: rgba(71, 85, 105, 0.42) !important;
+}
+/* Linkerkolom / kaart: geen onderborder of shadow die als witte streep leest */
+[data-taxiroyaal-booking-module] .booking-confirm-map-surface {
+    border-bottom-width: 0 !important;
+    box-shadow: none !important;
+}
+/* Grid-scheiding: lg+ verticale lijn tussen kolommen; onder sm/md geen horizontale lijn (was storend onder route-blok) */
+@media (max-width: 1023px) {
+    [data-taxiroyaal-booking-module] .booking-confirm-grid > :not([hidden]) ~ :not([hidden]) {
+        border-top-width: 0 !important;
+    }
+}
+@media (min-width: 1024px) {
+    [data-taxiroyaal-booking-module] .booking-confirm-grid > :not([hidden]) ~ :not([hidden]) {
+        border-left-color: rgb(241 245 249) !important;
+    }
+    .dark [data-taxiroyaal-booking-module] .booking-confirm-grid > :not([hidden]) ~ :not([hidden]),
+    html.dark [data-taxiroyaal-booking-module] .booking-confirm-grid > :not([hidden]) ~ :not([hidden]) {
+        border-left-color: rgba(71, 85, 105, 0.38) !important;
+    }
+}
+
+/* Geselecteerde aanbiedingskaart: groene border (#0cea36); ook bij hover (niet de grijs/wit-hover van niet-geselecteerd) */
+[data-taxiroyaal-booking-module] [data-offer-id][aria-pressed="true"],
+[data-taxiroyaal-booking-module] [data-offer-id][aria-pressed="true"]:hover {
     border-color: #0cea36 !important;
     border-width: 2px;
     box-shadow: 0 0 0 2px rgba(12, 234, 54, 0.5);
 }
 
-/* Bevestiging: zwevend effect voertuigfoto – in dark mode zichtbare schaduw */
-[data-taxiroyaal-booking-module] [data-summary-vehicle-image-wrap] > div {
-    box-shadow: 0 26px 58px rgba(15, 23, 42, 0.5), 0 10px 24px rgba(15, 23, 42, 0.28);
-}
-@media (prefers-color-scheme: dark) {
-    [data-taxiroyaal-booking-module] [data-summary-vehicle-image-wrap] > div {
-        box-shadow: 0 26px 58px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    }
-}
-.dark [data-taxiroyaal-booking-module] [data-summary-vehicle-image-wrap] > div {
-    box-shadow: 0 26px 58px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-/* Route-informatiebanner: zeer lichte tint van primaire kleur (admin) */
-[data-taxiroyaal-booking-module] .booking-route-details-banner {
-    background-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 11%, white) !important;
-    border-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 32%, rgba(148, 163, 184, 0.55)) !important;
+/* Trip: route-kaart (zelfde sfeer als bevestiging) — lichte primaire tint (admin) */
+[data-taxiroyaal-booking-module] .booking-trip-route-card {
+    background-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 11%, white) !important;
+    border-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 28%, rgba(148, 163, 184, 0.55)) !important;
     color: #0f172a;
 }
-.dark [data-taxiroyaal-booking-module] .booking-route-details-banner {
-    background-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 14%, rgb(30 41 59)) !important;
-    border-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 38%, rgb(71 85 105)) !important;
+.dark [data-taxiroyaal-booking-module] .booking-trip-route-card {
+    background-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 14%, rgb(30 41 59)) !important;
+    border-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 38%, rgb(71 85 105)) !important;
     color: #f8fafc;
-}
-[data-taxiroyaal-booking-module] .booking-route-details-banner .text-lg {
-    color: color-mix(in srgb, var(--booking-primary, #5b21b6) 55%, #0f172a);
-}
-.dark [data-taxiroyaal-booking-module] .booking-route-details-banner .text-lg {
-    color: #ffffff;
-    font-weight: 700;
 }
 [data-taxiroyaal-booking-module] [data-booking-steps-nav] .booking-step-tab,
 [data-taxiroyaal-booking-module] #booking-steps-select {
     font-size: var(--booking-tab-font-size, 14px) !important;
+}
+[data-taxiroyaal-booking-module] [data-booking-steps-nav] .booking-step-tab.active {
+    font-size: calc(var(--booking-tab-font-size, 14px) * 1.12) !important;
 }
 [data-taxiroyaal-booking-module] [data-summary-route-map-static],
 [data-taxiroyaal-booking-module] [data-trip-route-map-static],
@@ -508,15 +647,42 @@
     display: inline-block;
     width: 1rem;
     height: 1rem;
-    border: 2px solid color-mix(in srgb, var(--booking-primary, #5b21b6) 35%, #cbd5e1);
-    border-top-color: var(--booking-primary, #5b21b6);
+    border: 2px solid color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 35%, #cbd5e1);
+    border-top-color: var(--booking-primary, {{ e($bookingDefaultAccent) }});
     border-radius: 9999px;
     animation: booking-route-details-spin 0.65s linear infinite;
     flex-shrink: 0;
 }
 .dark [data-taxiroyaal-booking-module] .booking-route-details-spinner {
-    border: 2px solid color-mix(in srgb, var(--booking-primary, #5b21b6) 40%, #64748b);
-    border-top-color: color-mix(in srgb, var(--booking-primary, #5b21b6) 85%, white);
+    border: 2px solid color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 40%, #64748b);
+    border-top-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 85%, white);
+}
+
+/* Kaart-placeholder: spinner 2× groter dan route-details-spinner (1rem → 2rem) */
+[data-taxiroyaal-booking-module] .booking-route-map-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 4px solid color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 35%, #cbd5e1);
+    border-top-color: var(--booking-primary, {{ e($bookingDefaultAccent) }});
+    border-radius: 9999px;
+    animation: booking-route-details-spin 0.65s linear infinite;
+    flex-shrink: 0;
+}
+.dark [data-taxiroyaal-booking-module] .booking-route-map-spinner {
+    border: 4px solid color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 40%, #64748b);
+    border-top-color: color-mix(in srgb, var(--booking-primary, {{ e($bookingDefaultAccent) }}) 85%, white);
+}
+
+/* Aanbiedingen: hover niet-geselecteerd = alleen border (light: donkergrijs, dark: wit) */
+[data-taxiroyaal-booking-module] .booking-offer-card[aria-pressed="false"]:hover {
+    border-color: #334155 !important;
+    box-shadow: none;
+}
+.dark [data-taxiroyaal-booking-module] .booking-offer-card[aria-pressed="false"]:hover,
+html.dark [data-taxiroyaal-booking-module] .booking-offer-card[aria-pressed="false"]:hover {
+    border-color: #ffffff !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
 [data-taxiroyaal-booking-module] .booking-trip-layout {
@@ -650,6 +816,13 @@ body.booking-modal-open {
     display: flex;
     align-items: center;
     overflow: visible;
+}
+
+/* Foutregel onder het veld, niet naast (pickup/dropoff hebben input-wrapper + p) */
+[data-taxiroyaal-booking-module] .booking-route-field-row[data-route-row="pickup"],
+[data-taxiroyaal-booking-module] .booking-route-field-row[data-route-row="dropoff"] {
+    flex-direction: column;
+    align-items: stretch;
 }
 
 [data-taxiroyaal-booking-module] .booking-stopover-row {
@@ -867,14 +1040,6 @@ body.booking-modal-open {
         grid-template-columns: auto minmax(0, 1fr);
         column-gap: 12px;
     }
-    [data-taxiroyaal-booking-module] .booking-baggage-layout {
-        grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
-        gap: 28px;
-    }
-    [data-taxiroyaal-booking-module] .booking-baggage-special {
-        border-left: 1px solid rgba(148, 163, 184, 0.35);
-        padding-left: 24px;
-    }
 }
 
 [data-taxiroyaal-booking-module] [data-step-panel] .rounded-xl,
@@ -940,7 +1105,27 @@ body.booking-modal-open {
     box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.3);
 }
 
-[data-taxiroyaal-booking-module] input[type="checkbox"] {
+[data-taxiroyaal-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid) {
+    border-color: rgb(239 68 68) !important;
+    border-width: 1px !important;
+    box-shadow: none !important;
+}
+[data-taxiroyaal-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid):focus {
+    border-color: rgb(239 68 68) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.22) !important;
+}
+.dark [data-taxiroyaal-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid) {
+    border-color: rgb(248 113 113) !important;
+    border-width: 1px !important;
+    box-shadow: none !important;
+}
+.dark [data-taxiroyaal-booking-module] input.booking-field-input--error:not(.booking-datetime-input--past-invalid):focus {
+    border-color: rgb(248 113 113) !important;
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.25) !important;
+}
+
+/* Geen standaard checkbox-styling op admin-achtige schakelaars (.kt-switch) */
+[data-taxiroyaal-booking-module] input[type="checkbox"]:not(.kt-switch) {
     accent-color: #6366f1;
     border-color: rgba(148, 163, 184, 0.55) !important;
     background-color: rgba(148, 163, 184, 0.14);
@@ -948,17 +1133,17 @@ body.booking-modal-open {
     transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease, transform 120ms ease;
 }
 
-[data-taxiroyaal-booking-module] input[type="checkbox"]:hover {
+[data-taxiroyaal-booking-module] input[type="checkbox"]:not(.kt-switch):hover {
     border-color: rgba(99, 102, 241, 0.58) !important;
 }
 
-[data-taxiroyaal-booking-module] input[type="checkbox"]:focus-visible {
+[data-taxiroyaal-booking-module] input[type="checkbox"]:not(.kt-switch):focus-visible {
     outline: none;
     border-color: rgba(99, 102, 241, 0.65) !important;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
-[data-taxiroyaal-booking-module] input[type="checkbox"]:checked {
+[data-taxiroyaal-booking-module] input[type="checkbox"]:not(.kt-switch):checked {
     border-color: rgba(99, 102, 241, 0.72) !important;
     background-color: rgba(99, 102, 241, 0.22);
 }
@@ -977,8 +1162,8 @@ body.booking-modal-open {
     var sectionKey = @json($sectionKey ?? 'component:taxiroyaal.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var mapsApiKey = @json($mapsApiKey);
-    var activeTabColor = @json($sectionStyle['active_tab_color'] ?? '#5b21b6');
-    var routeMapZoom = @json($routeMapZoomVal);
+    var activeTabColor = @json($sectionStyle['active_tab_color'] ?? $bookingDefaultAccent);
+    var bookingPrimaryHex = @json($sectionStyle['primary_color'] ?? $bookingDefaultAccent);
     var whatsappClickToChatEnabled = @json($whatsappClickToChatEnabled);
     var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
     var whatsappDraftWindow = null;
@@ -1242,7 +1427,39 @@ body.booking-modal-open {
         }
     }
 
+    function clearAllFieldErrors() {
+        root.querySelectorAll('[data-booking-field-error]').forEach(function(errEl) {
+            errEl.textContent = '';
+            errEl.classList.add('hidden');
+        });
+        root.querySelectorAll('.booking-field-input--error').forEach(function(el) {
+            el.classList.remove('booking-field-input--error');
+        });
+    }
+
+    function clearFieldErrorFor(fieldKey) {
+        if (!fieldKey) return;
+        var input = root.querySelector('[data-field="' + fieldKey + '"]');
+        var errEl = root.querySelector('[data-booking-field-error="' + fieldKey + '"]');
+        if (input) input.classList.remove('booking-field-input--error');
+        if (errEl) {
+            errEl.textContent = '';
+            errEl.classList.add('hidden');
+        }
+    }
+
+    function setFieldError(fieldKey, message) {
+        var input = root.querySelector('[data-field="' + fieldKey + '"]');
+        var errEl = root.querySelector('[data-booking-field-error="' + fieldKey + '"]');
+        if (input) input.classList.add('booking-field-input--error');
+        if (errEl) {
+            errEl.textContent = message || '';
+            errEl.classList.toggle('hidden', !message);
+        }
+    }
+
     function showError(message) {
+        clearAllFieldErrors();
         var el = root.querySelector('[data-booking-error]');
         if (!el) return;
         el.textContent = message || 'Er ging iets mis.';
@@ -1250,6 +1467,7 @@ body.booking-modal-open {
     }
 
     function clearError() {
+        clearAllFieldErrors();
         var el = root.querySelector('[data-booking-error]');
         if (!el) return;
         el.classList.add('hidden');
@@ -1342,34 +1560,87 @@ body.booking-modal-open {
     function showRouteDetailsLoading() {
         var banner = root.querySelector('[data-route-details-banner]');
         var loading = root.querySelector('[data-route-details-loading]');
-        var details = root.querySelector('[data-route-details]');
-        if (!banner || !loading || !details) return;
+        var stats = root.querySelector('[data-route-details-stats]');
+        if (!banner || !loading) return;
         banner.classList.remove('hidden');
         banner.setAttribute('aria-busy', 'true');
         loading.classList.remove('hidden');
         loading.classList.add('flex');
-        details.classList.add('hidden');
-        details.textContent = '';
+        if (stats) stats.classList.add('hidden');
+        window.requestAnimationFrame(syncBookingStepShellMinHeight);
+    }
+
+    function renderRouteDetailsStats(kmStr, minStr) {
+        var banner = root.querySelector('[data-route-details-banner]');
+        var loading = root.querySelector('[data-route-details-loading]');
+        var stats = root.querySelector('[data-route-details-stats]');
+        var kmEl = root.querySelector('[data-route-details-km]');
+        var minEl = root.querySelector('[data-route-details-min]');
+        if (loading) {
+            loading.classList.add('hidden');
+            loading.classList.remove('flex');
+        }
+        if (kmEl) kmEl.textContent = String(kmStr) + ' km';
+        if (minEl) minEl.textContent = '± ' + String(minStr) + ' min';
+        if (stats) stats.classList.remove('hidden');
+        if (banner) {
+            banner.classList.remove('hidden');
+            banner.setAttribute('aria-busy', 'false');
+        }
+        window.requestAnimationFrame(syncBookingStepShellMinHeight);
     }
 
     function renderRouteDetailsText(text) {
-        var details = root.querySelector('[data-route-details]');
         var banner = root.querySelector('[data-route-details-banner]');
         var loading = root.querySelector('[data-route-details-loading]');
-        if (!details || !banner) return;
+        var stats = root.querySelector('[data-route-details-stats]');
+        var kmEl = root.querySelector('[data-route-details-km]');
+        var minEl = root.querySelector('[data-route-details-min]');
+        if (!banner) return;
         var normalized = String(text || '').trim();
         if (loading) {
             loading.classList.add('hidden');
             loading.classList.remove('flex');
         }
-        details.textContent = normalized;
-        details.classList.toggle('hidden', normalized === '');
+        if (stats) stats.classList.add('hidden');
+        if (kmEl) kmEl.textContent = '—';
+        if (minEl) minEl.textContent = '—';
         banner.classList.toggle('hidden', normalized === '');
         banner.setAttribute('aria-busy', 'false');
+        window.requestAnimationFrame(syncBookingStepShellMinHeight);
+    }
+
+    function syncBookingStepShellMinHeight() {
+        var shell = root.querySelector('[data-booking-step-panels-shell]');
+        if (!shell) return;
+        var currentKey = getCurrentStepKey();
+        if (currentKey === 'confirm') {
+            shell.style.minHeight = '';
+            return;
+        }
+        var allPanels = Array.prototype.slice.call(shell.querySelectorAll('[data-step-panel]'));
+        var panels = allPanels.filter(function(p) {
+            return p.getAttribute('data-step-panel') !== 'confirm';
+        });
+        if (!panels.length) return;
+        var maxH = 0;
+        panels.forEach(function(panel) {
+            allPanels.forEach(function(p) { p.classList.add('hidden'); });
+            panel.classList.remove('hidden');
+            var h = panel.offsetHeight;
+            if (h > maxH) maxH = h;
+        });
+        allPanels.forEach(function(panel) {
+            panel.classList.toggle('hidden', panel.getAttribute('data-step-panel') !== currentKey);
+        });
+        shell.style.minHeight = maxH > 0 ? maxH + 'px' : '';
     }
 
     function setStep(nextStep) {
         state.step = Math.max(1, Math.min(stepOrder.length, nextStep));
+        if (typeof root._hideAllBookingSuggestionPanels === 'function') {
+            root._hideAllBookingSuggestionPanels();
+        }
         var currentStepKey = getCurrentStepKey();
         root.querySelectorAll('[data-step-panel]').forEach(function(panel) {
             panel.classList.toggle('hidden', panel.getAttribute('data-step-panel') !== currentStepKey);
@@ -1409,6 +1680,17 @@ body.booking-modal-open {
             nextBtn.textContent = currentStepKey === 'confirm'
                 ? (config.texts && config.texts.submit_button_text ? config.texts.submit_button_text : 'Boeking versturen')
                 : 'Verder';
+            if (currentStepKey === 'confirm') {
+                nextBtn.classList.add('booking-next--final');
+                nextBtn.classList.remove('booking-next-default');
+                nextBtn.style.borderColor = '';
+                nextBtn.style.color = '';
+            } else {
+                nextBtn.classList.remove('booking-next--final');
+                nextBtn.classList.add('booking-next-default');
+                nextBtn.style.borderColor = 'color-mix(in srgb, ' + bookingPrimaryHex + ' 45%, transparent)';
+                nextBtn.style.color = bookingPrimaryHex;
+            }
         }
         var prevBtn = root.querySelector('[data-booking-prev]');
         if (prevBtn) prevBtn.style.visibility = state.step === 1 ? 'hidden' : 'visible';
@@ -1417,6 +1699,14 @@ body.booking-modal-open {
                 syncRouteIconAlignment();
                 refreshPickupDatetimeMin();
                 syncPickupDatetimeFutureValidation();
+            });
+        }
+        var shell = root.querySelector('[data-booking-step-panels-shell]');
+        if (currentStepKey === 'confirm') {
+            if (shell) shell.style.minHeight = '';
+        } else {
+            window.requestAnimationFrame(function() {
+                syncBookingStepShellMinHeight();
             });
         }
     }
@@ -1453,6 +1743,11 @@ body.booking-modal-open {
         if (passengerDisplay) passengerDisplay.textContent = String(state.passengers);
         var summaryPassengers = root.querySelector('[data-summary-passengers]');
         if (summaryPassengers) summaryPassengers.textContent = String(state.passengers);
+        var summaryConfirmPassengers = root.querySelector('[data-summary-confirm-passengers]');
+        if (summaryConfirmPassengers) {
+            var pcc = parseInt(state.passengers || 1, 10);
+            summaryConfirmPassengers.textContent = pcc + ' ' + (pcc === 1 ? 'passagier' : 'passagiers');
+        }
         syncStopoverHint();
         syncReturnTripUi();
         syncDateTimePlaceholder();
@@ -1481,6 +1776,7 @@ body.booking-modal-open {
     function syncPickupDatetimeFutureValidation() {
         var input = root.querySelector('[data-field="pickup_at"]');
         var errEl = root.querySelector('[data-pickup-datetime-future-error]');
+        var missingPickErr = root.querySelector('[data-booking-field-error="pickup_at"]');
         if (!input || !errEl) return;
         var v = String(input.value || '').trim();
         if (!v) {
@@ -1497,6 +1793,11 @@ body.booking-modal-open {
         if (t < Date.now()) {
             errEl.classList.remove('hidden');
             input.classList.add('booking-datetime-input--past-invalid');
+            if (missingPickErr) {
+                missingPickErr.textContent = '';
+                missingPickErr.classList.add('hidden');
+            }
+            input.classList.remove('booking-field-input--error');
         } else {
             errEl.classList.add('hidden');
             input.classList.remove('booking-datetime-input--past-invalid');
@@ -1550,7 +1851,8 @@ body.booking-modal-open {
         orderedFieldRows.forEach(function(fieldRow, index) {
             var iconRow = iconRows[index];
             if (!iconRow) return;
-            var fieldRect = fieldRow.getBoundingClientRect();
+            var alignEl = fieldRow.querySelector('[data-route-icon-align-target]') || fieldRow;
+            var fieldRect = alignEl.getBoundingClientRect();
             var center = (fieldRect.top - baseRect.top) + (fieldRect.height / 2);
             centers.push(center);
             iconRow.style.top = Math.max(0, center - 12).toFixed(2) + 'px';
@@ -1637,6 +1939,57 @@ body.booking-modal-open {
         return true;
     }
 
+    function applyStateToFields() {
+        root.querySelectorAll('[data-field]').forEach(function(field) {
+            var key = field.getAttribute('data-field');
+            if (!key || state[key] === undefined) return;
+            if (field.type === 'checkbox') {
+                field.checked = !!state[key];
+            } else {
+                field.value = state[key] != null ? String(state[key]) : '';
+            }
+        });
+        var stopList = root.querySelector('[data-stopovers-list]');
+        if (stopList) {
+            stopList.innerHTML = '';
+            (state.stopovers || []).forEach(function(s) {
+                stopList.appendChild(createStopoverRow(s));
+            });
+        }
+        var passengerDisplay = root.querySelector('[data-passengers-display]');
+        if (passengerDisplay) passengerDisplay.textContent = String(state.passengers);
+        var summaryPassengers = root.querySelector('[data-summary-passengers]');
+        if (summaryPassengers) summaryPassengers.textContent = String(state.passengers);
+        root.querySelectorAll('[data-qty-display]').forEach(function(el) {
+            var target = el.getAttribute('data-qty-display');
+            if (!target) return;
+            var chunks = target.split('.');
+            if (chunks.length !== 2) return;
+            var bag = chunks[0];
+            var key = chunks[1];
+            var qty = 0;
+            if (bag === 'baggage' && state.baggage) {
+                qty = parseInt(state.baggage[key] || 0, 10);
+            } else if (bag === 'special_baggage' && state.special_baggage) {
+                qty = parseInt(state.special_baggage[key] || 0, 10);
+            }
+            el.textContent = String(qty);
+        });
+        if (!skipBaggageStep) {
+            var yn = state.has_baggage ? 'yes' : 'no';
+            root.querySelectorAll('input[name="booking_has_baggage_ui"]').forEach(function(r) {
+                r.checked = r.value === yn;
+            });
+        }
+        syncStopoverHint();
+        syncReturnTripUi();
+        syncDateTimePlaceholder();
+        syncBaggageChoiceFromUi();
+        syncPickupDatetimeFutureValidation();
+        if (root._bindAllRouteAddressInputs) root._bindAllRouteAddressInputs();
+        setupStopoverAutocompletes();
+    }
+
     function setupStopoverAutocompletes() {
         /* Stopover-velden gebruiken dezelfde snelle typeahead als pickup/dropoff (setupAddressTypeaheadFallback).
            Bij nieuwe tussenstop de typeahead opnieuw binden via root._bindAllRouteAddressInputs(). */
@@ -1658,6 +2011,7 @@ body.booking-modal-open {
         if (!returnTripEnabled) {
             returnInput.value = '';
             state.return_at = '';
+            clearFieldErrorFor('return_at');
             if (returnPlaceholder) {
                 returnPlaceholder.textContent = returnInput.getAttribute('placeholder') || 'Selecteer datum en tijd';
             }
@@ -1698,13 +2052,14 @@ body.booking-modal-open {
         list.innerHTML = '';
         if (!state.offers.length) {
             if (empty) empty.classList.remove('hidden');
+            window.requestAnimationFrame(syncBookingStepShellMinHeight);
             return;
         }
         if (empty) empty.classList.add('hidden');
         state.offers.forEach(function(offer) {
             var active = state.selected_offer_id === offer.id;
             var card = document.createElement('div');
-            card.className = 'rounded-xl border p-5 md:p-6 flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-200 bg-neutral-primary cursor-pointer ' + (active ? 'border-[#0cea36] shadow-lg ring-2 ring-[#0cea36]/50' : 'border-slate-300/60 dark:border-slate-600 shadow-xs hover:border-violet-300/70 dark:hover:border-violet-500/60');
+            card.className = 'booking-offer-card rounded-xl border-2 border-solid p-5 md:p-6 flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-200 bg-neutral-primary cursor-pointer ' + (active ? 'border-[#0cea36] shadow-lg ring-2 ring-[#0cea36]/50' : 'border-slate-300/60 dark:border-slate-600 shadow-xs');
             card.setAttribute('role', 'button');
             card.setAttribute('tabindex', '0');
             card.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1714,17 +2069,18 @@ body.booking-modal-open {
                 '<div class="flex items-center gap-4 w-full md:w-auto">' +
                     (offer.image_url ? '<img src="' + offer.image_url + '" alt="' + (offer.title || '') + '" class="h-24 w-40 object-cover rounded-lg">' : '') +
                     '<div>' +
-                        (badge ? '<div class="inline-flex mb-1 items-center rounded-full border border-violet-300/60 dark:border-violet-500/40 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">' + badge + '</div>' : '') +
+                        (badge ? '<div class="inline-flex mb-1 items-center rounded-full border border-slate-300/80 dark:border-slate-500/60 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200">' + badge + '</div>' : '') +
                         '<div class="text-2xl font-bold text-slate-900 dark:text-slate-100">' + (offer.title || '') + '</div>' +
                         '<ul class="text-sm text-slate-600 dark:text-slate-300">' + ((offer.features || []).map(function(f) { return '<li>✓ ' + f + '</li>'; }).join('')) + '</ul>' +
                     '</div>' +
                 '</div>' +
                 '<div class="text-right w-full md:w-auto">' +
                     (offer.old_price ? '<div class="text-sm font-medium text-slate-500 dark:text-slate-400">van <span style="text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: rgb(244 63 94 / 0.8);">' + formatEuro(offer.old_price) + '</span></div>' : '') +
-                    '<div class="text-4xl font-bold text-violet-700 dark:text-violet-300">' + formatEuro(offer.price) + '</div>' +
+                    '<div class="booking-offer-price text-4xl font-bold tabular-nums text-heading">' + formatEuro(offer.price) + '</div>' +
                 '</div>';
             list.appendChild(card);
         });
+        window.requestAnimationFrame(syncBookingStepShellMinHeight);
     }
 
     function buildSummaryStaticMapUrl(encodedPolyline, pickupAddr, dropoffAddr, pickupLat, pickupLng, dropoffLat, dropoffLng) {
@@ -1747,7 +2103,7 @@ body.booking-modal-open {
         appendMarker('A', pickupAddr, pickupLat, pickupLng);
         appendMarker('B', dropoffAddr, dropoffLat, dropoffLng);
 
-        base += '&zoom=' + encodeURIComponent(String(routeMapZoom));
+        /* Geen zoom: Static Maps past viewport automatisch aan path + markers (vaste zoom knipt lange routes af). */
         base += '&key=' + encodeURIComponent(mapsApiKey);
         return base;
     }
@@ -1764,7 +2120,8 @@ body.booking-modal-open {
                 blockerEl: root.querySelector('[data-summary-route-map-blocker]'),
                 emptyEl: root.querySelector('[data-summary-route-map-empty]'),
                 fallbackEl: root.querySelector('[data-summary-route-map-fallback]'),
-                linkEl: root.querySelector('[data-summary-route-map-link]')
+                linkEl: root.querySelector('[data-summary-route-map-link]'),
+                loadingEl: root.querySelector('[data-summary-route-map-loading]')
             },
             {
                 staticEl: root.querySelector('[data-trip-route-map-static]'),
@@ -1772,12 +2129,46 @@ body.booking-modal-open {
                 blockerEl: root.querySelector('[data-trip-route-map-blocker]'),
                 emptyEl: root.querySelector('[data-trip-route-map-empty]'),
                 fallbackEl: root.querySelector('[data-trip-route-map-fallback]'),
-                linkEl: root.querySelector('[data-trip-route-map-link]')
+                linkEl: root.querySelector('[data-trip-route-map-link]'),
+                loadingEl: root.querySelector('[data-trip-route-map-loading]')
             }
         ];
 
+        function hideMapLoadingSlice(s) {
+            if (!s || !s.loadingEl) return;
+            s.loadingEl.classList.add('hidden');
+            s.loadingEl.classList.remove('flex');
+            s.loadingEl.setAttribute('aria-hidden', 'true');
+        }
+
+        function showMapLoadingSlice(s) {
+            if (!s || !s.loadingEl) return;
+            if (s.staticEl) {
+                s.staticEl.removeAttribute('src');
+                s.staticEl.classList.add('hidden');
+            }
+            if (s.iframe) {
+                s.iframe.removeAttribute('src');
+                s.iframe.classList.add('hidden');
+            }
+            if (s.emptyEl) s.emptyEl.classList.add('hidden');
+            if (s.fallbackEl) {
+                s.fallbackEl.classList.add('hidden');
+                s.fallbackEl.classList.remove('flex');
+            }
+            if (s.blockerEl) s.blockerEl.classList.add('hidden');
+            s.loadingEl.classList.remove('hidden');
+            s.loadingEl.classList.add('flex');
+            s.loadingEl.setAttribute('aria-hidden', 'false');
+        }
+
         function showEmptySlice(s) {
             if (!s || !s.emptyEl) return;
+            if (s._staticMapLoadTimer) {
+                clearTimeout(s._staticMapLoadTimer);
+                s._staticMapLoadTimer = null;
+            }
+            hideMapLoadingSlice(s);
             if (s.staticEl) {
                 s.staticEl.removeAttribute('src');
                 s.staticEl.classList.add('hidden');
@@ -1796,6 +2187,11 @@ body.booking-modal-open {
 
         function showFallbackSlice(s, dirUrl) {
             if (!s) return;
+            if (s._staticMapLoadTimer) {
+                clearTimeout(s._staticMapLoadTimer);
+                s._staticMapLoadTimer = null;
+            }
+            hideMapLoadingSlice(s);
             if (s.staticEl) {
                 s.staticEl.removeAttribute('src');
                 s.staticEl.classList.add('hidden');
@@ -1815,6 +2211,10 @@ body.booking-modal-open {
 
         function showEmbedSlice(s, dirUrl, embedUrl) {
             if (!s) return;
+            if (s._staticMapLoadTimer) {
+                clearTimeout(s._staticMapLoadTimer);
+                s._staticMapLoadTimer = null;
+            }
             if (s.staticEl) {
                 s.staticEl.removeAttribute('src');
                 s.staticEl.classList.add('hidden');
@@ -1825,14 +2225,23 @@ body.booking-modal-open {
                 s.fallbackEl.classList.remove('flex');
             }
             if (s.linkEl && dirUrl) s.linkEl.href = dirUrl;
+            showMapLoadingSlice(s);
             if (s.iframe) {
+                var embedTimer = setTimeout(function() {
+                    hideMapLoadingSlice(s);
+                }, 12000);
+                s.iframe.onload = function() {
+                    clearTimeout(embedTimer);
+                    hideMapLoadingSlice(s);
+                    s.iframe.onload = null;
+                };
                 s.iframe.src = embedUrl;
                 s.iframe.classList.remove('hidden');
             }
             if (s.blockerEl) s.blockerEl.classList.remove('hidden');
         }
 
-        function showStaticMapSlice(s, dirUrl, imageUrl) {
+        function showStaticMapSlice(s, dirUrl, imageUrl, embedFallbackUrl) {
             if (!s) return;
             if (s.iframe) {
                 s.iframe.removeAttribute('src');
@@ -1846,9 +2255,64 @@ body.booking-modal-open {
             }
             if (s.linkEl && dirUrl) s.linkEl.href = dirUrl;
             if (s.staticEl && imageUrl) {
+                var embedFb = embedFallbackUrl || '';
+                if (s._staticMapLoadTimer) {
+                    clearTimeout(s._staticMapLoadTimer);
+                    s._staticMapLoadTimer = null;
+                }
+                showMapLoadingSlice(s);
+                s.staticEl.classList.add('hidden');
                 s.staticEl.alt = 'Route van ' + pickup + ' naar ' + dropoff;
+                function finishStaticOk() {
+                    if (s._staticMapLoadTimer) {
+                        clearTimeout(s._staticMapLoadTimer);
+                        s._staticMapLoadTimer = null;
+                    }
+                    hideMapLoadingSlice(s);
+                    s.staticEl.classList.remove('hidden');
+                    s.staticEl.onload = null;
+                    s.staticEl.onerror = null;
+                }
+                s.staticEl.onload = finishStaticOk;
+                s.staticEl.onerror = function() {
+                    if (s._staticMapLoadTimer) {
+                        clearTimeout(s._staticMapLoadTimer);
+                        s._staticMapLoadTimer = null;
+                    }
+                    s.staticEl.onerror = null;
+                    s.staticEl.onload = null;
+                    if (embedFb && s.iframe) {
+                        showEmbedSlice(s, dirUrl, embedFb);
+                    } else {
+                        hideMapLoadingSlice(s);
+                        showFallbackSlice(s, dirUrl);
+                    }
+                };
                 s.staticEl.src = imageUrl;
-                s.staticEl.classList.remove('hidden');
+                /* lazy + verborgen img laadt soms niet; eager + fallback na timeout */
+                s._staticMapLoadTimer = setTimeout(function() {
+                    s._staticMapLoadTimer = null;
+                    s.staticEl.onload = null;
+                    s.staticEl.onerror = null;
+                    if (s.staticEl.naturalWidth > 0) {
+                        hideMapLoadingSlice(s);
+                        s.staticEl.classList.remove('hidden');
+                    } else if (embedFb && s.iframe) {
+                        showEmbedSlice(s, dirUrl, embedFb);
+                    } else {
+                        hideMapLoadingSlice(s);
+                        showFallbackSlice(s, dirUrl);
+                    }
+                }, 15000);
+                requestAnimationFrame(function() {
+                    if (s.staticEl.complete && s.staticEl.naturalWidth > 0) {
+                        finishStaticOk();
+                        if (s._staticMapLoadTimer) {
+                            clearTimeout(s._staticMapLoadTimer);
+                            s._staticMapLoadTimer = null;
+                        }
+                    }
+                });
             }
         }
 
@@ -1866,14 +2330,14 @@ body.booking-modal-open {
 
         if (mapsApiKey) {
             var mapLang = (config.maps && config.maps.language) ? config.maps.language : 'nl';
+            /* Embed directions: geen zoom-parameter — Google past het zicht aan de volledige route aan. */
             var embed = 'https://www.google.com/maps/embed/v1/directions?key=' + encodeURIComponent(mapsApiKey)
                 + '&origin=' + encodeURIComponent(pickup)
                 + '&destination=' + encodeURIComponent(dropoff)
                 + '&mode=driving'
                 + '&units=metric'
                 + '&region=nl'
-                + '&language=' + encodeURIComponent(mapLang)
-                + '&zoom=' + encodeURIComponent(String(routeMapZoom));
+                + '&language=' + encodeURIComponent(mapLang);
             if (stops.length) {
                 embed += '&waypoints=' + encodeURIComponent(stops.join('|'));
             }
@@ -1888,9 +2352,12 @@ body.booking-modal-open {
             );
             mapSlices.forEach(function(s) {
                 if (staticUrl && staticUrl.length < 7800) {
-                    showStaticMapSlice(s, dirUrl, staticUrl);
-                } else {
+                    showStaticMapSlice(s, dirUrl, staticUrl, embed);
+                } else if (staticUrl && staticUrl.length >= 7800) {
                     showEmbedSlice(s, dirUrl, embed);
+                } else {
+                    /* Geen polyline nog: geen embed (voorkomt tweede kaart zodra static binnenkomt). */
+                    showMapLoadingSlice(s);
                 }
             });
         } else {
@@ -1911,46 +2378,42 @@ body.booking-modal-open {
         var total = (selected && hasCompleteRoute) ? formatEuro(selected.price) : '—';
         var offerName = (selected && hasCompleteRoute) ? selected.title : '—';
         var pickupAt = formatDateTimeNl(state.pickup_at || '');
-        function splitAddressLines(rawAddress) {
-            var compact = compactAddress(rawAddress || '');
-            if (!compact) {
-                return ['—', '—', '—'];
+
+        var routeStackEl = root.querySelector('[data-summary-route-stacked]');
+        if (routeStackEl) {
+            var segs = [];
+            var puSeg = compactAddress(state.pickup_address || '');
+            if (puSeg) segs.push(puSeg);
+            (state.stopovers || []).forEach(function(st) {
+                var cs = compactAddress(st);
+                if (cs) segs.push(cs);
+            });
+            var drSeg = compactAddress(state.dropoff_address || '');
+            if (drSeg) segs.push(drSeg);
+            routeStackEl.innerHTML = '';
+            if (!segs.length) {
+                var emptyP = document.createElement('p');
+                emptyP.className = 'text-sm text-body w-full max-w-md mx-auto text-center';
+                emptyP.textContent = '—';
+                routeStackEl.appendChild(emptyP);
+            } else {
+                var col = document.createElement('div');
+                col.className = 'flex flex-col items-center w-full max-w-md mx-auto gap-1';
+                segs.forEach(function(seg, i) {
+                    var line = document.createElement('div');
+                    line.className = 'text-sm sm:text-base font-semibold text-heading leading-relaxed w-full text-center';
+                    line.textContent = seg;
+                    col.appendChild(line);
+                    if (i < segs.length - 1) {
+                        var arr = document.createElement('div');
+                        arr.className = 'flex justify-center w-full py-1 text-fg-brand';
+                        arr.setAttribute('aria-hidden', 'true');
+                        arr.innerHTML = '<svg class="w-6 h-6 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>';
+                        col.appendChild(arr);
+                    }
+                });
+                routeStackEl.appendChild(col);
             }
-            var parts = compact.split(',').map(function(part) { return part.trim(); }).filter(Boolean);
-            var line1 = parts[0] || '—';
-            var line2 = parts[1] || '—';
-            var line3 = parts.slice(2).join(', ') || '—';
-            return [line1, line2, line3];
-        }
-
-        var pickupLines = splitAddressLines(state.pickup_address || '');
-        var dropoffLines = splitAddressLines(state.dropoff_address || '');
-
-        var pickupLine1El = root.querySelector('[data-summary-pickup-line1]');
-        var pickupLine2El = root.querySelector('[data-summary-pickup-line2]');
-        var pickupLine3El = root.querySelector('[data-summary-pickup-line3]');
-        var dropoffLine1El = root.querySelector('[data-summary-dropoff-line1]');
-        var dropoffLine2El = root.querySelector('[data-summary-dropoff-line2]');
-        var dropoffLine3El = root.querySelector('[data-summary-dropoff-line3]');
-
-        var dash = '—';
-        if (pickupLine1El) pickupLine1El.textContent = pickupLines[0];
-        if (pickupLine2El) {
-            pickupLine2El.textContent = pickupLines[1];
-            pickupLine2El.classList.toggle('hidden', pickupLines[1] === dash);
-        }
-        if (pickupLine3El) {
-            pickupLine3El.textContent = pickupLines[2];
-            pickupLine3El.classList.toggle('hidden', pickupLines[2] === dash);
-        }
-        if (dropoffLine1El) dropoffLine1El.textContent = dropoffLines[0];
-        if (dropoffLine2El) {
-            dropoffLine2El.textContent = dropoffLines[1];
-            dropoffLine2El.classList.toggle('hidden', dropoffLines[1] === dash);
-        }
-        if (dropoffLine3El) {
-            dropoffLine3El.textContent = dropoffLines[2];
-            dropoffLine3El.classList.toggle('hidden', dropoffLines[2] === dash);
         }
 
         var vehicleImageWrapEl = root.querySelector('[data-summary-vehicle-image-wrap]');
@@ -2028,6 +2491,18 @@ body.booking-modal-open {
         if (offerEl) offerEl.textContent = offerName;
         var pickupEl = root.querySelector('[data-summary-pickup-at]');
         if (pickupEl) pickupEl.textContent = pickupAt;
+
+        var remarksEl = root.querySelector('[data-summary-remarks]');
+        if (remarksEl) {
+            var rm = String(state.remarks || '').trim();
+            remarksEl.textContent = rm || '—';
+        }
+
+        var confirmPassEl = root.querySelector('[data-summary-confirm-passengers]');
+        if (confirmPassEl) {
+            var pp = parseInt(state.passengers || 1, 10);
+            confirmPassEl.textContent = pp + ' ' + (pp === 1 ? 'passagier' : 'passagiers');
+        }
 
         updateSummaryRouteMap();
     }
@@ -2137,6 +2612,8 @@ body.booking-modal-open {
 
         var seq = ++routeCalcSeq;
         showRouteDetailsLoading();
+        state.summary_route_polyline = '';
+        updateSummaryRouteMap();
         var addressChain = [state.pickup_address]
             .concat((state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; }))
             .concat([state.dropoff_address]);
@@ -2171,7 +2648,8 @@ body.booking-modal-open {
                         state.summary_route_polyline = (route.geometry && typeof route.geometry === 'string') ? route.geometry : '';
                         var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
                         var min = Math.round(state.duration_seconds / 60);
-                        renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ± ' + min + ' min');
+                        renderRouteDetailsStats(km, min);
+                        updateSummaryRouteMap();
                         requestQuotes();
                     })
                     .catch(function() {
@@ -2203,78 +2681,184 @@ body.booking-modal-open {
         requestQuotes();
     }
 
+    function bookingPhoneDigitsOnly(value) {
+        return String(value || '').replace(/\D/g, '');
+    }
+
+    /** Na internationale toegangscode 00: 0031… → 31… */
+    function normalizePhoneDigitsForNl(digits) {
+        if (digits.indexOf('00') === 0) {
+            return digits.substring(2);
+        }
+        return digits;
+    }
+
+    /** NL: begint met 06 (mobiel), +31, 0031, of 11 cijfers beginnend met 31 */
+    function isExplicitlyDutchPhone(value) {
+        var t = String(value || '').trim();
+        var d = bookingPhoneDigitsOnly(value);
+        if (d.indexOf('06') === 0) return true;
+        if (t.indexOf('+31') === 0) return true;
+        if (/^0031/i.test(t)) return true;
+        if (d.indexOf('0031') === 0) return true;
+        if (/^31\d{9}$/.test(d)) return true;
+        return false;
+    }
+
+    /** NL nationaal 10 cijfers (0…), of +31/0031 → 31 + 9 cijfers (11 totaal na normalisatie). */
+    function isValidDutchPhoneDigits(digits) {
+        var d = normalizePhoneDigitsForNl(digits);
+        if (/^0[1-9]\d{8}$/.test(d)) return true;
+        if (/^31[1-9]\d{8}$/.test(d)) return true;
+        return false;
+    }
+
+    /** Toegestane tekens; NL-streng, anders 8–15 cijfers. 06 = exact 10 cijfers (06 + 8). */
+    function isValidBookingPhone(value) {
+        var t = String(value || '').trim();
+        if (!t) return false;
+        if (!/^[+.\d\s()\-]+$/.test(t)) return false;
+        var digits = bookingPhoneDigitsOnly(value);
+        if (digits.indexOf('06') === 0) {
+            return /^06\d{8}$/.test(digits);
+        }
+        if (isExplicitlyDutchPhone(value)) {
+            return isValidDutchPhoneDigits(digits);
+        }
+        return digits.length >= 8 && digits.length <= 15;
+    }
+
+    /** Korte melding; alleen bij herkend NL-nummer een specifieke tekst. */
+    function getPhoneFieldErrorMessage(phone) {
+        var t = String(phone || '').trim();
+        if (!t) return 'Telefoonnummer is verplicht.';
+        if (!/^[+.\d\s()\-]+$/.test(t)) {
+            return 'Vul een geldig telefoonnummer in.';
+        }
+        var digits = bookingPhoneDigitsOnly(t);
+        if (digits.indexOf('06') === 0 && !/^06\d{8}$/.test(digits)) {
+            return '06-nummer: precies 10 cijfers.';
+        }
+        if (isExplicitlyDutchPhone(t) && !isValidDutchPhoneDigits(digits)) {
+            return 'Nederlands nummer: 10 cijfers, of 11 cijfers met +31/0031.';
+        }
+        return 'Vul een geldig telefoonnummer in.';
+    }
+
+    function isValidBookingEmail(value) {
+        var t = String(value || '').trim();
+        if (!t) return false;
+        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(t);
+    }
+
+    function validateContactStepFields() {
+        var fail = false;
+        var fn = String(state.first_name || '').trim();
+        var ln = String(state.last_name || '').trim();
+        var phone = String(state.phone || '').trim();
+        var em = String(state.email || '').trim();
+        if (fn.length < 2) {
+            setFieldError('first_name', fn.length === 0 ? 'Voornaam is verplicht.' : 'Voornaam moet minimaal 2 tekens bevatten.');
+            fail = true;
+        }
+        if (ln.length < 2) {
+            setFieldError('last_name', ln.length === 0 ? 'Achternaam is verplicht.' : 'Achternaam moet minimaal 2 tekens bevatten.');
+            fail = true;
+        }
+        if (!phone) {
+            setFieldError('phone', 'Telefoonnummer is verplicht.');
+            fail = true;
+        } else if (!isValidBookingPhone(phone)) {
+            setFieldError('phone', getPhoneFieldErrorMessage(phone));
+            fail = true;
+        }
+        if (em && !isValidBookingEmail(em)) {
+            setFieldError('email', 'Vul een geldig e-mailadres in.');
+            fail = true;
+        }
+        return !fail;
+    }
+
     function validateCurrentStep() {
+        clearError();
         var currentStepKey = getCurrentStepKey();
         if (currentStepKey === 'offers' && !state.selected_offer_id) {
             showError('Selecteer eerst een aanbieding.');
             return false;
         }
         if (currentStepKey === 'trip') {
-            if (!state.pickup_address || !state.dropoff_address || !state.pickup_at) {
-                showError('Vul alle reisgegevens in: kies een ophaaladres, een afzetadres en selecteer datum en tijd voor ophalen.');
-                return false;
+            var pu = String(state.pickup_address || '').trim();
+            var doAddr = String(state.dropoff_address || '').trim();
+            var pa = String(state.pickup_at || '').trim();
+            var tripErr = false;
+            if (!pu) {
+                setFieldError('pickup_address', 'Vul een ophaaladres in.');
+                tripErr = true;
             }
-            var pickupMs = parseLocalDateTimeMs(String(state.pickup_at || '').trim());
+            if (!doAddr) {
+                setFieldError('dropoff_address', 'Vul een afzetadres in.');
+                tripErr = true;
+            }
+            if (!pa) {
+                setFieldError('pickup_at', 'Selecteer datum en tijd voor ophalen.');
+                tripErr = true;
+            }
+            if (tripErr) return false;
+            var pickupMs = parseLocalDateTimeMs(pa);
             if (!isNaN(pickupMs) && pickupMs < Date.now()) {
                 syncPickupDatetimeFutureValidation();
-                showError('Kies een ophaalmoment in de toekomst.');
                 return false;
             }
-            if (state.return_trip && !state.return_at) {
-                showError('Vul ook het retourmoment in.');
+            if (state.return_trip && !String(state.return_at || '').trim()) {
+                setFieldError('return_at', 'Vul het retourmoment in.');
                 return false;
             }
         }
         if (currentStepKey === 'contact') {
-            if (!state.first_name || !state.last_name || !state.phone) {
-                showError('Voornaam, achternaam en telefoonnummer zijn verplicht.');
-                return false;
-            }
+            return validateContactStepFields();
         }
-        clearError();
         return true;
     }
 
     function validateAllBeforeSubmit() {
+        clearError();
+        var tripFail = false;
         if (!String(state.pickup_address || '').trim()) {
-            showError('Vul het ophaaladres in.');
-            return false;
+            setFieldError('pickup_address', 'Vul het ophaaladres in.');
+            tripFail = true;
         }
         if (!String(state.dropoff_address || '').trim()) {
-            showError('Vul het afzetadres in.');
-            return false;
+            setFieldError('dropoff_address', 'Vul het afzetadres in.');
+            tripFail = true;
         }
         if (!String(state.pickup_at || '').trim()) {
-            showError('Vul datum en tijd van ophalen in.');
+            setFieldError('pickup_at', 'Selecteer datum en tijd voor ophalen.');
+            tripFail = true;
+        }
+        if (tripFail) {
+            setStepByKey('trip');
             return false;
         }
         var submitPickupMs = parseLocalDateTimeMs(String(state.pickup_at || '').trim());
         if (!isNaN(submitPickupMs) && submitPickupMs < Date.now()) {
             syncPickupDatetimeFutureValidation();
-            showError('Kies een ophaalmoment in de toekomst.');
+            setStepByKey('trip');
             return false;
         }
         if (state.return_trip && !String(state.return_at || '').trim()) {
-            showError('Vul het retourmoment in.');
+            setFieldError('return_at', 'Vul het retourmoment in.');
+            setStepByKey('trip');
             return false;
         }
         if (!state.selected_offer_id) {
             showError('Selecteer een aanbieding.');
+            setStepByKey('offers');
             return false;
         }
-        if (!String(state.first_name || '').trim()) {
-            showError('Vul uw voornaam in.');
+        if (!validateContactStepFields()) {
+            setStepByKey('contact');
             return false;
         }
-        if (!String(state.last_name || '').trim()) {
-            showError('Vul uw achternaam in.');
-            return false;
-        }
-        if (!String(state.phone || '').trim()) {
-            showError('Vul uw telefoonnummer in.');
-            return false;
-        }
-        clearError();
         return true;
     }
 
@@ -2381,6 +2965,8 @@ body.booking-modal-open {
                 return;
             }
             showRouteDetailsLoading();
+            state.summary_route_polyline = '';
+            updateSummaryRouteMap();
             if (!window.google || !google.maps || typeof google.maps.importLibrary !== 'function') {
                 calculateRouteFallback();
                 return;
@@ -2396,7 +2982,8 @@ body.booking-modal-open {
                     destination: state.dropoff_address,
                     travelMode: 'DRIVING',
                     regionCode: 'nl',
-                    computeAlternativeRoutes: false
+                    computeAlternativeRoutes: false,
+                    routingPreference: 'TRAFFIC_AWARE_OPTIMAL'
                 };
                 var stopovers = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
                 if (stopovers.length > 0) request.intermediates = stopovers;
@@ -2426,7 +3013,8 @@ body.booking-modal-open {
                     state.summary_route_polyline = polyEnc;
                     var km = (state.distance_meters / 1000).toFixed(1).replace('.', ',');
                     var min = Math.round(state.duration_seconds / 60);
-                    renderRouteDetailsText('Route: ' + km + ' km • Reistijd: ± ' + min + ' min');
+                    renderRouteDetailsStats(km, min);
+                    updateSummaryRouteMap();
                     requestQuotes();
                 }).catch(function() {
                     calculateRouteFallback();
@@ -2436,7 +3024,7 @@ body.booking-modal-open {
             });
         }
 
-        window.__taxiroyaalBookingRouteCalc = calculateRouteFallback;
+        window.__taxiroyaalBookingRouteCalc = calculateRoute;
         if (window.google && google.maps && google.maps.places) {
             startAutocomplete();
             return;
@@ -2804,10 +3392,23 @@ body.booking-modal-open {
         }
         bindAllRouteAddressInputs();
         root._bindAllRouteAddressInputs = bindAllRouteAddressInputs;
+
+        function hideAllSuggestionPanels() {
+            Object.keys(panelByKey).forEach(function(k) {
+                hideSuggestionPanel(k);
+            });
+            document.querySelectorAll('.booking-address-suggestions-panel').forEach(function(panel) {
+                panel.style.display = 'none';
+                panel.classList.add('hidden');
+                panel.innerHTML = '';
+            });
+        }
+        root._hideAllBookingSuggestionPanels = hideAllSuggestionPanels;
     }
 
     root.addEventListener('input', function(e) {
         if (e.target.matches('[data-field]')) {
+            clearFieldErrorFor(e.target.getAttribute('data-field'));
             syncStateFromFields();
         }
         if (e.target.matches('[data-stopover-input]')) {
@@ -2829,6 +3430,7 @@ body.booking-modal-open {
             return;
         }
         if (e.target.matches('[data-field]')) {
+            clearFieldErrorFor(e.target.getAttribute('data-field'));
             syncStateFromFields();
             if (e.target.getAttribute('data-field') === 'pickup_address' || e.target.getAttribute('data-field') === 'dropoff_address' || e.target.getAttribute('data-field') === 'return_trip') {
                 recalculateRouteOrQuote();
@@ -3036,13 +3638,21 @@ body.booking-modal-open {
         updateSummary();
     });
 
+    var shellResizeTimer = null;
     window.addEventListener('resize', function() {
         window.requestAnimationFrame(syncRouteIconAlignment);
+        if (shellResizeTimer) clearTimeout(shellResizeTimer);
+        shellResizeTimer = setTimeout(function() {
+            syncBookingStepShellMinHeight();
+        }, 120);
     });
 
     window.__taxiroyaalBookingRouteCalc = calculateRouteFallback;
 
     function initBookingModule() {
+        try {
+            sessionStorage.removeItem('taxiroyaal_booking_confirm_dev_v1');
+        } catch (e) {}
         setStep(1);
         updateBaggageStepAvailability();
         syncStateFromFields();
@@ -3056,6 +3666,9 @@ body.booking-modal-open {
         setupAddressTypeaheadFallback();
         initGoogleMaps();
         recalculateRouteOrQuote();
+        window.requestAnimationFrame(function() {
+            window.requestAnimationFrame(syncBookingStepShellMinHeight);
+        });
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initBookingModule);

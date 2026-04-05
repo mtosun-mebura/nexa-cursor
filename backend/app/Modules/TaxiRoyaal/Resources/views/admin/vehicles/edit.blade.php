@@ -18,25 +18,18 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.taxiroyaal.vehicles.update', $vehicle) }}" method="POST">
+    <form action="{{ route('admin.taxiroyaal.vehicles.update', $vehicle) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
         <div class="grid gap-5 lg:gap-7.5">
-            @if($errors->any())
-            <div class="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/40 dark:border-red-600 px-5 py-4 flex items-start gap-3" role="alert">
-                <div class="flex-shrink-0 mt-0.5">
-                    <i class="ki-filled ki-information-5 text-2xl text-red-600 dark:text-red-400" aria-hidden="true"></i>
+            <x-error-card :errors="$errors" />
+
+            @if(auth()->user()->hasRole('super-admin') && ($superAdminNeedsTenant ?? false))
+                <div class="kt-alert kt-alert-danger border border-destructive/40 bg-destructive/10 text-destructive dark:text-red-300" role="alert">
+                    <i class="ki-filled ki-information me-2 shrink-0"></i>
+                    <span>Selecteer eerst een <strong>tenant</strong> in de tenant-kiezer bovenaan. Zonder tenant kunt u geen wijzigingen opslaan.</span>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <h3 class="text-base font-semibold text-red-800 dark:text-red-200 mb-1">Er zijn fouten opgetreden</h3>
-                    <ul class="list-disc list-inside space-y-0.5 text-sm font-medium text-red-700 dark:text-red-300">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            </div>
             @endif
 
             <!-- Voertuiggegevens -->
@@ -47,17 +40,18 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <input type="hidden" name="company_id" value="{{ old('company_id', $vehicle->company_id) }}">
+                    <input type="hidden" name="company_id" value="{{ old('company_id', $resolvedCompanyId) }}">
                     @error('company_id')
-                        <div class="kt-alert kt-alert-danger mb-3 mx-5">{{ $message }}</div>
+                        <div class="text-xs text-destructive mt-1 mb-3 mx-5" data-validation-error="1" data-validation-error-for="company_id">{{ $message }}</div>
                     @enderror
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 Voertuigfoto
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="text-xs text-muted-foreground mb-2">Optioneel. JPG, PNG of WebP, max. 5MB.</div>
+                                <div id="vehicle-image-client-msg" class="text-xs text-destructive mt-1 mb-2 hidden" role="status" aria-live="polite"></div>
                                 <div class="flex flex-wrap items-start gap-2">
                                     <div class="shrink-0 flex flex-col items-center">
                                         @php
@@ -87,9 +81,10 @@
                                        name="name"
                                        class="kt-input @error('name') border-destructive @enderror"
                                        value="{{ old('name', $vehicle->name) }}"
-                                       required>
+                                       required
+                                       @error('name') data-server-error="1" @enderror>
                                 @error('name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="name">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -98,19 +93,19 @@
                                 Type *
                             </td>
                             <td class="min-w-48 w-full">
-                                <select name="type" class="kt-input @error('type') border-destructive @enderror" required>
+                                <select name="type" class="kt-input @error('type') border-destructive @enderror" required @error('type') data-server-error="1" @enderror>
                                     @foreach($typeLabels as $value => $label)
                                         <option value="{{ $value }}" {{ old('type', $vehicle->type) === $value ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>
                                 @error('type')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="type">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Kenteken
+                                Kenteken *
                             </td>
                             <td class="min-w-48 w-full">
                                 <input type="text"
@@ -119,9 +114,11 @@
                                        value="{{ old('license_plate', $vehicle->license_plate) }}"
                                        style="text-transform: uppercase"
                                        maxlength="20"
-                                       oninput="this.value = this.value.toUpperCase()">
+                                       required
+                                       oninput="this.value = this.value.toUpperCase()"
+                                       @error('license_plate') data-server-error="1" @enderror>
                                 @error('license_plate')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="license_plate">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -130,40 +127,40 @@
                                 Personenbereik *
                             </td>
                             <td class="min-w-48 w-full">
-                                <select name="person_range" class="kt-input @error('person_range') border-destructive @enderror" required>
+                                <select name="person_range" class="kt-input @error('person_range') border-destructive @enderror" required @error('person_range') data-server-error="1" @enderror>
                                     @foreach($personRangeLabels as $value => $label)
                                         <option value="{{ $value }}" {{ old('person_range', $vehicle->person_range ?? '1-4') === $value ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>
                                 <div class="text-xs text-muted-foreground mt-1">Bepaalt welke standaardtarievenset wordt gebruikt.</div>
                                 @error('person_range')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="person_range">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 Actief
                             </td>
-                            <td class="min-w-48 w-full">
+                            <td class="min-w-48 w-full align-top">
                                 <input type="hidden" name="active" value="0">
                                 <input type="checkbox" name="active" id="active" value="1" class="kt-switch kt-switch-sm" {{ old('active', $vehicle->active) ? 'checked' : '' }}>
                                 <label for="active" class="ms-2 text-sm text-muted-foreground">Voertuig is actief</label>
                                 @error('active')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="active">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 Foto weergeven
                             </td>
-                            <td class="min-w-48 w-full">
+                            <td class="min-w-48 w-full align-top">
                                 <input type="hidden" name="show_photo" value="0">
                                 <input type="checkbox" name="show_photo" id="show_photo" value="1" class="kt-switch kt-switch-sm" {{ old('show_photo', (bool) $vehicle->show_photo) ? 'checked' : '' }}>
                                 <label for="show_photo" class="ms-2 text-sm text-muted-foreground">Toon voertuigfoto in frontend selectie</label>
                                 @error('show_photo')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="show_photo">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -180,7 +177,7 @@
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <p class="text-xs text-muted-foreground px-5 pt-2">Optioneel. Leeglaten = algemene standaardtarieven worden gebruikt.</p>
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Instaptarief
@@ -192,9 +189,10 @@
                                        value="{{ old('base_fare', $vehicle->base_fare) }}"
                                        step="0.01"
                                        min="0"
-                                       placeholder="Optioneel">
+                                       placeholder="Optioneel"
+                                       @error('base_fare') data-server-error="1" @enderror>
                                 @error('base_fare')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="base_fare">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -209,9 +207,10 @@
                                        value="{{ old('min_fare', $vehicle->min_fare) }}"
                                        step="0.01"
                                        min="0"
-                                       placeholder="Optioneel">
+                                       placeholder="Optioneel"
+                                       @error('min_fare') data-server-error="1" @enderror>
                                 @error('min_fare')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="min_fare">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -226,9 +225,10 @@
                                        value="{{ old('price_per_km', $vehicle->price_per_km) }}"
                                        step="0.01"
                                        min="0"
-                                       placeholder="Optioneel">
+                                       placeholder="Optioneel"
+                                       @error('price_per_km') data-server-error="1" @enderror>
                                 @error('price_per_km')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="price_per_km">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -243,9 +243,10 @@
                                        value="{{ old('price_per_min', $vehicle->price_per_min) }}"
                                        step="0.01"
                                        min="0"
-                                       placeholder="Optioneel">
+                                       placeholder="Optioneel"
+                                       @error('price_per_min') data-server-error="1" @enderror>
                                 @error('price_per_min')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="price_per_min">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -260,9 +261,10 @@
                                        value="{{ old('cleaning_costs', $vehicle->cleaning_costs) }}"
                                        step="0.01"
                                        min="0"
-                                       placeholder="Optioneel">
+                                       placeholder="Optioneel"
+                                       @error('cleaning_costs') data-server-error="1" @enderror>
                                 @error('cleaning_costs')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="cleaning_costs">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -278,15 +280,15 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 Notities
                             </td>
                             <td class="min-w-48 w-full">
-                                <textarea name="notes" class="kt-input @error('notes') border-destructive @enderror" rows="3">{{ old('notes', $vehicle->notes) }}</textarea>
+                                <textarea name="notes" class="kt-input @error('notes') border-destructive @enderror" rows="3" @error('notes') data-server-error="1" @enderror>{{ old('notes', $vehicle->notes) }}</textarea>
                                 @error('notes')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="notes">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -300,7 +302,7 @@
                     <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                     Annuleren
                 </a>
-                <button type="submit" class="kt-btn kt-btn-primary">
+                <button type="submit" class="kt-btn kt-btn-primary" @if(auth()->user()->hasRole('super-admin') && ($superAdminNeedsTenant ?? false)) disabled aria-disabled="true" @endif>
                     <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                     Wijzigingen opslaan
                 </button>
@@ -323,9 +325,17 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 (function() {
     var uploadUrl = {!! json_encode(route('admin.taxiroyaal.vehicles.upload-image')) !!};
+    function showVehicleImageMsg(msg) {
+        var el = document.getElementById('vehicle-image-client-msg');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.classList.toggle('hidden', !msg);
+        el.classList.toggle('text-destructive', !!msg);
+    }
     function storageUrlToFileUrl(url) {
         if (!url || typeof url !== 'string') return url;
         var u = url.trim();
@@ -345,8 +355,9 @@
     var removeBtn = document.querySelector('.vehicle-image-remove-btn');
     if (!area || !fileInput || !urlInput) return;
     function handleFile(file) {
-        if (!file || !file.type || !file.type.match(/^image\/(jpeg|png|gif|webp)$/i)) { alert('Alleen JPG, PNG, GIF of WebP (max. 5MB).'); return; }
-        if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); return; }
+        showVehicleImageMsg('');
+        if (!file || !file.type || !file.type.match(/^image\/(jpeg|png|gif|webp)$/i)) { showVehicleImageMsg('Alleen JPG, PNG, GIF of WebP (max. 5MB).'); return; }
+        if (file.size > 5 * 1024 * 1024) { showVehicleImageMsg('Bestand mag maximaal 5MB zijn.'); return; }
         var fd = new FormData();
         fd.append('image', file);
         fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
@@ -354,12 +365,13 @@
             .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
             .then(function(d) {
                 if (d.success && d.url) {
+                    showVehicleImageMsg('');
                     urlInput.value = d.url;
                     if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); }
                     if (removeBtn) removeBtn.classList.remove('hidden');
                 }
             })
-            .catch(function(err) { alert(err.message || 'Upload mislukt'); });
+            .catch(function(err) { showVehicleImageMsg(err.message || 'Upload mislukt.'); });
         fileInput.value = '';
     }
     area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
@@ -369,6 +381,7 @@
     fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleFile(this.files[0]); });
     if (removeBtn && urlInput && preview) {
         removeBtn.addEventListener('click', function() {
+            showVehicleImageMsg('');
             urlInput.value = '';
             preview.src = '';
             preview.classList.add('hidden');

@@ -190,27 +190,3 @@
     }
 </style>
 @endpush
-
-@push('scripts')
-<script>
-(function() {
-    function initScrollReveal() {
-        var sections = document.querySelectorAll('[data-scroll-reveal]');
-        if (!sections.length) return;
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('is-in-view');
-                }
-            });
-        }, { rootMargin: '0px 0px -80px 0px', threshold: 0.08 });
-        sections.forEach(function(section) { observer.observe(section); });
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initScrollReveal);
-    } else {
-        initScrollReveal();
-    }
-})();
-</script>
-@endpush

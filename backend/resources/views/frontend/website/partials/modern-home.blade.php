@@ -30,6 +30,7 @@
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
     @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxiroyaal.tarieven' || $sectionKey === 'component:taxiroyaal.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews'))
+        @if($visibility[$sectionKey] ?? true)
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
         @elseif($sectionKey === 'component:taxiroyaal.tarieven' && view()->exists('frontend.website.components.taxiroyaal-tarieven'))
@@ -40,6 +41,7 @@
             @include('frontend.website.components.google-reviews', ['reviews' => $googleReviews ?? [], 'googleReviews' => $googleReviews ?? []])
         @elseif($component && view()->exists($component->view ?? ''))
             @include($component->view, ['jobs' => $jobs ?? collect(), 'homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @endif
         @endif
     @else
     @php
@@ -67,7 +69,7 @@
     $heroOverlayStyle = 'background-image: linear-gradient(to right, rgba('.$fromRgb[0].','.$fromRgb[1].','.$fromRgb[2].','.$overlayAlpha.'), rgba('.$toRgb[0].','.$toRgb[1].','.$toRgb[2].','.$overlayAlpha.'));';
 @endphp
 <!-- Hero -->
-<section class="py-16 md:py-24 relative overflow-hidden {{ $heroBgUrl === '' ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : '' }}">
+<section class="modern-home-hero py-16 md:py-24 relative overflow-hidden scroll-reveal-section {{ $heroBgUrl === '' ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900' : '' }}" data-scroll-reveal>
     @if($heroBgUrl !== '')
     <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style="{{ $heroBgStyle }}" aria-hidden="true"></div>
     <div class="absolute inset-0 z-[1] bg-cover bg-center bg-no-repeat" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
@@ -76,23 +78,40 @@
     <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20" aria-hidden="true"></div>
     @endif
     <div class="container-custom relative z-10">
+        @php
+            $heroRevealDur = '0.7s';
+            $heroRevealEase = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            $heroRevealStyle = function ($delayMs) use ($heroRevealDur, $heroRevealEase) {
+                return 'transition: opacity ' . $heroRevealDur . ' ' . $heroRevealEase . ', transform ' . $heroRevealDur . ' ' . $heroRevealEase . '; transition-delay: ' . (int) $delayMs . 'ms;';
+            };
+        @endphp
         <div class="w-full text-center">
             @if($v('_title'))
             @php
                 $heroTitle = $sectionData['title'] ?? 'Vind je droombaan met AI';
                 $heroHighlight = $sectionData['title_highlight'] ?? 'droombaan';
                 $heroTitleParts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
+                $heroTitleRightDelayMs = 500;
             @endphp
             <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
                 @if(count($heroTitleParts) === 2)
-                    {{ trim($heroTitleParts[0]) }} <span class="text-blue-200 dark:text-blue-300">{{ $heroHighlight }}</span> {{ trim($heroTitleParts[1]) }}
+                    <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span class="text-blue-200 dark:text-blue-300">{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
-                    {{ $heroTitle }}
+                    @php
+                        $heroTitleSplit = preg_split('/\s+/', trim($heroTitle), 2, PREG_SPLIT_NO_EMPTY);
+                        $heroTitleLeft = $heroTitleSplit[0] ?? '';
+                        $heroTitleRest = $heroTitleSplit[1] ?? '';
+                    @endphp
+                    @if($heroTitleRest !== '')
+                        <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ $heroTitleLeft }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}">{{ $heroTitleRest }}</span>
+                    @else
+                        <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ $heroTitle }}</span>
+                    @endif
                 @endif
             </h1>
             @endif
             @if($v('_subtitle'))
-            <div class="text-xl text-blue-100 dark:text-blue-200 mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none">
+            <div class="scroll-reveal-item hero-reveal-zoom text-xl text-blue-100 dark:text-blue-200 mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none" style="{{ $heroRevealStyle(320) }}">
                 {!! $sectionData['subtitle'] ?? 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' !!}
             </div>
             @endif
@@ -107,11 +126,17 @@
                     $heroSecondaryStyle = 'background-color:' . ($sectionData['cta_secondary_bg'] ?? 'transparent') . ';border: 2px solid ' . ($sectionData['cta_secondary_border'] ?? 'currentColor') . ';color:' . ($sectionData['cta_secondary_text_color'] ?? 'inherit') . ';';
                 }
             @endphp
+            @php
+                $heroBtnPrimaryDelayMs = 400;
+                $heroBtnSecondaryDelayMs = 560;
+                $heroBtnPrimaryFullStyle = trim($heroRevealStyle($heroBtnPrimaryDelayMs) . ' ' . $heroPrimaryStyle);
+                $heroBtnSecondaryFullStyle = trim($heroRevealStyle($heroBtnSecondaryDelayMs) . ' ' . $heroSecondaryStyle);
+            @endphp
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold bg-white text-blue-600 hover:bg-blue-50 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5" @if($heroPrimaryStyle) style="{{ $heroPrimaryStyle }}" @endif>
+                <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="scroll-reveal-item hero-reveal-btn hero-reveal-btn-primary inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold bg-white text-blue-600 hover:bg-blue-50 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5" @if($heroBtnPrimaryFullStyle !== '') style="{{ $heroBtnPrimaryFullStyle }}" @endif>
                     {{ $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken' }}
                 </a>
-                <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex items-center justify-center px-8 py-4 bg-transparent hover:bg-white text-white hover:text-blue-600 dark:hover:text-blue-700 font-semibold rounded-lg border-2 border-white hover:border-white shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5" @if($heroSecondaryStyle) style="{{ $heroSecondaryStyle }}" @endif>
+                <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="scroll-reveal-item hero-reveal-btn hero-reveal-btn-secondary inline-flex items-center justify-center px-8 py-4 bg-transparent hover:bg-white text-white hover:text-blue-600 dark:hover:text-blue-700 font-semibold rounded-lg border-2 border-white hover:border-white shadow-lg hover:shadow-xl transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 hover:-translate-y-0.5" @if($heroBtnSecondaryFullStyle !== '') style="{{ $heroBtnSecondaryFullStyle }}" @endif>
                     {{ $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken' }}
                 </a>
             </div>
@@ -222,24 +247,6 @@
     }
 </style>
 @endpush
-@push('scripts')
-<script>
-(function() {
-    function initScrollReveal() {
-        var sections = document.querySelectorAll('[data-scroll-reveal]');
-        if (!sections.length) return;
-        var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) entry.target.classList.add('is-in-view');
-            });
-        }, { rootMargin: '0px 0px -80px 0px', threshold: 0.08 });
-        sections.forEach(function(s) { observer.observe(s); });
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initScrollReveal);
-    else initScrollReveal();
-})();
-</script>
-@endpush
     @endif
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
@@ -272,17 +279,36 @@
     $ctaBgStyle = $ctaBgUrl !== '' ? 'background-image: url(' . e($ctaBgUrl) . ');' : '';
 @endphp
 <!-- CTA -->
-<section class="modern-home-cta py-16 relative overflow-hidden {{ $ctaBgUrl === '' ? 'bg-gray-100 dark:bg-gray-900' : '' }}">
+<section class="modern-home-cta py-16 relative overflow-hidden scroll-reveal-section {{ $ctaBgUrl === '' ? 'bg-gray-100 dark:bg-gray-900' : '' }}" data-scroll-reveal>
     @if($ctaBgUrl !== '')
     <div class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style="{{ $ctaBgStyle }}" aria-hidden="true"></div>
     <div class="absolute inset-0 z-[1] bg-gray-900/70 dark:bg-gray-900/80" aria-hidden="true"></div>
     @endif
+    @php
+        $ctaRevealDurTitle = '0.78s';
+        $ctaRevealDurFast = '0.39s';
+        $ctaRevealDurFastMs = 390;
+        $ctaRevealDurBtn = '0.72s';
+        $ctaRevealEase = 'cubic-bezier(0.2, 0.85, 0.25, 1)';
+        $ctaSubtitleDelayMs = 360;
+        $ctaBtnPrimaryDelayMs = $ctaSubtitleDelayMs + $ctaRevealDurFastMs + 50;
+        $ctaBtnSecondaryDelayMs = $ctaBtnPrimaryDelayMs + 100;
+        $ctaRevealStyleRiseTitle = function ($delayMs) use ($ctaRevealDurTitle, $ctaRevealEase) {
+            return 'transition: opacity ' . $ctaRevealDurTitle . ' ' . $ctaRevealEase . ', transform ' . $ctaRevealDurTitle . ' ' . $ctaRevealEase . '; transition-delay: ' . (int) $delayMs . 'ms;';
+        };
+        $ctaRevealStyleRiseFast = function ($delayMs) use ($ctaRevealDurFast, $ctaRevealEase) {
+            return 'transition: opacity ' . $ctaRevealDurFast . ' ' . $ctaRevealEase . ', transform ' . $ctaRevealDurFast . ' ' . $ctaRevealEase . '; transition-delay: ' . (int) $delayMs . 'ms;';
+        };
+        $ctaRevealStyleBtn = function ($delayMs) use ($ctaRevealDurBtn, $ctaRevealEase) {
+            return 'transition: opacity ' . $ctaRevealDurBtn . ' ' . $ctaRevealEase . ', transform ' . $ctaRevealDurBtn . ' ' . $ctaRevealEase . '; transition-delay: ' . (int) $delayMs . 'ms;';
+        };
+    @endphp
     <div class="container-custom relative z-10 text-center {{ $ctaBgUrl !== '' ? 'text-white' : '' }}">
         @if($v('_title'))
-        <h2 class="text-3xl md:text-4xl font-bold {{ $ctaBgUrl !== '' ? 'text-white' : 'text-gray-900 dark:text-white' }} mb-4">{{ $sectionData['title'] ?? 'Klaar om je carrière te starten?' }}</h2>
+        <h2 class="scroll-reveal-item cta-reveal-rise text-3xl md:text-4xl font-bold {{ $ctaBgUrl !== '' ? 'text-white' : 'text-gray-900 dark:text-white' }} mb-4" style="{{ $ctaRevealStyleRiseTitle(0) }}">{{ $sectionData['title'] ?? 'Klaar om je carrière te starten?' }}</h2>
         @endif
         @if($v('_subtitle'))
-        <div class="text-lg {{ $ctaBgUrl !== '' ? 'text-blue-100' : 'text-gray-600 dark:text-gray-300' }} mb-8 prose {{ $ctaBgUrl !== '' ? 'prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' : 'prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} max-w-none">{!! $sectionData['subtitle'] ?? 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.' !!}</div>
+        <div class="scroll-reveal-item cta-reveal-rise text-lg {{ $ctaBgUrl !== '' ? 'text-blue-100' : 'text-gray-600 dark:text-gray-300' }} mb-8 prose {{ $ctaBgUrl !== '' ? 'prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' : 'prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} max-w-none" style="{{ $ctaRevealStyleRiseFast($ctaSubtitleDelayMs) }}">{!! $sectionData['subtitle'] ?? 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.' !!}</div>
         @endif
         @if($v('_buttons'))
         @php
@@ -293,10 +319,12 @@
             if (!empty($sectionData['cta_secondary_bg'])) { $ctaSecondaryStyle .= 'background-color:' . $sectionData['cta_secondary_bg'] . ';'; }
             if (!empty($sectionData['cta_secondary_border'])) { $ctaSecondaryStyle .= 'border: 2px solid ' . $sectionData['cta_secondary_border'] . ';'; }
             if (!empty($sectionData['cta_secondary_text_color'])) { $ctaSecondaryStyle .= 'color:' . $sectionData['cta_secondary_text_color'] . ';'; }
+            $ctaBtnPrimaryFullStyle = trim($ctaRevealStyleBtn($ctaBtnPrimaryDelayMs) . ' ' . $ctaPrimaryStyle);
+            $ctaBtnSecondaryFullStyle = trim($ctaRevealStyleBtn($ctaBtnSecondaryDelayMs) . ' ' . $ctaSecondaryStyle);
         @endphp
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-white transition-all hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5" style="{{ $ctaPrimaryStyle }}">{{ $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken' }}</a>
-            <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold border-2 bg-white border-gray-800 text-gray-900 hover:bg-gray-800 hover:text-white hover:border-gray-800 dark:bg-gray-700 dark:border-gray-300 dark:text-white dark:hover:bg-gray-100 dark:hover:text-gray-900 dark:hover:border-gray-100 hover:shadow-lg hover:-translate-y-0.5 transition-all focus-visible:outline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-900 dark:focus-visible:ring-gray-100" @if($ctaSecondaryStyle) style="{{ $ctaSecondaryStyle }}" @endif>{{ $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken' }}</a>
+            <a href="{{ $url($sectionData['cta_primary_url'] ?? '/register') }}" class="scroll-reveal-item cta-reveal-btn cta-reveal-btn-left inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold text-white transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 hover:opacity-90 hover:shadow-lg hover:-translate-y-0.5" @if($ctaBtnPrimaryFullStyle !== '') style="{{ $ctaBtnPrimaryFullStyle }}" @endif>{{ $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken' }}</a>
+            <a href="{{ $url($sectionData['cta_secondary_url'] ?? '/jobs') }}" class="scroll-reveal-item cta-reveal-btn cta-reveal-btn-right inline-flex items-center justify-center px-8 py-4 rounded-lg font-semibold border-2 bg-white border-gray-800 text-gray-900 hover:bg-gray-800 hover:text-white hover:border-gray-800 dark:bg-gray-700 dark:border-gray-300 dark:text-white dark:hover:bg-gray-100 dark:hover:text-gray-900 dark:hover:border-gray-100 hover:shadow-lg hover:-translate-y-0.5 transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 focus-visible:outline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-900 dark:focus-visible:ring-gray-100" @if($ctaBtnSecondaryFullStyle !== '') style="{{ $ctaBtnSecondaryFullStyle }}" @endif>{{ $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken' }}</a>
         </div>
         @endif
     </div>
@@ -304,3 +332,89 @@
     @endif
     @endif
 @endforeach
+@push('styles')
+<style>
+    /* Hero titel: helft van links, helft van rechts (+500ms via inline delay) */
+    .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-title-left {
+        opacity: 0;
+        transform: translateX(-56px);
+        will-change: opacity, transform;
+    }
+    .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-title-right {
+        opacity: 0;
+        transform: translateX(56px);
+        will-change: opacity, transform;
+    }
+    .modern-home-hero.scroll-reveal-section.is-in-view .scroll-reveal-item.hero-reveal-title-left,
+    .modern-home-hero.scroll-reveal-section.is-in-view .scroll-reveal-item.hero-reveal-title-right {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    /* Hero subtitel: zoom omhoog (ongewijzigd patroon) */
+    .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-zoom {
+        opacity: 0;
+        transform: translateY(40px) scale(0.94);
+        transform-origin: center center;
+        will-change: opacity, transform;
+    }
+    .modern-home-hero.scroll-reveal-section.is-in-view .scroll-reveal-item.hero-reveal-zoom {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    /* Hero knoppen: eerst linksonder, dan rechtsonder, fade omhoog */
+    .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-btn-primary {
+        opacity: 0;
+        transform: translateY(52px) translateX(-36px);
+        will-change: opacity, transform;
+    }
+    .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-btn-secondary {
+        opacity: 0;
+        transform: translateY(52px) translateX(36px);
+        will-change: opacity, transform;
+    }
+    .modern-home-hero.scroll-reveal-section.is-in-view .scroll-reveal-item.hero-reveal-btn-primary,
+    .modern-home-hero.scroll-reveal-section.is-in-view .scroll-reveal-item.hero-reveal-btn-secondary {
+        opacity: 1;
+        transform: translate(0, 0);
+    }
+    /* CTA titel + subtitel: van onder omhoog faden (subtitel ~360ms na titel; knoppen kort na subtitel-einde; subtitel 0.39s, knoppen langzamer 0.72s) */
+    .modern-home-cta.scroll-reveal-section .scroll-reveal-item.cta-reveal-rise {
+        opacity: 0;
+        transform: translateY(120px);
+        transform-origin: center top;
+        will-change: opacity, transform;
+    }
+    .modern-home-cta.scroll-reveal-section.is-in-view .scroll-reveal-item.cta-reveal-rise {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    /* CTA knoppen: ver van links / rechts invliegen (transition-duration in Blade: $ctaRevealDurBtn) */
+    .modern-home-cta.scroll-reveal-section .scroll-reveal-item.cta-reveal-btn-left {
+        opacity: 0;
+        transform: translateX(-120px);
+        will-change: opacity, transform;
+    }
+    .modern-home-cta.scroll-reveal-section .scroll-reveal-item.cta-reveal-btn-right {
+        opacity: 0;
+        transform: translateX(120px);
+        will-change: opacity, transform;
+    }
+    .modern-home-cta.scroll-reveal-section.is-in-view .scroll-reveal-item.cta-reveal-btn-left,
+    .modern-home-cta.scroll-reveal-section.is-in-view .scroll-reveal-item.cta-reveal-btn-right {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-title-left,
+        .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-title-right,
+        .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-zoom,
+        .modern-home-hero.scroll-reveal-section .scroll-reveal-item.hero-reveal-btn,
+        .modern-home-cta.scroll-reveal-section .scroll-reveal-item.cta-reveal-rise,
+        .modern-home-cta.scroll-reveal-section .scroll-reveal-item.cta-reveal-btn {
+            opacity: 1 !important;
+            transform: none !important;
+            transition: none !important;
+        }
+    }
+</style>
+@endpush

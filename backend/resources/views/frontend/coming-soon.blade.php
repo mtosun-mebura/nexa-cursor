@@ -78,16 +78,16 @@
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 antialiased font-sans">
-    @if(!empty($adminPreview))
+    @if(!empty($adminPreviewReturnUrl))
         <div class="coming-soon-admin-preview-bar fixed top-0 left-0 right-0 z-[100] flex h-10 w-full flex-nowrap items-center gap-3 px-4 leading-none" role="banner" aria-label="Voorbeeldmodus">
-            <a href="{{ route('admin.settings.frontend.index') }}" class="coming-soon-back-link shrink-0">
+            <a href="{{ $adminPreviewReturnUrl }}" class="coming-soon-back-link shrink-0">
                 <svg class="h-3.5 w-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
-                Terug naar bewerken
+                Terug naar admin
             </a>
             <span class="coming-soon-admin-preview-bar-title min-w-0 flex-1 truncate text-center">Voorbeeld — Coming Soon-pagina</span>
         </div>
     @endif
-    <div id="main-content" class="coming-soon-gradient min-h-screen flex flex-col items-center justify-center px-4 py-12 sm:py-16 {{ !empty($adminPreview) ? 'pt-10' : '' }}">
+    <div id="main-content" class="coming-soon-gradient min-h-screen flex flex-col items-center justify-center px-4 py-12 sm:py-16 {{ !empty($adminPreviewReturnUrl) ? 'pt-10' : '' }}">
         <div class="w-full max-w-xl mx-auto text-center space-y-8">
             @if(!empty($settings['logo_url']))
                 <div class="flex justify-center mb-10">

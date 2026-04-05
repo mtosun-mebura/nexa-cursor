@@ -3,12 +3,14 @@
 namespace App\Providers;
 
 use App\Models\Module as ModuleModel;
+use App\Models\User;
 use App\Models\WebsitePage;
 use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
@@ -30,12 +32,32 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Super-admin: tweede Gate::before (Spatie registreert de eerste bij het resolven van Gate).
+        // Laravel voert before-callbacks in registratievolgorde uit; eerste die niet-null teruggeeft wint.
+        // Spatie’s callback roept checkPermissionTo aan; bij geen match (null) volgt deze super-admin-bypass.
+        $this->app->booted(function () {
+            Gate::before(function ($user, $ability) {
+                if ($user instanceof User && $user->isSuperAdmin()) {
+                    return true;
+                }
+
+                return null;
+            });
+        });
+
         $this->registerModuleDatabaseConnections();
         $this->registerWebsitePageRouteBinding();
         $this->loadGoogleMapsApiKeyFromRootEnv();
 
         View::composer('frontend.layouts.website', function ($view) {
-            if (! isset($view->getData()['googleMapsApiKey']) || $view->getData()['googleMapsApiKey'] === '') {
+            $data = $view->getData();
+            if (empty($data['isPreview']) && ($back = session('website_preview_admin_url'))) {
+                $view->with([
+                    'isPreview' => true,
+                    'previewEditUrl' => $back,
+                ]);
+            }
+            if (! isset($data['googleMapsApiKey']) || $data['googleMapsApiKey'] === '') {
                 $key = trim((string) (config('maps.api_key') ?? ''));
                 if ($key === '') {
                     $key = app(EnvService::class)->getGoogleMapsApiKey();
@@ -56,8 +78,9 @@ class AppServiceProvider extends ServiceProvider
         // de browser geeft net::ERR_CONNECTION_CLOSED. Achter een echte SSL-proxy volstaat
         // TrustProxies (bootstrap/app.php) + X-Forwarded-Proto om het juiste scheme te krijgen.
 
-        // Ensure Sanctum uses api guard by default for SPA/API
-        config(['auth.defaults.guard' => 'api']);
+        // Geen globale default guard naar 'api' forceren: admin-login gebruikt expliciet web (AdminAuthController).
+        // auth()->user() moet dezelfde sessie-user zijn als web, anders falen Spatie can()/hasRole() en krijg je 403.
+        // Zet desnoods AUTH_GUARD=api in .env voor API-first apps (Sanctum-routes gebruiken meestal auth:sanctum).
 
         // Register SMS notification channel
         Notification::extend('sms', function ($app) {
@@ -113,7 +136,12 @@ class AppServiceProvider extends ServiceProvider
      */
     private function registerModuleDatabaseConnections(): void
     {
-        if (! Schema::hasTable('modules')) {
+        try {
+            if (! Schema::hasTable('modules')) {
+                return;
+            }
+        } catch (\Throwable) {
+            // Geen bereikbare DB (bv. sqlite-bestand ontbreekt), migraties nog niet: skip zodat o.a. artisan view:clear werkt.
             return;
         }
         $dbService = $this->app->make(ModuleDatabaseService::class);

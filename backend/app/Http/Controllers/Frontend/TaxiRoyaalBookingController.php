@@ -70,10 +70,19 @@ class TaxiRoyaalBookingController extends Controller
             'dropoff_lat' => 'nullable|numeric',
             'dropoff_lng' => 'nullable|numeric',
             'remarks' => 'nullable|string|max:2000',
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
+            'first_name' => 'required|string|min:2|max:100',
+            'last_name' => 'required|string|min:2|max:100',
             'email' => 'nullable|email|max:255',
-            'phone' => 'required|string|max:50',
+            'phone' => [
+                'required',
+                'string',
+                'max:50',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_string($value) || ! $this->isBookingPhoneValid(trim($value))) {
+                        $fail('Het telefoonnummer is ongeldig.');
+                    }
+                },
+            ],
             'baggage' => 'nullable|array',
             'baggage.*' => 'nullable|integer|min:0|max:20',
             'special_baggage' => 'nullable|array',
@@ -222,6 +231,56 @@ class TaxiRoyaalBookingController extends Controller
         }
 
         return $this->pricing->mergeSectionConfig($raw);
+    }
+
+    private function isBookingPhoneValid(string $value): bool
+    {
+        if ($value === '' || ! preg_match('/^[+.\d\s()\-]+$/', $value)) {
+            return false;
+        }
+        $digits = preg_replace('/\D/', '', $value);
+        if (str_starts_with($digits, '06')) {
+            return (bool) preg_match('/^06\d{8}$/', $digits);
+        }
+        if ($this->isExplicitlyDutchBookingPhone($value, $digits)) {
+            return $this->isValidDutchBookingPhoneDigits($digits);
+        }
+
+        return strlen($digits) >= 8 && strlen($digits) <= 15;
+    }
+
+    private function isExplicitlyDutchBookingPhone(string $value, string $digits): bool
+    {
+        $t = trim($value);
+        if (str_starts_with($t, '+31')) {
+            return true;
+        }
+        if (preg_match('/^0031/i', $t)) {
+            return true;
+        }
+        if (str_starts_with($digits, '0031')) {
+            return true;
+        }
+        if (preg_match('/^31\d{9}$/', $digits)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isValidDutchBookingPhoneDigits(string $digits): bool
+    {
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+        if (preg_match('/^0[1-9]\d{8}$/', $digits)) {
+            return true;
+        }
+        if (preg_match('/^31[1-9]\d{8}$/', $digits)) {
+            return true;
+        }
+
+        return false;
     }
 }
 

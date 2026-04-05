@@ -19,6 +19,7 @@ class RoleSeeder extends Seeder
         $seedingModule = config('module_database.seeding_module');
         if ($seedingModule !== null && $seedingModule !== '') {
             $this->runForModule($seedingModule);
+
             return;
         }
 
@@ -32,7 +33,7 @@ class RoleSeeder extends Seeder
     protected function runForModule(string $moduleName): void
     {
         $dbService = app(ModuleDatabaseService::class);
-        if (!$dbService->supportsModuleDatabases()) {
+        if (! $dbService->supportsModuleDatabases()) {
             return;
         }
 
@@ -50,7 +51,7 @@ class RoleSeeder extends Seeder
     {
         $moduleManager = app(ModuleManager::class);
         $module = $moduleManager->loadModule($moduleName);
-        if (!$module) {
+        if (! $module) {
             return;
         }
 
@@ -108,77 +109,94 @@ class RoleSeeder extends Seeder
             'edit-users',
             'delete-users',
             'assign-roles',
-            
+
             // Company management
             'view-companies',
             'create-companies',
             'edit-companies',
             'delete-companies',
-            
+
             // Vacancy management
             'view-vacancies',
             'create-vacancies',
             'edit-vacancies',
             'delete-vacancies',
             'publish-vacancies',
-            
+
             // Category management
             'view-categories',
             'create-categories',
             'edit-categories',
             'delete-categories',
-            
+
             // Job configuration management
             'view-job-configurations',
             'create-job-configurations',
             'edit-job-configurations',
             'delete-job-configurations',
-            
+
             // Match management
             'view-matches',
             'create-matches',
             'edit-matches',
             'delete-matches',
             'approve-matches',
-            
+
             // Interview management
             'view-interviews',
             'create-interviews',
             'edit-interviews',
             'delete-interviews',
             'schedule-interviews',
-            
+
             // Notification management
             'view-notifications',
             'create-notifications',
             'edit-notifications',
             'delete-notifications',
             'send-notifications',
-            
+
             // Email template management
             'view-email-templates',
             'create-email-templates',
             'edit-email-templates',
             'delete-email-templates',
-            
+
             // Dashboard access
             'view-dashboard',
             'view-tenant-dashboard',
-            
+
             // Agenda access
             'view-agenda',
-            
+
             // Role management
             'view-roles',
             'create-roles',
             'edit-roles',
             'delete-roles',
-            
+
             // Permission management
             'view-permissions',
             'create-permissions',
             'edit-permissions',
             'delete-permissions',
+
+            // Branches (Skillmatching admin)
+            'view-branches',
+            'create-branches',
+            'edit-branches',
+            'delete-branches',
+
+            // Skillmatching module (menu + controllers; parallel aan view-* permissies)
+            'skillmatching.vacancies.view',
+            'skillmatching.vacancies.create',
+            'skillmatching.vacancies.edit',
+            'skillmatching.vacancies.delete',
+            'skillmatching.matches.view',
+            'skillmatching.matches.create',
+            'skillmatching.interviews.view',
+            'skillmatching.interviews.create',
+            'skillmatching.interviews.edit',
         ];
 
         foreach ($permissions as $permission) {
@@ -201,57 +219,29 @@ class RoleSeeder extends Seeder
         // Assign all permissions to super admin (api)
         $apiSuperAdmin->givePermissionTo($apiPermissions);
 
-        // Assign company-specific permissions to company admin (web)
-        $companyAdmin->givePermissionTo([
-            'view-users',
-            'create-users',
-            'edit-users',
-            'view-vacancies',
-            'create-vacancies',
-            'edit-vacancies',
-            'delete-vacancies',
-            'publish-vacancies',
-            'view-matches',
-            'edit-matches',
-            'approve-matches',
-            'view-interviews',
-            'create-interviews',
-            'edit-interviews',
-            'schedule-interviews',
-            'view-notifications',
-            'create-notifications',
-            'send-notifications',
-            'view-email-templates',
-            'edit-email-templates',
-            'view-tenant-dashboard',
-            'view-agenda',
-        ]);
+        // Company admin: alle tenant-/Beheer-rechten, geen Systeem (rollen/permissies) en geen nieuwe tenants aanmaken/verwijderen
+        $excludeForCompanyAdmin = [
+            'view-roles',
+            'create-roles',
+            'edit-roles',
+            'delete-roles',
+            'view-permissions',
+            'create-permissions',
+            'edit-permissions',
+            'delete-permissions',
+            'create-companies',
+            'delete-companies',
+        ];
 
-        // Assign company-specific permissions to company admin (api)
-        $apiCompanyAdmin->givePermissionTo([
-            'view-users',
-            'create-users',
-            'edit-users',
-            'view-vacancies',
-            'create-vacancies',
-            'edit-vacancies',
-            'delete-vacancies',
-            'publish-vacancies',
-            'view-matches',
-            'edit-matches',
-            'approve-matches',
-            'view-interviews',
-            'create-interviews',
-            'edit-interviews',
-            'schedule-interviews',
-            'view-notifications',
-            'create-notifications',
-            'send-notifications',
-            'view-email-templates',
-            'edit-email-templates',
-            'view-tenant-dashboard',
-            'view-agenda',
-        ]);
+        $companyAdminWebPerms = Permission::where('guard_name', 'web')
+            ->whereNotIn('name', $excludeForCompanyAdmin)
+            ->get();
+        $companyAdmin->syncPermissions($companyAdminWebPerms);
+
+        $companyAdminApiPerms = Permission::where('guard_name', 'api')
+            ->whereNotIn('name', $excludeForCompanyAdmin)
+            ->get();
+        $apiCompanyAdmin->syncPermissions($companyAdminApiPerms);
 
         // Assign limited permissions to staff (web)
         $staff->givePermissionTo([

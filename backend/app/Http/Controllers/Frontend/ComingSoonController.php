@@ -72,9 +72,9 @@ class ComingSoonController extends Controller
 
         return view('frontend.coming-soon', [
             'settings' => $settings,
-            'showEmail' => !empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0',
+            'showEmail' => ! empty($settings['coming_soon_show_email']) && $settings['coming_soon_show_email'] !== '0',
             'contactEmail' => $settings['coming_soon_contact_email'] ?? '',
-            'adminPreview' => false,
+            'adminPreviewReturnUrl' => session('website_preview_admin_url'),
         ]);
     }
 }

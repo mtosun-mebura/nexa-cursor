@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
-use App\Models\Company;
+use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\User;
-use Illuminate\Http\Request;
 use App\Services\EnvService;
+use Illuminate\Http\Request;
 
 class AdminCompanyController extends Controller
 {
@@ -20,16 +20,16 @@ class AdminCompanyController extends Controller
     {
         $this->envService = $envService;
     }
-    
+
     public function index(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
         }
-        
+
         $query = Company::withCount(['users', 'vacancies'])->with('mainLocation');
         $this->applyTenantFilter($query);
-        
+
         // Apply filters
         if ($request->filled('status')) {
             if ($request->status === 'active') {
@@ -38,7 +38,7 @@ class AdminCompanyController extends Controller
                 $query->where('is_active', false);
             }
         }
-        
+
         if ($request->filled('intermediary')) {
             if ($request->intermediary === 'yes') {
                 $query->where('is_intermediary', true);
@@ -46,31 +46,31 @@ class AdminCompanyController extends Controller
                 $query->where('is_intermediary', false);
             }
         }
-        
+
         if ($request->filled('industry')) {
             $query->where('industry', $request->industry);
         }
-        
+
         // Apply sorting
         $sortBy = $request->get('sort', 'created_at');
         $sortDirection = $request->get('direction', 'desc');
-        
+
         if (in_array($sortBy, ['name', 'created_at', 'is_active'])) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
             $query->orderBy('created_at', 'desc');
         }
-        
+
         // Load all companies for client-side pagination (like demo1)
         // The KTDataTable library will handle pagination client-side
         $companies = $query->get();
-        
+
         // Calculate statistics
         $statsQuery = Company::query();
         $this->applyTenantFilter($statsQuery);
-        
+
         $tenantId = $this->getTenantId();
-        
+
         $stats = [
             'total_companies' => (clone $statsQuery)->count(),
             'active_companies' => (clone $statsQuery)->where('is_active', true)->count(),
@@ -79,7 +79,7 @@ class AdminCompanyController extends Controller
             'total_users' => $tenantId ? \App\Models\User::where('company_id', $tenantId)->count() : \App\Models\User::count(),
             'total_vacancies' => $tenantId ? \App\Models\Vacancy::where('company_id', $tenantId)->count() : \App\Models\Vacancy::count(),
         ];
-        
+
         // Get unique industries for filter
         $industries = Company::select('industry')
             ->distinct()
@@ -92,30 +92,35 @@ class AdminCompanyController extends Controller
 
     public function create()
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-companies')) {
+        if (! auth()->user()->canCreateCompanies()) {
             abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
         }
-        
+
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        
+
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
         $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
-        
+
         return view('admin.companies.create', compact('branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function store(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-companies')) {
+        if (! auth()->user()->canCreateCompanies()) {
             abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
         }
-        
+
+        $request->merge([
+            'building_image' => $request->filled('building_image') ? (int) $request->input('building_image') : null,
+        ]);
+
         $request->validate([
             'name' => 'required|string|max:255|min:2',
             'kvk_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
+            'building_image' => 'nullable|integer|in:1,2,3',
             'email' => 'required|email:rfc,dns|max:255',
             'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
             'website' => 'nullable|url:http,https|max:255',
@@ -140,7 +145,9 @@ class AdminCompanyController extends Controller
             'locations.*.email' => 'nullable|email:rfc,dns|max:255',
             'locations.*.is_main' => 'nullable|boolean',
             'locations.*.is_active' => 'nullable|boolean',
+            'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
+            'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -166,10 +173,10 @@ class AdminCompanyController extends Controller
         ]);
 
         $companyData = $request->all();
-        
+
         // Handle checkbox - if not present in request, set to false
         $companyData['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
-        
+
         // Handle branch selection: if branch_select is set and not "other", use that value for industry
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {
             $companyData['industry'] = $request->input('branch_select');
@@ -179,33 +186,42 @@ class AdminCompanyController extends Controller
         }
         // Remove branch_select from data as it's not a database field
         unset($companyData['branch_select']);
-        
+
         // Remove locations from company data
         $locations = $companyData['locations'] ?? [];
         unset($companyData['locations']);
-        
+
         // Handle logo upload (must run before create; do not pass UploadedFile to create)
-        unset($companyData['logo']);
+        unset($companyData['logo'], $companyData['logo_dark'], $companyData['company_logo_mode']);
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
             $companyData['logo_blob'] = base64_encode(file_get_contents($file->getRealPath()));
             $companyData['logo_mime_type'] = $file->getMimeType();
             $companyData['logo_path'] = null;
         }
-        
+        $useLightDarkLogo = $request->input('company_logo_mode') === 'light_dark';
+        if ($useLightDarkLogo && $request->hasFile('logo_dark')) {
+            $dark = $request->file('logo_dark');
+            $companyData['logo_dark_blob'] = base64_encode(file_get_contents($dark->getRealPath()));
+            $companyData['logo_dark_mime_type'] = $dark->getMimeType();
+        } elseif (! $useLightDarkLogo) {
+            $companyData['logo_dark_blob'] = null;
+            $companyData['logo_dark_mime_type'] = null;
+        }
+
         $company = Company::create($companyData);
-        
+
         // Create locations if provided; eerste vestiging krijgt het contactadres van het bedrijf
-        if (!empty($locations)) {
+        if (! empty($locations)) {
             $hasMainLocation = false;
             $isFirstLocation = true;
             foreach ($locations as $locationData) {
                 // Only create location if name is provided
-                if (!empty($locationData['name'])) {
+                if (! empty($locationData['name'])) {
                     // Handle checkboxes
                     $locationData['is_main'] = isset($locationData['is_main']) ? (bool) $locationData['is_main'] : false;
                     $locationData['is_active'] = isset($locationData['is_active']) ? (bool) $locationData['is_active'] : true;
-                    
+
                     // Eerste vestiging: adres overnemen van contactinformatie
                     if ($isFirstLocation) {
                         $locationData['street'] = $companyData['street'] ?? $locationData['street'] ?? '';
@@ -216,15 +232,15 @@ class AdminCompanyController extends Controller
                         $locationData['country'] = $companyData['country'] ?? $locationData['country'] ?? '';
                         $isFirstLocation = false;
                     }
-                    
+
                     // If this is marked as main, unset previous main locations
-                    if ($locationData['is_main'] && !$hasMainLocation) {
+                    if ($locationData['is_main'] && ! $hasMainLocation) {
                         $hasMainLocation = true;
                     } elseif ($locationData['is_main'] && $hasMainLocation) {
                         // If another main location was already set, unset this one
                         $locationData['is_main'] = false;
                     }
-                    
+
                     $company->locations()->create($locationData);
                 }
             }
@@ -236,63 +252,68 @@ class AdminCompanyController extends Controller
 
     public function show(Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
-        $company->load(['users', 'vacancies.branch', 'locations', 'mainLocation']);
-        
+
+        $company->load(['users', 'vacancies.branch', 'locations', 'mainLocation', 'domains']);
+
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
         $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
-        
+
         return view('admin.companies.show', compact('company', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function edit(Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
+
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $company->load('mainLocation');
-        
+
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
         $googleMapsCenterLat = $this->envService->get('GOOGLE_MAPS_CENTER_LAT', '52.3676');
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
-        
+
         return view('admin.companies.edit', compact('company', 'branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function update(Request $request, Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
+
+        $request->merge([
+            'building_image' => $request->filled('building_image') ? (int) $request->input('building_image') : null,
+        ]);
+
         $request->validate([
             'name' => 'required|string|max:255|min:2',
             'kvk_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]{8}$/'],
+            'building_image' => 'nullable|integer|in:1,2,3',
             'email' => 'required|email:rfc,dns|max:255',
             'phone' => ['required', 'string', 'max:20', 'regex:/^(\+31|0)[1-9][0-9]{8}$/'],
             'website' => 'nullable|url:http,https|max:255',
@@ -306,7 +327,9 @@ class AdminCompanyController extends Controller
             'longitude' => 'nullable|numeric|between:-180,180',
             'description' => 'nullable|string|max:5000',
             'is_intermediary' => 'nullable|boolean',
+            'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
+            'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -327,10 +350,10 @@ class AdminCompanyController extends Controller
         ]);
 
         $data = $request->all();
-        
+
         // Handle checkbox - if not present in request, set to false
         $data['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
-        
+
         // Handle branch selection: if branch_select is set and not "other", use that value for industry
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {
             $data['industry'] = $request->input('branch_select');
@@ -340,7 +363,9 @@ class AdminCompanyController extends Controller
         }
         // Remove branch_select from data as it's not a database field
         unset($data['branch_select']);
-        
+
+        unset($data['logo'], $data['logo_dark'], $data['company_logo_mode']);
+
         // Handle logo upload
         if ($request->hasFile('logo')) {
             $fileContent = file_get_contents($request->file('logo')->getRealPath());
@@ -349,7 +374,16 @@ class AdminCompanyController extends Controller
             $data['logo_mime_type'] = $mimeType;
             $data['logo_path'] = null; // Clear old file path
         }
-        
+        $useLightDarkLogo = $request->input('company_logo_mode') === 'light_dark';
+        if ($useLightDarkLogo && $request->hasFile('logo_dark')) {
+            $darkFile = $request->file('logo_dark');
+            $data['logo_dark_blob'] = base64_encode(file_get_contents($darkFile->getRealPath()));
+            $data['logo_dark_mime_type'] = $darkFile->getMimeType();
+        } elseif (! $useLightDarkLogo) {
+            $data['logo_dark_blob'] = null;
+            $data['logo_dark_mime_type'] = null;
+        }
+
         $company->update($data);
 
         // Eerste vestiging gelijk trekken met contactadres
@@ -371,15 +405,15 @@ class AdminCompanyController extends Controller
 
     public function uploadLogo(Request $request, Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
+
         $request->validate([
             'logo' => 'required|file|mimes:svg,png,jpg,jpeg|max:5120',
         ], [
@@ -388,45 +422,46 @@ class AdminCompanyController extends Controller
             'logo.mimes' => 'Alleen SVG, PNG, JPG en JPEG bestanden zijn toegestaan.',
             'logo.max' => 'Het bestand mag maximaal 5MB groot zijn.',
         ]);
-        
+
         // Get file content and MIME type
         $fileContent = file_get_contents($request->file('logo')->getRealPath());
         $mimeType = $request->file('logo')->getMimeType();
-        
+
         // Store logo as BLOB in database
         try {
             $company->update([
                 'logo_blob' => base64_encode($fileContent),
                 'logo_mime_type' => $mimeType,
                 'logo_path' => null, // Clear old file path
-                'updated_at' => now() // Force update timestamp
+                'updated_at' => now(), // Force update timestamp
             ]);
         } catch (\Exception $e) {
-            \Log::error('Database storage error: ' . $e->getMessage());
+            \Log::error('Database storage error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden bij het opslaan van het logo: ' . $e->getMessage()
+                'message' => 'Er is een fout opgetreden bij het opslaan van het logo: '.$e->getMessage(),
             ], 500);
         }
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Logo succesvol geüpload.',
-            'logo_url' => route('admin.companies.logo', ['company' => $company->id])
+            'logo_url' => route('admin.companies.logo', ['company' => $company->id]),
         ]);
     }
 
     public function destroy(Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('delete-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te verwijderen.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
+
         if ($company->users()->count() > 0) {
             return back()->with('error', 'Kan bedrijf niet verwijderen: er zijn nog gebruikers gekoppeld.');
         }
@@ -443,72 +478,72 @@ class AdminCompanyController extends Controller
 
     public function toggleStatus(Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
-        $company->update(['is_active' => !$company->is_active]);
-        
+
+        $company->update(['is_active' => ! $company->is_active]);
+
         $status = $company->is_active ? 'geactiveerd' : 'gedeactiveerd';
-        
+
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
                 'success' => true,
                 'message' => "Bedrijf '{$company->name}' is succesvol {$status}.",
-                'is_active' => $company->is_active
+                'is_active' => $company->is_active,
             ]);
         }
-        
+
         return redirect()->route('admin.companies.index')
             ->with('success', "Bedrijf '{$company->name}' is succesvol {$status}.");
     }
 
     public function toggleMainLocation(Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
         }
-        
+
         // Check if user can access this resource
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
-        
+
         // Toggle the is_main field on the company itself
-        $company->update(['is_main' => !$company->is_main]);
-        
+        $company->update(['is_main' => ! $company->is_main]);
+
         $status = $company->is_main ? 'aangewezen' : 'uitgeschakeld';
         $message = "Bedrijf '{$company->name}' is succesvol als hoofdkantoor {$status}.";
-        
+
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
                 'success' => true,
                 'message' => $message,
-                'has_main_location' => $company->is_main
+                'has_main_location' => $company->is_main,
             ]);
         }
-        
+
         return redirect()->route('admin.companies.show', $company)
             ->with('success', $message);
     }
 
     public function getUsersJson(Company $company)
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
+        if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
             abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
         }
 
-        if (!$this->canAccessResource($company)) {
+        if (! $this->canAccessResource($company)) {
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
         $users = User::where('company_id', $company->id)
-            ->whereDoesntHave('roles', function($q) {
+            ->whereDoesntHave('roles', function ($q) {
                 $q->where('name', 'super-admin');
             })
             ->orderBy('first_name')

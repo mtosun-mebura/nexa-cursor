@@ -23,8 +23,13 @@
                 <img class="default-logo logo-light w-auto max-w-[200px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ $logoLightUrl }}" alt="Logo" />
                 <img class="default-logo logo-dark w-auto max-w-[200px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $logoDarkUrl }}" alt="Logo" />
             @elseif($useCompanyLogo)
+                @php
+                    $companyLogoDarkUrl = ! empty($company->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $company)
+                        : route('admin.companies.logo', $company);
+                @endphp
                 <img class="default-logo logo-light w-auto max-w-[200px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
-                <img class="default-logo logo-dark w-auto max-w-[200px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
+                <img class="default-logo logo-dark w-auto max-w-[200px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
             @else
                 <img class="default-logo h-[26px] w-auto max-w-[200px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
             @endif
@@ -46,22 +51,17 @@
                 id="sidebar_menu">
 
                 <!-- Client API (Super Admin only) -->
-                @if(auth()->user()?->hasRole('super-admin'))
+                @if(auth()->user()?->isSuperAdmin())
                 @php
-                    $dbService = app(\App\Services\ModuleDatabaseService::class);
-                    $adminModuleConn = null;
-                    if (request()->routeIs('admin.taxiroyaal.*') && $dbService->supportsModuleDatabases()) {
-                        $adminModuleConn = $dbService->getModuleConnectionName('taxiroyaal');
-                    } elseif (request()->routeIs('admin.skillmatching.*') && $dbService->supportsModuleDatabases()) {
-                        $adminModuleConn = $dbService->getModuleConnectionName('skillmatching');
-                    }
-                    $companies = $adminModuleConn
-                        ? \App\Models\Company::on($adminModuleConn)->orderBy('name')->get()
-                        : \App\Models\Company::orderBy('name')->get();
+                    /**
+                     * Tenant-switcher moet dezelfde bedrijven tonen als o.a. Bedrijven en session('selected_tenant'):
+                     * altijd de centrale `companies`-tabel op de standaard-app-verbinding.
+                     * Eerder: Company::on(module_*) op basis van de huidige route — die module-DB's bevatten
+                     * vaak geen (of andere) company-rijen, waardoor de lijst leek terwijl Bedrijven wél gevuld is.
+                     */
+                    $companies = \App\Models\Company::query()->orderBy('name')->get();
                     $selectedTenant = session('selected_tenant');
-                    $selectedCompany = $selectedTenant
-                        ? ($adminModuleConn ? \App\Models\Company::on($adminModuleConn)->find($selectedTenant) : \App\Models\Company::find($selectedTenant))
-                        : null;
+                    $selectedCompany = $selectedTenant ? \App\Models\Company::find($selectedTenant) : null;
                 @endphp
                 <div class="mb-2 tenant-switcher" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-start" data-kt-dropdown-trigger="click" data-kt-dropdown-offset="0px, 5px">
                     <!-- Collapsed sidebar: icon-only toggle (opens same dropdown) -->
@@ -784,6 +784,7 @@ function switchTenant(tenantId) {
     const formData = new FormData();
     formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
     formData.append('tenant_id', tenantId);
+    formData.append('redirect', window.location.pathname + window.location.search);
     
     fetch('{{ route('admin.tenant.switch') }}', {
         method: 'POST',
@@ -801,8 +802,6 @@ function switchTenant(tenantId) {
     })
     .then(data => {
         if (data.success) {
-            // Redirect naar dashboard om company-profile te tonen
-            // Gebruik redirect URL uit response als die beschikbaar is, anders gebruik dashboard route
             const redirectUrl = data.redirect || '{{ route("admin.dashboard") }}';
             window.location.href = redirectUrl;
         }

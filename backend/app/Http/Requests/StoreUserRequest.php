@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Validation\Rule;
-
 /**
  * FormRequest voor het aanmaken van gebruikers
  * Met uniforme validatie en security checks
@@ -13,7 +11,7 @@ class StoreUserRequest extends BaseFormRequest
     public function authorize(): bool
     {
         return auth()->check() && (
-            auth()->user()->hasRole('super-admin') || 
+            auth()->user()->hasRole('super-admin') ||
             auth()->user()->can('create-users')
         );
     }
@@ -73,6 +71,25 @@ class StoreUserRequest extends BaseFormRequest
                 'string',
                 'exists:roles,name',
             ],
+            'wizard_back_url' => [
+                'nullable',
+                'string',
+                'max:2048',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+                    $parsed = parse_url($value);
+                    if (! is_array($parsed) || empty($parsed['path']) || ! str_starts_with($parsed['path'], '/admin/')) {
+                        $fail('Ongeldige terug-URL.');
+
+                        return;
+                    }
+                    if (isset($parsed['host']) && $parsed['host'] !== request()->getHost()) {
+                        $fail('Ongeldige terug-URL.');
+                    }
+                },
+            ],
         ];
     }
 
@@ -101,8 +118,3 @@ class StoreUserRequest extends BaseFormRequest
         ];
     }
 }
-
-
-
-
-

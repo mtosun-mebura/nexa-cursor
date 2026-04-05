@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+@php
+    $googleMapsKeyTrimmed = trim((string) ($googleMapsApiKey ?? ''));
+    $footerMapEarlyLoad = ! empty($homeSections)
+        && ($homeSections['visibility']['footer'] ?? true)
+        && ($homeSections['visibility']['footer_map'] ?? true)
+        && $googleMapsKeyTrimmed !== '';
+@endphp
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,6 +23,12 @@
     @endif
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    @if(!empty($footerMapEarlyLoad))
+    <link rel="preconnect" href="https://maps.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://maps.googleapis.com">
+    <link rel="dns-prefetch" href="https://maps.gstatic.com">
+    @endif
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Georgia&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-cookieconsent@3.1.0/dist/cookieconsent.css">
     @if(!empty($loadAtomV2Styles))
@@ -34,6 +47,99 @@
         body.theme-minimal { --theme-primary: {{ $themeSettings['primary_color'] ?? '#0f172a' }}; }
     </style>
     @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
+    @if(!empty($footerMapEarlyLoad))
+    <script>
+    (function() {
+        window.initFooterMap = function() {
+            var mapEl = document.getElementById('footer-google-map');
+            if (!mapEl || mapEl.getAttribute('data-footer-map-initialized') === '1') return;
+            if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
+            var mapId = (mapEl.getAttribute('data-map-id') || '').trim();
+            if (!mapId) mapId = 'DEMO_MAP_ID';
+            var useAdvancedMarker = true;
+            var latStr = (mapEl.getAttribute('data-lat') || '').trim();
+            var lngStr = (mapEl.getAttribute('data-lng') || '').trim();
+            var address = (mapEl.getAttribute('data-address') || '').trim();
+            var zoomStr = (mapEl.getAttribute('data-zoom') || '').trim();
+            var showAddressBalloon = (mapEl.getAttribute('data-show-address-balloon') || '') === '1';
+            var lat = parseFloat(latStr);
+            var lng = parseFloat(lngStr);
+            var zoom = (zoomStr !== '' && !isNaN(parseInt(zoomStr, 10))) ? parseInt(zoomStr, 10) : 17;
+            if (zoom < 1 || zoom > 20) zoom = 17;
+            var hasCoords = latStr !== '' && lngStr !== '' && !isNaN(lat) && !isNaN(lng);
+            var center = { lat: 52.3676, lng: 4.9041 };
+            if (hasCoords) center = { lat: lat, lng: lng };
+            var useAdvanced = useAdvancedMarker && mapId && mapId.length > 0;
+            var mapOptions = {
+                center: center,
+                zoom: zoom,
+                scrollwheel: false,
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: true,
+                zoomControl: true
+            };
+            if (useAdvanced) mapOptions.mapId = mapId;
+            var map;
+            try {
+                map = new google.maps.Map(mapEl, mapOptions);
+            } catch (e) {
+                delete mapOptions.mapId;
+                useAdvanced = false;
+                map = new google.maps.Map(mapEl, mapOptions);
+            }
+            mapEl.setAttribute('data-footer-map-initialized', '1');
+            function addMarkerSafe(m, pos) {
+                if (useAdvanced && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
+                    try {
+                        return new google.maps.marker.AdvancedMarkerElement({ map: m, position: pos });
+                    } catch (err) {
+                        return new google.maps.Marker({ position: pos, map: m });
+                    }
+                }
+                return new google.maps.Marker({ position: pos, map: m });
+            }
+            function openAddressBalloon(marker, addr) {
+                addr = (addr != null) ? String(addr).trim() : '';
+                if (!addr || !showAddressBalloon || !google.maps.InfoWindow) return;
+                var infoWindow = new google.maps.InfoWindow({ content: '<div style="padding: 4px 8px 6px; font-size: 14px; color: #000; line-height: 1.25; margin: 0;">' + addr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' });
+                infoWindow.open(map, marker);
+            }
+            if (hasCoords) {
+                var marker = addMarkerSafe(map, center);
+                openAddressBalloon(marker, address);
+            } else if (address && google.maps.Geocoder) {
+                var geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ address: address }, function(results, status) {
+                    if (status === 'OK' && results && results[0]) {
+                        var loc = results[0].geometry.location;
+                        map.setCenter(loc);
+                        map.setZoom(zoom);
+                        var marker = addMarkerSafe(map, loc);
+                        openAddressBalloon(marker, address);
+                    } else {
+                        addMarkerSafe(map, center);
+                    }
+                });
+            } else {
+                addMarkerSafe(map, center);
+            }
+            function triggerResize() {
+                if (google.maps && google.maps.event && map) google.maps.event.trigger(map, 'resize');
+            }
+            setTimeout(triggerResize, 100);
+            setTimeout(triggerResize, 300);
+            setTimeout(triggerResize, 600);
+            window.addEventListener('load', triggerResize);
+            if (typeof ResizeObserver !== 'undefined' && mapEl.parentElement) {
+                var ro = new ResizeObserver(function() { setTimeout(triggerResize, 50); });
+                ro.observe(mapEl.parentElement);
+            }
+        };
+    })();
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ rawurlencode($googleMapsKeyTrimmed) }}&amp;libraries=marker&amp;callback=initFooterMap&amp;loading=async"></script>
+    @endif
     <style>
         /* Eén grootte voor alle paginatitels (h1) */
         .kt-page-title { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
@@ -207,6 +313,69 @@
         @media (min-width: 768px) {
             body:not(:has(#frontend-whatsapp-widget)) .scrollup.right { right: 24px; bottom: 28px; }
         }
+        /* Footer: wrapper zonder blok-translate; losse animaties op kinderen */
+        .site-footer-reveal.scroll-reveal-section .footer-reveal-soft {
+            opacity: 1;
+            transform: none;
+        }
+        @keyframes footer-slide-from-left {
+            from { opacity: 0; transform: translateX(-36px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        /* Merk: rustig fade-in vanuit links */
+        @keyframes footer-brand-fade-in-left {
+            from { opacity: 0; transform: translateX(-32px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        /* Kaart: rustig fade-in vanuit onderen */
+        @keyframes footer-map-fade-in-up {
+            from { opacity: 0; transform: translateY(48px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .site-footer-reveal.scroll-reveal-section:not(.is-in-view) .footer-animate-brand {
+            opacity: 0;
+            transform: translateX(-32px);
+        }
+        .site-footer-reveal.scroll-reveal-section.is-in-view .footer-animate-brand {
+            animation: footer-brand-fade-in-left 1.15s cubic-bezier(0.22, 0.08, 0.2, 1) both;
+        }
+        .site-footer-reveal.scroll-reveal-section:not(.is-in-view) .footer-animate-tagline {
+            opacity: 0;
+            transform: translateX(-36px);
+        }
+        .site-footer-reveal.scroll-reveal-section.is-in-view .footer-animate-tagline {
+            animation: footer-slide-from-left 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+            animation-delay: 0.78s;
+        }
+        .site-footer-reveal.scroll-reveal-section:not(.is-in-view) .footer-footer-anim-left {
+            opacity: 0;
+            transform: translateX(-36px);
+        }
+        .site-footer-reveal.scroll-reveal-section.is-in-view .footer-footer-anim-left {
+            animation: footer-slide-from-left 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .site-footer-reveal.scroll-reveal-section .footer-map-reveal {
+            transform-origin: center center;
+            will-change: transform, opacity;
+        }
+        .site-footer-reveal.scroll-reveal-section:not(.is-in-view) .footer-map-reveal {
+            opacity: 0;
+            transform: translateY(48px);
+        }
+        .site-footer-reveal.scroll-reveal-section.is-in-view .footer-map-reveal {
+            animation: footer-map-fade-in-up 1.2s cubic-bezier(0.22, 0.08, 0.2, 1) both;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .site-footer-reveal.scroll-reveal-section .footer-animate-brand,
+            .site-footer-reveal.scroll-reveal-section .footer-animate-tagline,
+            .site-footer-reveal.scroll-reveal-section .footer-footer-anim-left,
+            .site-footer-reveal.scroll-reveal-section .footer-map-reveal {
+                animation: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+                transition: none !important;
+            }
+        }
     </style>
     <!-- Dark mode: direct op html zetten vóór first paint (voorkomt witte flits) -->
     <script>
@@ -227,7 +396,7 @@
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" role="banner" aria-label="Voorbeeldmodus">
         <a href="{{ $previewEditUrl }}" class="preview-bar-back shrink-0">
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
-            Terug naar bewerken
+            Terug naar admin
         </a>
         <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema.</span>
     </div>
@@ -389,7 +558,7 @@
                 };
             @endphp
             <div class="w-full">
-                <div class="py-8 container-custom">
+                <div class="py-8 container-custom site-footer-reveal scroll-reveal-section" data-scroll-reveal>
                     @php
                         $footVis = $homeSections['visibility'] ?? [];
                         $footerMapVisible = (bool) ($footVis['footer_map'] ?? true);
@@ -431,7 +600,30 @@
                                 $footerSocialLinks[$key] = $base . $id;
                             }
                         }
+                        $footerAnimStepMs = 115;
+                        $footerQuickVisible = 0;
+                        foreach (($footerData['quick_links'] ?? []) as $_ql) {
+                            if (!empty($_ql['label'])) { $footerQuickVisible++; }
+                        }
+                        $footerSupportVisible = 0;
+                        foreach (($footerData['support_links'] ?? []) as $_sl) {
+                            if (!empty($_sl['label'])) { $footerSupportVisible++; }
+                        }
+                        $footerDelayQuickH3 = 1320;
+                        $footerDelayQuickLi0 = 1390;
+                        $footerDelaySupH3 = $footerQuickVisible > 0
+                            ? ($footerDelayQuickLi0 + $footerQuickVisible * $footerAnimStepMs + 80)
+                            : $footerDelayQuickH3;
+                        $footerDelaySupLi0 = $footerDelaySupH3 + 70;
+                        $footerDelayMap = $footerSupportVisible > 0
+                            ? ($footerDelaySupLi0 + $footerSupportVisible * $footerAnimStepMs + 140)
+                            : ($footerQuickVisible > 0
+                                ? ($footerDelayQuickLi0 + $footerQuickVisible * $footerAnimStepMs + 200)
+                                : 1680);
+                        /* Kaart eerder zichtbaar / tegelijk met inhoud: cap op animatie-delay */
+                        $footerDelayMap = min($footerDelayMap, 420);
                     @endphp
+                    <div class="footer-reveal-soft">
                     <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerShowMapRight ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
                         @if($footerShowMapRight)
                         {{-- Linkerkant (50%): logo + tagline, daaronder Snelle Links (links) en Ondersteuning (rechts) naast elkaar --}}
@@ -439,17 +631,19 @@
                             <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
                                     @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
+                                    <div class="footer-animate-brand inline-block mb-4">
                                     @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto mb-4 h-{{ $logoHeight }} object-contain">
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto mb-4 h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto h-{{ $logoHeight }} object-contain">
                                     @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto h-{{ $logoHeight }}">
                                     @endif
+                                    </div>
                                 @elseif($footVis['footer_logo'] ?? true)
-                                    <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
+                                    <span class="footer-animate-brand font-semibold text-xl mb-4 inline-block" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
+                                    <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
                                         {!! $homeSections['footer']['tagline'] !!}
                                     </div>
                                 @endif
@@ -457,11 +651,13 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-0 w-full max-w-full min-w-0">
                                 @if($showQuickLinks)
                                 <div class="{{ $footerQuickLinksAlignClass }} min-w-0">
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
-                                    <ul class="space-y-3">
+                                    <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
+                                    @php $footerQlAnim = 0; @endphp
+                                    <ul class="footer-quick-links-list space-y-3">
                                         @foreach($footerData['quick_links'] as $link)
                                             @if(!empty($link['label']))
-                                        <li>@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
+                                        @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
+                                        <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
                                             @endif
                                         @endforeach
                                     </ul>
@@ -469,11 +665,13 @@
                                 @endif
                                 @if($showSupportLinks)
                                 <div class="{{ $footerSupportLinksAlignClass }} min-w-0">
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
-                                    <ul class="space-y-3">
+                                    <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-4" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
+                                    @php $footerSlAnim = 0; @endphp
+                                    <ul class="footer-support-links-list space-y-3">
                                         @foreach($footerData['support_links'] as $link)
                                             @if(!empty($link['label']))
-                                        <li>@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
+                                        @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
+                                        <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
                                             @endif
                                         @endforeach
                                     </ul>
@@ -483,7 +681,7 @@
                         </div>
                         {{-- Rechterkant (50%): kaart over volle breedte van de rechterhelft --}}
                         <div class="w-full min-w-0 flex flex-col">
-                            <div class="w-full min-w-0 flex-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px;">
+                            <div class="footer-map-reveal w-full min-w-0 flex-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
                                 @if($showFooterMap)
                                 <div id="footer-google-map" class="w-full h-full min-h-full block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 100%; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
                                 @else
@@ -499,23 +697,25 @@
                             <div class="{{ $footerLogoAlignWrapper }}">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
                                     @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
+                                    <div class="footer-animate-brand inline-block mb-4">
                                     @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto mb-4 h-{{ $logoHeight }} object-contain">
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto mb-4 h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto h-{{ $logoHeight }} object-contain">
                                     @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto mb-4 h-{{ $logoHeight }}">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto h-{{ $logoHeight }}">
                                     @endif
+                                    </div>
                                 @elseif($footVis['footer_logo'] ?? true)
-                                    <span class="font-semibold text-xl mb-4" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
+                                    <span class="footer-animate-brand font-semibold text-xl mb-4 inline-block" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
+                                    <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
                                         {!! $homeSections['footer']['tagline'] !!}
                                     </div>
                                 @endif
                             </div>
                             @if($footerMapVisible)
-                            <div class="w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2" style="height: {{ $footerMapHeightPx }}px;">
+                            <div class="footer-map-reveal w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
                                 @if($showFooterMap)
                                 <div id="footer-google-map" class="w-full h-full min-h-full block" style="width: 100%; height: 100%; min-height: 100%;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
                                 @else
@@ -530,11 +730,13 @@
                         @if(!$footerShowMapRight)
                         @if($showQuickLinks)
                         <div class="{{ $footerQuickLinksCol }} {{ $footerQuickLinksAlignClass }}">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
-                            <ul class="space-y-3">
+                            <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
+                            @php $footerQlAnim = 0; @endphp
+                            <ul class="footer-quick-links-list space-y-3">
                                 @foreach($footerData['quick_links'] as $link)
                                     @if(!empty($link['label']))
-                                <li>@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
+                                @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
+                                <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
                                     @endif
                                 @endforeach
                             </ul>
@@ -542,11 +744,13 @@
                         @endif
                         @if($showSupportLinks)
                         <div class="{{ $footerSupportLinksCol }} {{ $footerSupportLinksAlignClass }}">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
-                            <ul class="space-y-3">
+                            <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-4" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
+                            @php $footerSlAnim = 0; @endphp
+                            <ul class="footer-support-links-list space-y-3">
                                 @foreach($footerData['support_links'] as $link)
                                     @if(!empty($link['label']))
-                                <li>@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
+                                @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
+                                <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
                                     @endif
                                 @endforeach
                             </ul>
@@ -559,6 +763,7 @@
                             @include('frontend.layouts.partials.footer-social-icons', ['footerSocialLinks' => $footerSocialLinks, 'footerLogoAlign' => 'center'])
                         </div>
                     @endif
+                    </div>
                 </div>
                 @if(!empty($homeSections['copyright']))
                     <div class="border-t border-gray-300 dark:border-gray-600 py-4 container-custom">
@@ -903,107 +1108,6 @@
         }
 
         (function() {
-            var mapEl = document.getElementById('footer-google-map');
-            if (!mapEl) return;
-            var apiKey = (mapEl.getAttribute('data-api-key') || '').trim();
-            if (!apiKey) return;
-            var mapId = (mapEl.getAttribute('data-map-id') || '').trim();
-            if (!mapId) mapId = 'DEMO_MAP_ID';
-            var useAdvancedMarker = true;
-            var latStr = (mapEl.getAttribute('data-lat') || '').trim();
-            var lngStr = (mapEl.getAttribute('data-lng') || '').trim();
-            var address = (mapEl.getAttribute('data-address') || '').trim();
-            var zoomStr = (mapEl.getAttribute('data-zoom') || '').trim();
-            var showAddressBalloon = (mapEl.getAttribute('data-show-address-balloon') || '') === '1';
-            var lat = parseFloat(latStr);
-            var lng = parseFloat(lngStr);
-            var zoom = (zoomStr !== '' && !isNaN(parseInt(zoomStr, 10))) ? parseInt(zoomStr, 10) : 17;
-            if (zoom < 1 || zoom > 20) zoom = 17;
-            var hasCoords = latStr !== '' && lngStr !== '' && !isNaN(lat) && !isNaN(lng);
-
-            window.initFooterMap = function() {
-                if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
-                var center = { lat: 52.3676, lng: 4.9041 };
-                if (hasCoords) {
-                    center = { lat: lat, lng: lng };
-                }
-                var useAdvanced = useAdvancedMarker && mapId && mapId.length > 0;
-                var mapOptions = {
-                    center: center,
-                    zoom: zoom,
-                    scrollwheel: false,
-                    mapTypeControl: true,
-                    streetViewControl: false,
-                    fullscreenControl: true,
-                    zoomControl: true
-                };
-                if (useAdvanced) mapOptions.mapId = mapId;
-                var map;
-                try {
-                    map = new google.maps.Map(mapEl, mapOptions);
-                } catch (e) {
-                    delete mapOptions.mapId;
-                    useAdvanced = false;
-                    map = new google.maps.Map(mapEl, mapOptions);
-                }
-                function addMarkerSafe(m, pos) {
-                    if (useAdvanced && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-                        try {
-                            return new google.maps.marker.AdvancedMarkerElement({ map: m, position: pos });
-                        } catch (err) {
-                            return new google.maps.Marker({ position: pos, map: m });
-                        }
-                    }
-                    return new google.maps.Marker({ position: pos, map: m });
-                }
-                function openAddressBalloon(marker, addr) {
-                    addr = (addr != null) ? String(addr).trim() : '';
-                    if (!addr || !showAddressBalloon || !google.maps.InfoWindow) return;
-                    var infoWindow = new google.maps.InfoWindow({ content: '<div style="padding: 4px 8px 6px; font-size: 14px; color: #000; line-height: 1.25; margin: 0;">' + addr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' });
-                    infoWindow.open(map, marker);
-                }
-                if (hasCoords) {
-                    var marker = addMarkerSafe(map, center);
-                    openAddressBalloon(marker, address);
-                } else if (address && google.maps.Geocoder) {
-                    var geocoder = new google.maps.Geocoder();
-                    geocoder.geocode({ address: address }, function(results, status) {
-                        if (status === 'OK' && results && results[0]) {
-                            var loc = results[0].geometry.location;
-                            map.setCenter(loc);
-                            map.setZoom(zoom);
-                            var marker = addMarkerSafe(map, loc);
-                            openAddressBalloon(marker, address);
-                        } else {
-                            addMarkerSafe(map, center);
-                        }
-                    });
-                } else {
-                    addMarkerSafe(map, center);
-                }
-                function triggerResize() {
-                    if (google.maps && google.maps.event && map) {
-                        google.maps.event.trigger(map, 'resize');
-                    }
-                }
-                setTimeout(triggerResize, 100);
-                setTimeout(triggerResize, 300);
-                setTimeout(triggerResize, 600);
-                if (typeof window !== 'undefined') {
-                    window.addEventListener('load', triggerResize);
-                    if (typeof ResizeObserver !== 'undefined' && mapEl && mapEl.parentElement) {
-                        var ro = new ResizeObserver(function() { setTimeout(triggerResize, 50); });
-                        ro.observe(mapEl.parentElement);
-                    }
-                }
-            };
-            var s = document.createElement('script');
-            s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) + (useAdvancedMarker ? '&libraries=marker' : '') + '&callback=initFooterMap&loading=async';
-            s.async = true;
-            document.head.appendChild(s);
-        })();
-
-        (function() {
             var widget = document.getElementById('frontend-whatsapp-widget');
             var toggle = document.getElementById('frontend-whatsapp-widget-toggle');
             var menu = document.getElementById('frontend-whatsapp-widget-menu');
@@ -1077,5 +1181,25 @@
         })();
     </script>
     @stack('scripts')
+    <script>
+    (function() {
+        function initScrollRevealSections() {
+            var sections = document.querySelectorAll('[data-scroll-reveal]');
+            if (!sections.length) return;
+            var opts = { rootMargin: '0px 0px 22% 0px', threshold: 0.04 };
+            var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) entry.target.classList.add('is-in-view');
+                });
+            }, opts);
+            sections.forEach(function(el) { observer.observe(el); });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initScrollRevealSections);
+        } else {
+            initScrollRevealSections();
+        }
+    })();
+    </script>
 </body>
 </html>

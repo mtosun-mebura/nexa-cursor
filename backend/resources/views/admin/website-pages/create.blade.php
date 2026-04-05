@@ -11,16 +11,34 @@
                 Pagina aanmaken
             </h1>
         </div>
-        <div class="flex items-center">
-            <a href="{{ route('admin.website-pages.index') }}" class="kt-btn kt-btn-outline">
+        <div class="flex flex-wrap items-center gap-2">
+            @if(!empty($wizardBackUrl))
+                <a href="{{ $wizardBackUrl }}" class="kt-btn kt-btn-outline">
+                    <i class="ki-filled ki-arrow-left me-2"></i>
+                    Terug naar tenant-wizard
+                </a>
+            @endif
+            <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                Terug naar overzicht
+            </a>
+            @php
+                $previewAdminBack = route('admin.website-pages.index', $wizardIndexQuery ?? [], false);
+            @endphp
+            <a href="{{ route('home', ['nexa_admin_preview' => 1, 'admin_back' => $previewAdminBack]) }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-eye me-2"></i>
+                Pagina voorbeeld
             </a>
         </div>
     </div>
 
     <form id="website-page-form" action="{{ route('admin.website-pages.store') }}" method="POST">
         @csrf
+        @if(!empty($wizardIndexQuery))
+            @foreach($wizardIndexQuery as $k => $v)
+                <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+            @endforeach
+        @endif
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -220,7 +238,7 @@
                                 @php
                                     $createThemeSlug = $defaultTheme->slug ?? 'modern';
                                     $createSectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($createThemeSlug);
-                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage(old('module_name'));
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null);
                                 @endphp
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $createSectionTypes, 'availableComponents' => $availableComponents])
                             </div>
@@ -237,7 +255,7 @@
             </div>
 
             <div class="flex items-center justify-end gap-2.5">
-                <a href="{{ route('admin.website-pages.index') }}" class="kt-btn kt-btn-outline">
+                <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren
                 </a>

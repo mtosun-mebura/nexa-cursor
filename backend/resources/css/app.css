@@ -502,6 +502,98 @@
     box-sizing: border-box;
   }
 
+  /*
+   * Taxi-boekingsmodule: zelfde schakelaar als admin (Metronic .kt-switch / .kt-switch-sm).
+   * Zie backend public/assets/css/styles.css — hier gescoped + theme-variabelen voor de frontend.
+   */
+  [data-taxiroyaal-booking-module] {
+    --spacing: 0.25rem;
+    --input: rgb(226 232 240);
+    --primary: #f97316;
+    --background: #ffffff;
+    --ring: #f97316;
+    --color-white: #ffffff;
+  }
+  .dark [data-taxiroyaal-booking-module] {
+    --input: rgb(51 65 85 / 0.9);
+    --primary: #ea580c;
+    --background: #0f172a;
+    --ring: #fb923c;
+  }
+
+  [data-taxiroyaal-booking-module] .kt-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: pointer;
+    appearance: none;
+    background-color: var(--input);
+    border: none;
+    border-radius: calc(infinity * 1px);
+  }
+  [data-taxiroyaal-booking-module] .kt-switch:focus-visible {
+    outline-style: none;
+    --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width, 0px)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000);
+    --tw-ring-color: var(--ring);
+    --tw-ring-offset-width: 2px;
+    --tw-ring-offset-shadow: var(--tw-ring-inset, ) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+    --tw-ring-offset-color: var(--background);
+  }
+  [data-taxiroyaal-booking-module] .kt-switch:disabled {
+    cursor: not-allowed;
+    opacity: 50%;
+  }
+  [data-taxiroyaal-booking-module] .kt-switch::before {
+    pointer-events: none;
+    position: absolute;
+    inset-inline-start: calc(var(--spacing) * 0);
+    top: calc(1 / 2 * 100%);
+    display: block;
+    --tw-translate-x: calc(var(--spacing) * 1);
+    --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+    border-radius: calc(infinity * 1px);
+    background-color: var(--color-white);
+    --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(0px + var(--tw-ring-offset-width, 0px)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+    transition-property: transform, translate, scale, rotate;
+    transition-timing-function: var(--tw-ease, cubic-bezier(0.4, 0, 0.2, 1));
+    transition-duration: var(--tw-duration, 150ms);
+    content: "";
+  }
+  [data-taxiroyaal-booking-module] .kt-switch:checked,
+  [data-taxiroyaal-booking-module] .kt-switch[aria-checked="true"] {
+    background-color: var(--primary);
+  }
+  [data-taxiroyaal-booking-module] .kt-switch {
+    height: calc(var(--spacing) * 5);
+    width: calc(var(--spacing) * 7.5);
+    border-radius: calc(infinity * 1px);
+  }
+  [data-taxiroyaal-booking-module] .kt-switch::before {
+    width: calc(var(--spacing) * 3);
+    height: calc(var(--spacing) * 3);
+  }
+  [data-taxiroyaal-booking-module] :is(.kt-switch:checked, .kt-switch[aria-checked="true"])::before {
+    --tw-translate-x: calc(var(--spacing) * 3.5);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  [data-taxiroyaal-booking-module] .kt-switch-sm {
+    height: calc(var(--spacing) * 4.5);
+    width: calc(var(--spacing) * 6.5);
+    border-radius: calc(infinity * 1px);
+  }
+  [data-taxiroyaal-booking-module] .kt-switch-sm::before {
+    width: calc(var(--spacing) * 2.5);
+    height: calc(var(--spacing) * 2.5);
+  }
+  [data-taxiroyaal-booking-module] :is(.kt-switch-sm:checked, .kt-switch-sm[aria-checked="true"])::before {
+    --tw-translate-x: calc(var(--spacing) * 3);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+
   /* Alle textarea's: extra padding-top (pt-1) voor betere leesbaarheid */
   textarea {
     padding-top: 0.25rem;

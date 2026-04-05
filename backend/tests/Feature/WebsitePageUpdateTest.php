@@ -150,6 +150,64 @@ class WebsitePageUpdateTest extends TestCase
 
     #[Test]
     #[Group('website-pages')]
+    public function update_persists_component_section_visibility(): void
+    {
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'atom-v2'],
+            ['name' => 'Atom v2', 'is_active' => true]
+        );
+        $componentKey = 'component:taxiroyaal.boekingsmodule';
+        $page = WebsitePage::create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => 'Taxi Royaal',
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', $componentKey, 'cta'],
+                'visibility' => ['hero' => true, 'footer' => true, $componentKey => true],
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = [
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'module_name' => 'Taxi Royaal',
+            'frontend_theme_id' => (string) $theme->id,
+            'meta_description' => '',
+            'content' => '',
+            'is_active' => '1',
+            'sort_order' => '0',
+            '_section_order' => 'hero,'.$componentKey.',cta',
+            'home_sections' => [
+                'section_order' => 'hero,'.$componentKey.',cta',
+                'visibility' => [
+                    'hero' => '1',
+                    'footer' => '1',
+                    $componentKey => '0',
+                ],
+                'copyright' => '© Test',
+                'footer' => ['tagline' => 'Test tagline'],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $page->refresh();
+        $vis = $page->getHomeSections()['visibility'] ?? [];
+        $this->assertArrayHasKey($componentKey, $vis);
+        $this->assertFalse($vis[$componentKey], 'Hidden component visibility must persist as false');
+    }
+
+    #[Test]
+    #[Group('website-pages')]
     public function update_removes_component_from_section_order_when_not_in_section_order()
     {
         $theme = FrontendTheme::firstOrCreate(

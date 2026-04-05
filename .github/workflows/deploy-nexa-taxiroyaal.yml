@@ -2,298 +2,32 @@ name: Deploy Nexa Taxiroyaal
 
 on:
   push:
-    branches: [ nexa-taxiroyaal ]
+    branches:
+      - nexa-saas
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: self-hosted
 
-    env:
-      DEPLOY_DIR: /var/www/nexa-taxiroyaal
-      COMPOSE_FILE: docker-compose.prod.yml
-      BACKEND_DIR: /var/www/nexa-taxiroyaal/backend
-
     steps:
-      - name: Cleanup disk space
+      - name: Show context
+        run: |
+          echo "Deploy gestart voor taxiroyaal.nexasuite.nl"
+          whoami
+          hostname
+          pwd
+
+      - name: Run server deploy script
+        run: |
+          sudo /usr/local/bin/deploy-taxiroyaal.sh
+
+      - name: Verify public site
         run: |
           set -e
-          echo "🧹 Cleaning up disk space..."
-          
-          # Clean Docker resources
-          echo "🗑️  Cleaning Docker..."
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          
-          # Clean APT cache
-          echo "🗑️  Cleaning APT cache..."
-          sudo apt-get clean || true
-          sudo apt-get autoclean || true
-          sudo rm -rf /var/lib/apt/lists/* || true
-          
-          # Clean old logs (keep last 7 days)
-          echo "🗑️  Cleaning old logs..."
-          sudo find /var/log -type f -name "*.log" -mtime +7 -delete || true
-          sudo find /var/log -type f -name "*.gz" -delete || true
-          
-          # Clean GitHub Actions runner logs and cache
-          echo "🗑️  Cleaning GitHub Actions runner logs..."
-          # Clean runner diagnostic logs (can be very large)
-          if [ -d "$HOME/actions-runner/_diag" ]; then
-            sudo find "$HOME/actions-runner/_diag" -type f -name "*.log" -delete || true
-            sudo find "$HOME/actions-runner/_diag/pages" -type f -delete || true
-            sudo rm -rf "$HOME/actions-runner/_diag/pages"/* || true
+          code=$(curl -k -sS -o /dev/null -w "%{http_code}" --max-time 30 https://taxiroyaal.nexasuite.nl || echo "000")
+          echo "HTTP status: $code"
+          if [ "$code" != "200" ] && [ "$code" != "302" ] && [ "$code" != "301" ]; then
+            echo "Publieke site geeft onverwachte status: $code"
+            exit 1
           fi
-          
-          # Clean runner work directory old files
-          if [ -d "$HOME/actions-runner/_work" ]; then
-            sudo find "$HOME/actions-runner/_work" -type f -name "*.log" -mtime +1 -delete || true
-          fi
-          
-          # Clean npm cache
-          echo "🗑️  Cleaning npm cache..."
-          npm cache clean --force || true
-          
-          # Clean Composer cache
-          echo "🗑️  Cleaning Composer cache..."
-          composer clear-cache || true
-          
-          # Show disk space
-          echo "💾 Disk space after cleanup:"
-          df -h
-          echo "✅ Cleanup complete"
-
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Remove vendor/node_modules before rsync
-        run: |
-          set -e
-          echo "🗑️  Removing vendor/node_modules directories (worden in container gebouwd)..."
-          # Verwijder vendor/node_modules volledig - worden opnieuw gebouwd in container
-          sudo rm -rf "$DEPLOY_DIR"/backend/vendor 2>/dev/null || true
-          sudo rm -rf "$DEPLOY_DIR"/backend/node_modules 2>/dev/null || true
-          echo "✅ Vendor/node_modules verwijderd"
-
-      - name: Rsync code to server deploy dir
-        run: |
-          set -e
-          echo "📂 Syncing repo -> $DEPLOY_DIR"
-          mkdir -p "$DEPLOY_DIR"
-          # Exclude vendor, node_modules en andere build artifacts
-          # Deze worden in de container gebouwd tijdens docker build
-          sudo rsync -a --delete \
-            --no-perms --no-owner --no-group --omit-dir-times \
-            --exclude '.env' \
-            --exclude '.git' \
-            --exclude 'backend/vendor' \
-            --exclude 'backend/vendor/**' \
-            --exclude 'backend/node_modules' \
-            --exclude 'backend/node_modules/**' \
-            --exclude 'backend/.env' \
-            ./ "$DEPLOY_DIR"/
-          echo "✅ Synced to $DEPLOY_DIR"
-
-      # sudo rsync maakt bestanden als root; runner moet kunnen schrijven voor npm build
-      - name: Fix deploy tree ownership (runner + www-data)
-        run: |
-          set -e
-          sudo chown -R "$USER:www-data" "$DEPLOY_DIR"
-          echo "✅ $DEPLOY_DIR owned by $USER:www-data"
-
-      - name: Ensure Laravel dirs & .env exist
-        run: |
-          set -e
-          cd "$BACKEND_DIR"
-          mkdir -p bootstrap/cache \
-                   storage/framework/{cache,sessions,views} \
-                   storage/logs \
-                   public/build
-          echo "✅ Laravel dirs klaar"
-
-      - name: Ensure .env in root exists
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          # .env staat in root - wordt gebruikt door zowel Docker Compose als Laravel
-          if [ ! -f .env ]; then
-            echo "⚠️  .env ontbreekt in root; kopieer backend/.env.example -> .env (pas waarden aan)"
-            if [ -f "$BACKEND_DIR/.env.example" ]; then
-              cp "$BACKEND_DIR/.env.example" .env
-            else
-              touch .env
-            fi
-          fi
-          echo "✅ .env in root aanwezig"
-
-      - name: Setup Node.js for Vite build
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Build Vite assets (production)
-        run: |
-          set -e
-          cd "$BACKEND_DIR"
-          
-          # Clean previous build (fallback: sudo als oude build als root stond)
-          rm -rf public/build 2>/dev/null || sudo rm -rf public/build || true
-          
-          # Install dependencies
-          npm ci
-          
-          # Build assets for production
-          NODE_ENV=production npm run build
-          
-          # Verify build output
-          test -f public/build/manifest.json || (echo "❌ manifest.json niet gevonden" && exit 1)
-          echo "✅ Vite manifest aanwezig"
-          
-          # List build files for debugging
-          echo "📦 Build bestanden:"
-          ls -lah public/build/ | head -20
-          
-          # Fix permissions voor build directory
-          sudo chown -R $USER:www-data public/build
-          sudo chmod -R 755 public/build
-          echo "✅ Build directory permissions OK"
-
-      - name: Pick docker compose (v2/v1)
-        id: pickdc
-        shell: bash
-        run: |
-          if docker compose version >/dev/null 2>&1; then
-            echo "dc=docker compose" >> $GITHUB_OUTPUT
-          else
-            echo "dc=docker-compose" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Ensure .env and APP_KEY
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          # .env staat nu in root (niet in backend)
-          [ -f .env ] || cp "$BACKEND_DIR/.env.example" .env
-          # Voeg een APP_KEY toe als hij ontbreekt
-          if ! grep -q '^APP_KEY=' .env; then
-            KEY=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
-            printf '\nAPP_KEY=%s\n' "$KEY" >> .env
-            echo "APP_KEY added to .env"
-          else
-            echo "APP_KEY present"
-          fi
-
-      - name: Install PHP dependencies (in container tijdens build)
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          echo "📦 PHP dependencies worden geïnstalleerd in container tijdens build..."
-          # Composer install gebeurt in Dockerfile, maar we kunnen het hier ook doen voor zekerheid
-          # Dit voorkomt dat we vendor moeten synchen
-
-      - name: Build & start containers
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          dc="${{ steps.pickdc.outputs.dc }}"
-          $dc -f "$COMPOSE_FILE" down --remove-orphans || true
-          
-          # Legacy / handmatige container met oude vaste naam (nexa_backend) blokkeert anders 'create'
-          echo "🧹 Verwijderen eventuele oude backend-container met vaste naam..."
-          docker rm -f nexa_backend 2>/dev/null || true
-          
-          # Clean Docker build cache before building to save space
-          echo "🧹 Cleaning Docker build cache..."
-          docker builder prune -af || true
-          
-          $dc -f "$COMPOSE_FILE" build --no-cache
-          $dc -f "$COMPOSE_FILE" up -d --force-recreate
-          echo "⏳ Wachten tot backend luistert..."
-          tries=0
-          until curl -fs http://127.0.0.1:8000 -I >/dev/null 2>&1; do
-            tries=$((tries+1))
-            if [ "$tries" -ge 20 ]; then
-              echo "❌ Backend luistert niet op :8000 na $tries pogingen"
-              echo "📄 Laatste 200 regels van container logs:"
-              $dc -f "$COMPOSE_FILE" logs --tail=200 backend || true
-              exit 1
-            fi
-            echo "⏳ Poging $tries/20 - wachten 3s..."
-            sleep 3
-          done
-          echo "✅ Backend OK op :8000"
-          
-          # Verify Vite assets are accessible in container
-          echo "🔍 Verifiëren Vite assets in container..."
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "test -f /var/www/html/public/build/manifest.json && echo '✅ manifest.json aanwezig in container' || echo '❌ manifest.json NIET aanwezig in container'"
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "ls -lah /var/www/html/public/build/ | head -10 || echo '❌ Build directory niet toegankelijk'"
-
-      - name: Laravel post-deploy
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          dc="${{ steps.pickdc.outputs.dc }}"
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "chown www-data:www-data /var/www/html/.env && chmod 644 /var/www/html/.env" || true
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:cache
-
-      - name: Fix .env permissions before key:generate
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          dc="${{ steps.pickdc.outputs.dc }}"
-          # Fix permissions for .env file in container
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "chown www-data:www-data /var/www/html/.env && chmod 644 /var/www/html/.env" || true
-          echo "✅ .env permissions fixed"
-
-      - name: Laravel post-deploy (in container)
-        run: |
-          set -e
-          cd "$DEPLOY_DIR"
-          dc="${{ steps.pickdc.outputs.dc }}"
-          # Generate key only if APP_KEY is not set (skip if already exists)
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force
-          # Clear all caches first to ensure fresh state
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:clear
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan cache:clear
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan route:clear
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan view:clear
-          # Rebuild caches
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:cache
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan route:cache
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan view:cache
-          $dc -f "$COMPOSE_FILE" exec -T backend php artisan storage:link || true
-          echo "✅ Laravel caches & migraties voltooid"
-
-      - name: Fix permissions for runtime dirs
-        run: |
-          set -e
-          sudo chown -R $USER:www-data "$BACKEND_DIR"/storage "$BACKEND_DIR"/bootstrap/cache
-          sudo chmod -R 775 "$BACKEND_DIR"/storage "$BACKEND_DIR"/bootstrap/cache
-          echo "✅ Permissies OK"
-
-      - name: Reload Nginx
-        run: |
-          sudo systemctl reload nginx || true
-          echo "✅ Nginx reloaded"
-
-      - name: Verify backend & publieke site
-        run: |
-          set -e
-          # Strikte check: Laravel health op de draaiende container (niet via Varnish/Apache)
-          echo "🔍 Backend health (lokaal)…"
-          curl -fsS -o /dev/null "http://127.0.0.1:8000/up" || (echo "❌ Backend /up faalt op :8000" && exit 1)
-          echo "✅ Backend /up = 200"
-          # Publieke URL: kan 500 geven door cache, homepage, of proxy — blokkeer deploy niet
-          echo "🔍 Publieke URL (informatief)…"
-          pub_code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 25 "https://taxiroyaal.mebura.nl/up" || echo "000")
-          if [ "$pub_code" = "200" ]; then
-            echo "✅ https://taxiroyaal.mebura.nl/up = 200"
-          else
-            echo "⚠️  Publieke /up gaf HTTP ${pub_code} (controleer Varnish/Apache/Laravel-logs als dit onverwacht is)"
-          fi
-          echo "🎉 Deployment succesvol"

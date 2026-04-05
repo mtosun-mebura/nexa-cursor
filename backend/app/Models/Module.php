@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /** @property-read FrontendTheme|null $theme */
-
 class Module extends Model
 {
     protected $fillable = [
@@ -29,5 +28,12 @@ class Module extends Model
     public function theme()
     {
         return $this->belongsTo(FrontendTheme::class, 'frontend_theme_id');
+    }
+
+    public function companies()
+    {
+        return $this->belongsToMany(Company::class, 'company_module')
+            ->withPivot('settings')
+            ->withTimestamps();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\Module;
 use App\Models\Vacancy;
@@ -35,80 +36,20 @@ class AdminWebsitePageController extends Controller
      * Lijst website-pagina's. Kernpagina's (geen module) uit hoofddatabase; plus alle module-pagina's
      * (per module-DB of in hoofddatabase bij single-DB). Worden op de site in het actieve thema getoond.
      */
-    public function index()
+    public function index(Request $request)
     {
         $this->ensureSuperAdmin();
         $activeModuleName = $this->getActiveModuleNameForFrontend();
 
-        $pages = $this->loadAllPagesForIndex();
+        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex();
         $activeTheme = $this->websiteBuilder->getActiveTheme();
+        $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
+        $wizardIndexQuery = $this->websitePagesIndexQuery($request);
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery'));
     }
 
-    /**
-     * Kernpagina's uit hoofddatabase (module_name null) + alle module-pagina's.
-     * Bij per-module databases: uit elke geïnstalleerde module-DB. Bij single-DB: zelfde DB, module_name gezet.
-     */
-    private function loadAllPagesForIndex(): \Illuminate\Support\Collection
-    {
-        $kernel = WebsitePage::query()
-            ->whereNull('module_name')
-            ->with('theme')
-            ->orderBy('sort_order')
-            ->orderBy('title')
-            ->get();
-
-        if (! $this->moduleDb->supportsModuleDatabases()) {
-            $modulePagesOnMain = WebsitePage::query()
-                ->whereNotNull('module_name')
-                ->with('theme')
-                ->orderBy('sort_order')
-                ->orderBy('title')
-                ->get();
-
-            return $kernel->concat($modulePagesOnMain)->sortBy([
-                ['sort_order', 'asc'],
-                ['title', 'asc'],
-            ])->values();
-        }
-
-        $modulePages = collect();
-        foreach (Module::where('installed', true)->pluck('name') as $moduleName) {
-            if ($moduleName === null || $moduleName === '') {
-                continue;
-            }
-            $conn = $this->moduleDb->getModuleConnectionName($moduleName);
-            if (! Config::has("database.connections.{$conn}")) {
-                try {
-                    $this->moduleDb->registerConnection($moduleName);
-                } catch (\Throwable) {
-                    continue;
-                }
-            }
-            if (! Config::has("database.connections.{$conn}")) {
-                continue;
-            }
-            try {
-                $modulePages = $modulePages->concat(
-                    WebsitePage::on($conn)
-                        ->with('theme')
-                        ->orderBy('sort_order')
-                        ->orderBy('title')
-                        ->get()
-                );
-            } catch (\Throwable) {
-                continue;
-            }
-        }
-
-        return $kernel->concat($modulePages)->sortBy([
-            ['sort_order', 'asc'],
-            ['title', 'asc'],
-        ])->values();
-    }
-
-    public function create()
+    public function create(Request $request)
     {
         $this->ensureSuperAdmin();
         $installedModules = $this->moduleManager->getInstalledModules();
@@ -119,8 +60,12 @@ class AdminWebsitePageController extends Controller
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
         $googleMapsMapId = $env->getGoogleMapsMapId();
         $emailTemplates = $this->getEmailTemplatesForWebsiteForm();
+        $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
+        $wizardIndexQuery = $this->websitePagesIndexQuery($request);
 
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates'));
+        $moduleNameForComponents = $this->moduleNameForWebsiteComponents(null, $request);
+
+        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents'));
     }
 
     public function store(Request $request)
@@ -184,7 +129,7 @@ class AdminWebsitePageController extends Controller
             WebsitePage::create($data);
         }
 
-        return redirect()->route('admin.website-pages.index')->with('success', 'Pagina aangemaakt.');
+        return redirect()->route('admin.website-pages.index', $this->websitePagesIndexQuery($request))->with('success', 'Pagina aangemaakt.');
     }
 
     /**
@@ -201,12 +146,16 @@ class AdminWebsitePageController extends Controller
         return redirect($url);
     }
 
-    public function edit(WebsitePage $website_page)
+    public function edit(Request $request, WebsitePage $website_page)
     {
         $this->ensureSuperAdmin();
         // Zorg dat bij een module-pagina altijd ?module= in de URL staat, zodat route binding de pagina uit de module-DB laadt (anders toont de select geen opgeslagen template_id).
         if ($website_page->module_name && trim((string) request()->query('module')) !== trim((string) $website_page->module_name)) {
             $url = route('admin.website-pages.edit', ['website_page' => $website_page->id]).'?module='.rawurlencode($website_page->module_name);
+            $wizardQ = $this->websitePagesIndexQuery($request);
+            if ($wizardQ !== []) {
+                $url .= '&'.http_build_query($wizardQ);
+            }
 
             return redirect($url);
         }
@@ -251,6 +200,10 @@ class AdminWebsitePageController extends Controller
             }
         }
 
+        $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
+        $wizardIndexQuery = $this->websitePagesIndexQuery($request);
+        $moduleNameForComponents = $this->moduleNameForWebsiteComponents($website_page->module_name, $request);
+
         return view('admin.website-pages.edit', [
             'page' => $website_page,
             'installedModules' => $installedModules,
@@ -261,6 +214,9 @@ class AdminWebsitePageController extends Controller
             'googleMapsMapId' => $googleMapsMapId,
             'emailTemplates' => $emailTemplates,
             'emailTemplateSelectedIds' => $emailTemplateSelectedIds,
+            'wizardBackUrl' => $wizardBackUrl,
+            'wizardIndexQuery' => $wizardIndexQuery,
+            'moduleNameForComponents' => $moduleNameForComponents,
         ]);
     }
 
@@ -282,6 +238,27 @@ class AdminWebsitePageController extends Controller
         $first = Module::where('installed', true)->where('active', true)->first();
 
         return $first ? $first->name : null;
+    }
+
+    /**
+     * Modulenaam voor het filteren van website-builder componenten (sectie "Componenten").
+     * Eerst de opgeslagen pagina-module; anders query/old; anders actieve frontend-module.
+     */
+    private function moduleNameForWebsiteComponents(?string $pageModuleName, Request $request): ?string
+    {
+        if ($pageModuleName !== null && trim((string) $pageModuleName) !== '') {
+            return $this->resolveCanonicalModuleName($pageModuleName);
+        }
+        $fromOld = old('module_name');
+        if ($fromOld !== null && trim((string) $fromOld) !== '') {
+            return $this->resolveCanonicalModuleName($fromOld);
+        }
+        $q = $request->query('module_name') ?? $request->query('module');
+        if ($q !== null && trim((string) $q) !== '') {
+            return $this->resolveCanonicalModuleName((string) $q);
+        }
+
+        return $this->getActiveModuleNameForFrontend();
     }
 
     /**
@@ -397,6 +374,77 @@ class AdminWebsitePageController extends Controller
         ])->render();
 
         // Eerste .home-section-card extraheren (bij sectionCardOnly rendert de partial precies één kaart)
+        $dom = new \DOMDocument;
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="UTF-8"><div id="section-card-wrapper">'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        $xpath = new \DOMXPath($dom);
+        $sortable = $xpath->query("//*[@id='home-sections-sortable']")->item(0);
+        $card = null;
+        if ($sortable) {
+            foreach ($sortable->childNodes as $child) {
+                if ($child->nodeType !== \XML_ELEMENT_NODE) {
+                    continue;
+                }
+                $class = $child->getAttribute('class') ?? '';
+                if (str_contains($class, 'home-section-card') && str_contains($class, 'kt-card')) {
+                    $card = $child;
+                    break;
+                }
+            }
+        }
+        $cardHtml = $card ? $dom->saveHTML($card) : '';
+
+        return response($cardHtml, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
+    /**
+     * HTML voor één frontend-componentkaart (component:taxiroyaal.boekingsmodule, enz.).
+     * Gebruikt bij "Sectie toevoegen" wanneer er nog geen kaart van dat type op de pagina staat.
+     */
+    public function componentSectionCardHtml(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $raw = trim((string) $request->query('component', ''));
+        if ($raw === '') {
+            abort(400);
+        }
+        if (str_starts_with(strtolower($raw), 'component:')) {
+            $raw = (string) preg_replace('/^component:+/i', '', $raw);
+        }
+        $componentService = app(FrontendComponentService::class);
+        $comp = $componentService->getById($raw);
+        if (! $comp) {
+            abort(404);
+        }
+        $canonicalId = trim((string) ($comp->id ?? $raw));
+        $sectionKey = 'component:'.$canonicalId;
+
+        $theme = $request->input('theme', 'modern');
+        $emailTemplates = $this->getEmailTemplatesForWebsiteForm();
+
+        $moduleName = $request->query('module_name');
+        $moduleNameForUploads = null;
+        if (is_string($moduleName) && trim($moduleName) !== '') {
+            $moduleNameForUploads = trim($moduleName);
+        }
+
+        $homeSections = [
+            'section_order' => [$sectionKey],
+            $sectionKey => [],
+            'visibility' => [],
+            'admin_collapsed' => [],
+        ];
+
+        $html = view('admin.website-pages.partials.home-sections', [
+            'homeSections' => $homeSections,
+            'themeSlug' => $theme,
+            'isNonHomePage' => false,
+            'sectionCardOnly' => true,
+            'emailTemplates' => $emailTemplates,
+            'moduleNameForUploads' => $moduleNameForUploads,
+        ])->render();
+
         $dom = new \DOMDocument;
         libxml_use_internal_errors(true);
         $dom->loadHTML('<?xml encoding="UTF-8"><div id="section-card-wrapper">'.$html.'</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
@@ -677,6 +725,10 @@ class AdminWebsitePageController extends Controller
             $separator = '&';
         }
         $editUrl .= $separator.'saved=1';
+        $wizardQ = $this->websitePagesIndexQuery($request);
+        if ($wizardQ !== []) {
+            $editUrl .= '&'.http_build_query($wizardQ);
+        }
 
         return redirect($editUrl)->with('success', 'Pagina bijgewerkt.');
     }
@@ -1086,6 +1138,15 @@ class AdminWebsitePageController extends Controller
                 $visibility[$key] = ! empty($value);
             }
         }
+        // Hoofd-zichtbaarheid per sectie in section_order (o.a. component:taxiroyaal.* en andere dynamische keys)
+        foreach ($sectionOrder as $sk) {
+            if (! is_string($sk) || $sk === '') {
+                continue;
+            }
+            if (array_key_exists($sk, $visibilityInput)) {
+                $visibility[$sk] = ! empty($visibilityInput[$sk]);
+            }
+        }
 
         $adminCollapsed = $input['admin_collapsed'] ?? [];
         if (is_string($adminCollapsed) && $adminCollapsed !== '') {
@@ -1479,12 +1540,12 @@ class AdminWebsitePageController extends Controller
         ]);
     }
 
-    public function destroy(WebsitePage $website_page)
+    public function destroy(Request $request, WebsitePage $website_page)
     {
         $this->ensureSuperAdmin();
         $website_page->delete();
 
-        return redirect()->route('admin.website-pages.index')->with('success', 'Pagina verwijderd.');
+        return redirect()->route('admin.website-pages.index', $this->websitePagesIndexQuery($request))->with('success', 'Pagina verwijderd.');
     }
 
     /**
@@ -1592,5 +1653,41 @@ class AdminWebsitePageController extends Controller
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Alleen super-admins hebben toegang tot website-pagina\'s.');
         }
+    }
+
+    /**
+     * Querystring voor tenant-wizard (company onboarding) — behouden bij navigatie tussen wizard en website-pagina's.
+     *
+     * @return array<string, int>
+     */
+    private function websitePagesIndexQuery(Request $request): array
+    {
+        if (! $request->boolean('from_wizard')) {
+            return [];
+        }
+        $companyId = $request->input('wizard_company');
+        if ($companyId === null || $companyId === '') {
+            return [];
+        }
+
+        return [
+            'from_wizard' => 1,
+            'wizard_company' => (int) $companyId,
+            'wizard_step' => max(1, min(7, (int) $request->input('wizard_step', 6))),
+        ];
+    }
+
+    private function resolveTenantWizardReturnUrl(Request $request): ?string
+    {
+        $q = $this->websitePagesIndexQuery($request);
+        if ($q === []) {
+            return null;
+        }
+        $company = Company::find($q['wizard_company']);
+        if (! $company) {
+            return null;
+        }
+
+        return route('admin.companies.wizard.step', [$company, $q['wizard_step']]);
     }
 }

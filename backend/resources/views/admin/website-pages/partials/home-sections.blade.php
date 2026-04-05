@@ -99,7 +99,7 @@
 {{-- Heroicons: eye (tonen) en eye-slash (verborgen op website) --}}
 <input type="hidden" name="home_sections[section_order]" id="home-sections-order-input" value="{{ implode(',', $sectionOrder) }}">
 <input type="hidden" name="home_sections[admin_collapsed]" id="admin-collapsed-input" value="{{ implode(',', $adminCollapsed) }}">
-<div id="home-sections-meta" class="hidden" data-section-card-url="{{ route('admin.website-pages.section-card-html') }}" data-theme-slug="{{ $themeSlugForOrder }}" data-section-labels="{{ json_encode($sectionTypeLabels) }}"></div>
+<div id="home-sections-meta" class="hidden" data-section-card-url="{{ route('admin.website-pages.section-card-html') }}" data-component-section-url="{{ route('admin.website-pages.component-section-html') }}" data-theme-slug="{{ $themeSlugForOrder }}" data-section-labels="{{ json_encode($sectionTypeLabels) }}"></div>
 <div id="home-sections-sortable" class="space-y-6" data-admin-collapsed="{{ json_encode($adminCollapsed) }}">
     @foreach($sectionOrder as $sectionKey)
     @php
@@ -1197,13 +1197,15 @@
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">Taxi Royaal tarieven (Taxi)</h3>
             <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
                 <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             <p class="text-sm text-muted-foreground">Per kaart: tarief, titel, afbeelding (voertuig of eigen upload), kaartgrootte, stijl en kleuren. Op de website verschijnt de titel en de prijzen voor het gekozen tarief.</p>
-            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg bg-muted/20">
+            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg">
                 <div class="flex items-center gap-3">
                     <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input flex-1 max-w-md text-sm" value="{{ $tarievenBlockTitle }}" placeholder="Onze tarieven">
@@ -1418,7 +1420,7 @@
                 </div>
                 @endforeach
             </div>
-            <div class="mt-4">
+            <div class="mt-4 pb-4">
                 <button type="button" class="taxiroyaal-tarieven-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Tarievenkaart toevoegen</button>
             </div>
         </div>
@@ -1436,8 +1438,10 @@
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--boekingsmodule flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title">Boekingsmodule (Taxi)</h3>
+            <h3 class="kt-card-title">Taxi boekingsmodule</h3>
             <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
                 <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
@@ -1445,11 +1449,11 @@
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             <p class="text-sm text-muted-foreground">Meerstaps wizard voor bagage, aanbiedingen, reisgegevens en contactgegevens. Prijsberekening gebruikt route-afstand/tijd via Google Maps.</p>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg bg-muted/20">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg">
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Subtitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
-                <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? '#5b21b6') }}"></div>
-                <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? '#5b21b6') }}"></div>
+                <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? \App\Services\TaxiRoyaalBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
+                <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? \App\Services\TaxiRoyaalBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
                 <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte tabbladen</label>
                     @php $bookingTabFontPx = old('home_sections.'.$sectionKey.'.style.tab_font_size_px', $bookingData['style']['tab_font_size_px'] ?? '14'); @endphp
@@ -1645,6 +1649,8 @@
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $componentTitle }}</h3>
             <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
@@ -1673,6 +1679,8 @@
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title component-card-title">Component</h3>
             <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" class="home-section-component-visibility-input" value="1" autocomplete="off">
+                <button type="button" class="section-visibility-toggle home-section-component-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="" title="Verbergen op website" aria-label="Zichtbaarheid"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
                 <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
@@ -3357,6 +3365,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
 
         var metaEl = document.getElementById('home-sections-meta');
         var sectionCardUrl = metaEl ? (metaEl.getAttribute('data-section-card-url') || '') : '';
+        var componentSectionUrl = metaEl ? (metaEl.getAttribute('data-component-section-url') || '') : '';
         var themeSlug = metaEl ? (metaEl.getAttribute('data-theme-slug') || 'modern') : 'modern';
         var sectionLabels = {};
         try {
@@ -3623,25 +3632,77 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             }
             var template = document.getElementById('home-section-component-card-template');
             var existingCard = sortableContainer.querySelector('.home-section-card--component[data-section="' + sectionKey + '"]');
-            var card = null;
-            if (existingCard) {
-                card = existingCard.cloneNode(true);
-            } else if (template && template.content && template.content.firstElementChild) {
-                card = template.content.firstElementChild.cloneNode(true);
-            }
-            if (card) {
+
+            function finishAppendComponentCard(card) {
+                if (!card) return;
                 card.setAttribute('data-section', sectionKey);
                 card.classList.remove('home-section-card--collapsed');
+                var visInput = card.querySelector('input.home-section-component-visibility-input');
+                if (visInput) {
+                    visInput.setAttribute('name', 'home_sections[visibility][' + sectionKey + ']');
+                    visInput.id = 'visibility-' + sectionKey;
+                }
+                var visBtn = card.querySelector('button.home-section-component-visibility-toggle');
+                if (visBtn && visInput) {
+                    visBtn.setAttribute('data-target', visInput.id);
+                }
                 var titleEl = card.querySelector('.component-card-title');
                 if (titleEl) titleEl.textContent = name + ' (' + (btn.getAttribute('data-module') || 'Module') + ')';
                 sortableContainer.appendChild(card);
-                order.push(sectionKey);
-                orderInput.value = order.join(',');
+                if (typeof window.bindHeroUploadAreasIn === 'function') window.bindHeroUploadAreasIn(card);
+                var orderNow = (orderInput.value || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                orderNow.push(sectionKey);
+                orderInput.value = orderNow.join(',');
                 var fallbackComp = document.getElementById('section-order-fallback');
                 if (fallbackComp) fallbackComp.value = orderInput.value;
+                var cardBody = card.querySelector('.home-section-card-body');
+                if (cardBody) {
+                    refreshTaxiroyaalStepHeadings(cardBody);
+                    cardBody.querySelectorAll('.taxiroyaal-booking-row[data-list="offers"]').forEach(function(row) {
+                        syncTaxiroyaalOfferVehicleOptions(row);
+                    });
+                }
+                menu.classList.add('hidden');
+                addBtn.setAttribute('aria-expanded', 'false');
             }
-            menu.classList.add('hidden');
-            addBtn.setAttribute('aria-expanded', 'false');
+
+            if (existingCard) {
+                finishAppendComponentCard(existingCard.cloneNode(true));
+                return;
+            }
+
+            var compIdRaw = String(sectionKey || '').replace(/^component:/i, '');
+            if (componentSectionUrl && compIdRaw) {
+                var moduleNameForFetch = (typeof window.__websitePageModuleName === 'string' && window.__websitePageModuleName)
+                    ? window.__websitePageModuleName : '';
+                var fetchUrl = componentSectionUrl + '?component=' + encodeURIComponent(compIdRaw) + '&theme=' + encodeURIComponent(themeSlug);
+                if (moduleNameForFetch) fetchUrl += '&module_name=' + encodeURIComponent(moduleNameForFetch);
+                btn.disabled = true;
+                fetch(fetchUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }, credentials: 'same-origin' })
+                    .then(function(r) { return r.ok ? r.text() : Promise.reject(new Error('HTTP')); })
+                    .then(function(html) {
+                        var wrap = document.createElement('div');
+                        wrap.innerHTML = html.trim();
+                        var fetchedCard = wrap.querySelector('.kt-card.home-section-card');
+                        if (!fetchedCard) return Promise.reject(new Error('empty'));
+                        finishAppendComponentCard(fetchedCard);
+                    })
+                    .catch(function() {
+                        var card = null;
+                        if (template && template.content && template.content.firstElementChild) {
+                            card = template.content.firstElementChild.cloneNode(true);
+                        }
+                        if (card) finishAppendComponentCard(card);
+                    })
+                    .finally(function() { btn.disabled = false; });
+                return;
+            }
+
+            var card = null;
+            if (template && template.content && template.content.firstElementChild) {
+                card = template.content.firstElementChild.cloneNode(true);
+            }
+            if (card) finishAppendComponentCard(card);
         });
 
         document.addEventListener('click', function(e) {
@@ -3797,8 +3858,6 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .home-section-header--component { background-color: rgb(127 29 63 / 0.4); border-left-color: rgb(251 113 133); }
     .home-section-header--component .kt-card-title { color: rgb(159 18 57); }
     .dark .home-section-header--component .kt-card-title { color: rgb(253 164 175); }
-    .home-section-card:has(.home-section-header--component) .home-section-card-body { background-color: rgb(255 228 230 / 0.25); }
-    .dark .home-section-card:has(.home-section-header--component) .home-section-card-body { background-color: rgb(127 29 63 / 0.12); }
     .home-section-card--component.home-section-card--module .home-section-card-body { padding-bottom: 0; }
     .home-section-header--footer { background-color: rgb(241 245 249); border-left-color: rgb(100 116 139); }
     .dark .home-section-header--footer { background-color: rgb(30 41 59 / 0.5); border-left-color: rgb(148 163 184); }
@@ -3810,8 +3869,6 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .home-section-header--boekingsmodule { background-color: rgb(124 45 18 / 0.4); border-left-color: rgb(251 146 60); }
     .home-section-header--boekingsmodule .kt-card-title { color: rgb(124 45 18); }
     .dark .home-section-header--boekingsmodule .kt-card-title { color: rgb(254 215 170); }
-    .home-section-card:has(.home-section-header--boekingsmodule) .home-section-card-body { background-color: rgb(254 243 199 / 0.35); }
-    .dark .home-section-card:has(.home-section-header--boekingsmodule) .home-section-card-body { background-color: rgb(124 45 18 / 0.15); }
     .home-section-header--copyright { background-color: rgb(248 250 252); border-left-color: rgb(71 85 105); }
     .dark .home-section-header--copyright { background-color: rgb(30 41 59 / 0.4); border-left-color: rgb(100 116 139); }
     .home-section-header--copyright .kt-card-title { color: rgb(71 85 105); }

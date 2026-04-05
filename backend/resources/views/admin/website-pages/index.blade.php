@@ -5,7 +5,7 @@
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <div>
+        <div class="min-w-0 flex-1">
             <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
             @if($activeTheme || !empty($activeModuleName))
                 <p class="text-sm text-muted-foreground mt-1">
@@ -18,10 +18,27 @@
                     @endif
                 </p>
             @endif
+            @if(!empty($wizardBackUrl))
+                <div class="mt-2">
+                    <a href="{{ $wizardBackUrl }}" class="kt-btn kt-btn-outline">
+                        <i class="ki-filled ki-arrow-left me-2"></i>
+                        Terug naar tenant-wizard
+                    </a>
+                </div>
+            @endif
         </div>
-        <a href="{{ route('admin.website-pages.create') }}" class="kt-btn kt-btn-primary">
-            <i class="ki-filled ki-plus me-2"></i> Nieuwe pagina
-        </a>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+            @php
+                $previewAdminBack = route('admin.website-pages.index', $wizardIndexQuery ?? [], false);
+            @endphp
+            <a href="{{ route('home', ['nexa_admin_preview' => 1, 'admin_back' => $previewAdminBack]) }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-eye me-2"></i>
+                Pagina voorbeeld
+            </a>
+            <a href="{{ route('admin.website-pages.create', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-primary">
+                <i class="ki-filled ki-plus me-2"></i> Nieuwe pagina
+            </a>
+        </div>
     </div>
 
     @if(session('success'))
@@ -47,7 +64,13 @@
                 </thead>
                 <tbody>
                     @forelse($pages as $page)
-                        @php $pageModule = $page->module_name ? '?module=' . rawurlencode($page->module_name) : ''; @endphp
+                        @php
+                            $pageModule = $page->module_name ? '?module=' . rawurlencode($page->module_name) : '';
+                            $wizSuffix = '';
+                            if (! empty($wizardIndexQuery ?? [])) {
+                                $wizSuffix = ($pageModule !== '' ? '&' : '?').http_build_query($wizardIndexQuery);
+                            }
+                        @endphp
                         <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-preview-url="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" role="button" tabindex="0">
                             <td>{{ $page->sort_order }}</td>
                             <td>{{ $page->title }}</td>
@@ -79,7 +102,7 @@
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
-                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.edit', $page) }}{{ $pageModule }}">
+                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.edit', $page) }}{{ $pageModule }}{{ $wizSuffix }}">
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-pencil"></i>
                                                     </span>
@@ -88,7 +111,7 @@
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
-                                                <form action="{{ route('admin.website-pages.destroy', $page) }}{{ $pageModule }}" method="POST" class="block" onsubmit="return confirm('Pagina verwijderen?');">
+                                                <form action="{{ route('admin.website-pages.destroy', $page) }}{{ $pageModule }}{{ $wizSuffix }}" method="POST" class="block" onsubmit="return confirm('Pagina verwijderen?');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-destructive">

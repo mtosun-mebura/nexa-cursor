@@ -25,8 +25,15 @@
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($vacancy->company && $vacancy->company->logo_blob)
+                @php
+                    $vc = $vacancy->company;
+                    $companyHeroLogoDarkUrl = ! empty($vc->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $vc)
+                        : route('admin.companies.logo', $vc);
+                @endphp
                 <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
-                    <img class="rounded-lg w-auto object-contain bg-transparent dark:bg-transparent" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $vacancy->company) }}" alt="{{ $vacancy->company->name }}">
+                    <img class="logo-light rounded-lg w-auto object-contain bg-transparent dark:hidden" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $vc) }}" alt="{{ $vc->name }}">
+                    <img class="logo-dark rounded-lg w-auto object-contain bg-transparent hidden dark:block" style="height: 80px; display: block; padding: 8px;" src="{{ $companyHeroLogoDarkUrl }}" alt="{{ $vc->name }}">
                 </div>
             @elseif($vacancy->company)
                 <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">

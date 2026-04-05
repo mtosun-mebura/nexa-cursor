@@ -306,7 +306,7 @@
                         </td>
                         <td class="text-foreground font-normal">
                             @if($user->company->is_intermediary)
-                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij / Recruiter</span>
                             @else
                                 <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
                             @endif

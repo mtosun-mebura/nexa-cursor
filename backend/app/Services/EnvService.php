@@ -28,13 +28,20 @@ class EnvService
         // Get the .env file path - check if it's in root or backend directory
         $rootPath = base_path();
         $backendPath = base_path('backend');
-        
-        if (File::exists($rootPath . '/.env')) {
-            $this->envPath = $rootPath . '/.env';
-        } elseif (File::exists($backendPath . '/.env')) {
-            $this->envPath = $backendPath . '/.env';
+
+        $rootEnv = $rootPath.'/.env';
+        $backendEnv = $backendPath.'/.env';
+        $fallback = base_path('.env');
+
+        // File::exists is true for directories too; file() requires a regular file.
+        if (File::exists($rootEnv) && is_file($rootEnv)) {
+            $this->envPath = $rootEnv;
+        } elseif (File::exists($backendEnv) && is_file($backendEnv)) {
+            $this->envPath = $backendEnv;
+        } elseif (File::exists($fallback) && is_file($fallback)) {
+            $this->envPath = $fallback;
         } else {
-            $this->envPath = base_path('.env');
+            $this->envPath = $fallback;
         }
     }
 
@@ -44,30 +51,37 @@ class EnvService
     public function getAll()
     {
         $env = [];
-        $lines = file($this->envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        
+        if (! is_string($this->envPath) || $this->envPath === '' || ! is_file($this->envPath) || ! is_readable($this->envPath)) {
+            return $env;
+        }
+
+        $lines = @file($this->envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (! is_array($lines)) {
+            return $env;
+        }
+
         foreach ($lines as $line) {
             // Skip comments
             if (strpos(trim($line), '#') === 0) {
                 continue;
             }
-            
+
             // Parse KEY=VALUE
             if (strpos($line, '=') !== false) {
-                list($key, $value) = explode('=', $line, 2);
+                [$key, $value] = explode('=', $line, 2);
                 $key = trim($key);
                 $value = trim($value);
-                
+
                 // Remove quotes if present
                 if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
                     (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
                     $value = substr($value, 1, -1);
                 }
-                
+
                 $env[$key] = $value;
             }
         }
-        
+
         return $env;
     }
 
@@ -84,6 +98,7 @@ class EnvService
             }
         }
         $all = $this->getAll();
+
         return $all[$key] ?? $default;
     }
 
@@ -93,7 +108,7 @@ class EnvService
      */
     public static function getRootEnvPath(): string
     {
-        return dirname(base_path()) . '/.env';
+        return dirname(base_path()).'/.env';
     }
 
     /**
@@ -113,6 +128,7 @@ class EnvService
                 return $key;
             }
         }
+
         return trim((string) (config('maps.api_key') ?? env('GOOGLE_MAPS_API_KEY', '')));
     }
 
@@ -122,11 +138,11 @@ class EnvService
      */
     private function getFromFile(string $filePath, string $key, $default = null)
     {
-        if (!File::exists($filePath) || !is_readable($filePath)) {
+        if (! File::exists($filePath) || ! is_readable($filePath)) {
             return $default;
         }
         $lines = @file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (!is_array($lines)) {
+        if (! is_array($lines)) {
             return $default;
         }
         $key = trim($key);
@@ -136,16 +152,18 @@ class EnvService
                 continue;
             }
             if (strpos($line, '=') !== false) {
-                list($k, $value) = explode('=', $line, 2);
+                [$k, $value] = explode('=', $line, 2);
                 if (trim($k) === $key) {
                     $value = trim($value);
                     if (strlen($value) >= 2 && ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') || (substr($value, 0, 1) === "'" && substr($value, -1) === "'"))) {
                         $value = substr($value, 1, -1);
                     }
+
                     return $value;
                 }
             }
         }
+
         return $default;
     }
 
@@ -162,12 +180,12 @@ class EnvService
      */
     public function set(array $variables)
     {
-        if (!File::exists($this->envPath)) {
+        if (! File::exists($this->envPath)) {
             throw new \Exception('.env file not found');
         }
 
         $env = $this->getAll();
-        
+
         // Update values
         foreach ($variables as $key => $value) {
             $env[$key] = $value;
@@ -177,53 +195,50 @@ class EnvService
         $content = '';
         $lines = file($this->envPath, FILE_IGNORE_NEW_LINES);
         $keysWritten = [];
-        
+
         foreach ($lines as $line) {
             $trimmedLine = trim($line);
-            
+
             // Keep comments and empty lines as is
             if (strpos($trimmedLine, '#') === 0 || empty($trimmedLine)) {
-                $content .= $line . "\n";
+                $content .= $line."\n";
+
                 continue;
             }
-            
+
             // Parse and update existing keys
             if (strpos($line, '=') !== false) {
-                list($key) = explode('=', $line, 2);
+                [$key] = explode('=', $line, 2);
                 $key = trim($key);
-                
+
                 if (isset($env[$key])) {
                     $value = $env[$key];
                     // Add quotes if value contains spaces or special characters
                     if (preg_match('/[\s=#]/', $value) || empty($value)) {
-                        $value = '"' . addslashes($value) . '"';
+                        $value = '"'.addslashes($value).'"';
                     }
-                    $content .= $key . '=' . $value . "\n";
+                    $content .= $key.'='.$value."\n";
                     $keysWritten[] = $key;
                     unset($env[$key]);
                 } else {
-                    $content .= $line . "\n";
+                    $content .= $line."\n";
                 }
             } else {
-                $content .= $line . "\n";
+                $content .= $line."\n";
             }
         }
-        
+
         // Add new keys that weren't in the file
         foreach ($env as $key => $value) {
-            if (!in_array($key, $keysWritten)) {
+            if (! in_array($key, $keysWritten)) {
                 // Add quotes if value contains spaces or special characters
                 if (preg_match('/[\s=#]/', $value) || empty($value)) {
-                    $value = '"' . addslashes($value) . '"';
+                    $value = '"'.addslashes($value).'"';
                 }
-                $content .= $key . '=' . $value . "\n";
+                $content .= $key.'='.$value."\n";
             }
         }
-        
+
         File::put($this->envPath, $content);
     }
 }
-
-
-
-

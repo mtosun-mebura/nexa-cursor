@@ -19,6 +19,7 @@ class FrontendComponentService
             $items = config('frontend_components.components', []);
             $this->components = collect($items)->map(fn ($c) => (object) $c);
         }
+
         return $this->components;
     }
 
@@ -31,6 +32,7 @@ class FrontendComponentService
         $found = $this->all()->first(function ($c) use ($id) {
             return strcasecmp($c->id ?? '', $id) === 0;
         });
+
         return $found ?: null;
     }
 
@@ -41,26 +43,62 @@ class FrontendComponentService
     }
 
     /**
+     * Canonieke module-key voor een component (config module_key, of afgeleid uit id zoals taxiroyaal.* / nexa.*).
+     */
+    public function componentModuleKey(object $c): ?string
+    {
+        $explicit = trim((string) ($c->module_key ?? ''));
+        if ($explicit !== '') {
+            return strtolower($explicit);
+        }
+        $id = trim((string) ($c->id ?? ''));
+        if (str_starts_with($id, 'taxiroyaal.')) {
+            return 'taxiroyaal';
+        }
+        if (str_starts_with($id, 'nexa.')) {
+            return 'skillmatching';
+        }
+
+        return null;
+    }
+
+    /**
      * Componenten die op een pagina toegevoegd kunnen worden.
-     * Geef de module-key van de pagina (bijv. uit $page->module_name). Alleen componenten
-     * van die module worden getoond. Bij null (kernpagina) worden alle componenten getoond.
-     * Componenten met available_on_all_pages (bijv. Google Reviews) worden altijd getoond.
+     * Geef de module-key van de pagina (canoniek zoals in modules.name, bijv. taxiroyaal).
+     * Alleen componenten van die module plus available_on_all_pages. Leeg/null = geen filter (alle componenten).
      */
     public function availableForPage(?string $pageModuleName = null): Collection
     {
         $all = $this->all();
-        if ($pageModuleName === null || $pageModuleName === '') {
+        $effective = trim((string) ($pageModuleName ?? ''));
+        if ($effective === '') {
             return $all;
         }
         $module = Module::where('installed', true)
-            ->whereRaw('LOWER(name) = ?', [strtolower(trim($pageModuleName))])
+            ->whereRaw('LOWER(name) = ?', [strtolower($effective)])
             ->first();
-        if (!$module || !$module->display_name) {
+        if (! $module) {
             return $all->filter(fn ($c) => false);
         }
-        $displayName = trim($module->display_name);
-        $forModule = $all->filter(fn ($c) => trim((string) ($c->module_name ?? '')) === $displayName);
-        $global = $all->filter(fn ($c) => !empty($c->available_on_all_pages));
+        $moduleNameLower = strtolower(trim((string) $module->name));
+        $displayName = trim((string) ($module->display_name ?? ''));
+
+        $forModule = $all->filter(function ($c) use ($moduleNameLower, $displayName) {
+            if (! empty($c->available_on_all_pages)) {
+                return false;
+            }
+            $ck = $this->componentModuleKey($c);
+            if ($ck !== null) {
+                return $ck === $moduleNameLower;
+            }
+            if ($displayName !== '') {
+                return trim((string) ($c->module_name ?? '')) === $displayName;
+            }
+
+            return false;
+        });
+        $global = $all->filter(fn ($c) => ! empty($c->available_on_all_pages));
+
         return $forModule->merge($global)->unique('id')->values();
     }
 
@@ -76,6 +114,7 @@ class FrontendComponentService
         if (! self::isComponentKey($key)) {
             return null;
         }
+
         return substr($key, 9);
     }
 }

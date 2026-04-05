@@ -592,6 +592,11 @@ class WebsitePage extends Model
                 }
             }
         }
+        foreach ($sectionOrder as $sk) {
+            if (! array_key_exists($sk, $visibility)) {
+                $visibility[$sk] = true;
+            }
+        }
 
         $adminCollapsed = $stored['admin_collapsed'] ?? [];
         if (! is_array($adminCollapsed)) {

@@ -9,6 +9,11 @@ use Carbon\Carbon;
 
 class TaxiRoyaalBookingPricingService
 {
+    /**
+     * Standaard accentkleur (rgb(57, 113, 243)) voor de Taxi boekingsmodule: primair + actieve tab, en fallbacks in de UI.
+     */
+    public const DEFAULT_BRAND_ACCENT_HEX = '#3971f3';
+
     public function __construct(
         protected ModuleDatabaseService $moduleDb,
         protected WebsiteBuilderService $websiteBuilder
@@ -28,8 +33,8 @@ class TaxiRoyaalBookingPricingService
             ],
             'step_order' => ['trip', 'baggage', 'offers', 'contact', 'confirm'],
             'style' => [
-                'primary_color' => '#5b21b6',
-                'active_tab_color' => '#5b21b6',
+                'primary_color' => self::DEFAULT_BRAND_ACCENT_HEX,
+                'active_tab_color' => self::DEFAULT_BRAND_ACCENT_HEX,
                 'tab_font_size_px' => '14',
                 'route_map_zoom' => '14',
                 'background_color' => '#ffffff',
@@ -112,7 +117,8 @@ class TaxiRoyaalBookingPricingService
 
         $style = is_array($raw['style'] ?? null) ? $raw['style'] : [];
         foreach ($defaults['style'] as $k => $v) {
-            $section['style'][$k] = isset($style[$k]) ? trim((string) $style[$k]) : $v;
+            $rawVal = isset($style[$k]) ? trim((string) $style[$k]) : '';
+            $section['style'][$k] = $rawVal !== '' ? $rawVal : $v;
         }
         $section['style']['border_radius'] = max(0, min(40, (int) ($section['style']['border_radius'] ?? $defaults['style']['border_radius'])));
         $width = trim((string) ($section['style']['container_max_width'] ?? ''));

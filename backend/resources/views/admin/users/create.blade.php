@@ -12,15 +12,16 @@
             </h1>
         </div>
         <div class="flex items-center">
-            <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-outline">
+            <a href="{{ $userCreateBackUrl }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
         </div>
     </div>
 
-    <form action="{{ route('admin.users.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
+        <input type="hidden" name="wizard_back_url" value="{{ $userCreateBackUrl }}">
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -184,7 +185,7 @@
                                     <option value="">-- Selecteer rol --</option>
                                     @foreach($roles as $role)
                                         @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
-                                            <option value="{{ $role->name }}" {{ old('role') == $role->name ? 'selected' : '' }}>
+                                            <option value="{{ $role->name }}" {{ old('role', $defaultRoleForForm ?? '') == $role->name ? 'selected' : '' }}>
                                                 {{ ucfirst(str_replace('-', ' ', $role->name)) }}
                                             </option>
                                         @endif

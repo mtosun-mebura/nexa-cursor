@@ -70,7 +70,7 @@
                         {{ $stats['intermediaries'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Tussenpartijen
+                        Tussenpartijen / Recruiters
                     </span>
                 </div>
             </div>

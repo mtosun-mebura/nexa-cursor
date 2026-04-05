@@ -61,180 +61,174 @@
 
         <form action="{{ route('admin.settings.general.update') }}" method="POST" enctype="multipart/form-data" id="general-settings-form">
             @csrf
+        @php
+            $hasLogo = $logo && Storage::disk('public')->exists($logo);
+            $hasLogoDark = !empty($logoDark) && Storage::disk('public')->exists($logoDark);
+            $useLightDark = ($logoMode ?? 'single') === 'light_dark';
+            $logoLightUrl = $hasLogo ? route('admin.settings.logo') : null;
+            $logoDarkUrl = ($hasLogo && $useLightDark && $hasLogoDark) ? route('admin.settings.logo-dark') : $logoLightUrl;
+        @endphp
         <div class="kt-card mb-8">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">Logo & Favicon</h3>
             </div>
-            <div class="kt-card-content">
-                    <input type="hidden" name="logo_mode" id="logo-mode-input" value="{{ old('logo_mode', $logoMode ?? 'single') }}">
-
-                    <!-- Logo mode: één logo of apart light/dark -->
-                    <div class="mb-6">
-                        <label class="kt-form-label mb-2">Logo</label>
-                        <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
-                        @php
-                            $hasLogo = $logo && Storage::disk('public')->exists($logo);
-                            $hasLogoDark = !empty($logoDark) && Storage::disk('public')->exists($logoDark);
-                            $useLightDark = ($logoMode ?? 'single') === 'light_dark';
-                            $logoLightUrl = $hasLogo ? route('admin.settings.logo') : null;
-                            $logoDarkUrl = ($hasLogo && $useLightDark && $hasLogoDark) ? route('admin.settings.logo-dark') : $logoLightUrl;
-                        @endphp
-                        <div class="flex flex-col gap-2 mb-4">
-                            <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
-                            <div class="flex flex-wrap items-center gap-3">
-                                <input type="checkbox" id="logo-mode-toggle" class="kt-switch kt-switch-sm" {{ old('logo_mode', $logoMode ?? 'single') === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
-                                <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
-                            </div>
-                        </div>
-
-                        @if($logoLightUrl)
-                        <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
-                        <div class="flex items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
-                            <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: {{ $logoSize }}px;" src="{{ $logoLightUrl }}" id="settings-live-preview-light" />
-                            <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: {{ $logoSize }}px;" src="{{ $logoDarkUrl }}" id="settings-live-preview-dark" />
-                        </div>
-                        @endif
-
-                        <!-- Light mode logo (standaard) -->
-                        <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
-                        <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full mb-4">
-                            @if($logo && Storage::disk('public')->exists($logo))
-                                <img alt="Logo Preview" class="h-[35px] mt-2" 
-                                     src="{{ route('admin.settings.logo') }}" 
-                                     id="logo-preview"/>
-                            @else
-                                <img alt="Logo Preview" class="h-[35px] mt-2 hidden" 
-                                     src="" 
-                                     id="logo-preview"/>
-                            @endif
-                            <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg" id="logo-upload-area">
-                                <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full">
-                                    <div class="flex items-center mb-2.5">
-                                        <div class="relative size-11 shrink-0">
-                                            <svg class="w-full h-full stroke-primary/10 fill-light" fill="none" height="48" viewbox="0 0 44 48" width="44" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M16 2.4641C19.7128 0.320509 24.2872 0.320508 28 2.4641L37.6506 8.0359C41.3634 10.1795 43.6506 14.141 43.6506 18.4282V29.5718C43.6506 33.859 41.3634 37.8205 37.6506 39.9641L28 45.5359C24.2872 47.6795 19.7128 47.6795 16 45.5359L6.34937 39.9641C2.63655 37.8205 0.349365 33.859 0.349365 29.5718V18.4282C0.349365 14.141 2.63655 10.1795 6.34937 8.0359L16 2.4641Z" fill=""></path>
-                                                <path d="M16.25 2.89711C19.8081 0.842838 24.1919 0.842837 27.75 2.89711L37.4006 8.46891C40.9587 10.5232 43.1506 14.3196 43.1506 18.4282V29.5718C43.1506 33.6804 40.9587 37.4768 37.4006 39.5311L27.75 45.1029C24.1919 47.1572 19.8081 47.1572 16.25 45.1029L6.59937 39.5311C3.04125 37.4768 0.849365 33.6803 0.849365 29.5718V18.4282C0.849365 14.3196 3.04125 10.5232 6.59937 8.46891L16.25 2.89711Z" stroke="" stroke-opacity="0.2"></path>
-                                            </svg>
-                                            <div class="absolute leading-none left-2/4 top-2/4 -translate-y-2/4 -translate-x-2/4">
-                                                <i class="ki-filled ki-picture text-xl ps-px text-primary"></i>
-                                            </div>
-                                        </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                    <tbody>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo</td>
+                        <td class="min-w-48 w-full align-top">
+                            <input type="hidden" name="logo_mode" id="logo-mode-input" value="{{ old('logo_mode', $logoMode ?? 'single') }}">
+                            <div class="mb-0">
+                                <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
+                                <div class="flex flex-col gap-2 mb-4">
+                                    <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <input type="checkbox" id="logo-mode-toggle" class="kt-switch kt-switch-sm" {{ old('logo_mode', $logoMode ?? 'single') === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
+                                        <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
                                     </div>
-                                    <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="logo-upload-link">
-                                        Klik of Sleep & Drop
-                                    </a>
-                                    <span class="text-xs text-secondary-foreground text-nowrap">
-                                        SVG, PNG, JPG, GIF (max. 2MB)
-                                    </span>
                                 </div>
-                            </div>
-                            <input type="file" 
-                                   name="logo" 
-                                   id="logo-input" 
-                                   accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
-                                   class="hidden">
-                        </div>
-                        <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
 
-                        <!-- Dark mode logo (alleen zichtbaar bij "Apart logo voor light en dark mode") -->
-                        <div id="logo-dark-block" class="{{ ($logoMode ?? 'single') === 'light_dark' ? '' : 'hidden' }}">
-                            <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
-                            <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full">
-                                @if(!empty($logoDark) && Storage::disk('public')->exists($logoDark))
-                                    <img alt="Dark logo preview" class="h-[35px] mt-2" 
-                                         src="{{ route('admin.settings.logo-dark') }}?t={{ time() }}" 
-                                         id="logo-dark-preview"/>
-                                @else
-                                    <img alt="Dark logo preview" class="h-[35px] mt-2 hidden" 
-                                         src="" 
-                                         id="logo-dark-preview"/>
+                                @if($logoLightUrl)
+                                <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
+                                <div id="settings-live-preview-wrap" class="flex items-center justify-start gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                                    <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: {{ $logoSize }}px;" src="{{ $logoLightUrl }}" id="settings-live-preview-light" />
+                                    <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: {{ $logoSize }}px;" src="{{ $logoDarkUrl }}" id="settings-live-preview-dark" />
+                                </div>
                                 @endif
-                                <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg" id="logo-dark-upload-area">
-                                    <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full">
-                                        <div class="flex items-center mb-2.5">
-                                            <div class="relative size-11 shrink-0">
-                                                <svg class="w-full h-full stroke-primary/10 fill-light" fill="none" height="48" viewbox="0 0 44 48" width="44" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M16 2.4641C19.7128 0.320509 24.2872 0.320508 28 2.4641L37.6506 8.0359C41.3634 10.1795 43.6506 14.141 43.6506 18.4282V29.5718C43.6506 33.859 41.3634 37.8205 37.6506 39.9641L28 45.5359C24.2872 47.6795 19.7128 47.6795 16 45.5359L6.34937 39.9641C2.63655 37.8205 0.349365 33.859 0.349365 29.5718V18.4282C0.349365 14.141 2.63655 10.1795 6.34937 8.0359L16 2.4641Z" fill=""></path>
-                                                    <path d="M16.25 2.89711C19.8081 0.842838 24.1919 0.842837 27.75 2.89711L37.4006 8.46891C40.9587 10.5232 43.1506 14.3196 43.1506 18.4282V29.5718C43.1506 33.6804 40.9587 37.4768 37.4006 39.5311L27.75 45.1029C24.1919 47.1572 19.8081 47.1572 16.25 45.1029L6.59937 39.5311C3.04125 37.4768 0.849365 33.6803 0.849365 29.5718V18.4282C0.849365 14.3196 3.04125 10.5232 6.59937 8.46891L16.25 2.89711Z" stroke="" stroke-opacity="0.2"></path>
-                                                </svg>
-                                                <div class="absolute leading-none left-2/4 top-2/4 -translate-y-2/4 -translate-x-2/4">
-                                                    <i class="ki-filled ki-picture text-xl ps-px text-primary"></i>
+
+                                <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
+                                <div class="max-w-96 w-full flex flex-col gap-3 items-center mb-4">
+                                    <div class="flex flex-col items-center gap-2 w-full">
+                                        @if($hasLogo)
+                                            <img alt="Logo Preview" class="h-[35px] w-auto object-contain"
+                                                 src="{{ route('admin.settings.logo') }}"
+                                                 id="logo-preview"/>
+                                        @else
+                                            <img alt="Logo Preview" class="h-[35px] w-auto object-contain hidden"
+                                                 src=""
+                                                 id="logo-preview"/>
+                                        @endif
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogo ? '' : 'hidden' }}" id="logo-light-remove-btn" title="Light logo verwijderen" aria-label="Light logo verwijderen">
+                                            <i class="ki-filled ki-trash text-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="logo-upload-area" role="button" tabindex="0">
+                                        <div class="flex flex-col place-items-center place-content-center text-center w-full pointer-events-none">
+                                            <div class="flex items-center mb-2.5">
+                                                <div class="relative size-11 shrink-0 flex items-center justify-center">
+                                                    <i class="ki-filled ki-picture text-2xl text-primary"></i>
                                                 </div>
                                             </div>
+                                            <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="logo-upload-link">
+                                                Klik of Sleep &amp; Drop
+                                            </a>
+                                            <span class="text-xs text-muted-foreground">
+                                                SVG, PNG, JPG, GIF (max. 2MB)
+                                            </span>
                                         </div>
-                                        <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="logo-dark-upload-link">
-                                            Klik of Sleep & Drop
+                                    </div>
+                                    <input type="file"
+                                           name="logo"
+                                           id="logo-input"
+                                           accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
+                                           class="hidden">
+                                </div>
+                                <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
+
+                                <div id="logo-dark-block" class="{{ ($logoMode ?? 'single') === 'light_dark' ? '' : 'hidden' }}">
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
+                                    <div class="max-w-96 w-full flex flex-col gap-3 items-center">
+                                        <div class="flex flex-col items-center w-full gap-2">
+                                            @if($hasLogoDark)
+                                                <img alt="Dark logo preview" class="h-[35px] w-auto object-contain"
+                                                     src="{{ route('admin.settings.logo-dark') }}?t={{ time() }}"
+                                                     id="logo-dark-preview"/>
+                                            @else
+                                                <img alt="Dark logo preview" class="h-[35px] w-auto object-contain hidden"
+                                                     src=""
+                                                     id="logo-dark-preview"/>
+                                            @endif
+                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogoDark ? '' : 'hidden' }}" id="logo-dark-remove-btn" title="Dark logo verwijderen" aria-label="Dark logo verwijderen">
+                                                <i class="ki-filled ki-trash text-lg"></i>
+                                            </button>
+                                        </div>
+                                        <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="logo-dark-upload-area" role="button" tabindex="0">
+                                            <div class="flex flex-col place-items-center place-content-center text-center w-full pointer-events-none">
+                                                <div class="flex items-center mb-2.5">
+                                                    <div class="relative size-11 shrink-0 flex items-center justify-center">
+                                                        <i class="ki-filled ki-picture text-2xl text-primary"></i>
+                                                    </div>
+                                                </div>
+                                                <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="logo-dark-upload-link">
+                                                    Klik of Sleep &amp; Drop
+                                                </a>
+                                                <span class="text-xs text-muted-foreground">
+                                                    SVG, PNG, JPG, GIF (max. 2MB)
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <input type="file"
+                                               id="logo-dark-input"
+                                               accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
+                                               class="hidden">
+                                    </div>
+                                    <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo grootte (px)</td>
+                        <td class="min-w-48 w-full align-top">
+                            <p class="text-sm text-muted-foreground mb-3">Stel de hoogte van het logo in pixels in.</p>
+                            <select name="logo_size" id="logo_size" class="kt-input" required>
+                                @foreach(range(26, 50, 2) as $size)
+                                    <option value="{{ $size }}" {{ $logoSize == (string)$size ? 'selected' : '' }}>{{ $size }}px</option>
+                                @endforeach
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Favicon</td>
+                        <td class="min-w-48 w-full align-top">
+                            <p class="text-sm text-muted-foreground mb-3">Het favicon wordt gebruikt in de browser tab.</p>
+                            <div class="max-w-96 w-full flex flex-col gap-3">
+                                @if($favicon && Storage::disk('public')->exists($favicon))
+                                    <img alt="Favicon Preview" class="w-16 h-16 object-contain self-start"
+                                         src="{{ route('admin.settings.favicon') }}"
+                                         id="favicon-preview"/>
+                                @else
+                                    <img alt="Favicon Preview" class="w-16 h-16 object-contain self-start hidden"
+                                         src=""
+                                         id="favicon-preview"/>
+                                @endif
+                                <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="favicon-upload-area" role="button" tabindex="0">
+                                    <div class="flex flex-col place-items-center place-content-center text-center w-full pointer-events-none">
+                                        <div class="flex items-center mb-2.5">
+                                            <div class="relative size-11 shrink-0 flex items-center justify-center">
+                                                <i class="ki-filled ki-picture text-2xl text-primary"></i>
+                                            </div>
+                                        </div>
+                                        <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="favicon-upload-link">
+                                            Klik of Sleep &amp; Drop
                                         </a>
-                                        <span class="text-xs text-secondary-foreground text-nowrap">
-                                            SVG, PNG, JPG, GIF (max. 2MB)
+                                        <span class="text-xs text-muted-foreground">
+                                            ICO, PNG, JPG (max. 2MB)
                                         </span>
                                     </div>
                                 </div>
-                                <input type="file" 
-                                       id="logo-dark-input" 
-                                       accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
+                                <input type="file"
+                                       name="favicon"
+                                       id="favicon-input"
+                                       accept="image/x-icon,image/png,image/jpeg"
                                        class="hidden">
                             </div>
-                            <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
-                        </div>
-                    </div>
-
-                    <!-- Logo Size -->
-                    <div class="mb-6">
-                        <label for="logo_size" class="kt-form-label mb-2">Logo grootte (px)</label>
-                        <p class="text-sm text-muted-foreground mb-3">Stel de hoogte van het logo in pixels in.</p>
-                        <select name="logo_size" id="logo_size" class="kt-input" required>
-                            @foreach(range(26, 50, 2) as $size)
-                                <option value="{{ $size }}" {{ $logoSize == (string)$size ? 'selected' : '' }}>{{ $size }}px</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <!-- Favicon Upload -->
-                    <div class="mb-6">
-                        <label class="kt-form-label mb-2">Favicon</label>
-                        <p class="text-sm text-muted-foreground mb-3">Het favicon wordt gebruikt in de browser tab.</p>
-                        
-                        <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full">
-                            @if($favicon && Storage::disk('public')->exists($favicon))
-                                <img alt="Favicon Preview" class="w-16 h-16 mt-2 object-contain" 
-                                     src="{{ route('admin.settings.favicon') }}" 
-                                     id="favicon-preview"/>
-                            @else
-                                <img alt="Favicon Preview" class="w-16 h-16 mt-2 object-contain hidden" 
-                                     src="" 
-                                     id="favicon-preview"/>
-                            @endif
-                            <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg" id="favicon-upload-area">
-                                <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full">
-                                    <div class="flex items-center mb-2.5">
-                                        <div class="relative size-11 shrink-0">
-                                            <svg class="w-full h-full stroke-primary/10 fill-light" fill="none" height="48" viewbox="0 0 44 48" width="44" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M16 2.4641C19.7128 0.320509 24.2872 0.320508 28 2.4641L37.6506 8.0359C41.3634 10.1795 43.6506 14.141 43.6506 18.4282V29.5718C43.6506 33.859 41.3634 37.8205 37.6506 39.9641L28 45.5359C24.2872 47.6795 19.7128 47.6795 16 45.5359L6.34937 39.9641C2.63655 37.8205 0.349365 33.859 0.349365 29.5718V18.4282C0.349365 14.141 2.63655 10.1795 6.34937 8.0359L16 2.4641Z" fill=""></path>
-                                                <path d="M16.25 2.89711C19.8081 0.842838 24.1919 0.842837 27.75 2.89711L37.4006 8.46891C40.9587 10.5232 43.1506 14.3196 43.1506 18.4282V29.5718C43.1506 33.6804 40.9587 37.4768 37.4006 39.5311L27.75 45.1029C24.1919 47.1572 19.8081 47.1572 16.25 45.1029L6.59937 39.5311C3.04125 37.4768 0.849365 33.6803 0.849365 29.5718V18.4282C0.849365 14.3196 3.04125 10.5232 6.59937 8.46891L16.25 2.89711Z" stroke="" stroke-opacity="0.2"></path>
-                                            </svg>
-                                            <div class="absolute leading-none left-2/4 top-2/4 -translate-y-2/4 -translate-x-2/4">
-                                                <i class="ki-filled ki-picture text-xl ps-px text-primary"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="favicon-upload-link">
-                                        Klik of Sleep & Drop
-                                    </a>
-                                    <span class="text-xs text-secondary-foreground text-nowrap">
-                                        ICO, PNG, JPG (max. 2MB)
-                                    </span>
-                                </div>
-                            </div>
-                            <input type="file" 
-                                   name="favicon" 
-                                   id="favicon-input" 
-                                   accept="image/x-icon,image/png,image/jpeg"
-                                   class="hidden">
-                        </div>
-                        <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: ICO, PNG, JPG (max. 2MB)</p>
-                    </div>
-
+                            <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: ICO, PNG, JPG (max. 2MB)</p>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
         <!-- Algemene opties. Applicatienaam, omschrijving en Mijn-omgeving-knop staan per module onder Modules Beheer > [module] > Configureren. -->
@@ -242,15 +236,27 @@
             <div class="kt-card-header">
                 <h3 class="kt-card-title">Algemene opties</h3>
             </div>
-            <div class="kt-card-content">
-                    <div class="mb-6 flex flex-wrap items-center gap-3">
-                        <label class="kt-form-label mb-0">AI-assistent tonen</label>
-                        <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
-                        <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
-                    </div>
-                    <div class="flex justify-end">
-                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-                    </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                    <tbody>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">AI-assistent tonen</td>
+                        <td class="min-w-48 w-full align-top">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
+                                <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
+                            <div class="flex justify-end">
+                                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -259,34 +265,48 @@
             <div class="kt-card-header">
                 <h3 class="kt-card-title">Formulier succesbericht</h3>
             </div>
-            <div class="kt-card-content">
-                <p class="text-sm text-muted-foreground mb-4">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
-                    <div class="mb-4">
-                        <label for="info_request_success_title" class="kt-form-label mb-2">Hoofdtekst</label>
-                        <input type="text" name="info_request_success_title" id="info_request_success_title" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_title', $infoRequestSuccessTitle ?? 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.') }}" maxlength="500" placeholder="Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.">
-                        <p class="text-xs text-muted-foreground mt-1">Grote regel onder het icoon/plaatje (max. 500 tekens)</p>
-                    </div>
-                    <div class="mb-4">
-                        <label for="info_request_success_subtitle" class="kt-form-label mb-2">Ondertitel</label>
-                        <input type="text" name="info_request_success_subtitle" id="info_request_success_subtitle" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? 'Er wordt binnenkort contact met u opgenomen.') }}" maxlength="500" placeholder="Er wordt binnenkort contact met u opgenomen.">
-                        <p class="text-xs text-muted-foreground mt-1">Kleinere regel eronder (max. 500 tekens)</p>
-                    </div>
-                    <div class="mb-4">
-                        <label for="info_request_success_footer" class="kt-form-label mb-2">Footertekst</label>
-                        <input type="text" name="info_request_success_footer" id="info_request_success_footer" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_footer', $infoRequestSuccessFooter ?? 'Uw bericht is succesvol verzonden.') }}" maxlength="500" placeholder="Uw bericht is succesvol verzonden.">
-                        <p class="text-xs text-muted-foreground mt-1">Regel onderaan de bedanktmelding (max. 500 tekens)</p>
-                    </div>
-                    <div class="mb-4">
-                        <div class="flex items-center gap-3 flex-nowrap">
-                            <input type="checkbox" name="info_request_success_texts_enabled" id="info_request_success_texts_enabled" class="kt-switch kt-switch-sm shrink-0" value="0" {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'checked' : '' }}>
-                            <label for="info_request_success_texts_enabled" class="kt-form-label mb-0">Teksten uitschakelen</label>
-                        </div>
-                        <p class="text-sm text-muted-foreground mt-1">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</p>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="kt-form-label mb-2">Plaatje of icoon</label>
-                        <p class="text-sm text-muted-foreground mb-3">Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.</p>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                    <tbody>
+                    <tr>
+                        <td colspan="2" class="px-4 sm:px-6 pt-6 pb-2 align-top">
+                            <p class="text-sm text-muted-foreground mb-0">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Hoofdtekst</td>
+                        <td class="min-w-48 w-full align-top">
+                            <input type="text" name="info_request_success_title" id="info_request_success_title" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_title', $infoRequestSuccessTitle ?? 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.') }}" maxlength="500" placeholder="Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.">
+                            <p class="text-xs text-muted-foreground mt-1">Grote regel onder het icoon/plaatje (max. 500 tekens)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Ondertitel</td>
+                        <td class="min-w-48 w-full align-top">
+                            <input type="text" name="info_request_success_subtitle" id="info_request_success_subtitle" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? 'Er wordt binnenkort contact met u opgenomen.') }}" maxlength="500" placeholder="Er wordt binnenkort contact met u opgenomen.">
+                            <p class="text-xs text-muted-foreground mt-1">Kleinere regel eronder (max. 500 tekens)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Footertekst</td>
+                        <td class="min-w-48 w-full align-top">
+                            <input type="text" name="info_request_success_footer" id="info_request_success_footer" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_footer', $infoRequestSuccessFooter ?? 'Uw bericht is succesvol verzonden.') }}" maxlength="500" placeholder="Uw bericht is succesvol verzonden.">
+                            <p class="text-xs text-muted-foreground mt-1">Regel onderaan de bedanktmelding (max. 500 tekens)</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Teksten uitschakelen</td>
+                        <td class="min-w-48 w-full align-top">
+                            <div class="flex items-center gap-3 flex-nowrap">
+                                <input type="checkbox" name="info_request_success_texts_enabled" id="info_request_success_texts_enabled" class="kt-switch kt-switch-sm shrink-0" value="0" {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'checked' : '' }}>
+                                <span class="text-sm text-muted-foreground">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Plaatje of icoon</td>
+                        <td class="min-w-48 w-full align-top">
+                            <p class="text-sm text-muted-foreground mb-3">Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.</p>
                         <div class="flex flex-wrap gap-6 items-start">
                             <div class="flex flex-col gap-2">
                                 <span class="text-xs font-medium text-secondary-foreground">Plaatje</span>
@@ -298,11 +318,11 @@
                                         </button>
                                     </div>
                                     <div class="flex flex-col flex-1 min-w-[180px]" id="success-image-upload-wrap">
-                                        <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg cursor-pointer hover:border-primary transition-colors" id="success-image-upload-area" role="button" tabindex="0" title="Klik of sleep een afbeelding">
-                                            <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full pointer-events-none">
+                                        <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="success-image-upload-area" role="button" tabindex="0" title="Klik of sleep een afbeelding">
+                                            <div class="flex flex-col place-items-center place-content-center text-center w-full pointer-events-none">
                                                 <i class="ki-filled ki-picture text-2xl text-primary mb-1"></i>
-                                                <span class="text-mono text-xs font-medium text-primary">Klik of Sleep & Drop</span>
-                                                <span class="text-xs text-secondary-foreground mt-0.5">SVG, PNG, JPG, GIF, WebP (max. 5MB)</span>
+                                                <span class="text-mono text-xs font-medium text-primary">Klik of Sleep &amp; Drop</span>
+                                                <span class="text-xs text-muted-foreground mt-0.5">SVG, PNG, JPG, GIF, WebP (max. 5MB)</span>
                                             </div>
                                         </div>
                                     </div>
@@ -355,17 +375,30 @@
                                 <p class="text-xs text-muted-foreground">Grootte icoon of plaatje</p>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-                    </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
+                            <div class="flex justify-end">
+                                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
         </form>
     </div>
 </div>
+<style>
+    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
+    .wizard-onboarding-form-table tbody tr,
+    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
+    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
+    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
+</style>
 @endsection
 
 @push('scripts')
@@ -493,6 +526,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     const logoUrl = data.logo_url + '?t=' + new Date().getTime();
                     logoPreview.src = logoUrl;
                     logoPreview.classList.remove('hidden');
+                    const logoLightRemoveBtnEl = document.getElementById('logo-light-remove-btn');
+                    if (logoLightRemoveBtnEl) logoLightRemoveBtnEl.classList.remove('hidden');
+                    const liveWrap = document.getElementById('settings-live-preview-wrap');
+                    if (liveWrap) liveWrap.classList.remove('hidden');
+                    const liveLightEl = document.getElementById('settings-live-preview-light');
+                    if (liveLightEl) liveLightEl.src = logoUrl;
                     const logoPreviewTop = document.getElementById('logo-preview-top');
                     const logoPlaceholder = document.getElementById('logo-preview-placeholder');
                     if (logoPreviewTop) {
@@ -568,6 +607,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success) {
                     const logoUrl = data.logo_url + '?t=' + new Date().getTime();
                     if (logoDarkPreview) { logoDarkPreview.src = logoUrl; logoDarkPreview.classList.remove('hidden'); }
+                    const logoDarkRemoveBtn = document.getElementById('logo-dark-remove-btn');
+                    if (logoDarkRemoveBtn) logoDarkRemoveBtn.classList.remove('hidden');
                     document.querySelectorAll('.logo-dark').forEach(img => { img.src = logoUrl; });
                     if (logoModeInput) { logoModeInput.value = 'light_dark'; }
                     if (logoModeToggle) { logoModeToggle.checked = true; }
@@ -576,6 +617,83 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(err => { console.error(err); alert(err.message || 'Fout bij uploaden dark logo.'); });
         }
+    }
+
+    const logoDarkRemoveBtn = document.getElementById('logo-dark-remove-btn');
+    if (logoDarkRemoveBtn) {
+        logoDarkRemoveBtn.addEventListener('click', function() {
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            if (!csrf) return;
+            const fd = new FormData();
+            fd.append('_token', csrf.getAttribute('content'));
+            fetch('{{ route("admin.settings.remove-logo-dark") }}', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                const darkPrev = document.getElementById('logo-dark-preview');
+                if (darkPrev) {
+                    darkPrev.src = '';
+                    darkPrev.classList.add('hidden');
+                }
+                logoDarkRemoveBtn.classList.add('hidden');
+                const darkIn = document.getElementById('logo-dark-input');
+                if (darkIn) darkIn.value = '';
+                if (logoModeInput) logoModeInput.value = 'single';
+                if (logoModeToggle) logoModeToggle.checked = false;
+                if (logoDarkBlock) logoDarkBlock.classList.add('hidden');
+                var liveLight = document.getElementById('settings-live-preview-light');
+                var liveDark = document.getElementById('settings-live-preview-dark');
+                if (liveLight && liveDark) {
+                    liveDark.src = liveLight.src;
+                }
+                document.querySelectorAll('.logo-dark').forEach(function(img) {
+                    if (liveLight) img.src = liveLight.src;
+                });
+            });
+        });
+    }
+
+    const logoLightRemoveBtn = document.getElementById('logo-light-remove-btn');
+    if (logoLightRemoveBtn) {
+        logoLightRemoveBtn.addEventListener('click', function() {
+            const csrf = document.querySelector('meta[name="csrf-token"]');
+            if (!csrf) return;
+            const fd = new FormData();
+            fd.append('_token', csrf.getAttribute('content'));
+            fetch('{{ route("admin.settings.remove-logo-light") }}', {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) return;
+                const lp = document.getElementById('logo-preview');
+                if (lp) {
+                    lp.src = '';
+                    lp.classList.add('hidden');
+                }
+                logoLightRemoveBtn.classList.add('hidden');
+                const li = document.getElementById('logo-input');
+                if (li) li.value = '';
+                const liveWrap = document.getElementById('settings-live-preview-wrap');
+                if (liveWrap) liveWrap.classList.add('hidden');
+                const logoPreviewTop = document.getElementById('logo-preview-top');
+                const logoPlaceholder = document.getElementById('logo-preview-placeholder');
+                if (logoPreviewTop) {
+                    logoPreviewTop.src = '';
+                    logoPreviewTop.classList.add('hidden');
+                }
+                if (logoPlaceholder) logoPlaceholder.classList.remove('hidden');
+                document.querySelectorAll('.logo-light, .default-logo, .small-logo').forEach(function(img) {
+                    img.removeAttribute('src');
+                });
+            });
+        });
     }
     
     // Favicon upload handling

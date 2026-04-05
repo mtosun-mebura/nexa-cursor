@@ -2,13 +2,14 @@
 
 namespace App\Modules\TaxiRoyaal\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
+use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Modules\TaxiRoyaal\Models\DefaultRate;
 use App\Modules\TaxiRoyaal\Models\Vehicle;
 use App\Modules\TaxiRoyaal\Traits\UsesModuleDatabase;
-use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -48,10 +49,10 @@ class VehicleController extends Controller
 
         $sortBy = $request->get('sort', 'name');
         $sortDir = $request->get('direction', 'asc');
-        if (!in_array($sortBy, ['name', 'type', 'license_plate', 'created_at'])) {
+        if (! in_array($sortBy, ['name', 'type', 'license_plate', 'created_at'])) {
             $sortBy = 'name';
         }
-        if (!in_array($sortDir, ['asc', 'desc'])) {
+        if (! in_array($sortDir, ['asc', 'desc'])) {
             $sortDir = 'asc';
         }
         $query->orderBy($sortBy, $sortDir);
@@ -78,7 +79,7 @@ class VehicleController extends Controller
      */
     public function uploadImage(Request $request): JsonResponse
     {
-        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('vehicles.create') && !auth()->user()->can('vehicles.update')) {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('vehicles.create') && ! auth()->user()->can('vehicles.update')) {
             return response()->json(['success' => false, 'message' => 'Geen rechten.'], 403);
         }
         $request->validate([
@@ -91,11 +92,11 @@ class VehicleController extends Controller
 
         $file = $request->file('image');
         $dir = 'vehicles';
-        if (!Storage::disk('public')->exists($dir)) {
+        if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
         }
         $path = $file->store($dir, 'public');
-        $url = '/storage/' . ltrim($path, '/');
+        $url = '/storage/'.ltrim($path, '/');
 
         return response()->json(['success' => true, 'url' => $url]);
     }
@@ -105,14 +106,15 @@ class VehicleController extends Controller
         $this->authorizeOrPermission('vehicles.create');
 
         $conn = $this->moduleConnection();
-        $companies = auth()->user()->hasRole('super-admin')
-            ? Company::on($conn)->orderBy('name')->get()
-            : Company::on($conn)->where('id', $this->getTenantId())->get();
-        $companyId = $this->getTenantId();
+        $user = auth()->user();
+        $resolvedCompanyId = $user->hasRole('super-admin')
+            ? session('selected_tenant')
+            : $user->company_id;
+        $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
         $personRangeLabels = DefaultRate::getPersonRangeOptions($conn);
 
-        return view('taxiroyaal::admin.vehicles.create', compact('companies', 'companyId', 'typeLabels', 'personRangeLabels'));
+        return view('taxiroyaal::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
     }
 
     public function store(Request $request)
@@ -122,18 +124,28 @@ class VehicleController extends Controller
         $conn = $this->moduleConnection();
         $user = auth()->user();
 
-        // Gebruik altijd het bedrijf van de ingelogde gebruiker (niet het formulier)
-        $companyId = $user->hasRole('super-admin')
-            ? $request->input('company_id')
-            : $user->company_id;
+        if ($user->hasRole('super-admin')) {
+            $tenantId = session('selected_tenant');
+            if (! $tenantId) {
+                return redirect()->back()->withInput()->withErrors([
+                    'company_id' => 'Selecteer eerst een tenant in de tenant-kiezer bovenaan.',
+                ]);
+            }
+            $companyId = (int) $tenantId;
+        } else {
+            $companyId = (int) $user->company_id;
+        }
         $request->merge(['company_id' => $companyId]);
+        $request->merge([
+            'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
+        ]);
 
         $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn));
         $validated = $request->validate([
-            'company_id' => ['required'],
+            'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
             'type' => 'required|in:car,van,bus',
-            'license_plate' => 'nullable|string|max:20',
+            'license_plate' => 'required|string|max:20',
             'person_range' => ['required', Rule::in($personRanges)],
             'active' => 'boolean',
             'base_fare' => 'nullable|numeric|min:0',
@@ -144,15 +156,17 @@ class VehicleController extends Controller
             'notes' => 'nullable|string|max:2000',
             'image_url' => 'nullable|string|max:500',
             'show_photo' => 'boolean',
+        ], [
+            'company_id.required' => 'Selecteer een bedrijf.',
+            'company_id.integer' => 'Selecteer een geldig bedrijf.',
+            'name.required' => 'Vul een naam in voor het voertuig.',
+            'license_plate.required' => 'Vul een kenteken in.',
         ]);
         $validated['active'] = $request->boolean('active', true);
         $validated['show_photo'] = $request->boolean('show_photo', false);
         [, $maxPersons] = DefaultRate::parseRangeBounds((string) $validated['person_range']);
         $validated['seats'] = max(1, $maxPersons);
         $validated = $this->normalizeVehiclePriceFields($validated);
-        $validated['license_plate'] = isset($validated['license_plate']) && $validated['license_plate'] !== ''
-            ? strtoupper(trim($validated['license_plate']))
-            : null;
 
         $this->ensureTenantAccess($validated['company_id']);
         $this->ensureCompanyExistsOnModule($conn, $validated['company_id']);
@@ -181,13 +195,15 @@ class VehicleController extends Controller
         $this->ensureCanAccess($vehicle);
 
         $conn = $this->moduleConnection();
-        $companies = auth()->user()->hasRole('super-admin')
-            ? Company::on($conn)->orderBy('name')->get()
-            : Company::on($conn)->where('id', $vehicle->company_id)->get();
+        $user = auth()->user();
+        $resolvedCompanyId = $user->hasRole('super-admin')
+            ? (session('selected_tenant') ?: $vehicle->company_id)
+            : $user->company_id;
+        $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
         $personRangeLabels = DefaultRate::getPersonRangeOptions($conn);
 
-        return view('taxiroyaal::admin.vehicles.edit', compact('vehicle', 'companies', 'typeLabels', 'personRangeLabels'));
+        return view('taxiroyaal::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
     }
 
     public function update(Request $request, Vehicle $vehicle)
@@ -197,15 +213,34 @@ class VehicleController extends Controller
 
         $conn = $this->moduleConnection();
         $user = auth()->user();
-        $companyId = $user->hasRole('super-admin') ? $request->input('company_id') : $user->company_id;
+
+        if ($user->hasRole('super-admin')) {
+            $tenantId = session('selected_tenant');
+            if (! $tenantId) {
+                return redirect()->back()->withInput()->withErrors([
+                    'company_id' => 'Selecteer eerst een tenant in de tenant-kiezer bovenaan.',
+                ]);
+            }
+            if ((int) $vehicle->company_id !== (int) $tenantId) {
+                return redirect()->back()->withInput()->withErrors([
+                    'company_id' => 'Dit voertuig hoort bij een andere tenant. Selecteer de juiste tenant in de balk bovenaan.',
+                ]);
+            }
+            $companyId = (int) $tenantId;
+        } else {
+            $companyId = (int) $user->company_id;
+        }
         $request->merge(['company_id' => $companyId]);
+        $request->merge([
+            'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
+        ]);
 
         $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn));
         $validated = $request->validate([
-            'company_id' => ['required'],
+            'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
             'type' => 'required|in:car,van,bus',
-            'license_plate' => 'nullable|string|max:20',
+            'license_plate' => 'required|string|max:20',
             'person_range' => ['required', Rule::in($personRanges)],
             'active' => 'boolean',
             'base_fare' => 'nullable|numeric|min:0',
@@ -216,15 +251,17 @@ class VehicleController extends Controller
             'notes' => 'nullable|string|max:2000',
             'image_url' => 'nullable|string|max:500',
             'show_photo' => 'boolean',
+        ], [
+            'company_id.required' => 'Selecteer een bedrijf.',
+            'company_id.integer' => 'Selecteer een geldig bedrijf.',
+            'name.required' => 'Vul een naam in voor het voertuig.',
+            'license_plate.required' => 'Vul een kenteken in.',
         ]);
         $validated['active'] = $request->boolean('active', true);
         $validated['show_photo'] = $request->boolean('show_photo', false);
         [, $maxPersons] = DefaultRate::parseRangeBounds((string) $validated['person_range']);
         $validated['seats'] = max(1, $maxPersons);
         $validated = $this->normalizeVehiclePriceFields($validated);
-        $validated['license_plate'] = isset($validated['license_plate']) && $validated['license_plate'] !== ''
-            ? strtoupper(trim($validated['license_plate']))
-            : null;
 
         $this->ensureTenantAccess($validated['company_id']);
         $this->ensureCompanyExistsOnModule($conn, $validated['company_id']);
@@ -252,7 +289,7 @@ class VehicleController extends Controller
         if (auth()->user()->hasRole('super-admin')) {
             return;
         }
-        if (!auth()->user()->can($ability)) {
+        if (! auth()->user()->can($ability)) {
             abort(403, 'Geen rechten voor deze actie.');
         }
     }
@@ -273,10 +310,11 @@ class VehicleController extends Controller
     private function normalizeVehiclePriceFields(array $validated): array
     {
         foreach (['price_per_km', 'price_per_min', 'min_fare'] as $key) {
-            if (!array_key_exists($key, $validated) || $validated[$key] === null || $validated[$key] === '') {
+            if (! array_key_exists($key, $validated) || $validated[$key] === null || $validated[$key] === '') {
                 $validated[$key] = 0;
             }
         }
+
         return $validated;
     }
 
@@ -289,16 +327,18 @@ class VehicleController extends Controller
             return;
         }
         $company = Company::on(config('database.default'))->find($companyId);
-        if (!$company) {
+        if (! $company) {
             return;
         }
         $attrs = $company->getAttributes();
-        \Illuminate\Support\Facades\DB::connection($moduleConn)->table('companies')->insert($attrs);
+        $columns = Schema::connection($moduleConn)->getColumnListing('companies');
+        $filtered = array_intersect_key($attrs, array_flip($columns));
+        \Illuminate\Support\Facades\DB::connection($moduleConn)->table('companies')->insert($filtered);
     }
 
     private function ensureCanAccess(Vehicle $vehicle): void
     {
-        if (!$this->canAccessResource($vehicle)) {
+        if (! $this->canAccessResource($vehicle)) {
             abort(403, 'Geen toegang tot dit voertuig.');
         }
     }

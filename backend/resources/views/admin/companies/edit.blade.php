@@ -35,7 +35,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Bedrijfsnaam *
@@ -51,44 +51,99 @@
                                 @enderror
                             </td>
                         </tr>
+                        @php
+                            $formLogoMode = old('company_logo_mode', ! empty($company->logo_dark_blob) ? 'light_dark' : 'single');
+                            $hasFormLogo = (bool) $company->logo_blob;
+                            $hasFormLogoDark = ! empty($company->logo_dark_blob);
+                            $useFormLightDark = $formLogoMode === 'light_dark';
+                            $formLightUrl = $hasFormLogo ? route('admin.companies.logo', $company) : null;
+                            $formDarkUrl = ($hasFormLogo && $useFormLightDark && $hasFormLogoDark)
+                                ? route('admin.companies.logo.dark', $company)
+                                : $formLightUrl;
+                        @endphp
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">
-                                Bedrijfslogo
-                            </td>
-                            <td>
-                                <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full">
-                                    <img alt="Company Logo" class="h-[35px] mt-2 {{ $company->logo_blob ? '' : 'hidden' }}" src="{{ $company->logo_blob ? route('admin.companies.logo', $company) : '' }}" id="logo-preview"/>
-                                    <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg" id="logo-upload-area">
-                                        <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full">
-                                            <div class="flex items-center mb-2.5">
-                                                <div class="relative size-11 shrink-0">
-                                                    <svg class="w-full h-full stroke-primary/10 fill-light" fill="none" height="48" viewbox="0 0 44 48" width="44" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M16 2.4641C19.7128 0.320509 24.2872 0.320508 28 2.4641L37.6506 8.0359C41.3634 10.1795 43.6506 14.141 43.6506 18.4282V29.5718C43.6506 33.859 41.3634 37.8205 37.6506 39.9641L28 45.5359C24.2872 47.6795 19.7128 47.6795 16 45.5359L6.34937 39.9641C2.63655 37.8205 0.349365 33.859 0.349365 29.5718V18.4282C0.349365 14.141 2.63655 10.1795 6.34937 8.0359L16 2.4641Z" fill=""></path>
-                                                        <path d="M16.25 2.89711C19.8081 0.842838 24.1919 0.842837 27.75 2.89711L37.4006 8.46891C40.9587 10.5232 43.1506 14.3196 43.1506 18.4282V29.5718C43.1506 33.6804 40.9587 37.4768 37.4006 39.5311L27.75 45.1029C24.1919 47.1572 19.8081 47.1572 16.25 45.1029L6.59937 39.5311C3.04125 37.4768 0.849365 33.6803 0.849365 29.5718V18.4282C0.849365 14.3196 3.04125 10.5232 6.59937 8.46891L16.25 2.89711Z" stroke="" stroke-opacity="0.2"></path>
-                                                    </svg>
-                                                    <div class="absolute leading-none left-2/4 top-2/4 -translate-y-2/4 -translate-x-2/4">
-                                                        <i class="ki-filled ki-picture text-xl ps-px text-primary"></i>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="logo-upload-link">
-                                                Klik of Sleep & Drop
-                                            </a>
-                                            <span class="text-xs text-secondary-foreground text-nowrap">
-                                                SVG, PNG, JPG (max. 800x400)
-                                            </span>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo</td>
+                            <td class="min-w-48 w-full align-top">
+                                <input type="hidden" name="company_logo_mode" id="company-form-logo-mode-input" value="{{ $formLogoMode }}">
+
+                                <div class="mb-0">
+                                    <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
+                                    <div class="flex flex-col gap-2 mb-4">
+                                        <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <input type="checkbox" id="company-form-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $formLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
+                                            <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
                                         </div>
                                     </div>
-                                    <input type="file" 
-                                           name="logo" 
-                                           id="logo-input" 
-                                           accept="image/svg+xml,image/png,image/jpeg,image/jpg"
-                                           class="hidden">
+
+                                    @if($formLightUrl)
+                                        <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
+                                        <div class="flex items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                                            <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $formLightUrl }}" id="company-form-live-preview-light" />
+                                            <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $formDarkUrl }}" id="company-form-live-preview-dark" />
+                                        </div>
+                                    @endif
+
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
+                                    <div class="max-w-96 w-full">
+                                        @include('admin.partials.image-upload-dropzone-inline', [
+                                            'name' => 'logo',
+                                            'inputId' => 'company-form-logo-input',
+                                            'previewId' => 'company-form-logo-preview',
+                                            'areaId' => 'company-form-logo-upload-area',
+                                            'linkId' => 'company-form-logo-upload-link',
+                                            'removeBtnId' => 'company-form-logo-remove',
+                                            'existingUrl' => $company->logo_blob ? route('admin.companies.logo', $company) : null,
+                                            'dropzoneKey' => 'light',
+                                            'clientMsgId' => 'company-form-logo-client-msg',
+                                            'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
+                                            'maxFileBytes' => 5 * 1024 * 1024,
+                                            'livePreviewLightId' => 'company-form-live-preview-light',
+                                            'livePreviewDarkId' => 'company-form-live-preview-dark',
+                                            'logoModeInputId' => 'company-form-logo-mode-input',
+                                        ])
+                                    </div>
+                                    <div id="company-form-logo-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
                                     <input type="hidden" name="logo_path" value="{{ old('logo_path', $company->logo_path) }}" id="logo-path-input">
+                                    <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                    @error('logo')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+
+                                    <div id="company-form-logo-dark-block" class="{{ $formLogoMode === 'light_dark' ? '' : 'hidden' }}">
+                                        <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
+                                        <p class="text-xs text-muted-foreground mb-2 max-w-xl">Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.</p>
+                                        <div class="max-w-96 w-full">
+                                            @include('admin.partials.image-upload-dropzone-inline', [
+                                                'name' => 'logo_dark',
+                                                'inputId' => 'company-form-logo-dark-input',
+                                                'previewId' => 'company-form-logo-dark-preview',
+                                                'areaId' => 'company-form-logo-dark-upload-area',
+                                                'linkId' => 'company-form-logo-dark-upload-link',
+                                                'removeBtnId' => 'company-form-logo-dark-remove',
+                                                'existingUrl' => $company->logo_dark_blob ? route('admin.companies.logo.dark', $company) : null,
+                                                'dropzoneKey' => 'dark',
+                                                'clientMsgId' => 'company-form-logo-dark-client-msg',
+                                                'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
+                                                'maxFileBytes' => 5 * 1024 * 1024,
+                                                'livePreviewDarkId' => 'company-form-live-preview-dark',
+                                            ])
+                                        </div>
+                                        <div id="company-form-logo-dark-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
+                                        <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                        @error('logo_dark')
+                                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                        @enderror
+                                    </div>
                                 </div>
-                                @error('logo')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Plaatje gebouw
+                            </td>
+                            <td>
+                                @include('admin.partials.building-image-select', ['company' => $company])
                             </td>
                         </tr>
                         <tr>
@@ -156,7 +211,7 @@
                                            value="1" 
                                            {{ old('is_intermediary', $company->is_intermediary) ? 'checked' : '' }}>
                                     <label for="is_intermediary" class="text-sm font-normal mb-0">
-                                        Tussenpartij
+                                        Tussenpartij / Recruiter
                                     </label>
                                 </div>
                                 @error('is_intermediary')
@@ -380,6 +435,11 @@
     .kt-label {
         cursor: pointer;
     }
+    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
+    .wizard-onboarding-form-table tbody tr,
+    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
+    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
+    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
 </style>
 @endpush
 
@@ -438,117 +498,33 @@
             houseNumberInput.addEventListener('blur', lookupContactAddress);
         })();
 
-        // Logo upload handling
-        const logoInput = document.getElementById('logo-input');
-        const logoUploadArea = document.getElementById('logo-upload-area');
-        const logoUploadLink = document.getElementById('logo-upload-link');
-        const logoPreview = document.getElementById('logo-preview');
-        
-        if (logoInput && logoUploadArea && logoUploadLink) {
-            // Click to upload
-            logoUploadLink.addEventListener('click', function(e) {
-                e.preventDefault();
-                logoInput.click();
-            });
-            
-            logoUploadArea.addEventListener('click', function(e) {
-                if (e.target === logoUploadArea || e.target.closest('#logo-upload-area')) {
-                    logoInput.click();
-                }
-            });
-            
-            // Drag and drop
-            logoUploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                logoUploadArea.classList.add('border-primary');
-            });
-            
-            logoUploadArea.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                logoUploadArea.classList.remove('border-primary');
-            });
-            
-            logoUploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                logoUploadArea.classList.remove('border-primary');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleLogoFile(files[0]);
-                }
-            });
-            
-            // File input change
-            logoInput.addEventListener('change', function(e) {
-                if (this.files && this.files.length > 0) {
-                    handleLogoFile(this.files[0]);
-                }
-            });
-            
-            function handleLogoFile(file) {
-                // Validate file type
-                const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg'];
-                if (!allowedTypes.includes(file.type)) {
-                    alert('Alleen SVG, PNG en JPG bestanden zijn toegestaan.');
-                    return;
-                }
-                
-                // Validate file size (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('Het bestand mag maximaal 5MB groot zijn.');
-                    return;
-                }
-                
-                // Create preview immediately
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    logoPreview.src = e.target.result;
-                    logoPreview.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-                
-                // Upload logo immediately via AJAX
-                const formData = new FormData();
-                formData.append('logo', file);
-                formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                
-                fetch('{{ route("admin.companies.upload-logo", $company) }}', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
+        @include('admin.partials.logo-dropzone-init-inner')
+
+        (function() {
+            var modeToggle = document.getElementById('company-form-logo-mode-toggle');
+            var modeInput = document.getElementById('company-form-logo-mode-input');
+            var darkBlock = document.getElementById('company-form-logo-dark-block');
+            if (modeToggle && modeInput && darkBlock) {
+                modeToggle.addEventListener('change', function() {
+                    var isLightDark = modeToggle.checked;
+                    modeInput.value = isLightDark ? 'light_dark' : 'single';
+                    darkBlock.classList.toggle('hidden', !isLightDark);
+                    if (!isLightDark) {
+                        var darkInput = document.getElementById('company-form-logo-dark-input');
+                        if (darkInput) darkInput.value = '';
+                        var liveLight = document.getElementById('company-form-live-preview-light');
+                        var liveDark = document.getElementById('company-form-live-preview-dark');
+                        if (liveLight && liveDark && liveLight.src) {
+                            liveDark.src = liveLight.src;
+                        }
+                        if (typeof window.syncAdminLogoVisibility === 'function') {
+                            window.syncAdminLogoVisibility();
+                        }
                     }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(data => {
-                            throw new Error(data.message || 'Network response was not ok');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && logoPreview) {
-                        // Update preview with server URL (add timestamp to force refresh)
-                        logoPreview.src = data.logo_url + '?t=' + new Date().getTime();
-                        logoPreview.classList.remove('hidden');
-                        console.log('Logo succesvol geüpload.');
-                    } else {
-                        alert(data.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert(error.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
-                    // Keep the preview even if upload fails
                 });
             }
-        }
-        
+        })();
+
         // Branch dropdown handling
         const branchSelect = document.getElementById('branch_select');
         const industryCustom = document.getElementById('industry_custom');

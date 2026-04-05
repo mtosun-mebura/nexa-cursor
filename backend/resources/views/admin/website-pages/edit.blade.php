@@ -27,10 +27,16 @@
                 Pagina bewerken
             </h1>
         </div>
-        <div class="flex items-center gap-2">
-            <a href="{{ route('admin.website-pages.index') }}" class="kt-btn kt-btn-outline">
+        <div class="flex flex-wrap items-center gap-2">
+            @if(!empty($wizardBackUrl))
+                <a href="{{ $wizardBackUrl }}" class="kt-btn kt-btn-outline">
+                    <i class="ki-filled ki-arrow-left me-2"></i>
+                    Terug naar tenant-wizard
+                </a>
+            @endif
+            <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                Terug naar overzicht
             </a>
             <a href="{{ route('admin.website-pages.preview', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
@@ -39,9 +45,14 @@
         </div>
     </div>
 
-    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index') }}">
+    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}">
         @csrf
         @method('PUT')
+        @if(!empty($wizardIndexQuery))
+            @foreach($wizardIndexQuery as $k => $v)
+                <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+            @endforeach
+        @endif
         {{-- Fallback voor section_order bovenaan formulier (bij grote PUT-request kan section_order anders ontbreken) --}}
         @php $editSectionOrder = $page->getHomeSections()['section_order'] ?? []; $editSectionOrderStr = is_array($editSectionOrder) ? implode(',', $editSectionOrder) : (is_string($editSectionOrder) ? $editSectionOrder : ''); @endphp
         <input type="hidden" name="_section_order" id="section-order-fallback" value="{{ $editSectionOrderStr }}">
@@ -240,7 +251,7 @@
                                 @php
                                     $themeSlug = $page->theme?->slug ?? 'modern';
                                     $sectionTypes = \App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug);
-                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($page->module_name);
+                                    $availableComponents = app(\App\Services\FrontendComponentService::class)->availableForPage($moduleNameForComponents ?? null);
                                 @endphp
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $sectionTypes, 'availableComponents' => $availableComponents])
                             </div>
@@ -257,7 +268,7 @@
             </div>
 
             <div class="flex items-center justify-end gap-2.5">
-                <a href="{{ route('admin.website-pages.index') }}" class="kt-btn kt-btn-outline">
+                <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren
                 </a>

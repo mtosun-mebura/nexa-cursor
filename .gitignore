@@ -2,7 +2,7 @@
 .idea/
 
 # Root env
-.env
+.env2
 
 # Backend env and config files
 backend/.env

@@ -5,16 +5,25 @@
 @section('content')
 
 <div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">
-            Bedrijven Beheer
-        </h1>
-        @can('create-companies')
-        <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-primary">
-            <i class="ki-filled ki-plus me-2"></i>
-            Nieuw Bedrijf
-        </a>
-        @endcan
+    <div class="flex flex-col gap-4 pb-7.5">
+        <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <h1 class="text-xl font-medium leading-none text-mono shrink-0">
+                Bedrijven Beheer
+            </h1>
+            @auth
+            {{-- Iedereen die deze pagina mag zien (super-admin of view-companies) ziet de acties; aanmaken blijft afgedwongen in controllers. --}}
+            <div class="flex flex-1 flex-wrap items-center justify-end gap-2 relative z-10 min-w-0" data-company-create-actions="true">
+                <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-element-11 me-2"></i>
+                    Nieuwe tenant (wizard)
+                </a>
+                <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-outline">
+                    <i class="ki-filled ki-plus me-2"></i>
+                    Nieuw bedrijf (formulier)
+                </a>
+            </div>
+            @endauth
+        </div>
     </div>
 
     <!-- Success Alert -->
@@ -70,7 +79,7 @@
                         {{ $stats['intermediaries'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Tussenpartijen
+                        Tussenpartijen / Recruiters
                     </span>
                 </div>
             </div>
@@ -139,7 +148,7 @@
                                     data-kt-select-placeholder="Type"
                                     id="intermediary-filter">
                                 <option value="">Alle types</option>
-                                <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>Tussenpartij</option>
+                                <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>Tussenpartij / Recruiter</option>
                                 <option value="no" {{ request('intermediary') == 'no' ? 'selected' : '' }}>Directe werkgever</option>
                             </select>
                             
@@ -277,7 +286,7 @@
                                         </td>
                                         <td>
                                             @if($company->is_intermediary)
-                                                <span class="kt-badge kt-badge-info">Tussenpartij</span>
+                                                <span class="kt-badge kt-badge-info">Tussenpartij / Recruiter</span>
                                             @else
                                                 <span class="kt-badge kt-badge-success">Directe werkgever</span>
                                             @endif
@@ -318,6 +327,21 @@
                                                                 <span class="kt-menu-title">Bewerken</span>
                                                             </a>
                                                         </div>
+                                                        @endcan
+                                                        @can('create-companies')
+                                                        @if(session()->has('company_wizard.'.$company->id.'.max_reachable'))
+                                                        @php
+                                                            $wizardResumeStep = max(1, min(7, (int) session('company_wizard.'.$company->id.'.max_reachable')));
+                                                        @endphp
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.companies.wizard.step', [$company, $wizardResumeStep]) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-element-11"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Nieuwe tenant — verder</span>
+                                                            </a>
+                                                        </div>
+                                                        @endif
                                                         @endcan
                                                         @if(($canView = auth()->user()->can('view-companies')) || ($canEdit = auth()->user()->can('edit-companies')))
                                                         <div class="kt-menu-separator"></div>

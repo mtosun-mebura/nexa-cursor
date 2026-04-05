@@ -69,7 +69,12 @@
         },
         text: {
             minLength: 2,
-        }
+        },
+        /** Kenteken (TaxiRoyaal voertuigen): verplicht, max 20 op server; geen strikt NL-patroon i.v.m. import/varianten */
+        license_plate: {
+            minLength: 1,
+            message: 'Voer een kenteken in.',
+        },
     };
 
     /**
@@ -151,7 +156,7 @@
                 // Check if element is an input, textarea, or select
                 if (element.tagName && ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)) {
                     // Skip hidden inputs en submit buttons
-                    if (element.type === 'hidden' || element.type === 'submit' || element.type === 'button') {
+                    if (element.type === 'hidden' || element.type === 'submit' || element.type === 'button' || element.type === 'file') {
                         return;
                     }
                     inputs.push(element);
@@ -359,6 +364,7 @@
             const name = input.name.toLowerCase();
 
             if (type === 'number') return 'number';
+            if (name === 'license_plate' || name.endsWith('[license_plate]')) return 'license_plate';
             if (type === 'email' || name.includes('email')) return 'email';
             if (type === 'tel' || name.includes('phone') || name.includes('telefoon')) return 'phone';
             if (name.includes('postal_code') || name.includes('postcode')) return 'postal_code';
@@ -414,6 +420,7 @@
             
             // Alleen feedback tonen als gebruiker heeft geïnteracteerd of geforceerd
             if (userInteracted) {
+                input.classList.add('border-destructive');
                 // Show red cross icon (same styling as green checkmark)
                 if (iconWrapper) {
                     iconWrapper.innerHTML = '<i class="ki-filled ki-cross-circle text-red-500" style="font-size: 1.25rem; line-height: 1;"></i>';
@@ -887,6 +894,8 @@
     document.addEventListener('DOMContentLoaded', function() {
         const forms = document.querySelectorAll('form[data-validate="true"]');
         forms.forEach(form => {
+            // Geen browser-popup (constraint validation); inline feedback via FormValidator
+            form.setAttribute('novalidate', 'novalidate');
             new FormValidator(form);
         });
     });

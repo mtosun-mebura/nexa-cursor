@@ -6,8 +6,8 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
-use App\Services\ModuleDatabaseService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 
 class WebsiteBuilderService
@@ -25,6 +25,7 @@ class WebsiteBuilderService
         if ($forModuleName !== null && $this->moduleDb && $this->moduleDb->supportsModuleDatabases()) {
             return WebsitePage::on($this->moduleDb->getModuleConnectionName($forModuleName));
         }
+
         return WebsitePage::query();
     }
 
@@ -71,9 +72,8 @@ class WebsiteBuilderService
      * @param  string|null  $forModuleName  Optioneel: module waarvan de configuratie gebruikt wordt (b.v. staging-URL).
      *                                      Anders: {@see getBrandingModule()}.
      * @param  bool  $forStagingPreview  Staging-thema is niet altijd het actieve site-thema: geen fallback naar
-     *                                    {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
-     *                                    blijft de dashboard-knop uit (regel hieronder).
-     *
+     *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
+     *                                   blijft de dashboard-knop uit (regel hieronder).
      * @return array{logo_url: ?string, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool}
      */
     public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false): array
@@ -180,7 +180,8 @@ class WebsiteBuilderService
     {
         $path = str_replace(['../', '..'], '', $path);
         $encoded = str_replace('/', '--', trim($path, '/'));
-        return url('/file/' . $encoded);
+
+        return url('/file/'.$encoded);
     }
 
     /**
@@ -205,6 +206,7 @@ class WebsiteBuilderService
         if (str_starts_with($u, 'http://') || str_starts_with($u, 'https://')) {
             return $u;
         }
+
         return url($u);
     }
 
@@ -343,6 +345,7 @@ class WebsiteBuilderService
     public function getActiveModuleName(): ?string
     {
         $module = $this->getBrandingModule();
+
         return $module ? $module->name : null;
     }
 
@@ -362,6 +365,7 @@ class WebsiteBuilderService
         if ($page !== null) {
             return $page;
         }
+
         return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'home')
@@ -384,6 +388,7 @@ class WebsiteBuilderService
         if ($page !== null) {
             return $page;
         }
+
         return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'about')
@@ -407,6 +412,7 @@ class WebsiteBuilderService
         if ($page !== null) {
             return $page;
         }
+
         return $this->websitePageQuery(null)->active()
             ->forModule(null)
             ->where('page_type', 'contact')
@@ -421,17 +427,18 @@ class WebsiteBuilderService
         $page = $this->websitePageQuery($moduleName)->active()
             ->where('slug', $slug)
             ->first();
-        if (!$page && $moduleName !== null) {
+        if (! $page && $moduleName !== null) {
             $page = $this->websitePageQuery(null)->active()
                 ->where('slug', $slug)
                 ->first();
         }
-        if (!$page) {
+        if (! $page) {
             return null;
         }
-        if ($page->module_name !== null && !$this->moduleManager->isActive($page->module_name)) {
+        if ($page->module_name !== null && ! $this->moduleManager->isActive($page->module_name)) {
             return null;
         }
+
         return $page;
     }
 
@@ -495,6 +502,7 @@ class WebsiteBuilderService
                 ->orderBy('title')
                 ->get();
         }
+
         return $this->getActiveMenuPages();
     }
 
@@ -507,6 +515,72 @@ class WebsiteBuilderService
         if ($id === null || $id === '') {
             return null;
         }
+
         return (int) $id;
+    }
+
+    /**
+     * Kernpagina's uit hoofddatabase (module_name null) + alle module-pagina's.
+     * Bij per-module databases: uit elke geïnstalleerde module-DB. Bij single-DB: zelfde DB, module_name gezet.
+     * Zelfde bron als Admin → Website-pagina's index.
+     *
+     * @return Collection<int, WebsitePage>
+     */
+    public function loadAllPagesForAdminIndex(): Collection
+    {
+        $kernel = WebsitePage::query()
+            ->whereNull('module_name')
+            ->with('theme')
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get();
+
+        if (! $this->moduleDb->supportsModuleDatabases()) {
+            $modulePagesOnMain = WebsitePage::query()
+                ->whereNotNull('module_name')
+                ->with('theme')
+                ->orderBy('sort_order')
+                ->orderBy('title')
+                ->get();
+
+            return $kernel->concat($modulePagesOnMain)->sortBy([
+                ['sort_order', 'asc'],
+                ['title', 'asc'],
+            ])->values();
+        }
+
+        $modulePages = collect();
+        foreach (Module::where('installed', true)->pluck('name') as $moduleName) {
+            if ($moduleName === null || $moduleName === '') {
+                continue;
+            }
+            $conn = $this->moduleDb->getModuleConnectionName($moduleName);
+            if (! Config::has("database.connections.{$conn}")) {
+                try {
+                    $this->moduleDb->registerConnection($moduleName);
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+            if (! Config::has("database.connections.{$conn}")) {
+                continue;
+            }
+            try {
+                $modulePages = $modulePages->concat(
+                    WebsitePage::on($conn)
+                        ->with('theme')
+                        ->orderBy('sort_order')
+                        ->orderBy('title')
+                        ->get()
+                );
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return $kernel->concat($modulePages)->sortBy([
+            ['sort_order', 'asc'],
+            ['title', 'asc'],
+        ])->values();
     }
 }

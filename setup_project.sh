@@ -9,7 +9,7 @@
 #   ./setup_project.sh           — build + migrate:fresh + UserRoleSeeder + up backend
 #   ./setup_project.sh --fresh   — zelfde, eerst containers van dit project stoppen
 #
-# Backend: http://localhost:8000/admin
+# Backend: http://localhost:8085/admin
 # Super-admin: backend/app/Services/ModuleSchemaService.php (SUPERADMIN_*)
 # =============================================================================
 
@@ -98,12 +98,15 @@ echo "→ Migraties (schone schema, geen seed)"
 echo "→ UserRoleSeeder (alleen super-admin gebruiker + rol)"
 "${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan db:seed --class=UserRoleSeeder --force
 
-echo "→ Start backend (Laravel op :8000)"
+echo "→ RoleSeeder (alle standaard rollen toevoegen)"
+"${COMPOSE[@]}" run --rm --no-deps --entrypoint php backend artisan db:seed --class=RoleSeeder --force
+
+echo "→ Start backend (Laravel in container op :8000, host :8085)"
 "${COMPOSE[@]}" up -d backend
 
 echo ""
 echo "✅ Klaar."
-echo "   Admin:  http://localhost:8000/admin"
+echo "   Admin:  http://localhost:8085/admin"
 echo "   Database: volgens .env (DB_HOST, DB_DATABASE, …)."
 echo "   Zorg dat de DB vanaf de container bereikbaar is (zelfde netwerk / firewall)."
 echo ""
