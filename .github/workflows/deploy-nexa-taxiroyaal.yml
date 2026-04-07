@@ -34,3 +34,6 @@ jobs:
             echo "Publieke site geeft onverwachte status: $code"
             exit 1
           fi
+          command -v node >/dev/null 2>&1 || { echo "Fout: node niet gevonden"; exit 1; }
+          command -v npm >/dev/null 2>&1 || { echo "Fout: npm niet gevonden"; exit 1; }
+          command -v docker >/dev/null 2>&1 || { echo "Fout: docker niet gevonden"; exit 1; }
