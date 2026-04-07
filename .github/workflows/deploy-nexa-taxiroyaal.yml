@@ -23,11 +23,7 @@ jobs:
       # → sudoers NOPASSWD voor `sudo -u nexas4479` op dit pad (zie deploy/github-runner-sudoers.example).
       - name: Run server deploy script
         run: |
-          if [ "$(id -un)" = "nexas4479" ]; then
-            /usr/local/bin/deploy-taxiroyaal.sh
-          else
-            sudo -n -u nexas4479 /usr/local/bin/deploy-taxiroyaal.sh
-          fi
+          sudo /usr/local/bin/deploy-taxiroyaal.sh
 
       - name: Verify public site
         run: |
