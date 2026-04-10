@@ -3,9 +3,9 @@
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
 #
-# DEPLOY_USER moet de Unix-user zijn die TENANT_DIR (incl. .git) mag schrijven — meestal de
-# eigenaar van die map. Bij "cannot open .git/FETCH_HEAD: Permission denied" klopt DEPLOY_USER
-# niet bij de bestandseigenaar (chown map of zet DEPLOY_USER via env / GitHub variable).
+# DEPLOY_USER moet TENANT_DIR (.git) kunnen schrijven. Voor git reset: storage/bootstrap/cache
+# worden vóór fetch teruggechown (container root of sudo), anders blijven www-data-bestanden
+# staan en faalt "unable to unlink".
 #
 # compose: docker-compose met fallback naar docker compose; Laravel service: backend.
 #
@@ -68,6 +68,30 @@ cd "$TENANT_DIR"
 _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
 }
+
+# Laravel/Docker laten bestanden vaak als www-data achter; git reset kan ze dan niet unlinken.
+_fix_backend_tree_for_git_reset() {
+  local uid gid
+  uid=$(id -u)
+  gid=$(id -g)
+  echo "==> Eigenaar storage, bootstrap/cache en public/build → ${uid}:${gid} (anders faalt git reset op .gitignore)"
+  if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c \
+    "for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do
+       [ -e \"\$d\" ] && chown -R ${uid}:${gid} \"\$d\" || true
+     done" 2>/dev/null; then
+    return 0
+  fi
+  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+      [[ -e "$d" ]] && sudo -n chown -R "${uid}:${gid}" "$d" || true
+    done
+    return 0
+  fi
+  echo "WARN: Kon geen chown uitvoeren (geen draaiende ${LARAVEL_SERVICE}-container en geen passwordless sudo)." >&2
+  echo "WARN: Bij 'unable to unlink': handmatig chown -R \$(whoami) backend/storage backend/bootstrap/cache backend/public/build" >&2
+}
+
+_fix_backend_tree_for_git_reset
 
 echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
 _git fetch "$GIT_REMOTE"
