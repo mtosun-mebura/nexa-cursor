@@ -1,12 +1,19 @@
 # Plaats als apart bestand onder /etc/sudoers.d/ (bijv. nexa-deploy) en chmod 440.
-# Pas de eerste kolom aan naar de gebruiker van de GitHub Actions runner
-# (vaak "runner" of de user uit ./config.sh).
+# Pas de eerste kolom aan naar de gebruiker van de GitHub Actions runner (bijv. mtosun).
 #
-# Workflow .github/workflows/deploy-saas.yml gebruikt geen sudo (geen TTY in CI).
-# Installeer de self-hosted runner-service zodat jobs draaien als:
-#   - dezelfde user als DEPLOY_USER in deploy/deploy-tenant.sh (standaard nexas4479), of
-#   - root (deploy-tenant.sh herstart zichzelf dan als DEPLOY_USER).
+# Workflow .github/workflows/deploy-saas.yml: als de runner niet nexas4479/root is,
+# wordt eerst geprobeerd: sudo -n -u nexas4479 true (check), daarna
+# sudo -n -u nexas4479 bash <checkout>/deploy/deploy-tenant.sh
 #
-# Als je de runner per se als een andere user wilt laten draaien, moet je zelf een
-# passwordless pad regelen (bijv. wrapper onder /usr/local/bin + NOPASSWD) — niet in de
-# standaard-workflow opgenomen.
+# Minimaal (voorbeeld; pad naar deploy-tenant.sh uit je runner _work-map):
+#
+# mtosun ALL=(nexas4479) NOPASSWD: /usr/bin/true, /usr/bin/bash /home/mtosun/actions-runner/_work/nexa-cursor/nexa-cursor/deploy/deploy-tenant.sh
+#
+# Als het checkout-pad wisselt, breid de regel uit of gebruik tijdelijk ruimere NOPASSWD
+# tot het pad stabiel is.
+#
+# Als nexas4479 het checkout-pad niet kan openen (Permission denied): geef traverse-rechten
+# op de homedir-keten (minimaal o+x op mappen tot _work), of installeer de runner als nexas4479.
+#
+# Alternatief zonder sudo: GitHub repo → Settings → Variables → EXTRA_DEPLOY_USERS = mtosun
+# (komma-gescheiden mogelijk). Alleen zinvol als die user git pull + docker op TENANT_DIR mag.

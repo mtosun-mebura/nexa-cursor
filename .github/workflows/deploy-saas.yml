@@ -10,15 +10,28 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    env:
+      # Optioneel (GitHub repo → Settings → Variables): komma-gescheiden users die deploy-tenant
+      # direct mogen draaien zonder sudo — alleen als die user TENANT_DIR + docker mag.
+      EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
 
     steps:
       - uses: actions/checkout@v4
 
-      # Geen `sudo`: in CI is er geen TTY → sudo vraagt om wachtwoord.
-      # Laat de self-hosted runner als root of als DEPLOY_USER (standaard nexas4479) draien;
-      # deploy-tenant.sh herstart vanaf root automatisch als DEPLOY_USER.
+      # Geen interactieve sudo (geen TTY). Volgorde: nexas4479/root → direct;
+      # anders passwordless `sudo -n -u nexas4479` (zie deploy/github-runner-sudoers.example);
+      # anders huidige user (alleen als die in EXTRA_DEPLOY_USERS staat — repo variable).
       - name: Deploy
         run: |
           set -e
+          SCRIPT="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
+          U="$(id -un)"
           echo "Deploy naar /home/nexasuite.nl/apps/saas/current (zie deploy/deploy-tenant.sh)"
-          bash "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
+          if [[ "$U" == "nexas4479" ]] || [[ "$U" == "root" ]]; then
+            bash "$SCRIPT"
+          elif sudo -n -u nexas4479 true 2>/dev/null; then
+            echo "==> Runner-user is $U; deploy als nexas4479 (passwordless sudo)"
+            sudo -n -u nexas4479 bash "$SCRIPT"
+          else
+            bash "$SCRIPT"
+          fi

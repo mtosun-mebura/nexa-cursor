@@ -6,8 +6,9 @@
 # Draait als DEPLOY_USER (standaard nexas4479). Als je per ongeluk `sudo script.sh`
 # (root) gebruikt: wordt automatisch opnieuw gestart als DEPLOY_USER — root heeft geen
 # npm in PATH en git/docker horen bij de tenant-user.
-# GitHub runner: direct als DEPLOY_USER, of sudo -u DEPLOY_USER / NOPASSWD — zie
-# deploy/github-runner-sudoers.example
+# GitHub runner: zie deploy/github-runner-sudoers.example en .github/workflows/deploy-saas.yml
+# Optioneel: EXTRA_DEPLOY_USERS (komma-gescheiden) — users die deploy mogen draaien zonder
+# sudo (alleen als ze git/docker op TENANT_DIR mogen; bijv. repo variable in GitHub).
 #
 set -euo pipefail
 
@@ -18,14 +19,28 @@ GIT_BRANCH="${GIT_BRANCH:-nexa-saas}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 DEPLOY_USER="${DEPLOY_USER:-nexas4479}"
 
+_user_allowed_for_deploy() {
+  local u="$1" entry
+  [[ "$u" == "$DEPLOY_USER" ]] && return 0
+  [[ -z "${EXTRA_DEPLOY_USERS:-}" ]] && return 1
+  local IFS=,
+  for entry in $EXTRA_DEPLOY_USERS; do
+    entry="${entry#"${entry%%[![:space:]]*}"}"
+    entry="${entry%"${entry##*[![:space:]]}"}"
+    [[ -n "$entry" && "$entry" == "$u" ]] && return 0
+  done
+  return 1
+}
+
 if [[ "$(id -un)" == "root" ]]; then
   echo "==> Running as root; re-exec as ${DEPLOY_USER} (npm/docker/repo-eigenaar)"
   exec sudo -u "$DEPLOY_USER" -H -- "$0" "$@"
 fi
 
-if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
+if ! _user_allowed_for_deploy "$(id -un)"; then
   echo "ERROR: Deploy moet als ${DEPLOY_USER} draaien (nu: $(id -un))." >&2
-  echo "Runner als ${DEPLOY_USER} laten draaien, of: sudo -u ${DEPLOY_USER} \$0 (met NOPASSWD in sudoers)." >&2
+  echo "Runner als ${DEPLOY_USER} laten draaien, passwordless sudo (zie deploy/github-runner-sudoers.example)," >&2
+  echo "of zet repo-variable EXTRA_DEPLOY_USERS (komma-gescheiden) als deze user deploy mag." >&2
   exit 1
 fi
 
