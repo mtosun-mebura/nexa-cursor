@@ -26,12 +26,15 @@ jobs:
           set -e
           SCRIPT="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
           U="$(id -un)"
+          DEPLOY_USER="${DEPLOY_USER:-mtosun}"
+
           echo "Deploy naar /home/nexasuite.nl/apps/saas/current (zie deploy/deploy-tenant.sh)"
-          if [[ "$U" == "nexas4479" ]] || [[ "$U" == "root" ]]; then
-            bash "$SCRIPT"
-          elif sudo -n -u nexas4479 true 2>/dev/null; then
-            echo "==> Runner-user is $U; deploy als nexas4479 (passwordless sudo)"
-            sudo -n -u nexas4479 bash "$SCRIPT"
+
+          if [[ "$U" == "$DEPLOY_USER" ]] || [[ "$U" == "root" ]]; then
+            DEPLOY_USER="$DEPLOY_USER" bash "$SCRIPT"
+          elif sudo -n -u "$DEPLOY_USER" true 2>/dev/null; then
+            echo "==> Runner-user is $U; deploy als $DEPLOY_USER (passwordless sudo)"
+            sudo -n -u "$DEPLOY_USER" env DEPLOY_USER="$DEPLOY_USER" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
           else
-            bash "$SCRIPT"
+            DEPLOY_USER="$DEPLOY_USER" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
           fi

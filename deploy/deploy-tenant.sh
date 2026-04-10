@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
-# Nexa SaaS deploy (CyberPanel / LiteSpeed, Docker).
-# Standaard app-map: /home/nexasuite.nl/apps/saas/current (zie TENANT_DIR hieronder).
+# Nexa SaaS deploy (CyberPanel / nginx / Docker / Laravel).
+# Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
 #
-# Draait als DEPLOY_USER (standaard nexas4479). Als je per ongeluk `sudo script.sh`
-# (root) gebruikt: wordt automatisch opnieuw gestart als DEPLOY_USER — root heeft geen
-# npm in PATH en git/docker horen bij de tenant-user.
-# GitHub runner: zie deploy/github-runner-sudoers.example en .github/workflows/deploy-saas.yml
-# Optioneel: EXTRA_DEPLOY_USERS (komma-gescheiden) — users die deploy mogen draaien zonder
-# sudo (alleen als ze git/docker op TENANT_DIR mogen; bijv. repo variable in GitHub).
+# Deze variant is afgestemd op jouw server:
+# - deploy-user: mtosun
+# - compose: docker-compose (met fallback naar docker compose)
+# - frontend build in: /backend
+# - Laravel container service: backend
 #
 set -euo pipefail
 
-# --- Config per tenant (pas aan op de server) ---
+# --- Config per tenant ---
 TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-nexa-saas}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-DEPLOY_USER="${DEPLOY_USER:-nexas4479}"
+DEPLOY_USER="${DEPLOY_USER:-mtosun}"
+LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
+BACKEND_DIR="${BACKEND_DIR:-$TENANT_DIR/backend}"
 
 _user_allowed_for_deploy() {
   local u="$1" entry
@@ -32,15 +33,23 @@ _user_allowed_for_deploy() {
   return 1
 }
 
+_compose() {
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose -f "$COMPOSE_FILE" "$@"
+  else
+    docker compose -f "$COMPOSE_FILE" "$@"
+  fi
+}
+
 if [[ "$(id -un)" == "root" ]]; then
-  echo "==> Running as root; re-exec as ${DEPLOY_USER} (npm/docker/repo-eigenaar)"
+  echo "==> Running as root; re-exec as ${DEPLOY_USER}"
   exec sudo -u "$DEPLOY_USER" -H -- "$0" "$@"
 fi
 
 if ! _user_allowed_for_deploy "$(id -un)"; then
   echo "ERROR: Deploy moet als ${DEPLOY_USER} draaien (nu: $(id -un))." >&2
-  echo "Runner als ${DEPLOY_USER} laten draaien, passwordless sudo (zie deploy/github-runner-sudoers.example)," >&2
-  echo "of zet repo-variable EXTRA_DEPLOY_USERS (komma-gescheiden) als deze user deploy mag." >&2
+  echo "Zet DEPLOY_USER goed, laat de runner als ${DEPLOY_USER} draaien," >&2
+  echo "of zet EXTRA_DEPLOY_USERS als deze user deploy mag." >&2
   exit 1
 fi
 
@@ -49,10 +58,13 @@ if [[ ! -d "$TENANT_DIR/.git" ]]; then
   exit 1
 fi
 
+if [[ ! -d "$BACKEND_DIR" ]]; then
+  echo "ERROR: Backend directory niet gevonden: $BACKEND_DIR" >&2
+  exit 1
+fi
+
 cd "$TENANT_DIR"
 
-# Git "dubious ownership": treedt op als dit script als andere user draait dan de map-eigenaar
-# (bijv. root na `sudo script.sh` i.p.v. `sudo -u nexas4479`). Zonder globale safe.directory te zetten:
 _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
 }
@@ -61,31 +73,40 @@ echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
 _git fetch "$GIT_REMOTE"
 _git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
 
-echo "==> npm build (backend)"
-# Login-shell: bij Node via nvm/fnm staat npm vaak niet in het PATH van niet-interactieve scripts.
-BACKEND_DIR="$TENANT_DIR/backend"
-if command -v npm >/dev/null 2>&1; then
-  (
-    cd "$BACKEND_DIR"
-    if [[ -f package-lock.json ]]; then
-      npm ci
-    else
-      npm install
-    fi
-    npm run build
-  )
+echo "==> Frontend build (Vite in backend/)"
+if [[ -f "$BACKEND_DIR/package.json" ]]; then
+  if command -v npm >/dev/null 2>&1; then
+    (
+      cd "$BACKEND_DIR"
+      if [[ -f package-lock.json ]]; then
+        npm ci
+      else
+        npm install
+      fi
+      npm run build
+    )
+  else
+    bash -lic "set -e; cd $(printf %q "$BACKEND_DIR"); if [[ -f package-lock.json ]]; then npm ci; else npm install; fi; npm run build"
+  fi
 else
-  # -l/-i: profile + .bashrc (nvm/fnm staat vaak in .bashrc)
-  bash -lic "set -e; cd $(printf %q "$BACKEND_DIR"); if [[ -f package-lock.json ]]; then npm ci; else npm install; fi; npm run build"
+  echo "==> Geen package.json in $BACKEND_DIR, frontend build wordt overgeslagen"
 fi
 
-echo "==> Docker Compose build + up"
+echo "==> Docker Compose pull/build/up"
 cd "$TENANT_DIR"
-docker compose -f "$COMPOSE_FILE" build --pull
-docker compose -f "$COMPOSE_FILE" up -d
+_compose pull || true
+_compose build --pull
+_compose up -d
+
+echo "==> Wachten tot Laravel service beschikbaar is"
+sleep 5
 
 echo "==> Laravel migrations + cache"
-docker compose -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force
-docker compose -f "$COMPOSE_FILE" exec -T backend php artisan optimize
+_compose exec -T "$LARAVEL_SERVICE" php artisan migrate --force
+_compose exec -T "$LARAVEL_SERVICE" php artisan config:clear
+_compose exec -T "$LARAVEL_SERVICE" php artisan cache:clear
+_compose exec -T "$LARAVEL_SERVICE" php artisan route:clear
+_compose exec -T "$LARAVEL_SERVICE" php artisan view:clear
+_compose exec -T "$LARAVEL_SERVICE" php artisan optimize
 
 echo "==> Deploy klaar ($(date -Iseconds))"
