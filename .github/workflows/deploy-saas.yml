@@ -1,0 +1,21 @@
+name: Deploy SaaS (self-hosted)
+
+on:
+  push:
+    branches:
+      - nexa-saas
+  workflow_dispatch:
+
+# App op de host: git + docker in TENANT_DIR (standaard in deploy/deploy-tenant.sh).
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        run: |
+          set -e
+          echo "Deploy naar /home/nexasuite.nl/apps/saas/current (zie deploy/deploy-tenant.sh)"
+          sudo bash "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"

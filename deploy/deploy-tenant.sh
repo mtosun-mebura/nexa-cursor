@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Nexa multi-tenant deploy (CyberPanel / LiteSpeed, Docker).
-# Kopieer naar /usr/local/bin/deploy-<tenant>.sh, pas de config hieronder aan, chmod +x.
+# Nexa SaaS deploy (CyberPanel / LiteSpeed, Docker).
+# Standaard app-map: /home/nexasuite.nl/apps/saas/current (zie TENANT_DIR hieronder).
+# CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
 #
 # Draait als DEPLOY_USER (standaard nexas4479). Als je per ongeluk `sudo script.sh`
 # (root) gebruikt: wordt automatisch opnieuw gestart als DEPLOY_USER — root heeft geen

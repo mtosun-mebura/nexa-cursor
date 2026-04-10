@@ -54,11 +54,22 @@ class AdminCompanyDomainController extends Controller
             'is_primary' => $isPrimary,
         ]);
 
+        $company->refresh();
+        $company->load('domains');
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Domein toegevoegd.',
+                'tbody_html' => view('admin.companies.partials.domain-table-rows', ['company' => $company])->render(),
+                'has_domains' => $company->domains->isNotEmpty(),
+            ]);
+        }
+
         return redirect()->route('admin.companies.show', $company)
             ->with('success', 'Domein toegevoegd.');
     }
 
-    public function destroy(Company $company, CompanyDomain $domain)
+    public function destroy(Request $request, Company $company, CompanyDomain $domain)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om dit te wijzigen.');
@@ -72,11 +83,22 @@ class AdminCompanyDomainController extends Controller
 
         $domain->delete();
 
+        $company->refresh();
+        $company->load('domains');
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Domein verwijderd.',
+                'tbody_html' => view('admin.companies.partials.domain-table-rows', ['company' => $company])->render(),
+                'has_domains' => $company->domains->isNotEmpty(),
+            ]);
+        }
+
         return redirect()->route('admin.companies.show', $company)
             ->with('success', 'Domein verwijderd.');
     }
 
-    public function setPrimary(Company $company, CompanyDomain $domain)
+    public function setPrimary(Request $request, Company $company, CompanyDomain $domain)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-companies')) {
             abort(403, 'Je hebt geen rechten om dit te wijzigen.');
@@ -90,6 +112,17 @@ class AdminCompanyDomainController extends Controller
 
         CompanyDomain::query()->where('company_id', $company->id)->update(['is_primary' => false]);
         $domain->update(['is_primary' => true]);
+
+        $company->refresh();
+        $company->load('domains');
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Primair domein ingesteld.',
+                'tbody_html' => view('admin.companies.partials.domain-table-rows', ['company' => $company])->render(),
+                'has_domains' => $company->domains->isNotEmpty(),
+            ]);
+        }
 
         return redirect()->route('admin.companies.show', $company)
             ->with('success', 'Primair domein ingesteld.');

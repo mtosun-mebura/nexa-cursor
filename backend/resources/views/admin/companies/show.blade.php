@@ -291,55 +291,27 @@
             Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit <code class="text-xs">APP_URL</code> en domeinen in <code class="text-xs">TENANCY_CENTRAL_DOMAINS</code> worden niet als tenant opgelost.
         </p>
 
-        @if($company->domains->isNotEmpty())
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                    <thead>
-                        <tr>
-                            <th class="min-w-48 text-start">Host</th>
-                            <th class="min-w-32 text-start">Primair</th>
-                            @can('edit-companies')
-                            <th class="w-[120px] text-center">Acties</th>
-                            @endcan
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($company->domains->sortByDesc('is_primary') as $d)
-                            <tr>
-                                <td class="font-mono text-sm text-foreground">{{ $d->host }}</td>
-                                <td>
-                                    @if($d->is_primary)
-                                        <span class="kt-badge kt-badge-sm kt-badge-success">Primair</span>
-                                    @else
-                                        <span class="text-muted-foreground text-sm">—</span>
-                                    @endif
-                                </td>
-                                @can('edit-companies')
-                                <td class="text-center">
-                                    @if(!$d->is_primary)
-                                    <form action="{{ route('admin.companies.domains.primary', [$company, $d]) }}" method="post" class="inline">
-                                        @csrf
-                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Maak primair</button>
-                                    </form>
-                                    @endif
-                                    <form action="{{ route('admin.companies.domains.destroy', [$company, $d]) }}" method="post" class="inline ms-1" onsubmit="return confirm('Domein verwijderen?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-danger">Verwijderen</button>
-                                    </form>
-                                </td>
-                                @endcan
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @else
-            <p class="text-sm text-secondary-foreground px-6 pb-4 mb-0">Nog geen domeinen gekoppeld.</p>
-        @endif
+        <p id="company-domains-empty" class="text-sm text-secondary-foreground px-6 pb-4 mb-0 {{ $company->domains->isNotEmpty() ? 'hidden' : '' }}">Nog geen domeinen gekoppeld.</p>
+
+        <div id="company-domains-table-wrap" class="kt-card-table kt-scrollable-x-auto pb-3 {{ $company->domains->isEmpty() ? 'hidden' : '' }}">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <thead>
+                    <tr>
+                        <th class="min-w-48 text-start">Host</th>
+                        <th class="min-w-32 text-start">Primair</th>
+                        @can('edit-companies')
+                        <th class="w-[120px] text-end">Acties</th>
+                        @endcan
+                    </tr>
+                </thead>
+                <tbody id="company-domains-tbody">
+                    @include('admin.companies.partials.domain-table-rows', ['company' => $company])
+                </tbody>
+            </table>
+        </div>
 
         @can('edit-companies')
-        <form action="{{ route('admin.companies.domains.store', $company) }}" method="post" class="{{ $company->domains->isNotEmpty() ? 'border-t border-border' : 'pt-2' }}">
+        <form id="company-domain-add-form" action="{{ route('admin.companies.domains.store', $company) }}" method="post" class="{{ $company->domains->isNotEmpty() ? 'border-t border-border' : 'pt-2' }}">
             @csrf
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
@@ -347,6 +319,7 @@
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">Hostnaam</td>
                         <td class="min-w-48 w-full">
                             <input type="text" name="host" id="domain_host" value="{{ old('host') }}" class="kt-input @error('host') border-destructive @enderror" placeholder="bijv. klant.jouwdomein.nl" required autocomplete="off" @error('host') data-server-error="1" @enderror>
+                            <div id="domain-host-error-ajax" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
                             @error('host')
                                 <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="host">{{ $message }}</div>
                             @enderror
@@ -851,6 +824,134 @@
                 e.stopPropagation();
             });
         });
+
+        // Tenant domeinen: tabel bijwerken zonder volledige pagina-refresh
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const domainTbody = document.getElementById('company-domains-tbody');
+        const domainEmptyMsg = document.getElementById('company-domains-empty');
+        const domainTableWrap = document.getElementById('company-domains-table-wrap');
+        const domainAddForm = document.getElementById('company-domain-add-form');
+
+        function applyCompanyDomainsTable(data) {
+            if (domainTbody && data.tbody_html !== undefined) {
+                domainTbody.innerHTML = data.tbody_html;
+            }
+            const hasDomains = data.has_domains !== false;
+            if (hasDomains) {
+                domainEmptyMsg?.classList.add('hidden');
+                domainTableWrap?.classList.remove('hidden');
+                domainAddForm?.classList.add('border-t', 'border-border');
+                domainAddForm?.classList.remove('pt-2');
+            } else {
+                domainEmptyMsg?.classList.remove('hidden');
+                domainTableWrap?.classList.add('hidden');
+                domainAddForm?.classList.remove('border-t', 'border-border');
+                domainAddForm?.classList.add('pt-2');
+            }
+        }
+
+        function fetchJsonDomainAction(url, formData) {
+            return fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                credentials: 'same-origin'
+            }).then(function(response) {
+                return response.json().then(function(data) {
+                    return { ok: response.ok, status: response.status, data: data };
+                });
+            });
+        }
+
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (!(form instanceof HTMLFormElement) || !form.classList.contains('js-company-domain-action')) {
+                return;
+            }
+            e.preventDefault();
+            if (form.getAttribute('data-domain-destroy') === '1') {
+                if (!window.confirm('Domein verwijderen?')) {
+                    return;
+                }
+            }
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+            fetchJsonDomainAction(form.action, new FormData(form))
+                .then(function(result) {
+                    if (!result.ok) {
+                        throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
+                    }
+                    applyCompanyDomainsTable(result.data);
+                })
+                .catch(function(err) {
+                    alert(err.message || 'Er is een fout opgetreden.');
+                })
+                .finally(function() {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                });
+        });
+
+        if (domainAddForm) {
+            const hostInput = document.getElementById('domain_host');
+            const ajaxErr = document.getElementById('domain-host-error-ajax');
+
+            function clearDomainHostErrors() {
+                if (ajaxErr) {
+                    ajaxErr.textContent = '';
+                    ajaxErr.classList.add('hidden');
+                }
+                if (hostInput) {
+                    hostInput.classList.remove('border-destructive');
+                }
+            }
+
+            hostInput?.addEventListener('input', clearDomainHostErrors);
+
+            domainAddForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                clearDomainHostErrors();
+                const submitBtn = domainAddForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+
+                fetchJsonDomainAction(domainAddForm.action, new FormData(domainAddForm))
+                .then(function(result) {
+                    if (!result.ok) {
+                        if (result.status === 422 && result.data && result.data.errors && result.data.errors.host) {
+                            const msg = Array.isArray(result.data.errors.host) ? result.data.errors.host[0] : result.data.errors.host;
+                            if (ajaxErr) {
+                                ajaxErr.textContent = msg;
+                                ajaxErr.classList.remove('hidden');
+                            }
+                            if (hostInput) {
+                                hostInput.classList.add('border-destructive');
+                            }
+                            return;
+                        }
+                        throw new Error((result.data && result.data.message) ? result.data.message : 'Opslaan mislukt');
+                    }
+                    applyCompanyDomainsTable(result.data);
+                    domainAddForm.reset();
+                })
+                .catch(function(err) {
+                    alert(err.message || 'Er is een fout opgetreden bij het toevoegen van het domein.');
+                })
+                .finally(function() {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                });
+            });
+        }
     });
 </script>
 @endcan
