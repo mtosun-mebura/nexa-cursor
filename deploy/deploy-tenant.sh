@@ -3,11 +3,11 @@
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
 #
-# Deze variant is afgestemd op jouw server:
-# - deploy-user: mtosun
-# - compose: docker-compose (met fallback naar docker compose)
-# - frontend build in: /backend
-# - Laravel container service: backend
+# DEPLOY_USER moet de Unix-user zijn die TENANT_DIR (incl. .git) mag schrijven — meestal de
+# eigenaar van die map. Bij "cannot open .git/FETCH_HEAD: Permission denied" klopt DEPLOY_USER
+# niet bij de bestandseigenaar (chown map of zet DEPLOY_USER via env / GitHub variable).
+#
+# compose: docker-compose met fallback naar docker compose; Laravel service: backend.
 #
 set -euo pipefail
 
@@ -16,7 +16,7 @@ TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-nexa-saas}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-DEPLOY_USER="${DEPLOY_USER:-mtosun}"
+DEPLOY_USER="${DEPLOY_USER:-nexas4479}"
 LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
 BACKEND_DIR="${BACKEND_DIR:-$TENANT_DIR/backend}"
 

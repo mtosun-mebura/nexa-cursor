@@ -1,9 +1,8 @@
 # Plaats als apart bestand onder /etc/sudoers.d/ (bijv. nexa-deploy) en chmod 440.
 # Pas de eerste kolom aan naar de gebruiker van de GitHub Actions runner (bijv. mtosun).
 #
-# Workflow .github/workflows/deploy-saas.yml: als de runner niet nexas4479/root is,
-# wordt eerst geprobeerd: sudo -n -u nexas4479 true (check), daarna
-# sudo -n -u nexas4479 bash <checkout>/deploy/deploy-tenant.sh
+# Workflow deploy-saas.yml: TARGET = variable DEPLOY_USER of anders nexas4479 (eigenaar TENANT_DIR).
+# Als runner niet TARGET/root is: sudo -n -u TARGET true, daarna sudo -n -u TARGET bash …/deploy-tenant.sh
 #
 # Minimaal (voorbeeld; pad naar deploy-tenant.sh uit je runner _work-map):
 #

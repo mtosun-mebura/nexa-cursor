@@ -11,30 +11,30 @@ jobs:
   deploy:
     runs-on: self-hosted
     env:
-      # Optioneel (GitHub repo → Settings → Variables): komma-gescheiden users die deploy-tenant
-      # direct mogen draaien zonder sudo — alleen als die user TENANT_DIR + docker mag.
+      # Unix-user die TENANT_DIR (.git, docker) bezit; override via repo variable als anders.
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      # Optioneel: komma-gescheiden extra users die deploy-tenant direct mogen draaien.
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
 
     steps:
       - uses: actions/checkout@v4
 
-      # Geen interactieve sudo (geen TTY). Volgorde: nexas4479/root → direct;
-      # anders passwordless `sudo -n -u nexas4479` (zie deploy/github-runner-sudoers.example);
-      # anders huidige user (alleen als die in EXTRA_DEPLOY_USERS staat — repo variable).
+      # Runner (bijv. mtosun) ≠ eigenaar van de app-map → git moet als DEPLOY_USER (standaard nexas4479).
+      # Geen TTY: sudo -n. Zie deploy/github-runner-sudoers.example.
       - name: Deploy
         run: |
           set -e
           SCRIPT="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
           U="$(id -un)"
-          DEPLOY_USER="${DEPLOY_USER:-mtosun}"
+          TARGET="${DEPLOY_USER:-nexas4479}"
 
-          echo "Deploy naar /home/nexasuite.nl/apps/saas/current (zie deploy/deploy-tenant.sh)"
+          echo "Deploy naar /home/nexasuite.nl/apps/saas/current (user: ${TARGET})"
 
-          if [[ "$U" == "$DEPLOY_USER" ]] || [[ "$U" == "root" ]]; then
-            DEPLOY_USER="$DEPLOY_USER" bash "$SCRIPT"
-          elif sudo -n -u "$DEPLOY_USER" true 2>/dev/null; then
-            echo "==> Runner-user is $U; deploy als $DEPLOY_USER (passwordless sudo)"
-            sudo -n -u "$DEPLOY_USER" env DEPLOY_USER="$DEPLOY_USER" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
+          if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
+            DEPLOY_USER="$TARGET" bash "$SCRIPT"
+          elif sudo -n -u "$TARGET" true 2>/dev/null; then
+            echo "==> Runner-user is $U; deploy als $TARGET (passwordless sudo)"
+            sudo -n -u "$TARGET" env DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
           else
-            DEPLOY_USER="$DEPLOY_USER" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
+            DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
           fi
