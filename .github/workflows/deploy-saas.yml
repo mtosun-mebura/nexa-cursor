@@ -19,14 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Runner (bijv. mtosun) ≠ eigenaar van de app-map → git moet als DEPLOY_USER (standaard nexas4479).
+      # Runner ≠ eigenaar van de app-map → git moet als DEPLOY_USER (standaard mtosun).
       # Geen TTY: sudo -n. Zie deploy/github-runner-sudoers.example.
       - name: Deploy
         run: |
           set -e
           SCRIPT="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
           U="$(id -un)"
-          TARGET="${DEPLOY_USER:-nexas4479}"
+          TARGET="${DEPLOY_USER:-mtosun}"
 
           echo "Deploy naar /home/nexasuite.nl/apps/saas/current (user: ${TARGET})"
 
@@ -34,7 +34,8 @@ jobs:
             DEPLOY_USER="$TARGET" bash "$SCRIPT"
           elif sudo -n -u "$TARGET" true 2>/dev/null; then
             echo "==> Runner-user is $U; deploy als $TARGET (passwordless sudo)"
-            sudo -n -u "$TARGET" env DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
+            # Geen `sudo … env … bash`: sudo ziet dan /usr/bin/env als commando — staat niet in NOPASSWD.
+            sudo -n -u "$TARGET" bash "$SCRIPT"
           else
             DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
           fi

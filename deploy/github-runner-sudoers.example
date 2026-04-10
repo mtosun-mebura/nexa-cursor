@@ -1,18 +1,21 @@
 # Plaats als apart bestand onder /etc/sudoers.d/ (bijv. nexa-deploy) en chmod 440.
 # Pas de eerste kolom aan naar de gebruiker van de GitHub Actions runner (bijv. mtosun).
 #
-# Workflow deploy-saas.yml: TARGET = variable DEPLOY_USER of anders nexas4479 (eigenaar TENANT_DIR).
+# Workflow deploy-saas.yml: TARGET = variable DEPLOY_USER of anders mtosun (eigenaar TENANT_DIR).
 # Als runner niet TARGET/root is: sudo -n -u TARGET true, daarna sudo -n -u TARGET bash …/deploy-tenant.sh
 #
-# Minimaal (voorbeeld; pad naar deploy-tenant.sh uit je runner _work-map):
+# Minimaal (voorbeeld; beide paden exact laten overeenkomen met `command -v true`, `command -v bash`
+# en het echte pad naar deploy-tenant.sh uit de job-log):
 #
-# mtosun ALL=(nexas4479) NOPASSWD: /usr/bin/true, /usr/bin/bash /home/mtosun/actions-runner/_work/nexa-cursor/nexa-cursor/deploy/deploy-tenant.sh
+# Als runner ≠ mtosun, bv.: github ALL=(mtosun) NOPASSWD: /usr/bin/true, /usr/bin/bash /home/mtosun/actions-runner/_work/nexa-cursor/nexa-cursor/deploy/deploy-tenant.sh
+#
+# Let op: geen `sudo … env VAR=waarde bash …` in CI — dan is het commando `env` en faalt NOPASSWD.
 #
 # Als het checkout-pad wisselt, breid de regel uit of gebruik tijdelijk ruimere NOPASSWD
 # tot het pad stabiel is.
 #
-# Als nexas4479 het checkout-pad niet kan openen (Permission denied): geef traverse-rechten
-# op de homedir-keten (minimaal o+x op mappen tot _work), of installeer de runner als nexas4479.
+# Als mtosun het checkout-pad niet kan openen (Permission denied): geef traverse-rechten
+# op de homedir-keten (minimaal o+x op mappen tot _work), of installeer de runner als mtosun.
 #
 # Alternatief zonder sudo: GitHub repo → Settings → Variables → EXTRA_DEPLOY_USERS = mtosun
 # (komma-gescheiden mogelijk). Alleen zinvol als die user git pull + docker op TENANT_DIR mag.

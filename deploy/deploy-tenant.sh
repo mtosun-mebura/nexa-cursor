@@ -16,7 +16,7 @@ TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-nexa-saas}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
-DEPLOY_USER="${DEPLOY_USER:-nexas4479}"
+DEPLOY_USER="${DEPLOY_USER:-mtosun}"
 LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
 BACKEND_DIR="${BACKEND_DIR:-$TENANT_DIR/backend}"
 
