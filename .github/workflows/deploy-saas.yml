@@ -14,8 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Geen `sudo`: in CI is er geen TTY → sudo vraagt om wachtwoord.
+      # Laat de self-hosted runner als root of als DEPLOY_USER (standaard nexas4479) draien;
+      # deploy-tenant.sh herstart vanaf root automatisch als DEPLOY_USER.
       - name: Deploy
         run: |
           set -e
           echo "Deploy naar /home/nexasuite.nl/apps/saas/current (zie deploy/deploy-tenant.sh)"
-          sudo bash "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
+          bash "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"

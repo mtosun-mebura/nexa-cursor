@@ -2,12 +2,11 @@
 # Pas de eerste kolom aan naar de gebruiker van de GitHub Actions runner
 # (vaak "runner" of de user uit ./config.sh).
 #
-# Workflow .github/workflows/deploy-saas.yml: na checkout →
-#   sudo bash "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
-# Runner-user moet daarvoor passwordless sudo naar root hebben (self-hosted), of je roept een
-# vast pad op de server aan i.p.v. GITHUB_WORKSPACE, bv.:
+# Workflow .github/workflows/deploy-saas.yml gebruikt geen sudo (geen TTY in CI).
+# Installeer de self-hosted runner-service zodat jobs draaien als:
+#   - dezelfde user als DEPLOY_USER in deploy/deploy-tenant.sh (standaard nexas4479), of
+#   - root (deploy-tenant.sh herstart zichzelf dan als DEPLOY_USER).
 #
-# runner ALL=(ALL) NOPASSWD: /usr/local/bin/nexa-deploy-saas.sh
-#
-# deploy-tenant.sh: draait als root → herstart zichzelf als DEPLOY_USER (nexas4479); daarvoor is
-# geen aparte sudoers-regel nodig.
+# Als je de runner per se als een andere user wilt laten draaien, moet je zelf een
+# passwordless pad regelen (bijv. wrapper onder /usr/local/bin + NOPASSWD) — niet in de
+# standaard-workflow opgenomen.
