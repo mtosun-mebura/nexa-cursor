@@ -2,19 +2,25 @@
 # Nexa multi-tenant deploy (CyberPanel / LiteSpeed, Docker).
 # Kopieer naar /usr/local/bin/deploy-<tenant>.sh, pas de config hieronder aan, chmod +x.
 #
-# Vereist: draait als gebruiker nexas4479 (geen root).
-# GitHub self-hosted runner: óf de runner-service draait als nexas4479 en roept dit script
-# direct aan (zonder sudo), óf gebruik sudo -u nexas4479 met NOPASSWD — zie
+# Draait als DEPLOY_USER (standaard nexas4479). Als je per ongeluk `sudo script.sh`
+# (root) gebruikt: wordt automatisch opnieuw gestart als DEPLOY_USER — root heeft geen
+# npm in PATH en git/docker horen bij de tenant-user.
+# GitHub runner: direct als DEPLOY_USER, of sudo -u DEPLOY_USER / NOPASSWD — zie
 # deploy/github-runner-sudoers.example
 #
 set -euo pipefail
 
 # --- Config per tenant (pas aan op de server) ---
-TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/taxiroyaal.nexasuite.nl}"
+TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-nexa-saas}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 DEPLOY_USER="${DEPLOY_USER:-nexas4479}"
+
+if [[ "$(id -un)" == "root" ]]; then
+  echo "==> Running as root; re-exec as ${DEPLOY_USER} (npm/docker/repo-eigenaar)"
+  exec sudo -u "$DEPLOY_USER" -H -- "$0" "$@"
+fi
 
 if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
   echo "ERROR: Deploy moet als ${DEPLOY_USER} draaien (nu: $(id -un))." >&2
@@ -29,18 +35,33 @@ fi
 
 cd "$TENANT_DIR"
 
+# Git "dubious ownership": treedt op als dit script als andere user draait dan de map-eigenaar
+# (bijv. root na `sudo script.sh` i.p.v. `sudo -u nexas4479`). Zonder globale safe.directory te zetten:
+_git() {
+  git -c "safe.directory=$TENANT_DIR" "$@"
+}
+
 echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
-git fetch "$GIT_REMOTE"
-git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
+_git fetch "$GIT_REMOTE"
+_git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
 
 echo "==> npm build (backend)"
-cd "$TENANT_DIR/backend"
-if [[ -f package-lock.json ]]; then
-  npm ci
+# Login-shell: bij Node via nvm/fnm staat npm vaak niet in het PATH van niet-interactieve scripts.
+BACKEND_DIR="$TENANT_DIR/backend"
+if command -v npm >/dev/null 2>&1; then
+  (
+    cd "$BACKEND_DIR"
+    if [[ -f package-lock.json ]]; then
+      npm ci
+    else
+      npm install
+    fi
+    npm run build
+  )
 else
-  npm install
+  # -l/-i: profile + .bashrc (nvm/fnm staat vaak in .bashrc)
+  bash -lic "set -e; cd $(printf %q "$BACKEND_DIR"); if [[ -f package-lock.json ]]; then npm ci; else npm install; fi; npm run build"
 fi
-npm run build
 
 echo "==> Docker Compose build + up"
 cd "$TENANT_DIR"
