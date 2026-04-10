@@ -74,21 +74,20 @@ _fix_backend_tree_for_git_reset() {
   local uid gid
   uid=$(id -u)
   gid=$(id -g)
-  echo "==> Eigenaar storage, bootstrap/cache en public/build → ${uid}:${gid} (anders faalt git reset op .gitignore)"
-  if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c \
+  echo "==> Eigenaar storage, bootstrap/cache en public/build → ${uid}:${gid} (via ${LARAVEL_SERVICE}-container waar mogelijk)"
+  _compose exec -T -u root "$LARAVEL_SERVICE" sh -c \
     "for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do
        [ -e \"\$d\" ] && chown -R ${uid}:${gid} \"\$d\" || true
-     done" 2>/dev/null; then
-    return 0
+     done" 2>/dev/null || true
+
+  echo "==> Fix permissions for Laravel writable dirs"
+  sudo chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "$TENANT_DIR/backend/storage" "$TENANT_DIR/backend/bootstrap/cache" || true
+  chmod -R ug+rwX "$TENANT_DIR/backend/storage" "$TENANT_DIR/backend/bootstrap/cache" || true
+
+  echo "==> Ensure deploy user owns repo files"
+  if command -v sudo >/dev/null 2>&1; then
+    sudo chown -R "$(id -un)":"$(id -gn)" "$TENANT_DIR/backend/storage" "$TENANT_DIR/backend/bootstrap/cache" 2>/dev/null || true
   fi
-  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
-      [[ -e "$d" ]] && sudo -n chown -R "${uid}:${gid}" "$d" || true
-    done
-    return 0
-  fi
-  echo "WARN: Kon geen chown uitvoeren (geen draaiende ${LARAVEL_SERVICE}-container en geen passwordless sudo)." >&2
-  echo "WARN: Bij 'unable to unlink': handmatig chown -R \$(whoami) backend/storage backend/bootstrap/cache backend/public/build" >&2
 }
 
 _fix_backend_tree_for_git_reset
