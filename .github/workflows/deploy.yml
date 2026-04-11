@@ -13,6 +13,8 @@ jobs:
       DEPLOY_DIR: /var/www/nexa
       COMPOSE_FILE: docker-compose.prod.yml
       BACKEND_DIR: /var/www/nexa/backend
+      # Ubuntu/staging-deploy: DB-naam voor docker compose (overschrijft niet het .env-bestand, maar de container-env die Laravel ziet)
+      DB_DATABASE: nexa-staging
 
     steps:
       - name: Cleanup disk space
