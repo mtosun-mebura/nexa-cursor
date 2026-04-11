@@ -69,25 +69,38 @@ _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
 }
 
-# Laravel/Docker laten bestanden vaak als www-data achter; git reset kan ze dan niet unlinken.
+# Laravel/Docker: storage/bootstrap/cache zijn vaak www-data. Git reset moet als deploy-user kunnen
+# unlinken — dat gaat zonder interactieve sudo: chown/chmod als root *in de container* (bind mounts).
 _fix_backend_tree_for_git_reset() {
-  local uid gid
+  local uid gid fix_cmd
   uid=$(id -u)
   gid=$(id -g)
-  echo "==> Eigenaar storage, bootstrap/cache en public/build → ${uid}:${gid} (via ${LARAVEL_SERVICE}-container waar mogelijk)"
-  _compose exec -T -u root "$LARAVEL_SERVICE" sh -c \
-    "for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do
-       [ -e \"\$d\" ] && chown -R ${uid}:${gid} \"\$d\" || true
-     done" 2>/dev/null || true
+  # Eén regel voor exec/run -c (paden = volume-mounts in docker-compose.prod)
+  fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
 
-  echo "==> Fix permissions for Laravel writable dirs"
-  sudo chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "$TENANT_DIR/backend/storage" "$TENANT_DIR/backend/bootstrap/cache" || true
-  chmod -R ug+rwX "$TENANT_DIR/backend/storage" "$TENANT_DIR/backend/bootstrap/cache" || true
-
-  echo "==> Ensure deploy user owns repo files"
-  if command -v sudo >/dev/null 2>&1; then
-    sudo chown -R "$(id -un)":"$(id -gn)" "$TENANT_DIR/backend/storage" "$TENANT_DIR/backend/bootstrap/cache" 2>/dev/null || true
+  echo "==> Laravel writable dirs → ${uid}:${gid} + ug+rwX (Docker root; geen TTY-sudo)"
+  if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c "$fix_cmd"; then
+    return 0
   fi
+
+  echo "==> exec mislukte of container uit; compose run --rm met /bin/sh (geen entrypoint.sh → geen www-data reset vóór chown)"
+  if _compose run --rm --no-deps -T -u root --entrypoint /bin/sh "$LARAVEL_SERVICE" -c "$fix_cmd"; then
+    return 0
+  fi
+
+  echo "==> Fallback: passwordless host-sudo (sudo -n)"
+  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+      [[ -e "$d" ]] || continue
+      sudo -n chown -R "${uid}:${gid}" "$d" || true
+      sudo -n chmod -R ug+rwX "$d" || true
+    done
+    return 0
+  fi
+
+  echo "ERROR: Kon storage/bootstrap/cache niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
+  echo "TIP: zorg dat ${LARAVEL_SERVICE} minstens één keer gebouwd is, of zet NOPASSWD voor chown/chmod op die mappen." >&2
+  exit 1
 }
 
 _fix_backend_tree_for_git_reset
