@@ -7,7 +7,8 @@
 # worden vóór fetch teruggechown (container root of sudo), anders blijven www-data-bestanden
 # staan en faalt "unable to unlink".
 #
-# compose: docker-compose met fallback naar docker compose; Laravel service: backend.
+# Docker: deploy-user moet in groep 'docker' zitten (socket). Daarna runner-service herstarten.
+# compose: bij voorkeur 'docker compose' (v2), anders docker-compose v1. Laravel service: backend.
 #
 set -euo pipefail
 
@@ -34,11 +35,30 @@ _user_allowed_for_deploy() {
 }
 
 _compose() {
-  if command -v docker-compose >/dev/null 2>&1; then
+  if docker compose version >/dev/null 2>&1; then
+    docker compose -f "$COMPOSE_FILE" "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
     docker-compose -f "$COMPOSE_FILE" "$@"
   else
-    docker compose -f "$COMPOSE_FILE" "$@"
+    echo "ERROR: Geen 'docker compose' (plugin) of docker-compose in PATH." >&2
+    exit 1
   fi
+}
+
+# Zonder socket-rechten faalt alles stil of met Python-stacktraces — vroeg en duidelijk stoppen.
+_require_docker_socket() {
+  if docker info >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "" >&2
+  echo "ERROR: Docker daemon niet bereikbaar voor user $(id -un) (meestal Permission denied op /var/run/docker.sock)." >&2
+  echo "Oplossing op de server (eenmalig), daarna runner opnieuw starten zodat de groep actief is:" >&2
+  echo "  sudo usermod -aG docker $(id -un)" >&2
+  echo "  id $(id -un)    # moet 'docker' tonen in groepen" >&2
+  echo "  # herstart de Actions-runner (anders ziet hij groep 'docker' niet):" >&2
+  echo "  #   sudo systemctl restart <actions.runner.*.service>   # of ./svc.sh stop && ./svc.sh start in runner-map" >&2
+  echo "" >&2
+  exit 1
 }
 
 if [[ "$(id -un)" == "root" ]]; then
@@ -64,6 +84,8 @@ if [[ ! -d "$BACKEND_DIR" ]]; then
 fi
 
 cd "$TENANT_DIR"
+
+_require_docker_socket
 
 _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
@@ -99,7 +121,8 @@ _fix_backend_tree_for_git_reset() {
   fi
 
   echo "ERROR: Kon storage/bootstrap/cache niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
-  echo "TIP: zorg dat ${LARAVEL_SERVICE} minstens één keer gebouwd is, of zet NOPASSWD voor chown/chmod op die mappen." >&2
+  echo "TIP: image bouwen: docker compose -f $COMPOSE_FILE build ${LARAVEL_SERVICE}" >&2
+  echo "TIP: bij Permission denied op de socket eerst: usermod -aG docker $(id -un) + runner herstarten." >&2
   exit 1
 }
 

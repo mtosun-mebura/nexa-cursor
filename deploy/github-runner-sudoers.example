@@ -19,3 +19,10 @@
 #
 # Alternatief zonder sudo: GitHub repo → Settings → Variables → EXTRA_DEPLOY_USERS = mtosun
 # (komma-gescheiden mogelijk). Alleen zinvol als die user git pull + docker op TENANT_DIR mag.
+#
+# --- Docker (verplicht voor deploy-tenant.sh) ---
+# De user die de runner gebruikt (meestal mtosun) moet de Docker socket mogen gebruiken:
+#   sudo usermod -aG docker mtosun
+# Daarna de runner-service herstarten (nieuwe login-pickup van groepen), bv.:
+#   sudo systemctl list-units 'actions.runner.*' && sudo systemctl restart <unit-naam>
+# Test: docker info  (als mtosun, zonder sudo)
