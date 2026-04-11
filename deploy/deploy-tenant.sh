@@ -9,6 +9,7 @@
 #
 # Docker: deploy-user moet in groep 'docker' zitten (socket). Daarna runner-service herstarten.
 # compose: bij voorkeur 'docker compose' (v2), anders docker-compose v1. Laravel service: backend.
+# Opruiming vóór build: alleen veilige prune (builder + dangling images + gestopte containers), géén volumes.
 #
 set -euo pipefail
 
@@ -59,6 +60,14 @@ _require_docker_socket() {
   echo "  #   sudo systemctl restart <actions.runner.*.service>   # of ./svc.sh stop && ./svc.sh start in runner-map" >&2
   echo "" >&2
   exit 1
+}
+
+# Geen `docker system prune --volumes` / geen `image prune -a`: named volumes en getagde images blijven intact.
+_docker_safe_prune() {
+  echo "==> Docker: veilige schijfruimte (dangling build-cache, dangling images, gestopte containers — géén volumes)"
+  docker builder prune -f 2>/dev/null || true
+  docker image prune -f 2>/dev/null || true
+  docker container prune -f 2>/dev/null || true
 }
 
 if [[ "$(id -un)" == "root" ]]; then
@@ -168,6 +177,7 @@ fi
 echo "==> Docker Compose pull/build/up"
 cd "$TENANT_DIR"
 _compose pull || true
+_docker_safe_prune
 _compose build --pull
 _compose up -d
 
