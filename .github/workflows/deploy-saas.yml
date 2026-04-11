@@ -17,7 +17,7 @@ jobs:
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Runner ≠ eigenaar van de app-map → git moet als DEPLOY_USER (standaard mtosun).
       # Geen TTY: sudo -n. Zie deploy/github-runner-sudoers.example.

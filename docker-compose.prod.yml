@@ -7,11 +7,11 @@ services:
     # meerdere deploy-paden of als 'compose down' niet dezelfde projectnaam gebruikt.
     # Compose gebruikt dan bv. <project>-backend-1; exec: docker compose exec backend …
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8085:8000"
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: https://nexa.tosun.nl
+      APP_URL: https://nexasuite.nl
       APP_KEY: ${APP_KEY}
 
       DB_CONNECTION: pgsql

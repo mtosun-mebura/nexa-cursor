@@ -64,7 +64,7 @@ jobs:
           echo "✅ Cleanup complete"
 
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Remove vendor/node_modules before rsync
         run: |
