@@ -3,7 +3,7 @@
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
 #
-# DEPLOY_USER moet TENANT_DIR (.git) kunnen schrijven. Voor git reset: storage/bootstrap/cache
+# DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Voor git reset: storage/bootstrap/cache
 # worden vóór fetch teruggechown (container root of sudo), anders blijven www-data-bestanden
 # staan en faalt "unable to unlink".
 #
@@ -150,6 +150,29 @@ _fix_backend_tree_for_git_reset() {
 
 _stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
+
+# fetch schrijft naar .git/objects; na eerdere root/docker-deploys kan .git nog root:www-data zijn.
+_fix_git_dir_ownership() {
+  local uid gid
+  uid=$(id -u)
+  gid=$(id -g)
+  if [[ -w "$TENANT_DIR/.git/objects" ]] 2>/dev/null; then
+    return 0
+  fi
+  echo "==> Eigenaar $TENANT_DIR/.git → ${uid}:${gid} (fix insufficient permission voor .git/objects)"
+  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    sudo -n chown -R "${uid}:${gid}" "$TENANT_DIR/.git" || true
+  else
+    chown -R "${uid}:${gid}" "$TENANT_DIR/.git" 2>/dev/null || true
+  fi
+  if [[ ! -w "$TENANT_DIR/.git/objects" ]]; then
+    echo "ERROR: Kan niet schrijven in $TENANT_DIR/.git/objects (git fetch faalt)." >&2
+    echo "Eenmalig op de server: sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
+    exit 1
+  fi
+}
+
+_fix_git_dir_ownership
 
 echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
 _git fetch "$GIT_REMOTE"
