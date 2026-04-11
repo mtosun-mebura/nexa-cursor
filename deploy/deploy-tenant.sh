@@ -91,8 +91,21 @@ _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
 }
 
+# Draaiende backend + restart-loop: entrypoint.sh chown't storage naar www-data bij elke start.
+# Daardoor kan chown via compose run direct weer teniet worden gedaan vóór git reset → eerst stoppen.
+_stop_backend_for_git_reset() {
+  echo "==> Stop ${LARAVEL_SERVICE} (geen entrypoint-chown naar www-data tijdens git reset)"
+  _compose stop -t 60 "$LARAVEL_SERVICE" 2>/dev/null || true
+  sleep 3
+  if _compose ps "$LARAVEL_SERVICE" 2>/dev/null | grep -qiE 'restarting|starting'; then
+    echo "==> ${LARAVEL_SERVICE} blijft herstarten; compose kill"
+    _compose kill "$LARAVEL_SERVICE" 2>/dev/null || true
+    sleep 2
+  fi
+}
+
 # Laravel/Docker: storage/bootstrap/cache zijn vaak www-data. Git reset moet als deploy-user kunnen
-# unlinken — dat gaat zonder interactieve sudo: chown/chmod als root *in de container* (bind mounts).
+# unlinken — chown/chmod als root in een compose run (bind mounts), ná stop hierboven.
 _fix_backend_tree_for_git_reset() {
   local uid gid fix_cmd
   uid=$(id -u)
@@ -126,6 +139,7 @@ _fix_backend_tree_for_git_reset() {
   exit 1
 }
 
+_stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
 
 echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
