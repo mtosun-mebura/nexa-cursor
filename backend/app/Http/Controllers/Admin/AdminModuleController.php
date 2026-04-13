@@ -13,7 +13,6 @@ use App\Services\ModuleManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 
 class AdminModuleController extends Controller
@@ -163,19 +162,8 @@ class AdminModuleController extends Controller
             $enabledKeys = array_column($availableItems, 'key');
         }
 
-        $dbService = app(ModuleDatabaseService::class);
-        $conn = null;
-        if ($dbService->supportsModuleDatabases()) {
-            $connName = $dbService->getModuleConnectionName($moduleModel->name);
-            if (Config::has("database.connections.{$connName}")) {
-                $conn = $connName;
-            }
-        }
-        try {
-            $companies = $conn ? Company::on($conn)->orderBy('name')->get() : Company::orderBy('name')->get();
-        } catch (\Throwable $e) {
-            $companies = Company::orderBy('name')->get();
-        }
+        // company_id in module-config verwijst altijd naar centrale tenant (tabel companies op default-DB).
+        $companies = Company::query()->orderBy('name')->get();
 
         return view('admin.modules.config', [
             'moduleName' => $moduleModel->name,
@@ -217,23 +205,8 @@ class AdminModuleController extends Controller
         $enabledKeys = array_values(array_intersect($submitted, $validKeys));
 
         $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
-        if ($companyId !== null) {
-            $dbService = app(ModuleDatabaseService::class);
-            $conn = null;
-            if ($dbService->supportsModuleDatabases()) {
-                $connName = $dbService->getModuleConnectionName($moduleModel->name);
-                if (Config::has("database.connections.{$connName}")) {
-                    $conn = $connName;
-                }
-            }
-            try {
-                $exists = $conn ? Company::on($conn)->where('id', $companyId)->exists() : Company::where('id', $companyId)->exists();
-            } catch (\Throwable $e) {
-                $exists = Company::where('id', $companyId)->exists();
-            }
-            if (! $exists) {
-                return redirect()->back()->withInput()->withErrors(['company_id' => 'Het gekozen bedrijf bestaat niet.']);
-            }
+        if ($companyId !== null && ! Company::query()->whereKey($companyId)->exists()) {
+            return redirect()->back()->withInput()->withErrors(['company_id' => 'Het gekozen bedrijf bestaat niet.']);
         }
 
         $config = $moduleModel->configuration ?? [];

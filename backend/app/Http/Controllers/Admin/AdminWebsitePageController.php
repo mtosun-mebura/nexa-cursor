@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -122,6 +123,8 @@ class AdminWebsitePageController extends Controller
         } else {
             $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true);
         }
+        $connForCompany = $connection ?? config('database.default');
+        $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForCompany, null);
         if ($connection !== null) {
             $data['frontend_theme_id'] = null;
             WebsitePage::on($connection)->create($data);
@@ -692,6 +695,7 @@ class AdminWebsitePageController extends Controller
             if ($connection !== null) {
                 $data['frontend_theme_id'] = null;
             }
+            $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForSchema, $website_page);
             $website_page->update($data);
 
             // Footer op de site komt van de home-pagina. Sync vanuit een andere pagina alleen als die pagina
@@ -1689,5 +1693,49 @@ class AdminWebsitePageController extends Controller
         }
 
         return route('admin.companies.wizard.step', [$company, $q['wizard_step']]);
+    }
+
+    /**
+     * Koppel website_pages aan een bedrijf (tenant) wanneer de kolom bestaat: wizard, geselecteerde tenant of user.company_id.
+     */
+    private function mergeCompanyIdIntoWebsitePageSaveData(array &$data, Request $request, string $connectionForSchema, ?WebsitePage $existing): void
+    {
+        $table = (new WebsitePage)->getTable();
+        if (! Schema::connection($connectionForSchema)->hasColumn($table, 'company_id')) {
+            return;
+        }
+        $resolved = $this->resolveWebsitePageCompanyIdForStore($request);
+        if ($resolved !== null) {
+            $data['company_id'] = $resolved;
+
+            return;
+        }
+        if ($existing !== null) {
+            $data['company_id'] = $existing->getAttribute('company_id');
+        }
+    }
+
+    private function resolveWebsitePageCompanyIdForStore(Request $request): ?int
+    {
+        $wq = $this->websitePagesIndexQuery($request);
+        if (isset($wq['wizard_company'])) {
+            $id = (int) $wq['wizard_company'];
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+        $st = session('selected_tenant');
+        if ($st !== null && $st !== '') {
+            $id = (int) $st;
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+        $user = auth()->user();
+        if ($user && $user->company_id) {
+            $id = (int) $user->company_id;
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+
+        return null;
     }
 }

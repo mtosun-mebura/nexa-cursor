@@ -182,13 +182,11 @@ class AdminUserController extends Controller
             'function' => $request->validated()['function'] ?? null,
         ];
 
-        // Als Super Admin en tenant geselecteerd, gebruik die tenant
+        // Super-admin: altijd het gekozen bedrijf uit het formulier (wizard kan selected_tenant zetten;
+        // die sessie is alleen UI-context en mag een expliciete keuze in het select niet overschrijven).
         if (auth()->user()->hasRole('super-admin')) {
-            if (session('selected_tenant')) {
-                $userData['company_id'] = session('selected_tenant');
-            } else {
-                $userData['company_id'] = $request->validated()['company_id'] ?? null;
-            }
+            $cid = $request->validated()['company_id'] ?? null;
+            $userData['company_id'] = $cid !== null && $cid !== '' ? (int) $cid : null;
         } else {
             // Voor niet-super-admins: gebruik altijd het bedrijf van de ingelogde gebruiker
             $userData['company_id'] = auth()->user()->company_id;
@@ -282,13 +280,9 @@ class AdminUserController extends Controller
             'function' => $validated['function'] ?? null,
         ];
 
-        // Als Super Admin en tenant geselecteerd, gebruik die tenant
         if (auth()->user()->hasRole('super-admin')) {
-            if (session('selected_tenant')) {
-                $userData['company_id'] = session('selected_tenant');
-            } else {
-                $userData['company_id'] = $validated['company_id'] ?? null;
-            }
+            $cid = $validated['company_id'] ?? null;
+            $userData['company_id'] = $cid !== null && $cid !== '' ? (int) $cid : null;
         } else {
             // Voor niet-super-admins: gebruik altijd het bedrijf van de ingelogde gebruiker
             $userData['company_id'] = auth()->user()->company_id;

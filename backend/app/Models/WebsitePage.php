@@ -35,6 +35,7 @@ class WebsitePage extends Model
         'page_type',
         'module_name',
         'frontend_theme_id',
+        'company_id',
         'is_active',
         'show_in_menu',
         'sort_order',
@@ -85,6 +86,11 @@ class WebsitePage extends Model
     public function theme()
     {
         return $this->belongsTo(FrontendTheme::class, 'frontend_theme_id');
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**
