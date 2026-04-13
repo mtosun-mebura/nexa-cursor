@@ -140,6 +140,30 @@ class ModuleManager
     }
 
     /**
+     * Resolveer PSR-4 class voor App\Modules\{Dir}\Module op basis van echte mapnaam
+     * (Linux: ucfirst('taxiroyaal') => Taxiroyaal, map is TaxiRoyaal → class_exists faalde).
+     */
+    protected function resolveInternalModuleClass(string $moduleName): ?string
+    {
+        $base = app_path('Modules');
+        if (! File::isDirectory($base)) {
+            return null;
+        }
+        foreach (File::directories($base) as $dir) {
+            $folder = basename($dir);
+            if (strcasecmp($folder, $moduleName) !== 0) {
+                continue;
+            }
+            $class = "App\\Modules\\{$folder}\\Module";
+            if (class_exists($class)) {
+                return $class;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Load een module
      */
     public function loadModule(string $moduleName): ?Module
@@ -160,6 +184,13 @@ class ModuleManager
         if (! class_exists($moduleClass)) {
             // Try with capitalized name
             $moduleClass = "App\\Modules\\{$normalizedName}\\Module";
+        }
+
+        if (! class_exists($moduleClass)) {
+            $resolved = $this->resolveInternalModuleClass($moduleName);
+            if ($resolved !== null) {
+                $moduleClass = $resolved;
+            }
         }
 
         if (! class_exists($moduleClass)) {

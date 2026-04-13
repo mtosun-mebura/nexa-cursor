@@ -18,7 +18,8 @@ services:
       DB_HOST: 192.168.178.249
       DB_PORT: 5432
       # Via shell of root-.env (Compose-substitutie); niet hardcoded — anders overschrijft dit de gemounte .env in Laravel.
-      DB_DATABASE: ${DB_DATABASE:-nexa}
+      # Standaard staging; productie: zet DB_DATABASE in root-.env (niet in git).
+      DB_DATABASE: ${DB_DATABASE:-nexa-staging}
       DB_USERNAME: mtosun
       DB_PASSWORD: ${DB_PASSWORD}     # inject via runner/host env of .env naast compose
 

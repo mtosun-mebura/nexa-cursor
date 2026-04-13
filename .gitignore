@@ -1,7 +1,9 @@
 .DS_Store
 .idea/
 
-# Root env
+# Root env (nooit committen: git reset overschrijft anders productie-/staging-.env op de server)
+.env
+.env.backup
 .env2
 
 # Backend env and config files
