@@ -105,7 +105,7 @@ class WebsitePageUpdateTest extends TestCase
             'title' => 'Home',
             'page_type' => 'home',
             'frontend_theme_id' => $theme->id,
-            'module_name' => 'Taxi Royaal',
+            'module_name' => 'Nexa Taxi',
             'is_active' => true,
             'sort_order' => 0,
             'home_sections' => [
@@ -121,15 +121,15 @@ class WebsitePageUpdateTest extends TestCase
             'slug' => 'home',
             'title' => 'Home',
             'page_type' => 'home',
-            'module_name' => 'Taxi Royaal',
+            'module_name' => 'Nexa Taxi',
             'frontend_theme_id' => (string) $theme->id,
             'meta_description' => '',
             'content' => '',
             'is_active' => '1',
             'sort_order' => '0',
-            '_section_order' => 'hero,stats,component:taxiroyaal.boekingsmodule,cta',
+            '_section_order' => 'hero,stats,component:taxi.boekingsmodule,cta',
             'home_sections' => [
-                'section_order' => 'hero,stats,component:taxiroyaal.boekingsmodule,cta',
+                'section_order' => 'hero,stats,component:taxi.boekingsmodule,cta',
                 'visibility' => ['hero' => true, 'footer' => true],
                 'copyright' => '© Test',
                 'footer' => ['tagline' => 'Test tagline'],
@@ -144,8 +144,8 @@ class WebsitePageUpdateTest extends TestCase
         $sections = $page->home_sections;
         $this->assertIsArray($sections);
         $order = $sections['section_order'] ?? [];
-        $this->assertContains('component:taxiroyaal.boekingsmodule', $order, 'Section order must contain the component key');
-        $this->assertArrayHasKey('component:taxiroyaal.boekingsmodule', $sections);
+        $this->assertContains('component:taxi.boekingsmodule', $order, 'Section order must contain the component key');
+        $this->assertArrayHasKey('component:taxi.boekingsmodule', $sections);
     }
 
     #[Test]
@@ -156,13 +156,13 @@ class WebsitePageUpdateTest extends TestCase
             ['slug' => 'atom-v2'],
             ['name' => 'Atom v2', 'is_active' => true]
         );
-        $componentKey = 'component:taxiroyaal.boekingsmodule';
+        $componentKey = 'component:taxi.boekingsmodule';
         $page = WebsitePage::create([
             'slug' => 'home',
             'title' => 'Home',
             'page_type' => 'home',
             'frontend_theme_id' => $theme->id,
-            'module_name' => 'Taxi Royaal',
+            'module_name' => 'Nexa Taxi',
             'is_active' => true,
             'sort_order' => 0,
             'home_sections' => [
@@ -178,7 +178,7 @@ class WebsitePageUpdateTest extends TestCase
             'slug' => 'home',
             'title' => 'Home',
             'page_type' => 'home',
-            'module_name' => 'Taxi Royaal',
+            'module_name' => 'Nexa Taxi',
             'frontend_theme_id' => (string) $theme->id,
             'meta_description' => '',
             'content' => '',

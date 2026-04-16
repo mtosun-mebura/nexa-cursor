@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\Company;
 use App\Models\JobTitle;
 use App\Models\User;
+use App\Support\ModuleSchemaAvailability;
 use App\Services\EnvService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -108,7 +109,9 @@ class AdminUserController extends Controller
             'active_users' => \Schema::hasColumn('users', 'is_active')
                 ? (clone $statsQuery)->where('is_active', true)->count()
                 : (clone $statsQuery)->whereNotNull('email_verified_at')->count(),
-            'total_vacancies' => $tenantId ? \App\Models\Vacancy::where('company_id', $tenantId)->count() : \App\Models\Vacancy::count(),
+            'total_vacancies' => ModuleSchemaAvailability::vacanciesTableExists()
+                ? ($tenantId ? \App\Models\Vacancy::where('company_id', $tenantId)->count() : \App\Models\Vacancy::count())
+                : 0,
             'intermediaries' => $tenantId ? \App\Models\Company::where('id', $tenantId)->where('is_intermediary', true)->count() : \App\Models\Company::where('is_intermediary', true)->count(),
         ];
 

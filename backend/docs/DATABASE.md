@@ -21,7 +21,7 @@
 
 3. Sommige services lezen **extra** keys uit **root** `.env` (buiten Laravel), o.a. `GOOGLE_MAPS_API_KEY` via `EnvService::getRootEnvPath()` — zie code. Wil je echt alles op één plek: zet die keys ook in `backend/.env` **of** symlink zodat er maar één fysiek bestand is.
 
-**Modules** (Skillmatching, TaxiRoyaal) zijn **geen aparte Laravel-apps**; ze gebruiken **dezelfde** `backend/.env` en `config/database.php`. Alleen bij `MODULE_USE_SINGLE_DATABASE=false` kunnen er **extra database-connections** (`module_*`) worden geregistreerd — nog steeds geconfigureerd via dezelfde `.env` (`DB_*` + module-instellingen).
+**Modules** (Skillmatching, Nexa Taxi) zijn **geen aparte Laravel-apps**; ze gebruiken **dezelfde** `backend/.env` en `config/database.php`. Alleen bij `MODULE_USE_SINGLE_DATABASE=false` kunnen er **extra database-connections** (`module_*`) worden geregistreerd — nog steeds geconfigureerd via dezelfde `.env` (`DB_*` + module-instellingen).
 
 ---
 
@@ -34,7 +34,7 @@ MODULE_USE_SINGLE_DATABASE=true
 ```
 
 - Alle tabellen (kern + module) horen in **dezelfde** database als `DB_DATABASE`.
-- Er worden **geen** aparte `module_taxiroyaal`-connections voor dit patroon gebruikt (`ModuleDatabaseService::supportsModuleDatabases()` wordt dan `false`).
+- Er worden **geen** aparte `module_taxi`-connections voor dit patroon gebruikt (`ModuleDatabaseService::supportsModuleDatabases()` wordt dan `false`).
 
 Zet je `MODULE_USE_SINGLE_DATABASE=false` (default), dan kan de app bij MySQL/PostgreSQL **per module een eigen database** gebruiken; de **hoofd-DB** (`DB_*`) blijft voor o.a. `users`, `modules`, `general_settings`.
 

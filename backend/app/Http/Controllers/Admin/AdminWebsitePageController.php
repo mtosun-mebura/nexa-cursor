@@ -12,7 +12,7 @@ use App\Services\FrontendComponentService;
 use App\Services\ModuleContextService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
-use App\Services\TaxiRoyaalBookingPricingService;
+use App\Services\NexaTaxiBookingPricingService;
 use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,12 +42,18 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $activeModuleName = $this->getActiveModuleNameForFrontend();
 
-        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex();
+        $tenantCompanyId = $this->resolveTenantCompanyIdForWebsitePagesList($request);
+        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex(
+            $tenantCompanyId,
+            $tenantCompanyId !== null
+        );
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
         $wizardIndexQuery = $this->websitePagesIndexQuery($request);
+        $websiteTenantContext = $this->buildWebsitePageCompanyContext($request, null);
+        $websitePagesCompanyNames = $this->websitePagesCompanyNameMapForIndex($pages);
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames'));
     }
 
     public function create(Request $request)
@@ -66,7 +72,9 @@ class AdminWebsitePageController extends Controller
 
         $moduleNameForComponents = $this->moduleNameForWebsiteComponents(null, $request);
 
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents'));
+        $websiteTenantContext = $this->buildWebsitePageCompanyContext($request, null);
+
+        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext'));
     }
 
     public function store(Request $request)
@@ -77,8 +85,14 @@ class AdminWebsitePageController extends Controller
         if ($moduleName !== null && $this->moduleDb->supportsModuleDatabases()) {
             $connection = $this->moduleDb->getModuleConnectionName($moduleName);
         }
-        $slugRule = $this->buildSlugUniqueRule($connection, $moduleName, null);
-        $data = $request->validate([
+        $slugRule = $this->buildSlugUniqueRule(
+            $connection,
+            $moduleName,
+            null,
+            $this->resolveCompanyIdForWebsitePageSlugRule($request, null)
+        );
+        $companyIdRules = $this->websitePageCompanyIdValidationRules($request, null, $connection);
+        $data = $request->validate(array_merge([
             'slug' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9\-]+$/', $slugRule],
             'title' => 'required|string|max:255',
             'content' => 'nullable|string',
@@ -89,8 +103,9 @@ class AdminWebsitePageController extends Controller
             'is_active' => 'boolean',
             'show_in_menu' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
-        ], [
-            'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
+        ], $companyIdRules), [
+            'slug.unique' => 'Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.',
+            'company_id.required' => 'Kies een bedrijf waaraan deze pagina wordt gekoppeld.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $table = (new WebsitePage)->getTable();
@@ -206,6 +221,7 @@ class AdminWebsitePageController extends Controller
         $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
         $wizardIndexQuery = $this->websitePagesIndexQuery($request);
         $moduleNameForComponents = $this->moduleNameForWebsiteComponents($website_page->module_name, $request);
+        $websiteTenantContext = $this->buildWebsitePageCompanyContext($request, $website_page);
 
         return view('admin.website-pages.edit', [
             'page' => $website_page,
@@ -220,6 +236,7 @@ class AdminWebsitePageController extends Controller
             'wizardBackUrl' => $wizardBackUrl,
             'wizardIndexQuery' => $wizardIndexQuery,
             'moduleNameForComponents' => $moduleNameForComponents,
+            'websiteTenantContext' => $websiteTenantContext,
         ]);
     }
 
@@ -402,7 +419,7 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
-     * HTML voor één frontend-componentkaart (component:taxiroyaal.boekingsmodule, enz.).
+     * HTML voor één frontend-componentkaart (component:taxi.boekingsmodule, enz.).
      * Gebruikt bij "Sectie toevoegen" wanneer er nog geen kaart van dat type op de pagina staat.
      */
     public function componentSectionCardHtml(Request $request)
@@ -575,12 +592,17 @@ class AdminWebsitePageController extends Controller
     {
         $this->ensureSuperAdmin();
         $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
-        $connection = null;
-        if ($moduleName !== null && $this->moduleDb->supportsModuleDatabases()) {
-            $connection = $this->moduleDb->getModuleConnectionName($moduleName);
-        }
-        $slugRule = $this->buildSlugUniqueRule($connection, $moduleName, (int) $website_page->id);
-        $data = $request->validate([
+        // Zelfde DB als route-binding (module-DB vs hoofddatabase). Request-module_name kan afwijken;
+        // dan gold hasColumn/validatie voor de verkeerde connection en werd company_id niet opgeslagen.
+        $connection = $website_page->getConnectionName();
+        $slugRule = $this->buildSlugUniqueRule(
+            $connection,
+            $moduleName,
+            (int) $website_page->id,
+            $this->resolveCompanyIdForWebsitePageSlugRule($request, $website_page)
+        );
+        $companyIdRules = $this->websitePageCompanyIdValidationRules($request, $website_page, $connection);
+        $data = $request->validate(array_merge([
             'slug' => [
                 'required',
                 'string',
@@ -597,14 +619,13 @@ class AdminWebsitePageController extends Controller
             'is_active' => 'boolean',
             'show_in_menu' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
-        ], [
-            'slug.unique' => 'Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.',
+        ], $companyIdRules), [
+            'slug.unique' => 'Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.',
+            'company_id.required' => 'Kies een bedrijf waaraan deze pagina wordt gekoppeld.',
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $table = $website_page->getTable();
-        // Altijd het connection-naam van het model zelf (nooit alleen ?module= uit de request):
-        // bij kern-pagina's is getConnectionName() vaak null terwijl $connection wél een module-DB kan zijn
-        // → hasColumn op de verkeerde DB → show_in_menu uit $data halen → waarde blijft altijd "Ja".
+        // Altijd het connection van het opgeloste model (route binding), niet afgeleid van module_name in de request.
         $connForSchema = $website_page->getConnection()->getName();
         // show_in_menu: requestHasInput i.p.v. has() — "0" moet meetellen.
         $showInMenuValue = $this->requestHasInput($request, 'show_in_menu')
@@ -898,8 +919,8 @@ class AdminWebsitePageController extends Controller
         return self::homeSectionBaseType($key) !== null || FrontendComponentService::isComponentKey($key);
     }
 
-    /** Normaliseer items voor component:taxiroyaal.tarieven (rate_type, title, image, card-opties per card). */
-    private function normalizeTaxiroyaalTarievenSection(array $raw): array
+    /** Normaliseer items voor component:taxi.tarieven (rate_type, title, image, card-opties per card). */
+    private function normalizeNexaTaxiTarievenSection(array $raw): array
     {
         $items = $raw['items'] ?? [];
         if (! is_array($items)) {
@@ -997,9 +1018,9 @@ class AdminWebsitePageController extends Controller
         ];
     }
 
-    private function normalizeTaxiroyaalBoekingsmoduleSection(array $raw): array
+    private function normalizeNexaTaxiBoekingsmoduleSection(array $raw): array
     {
-        return app(TaxiRoyaalBookingPricingService::class)->mergeSectionConfig($raw);
+        return app(NexaTaxiBookingPricingService::class)->mergeSectionConfig($raw);
     }
 
     /**
@@ -1023,14 +1044,24 @@ class AdminWebsitePageController extends Controller
         }
         // Gebruik alleen de door de gebruiker opgegeven volgorde; niet mergen met defaults, zodat verwijderde secties weg blijven.
         $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
+        $legacyTaxiComponentKeys = [
+            'component:taxiroyaal.tarieven' => 'component:taxi.tarieven',
+            'component:taxiroyaal.boekingsmodule' => 'component:taxi.boekingsmodule',
+        ];
+        $sectionOrder = array_map(static fn ($k) => $legacyTaxiComponentKeys[$k] ?? $k, $sectionOrder);
+        $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
 
         $sections = [];
         foreach ($sectionOrder as $sectionKey) {
             if (FrontendComponentService::isComponentKey($sectionKey)) {
-                if ($sectionKey === 'component:taxiroyaal.tarieven') {
-                    $sections[$sectionKey] = $this->normalizeTaxiroyaalTarievenSection($input[$sectionKey] ?? []);
-                } elseif ($sectionKey === 'component:taxiroyaal.boekingsmodule') {
-                    $sections[$sectionKey] = $this->normalizeTaxiroyaalBoekingsmoduleSection($input[$sectionKey] ?? []);
+                if ($sectionKey === 'component:taxi.tarieven') {
+                    $sections[$sectionKey] = $this->normalizeNexaTaxiTarievenSection(
+                        $input[$sectionKey] ?? $input['component:taxiroyaal.tarieven'] ?? []
+                    );
+                } elseif ($sectionKey === 'component:taxi.boekingsmodule') {
+                    $sections[$sectionKey] = $this->normalizeNexaTaxiBoekingsmoduleSection(
+                        $input[$sectionKey] ?? $input['component:taxiroyaal.boekingsmodule'] ?? []
+                    );
                 } else {
                     $sections[$sectionKey] = [];
                 }
@@ -1142,7 +1173,7 @@ class AdminWebsitePageController extends Controller
                 $visibility[$key] = ! empty($value);
             }
         }
-        // Hoofd-zichtbaarheid per sectie in section_order (o.a. component:taxiroyaal.* en andere dynamische keys)
+        // Hoofd-zichtbaarheid per sectie in section_order (o.a. component:taxi.* en andere dynamische keys)
         foreach ($sectionOrder as $sk) {
             if (! is_string($sk) || $sk === '') {
                 continue;
@@ -1553,39 +1584,56 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
-     * Uniekheidsregel voor slug: per module (niet per thema). Bij module-connection gebruiken we een
-     * closure i.p.v. Rule::unique(connection.table) om te voorkomen dat Laravel een niet-bestaande
-     * connection()-methode op de Unique-rule aanroept.
+     * Uniekheidsregel voor slug: per module én (indien kolom bestaat) per company_id.
+     * Bij module-connection gebruiken we een closure i.p.v. Rule::unique(connection.table)
+     * om te voorkomen dat Laravel een niet-bestaande connection()-methode op de Unique-rule aanroept.
      *
-     * @param  string|null  $connection  Database connection (bijv. module_taxiroyaal) of null voor default
+     * @param  string|null  $connection  Database connection (bijv. module_taxi) of null voor default
      * @param  int|null  $ignoreId  Bij update: id van de huidige pagina om te negeren
+     * @param  int|null  $scopeCompanyId  Alleen botsen met rijen voor dit bedrijf; null = alleen rijen zonder company_id (globaal)
      * @return \Closure|Rule
      */
-    private function buildSlugUniqueRule(?string $connection, ?string $moduleName, ?int $ignoreId = null)
+    private function buildSlugUniqueRule(?string $connection, ?string $moduleName, ?int $ignoreId = null, ?int $scopeCompanyId = null)
     {
         if ($connection !== null) {
-            return function (string $attribute, mixed $value, \Closure $fail) use ($connection, $moduleName, $ignoreId): void {
-                $query = DB::connection($connection)->table('website_pages')->where('slug', $value);
+            return function (string $attribute, mixed $value, \Closure $fail) use ($connection, $moduleName, $ignoreId, $scopeCompanyId): void {
+                $table = 'website_pages';
+                $query = DB::connection($connection)->table($table)->where('slug', $value);
                 if ($moduleName === null) {
                     $query->whereNull('module_name');
                 } else {
                     $query->where('module_name', $moduleName);
                 }
+                if (Schema::connection($connection)->hasColumn($table, 'company_id')) {
+                    if ($scopeCompanyId !== null) {
+                        $query->where('company_id', $scopeCompanyId);
+                    } else {
+                        $query->whereNull('company_id');
+                    }
+                }
                 if ($ignoreId !== null) {
                     $query->where('id', '!=', $ignoreId);
                 }
                 if ($query->exists()) {
-                    $fail('Deze slug wordt al gebruikt binnen deze module. Kies een andere slug.');
+                    $fail('Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.');
                 }
             };
         }
         $table = 'website_pages';
+        $hasCompanyId = Schema::hasColumn($table, 'company_id');
         $rule = Rule::unique($table, 'slug')
-            ->where(function ($q) use ($moduleName) {
+            ->where(function ($q) use ($moduleName, $scopeCompanyId, $hasCompanyId) {
                 if ($moduleName === null) {
                     $q->whereNull('module_name');
                 } else {
                     $q->where('module_name', $moduleName);
+                }
+                if ($hasCompanyId) {
+                    if ($scopeCompanyId !== null) {
+                        $q->where('company_id', $scopeCompanyId);
+                    } else {
+                        $q->whereNull('company_id');
+                    }
                 }
             });
         if ($ignoreId !== null) {
@@ -1593,6 +1641,31 @@ class AdminWebsitePageController extends Controller
         }
 
         return $rule;
+    }
+
+    /**
+     * company_id waarmee slug-uniekheid moet worden afgebakend (zelfde bron als bij opslaan), of null voor globale pagina's.
+     */
+    private function resolveCompanyIdForWebsitePageSlugRule(Request $request, ?WebsitePage $existing): ?int
+    {
+        if ($existing !== null) {
+            $cid = $existing->getAttribute('company_id');
+            if ($cid !== null && $cid !== '') {
+                return (int) $cid;
+            }
+        }
+        $implicit = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        if ($implicit !== null) {
+            return $implicit;
+        }
+        $raw = $request->input('company_id');
+        if ($raw !== null && $raw !== '' && is_numeric($raw)) {
+            $id = (int) $raw;
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+
+        return null;
     }
 
     /**
@@ -1664,27 +1737,75 @@ class AdminWebsitePageController extends Controller
      *
      * @return array<string, int>
      */
-    private function websitePagesIndexQuery(Request $request): array
+    /**
+     * Tenant/wizard-context voor de lijst website-pagina's: gekozen bedrijf in sidebar of wizard_company in URL.
+     */
+    private function resolveTenantCompanyIdForWebsitePagesList(Request $request): ?int
     {
-        if (! $request->boolean('from_wizard')) {
-            return [];
+        if ($request->boolean('from_wizard')) {
+            $wizardCompany = $request->input('wizard_company');
+            if ($wizardCompany !== null && $wizardCompany !== '' && is_numeric($wizardCompany)) {
+                $id = (int) $wizardCompany;
+
+                return Company::whereKey($id)->exists() ? $id : null;
+            }
         }
-        $companyId = $request->input('wizard_company');
-        if ($companyId === null || $companyId === '') {
-            return [];
+        $tc = $request->input('tenant_company');
+        if ($tc !== null && $tc !== '' && is_numeric($tc)) {
+            $id = (int) $tc;
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+        $st = session('selected_tenant');
+        if ($st !== null && $st !== '') {
+            $id = (int) $st;
+
+            return Company::whereKey($id)->exists() ? $id : null;
         }
 
-        return [
-            'from_wizard' => 1,
-            'wizard_company' => (int) $companyId,
-            'wizard_step' => max(1, min(7, (int) $request->input('wizard_step', 6))),
-        ];
+        return null;
+    }
+
+    /**
+     * Querystring + hidden fields voor navigatie (wizard of super-admin met tenant in sidebar).
+     *
+     * @return array<string, int>
+     */
+    private function websitePagesIndexQuery(Request $request): array
+    {
+        $q = [];
+        if ($request->boolean('from_wizard')) {
+            $companyId = $request->input('wizard_company');
+            if ($companyId !== null && $companyId !== '' && is_numeric($companyId)) {
+                $q = [
+                    'from_wizard' => 1,
+                    'wizard_company' => (int) $companyId,
+                    'wizard_step' => max(1, min(7, (int) $request->input('wizard_step', 6))),
+                ];
+            }
+        }
+
+        if (auth()->check() && auth()->user()->hasRole('super-admin')) {
+            $fromRequest = $request->input('tenant_company');
+            if ($fromRequest !== null && $fromRequest !== '' && is_numeric($fromRequest)) {
+                if (! isset($q['wizard_company'])) {
+                    $q['tenant_company'] = (int) $fromRequest;
+                }
+            } elseif (! isset($q['wizard_company'])) {
+                $st = session('selected_tenant');
+                if ($st !== null && $st !== '' && is_numeric($st)) {
+                    $q['tenant_company'] = (int) $st;
+                }
+            }
+        }
+
+        return $q;
     }
 
     private function resolveTenantWizardReturnUrl(Request $request): ?string
     {
         $q = $this->websitePagesIndexQuery($request);
-        if ($q === []) {
+        if ($q === [] || ! isset($q['wizard_company'], $q['wizard_step'])) {
             return null;
         }
         $company = Company::find($q['wizard_company']);
@@ -1704,7 +1825,7 @@ class AdminWebsitePageController extends Controller
         if (! Schema::connection($connectionForSchema)->hasColumn($table, 'company_id')) {
             return;
         }
-        $resolved = $this->resolveWebsitePageCompanyIdForStore($request);
+        $resolved = $this->resolveWebsitePageCompanyIdForPersistence($request, $existing);
         if ($resolved !== null) {
             $data['company_id'] = $resolved;
 
@@ -1715,11 +1836,19 @@ class AdminWebsitePageController extends Controller
         }
     }
 
-    private function resolveWebsitePageCompanyIdForStore(Request $request): ?int
+    /**
+     * Tenant/wizard/sessie: welk bedrijf impliciet actief is (zonder formulier-dropdown).
+     */
+    private function resolveWebsitePageCompanyIdFromImplicitContext(Request $request): ?int
     {
         $wq = $this->websitePagesIndexQuery($request);
         if (isset($wq['wizard_company'])) {
             $id = (int) $wq['wizard_company'];
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+        if (isset($wq['tenant_company'])) {
+            $id = (int) $wq['tenant_company'];
 
             return Company::whereKey($id)->exists() ? $id : null;
         }
@@ -1737,5 +1866,119 @@ class AdminWebsitePageController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Definitieve company_id bij opslaan: bestaande koppeling blijft; anders impliciete tenant; anders gekozen dropdown.
+     */
+    private function resolveWebsitePageCompanyIdForPersistence(Request $request, ?WebsitePage $existing): ?int
+    {
+        if ($existing !== null) {
+            $cid = $existing->getAttribute('company_id');
+            if ($cid !== null && $cid !== '') {
+                return (int) $cid;
+            }
+        }
+        $implicit = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        if ($implicit !== null) {
+            return $implicit;
+        }
+        $raw = $request->input('company_id');
+        if ($raw !== null && $raw !== '' && is_numeric($raw)) {
+            $id = (int) $raw;
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Validatieregels voor company_id wanneer de kolom bestaat en er geen impliciete tenant is.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function websitePageCompanyIdValidationRules(Request $request, ?WebsitePage $existing, ?string $moduleConnection): array
+    {
+        $conn = $existing !== null
+            ? $existing->getConnection()->getName()
+            : ($moduleConnection ?? config('database.default'));
+        $table = (new WebsitePage)->getTable();
+        if (! Schema::connection($conn)->hasColumn($table, 'company_id')) {
+            return [];
+        }
+        if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
+            return [];
+        }
+        if ($this->resolveWebsitePageCompanyIdFromImplicitContext($request) !== null) {
+            return ['company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')]];
+        }
+        if ($existing !== null) {
+            $cid = $existing->getAttribute('company_id');
+            if ($cid !== null && $cid !== '') {
+                return ['company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')]];
+            }
+        }
+
+        return [
+            'company_id' => ['required', 'integer', Rule::exists('companies', 'id')],
+        ];
+    }
+
+    /**
+     * Context voor super-admin UI: opgeslagen bedrijf, impliciete tenant, of dropdown om te kiezen.
+     *
+     * @return array{visible: bool, has_company_column: bool, stored_company: ?\App\Models\Company, effective_company: ?\App\Models\Company, stored_id: ?int, show_company_dropdown: bool, companies: \Illuminate\Support\Collection<int, \App\Models\Company>}
+     */
+    private function buildWebsitePageCompanyContext(Request $request, ?WebsitePage $page): array
+    {
+        $isSuperAdmin = auth()->check() && auth()->user()->hasRole('super-admin');
+        $storedId = $page !== null ? $page->getAttribute('company_id') : null;
+        $storedId = ($storedId !== null && $storedId !== '') ? (int) $storedId : null;
+        $storedCompany = $storedId ? Company::query()->find($storedId) : null;
+        $implicitId = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        $implicitCompany = $implicitId ? Company::query()->find($implicitId) : null;
+        $conn = $page !== null ? $page->getConnection()->getName() : config('database.default');
+        $hasColumn = Schema::connection($conn)->hasColumn((new WebsitePage)->getTable(), 'company_id');
+        $visible = $isSuperAdmin && $hasColumn;
+        $showCompanyDropdown = $visible && $storedId === null && $implicitId === null;
+        $companies = ($visible && $storedId === null)
+            ? Company::query()->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        return [
+            'visible' => $visible,
+            'has_company_column' => $hasColumn,
+            'stored_company' => $storedCompany,
+            'effective_company' => $implicitCompany,
+            'stored_id' => $storedId,
+            'show_company_dropdown' => $showCompanyDropdown,
+            'companies' => $companies,
+        ];
+    }
+
+    /**
+     * @param  iterable<int, WebsitePage>  $pages
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function websitePagesCompanyNameMapForIndex(iterable $pages): \Illuminate\Support\Collection
+    {
+        if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
+            return collect();
+        }
+        $ids = collect($pages)
+            ->pluck('company_id')
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return Company::query()
+            ->whereIn('id', $ids)
+            ->pluck('name', 'id')
+            ->mapWithKeys(fn ($name, $id) => [(int) $id => (string) $name]);
     }
 }

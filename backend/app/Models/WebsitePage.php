@@ -479,6 +479,12 @@ class WebsitePage extends Model
             return $key;
         }, $sectionOrder);
         $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
+        $legacyTaxiComponentKeys = [
+            'component:taxiroyaal.tarieven' => 'component:taxi.tarieven',
+            'component:taxiroyaal.boekingsmodule' => 'component:taxi.boekingsmodule',
+        ];
+        $sectionOrder = array_map(static fn ($k) => $legacyTaxiComponentKeys[$k] ?? $k, $sectionOrder);
+        $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
         $sectionOrder = array_values($sectionOrder);
         // Als alle content-secties hetzelfde type zijn (bijv. alleen hero) terwijl het thema meerdere types heeft, gebruik dan de thema-default (herstel foutieve data). Overslaan als de gebruiker componenten heeft toegevoegd.
         $hasComponentKeys = count(array_filter($sectionOrder, fn ($k) => is_string($k) && str_starts_with(strtolower($k), 'component:'))) > 0;
@@ -516,7 +522,7 @@ class WebsitePage extends Model
         }
 
         $sections = [];
-        $taxiroyaalTarievenDefault = [
+        $nexaTaxiTarievenDefault = [
             'title' => 'Onze tarieven',
             'title_font_size' => '',
             'title_font_style' => 'normal',
@@ -526,30 +532,31 @@ class WebsitePage extends Model
                 ['rate_type' => '5-8', 'title' => '5 t/m 8 personen'],
             ],
         ];
-        $taxiroyaalBoekingsmoduleDefault = app(\App\Services\TaxiRoyaalBookingPricingService::class)->getDefaultSectionConfig();
+        $nexaTaxiBoekingsmoduleDefault = app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig();
         foreach ($sectionOrder as $sectionKey) {
             if (str_starts_with($sectionKey, 'component:')) {
-                if ($sectionKey === 'component:taxiroyaal.tarieven') {
-                    $raw = $stored[$sectionKey] ?? [];
-                    $items = isset($raw['items']) && is_array($raw['items']) ? $raw['items'] : $taxiroyaalTarievenDefault['items'];
+                if ($sectionKey === 'component:taxi.tarieven') {
+                    $canonicalKey = 'component:taxi.tarieven';
+                    $raw = $stored[$canonicalKey] ?? $stored['component:taxiroyaal.tarieven'] ?? [];
+                    $items = isset($raw['items']) && is_array($raw['items']) ? $raw['items'] : $nexaTaxiTarievenDefault['items'];
                     $allowedFontSizes = array_merge([''], array_map(fn ($px) => $px.'px', range(10, 40, 2)));
-                    $title = isset($raw['title']) ? trim((string) $raw['title']) : $taxiroyaalTarievenDefault['title'];
+                    $title = isset($raw['title']) ? trim((string) $raw['title']) : $nexaTaxiTarievenDefault['title'];
                     if ($title === '') {
-                        $title = $taxiroyaalTarievenDefault['title'];
+                        $title = $nexaTaxiTarievenDefault['title'];
                     }
                     $titleFontSize = isset($raw['title_font_size']) ? trim((string) $raw['title_font_size']) : '';
                     if (! in_array($titleFontSize, $allowedFontSizes, true)) {
                         $titleFontSize = '';
                     }
                     $titleFontStyle = isset($raw['title_font_style']) && in_array($raw['title_font_style'], ['normal', 'bold', 'italic'], true)
-                        ? $raw['title_font_style'] : $taxiroyaalTarievenDefault['title_font_style'];
+                        ? $raw['title_font_style'] : $nexaTaxiTarievenDefault['title_font_style'];
                     $titleAlign = isset($raw['title_align']) && in_array($raw['title_align'], ['left', 'center', 'right'], true)
-                        ? $raw['title_align'] : $taxiroyaalTarievenDefault['title_align'];
+                        ? $raw['title_align'] : $nexaTaxiTarievenDefault['title_align'];
                     $priceAnimation = isset($raw['price_animation'])
                         ? filter_var($raw['price_animation'], FILTER_VALIDATE_BOOLEAN)
                         : true;
                     $imageFadeDuration = isset($raw['image_fade_duration']) ? max(300, min(5000, (int) $raw['image_fade_duration'])) : 1200;
-                    $sections[$sectionKey] = [
+                    $sections[$canonicalKey] = [
                         'title' => $title,
                         'title_font_size' => $titleFontSize,
                         'title_font_style' => $titleFontStyle,
@@ -558,12 +565,13 @@ class WebsitePage extends Model
                         'image_fade_duration' => $imageFadeDuration,
                         'items' => array_values($items),
                     ];
-                } elseif ($sectionKey === 'component:taxiroyaal.boekingsmodule') {
-                    $raw = $stored[$sectionKey] ?? [];
+                } elseif ($sectionKey === 'component:taxi.boekingsmodule') {
+                    $canonicalKey = 'component:taxi.boekingsmodule';
+                    $raw = $stored[$canonicalKey] ?? $stored['component:taxiroyaal.boekingsmodule'] ?? [];
                     if (! is_array($raw)) {
                         $raw = [];
                     }
-                    $sections[$sectionKey] = app(\App\Services\TaxiRoyaalBookingPricingService::class)->mergeSectionConfig(array_replace_recursive($taxiroyaalBoekingsmoduleDefault, $raw));
+                    $sections[$canonicalKey] = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig(array_replace_recursive($nexaTaxiBoekingsmoduleDefault, $raw));
                 }
 
                 continue;

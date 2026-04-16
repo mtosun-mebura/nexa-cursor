@@ -140,8 +140,8 @@ class ModuleManager
     }
 
     /**
-     * Resolveer PSR-4 class voor App\Modules\{Dir}\Module op basis van echte mapnaam
-     * (Linux: ucfirst('taxiroyaal') => Taxiroyaal, map is TaxiRoyaal → class_exists faalde).
+     * Resolveer PSR-4 class voor App\Modules\{Dir}\Module wanneer mapnaam ≠ module key
+     * (bijv. map NexaTaxi, {@see Module::getName()} `taxi`).
      */
     protected function resolveInternalModuleClass(string $moduleName): ?string
     {
@@ -157,6 +157,26 @@ class ModuleManager
             $class = "App\\Modules\\{$folder}\\Module";
             if (class_exists($class)) {
                 return $class;
+            }
+        }
+
+        $needle = strtolower($moduleName);
+        foreach (File::directories($base) as $dir) {
+            $folder = basename($dir);
+            if ($folder === 'Base') {
+                continue;
+            }
+            $class = "App\\Modules\\{$folder}\\Module";
+            if (! class_exists($class)) {
+                continue;
+            }
+            try {
+                $instance = new $class;
+                if (strtolower($instance->getName()) === $needle) {
+                    return $class;
+                }
+            } catch (\Throwable) {
+                continue;
             }
         }
 
@@ -295,6 +315,28 @@ class ModuleManager
     }
 
     /**
+     * Kopieer migraties uit app/Modules/…/Migrations naar database/migrations/modules/{slug}.
+     * De modulemap is de bron; bestaande bestanden worden overschreven zodat updates meekomen.
+     */
+    public function syncModuleMigrationsToDisk(Module $module): void
+    {
+        $migrationsPath = $module->getMigrationsPath();
+        if (! $migrationsPath || ! File::isDirectory($migrationsPath)) {
+            return;
+        }
+        $slug = strtolower(trim($module->getName()));
+        $targetDir = database_path("migrations/modules/{$slug}");
+        if (! File::exists($targetDir)) {
+            File::makeDirectory($targetDir, 0755, true);
+        }
+        $migrationFiles = File::glob($migrationsPath.'/*.php');
+        foreach ($migrationFiles as $migrationFile) {
+            $targetFile = $targetDir.'/'.basename($migrationFile);
+            File::copy($migrationFile, $targetFile);
+        }
+    }
+
+    /**
      * Install een module
      */
     public function installModule(string $moduleName): bool
@@ -315,48 +357,53 @@ class ModuleManager
         }
 
         // Module-migraties eerst kopiëren zodat ze in de module-DB (of schema) gedraaid kunnen worden
-        $migrationsPath = $module->getMigrationsPath();
-        if ($migrationsPath && File::exists($migrationsPath)) {
-            $targetDir = database_path("migrations/modules/{$moduleName}");
-            if (! File::exists($targetDir)) {
-                File::makeDirectory($targetDir, 0755, true);
-            }
-            $migrationFiles = File::glob($migrationsPath.'/*.php');
-            foreach ($migrationFiles as $migrationFile) {
-                $targetFile = $targetDir.'/'.basename($migrationFile);
-                if (! File::exists($targetFile)) {
-                    File::copy($migrationFile, $targetFile);
-                }
-            }
-        }
+        $this->syncModuleMigrationsToDisk($module);
 
         // Eerst op hoofddatabase zetten: module als geïnstalleerd (zodat UI direct "Geïnstalleerd" toont na refresh)
         $this->saveModuleAsInstalled($moduleName, $module, $mainConnection);
 
         $dbService = app(ModuleDatabaseService::class);
-        $schemaService = app(ModuleSchemaService::class);
+        $strategy = $dbService->getStrategy();
 
-        // Single database: alle module-tabellen in de hoofddatabase; alleen module-migraties draaien.
-        if (config('module_database.use_single_database', false)) {
+        if ($strategy === 'single') {
             try {
                 $this->runModuleMigrationsOnDefaultConnection($moduleName);
             } catch (\Throwable $e) {
                 $this->saveModuleAsUninstalled($moduleName, $mainConnection);
                 throw new \Exception("Module-migraties op hoofddatabase mislukt voor {$moduleName}: ".$e->getMessage(), 0, $e);
             }
-        } elseif ($dbService->supportsModuleDatabases()) {
-            // Per-module standalone database (mysql/pgsql): eigen DB met alle standaardtabellen en superadmin
+        } elseif ($strategy === 'schema') {
+            try {
+                $dbService->setupModuleSchema($moduleName);
+            } catch (\Throwable $e) {
+                $this->saveModuleAsUninstalled($moduleName, $mainConnection);
+                throw new \Exception("Module-schema kon niet worden opgezet voor {$moduleName}: ".$e->getMessage(), 0, $e);
+            }
+            try {
+                $migrationSlug = strtolower(trim($module->getName()));
+                if (! $dbService->runIncrementalModuleMigrations($migrationSlug)) {
+                    Log::info("Geen incrementele migratiebestanden voor module {$migrationSlug}.");
+                }
+            } catch (\Throwable $e) {
+                $this->saveModuleAsUninstalled($moduleName, $mainConnection);
+                throw new \Exception("Incrementele module-migraties mislukt voor {$moduleName}: ".$e->getMessage(), 0, $e);
+            }
+        } elseif ($strategy === 'database') {
             try {
                 $dbService->setupModuleDatabase($moduleName);
             } catch (\Throwable $e) {
                 $this->saveModuleAsUninstalled($moduleName, $mainConnection);
                 throw new \Exception("Module-database kon niet worden opgezet voor {$moduleName}: ".$e->getMessage(), 0, $e);
             }
-        } elseif ($schemaService->supportsModuleSchemas()) {
-            $schemaName = $module->getSchemaName();
-            $schemaService->setupModuleSchema($moduleName, $schemaName);
-            $schemaName = $schemaName ?? $schemaService->getSchemaName($moduleName);
-            $this->runModuleMigrationsInSchema($moduleName, $schemaName);
+            try {
+                $migrationSlug = strtolower(trim($module->getName()));
+                if (! $dbService->runIncrementalModuleMigrations($migrationSlug)) {
+                    Log::info("Geen incrementele migratiebestanden voor module {$migrationSlug}.");
+                }
+            } catch (\Throwable $e) {
+                $this->saveModuleAsUninstalled($moduleName, $mainConnection);
+                throw new \Exception("Incrementele module-migraties mislukt voor {$moduleName}: ".$e->getMessage(), 0, $e);
+            }
         }
 
         // Thema's uit backend/themas/ kopiëren naar public en naar deze module (frontend direct zichtbaar bij activatie)
@@ -366,9 +413,11 @@ class ModuleManager
             $themeCopy->copyThemesToModule($moduleName);
         }
 
-        // Register permissions (op module-DB connection als we standalone DB gebruiken, anders default)
+        // Register permissions
+        // Bij strategy=database: op de module-connection (eigen permissions-tabel).
+        // Bij strategy=schema of single: op de default connection (public.permissions).
         $permissions = $module->registerPermissions();
-        if ($dbService->supportsModuleDatabases() && $permissions !== []) {
+        if ($strategy === 'database' && $permissions !== []) {
             $conn = $dbService->getModuleConnectionName($moduleName);
             $previousDefault = Config::get('database.default');
             try {
@@ -380,9 +429,10 @@ class ModuleManager
             } finally {
                 Config::set('database.default', $previousDefault);
             }
-        } else {
+        } elseif ($permissions !== []) {
             foreach ($permissions as $permission) {
                 Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+                Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'api']);
             }
         }
 
@@ -507,21 +557,25 @@ class ModuleManager
         // Call module uninstall
         $module->uninstall();
 
-        // Module-database of schema verwijderen bij Verwijderen (niet bij single-DB: alles staat in hoofddatabase)
         $dbService = app(ModuleDatabaseService::class);
-        $schemaService = app(ModuleSchemaService::class);
-        if (config('module_database.use_single_database', false)) {
-            // Geen aparte DB om te droppen; module-tabellen blijven in hoofddatabase
-        } elseif ($dbService->supportsModuleDatabases()) {
+        $strategy = $dbService->getStrategy();
+
+        if ($strategy === 'single') {
+            // Geen aparte DB/schema om te droppen; module-tabellen blijven in hoofddatabase
+        } elseif ($strategy === 'schema') {
+            try {
+                $dbService->dropModuleSchema($moduleName);
+            } catch (\Throwable $e) {
+                Log::warning('Module schema drop bij uninstall: '.$e->getMessage(), ['module' => $moduleName]);
+                throw new \Exception('Module verwijderd, maar schema kon niet worden gedropt: '.$e->getMessage(), 0, $e);
+            }
+        } elseif ($strategy === 'database') {
             try {
                 $dbService->dropDatabase($moduleName);
             } catch (\Throwable $e) {
                 Log::warning('Module database drop bij uninstall: '.$e->getMessage(), ['module' => $moduleName]);
                 throw new \Exception('Module verwijderd, maar database kon niet worden gedropt: '.$e->getMessage(), 0, $e);
             }
-        } elseif ($schemaService->supportsModuleSchemas()) {
-            $schemaName = $module->getSchemaName();
-            $schemaService->dropSchema($moduleName, $schemaName);
         }
 
         // Update database (module als niet geïnstalleerd gemarkeerd)
@@ -534,12 +588,97 @@ class ModuleManager
     }
 
     /**
+     * Voer module-migraties opnieuw uit (incrementeel waar mogelijk; geen volledige Pre2026-baseline op module-DB).
+     * Gebruik na wijziging van MODULE_USE_SINGLE_DATABASE in .env (cache legen: php artisan config:clear).
+     *
+     * @return string|null  Informatieve melding voor de UI (bijv. geen incrementele migraties); null bij succes zonder extra tekst.
+     */
+    public function runModuleMigrationsNow(string $moduleName): ?string
+    {
+        $module = $this->loadModule($moduleName);
+        if (! $module) {
+            throw new \InvalidArgumentException("Module {$moduleName} niet gevonden.");
+        }
+        $moduleModel = ModuleModel::whereRaw('LOWER(name) = ?', [strtolower($moduleName)])->first();
+        if (! $moduleModel || ! $moduleModel->installed) {
+            throw new \RuntimeException('Module is niet geïnstalleerd.');
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        $strategy = $dbService->getStrategy();
+
+        if ($strategy === 'single') {
+            $this->runModuleMigrationsOnDefaultConnection($moduleName);
+
+            return null;
+        }
+
+        if ($strategy === 'schema') {
+            if (! $dbService->moduleSchemaExists($moduleName)) {
+                $schemaName = $dbService->getModuleSchemaName($moduleName);
+                throw new \RuntimeException(
+                    "Module-schema \"{$schemaName}\" bestaat nog niet. Voer eerst uit: php artisan modules:ensure-databases {$moduleName}"
+                );
+            }
+            $dbService->registerConnection($moduleName);
+            $this->syncModuleMigrationsToDisk($module);
+            $migrationSlug = strtolower(trim($module->getName()));
+            if (! $dbService->runIncrementalModuleMigrations($migrationSlug)) {
+                return "Geen incrementele migraties gevonden (map database/migrations/modules/{$migrationSlug} ontbreekt of is leeg).";
+            }
+
+            return null;
+        }
+
+        if ($strategy === 'database') {
+            $dbName = $dbService->getModuleDatabaseName($moduleName);
+            if (! $this->moduleStandaloneDatabaseExists($dbName)) {
+                throw new \RuntimeException(
+                    "Module-database \"{$dbName}\" bestaat nog niet. Voer eerst uit: php artisan modules:ensure-databases {$moduleName}"
+                );
+            }
+            $this->syncModuleMigrationsToDisk($module);
+            $migrationSlug = strtolower(trim($module->getName()));
+            if (! $dbService->runIncrementalModuleMigrations($migrationSlug)) {
+                return "Geen incrementele migraties gevonden (map database/migrations/modules/{$migrationSlug} ontbreekt of is leeg).";
+            }
+
+            return null;
+        }
+
+        $this->runModuleMigrationsOnDefaultConnection($moduleName);
+
+        return null;
+    }
+
+    /**
+     * Of een losse module-database (nexa_*) al bestaat op de server.
+     */
+    private function moduleStandaloneDatabaseExists(string $dbName): bool
+    {
+        if (config('database.default') === 'pgsql') {
+            return DB::selectOne('SELECT 1 FROM pg_database WHERE datname = ?', [$dbName]) !== null;
+        }
+        if (in_array(config('database.default'), ['mysql', 'mariadb'], true)) {
+            $r = DB::select('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?', [$dbName]);
+
+            return ! empty($r);
+        }
+
+        return false;
+    }
+
+    /**
      * Run alleen de module-migraties (database/migrations/modules/{slug}) op de standaard-DB.
      * Gebruikt bij MODULE_USE_SINGLE_DATABASE: alle tabellen in één database.
      */
     protected function runModuleMigrationsOnDefaultConnection(string $moduleName): void
     {
-        $canonical = strtolower(trim($moduleName));
+        $module = $this->loadModule($moduleName);
+        if ($module) {
+            $this->syncModuleMigrationsToDisk($module);
+        }
+        $canonical = strtolower(trim($module ? $module->getName() : $moduleName));
         $relative = ModuleMigrationPathResolver::pathForModule($canonical);
         $fullPath = base_path($relative);
         if (! is_dir($fullPath)) {
@@ -568,7 +707,11 @@ class ModuleManager
         if (! $schemaService->supportsModuleSchemas()) {
             return;
         }
-        $canonical = strtolower(trim((string) $moduleName));
+        $module = $this->loadModule($moduleName);
+        if ($module) {
+            $this->syncModuleMigrationsToDisk($module);
+        }
+        $canonical = strtolower(trim($module ? $module->getName() : (string) $moduleName));
         $relative = ModuleMigrationPathResolver::pathForModule($canonical);
         $targetDir = base_path($relative);
         if (! File::exists($targetDir)) {

@@ -10,7 +10,7 @@ use Illuminate\Database\Migrations\Migration;
  *
  * Volgorde: zelfde als vroeger — alle stappen globaal gesorteerd op bestandsnaam (timestamp-prefix).
  *
- * - PostgreSQL/MySQL: core + shared + taxiroyaal + skillmatching
+ * - PostgreSQL/MySQL: core + shared + taxiroyaal (Nexa Taxi DDL) + skillmatching
  * - SQLite (PHPUnit): alleen core + shared
  *
  * @see App\Database\Pre2026Baseline

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 class ModuleInstallVerifyCommand extends Command
 {
     protected $signature = 'modules:install-verify
-                            {module : Module name (e.g. taxiroyaal)}
+                            {module : Module name (e.g. taxi)}
                             {--run : Actually run the install (drops and recreates module DB)}';
 
     protected $description = 'Run module install and verify: module record on main DB + superadmin user in module DB.';

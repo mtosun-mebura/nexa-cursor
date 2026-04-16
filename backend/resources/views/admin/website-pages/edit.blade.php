@@ -125,6 +125,7 @@
                                 <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name', $page->module_name) }}">
                             </td>
                         </tr>
+                        @include('admin.website-pages.partials.tenant-context-row')
                         <tr>
                             <td class="text-secondary-foreground font-normal">
                                 Thema

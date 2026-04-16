@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\CompanyDomain;
 use App\Support\Tenancy\CentralDomains;
+use App\Support\Tenancy\TenantParentDomains;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -29,6 +30,16 @@ class ResolveTenantFromHost
             return $next($request);
         }
         if ($domain === null) {
+            try {
+                $fallbackCompany = TenantParentDomains::companyFromSubdomainHost($host);
+            } catch (QueryException) {
+                $fallbackCompany = null;
+            }
+            if ($fallbackCompany !== null) {
+                app()->instance('resolved_tenant', $fallbackCompany);
+                app()->instance('resolved_tenant_id', (int) $fallbackCompany->id);
+            }
+
             return $next($request);
         }
 

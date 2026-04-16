@@ -23,7 +23,7 @@ use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\MatchController;
 use App\Http\Controllers\Frontend\ProfileController;
-use App\Http\Controllers\Frontend\TaxiRoyaalBookingController;
+use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\WebsitePageController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Services\WebsiteBuilderService;
@@ -542,6 +542,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('modules/{module}/uninstall', [AdminModuleController::class, 'uninstall'])->name('modules.uninstall');
         Route::post('modules/database-reset', [AdminModuleController::class, 'databaseReset'])->name('modules.database-reset');
         Route::post('modules/{module}/database-dummydata', [AdminModuleController::class, 'databaseDummydata'])->name('modules.database-dummydata');
+        Route::post('modules/{module}/run-migrations', [AdminModuleController::class, 'runModuleMigrations'])->name('modules.run-migrations');
     });
 
     // Roles & Permissions (Super Admin only)
@@ -931,11 +932,11 @@ Route::get('/terms', function () {
     return view('frontend.pages.terms');
 })->name('terms');
 
-// Taxi Royaal website booking (JSON; CSRF via meta op frontend-pagina's)
-Route::prefix('taxiroyaal/booking')->group(function () {
-    Route::get('address-search', [TaxiRoyaalBookingController::class, 'addressSearch'])->name('taxiroyaal.booking.address-search');
-    Route::post('quote', [TaxiRoyaalBookingController::class, 'quote'])->name('taxiroyaal.booking.quote');
-    Route::post('submit', [TaxiRoyaalBookingController::class, 'submit'])->name('taxiroyaal.booking.submit');
+// Nexa Taxi website booking (JSON; CSRF via meta op frontend-pagina's)
+Route::prefix('nexa-taxi/booking')->group(function () {
+    Route::get('address-search', [NexaTaxiBookingController::class, 'addressSearch'])->name('nexataxi.booking.address-search');
+    Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
+    Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');
 });
 
 // Website-builder: custom/module pagina's op slug (moet na vaste paden staan)

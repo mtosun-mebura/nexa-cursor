@@ -1,6 +1,6 @@
 # Standaard- en module-specifieke tabellen bij een nieuw module-schema
 
-Bij het aanmaken van een nieuwe module-database (bijv. `nexa_taxiroyaal`) worden momenteel **alle** migraties uit `database/migrations` gedraaid. Hieronder staat welke tabellen als **standaard** (voor elke module) worden gezien en welke bij een **bepaalde module** horen.
+Bij het aanmaken van een nieuwe module-database (bijv. `nexa_taxi`) worden momenteel **alle** migraties uit `database/migrations` gedraaid. Hieronder staat welke tabellen als **standaard** (voor elke module) worden gezien en welke bij een **bepaalde module** horen.
 
 ---
 
@@ -117,7 +117,7 @@ Deze tabellen horen bij één module en zouden alleen in de database van die mod
 
 De kolom `job_title_id` / `function` op `users` is ook Skillmatching-specifiek (uit de migratie `add_function_to_users_table`).
 
-### Taxi Royaal
+### Nexa Taxi
 | Tabel | Beschrijving |
 |-------|--------------|
 | `vehicles` | Voertuigen |
@@ -143,11 +143,11 @@ php artisan migrate
 
 (`migrate:all` is een alias.) Daarna eventueel `db:seed` (RoleSeeder) voor rollen/superadmin op de hoofddatabase.
 
-### Module-databases (nexa_taxiroyaal, nexa_skillmatching)
+### Module-databases (nexa_taxi, nexa_skillmatching)
 
-- Bij **installatie van een module** wordt een **eigen database** aangemaakt (bijv. `nexa_taxiroyaal`).
+- Bij **installatie van een module** wordt een **eigen database** aangemaakt (bijv. `nexa_taxi`).
 - Op die database worden **alleen** de migraties voor die module gedraaid:
-  - **nexa_taxiroyaal**: core + shared + modules/taxiroyaal (geen Skillmatching-tabellen).
+  - **nexa_taxi**: core + shared + baseline-set `taxiroyaal` (geen Skillmatching-tabellen).
   - **nexa_skillmatching**: core + shared + modules/skillmatching (geen vehicles/ride_requests).
 - Daarna wordt alleen de **superadmin** ge seed (RoleSeeder); rechten en rollen zijn gebaseerd op de **pagina’s van die module** (via `registerPermissions()`). Tabellen blijven verder leeg.
 

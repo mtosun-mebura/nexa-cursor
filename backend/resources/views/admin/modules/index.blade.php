@@ -19,13 +19,6 @@
         </div>
     @endif
 
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" id="error-alert" role="alert">
-            <i class="ki-filled ki-cross-circle me-2"></i>
-            {{ session('error') }}
-        </div>
-    @endif
-
     @if(session('info'))
         <div class="kt-alert kt-alert-info mb-5" id="info-alert" role="alert">
             <i class="ki-filled ki-information-5 me-2"></i>
@@ -145,14 +138,23 @@
                                                 </span>
                                             @endif
                                         </div>
-                                        @if(!empty($module['database_name']))
-                                            <span class="text-xs text-muted-foreground" title="Aparte database op je DB-server. In pgAdmin/DBeaver: kijk onder &#39;Databases&#39;, niet onder Schemas.">
-                                                Database: <code class="bg-muted/50 px-1 rounded">{{ $module['database_name'] }}</code>
-                                            </span>
-                                        @elseif(!empty($useSingleDatabase) && $module['installed'])
-                                            <span class="text-xs text-muted-foreground" title="Zelfde database als DB_DATABASE in .env">
-                                                Hoofddatabase: <code class="bg-muted/50 px-1 rounded">{{ config('database.connections.' . config('database.default') . '.database') ?: env('DB_DATABASE', '—') }}</code>
-                                            </span>
+                                        @if($module['installed'])
+                                            @if(!empty($useSingleDatabase))
+                                                <span class="text-xs text-muted-foreground" title="MODULE_USE_SINGLE_DATABASE=true: alle module-tabellen staan in DB_DATABASE (één database).">
+                                                    Database: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                                </span>
+                                            @elseif($hasModuleDatabases && !empty($module['database_name']))
+                                                <span class="text-xs text-muted-foreground block" title="Centrale applicatie (o.a. modules, users, settings).">
+                                                    Hoofddatabase: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                                </span>
+                                                <span class="text-xs text-muted-foreground block" title="MODULE_USE_SINGLE_DATABASE=false: aparte database voor deze module. In pgAdmin/DBeaver: onder Databases.">
+                                                    Module-database: <code class="bg-muted/50 px-1 rounded">{{ $module['database_name'] }}</code>
+                                                </span>
+                                            @else
+                                                <span class="text-xs text-muted-foreground" title="Hoofddatabase (geen aparte module-DB in deze modus).">
+                                                    Hoofddatabase: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                                </span>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>
@@ -197,6 +199,18 @@
                                                             </span>
                                                             <span class="kt-menu-title">Configureren</span>
                                                         </a>
+                                                    </div>
+                                                    <div class="kt-menu-item">
+                                                        <form action="{{ route('admin.modules.run-migrations', $module['name']) }}" method="POST" style="display: inline;"
+                                                              onsubmit="return confirm('Module-migraties opnieuw uitvoeren? Gebruik dit na het wijzigen van MODULE_USE_SINGLE_DATABASE in .env (en eventueel php artisan config:clear). Doorgaan?');">
+                                                            @csrf
+                                                            <button type="submit" class="kt-menu-link w-full text-left" title="Zelfde pad als bij install: hoofddatabase of eigen module-database">
+                                                                <span class="kt-menu-icon">
+                                                                    <x-heroicon-o-table-cells class="w-5 h-5" />
+                                                                </span>
+                                                                <span class="kt-menu-title">Migraties opnieuw</span>
+                                                            </button>
+                                                        </form>
                                                     </div>
                                                     @if(!$module['active'])
                                                         <div class="kt-menu-item">
@@ -309,7 +323,7 @@
                         </p>
                         <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                             @if(!empty($useSingleDatabase))
-                            <li><strong>Eén database:</strong> <code class="px-1 py-0.5 bg-background rounded">MODULE_USE_SINGLE_DATABASE=true</code> — alle module-tabellen staan in <code class="px-1 py-0.5 bg-background rounded">{{ config('database.connections.' . config('database.default') . '.database') ?: env('DB_DATABASE') }}</code> (je <code class="px-1 py-0.5 bg-background rounded">DB_DATABASE</code>). Geen <code class="px-1 py-0.5 bg-background rounded">nexa_*</code> per module.</li>
+                            <li><strong>Eén database:</strong> <code class="px-1 py-0.5 bg-background rounded">MODULE_USE_SINGLE_DATABASE=true</code> — alle module-tabellen staan in <code class="px-1 py-0.5 bg-background rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code> (je <code class="px-1 py-0.5 bg-background rounded">DB_DATABASE</code>). Geen <code class="px-1 py-0.5 bg-background rounded">nexa_*</code> per module.</li>
                             @elseif($hasModuleDatabases)
                             <li>Bij <strong>MySQL of PostgreSQL</strong> krijgt elke geïnstalleerde module een eigen <strong>database</strong> (bijv. <code class="px-1 py-0.5 bg-background rounded">nexa_skillmatching</code>). In pgAdmin/DBeaver: kijk onder <strong>Databases</strong>, niet onder Schemas.</li>
                             @else

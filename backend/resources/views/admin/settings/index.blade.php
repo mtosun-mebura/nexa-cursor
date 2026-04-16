@@ -527,7 +527,7 @@
                                            name="google_reviews_business_name"
                                            value="{{ old('google_reviews_business_name', $googleReviewsBusinessName ?? '') }}"
                                            maxlength="255"
-                                           placeholder="bijv. Taxi Royaal Amsterdam">
+                                           placeholder="bijv. Nexa Taxi Amsterdam">
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">Optioneel. Wordt gebruikt als Place ID leeg is; zoekt op naam en neemt het eerste resultaat (regio NL).</div>
                                 @error('google_reviews_business_name')

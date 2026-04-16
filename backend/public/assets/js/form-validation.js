@@ -70,7 +70,7 @@
         text: {
             minLength: 2,
         },
-        /** Kenteken (TaxiRoyaal voertuigen): verplicht, max 20 op server; geen strikt NL-patroon i.v.m. import/varianten */
+        /** Kenteken (Nexa Taxi voertuigen): verplicht, max 20 op server; geen strikt NL-patroon i.v.m. import/varianten */
         license_plate: {
             minLength: 1,
             message: 'Voer een kenteken in.',

@@ -1,0 +1,30 @@
+---
+description: Terug-knop in admin-pagina's altijd onder de titel plaatsen
+globs: backend/**/views/admin/**/*.blade.php
+alwaysApply: false
+---
+
+# Admin: Terug-knop positie
+
+De "Terug"-knop in admin-pagina's staat **onder** de paginatitel en subtitel, op een eigen regel.
+
+## Correct patroon
+
+```html
+<div class="pb-7.5">
+    <h1 class="text-xl font-medium leading-none text-mono">Paginatitel</h1>
+    <p class="text-sm text-muted-foreground mt-0.5">Subtitel</p>
+    <div class="pt-3">
+        <a href="..." class="kt-btn kt-btn-outline">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
+    </div>
+</div>
+```
+
+## Niet doen
+
+- De terug-knop niet boven de titel plaatsen.
+- De terug-knop niet naast of rechts van de titel op dezelfde regel.
+- De knop hoort in een eigen `<div class="pt-3">` onder de titel/subtitel.

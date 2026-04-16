@@ -6,8 +6,11 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\Module as ModuleModel;
 use App\Models\User;
 use App\Services\EnvService;
+use App\Services\ModuleManager;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 
 class AdminCompanyController extends Controller
@@ -27,7 +30,10 @@ class AdminCompanyController extends Controller
             abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
         }
 
-        $query = Company::withCount(['users', 'vacancies'])->with('mainLocation');
+        $query = Company::withCount('users')->with('mainLocation');
+        if (ModuleSchemaAvailability::vacanciesTableExists()) {
+            $query->withCount('vacancies');
+        }
         $this->applyTenantFilter($query);
 
         // Apply filters
@@ -77,7 +83,9 @@ class AdminCompanyController extends Controller
             'inactive_companies' => (clone $statsQuery)->where('is_active', false)->count(),
             'intermediaries' => (clone $statsQuery)->where('is_intermediary', true)->count(),
             'total_users' => $tenantId ? \App\Models\User::where('company_id', $tenantId)->count() : \App\Models\User::count(),
-            'total_vacancies' => $tenantId ? \App\Models\Vacancy::where('company_id', $tenantId)->count() : \App\Models\Vacancy::count(),
+            'total_vacancies' => ModuleSchemaAvailability::vacanciesTableExists()
+                ? ($tenantId ? \App\Models\Vacancy::where('company_id', $tenantId)->count() : \App\Models\Vacancy::count())
+                : 0,
         ];
 
         // Get unique industries for filter
@@ -261,7 +269,11 @@ class AdminCompanyController extends Controller
             abort(403, 'Je hebt geen toegang tot dit bedrijf.');
         }
 
-        $company->load(['users', 'vacancies.branch', 'locations', 'mainLocation', 'domains']);
+        $eagerLoad = ['users', 'locations', 'mainLocation', 'domains', 'modules'];
+        if (ModuleSchemaAvailability::vacanciesTableExists()) {
+            $eagerLoad[] = 'vacancies.branch';
+        }
+        $company->load($eagerLoad);
 
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
@@ -284,7 +296,8 @@ class AdminCompanyController extends Controller
         }
 
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        $company->load('mainLocation');
+        $company->load(['mainLocation', 'modules']);
+        $allModules = ModuleModel::query()->orderBy('display_name')->get();
 
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
@@ -292,7 +305,7 @@ class AdminCompanyController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
-        return view('admin.companies.edit', compact('company', 'branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
+        return view('admin.companies.edit', compact('company', 'branches', 'allModules', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
     }
 
     public function update(Request $request, Company $company)
@@ -327,9 +340,17 @@ class AdminCompanyController extends Controller
             'longitude' => 'nullable|numeric|between:-180,180',
             'description' => 'nullable|string|max:5000',
             'is_intermediary' => 'nullable|boolean',
+            'is_main' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'contact_first_name' => 'nullable|string|max:255',
+            'contact_middle_name' => 'nullable|string|max:255',
+            'contact_last_name' => 'nullable|string|max:255',
             'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
+            'module_ids' => 'nullable|array',
+            'module_ids.*' => 'integer|exists:modules,id',
+            'apply_module_sync' => 'nullable|boolean',
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -353,6 +374,8 @@ class AdminCompanyController extends Controller
 
         // Handle checkbox - if not present in request, set to false
         $data['is_intermediary'] = $request->has('is_intermediary') ? (bool) $request->input('is_intermediary') : false;
+        $data['is_main'] = $request->boolean('is_main');
+        $data['is_active'] = $request->boolean('is_active');
 
         // Handle branch selection: if branch_select is set and not "other", use that value for industry
         if ($request->has('branch_select') && $request->input('branch_select') !== 'other' && $request->input('branch_select') !== '') {
@@ -364,7 +387,7 @@ class AdminCompanyController extends Controller
         // Remove branch_select from data as it's not a database field
         unset($data['branch_select']);
 
-        unset($data['logo'], $data['logo_dark'], $data['company_logo_mode']);
+        unset($data['logo'], $data['logo_dark'], $data['company_logo_mode'], $data['module_ids'], $data['apply_module_sync']);
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
@@ -385,6 +408,17 @@ class AdminCompanyController extends Controller
         }
 
         $company->update($data);
+
+        if ($request->boolean('apply_module_sync')) {
+            try {
+                $this->syncCompanyModulesFromWizardSelection($company, $request->input('module_ids', []));
+            } catch (\Throwable $e) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('error', 'Modules bijwerken mislukt: '.$e->getMessage());
+            }
+        }
 
         // Eerste vestiging gelijk trekken met contactadres
         $firstLocation = $company->locations()->orderBy('id')->first();
@@ -466,7 +500,7 @@ class AdminCompanyController extends Controller
             return back()->with('error', 'Kan bedrijf niet verwijderen: er zijn nog gebruikers gekoppeld.');
         }
 
-        if ($company->vacancies()->count() > 0) {
+        if (ModuleSchemaAvailability::vacanciesTableExists() && $company->vacancies()->count() > 0) {
             return back()->with('error', 'Kan bedrijf niet verwijderen: er zijn nog vacatures gekoppeld.');
         }
 
@@ -551,5 +585,36 @@ class AdminCompanyController extends Controller
             ->get(['id', 'first_name', 'middle_name', 'last_name', 'email']);
 
         return response()->json(['users' => $users]);
+    }
+
+    /**
+     * Zelfde koppeling als tenant-wizard stap 4: pivot + install/activate per gekozen module.
+     *
+     * @param  array<int|string>  $moduleIds
+     */
+    private function syncCompanyModulesFromWizardSelection(Company $company, array $moduleIds): void
+    {
+        $moduleManager = app(ModuleManager::class);
+        $ids = array_values(array_unique(array_map('intval', $moduleIds)));
+        $sync = [];
+        foreach ($ids as $id) {
+            $sync[$id] = ['settings' => null];
+        }
+        $company->modules()->sync($sync);
+
+        foreach ($ids as $id) {
+            $mod = ModuleModel::query()->find($id);
+            if ($mod === null) {
+                continue;
+            }
+            $name = $mod->name;
+            if (! $mod->installed) {
+                $moduleManager->installModule($name);
+                $mod = $mod->fresh();
+            }
+            if ($mod && ! $mod->active) {
+                $moduleManager->activateModule($name);
+            }
+        }
     }
 }

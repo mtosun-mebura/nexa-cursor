@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\InstallModuleJob;
-use App\Models\Company;
 use App\Models\Module as ModuleModel;
 use App\Services\DatabaseResetService;
 use App\Services\MenuService;
@@ -47,6 +46,8 @@ class AdminModuleController extends Controller
         }
         unset($module);
 
+        $mainDatabaseName = (string) (config('database.connections.'.config('database.default').'.database') ?: '');
+
         // Calculate statistics
         $stats = [
             'total_modules' => count($availableModules),
@@ -56,7 +57,7 @@ class AdminModuleController extends Controller
             'external_modules' => count(array_filter($availableModules, fn ($m) => $m['type'] === 'external')),
         ];
 
-        return view('admin.modules.index', compact('availableModules', 'stats', 'hasModuleDatabases', 'useSingleDatabase'));
+        return view('admin.modules.index', compact('availableModules', 'stats', 'hasModuleDatabases', 'useSingleDatabase', 'mainDatabaseName'));
     }
 
     public function install(string $moduleName)
@@ -162,9 +163,6 @@ class AdminModuleController extends Controller
             $enabledKeys = array_column($availableItems, 'key');
         }
 
-        // company_id in module-config verwijst altijd naar centrale tenant (tabel companies op default-DB).
-        $companies = Company::query()->orderBy('name')->get();
-
         return view('admin.modules.config', [
             'moduleName' => $moduleModel->name,
             'module' => $module,
@@ -176,8 +174,6 @@ class AdminModuleController extends Controller
                 ? (($config['dashboard_link_visible'] ?? '0') === '1')
                 : false,
             'dashboard_link_label' => $config['dashboard_link_label'] ?? 'Mijn Nexa',
-            'company_id' => $config['company_id'] ?? null,
-            'companies' => $companies,
         ]);
     }
 
@@ -204,11 +200,6 @@ class AdminModuleController extends Controller
         }
         $enabledKeys = array_values(array_intersect($submitted, $validKeys));
 
-        $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
-        if ($companyId !== null && ! Company::query()->whereKey($companyId)->exists()) {
-            return redirect()->back()->withInput()->withErrors(['company_id' => 'Het gekozen bedrijf bestaat niet.']);
-        }
-
         $config = $moduleModel->configuration ?? [];
         $config['enabled_menu_items'] = $enabledKeys;
         $config['app_name'] = $request->input('app_name', '');
@@ -217,7 +208,7 @@ class AdminModuleController extends Controller
         $raw = $request->input('dashboard_link_visible');
         $config['dashboard_link_visible'] = ($raw === '1' || $raw === true || $raw === 1) ? '1' : '0';
         $config['dashboard_link_label'] = $request->input('dashboard_link_label', 'Mijn Nexa');
-        $config['company_id'] = $companyId;
+        unset($config['company_id']);
         $moduleModel->update(['configuration' => $config]);
 
         return redirect()->route('admin.modules.config', $moduleModel->name)
@@ -269,5 +260,32 @@ class AdminModuleController extends Controller
 
         return redirect()->route('admin.modules.index')
             ->with('success', "Dummydata voor {$moduleName} uitgevoerd ({$run} seeder(s)).");
+    }
+
+    /**
+     * Voer module-migraties opnieuw uit op de juiste database (afhankelijk van MODULE_USE_SINGLE_DATABASE).
+     */
+    public function runModuleMigrations(string $moduleName)
+    {
+        set_time_limit(300);
+        try {
+            $info = $this->moduleManager->runModuleMigrationsNow($moduleName);
+            if ($info !== null) {
+                return redirect()->route('admin.modules.index')->with('info', $info);
+            }
+
+            return redirect()->route('admin.modules.index')
+                ->with('success', "Migraties voor module «{$moduleName}» zijn uitgevoerd op de juiste database.");
+        } catch (\Throwable $e) {
+            Log::error('Module migrations re-run failed', [
+                'module' => $moduleName,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return redirect()->route('admin.modules.index')
+                ->with('error', 'Migraties mislukt: '.$e->getMessage());
+        }
     }
 }

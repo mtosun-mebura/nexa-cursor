@@ -1,15 +1,15 @@
 .DS_Store
 .idea/
 
-# Root env (nooit committen: git reset overschrijft anders productie-/staging-.env op de server)
-.env
-.env.backup
-.env2
+# Env files (nooit committen), behalve .env.local en .env.example
+.env*
+!.env.local
+!.env.example
 
 # Backend env and config files
-backend/.env
-backend/.env.backup
-backend/.env.production
+backend/.env*
+!backend/.env.local
+!backend/.env.example
 backend/.phpactor.json
 backend/.phpunit.result.cache
 backend/.fleet/

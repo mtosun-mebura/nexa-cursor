@@ -10,6 +10,12 @@
         {{ session('success') }}
     </div>
 @endif
+@if(session('error'))
+    <div class="kt-alert kt-alert-danger mb-5" role="alert">
+        <i class="ki-filled ki-cross-circle me-2"></i>
+        {{ session('error') }}
+    </div>
+@endif
 
 <style>
     .hero-bg {
@@ -204,6 +210,50 @@
                             {{ $company->description ?? '-' }}
                         </td>
                     </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Gebouw-illustratie
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $bi = (int) ($company->building_image ?? 0);
+                                $biLabels = [1 => 'Oranje gevel', 2 => 'Twee torens', 3 => 'Wit minimalisme'];
+                            @endphp
+                            @if(isset($biLabels[$bi]))
+                                <span class="inline-flex items-center gap-2">
+                                    @if($company->buildingImageAssetUrl())
+                                        <img src="{{ $company->buildingImageAssetUrl() }}" alt="" class="h-10 w-auto rounded border border-border" width="40" height="40">
+                                    @endif
+                                    <span>{{ $biLabels[$bi] }}</span>
+                                </span>
+                            @else
+                                —
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Contactpersoon
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $cn = trim(implode(' ', array_filter([
+                                    $company->contact_first_name,
+                                    $company->contact_middle_name,
+                                    $company->contact_last_name,
+                                ])));
+                            @endphp
+                            {{ $cn !== '' ? $cn : '—' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Bedrijf als hoofdkantoor (wizard)
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $company->is_main ? 'Ja' : 'Nee' }}
+                        </td>
+                    </tr>
                 </table>
             </div>
         </div>
@@ -270,12 +320,104 @@
                             </a>
                         </div>
                         @endif
+                        @if($company->latitude !== null && $company->latitude !== '' && $company->longitude !== null && $company->longitude !== '')
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-geolocation text-lg text-muted-foreground"></i>
+                            </span>
+                            <span class="text-sm text-mono text-muted-foreground">{{ $company->latitude }}, {{ $company->longitude }}</span>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
         </div>
     </div>
     <!-- end: grid -->
+</div>
+<!-- End of Container -->
+
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
+            <h3 class="kt-card-title">
+                Gekoppelde modules
+            </h3>
+            @can('edit-companies')
+                <a href="{{ route('admin.companies.edit', $company) }}#company-modules" class="kt-btn kt-btn-sm kt-btn-outline">
+                    <i class="ki-filled ki-notepad-edit me-1"></i>
+                    Aanpassen
+                </a>
+            @endcan
+        </div>
+        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
+            Zelfde keuze als in de tenant-wizard (stap Modules). Alleen gekoppelde modules zijn beschikbaar voor dit bedrijf.
+        </p>
+        @if($company->modules->isEmpty())
+            <div class="kt-card-content pb-6">
+                <p class="text-sm text-muted-foreground mb-0">Geen modules gekoppeld.</p>
+            </div>
+        @else
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <thead>
+                        <tr>
+                            <th class="min-w-48 text-start">Module</th>
+                            <th class="min-w-32 text-start">Technische naam</th>
+                            <th class="min-w-32 text-start">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($company->modules->sortBy('display_name') as $mod)
+                            <tr>
+                                <td class="font-medium text-foreground">{{ $mod->display_name }}</td>
+                                <td><code class="text-xs">{{ $mod->name }}</code></td>
+                                <td>
+                                    @if($mod->installed && $mod->active)
+                                        <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                    @elseif($mod->installed)
+                                        <span class="kt-badge kt-badge-sm kt-badge-warning">Geïnstalleerd</span>
+                                    @else
+                                        <span class="kt-badge kt-badge-sm kt-badge-outline">Niet geïnstalleerd</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+</div>
+<!-- End of Container -->
+
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                Gebruikers &amp; website
+            </h3>
+        </div>
+        <div class="kt-card-content">
+            <ul class="list-none space-y-3 text-sm text-muted-foreground m-0 p-0">
+                <li class="flex flex-wrap items-center gap-2">
+                    <span class="text-foreground font-medium">{{ $company->users->count() }}</span>
+                    <span>gebruiker(s) gekoppeld aan dit bedrijf.</span>
+                    @can('view-users')
+                        <a href="{{ route('admin.users.index', ['company' => $company->id]) }}" class="text-primary font-medium hover:underline">Gebruikers bekijken</a>
+                    @endcan
+                </li>
+                @if(auth()->user()->hasRole('super-admin'))
+                    <li class="flex flex-wrap items-center gap-2">
+                        <span>Website-pagina's voor deze tenant beheren (zoals in wizard stap Website).</span>
+                        <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">Naar website-pagina's</a>
+                    </li>
+                @endif
+            </ul>
+        </div>
+    </div>
 </div>
 <!-- End of Container -->
 

@@ -43,7 +43,7 @@ class FrontendComponentService
     }
 
     /**
-     * Canonieke module-key voor een component (config module_key, of afgeleid uit id zoals taxiroyaal.* / nexa.*).
+     * Canonieke module-key voor een component (config module_key, of afgeleid uit id zoals taxi.* / nexa.*).
      */
     public function componentModuleKey(object $c): ?string
     {
@@ -52,8 +52,8 @@ class FrontendComponentService
             return strtolower($explicit);
         }
         $id = trim((string) ($c->id ?? ''));
-        if (str_starts_with($id, 'taxiroyaal.')) {
-            return 'taxiroyaal';
+        if (str_starts_with($id, 'taxi.')) {
+            return 'taxi';
         }
         if (str_starts_with($id, 'nexa.')) {
             return 'skillmatching';
@@ -64,7 +64,7 @@ class FrontendComponentService
 
     /**
      * Componenten die op een pagina toegevoegd kunnen worden.
-     * Geef de module-key van de pagina (canoniek zoals in modules.name, bijv. taxiroyaal).
+     * Geef de module-key van de pagina (canoniek zoals in modules.name, bijv. taxi).
      * Alleen componenten van die module plus available_on_all_pages. Leeg/null = geen filter (alle componenten).
      */
     public function availableForPage(?string $pageModuleName = null): Collection

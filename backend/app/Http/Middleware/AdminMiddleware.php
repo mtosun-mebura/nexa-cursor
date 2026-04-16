@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\WebsiteBuilderService;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,18 +57,6 @@ class AdminMiddleware
 
             // Redirect to admin login page instead of home
             return redirect()->route('admin.login')->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
-        }
-
-        // Super-admin: als er nog geen tenant gekozen is, automatisch de tenant van de actieve (branding) module kiezen
-        if (auth('web')->user()->hasRole('super-admin') && ! session()->has('selected_tenant')) {
-            $websiteBuilder = app(WebsiteBuilderService::class);
-            $brandingModule = $websiteBuilder->getBrandingModule();
-            if ($brandingModule && is_array($brandingModule->configuration)) {
-                $companyId = $brandingModule->configuration['company_id'] ?? null;
-                if ($companyId !== null && $companyId !== '') {
-                    session(['selected_tenant' => (int) $companyId]);
-                }
-            }
         }
 
         return $next($request);

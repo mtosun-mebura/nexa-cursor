@@ -68,20 +68,22 @@
 @section('content')
 
 <div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+    <div class="pb-7.5">
         <div class="flex items-center gap-3">
             <i class="{{ $module->getIcon() }} text-2xl text-primary"></i>
             <div>
                 <h1 class="text-xl font-medium leading-none text-mono">
                     {{ $module->getDisplayName() }}
                 </h1>
-                <p class="text-sm text-muted-foreground mt-0.5">Onderdelen in sidebar en tenant koppelen</p>
+                <p class="text-sm text-muted-foreground mt-0.5">Onderdelen in sidebar en applicatie-instellingen</p>
             </div>
         </div>
-        <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">
-            <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
-        </a>
+        <div class="pt-3">
+            <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
     </div>
 
     <form action="{{ route('admin.modules.config.store', $moduleName) }}" method="POST" class="module-config-form">
@@ -103,25 +105,6 @@
                     {{ session('error') }}
                 </div>
             @endif
-
-            <!-- Tenant: welk bedrijf hoort bij deze module -->
-            <div class="kt-card min-w-full">
-                <div class="kt-card-header">
-                    <h3 class="kt-card-title">Tenant</h3>
-                    <p class="text-sm text-muted-foreground mt-1">Koppel deze module aan een bedrijf. Als de module actief is, wordt bij inloggen in het beheer automatisch deze tenant gekozen (sidebar en formulieren).</p>
-                </div>
-                <div class="kt-card-content">
-                    <div class="mb-0">
-                        <label for="company_id" class="kt-form-label mb-2">Bedrijf</label>
-                        <select name="company_id" id="company_id" class="kt-input w-full max-w-md">
-                            <option value="">— Geen tenant (alle bedrijven) —</option>
-                            @foreach($companies ?? [] as $company)
-                                <option value="{{ $company->id }}" {{ (int) old('company_id', $company_id ?? 0) === (int) $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-            </div>
 
             <!-- Applicatie naam en omschrijving (meta, header, logo's) -->
             <div class="kt-card min-w-full">

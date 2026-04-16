@@ -131,8 +131,8 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Registreer database-connections voor alle geïnstalleerde modules (nexa_taxiroyaal, nexa_skillmatching, …)
-     * zodat o.a. TaxiRoyaal-admin op de module-DB kan werken.
+     * Registreer database-connections voor alle geïnstalleerde modules (nexa_taxi, nexa_skillmatching, …)
+     * zodat o.a. Nexa Taxi-admin op de module-DB kan werken.
      */
     private function registerModuleDatabaseConnections(): void
     {

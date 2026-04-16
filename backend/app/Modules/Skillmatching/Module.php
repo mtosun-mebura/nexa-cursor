@@ -3,6 +3,7 @@
 namespace App\Modules\Skillmatching;
 
 use App\Modules\Base\Module as BaseModule;
+use App\Support\ModuleSchemaAvailability;
 use Database\Seeders\CandidateSeeder;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\CompanySeeder;
@@ -119,5 +120,14 @@ class Module extends BaseModule
             NotificationSeeder::class,
             EmailTemplateSeeder::class,
         ];
+    }
+
+    /**
+     * Of de `vacancies`-tabel (en daarmee skillmatching-kern) op de default connection bestaat.
+     * Bij losse module-DB's staat die tabel op nexa_skillmatching, niet op nexa — dan geen Company::withCount('vacancies') op de hoofd-DB.
+     */
+    public static function vacanciesAvailableOnDefaultConnection(): bool
+    {
+        return ModuleSchemaAvailability::vacanciesTableExists();
     }
 }

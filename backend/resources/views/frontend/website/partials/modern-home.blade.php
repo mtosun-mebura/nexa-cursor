@@ -29,14 +29,14 @@
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxiroyaal.tarieven' || $sectionKey === 'component:taxiroyaal.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews'))
         @if($visibility[$sectionKey] ?? true)
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
-        @elseif($sectionKey === 'component:taxiroyaal.tarieven' && view()->exists('frontend.website.components.taxiroyaal-tarieven'))
-            @include('frontend.website.components.taxiroyaal-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
-        @elseif($sectionKey === 'component:taxiroyaal.boekingsmodule' && view()->exists('frontend.website.components.taxiroyaal-boekingsmodule'))
-            @include('frontend.website.components.taxiroyaal-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @elseif($sectionKey === 'component:taxi.tarieven' && view()->exists('frontend.website.components.nexataxi-tarieven'))
+            @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @elseif($sectionKey === 'component:taxi.boekingsmodule' && view()->exists('frontend.website.components.nexataxi-boekingsmodule'))
+            @include('frontend.website.components.nexataxi-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @elseif(($sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews') && view()->exists('frontend.website.components.google-reviews'))
             @include('frontend.website.components.google-reviews', ['reviews' => $googleReviews ?? [], 'googleReviews' => $googleReviews ?? []])
         @elseif($component && view()->exists($component->view ?? ''))

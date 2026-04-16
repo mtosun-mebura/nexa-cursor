@@ -506,7 +506,7 @@
    * Taxi-boekingsmodule: zelfde schakelaar als admin (Metronic .kt-switch / .kt-switch-sm).
    * Zie backend public/assets/css/styles.css — hier gescoped + theme-variabelen voor de frontend.
    */
-  [data-taxiroyaal-booking-module] {
+  [data-nexataxi-booking-module] {
     --spacing: 0.25rem;
     --input: rgb(226 232 240);
     --primary: #f97316;
@@ -514,14 +514,14 @@
     --ring: #f97316;
     --color-white: #ffffff;
   }
-  .dark [data-taxiroyaal-booking-module] {
+  .dark [data-nexataxi-booking-module] {
     --input: rgb(51 65 85 / 0.9);
     --primary: #ea580c;
     --background: #0f172a;
     --ring: #fb923c;
   }
 
-  [data-taxiroyaal-booking-module] .kt-switch {
+  [data-nexataxi-booking-module] .kt-switch {
     position: relative;
     display: inline-flex;
     flex-shrink: 0;
@@ -531,7 +531,7 @@
     border: none;
     border-radius: calc(infinity * 1px);
   }
-  [data-taxiroyaal-booking-module] .kt-switch:focus-visible {
+  [data-nexataxi-booking-module] .kt-switch:focus-visible {
     outline-style: none;
     --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width, 0px)) var(--tw-ring-color, currentcolor);
     box-shadow: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000);
@@ -540,11 +540,11 @@
     --tw-ring-offset-shadow: var(--tw-ring-inset, ) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
     --tw-ring-offset-color: var(--background);
   }
-  [data-taxiroyaal-booking-module] .kt-switch:disabled {
+  [data-nexataxi-booking-module] .kt-switch:disabled {
     cursor: not-allowed;
     opacity: 50%;
   }
-  [data-taxiroyaal-booking-module] .kt-switch::before {
+  [data-nexataxi-booking-module] .kt-switch::before {
     pointer-events: none;
     position: absolute;
     inset-inline-start: calc(var(--spacing) * 0);
@@ -563,33 +563,33 @@
     transition-duration: var(--tw-duration, 150ms);
     content: "";
   }
-  [data-taxiroyaal-booking-module] .kt-switch:checked,
-  [data-taxiroyaal-booking-module] .kt-switch[aria-checked="true"] {
+  [data-nexataxi-booking-module] .kt-switch:checked,
+  [data-nexataxi-booking-module] .kt-switch[aria-checked="true"] {
     background-color: var(--primary);
   }
-  [data-taxiroyaal-booking-module] .kt-switch {
+  [data-nexataxi-booking-module] .kt-switch {
     height: calc(var(--spacing) * 5);
     width: calc(var(--spacing) * 7.5);
     border-radius: calc(infinity * 1px);
   }
-  [data-taxiroyaal-booking-module] .kt-switch::before {
+  [data-nexataxi-booking-module] .kt-switch::before {
     width: calc(var(--spacing) * 3);
     height: calc(var(--spacing) * 3);
   }
-  [data-taxiroyaal-booking-module] :is(.kt-switch:checked, .kt-switch[aria-checked="true"])::before {
+  [data-nexataxi-booking-module] :is(.kt-switch:checked, .kt-switch[aria-checked="true"])::before {
     --tw-translate-x: calc(var(--spacing) * 3.5);
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
-  [data-taxiroyaal-booking-module] .kt-switch-sm {
+  [data-nexataxi-booking-module] .kt-switch-sm {
     height: calc(var(--spacing) * 4.5);
     width: calc(var(--spacing) * 6.5);
     border-radius: calc(infinity * 1px);
   }
-  [data-taxiroyaal-booking-module] .kt-switch-sm::before {
+  [data-nexataxi-booking-module] .kt-switch-sm::before {
     width: calc(var(--spacing) * 2.5);
     height: calc(var(--spacing) * 2.5);
   }
-  [data-taxiroyaal-booking-module] :is(.kt-switch-sm:checked, .kt-switch-sm[aria-checked="true"])::before {
+  [data-nexataxi-booking-module] :is(.kt-switch-sm:checked, .kt-switch-sm[aria-checked="true"])::before {
     --tw-translate-x: calc(var(--spacing) * 3);
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }

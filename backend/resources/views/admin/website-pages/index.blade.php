@@ -26,6 +26,19 @@
                     </a>
                 </div>
             @endif
+            @php
+                $wtc = $websiteTenantContext ?? ['visible' => false];
+            @endphp
+            @if(!empty($wtc['visible']) && !empty($wtc['effective_company']))
+                <p class="text-sm text-muted-foreground mt-2 mb-0">
+                    <span class="text-foreground font-medium">Actieve tenant:</span> {{ $wtc['effective_company']->name }}
+                    <span class="text-muted-foreground">— nieuwe pagina&apos;s worden standaard aan dit bedrijf gekoppeld. Elke pagina hoort bij één bedrijf.</span>
+                </p>
+            @elseif(!empty($wtc['visible']))
+                <p class="text-sm text-muted-foreground mt-2 mb-0">
+                    <span class="text-foreground font-medium">Geen tenant gekozen</span> in de sidebar: bij <strong>nieuwe pagina</strong> kiest u een bedrijf in het formulier. Bestaande pagina&apos;s tonen hun gekoppelde bedrijfsnaam.
+                </p>
+            @endif
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
             @php
@@ -57,6 +70,9 @@
                         <th>Slug</th>
                         <th>Type</th>
                         <th>Module (bij welke module)</th>
+                        @if(!empty($websiteTenantContext['visible'] ?? false))
+                            <th>Bedrijf</th>
+                        @endif
                         <th>Thema</th>
                         <th>Status</th>
                         <th class="text-end">Acties</th>
@@ -77,6 +93,28 @@
                             <td><code>{{ $page->slug }}</code></td>
                             <td>{{ $page->page_type }}</td>
                             <td>{{ $page->module_name ?? '—' }}</td>
+                            @if(!empty($websiteTenantContext['visible'] ?? false))
+                                @php
+                                    $namesMap = $websitePagesCompanyNames ?? collect();
+                                    $rowCompanyId = isset($page->company_id) && $page->company_id !== null && $page->company_id !== '' ? (int) $page->company_id : null;
+                                    $rowCompanyName = $rowCompanyId !== null ? $namesMap->get($rowCompanyId) : null;
+                                    $listTenant = $websiteTenantContext['effective_company'] ?? null;
+                                @endphp
+                                <td class="text-sm align-top">
+                                    @if($rowCompanyId !== null)
+                                        <span class="font-medium text-foreground">{{ $rowCompanyName ?? ('Bedrijf #'.$rowCompanyId) }}</span>
+                                        @if($rowCompanyName)
+                                            <span class="block text-xs text-muted-foreground mt-0.5">Gekoppeld aan dit bedrijf.</span>
+                                        @endif
+                                    @elseif($listTenant)
+                                        <span class="text-muted-foreground">Niet gekoppeld</span>
+                                        <span class="block text-xs text-muted-foreground mt-0.5">Geen bedrijfs-id op deze pagina. Open <strong>Bewerken</strong> om het bedrijf te kiezen (of sla op met deze tenant in de sidebar).</span>
+                                    @else
+                                        <span class="text-muted-foreground">Niet gekoppeld</span>
+                                        <span class="block text-xs text-muted-foreground mt-0.5">Kies een bedrijf bij het aanmaken of bewerken van de pagina.</span>
+                                    @endif
+                                </td>
+                            @endif
                             <td>{{ $activeTheme?->name ?? '—' }}</td>
                             <td>
                                 @if($page->is_active)
@@ -129,7 +167,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted-foreground py-8">Nog geen website-pagina's. Maak er een aan.</td>
+                            <td colspan="{{ !empty($websiteTenantContext['visible'] ?? false) ? 9 : 8 }}" class="text-center text-muted-foreground py-8">Nog geen website-pagina's. Maak er een aan.</td>
                         </tr>
                     @endforelse
                 </tbody>

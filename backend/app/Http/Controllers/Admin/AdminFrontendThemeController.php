@@ -244,7 +244,7 @@ class AdminFrontendThemeController extends Controller
         $themeSlug = $theme->slug;
         $themeSettings = $theme->getSettings();
         // Staging: branding volgt URL-query → geresolveerde $module → vastgezette module op het thema.
-        // Niet eerst $page->module_name: de getoonde home kan nog van Skillmatching komen terwijl het thema op Taxi Royaal
+        // Niet eerst $page->module_name: de getoonde home kan nog van Skillmatching komen terwijl het thema op Nexa Taxi
         // staat — dan zou de verkeerde module-config (dashboard uit) worden toegepast.
         $brandingModuleKey = null;
         if ($module !== null && trim((string) $module) !== '') {

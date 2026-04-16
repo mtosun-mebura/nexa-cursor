@@ -1166,7 +1166,7 @@
             </div>
         </div>
     </div>
-    @elseif($sectionKey === 'component:taxiroyaal.tarieven')
+    @elseif($sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxiroyaal.tarieven')
             @php
                 $tarievenSectionData = $sections[$sectionKey] ?? [];
                 $tarievenItems = array_values($tarievenSectionData['items'] ?? [['rate_type' => '1-4', 'title' => 't/m 4 personen'], ['rate_type' => '5-8', 'title' => '5 t/m 8 personen']]);
@@ -1174,7 +1174,7 @@
                     $tarievenItems = [['rate_type' => '1-4', 'title' => 't/m 4 personen'], ['rate_type' => '5-8', 'title' => '5 t/m 8 personen']];
                 }
                 $tarievenRateTypes = ['1-4' => 't/m 4 personen', '5-8' => '5 t/m 8 personen', 'overige_kosten' => 'Overige kosten'];
-                $tarievenVehicles = app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getVehiclesForSelect();
+                $tarievenVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect();
                 $tarievenVehiclesForJs = array_map(function($v) {
                     $url = $v['image_url'] ?? null;
                     $url = $url ? (str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'))) : null;
@@ -1188,14 +1188,14 @@
                 $tarievenTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
                 $tarievenBlockTitle = old('home_sections.'.$sectionKey.'.title', $tarievenSectionData['title'] ?? 'Onze tarieven');
                 $tarievenImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
-                $tarievenRatesData = app(\App\Services\TaxiRoyaalPublicRatesService::class)->getRatesForDisplay();
+                $tarievenRatesData = app(\App\Services\NexaTaxiPublicRatesService::class)->getRatesForDisplay();
                 $tarievenCleaning1_4 = $tarievenRatesData && $tarievenRatesData['rates_1_4'] !== null && $tarievenRatesData['rates_1_4']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_1_4']->cleaning_costs : null;
                 $tarievenCleaning5_8 = $tarievenRatesData && $tarievenRatesData['rates_5_8'] !== null && $tarievenRatesData['rates_5_8']->cleaning_costs !== null ? (float) $tarievenRatesData['rates_5_8']->cleaning_costs : null;
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--component flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title">Taxi Royaal tarieven (Taxi)</h3>
+            <h3 class="kt-card-title">Nexa Taxi tarieven</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
                 <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
@@ -1249,7 +1249,7 @@
                     <input type="number" name="home_sections[{{ $sectionKey }}][image_fade_duration]" value="{{ old('home_sections.'.$sectionKey.'.image_fade_duration', $tarievenSectionData['image_fade_duration'] ?? 1200) }}" min="300" max="5000" step="100" class="kt-input w-28 text-sm">
                 </div>
             </div>
-            <div id="taxiroyaal-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
+            <div id="nexataxi-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
                 @foreach($tarievenItems as $i => $item)
                 @php
                     $itemRateType = $item['rate_type'] ?? ($i === 1 ? '5-8' : '1-4');
@@ -1269,20 +1269,20 @@
                     $itemImagePadding = isset($item['image_padding']) ? max(0, min(30, (int)$item['image_padding'])) : 2;
                     $itemImagePadding = (int)(round($itemImagePadding / 2) * 2);
                 @endphp
-                <div class="taxiroyaal-tarieven-item border border-border rounded-lg p-4 space-y-3" data-tarieven-index="{{ $i }}">
+                <div class="nexataxi-tarieven-item border border-border rounded-lg p-4 space-y-3" data-tarieven-index="{{ $i }}">
                     <div class="flex items-center justify-between gap-2">
                         <span class="text-sm font-medium">Kaart {{ $i + 1 }}</span>
-                        <button type="button" class="taxiroyaal-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getImageUrl($itemVehicleId) ?? '') : '') }}" data-taxiroyaal-preview>
-                            <button type="button" class="taxiroyaal-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\NexaTaxiVehicleDisplayService::class)->getImageUrl($itemVehicleId) ?? '') : '') }}" data-nexataxi-preview>
+                            <button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="flex flex-col gap-2 flex-1 min-w-0">
                             <div class="flex items-center gap-3">
-                                <label class="taxiroyaal-image-label text-sm text-muted-foreground shrink-0 w-40 {{ ($itemImageUrl !== '' || $itemVehicleId) ? 'hidden' : '' }}">Afbeelding</label>
-                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][vehicle_id]" class="kt-input w-56 text-sm taxiroyaal-image-source-select" data-preview-target="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url-preview" data-upload-wrap="taxiroyaal-{{ $sectionKey }}-items-{{ $i }}-upload-wrap" data-image-url-input="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}">
+                                <label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40 {{ ($itemImageUrl !== '' || $itemVehicleId) ? 'hidden' : '' }}">Afbeelding</label>
+                                <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" data-upload-wrap="nexataxi-{{ $sectionKey }}-items-{{ $i }}-upload-wrap" data-image-url-input="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}">
                                     <option value="">Geen</option>
                                     @foreach($tarievenVehicles as $v)
                                     <option value="{{ $v['id'] }}" {{ $itemVehicleId == $v['id'] ? 'selected' : '' }}>{{ $v['name'] }}</option>
@@ -1290,14 +1290,14 @@
                                     <option value="custom" {{ $itemImageSource === 'custom' ? 'selected' : '' }}>Eigen afbeelding</option>
                                 </select>
                             </div>
-                            <div class="taxiroyaal-upload-wrap {{ $itemImageSource === 'custom' ? '' : 'hidden' }}" id="taxiroyaal-{{ $sectionKey }}-items-{{ $i }}-upload-wrap">
-                                <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="taxiroyaal_items_{{ $i }}_image_url" style="width: 100%; max-width: 500px; min-height: 130px;">
+                            <div class="nexataxi-upload-wrap {{ $itemImageSource === 'custom' ? '' : 'hidden' }}" id="nexataxi-{{ $sectionKey }}-items-{{ $i }}-upload-wrap">
+                                <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="taxi_items_{{ $i }}_image_url" style="width: 100%; max-width: 500px; min-height: 130px;">
                                     <span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span>
                                     <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                                 </div>
-                                <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="taxiroyaal_items_{{ $i }}_image_url">
+                                <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="taxi_items_{{ $i }}_image_url">
                             </div>
-                            <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" id="hero-{{ $sectionKey }}-taxiroyaal_items_{{ $i }}_image_url" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_url', $itemImageUrl) }}">
+                            <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_url', $itemImageUrl) }}">
                         </div>
                     </div>
                     <div class="flex flex-col gap-2 mt-3">
@@ -1402,16 +1402,16 @@
                             <div class="flex items-center gap-3">
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $item['image_bg_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-image-bg">
+                                    <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $item['image_bg_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $item['text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="taxiroyaal-{{ $sectionKey }}-item-{{ $i }}-text-color">
+                                    <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $item['text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1421,14 +1421,14 @@
                 @endforeach
             </div>
             <div class="mt-4 pb-4">
-                <button type="button" class="taxiroyaal-tarieven-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Tarievenkaart toevoegen</button>
+                <button type="button" class="nexataxi-tarieven-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Tarievenkaart toevoegen</button>
             </div>
         </div>
     </div>
-    @elseif($sectionKey === 'component:taxiroyaal.boekingsmodule')
+    @elseif($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxiroyaal.boekingsmodule')
             @php
-                $bookingData = app(\App\Services\TaxiRoyaalBookingPricingService::class)->mergeSectionConfig($sections[$sectionKey] ?? []);
-                $bookingVehicles = app(\App\Services\TaxiRoyaalVehicleDisplayService::class)->getVehiclesForSelect();
+                $bookingData = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig($sections[$sectionKey] ?? []);
+                $bookingVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect();
                 $offerPersonRangeOptions = [
                     '' => 'Alle personen',
                     '1-4' => 't/m 4 personen',
@@ -1452,8 +1452,8 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg">
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Subtitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
-                <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? \App\Services\TaxiRoyaalBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
-                <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? \App\Services\TaxiRoyaalBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
+                <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
+                <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
                 <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte tabbladen</label>
                     @php $bookingTabFontPx = old('home_sections.'.$sectionKey.'.style.tab_font_size_px', $bookingData['style']['tab_font_size_px'] ?? '14'); @endphp
@@ -1563,10 +1563,10 @@
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="baggage" data-step-heading-base="Bagage-items">Bagage-items (Stap {{ $baggageStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
-                <div class="space-y-2 taxiroyaal-booking-list" data-list="baggage" data-section-key="{{ $sectionKey }}">
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="baggage" data-step-heading-base="Bagage-items">Bagage-items (Stap {{ $baggageStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="space-y-2 nexataxi-booking-list" data-list="baggage" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['baggage_items'] ?? []) as $i => $row)
-                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">
+                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">
                         <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
                         <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
@@ -1578,17 +1578,17 @@
                             </div>
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
                     </div>
                     @endforeach
                 </div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Speciale bagage</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">+ item</button></div>
-                <div class="space-y-2 taxiroyaal-booking-list" data-list="special" data-section-key="{{ $sectionKey }}">
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Speciale bagage</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="space-y-2 nexataxi-booking-list" data-list="special" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['special_items'] ?? []) as $i => $row)
-                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">
+                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">
                         <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
                         <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div>
@@ -1599,18 +1599,18 @@
                             </div>
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
                     </div>
                     @endforeach
                 </div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="offers" data-step-heading-base="Aanbiedingen">Aanbiedingen (Stap {{ $offersStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline taxiroyaal-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">+ kaart</button></div>
-                <div class="space-y-2 taxiroyaal-booking-list" data-list="offers" data-section-key="{{ $sectionKey }}">
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="offers" data-step-heading-base="Aanbiedingen">Aanbiedingen (Stap {{ $offersStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">+ kaart</button></div>
+                <div class="space-y-2 nexataxi-booking-list" data-list="offers" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['offers'] ?? []) as $i => $row)
                     <div class="overflow-x-auto">
-                    <div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">
+                    <div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 nexataxi-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">
                         <label class="text-xs text-muted-foreground">ID</label>
                         <label class="text-xs text-muted-foreground">Titel</label>
                         <label class="text-xs text-muted-foreground">Badge</label>
@@ -1626,7 +1626,7 @@
                         <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">Automatisch</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" data-person-range="{{ e($vehicle['person_range'] ?? '') }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
                         <div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][price_multiplier]" value="{{ $row['price_multiplier'] ?? 1 }}"></div>
                         <div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][old_price_multiplier]" value="{{ $row['old_price_multiplier'] ?? 1.2 }}"></div>
-                        <div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>
+                        <div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
                         <div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
                     </div>
                     </div>
@@ -3112,36 +3112,36 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         });
     })();
 
-    // Taxi Royaal tarieven: image-source select, kaart toevoegen/verwijderen
+    // Nexa Taxi tarieven: image-source select, kaart toevoegen/verwijderen
     (function() {
         var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
-        function updateTaxiroyaalImageLabel(row) {
+        function updateNexaTaxiImageLabel(row) {
             if (!row) return;
-            var label = row.querySelector('.taxiroyaal-image-label');
+            var label = row.querySelector('.nexataxi-image-label');
             if (!label) return;
-            var preview = row.querySelector('[data-taxiroyaal-preview]');
+            var preview = row.querySelector('[data-nexataxi-preview]');
             var hasVisiblePreview = !!(preview && !preview.classList.contains('hidden') && (preview.getAttribute('src') || '').trim() !== '');
             label.classList.toggle('hidden', hasVisiblePreview);
         }
         document.addEventListener('click', function(e) {
-            var removeBtn = e.target.closest('.taxiroyaal-image-remove-btn');
+            var removeBtn = e.target.closest('.nexataxi-image-remove-btn');
             if (removeBtn) {
                 e.preventDefault();
                 var urlInputId = removeBtn.getAttribute('data-url-input-id');
                 var previewId = removeBtn.getAttribute('data-preview-id');
                 if (urlInputId) { var u = document.getElementById(urlInputId); if (u) u.value = ''; }
                 if (previewId) { var p = document.getElementById(previewId); if (p) { p.src = ''; p.classList.add('hidden'); } }
-                var row = removeBtn.closest('.taxiroyaal-tarieven-item');
-                var sel = row ? row.querySelector('.taxiroyaal-image-source-select') : null;
+                var row = removeBtn.closest('.nexataxi-tarieven-item');
+                var sel = row ? row.querySelector('.nexataxi-image-source-select') : null;
                 if (sel) sel.value = '';
-                var wrap = row ? row.querySelector('.taxiroyaal-upload-wrap') : null;
+                var wrap = row ? row.querySelector('.nexataxi-upload-wrap') : null;
                 if (wrap) wrap.classList.add('hidden');
-                if (row) updateTaxiroyaalImageLabel(row);
+                if (row) updateNexaTaxiImageLabel(row);
                 return;
             }
         });
         document.addEventListener('change', function(e) {
-            var sel = e.target.closest('.taxiroyaal-image-source-select');
+            var sel = e.target.closest('.nexataxi-image-source-select');
             if (sel) {
                 var val = sel.value;
                 var wrap = document.getElementById(sel.getAttribute('data-upload-wrap'));
@@ -3162,39 +3162,39 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         else { preview.classList.add('hidden'); }
                     }
                 }
-                updateTaxiroyaalImageLabel(sel.closest('.taxiroyaal-tarieven-item'));
+                updateNexaTaxiImageLabel(sel.closest('.nexataxi-tarieven-item'));
             }
         });
-        function reindexTaxiroyaalItems(container, sectionKey) {
-            var rows = container ? container.querySelectorAll('.taxiroyaal-tarieven-item') : [];
+        function reindexNexaTaxiTarievenItems(container, sectionKey) {
+            var rows = container ? container.querySelectorAll('.nexataxi-tarieven-item') : [];
             rows.forEach(function(row, i) {
                 row.setAttribute('data-tarieven-index', i);
                 var titleEl = row.querySelector('.text-sm.font-medium');
                 if (titleEl) titleEl.textContent = 'Kaart ' + (i + 1);
 
-                var field = 'taxiroyaal_items_' + i + '_image_url';
+                var field = 'taxi_items_' + i + '_image_url';
                 var previewId = 'hero-' + sectionKey + '-' + field + '-preview';
                 var hiddenId = 'hero-' + sectionKey + '-' + field;
-                var uploadWrapId = 'taxiroyaal-' + sectionKey + '-items-' + i + '-upload-wrap';
+                var uploadWrapId = 'nexataxi-' + sectionKey + '-items-' + i + '-upload-wrap';
 
-                var preview = row.querySelector('[data-taxiroyaal-preview]');
+                var preview = row.querySelector('[data-nexataxi-preview]');
                 if (preview) {
                     preview.id = previewId;
                     preview.alt = 'Kaart ' + (i + 1);
                 }
-                var imageRemoveBtn = row.querySelector('.taxiroyaal-image-remove-btn');
+                var imageRemoveBtn = row.querySelector('.nexataxi-image-remove-btn');
                 if (imageRemoveBtn) {
                     imageRemoveBtn.setAttribute('data-url-input-id', hiddenId);
                     imageRemoveBtn.setAttribute('data-preview-id', previewId);
                 }
-                var sourceSelect = row.querySelector('.taxiroyaal-image-source-select');
+                var sourceSelect = row.querySelector('.nexataxi-image-source-select');
                 if (sourceSelect) {
                     sourceSelect.name = 'home_sections[' + sectionKey + '][items][' + i + '][vehicle_id]';
                     sourceSelect.setAttribute('data-preview-target', previewId);
                     sourceSelect.setAttribute('data-upload-wrap', uploadWrapId);
                     sourceSelect.setAttribute('data-image-url-input', hiddenId);
                 }
-                var uploadWrap = row.querySelector('.taxiroyaal-upload-wrap');
+                var uploadWrap = row.querySelector('.nexataxi-upload-wrap');
                 if (uploadWrap) uploadWrap.id = uploadWrapId;
                 var uploadArea = row.querySelector('.hero-image-upload-area');
                 if (uploadArea) uploadArea.setAttribute('data-field', field);
@@ -3236,7 +3236,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var imageBgColorPicker = row.querySelector('input[type="color"][id*="-image-bg"]');
                 var imageBgColorText = row.querySelector('input[type="text"][name*="[image_bg_color]"]');
                 if (imageBgColorPicker && imageBgColorText) {
-                    var imageBgId = 'taxiroyaal-' + sectionKey + '-item-' + i + '-image-bg';
+                    var imageBgId = 'nexataxi-' + sectionKey + '-item-' + i + '-image-bg';
                     imageBgColorPicker.id = imageBgId;
                     imageBgColorText.name = 'home_sections[' + sectionKey + '][items][' + i + '][image_bg_color]';
                     imageBgColorText.id = imageBgId + '-hex';
@@ -3246,24 +3246,24 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var textColorPicker = row.querySelector('input[type="color"][id*="-text-color"]');
                 var textColorText = row.querySelector('input[type="text"][name*="[text_color]"]');
                 if (textColorPicker && textColorText) {
-                    var textColorId = 'taxiroyaal-' + sectionKey + '-item-' + i + '-text-color';
+                    var textColorId = 'nexataxi-' + sectionKey + '-item-' + i + '-text-color';
                     textColorPicker.id = textColorId;
                     textColorText.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_color]';
                     textColorText.id = textColorId + '-hex';
                     textColorText.setAttribute('data-sync-from', textColorId);
                 }
-                updateTaxiroyaalImageLabel(row);
+                updateNexaTaxiImageLabel(row);
             });
         }
         document.addEventListener('click', function(e) {
-            var addBtn = e.target.closest('.taxiroyaal-tarieven-item-add');
+            var addBtn = e.target.closest('.nexataxi-tarieven-item-add');
             if (addBtn) {
                 e.preventDefault();
                 var sectionKey = addBtn.getAttribute('data-section-key');
-                var container = document.getElementById('taxiroyaal-tarieven-items-' + sectionKey);
+                var container = document.getElementById('nexataxi-tarieven-items-' + sectionKey);
                 if (!container) return;
-                reindexTaxiroyaalItems(container, sectionKey);
-                var items = container.querySelectorAll('.taxiroyaal-tarieven-item');
+                reindexNexaTaxiTarievenItems(container, sectionKey);
+                var items = container.querySelectorAll('.nexataxi-tarieven-item');
                 var nextIndex = items.length;
                 var vehicles = []; var cardSizes = {}; var fontStyles = {}; var fontFamilies = {}; var fontSizes = {}; var textAligns = {}; var imagePaddings = {};
                 try { vehicles = JSON.parse(container.getAttribute('data-vehicles') || '[]'); } catch (x) {}
@@ -3273,7 +3273,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 try { fontSizes = JSON.parse(container.getAttribute('data-font-sizes') || '{}'); } catch (x) {}
                 try { textAligns = JSON.parse(container.getAttribute('data-text-aligns') || '{}'); } catch (x) {}
                 try { imagePaddings = JSON.parse(container.getAttribute('data-image-paddings') || '{}'); } catch (x) {}
-                var field = 'taxiroyaal_items_' + nextIndex + '_image_url';
+                var field = 'taxi_items_' + nextIndex + '_image_url';
                 var vehicleOpts = '<option value="">Geen</option>';
                 vehicles.forEach(function(v) { vehicleOpts += '<option value="' + v.id + '">' + (v.name || '') + '</option>'; });
                 vehicleOpts += '<option value="custom">Eigen afbeelding</option>';
@@ -3289,18 +3289,18 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
                 var hexClearSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>';
                 var div = document.createElement('div');
-                div.className = 'taxiroyaal-tarieven-item border border-border rounded-lg p-4 space-y-3';
+                div.className = 'nexataxi-tarieven-item border border-border rounded-lg p-4 space-y-3';
                 div.setAttribute('data-tarieven-index', nextIndex);
-                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="taxiroyaal-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
+                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
                     '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-' + field + '-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-' + field + '" data-preview-id="hero-' + sectionKey + '-' + field + '-preview" title="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-col gap-2 flex-1 min-w-0"><div class="flex items-center gap-3"><label class="taxiroyaal-image-label text-sm text-muted-foreground shrink-0 w-40">Afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][vehicle_id]" class="kt-input w-56 text-sm taxiroyaal-image-source-select" data-preview-target="hero-' + sectionKey + '-' + field + '-preview" data-upload-wrap="taxiroyaal-' + sectionKey + '-items-' + nextIndex + '-upload-wrap" data-image-url-input="hero-' + sectionKey + '-' + field + '" data-vehicles="' + (container.getAttribute('data-vehicles') || '[]').replace(/"/g, '&quot;') + '">' + vehicleOpts + '</select></div>' +
-                    '<div class="taxiroyaal-upload-wrap hidden" id="taxiroyaal-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
+                    '<div class="flex flex-col gap-2 flex-1 min-w-0"><div class="flex items-center gap-3"><label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40">Afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-' + sectionKey + '-' + field + '-preview" data-upload-wrap="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap" data-image-url-input="hero-' + sectionKey + '-' + field + '" data-vehicles="' + (container.getAttribute('data-vehicles') || '[]').replace(/"/g, '&quot;') + '">' + vehicleOpts + '</select></div>' +
+                    '<div class="nexataxi-upload-wrap hidden" id="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-' + field + '" value=""></div></div>' +
                     '<div class="flex flex-col gap-2 mt-3"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][rate_type]" class="kt-input w-48 text-sm"><option value="1-4" selected>' + rateOpt1 + '</option><option value="5-8">' + rateOpt2 + '</option><option value="overige_kosten">' + rateOpt3 + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input flex-1 max-w-md text-sm" value="" placeholder="bijv. t/m 4 personen"></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label><input type="number" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][cleaning_costs]" class="kt-input w-28 text-sm" value="" step="0.01" min="0" placeholder="leeg = uit tarief"><span class="text-xs text-muted-foreground">Optioneel</span></div>' +
-                    '<div class="flex flex-col gap-3 pt-2 border-t border-border"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="taxiroyaal-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div></div></div>';
+                    '<div class="flex flex-col gap-3 pt-2 border-t border-border"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div></div></div>';
                 container.appendChild(div);
-                reindexTaxiroyaalItems(container, sectionKey);
-                updateTaxiroyaalImageLabel(div);
+                reindexNexaTaxiTarievenItems(container, sectionKey);
+                updateNexaTaxiImageLabel(div);
                 if (typeof window.bindColorSyncIn === 'function') window.bindColorSyncIn(div);
                 var newArea = div.querySelector('.hero-image-upload-area');
                 if (newArea && heroImageUploadUrl) (function() {
@@ -3329,18 +3329,18 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 })();
                 return;
             }
-            var removeBtn = e.target.closest('.taxiroyaal-tarieven-item-remove');
+            var removeBtn = e.target.closest('.nexataxi-tarieven-item-remove');
             if (removeBtn) {
                 e.preventDefault();
-                var row = removeBtn.closest('.taxiroyaal-tarieven-item');
+                var row = removeBtn.closest('.nexataxi-tarieven-item');
                 var container = row && row.parentElement;
-                if (row && container && container.querySelectorAll('.taxiroyaal-tarieven-item').length > 1) {
+                if (row && container && container.querySelectorAll('.nexataxi-tarieven-item').length > 1) {
                     row.remove();
-                    reindexTaxiroyaalItems(container, container.getAttribute('data-section-key') || '');
+                    reindexNexaTaxiTarievenItems(container, container.getAttribute('data-section-key') || '');
                 }
             }
         });
-        document.querySelectorAll('.taxiroyaal-tarieven-item').forEach(function(row) { updateTaxiroyaalImageLabel(row); });
+        document.querySelectorAll('.nexataxi-tarieven-item').forEach(function(row) { updateNexaTaxiImageLabel(row); });
     })();
 
     // Header: + dropdown om sectie toe te voegen (kloneren van bestaand type)
@@ -3489,12 +3489,12 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         });
 
-        function reindexTaxiroyaalBookingList(listEl) {
+        function reindexNexaTaxiBookingList(listEl) {
             if (!listEl) return;
             var sectionKey = listEl.getAttribute('data-section-key') || '';
             var listName = listEl.getAttribute('data-list') || '';
             var rowName = listName === 'special' ? 'special_items' : (listName === 'offers' ? 'offers' : 'baggage_items');
-            var rows = listEl.querySelectorAll('.taxiroyaal-booking-row');
+            var rows = listEl.querySelectorAll('.nexataxi-booking-row');
             rows.forEach(function(row, index) {
                 row.querySelectorAll('input[name], select[name], textarea[name]').forEach(function(field) {
                     field.name = field.name.replace(/home_sections\[[^\]]+\]\[[^\]]+\]\[\d+\]/, 'home_sections[' + sectionKey + '][' + rowName + '][' + index + ']');
@@ -3502,10 +3502,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         }
 
-        function buildTaxiroyaalBookingRowHtml(listName, sectionKey, index) {
+        function buildNexaTaxiBookingRowHtml(listName, sectionKey, index) {
             if (listName === 'offers') {
                 var vehicleOptions = '<option value="">Automatisch</option>';
-                var container = document.querySelector('.taxiroyaal-booking-list[data-section-key="' + sectionKey + '"][data-list="offers"]');
+                var container = document.querySelector('.nexataxi-booking-list[data-section-key="' + sectionKey + '"][data-list="offers"]');
                 if (container) {
                     try {
                         var vehicleSelect = container.closest('.home-section-card-body').querySelector('select[name*="[offers][0][vehicle_id]"]');
@@ -3514,7 +3514,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         }
                     } catch (e) {}
                 }
-                return '<div class="overflow-x-auto"><div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 taxiroyaal-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">'
+                return '<div class="overflow-x-auto"><div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 nexataxi-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">'
                     + '<label class="text-xs text-muted-foreground">ID</label>'
                     + '<label class="text-xs text-muted-foreground">Titel</label>'
                     + '<label class="text-xs text-muted-foreground">Badge</label>'
@@ -3530,32 +3530,32 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][vehicle_id]">' + vehicleOptions + '</select></div>'
                     + '<div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][price_multiplier]" value="1"></div>'
                     + '<div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][old_price_multiplier]" value="1.2"></div>'
-                    + '<div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                    + '<div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
                     + '<div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
                     + '</div></div>';
             }
 
             if (listName === 'special') {
-                return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">'
+                return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">'
                     + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
                     + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
                     + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div></div>'
                     + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
-                    + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                    + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
                     + '</div>';
             }
 
-            return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 taxiroyaal-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">'
+            return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">'
                 + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
                 + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
                 + '<div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
                 + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div></div>'
                 + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
-                + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive taxiroyaal-booking-item-remove">x</button></div>'
+                + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
                 + '</div>';
         }
 
-        function refreshTaxiroyaalStepHeadings(scopeEl) {
+        function refreshNexaTaxiStepHeadings(scopeEl) {
             var scope = scopeEl || document;
             var stepOrderSelects = scope.querySelectorAll('select[name$="[step_order][]"]');
             if (!stepOrderSelects.length) return;
@@ -3573,7 +3573,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         }
 
-        function syncTaxiroyaalOfferVehicleOptions(rowEl) {
+        function syncNexaTaxiOfferVehicleOptions(rowEl) {
             if (!rowEl) return;
             var personRangeSelect = rowEl.querySelector('select[name*="[offers]["][name$="[person_range]"]');
             var vehicleSelect = rowEl.querySelector('select[name*="[offers]["][name$="[vehicle_id]"]');
@@ -3657,9 +3657,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (fallbackComp) fallbackComp.value = orderInput.value;
                 var cardBody = card.querySelector('.home-section-card-body');
                 if (cardBody) {
-                    refreshTaxiroyaalStepHeadings(cardBody);
-                    cardBody.querySelectorAll('.taxiroyaal-booking-row[data-list="offers"]').forEach(function(row) {
-                        syncTaxiroyaalOfferVehicleOptions(row);
+                    refreshNexaTaxiStepHeadings(cardBody);
+                    cardBody.querySelectorAll('.nexataxi-booking-row[data-list="offers"]').forEach(function(row) {
+                        syncNexaTaxiOfferVehicleOptions(row);
                     });
                 }
                 menu.classList.add('hidden');
@@ -3706,31 +3706,31 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         });
 
         document.addEventListener('click', function(e) {
-            var addItemBtn = e.target.closest('.taxiroyaal-booking-item-add');
+            var addItemBtn = e.target.closest('.nexataxi-booking-item-add');
             if (addItemBtn) {
                 e.preventDefault();
                 var sectionKey = addItemBtn.getAttribute('data-section-key') || '';
                 var listName = addItemBtn.getAttribute('data-list') || 'baggage';
-                var listEl = document.querySelector('.taxiroyaal-booking-list[data-section-key="' + sectionKey + '"][data-list="' + listName + '"]');
+                var listEl = document.querySelector('.nexataxi-booking-list[data-section-key="' + sectionKey + '"][data-list="' + listName + '"]');
                 if (!listEl) return;
-                var index = listEl.querySelectorAll('.taxiroyaal-booking-row').length;
-                var rowHtml = buildTaxiroyaalBookingRowHtml(listName, sectionKey, index);
+                var index = listEl.querySelectorAll('.nexataxi-booking-row').length;
+                var rowHtml = buildNexaTaxiBookingRowHtml(listName, sectionKey, index);
                 var wrap = document.createElement('div');
                 wrap.innerHTML = rowHtml;
                 if (wrap.firstElementChild) {
                     listEl.appendChild(wrap.firstElementChild);
-                    syncTaxiroyaalOfferVehicleOptions(wrap.firstElementChild);
+                    syncNexaTaxiOfferVehicleOptions(wrap.firstElementChild);
                 }
-                reindexTaxiroyaalBookingList(listEl);
+                reindexNexaTaxiBookingList(listEl);
                 return;
             }
-            var removeBtn = e.target.closest('.taxiroyaal-booking-item-remove');
+            var removeBtn = e.target.closest('.nexataxi-booking-item-remove');
             if (removeBtn) {
                 e.preventDefault();
-                var row = removeBtn.closest('.taxiroyaal-booking-row');
-                var listEl = row ? row.closest('.taxiroyaal-booking-list') : null;
+                var row = removeBtn.closest('.nexataxi-booking-row');
+                var listEl = row ? row.closest('.nexataxi-booking-list') : null;
                 if (row) row.remove();
-                reindexTaxiroyaalBookingList(listEl);
+                reindexNexaTaxiBookingList(listEl);
             }
         });
 
@@ -3738,20 +3738,20 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             var target = e.target;
             if (!target || !target.matches || !target.matches('select[name$="[step_order][]"]')) return;
             var cardBody = target.closest('.home-section-card-body');
-            refreshTaxiroyaalStepHeadings(cardBody || document);
+            refreshNexaTaxiStepHeadings(cardBody || document);
         });
 
         document.addEventListener('change', function(e) {
             var target = e.target;
             if (!target || !target.matches || !target.matches('select[name*="[offers]["][name$="[person_range]"]')) return;
-            var row = target.closest('.taxiroyaal-booking-row');
-            syncTaxiroyaalOfferVehicleOptions(row);
+            var row = target.closest('.nexataxi-booking-row');
+            syncNexaTaxiOfferVehicleOptions(row);
         });
 
         document.querySelectorAll('.home-section-card-body').forEach(function(cardBody) {
-            refreshTaxiroyaalStepHeadings(cardBody);
-            cardBody.querySelectorAll('.taxiroyaal-booking-row[data-list="offers"]').forEach(function(row) {
-                syncTaxiroyaalOfferVehicleOptions(row);
+            refreshNexaTaxiStepHeadings(cardBody);
+            cardBody.querySelectorAll('.nexataxi-booking-row[data-list="offers"]').forEach(function(row) {
+                syncNexaTaxiOfferVehicleOptions(row);
             });
         });
 

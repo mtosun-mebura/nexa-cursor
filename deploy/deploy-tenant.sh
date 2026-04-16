@@ -207,8 +207,9 @@ _compose up -d
 echo "==> Wachten tot Laravel service beschikbaar is"
 sleep 5
 
-echo "==> Laravel migrations + cache"
+echo "==> Laravel migrations + basis seed + cache"
 _compose exec -T "$LARAVEL_SERVICE" php artisan migrate --force
+_compose exec -T "$LARAVEL_SERVICE" php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force
 _compose exec -T "$LARAVEL_SERVICE" php artisan config:clear
 _compose exec -T "$LARAVEL_SERVICE" php artisan cache:clear
 _compose exec -T "$LARAVEL_SERVICE" php artisan route:clear

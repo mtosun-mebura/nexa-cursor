@@ -12,20 +12,13 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            RoleSeeder::class,
-            UserRoleSeeder::class,
-            CategorySeeder::class,
-            StageTypeSeeder::class,
-            PipelineTemplateSeeder::class,
+            ApplicationBootstrapSeeder::class,
             VacancySeeder::class,
-            PaymentProviderSeeder::class,
             CandidateSeeder::class,
             MatchSeeder::class, // Nieuwe seeder voor matches
             InterviewMatchSeeder::class,
             NotificationSeeder::class,
             EmailTemplateSeeder::class,
-            InfoRequestFormFieldSeeder::class,
-            FrontendThemeSeeder::class,
         ]);
     }
 }

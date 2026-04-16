@@ -68,6 +68,82 @@ class WebsiteBuilderService
     }
 
     /**
+     * Actieve module-namen (lowercase) gekoppeld aan een bedrijf, voor website_pages-tenantfilter.
+     *
+     * @return array<int, string>
+     */
+    protected function linkedInstalledActiveModuleNamesLowerForCompany(Company $company): array
+    {
+        return $company->modules()
+            ->where('modules.installed', true)
+            ->where('modules.active', true)
+            ->pluck('modules.name')
+            ->filter()
+            ->map(fn ($n) => strtolower((string) $n))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * WHERE-clause: zelfde zichtbaarheid als op de live site voor één bedrijf (eigen rijen,
+     * gedeelde module-rijen zonder company_id voor gekoppelde modules, kern zonder tenant/module).
+     *
+     * @param  array<int, string>  $linkedLowerModuleNames
+     */
+    protected function applyWebsitePageVisibilityWhereForCompany(Builder $query, int $tenantCompanyId, array $linkedLowerModuleNames): void
+    {
+        $model = $query->getModel();
+        $table = $model->getTable();
+        $connection = $query->getConnection()->getName();
+        if (! Schema::connection($connection)->hasColumn($table, 'company_id')) {
+            return;
+        }
+
+        $grammar = $query->getGrammar();
+        $moduleCol = $grammar->wrap($table.'.module_name');
+
+        $query->where(function (Builder $q) use ($table, $tenantCompanyId, $linkedLowerModuleNames, $moduleCol) {
+            $q->where($table.'.company_id', $tenantCompanyId);
+            if ($linkedLowerModuleNames !== []) {
+                $q->orWhere(function (Builder $q2) use ($table, $linkedLowerModuleNames, $moduleCol) {
+                    $q2->whereNull($table.'.company_id')
+                        ->whereNotNull($table.'.module_name')
+                        ->whereRaw('LOWER('.$moduleCol.') in ('.implode(',', array_fill(0, count($linkedLowerModuleNames), '?')).')', $linkedLowerModuleNames);
+                });
+            }
+        });
+    }
+
+    /**
+     * Admin-overzicht met gekozen tenant: alleen rijen met exact dit company_id (geen gedeelde module-pagina's zonder id).
+     */
+    protected function applyWebsitePageStrictAdminTenantWhere(Builder $query, int $tenantCompanyId): void
+    {
+        $model = $query->getModel();
+        $table = $model->getTable();
+        $connection = $query->getConnection()->getName();
+        if (! Schema::connection($connection)->hasColumn($table, 'company_id')) {
+            return;
+        }
+        $query->where($table.'.company_id', $tenantCompanyId);
+    }
+
+    /**
+     * Zelfde zichtbaarheid als op de live site voor één bedrijf (tenant).
+     */
+    protected function applyWebsitePageQueryScopeForCompany(Builder $query, int $tenantCompanyId): void
+    {
+        $company = Company::query()->find($tenantCompanyId);
+        if (! $company) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+        $linked = $this->linkedInstalledActiveModuleNamesLowerForCompany($company);
+        $this->applyWebsitePageVisibilityWhereForCompany($query, $tenantCompanyId, $linked);
+    }
+
+    /**
      * Beperkt website_pages voor de publieke site: per ingelogd host-tenant eigen content,
      * op centrale hosts alleen rijen zonder company_id (geen tenant-gebonden module-sites).
      */
@@ -86,37 +162,7 @@ class WebsiteBuilderService
         $tenantId = $this->resolvedPublicTenantCompanyId();
 
         if ($tenantId !== null) {
-            $company = Company::query()->find($tenantId);
-            if (! $company) {
-                $query->whereRaw('1 = 0');
-
-                return;
-            }
-            $linked = $company->modules()
-                ->where('modules.installed', true)
-                ->where('modules.active', true)
-                ->pluck('modules.name')
-                ->filter()
-                ->map(fn ($n) => strtolower((string) $n))
-                ->values()
-                ->all();
-
-            $grammar = $query->getGrammar();
-            $moduleCol = $grammar->wrap($table.'.module_name');
-
-            $query->where(function (Builder $q) use ($table, $tenantId, $linked, $moduleCol) {
-                $q->where($table.'.company_id', $tenantId);
-                if ($linked !== []) {
-                    $q->orWhere(function (Builder $q2) use ($table, $linked, $moduleCol) {
-                        $q2->whereNull($table.'.company_id')
-                            ->whereNotNull($table.'.module_name')
-                            ->whereRaw('LOWER('.$moduleCol.') in ('.implode(',', array_fill(0, count($linked), '?')).')', $linked);
-                    });
-                }
-                $q->orWhere(function (Builder $q3) use ($table) {
-                    $q3->whereNull($table.'.company_id')->whereNull($table.'.module_name');
-                });
-            });
+            $this->applyWebsitePageQueryScopeForCompany($query, $tenantId);
 
             return;
         }
@@ -709,21 +755,50 @@ class WebsiteBuilderService
      * Bij per-module databases: uit elke geïnstalleerde module-DB. Bij single-DB: zelfde DB, module_name gezet.
      * Zelfde bron als Admin → Website-pagina's index.
      *
+     * @param  int|null  $restrictToTenantCompanyId  Super-admin met gekozen tenant/wizard: filter op dat bedrijf. Null = alle rijen.
+     * @param  bool  $strictTenantCompanyPagesOnly  True = alleen pagina's met dit company_id (admin-index bij tenant-switch). False = zichtbaarheid zoals op de publieke site (eigen + gedeelde module-rijen).
      * @return Collection<int, WebsitePage>
      */
-    public function loadAllPagesForAdminIndex(): Collection
+    public function loadAllPagesForAdminIndex(?int $restrictToTenantCompanyId = null, bool $strictTenantCompanyPagesOnly = false): Collection
     {
-        $kernel = WebsitePage::query()
+        $restrictLinkedLower = null;
+        if ($restrictToTenantCompanyId !== null) {
+            $tenantCompany = Company::query()->find($restrictToTenantCompanyId);
+            if (! $tenantCompany) {
+                return collect();
+            }
+            if (! $strictTenantCompanyPagesOnly) {
+                $restrictLinkedLower = $this->linkedInstalledActiveModuleNamesLowerForCompany($tenantCompany);
+            }
+        }
+
+        $applyTenantScope = function (Builder $q) use ($restrictToTenantCompanyId, $restrictLinkedLower, $strictTenantCompanyPagesOnly): void {
+            if ($restrictToTenantCompanyId === null) {
+                return;
+            }
+            if ($strictTenantCompanyPagesOnly) {
+                $this->applyWebsitePageStrictAdminTenantWhere($q, $restrictToTenantCompanyId);
+
+                return;
+            }
+            $this->applyWebsitePageVisibilityWhereForCompany($q, $restrictToTenantCompanyId, $restrictLinkedLower ?? []);
+        };
+
+        $kernelQuery = WebsitePage::query()
             ->whereNull('module_name')
-            ->with('theme')
+            ->with('theme');
+        $applyTenantScope($kernelQuery);
+        $kernel = $kernelQuery
             ->orderBy('sort_order')
             ->orderBy('title')
             ->get();
 
         if (! $this->moduleDb->supportsModuleDatabases()) {
-            $modulePagesOnMain = WebsitePage::query()
+            $moduleQuery = WebsitePage::query()
                 ->whereNotNull('module_name')
-                ->with('theme')
+                ->with('theme');
+            $applyTenantScope($moduleQuery);
+            $modulePagesOnMain = $moduleQuery
                 ->orderBy('sort_order')
                 ->orderBy('title')
                 ->get();
@@ -751,9 +826,10 @@ class WebsiteBuilderService
                 continue;
             }
             try {
+                $onModule = WebsitePage::on($conn)->with('theme');
+                $applyTenantScope($onModule);
                 $modulePages = $modulePages->concat(
-                    WebsitePage::on($conn)
-                        ->with('theme')
+                    $onModule
                         ->orderBy('sort_order')
                         ->orderBy('title')
                         ->get()

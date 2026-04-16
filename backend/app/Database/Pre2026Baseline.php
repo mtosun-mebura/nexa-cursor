@@ -10,6 +10,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
@@ -528,7 +529,7 @@ final class Pre2026Baseline
                                 $table->text('requirements')->nullable();
                                 $table->text('offer')->nullable();
                                 $table->text('application_instructions')->nullable();
-                                $table->foreignId('category_id')->nullable()->constrained('categories');
+                                $table->unsignedBigInteger('category_id')->nullable()->index();
                                 $table->string('reference_number', 100)->nullable();
                                 $table->string('logo', 255)->nullable();
                                 $table->string('salary_range', 100)->nullable();
@@ -4876,7 +4877,7 @@ final class Pre2026Baseline
                 },
             ],
             [
-                'set' => 'skillmatching',
+                'set' => 'shared',
                 'basename' => '2026_01_03_121632_create_stage_types_table.php',
                 'run' => static function (): void {
                     (new class extends Migration
@@ -4915,7 +4916,7 @@ final class Pre2026Baseline
                 },
             ],
             [
-                'set' => 'skillmatching',
+                'set' => 'shared',
                 'basename' => '2026_01_03_121633_create_pipeline_templates_table.php',
                 'run' => static function (): void {
                     (new class extends Migration
@@ -5958,7 +5959,7 @@ final class Pre2026Baseline
                     {
                         /**
                          * Run the migrations.
-                         * Voertuigen voor Taxi Royaal (per bedrijf).
+                         * Voertuigen voor Nexa Taxi (per bedrijf).
                          */
                         public function up(): void
                         {
@@ -6001,7 +6002,7 @@ final class Pre2026Baseline
                     {
                         /**
                          * Run the migrations.
-                         * Rit/aanvragen voor Taxi Royaal (koppeling voertuig + chauffeur).
+                         * Rit/aanvragen voor Nexa Taxi (koppeling voertuig + chauffeur).
                          */
                         public function up(): void
                         {
@@ -6079,7 +6080,7 @@ final class Pre2026Baseline
                     (new class extends Migration
                     {
                         /**
-                         * Add columns to vehicles table if they were missing (e.g. table existed before Taxi Royaal migration).
+                         * Add columns to vehicles table if they were missing (e.g. table existed before Nexa Taxi migration).
                          */
                         public function up(): void
                         {
@@ -6648,9 +6649,9 @@ final class Pre2026Baseline
 
     public static function runFull(): void
     {
-        $skipModules = self::shouldSkipModuleMigrations();
+        $skipModuleSpecificSetsOnMain = self::shouldSkipModuleSpecificSetsOnMainDatabase();
         foreach (self::steps() as $step) {
-            if ($skipModules && in_array($step['set'], ['taxiroyaal', 'skillmatching'], true)) {
+            if ($skipModuleSpecificSetsOnMain && in_array($step['set'], ['taxiroyaal', 'skillmatching'], true)) {
                 continue;
             }
             ($step['run'])();
@@ -6658,27 +6659,52 @@ final class Pre2026Baseline
     }
 
     /**
-     * @param  list<string>  $allowedSets  bv. ['core','shared','taxiroyaal']
+     * Bij strategy=schema of strategy=database hoort de hoofd-DB (public) alleen core+shared:
+     * geen taxiroyaal- of skillmatching-tabellen (die staan in eigen schema of eigen database).
+     * Alleen bij strategy=single draait de volledige baseline op de hoofd-DB.
      */
-    public static function runForSetsOnConnection(array $allowedSets, string $connectionName): void
+    protected static function shouldSkipModuleSpecificSetsOnMainDatabase(): bool
+    {
+        if (config('database.default') === 'sqlite') {
+            return true;
+        }
+
+        $strategy = config('module_database.strategy', 'schema');
+
+        return $strategy !== 'single';
+    }
+
+    /**
+     * @param  list<string>  $allowedSets  bv. ['core','shared','taxiroyaal']
+     * @param  bool  $tolerateErrors  Bij schema-only mode: vang fouten op (bv. kolom bestaat al op public-tabel)
+     * @return list<array{basename: string, error: string}>  Lijst van overgeslagen stappen (leeg als alles slaagde)
+     */
+    public static function runForSetsOnConnection(array $allowedSets, string $connectionName, bool $tolerateErrors = false): array
     {
         $allowedSets = array_values(array_unique(array_map('strtolower', $allowedSets)));
         $previous = Config::get('database.default');
         Config::set('database.default', $connectionName);
+        $skipped = [];
         try {
             foreach (self::steps() as $step) {
                 if (! in_array($step['set'], $allowedSets, true)) {
                     continue;
                 }
-                ($step['run'])();
+                if ($tolerateErrors) {
+                    try {
+                        ($step['run'])();
+                    } catch (\Throwable $e) {
+                        $skipped[] = ['basename' => $step['basename'], 'error' => $e->getMessage()];
+                        Log::warning("Pre2026Baseline step skipped ({$connectionName}): {$step['basename']} — {$e->getMessage()}");
+                    }
+                } else {
+                    ($step['run'])();
+                }
             }
         } finally {
             Config::set('database.default', $previous);
         }
-    }
 
-    protected static function shouldSkipModuleMigrations(): bool
-    {
-        return config('database.default') === 'sqlite';
+        return $skipped;
     }
 }

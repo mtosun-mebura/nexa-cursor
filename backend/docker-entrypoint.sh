@@ -37,9 +37,11 @@ php artisan view:clear || true
 # (Optioneel) storage symlink
 php artisan storage:link || true
 
-# (Optioneel) migraties alleen als DB-variabelen aanwezig zijn
+# Migraties + minimale seed (rollen, super admin, branches, thema's, …) als DB-variabelen aanwezig zijn
 if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan migrate --force || true
+  # Idempotent: veilig bij elke container-start; eerste deployment krijgt altijd basisdata
+  php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force || true
 fi
 
 echo "Start Laravel op 0.0.0.0:8000"

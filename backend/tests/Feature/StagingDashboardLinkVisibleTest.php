@@ -29,8 +29,8 @@ class StagingDashboardLinkVisibleTest extends TestCase
         ]);
 
         $module = Module::create([
-            'name' => 'taxiroyaal',
-            'display_name' => 'Taxi Royaal',
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
             'version' => '1.0.0',
             'description' => 'Test',
             'icon' => 'ki-filled ki-car',
@@ -49,7 +49,7 @@ class StagingDashboardLinkVisibleTest extends TestCase
             'title' => 'Home',
             'content' => '',
             'page_type' => 'home',
-            'module_name' => 'taxiroyaal',
+            'module_name' => 'taxi',
             'frontend_theme_id' => $theme->id,
             'is_active' => true,
             'sort_order' => 0,
@@ -88,8 +88,8 @@ class StagingDashboardLinkVisibleTest extends TestCase
         ]);
 
         $taxi = Module::create([
-            'name' => 'taxiroyaal',
-            'display_name' => 'Taxi Royaal',
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
             'version' => '1.0.0',
             'description' => 'Test',
             'icon' => 'ki-filled ki-car',

@@ -65,7 +65,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 </style>
 <section class="google-reviews-section py-12 md:py-16 bg-gray-100 dark:bg-gray-800" aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
     <div class="container-custom">
-        {{-- Taxi Royaal layout: twee kolommen – links samenvatting, rechts carousel met meerdere kaarten --}}
+        {{-- Nexa Taxi layout: twee kolommen – links samenvatting, rechts carousel met meerdere kaarten --}}
         <div class="grw-layout flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-8 max-w-6xl mx-auto">
             {{-- Links: vaste hoogte, dark-mode proof --}}
             <div class="grw-summary grw-header grw-header-inner flex-shrink-0 lg:w-[280px] xl:w-[320px] min-h-[260px] flex flex-col rounded-xl p-5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm dark:shadow-lg text-left">

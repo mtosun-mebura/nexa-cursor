@@ -3,21 +3,26 @@
 namespace App\Services;
 
 use App\Database\Pre2026Baseline;
+use App\Support\ModuleMigrationPathResolver;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Beheert per-module standalone databases: aanmaken, migraties, superadmin-seed.
- * Elke module krijgt een eigen database (bijv. nexa_taxiroyaal) met alle standaard
- * tabellen en de superadmin m.tosun@mebura.nl.
+ * Beheert per-module database-isolatie:
+ *
+ *  strategy=single   → alles in de hoofd-DB (public schema)
+ *  strategy=schema   → 1 DB, per module een eigen PG-schema (nexa_taxi, …) + connection met search_path
+ *  strategy=database → per module een eigen database (nexa_taxi, nexa_skillmatching, …) [legacy]
  */
 class ModuleDatabaseService
 {
-    /**
-     * Database-naam voor een module (bijv. TaxiRoyaal -> nexa_taxiroyaal).
-     */
+    // ------------------------------------------------------------------
+    //  Helpers: namen, slugs
+    // ------------------------------------------------------------------
+
     public function getModuleDatabaseName(string $moduleName): string
     {
         $name = strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
@@ -25,9 +30,6 @@ class ModuleDatabaseService
         return 'nexa_'.$name;
     }
 
-    /**
-     * Laravel connection naam voor een module (bijv. TaxiRoyaal -> module_taxiroyaal).
-     */
     public function getModuleConnectionName(string $moduleName): string
     {
         $name = strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
@@ -35,22 +37,56 @@ class ModuleDatabaseService
         return 'module_'.$name;
     }
 
-    /**
-     * Slug voor upload-paden en asset-mappen (bijv. TaxiRoyaal -> taxiroyaal).
-     * Gebruik in storage-paden: modules/{slug}/website/hero, etc.
-     */
+    public function getModuleSchemaName(string $moduleName): string
+    {
+        $module = app(ModuleManager::class)->loadModule($moduleName);
+
+        if ($module !== null && $module->getSchemaName() !== null) {
+            return $module->getSchemaName();
+        }
+
+        return 'nexa_'.strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
+    }
+
     public function getModuleUploadSlug(string $moduleName): string
     {
         return strtolower(preg_replace('/[^a-z0-9_]/i', '_', $moduleName));
     }
 
+    // ------------------------------------------------------------------
+    //  Strategy helpers
+    // ------------------------------------------------------------------
+
+    public function getStrategy(): string
+    {
+        return (string) config('module_database.strategy', 'schema');
+    }
+
+    /** Alles in 1 database, module-tabellen in aparte PG-schemas? */
+    public function usesSchemaStrategy(): bool
+    {
+        return $this->getStrategy() === 'schema';
+    }
+
+    /** Per module een eigen database? (legacy) */
+    public function usesDatabaseStrategy(): bool
+    {
+        return $this->getStrategy() === 'database';
+    }
+
+    /** Alles in de hoofd-DB, geen isolatie? */
+    public function usesSingleStrategy(): bool
+    {
+        return $this->getStrategy() === 'single';
+    }
+
     /**
-     * Of de huidige driver ondersteund wordt (mysql, pgsql) én we geen single-DB mode gebruiken.
-     * Bij single-DB (MODULE_USE_SINGLE_DATABASE=true) blijven alle tabellen in de hoofddatabase.
+     * Backward compat: oude code checkt supportsModuleDatabases().
+     * True als we schema- of database-strategy gebruiken op een ondersteunde driver.
      */
     public function supportsModuleDatabases(): bool
     {
-        if (config('module_database.use_single_database', false)) {
+        if ($this->usesSingleStrategy()) {
             return false;
         }
         $driver = config('database.default');
@@ -58,10 +94,143 @@ class ModuleDatabaseService
         return in_array($driver, ['mysql', 'mariadb', 'pgsql'], true);
     }
 
+    // ------------------------------------------------------------------
+    //  Connection registratie
+    // ------------------------------------------------------------------
+
+    public function registerConnection(string $moduleName): void
+    {
+        $connName = $this->getModuleConnectionName($moduleName);
+        $default = config('database.default');
+        $config = config("database.connections.{$default}");
+
+        if (! is_array($config)) {
+            throw new \RuntimeException("Default database connection '{$default}' not found.");
+        }
+
+        if ($this->usesSchemaStrategy()) {
+            // Zelfde database, maar eigen schema via search_path
+            $schemaName = $this->getModuleSchemaName($moduleName);
+            $config['search_path'] = $schemaName.',public';
+        } elseif ($this->usesDatabaseStrategy()) {
+            // Eigen database
+            $dbName = $this->getModuleDatabaseName($moduleName);
+            $config['database'] = $dbName;
+
+            if (($config['driver'] ?? null) === 'pgsql') {
+                $config = $this->applyPgsqlModuleSearchPath($moduleName, $connName, $config);
+            }
+        }
+
+        Config::set("database.connections.{$connName}", $config);
+        DB::purge($connName);
+        Log::info("Module connection registered: {$connName} (strategy={$this->getStrategy()})");
+    }
+
+    // ------------------------------------------------------------------
+    //  Schema-strategy: setup / drop
+    // ------------------------------------------------------------------
+
     /**
-     * Maak een nieuwe database aan voor de module.
-     * Als de database al bestaat (bijv. na een mislukte install), wordt deze eerst verwijderd en opnieuw aangemaakt.
+     * Maak het PG-schema aan in de hoofd-database en draai alleen module-specifieke migraties.
+     * Core+shared tabellen (users, companies, …) staan al in public en zijn bereikbaar via search_path.
      */
+    public function setupModuleSchema(string $moduleName): void
+    {
+        $schemaName = $this->getModuleSchemaName($moduleName);
+        $quoted = '"'.str_replace('"', '""', $schemaName).'"';
+        DB::statement("CREATE SCHEMA IF NOT EXISTS {$quoted}");
+        Log::info("Module schema created: {$schemaName}");
+
+        $this->registerConnection($moduleName);
+        $this->runModuleOnlyMigrations($moduleName);
+        $this->applySchemaFixups($moduleName);
+    }
+
+    /**
+     * Draai alleen de module-specifieke Pre2026Baseline-set (bv. taxiroyaal),
+     * zonder core+shared (die staan al in public schema).
+     *
+     * tolerateErrors=true vangt fouten op van migraties die shared-tabellen (users, invoices, …)
+     * proberen te ALTERen — die kolommen bestaan al in public.
+     */
+    public function runModuleOnlyMigrations(string $moduleName): void
+    {
+        $conn = $this->getModuleConnectionName($moduleName);
+        $sets = config('module_migrations.schema_only_sets', [])[$moduleName] ?? [];
+
+        if ($sets === []) {
+            Log::info("Geen schema_only_sets voor module {$moduleName}; overslaan Pre2026Baseline.");
+
+            return;
+        }
+
+        $skipped = Pre2026Baseline::runForSetsOnConnection($sets, $conn, tolerateErrors: true);
+
+        if ($skipped !== []) {
+            $names = array_column($skipped, 'basename');
+            Log::info('Module baseline: '.count($skipped).' stap(pen) overgeslagen op '.$conn.': '.implode(', ', $names));
+        }
+
+        Log::info("Module-only migrations run on {$conn} (sets: ".implode(',', $sets).')');
+    }
+
+    /**
+     * Post-processing na de baseline: hernoem kolommen, verwijder stub-tabellen, etc.
+     * Nodig omdat sommige shared-set migraties (bv. categories→branches rename) niet draaien in schema-only mode.
+     */
+    private function applySchemaFixups(string $moduleName): void
+    {
+        $conn = $this->getModuleConnectionName($moduleName);
+        $db = DB::connection($conn);
+        $schemaName = $this->getModuleSchemaName($moduleName);
+
+        if ($moduleName === 'skillmatching') {
+            // categories→branches rename: in de shared set wordt category_id→branch_id hernoemd.
+            // In schema-only mode draait die migratie niet, dus doen we het hier.
+            if ($this->columnExistsInSchema($db, $schemaName, 'vacancies', 'category_id')
+                && ! $this->columnExistsInSchema($db, $schemaName, 'vacancies', 'branch_id')) {
+                $db->statement('ALTER TABLE "'.$schemaName.'".vacancies RENAME COLUMN category_id TO branch_id');
+                Log::info("Schema fixup ({$moduleName}): category_id → branch_id in vacancies");
+            }
+        }
+    }
+
+    private function columnExistsInSchema($db, string $schema, string $table, string $column): bool
+    {
+        $result = $db->selectOne(
+            'SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?',
+            [$schema, $table, $column]
+        );
+
+        return $result !== null;
+    }
+
+    public function dropModuleSchema(string $moduleName): void
+    {
+        $schemaName = $this->getModuleSchemaName($moduleName);
+        $quoted = '"'.str_replace('"', '""', $schemaName).'"';
+        DB::statement("DROP SCHEMA IF EXISTS {$quoted} CASCADE");
+
+        $connName = $this->getModuleConnectionName($moduleName);
+        Config::set("database.connections.{$connName}", null);
+        Log::info("Module schema dropped: {$schemaName}");
+    }
+
+    public function moduleSchemaExists(string $moduleName): bool
+    {
+        $schemaName = $this->getModuleSchemaName($moduleName);
+
+        return DB::selectOne(
+            "SELECT 1 FROM information_schema.schemata WHERE schema_name = ?",
+            [$schemaName]
+        ) !== null;
+    }
+
+    // ------------------------------------------------------------------
+    //  Database-strategy (legacy): setup / drop
+    // ------------------------------------------------------------------
+
     public function createDatabase(string $moduleName): void
     {
         $dbName = $this->getModuleDatabaseName($moduleName);
@@ -94,29 +263,58 @@ class ModuleDatabaseService
         throw new \RuntimeException("Module databases are not supported for driver: {$driver}");
     }
 
-    /**
-     * Registreer een Laravel-connection voor de module-database.
-     */
-    public function registerConnection(string $moduleName): void
+    public function setupModuleDatabase(string $moduleName): void
     {
-        $connName = $this->getModuleConnectionName($moduleName);
-        $dbName = $this->getModuleDatabaseName($moduleName);
-        $default = config('database.default');
-        $config = config("database.connections.{$default}");
-
-        if (! is_array($config)) {
-            throw new \RuntimeException("Default database connection '{$default}' not found.");
+        if (! $this->usesDatabaseStrategy()) {
+            throw new \RuntimeException('setupModuleDatabase is only for strategy=database.');
         }
 
-        $config['database'] = $dbName;
-        Config::set("database.connections.{$connName}", $config);
-        Log::info("Module connection registered: {$connName} -> {$dbName}");
+        $this->createDatabase($moduleName);
+        $this->registerConnection($moduleName);
+        $this->runMigrations($moduleName);
+        $this->seedSuperAdmin($moduleName);
     }
 
-    /**
-     * Draai alleen de migraties die bij deze module horen: core + shared + module-specifiek.
-     * Zo krijgt nexa_taxiroyaal geen skillmatching-tabellen en nexa_skillmatching geen vehicles/ride_requests.
-     */
+    public function dropDatabase(string $moduleName): void
+    {
+        $connName = $this->getModuleConnectionName($moduleName);
+        Config::set("database.connections.{$connName}", null);
+        $this->terminateAndDropDatabase($moduleName);
+    }
+
+    protected function terminateAndDropDatabase(string $moduleName): void
+    {
+        $this->dropStandaloneDatabaseIfExists($this->getModuleDatabaseName($moduleName));
+    }
+
+    public function dropStandaloneDatabaseIfExists(string $dbName): void
+    {
+        $driver = config('database.default');
+
+        if ($driver === 'pgsql') {
+            DB::statement('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()', [$dbName]);
+            $quoted = '"'.str_replace('"', '""', $dbName).'"';
+            DB::statement("DROP DATABASE IF EXISTS {$quoted}");
+            Log::info("Standalone database dropped: {$dbName} (pgsql)");
+
+            return;
+        }
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $quoted = '`'.str_replace('`', '``', $dbName).'`';
+            DB::statement("DROP DATABASE IF EXISTS {$quoted}");
+            Log::info("Standalone database dropped: {$dbName} (mysql)");
+
+            return;
+        }
+
+        throw new \RuntimeException("Standalone database drop not supported for driver: {$driver}");
+    }
+
+    // ------------------------------------------------------------------
+    //  Migrations
+    // ------------------------------------------------------------------
+
     public function runMigrations(string $moduleName): void
     {
         $conn = $this->getModuleConnectionName($moduleName);
@@ -125,12 +323,44 @@ class ModuleDatabaseService
 
         Pre2026Baseline::runForSetsOnConnection($sets, $conn);
 
-        Log::info("Migrations run on module database: {$conn}");
+        Log::info("Migrations run on module connection: {$conn}");
     }
 
-    /**
-     * Seed superadmin (m.tosun@mebura.nl) in de module-database: rechten/rollen via RoleSeeder, gebruiker direct op de module-connection.
-     */
+    public function runIncrementalModuleMigrations(string $moduleName): bool
+    {
+        $this->registerConnection($moduleName);
+        $conn = $this->getModuleConnectionName($moduleName);
+        $canonical = strtolower(trim($moduleName));
+        $relative = ModuleMigrationPathResolver::pathForModule($canonical);
+        $fullPath = base_path($relative);
+        if (! is_dir($fullPath)) {
+            Log::info("Geen module-migratiemap voor incrementele run: {$relative}");
+
+            return false;
+        }
+        $files = glob($fullPath.'/*.php');
+        if ($files === false || $files === []) {
+            Log::info("Geen migratiebestanden in {$relative}; niets te draaien.");
+
+            return false;
+        }
+        $exitCode = Artisan::call('migrate', [
+            '--database' => $conn,
+            '--path' => $relative,
+            '--force' => true,
+        ]);
+        if ($exitCode !== 0) {
+            throw new \RuntimeException(trim(Artisan::output()));
+        }
+        Log::info("Incrementele module-migraties op {$conn}: {$relative}");
+
+        return true;
+    }
+
+    // ------------------------------------------------------------------
+    //  Superadmin seed
+    // ------------------------------------------------------------------
+
     public function seedSuperAdmin(string $moduleName): void
     {
         $conn = $this->getModuleConnectionName($moduleName);
@@ -147,15 +377,12 @@ class ModuleDatabaseService
         }
 
         $this->ensureSuperAdminUserOnConnection($conn);
-        Log::info("Superadmin seeded in module database: {$conn}");
+        Log::info("Superadmin seeded in module connection: {$conn}");
     }
 
-    /**
-     * Zorg dat de superadmin-gebruiker op de gegeven connection bestaat (direct op die DB).
-     */
     protected function ensureSuperAdminUserOnConnection(string $conn): void
     {
-        $email = \App\Services\ModuleSchemaService::SUPERADMIN_EMAIL;
+        $email = ModuleSchemaService::SUPERADMIN_EMAIL;
         $exists = DB::connection($conn)->table('users')->where('email', $email)->exists();
         if ($exists) {
             return;
@@ -163,7 +390,7 @@ class ModuleDatabaseService
         $now = now();
         DB::connection($conn)->table('users')->insert([
             'email' => $email,
-            'password' => Hash::make(\App\Services\ModuleSchemaService::SUPERADMIN_PASSWORD),
+            'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
             'first_name' => 'Mehmet',
             'last_name' => 'Tosun',
             'email_verified_at' => $now,
@@ -181,25 +408,10 @@ class ModuleDatabaseService
         }
     }
 
-    /**
-     * Volledige setup: database aanmaken, connection registreren, migraties, superadmin. Aanroepen bij module install.
-     */
-    public function setupModuleDatabase(string $moduleName): void
-    {
-        if (! $this->supportsModuleDatabases()) {
-            throw new \RuntimeException('Module databases are only supported for MySQL/MariaDB or PostgreSQL.');
-        }
+    // ------------------------------------------------------------------
+    //  Data copy (legacy, database strategy)
+    // ------------------------------------------------------------------
 
-        $this->createDatabase($moduleName);
-        $this->registerConnection($moduleName);
-        $this->runMigrations($moduleName);
-        $this->seedSuperAdmin($moduleName);
-    }
-
-    /**
-     * Kopieer alle data uit de standaard-database (nexa public) naar de module-database.
-     * Alleen PostgreSQL. Gebruik na runMigrations() voor een module die de inhoud van nexa moet overnemen (bijv. skillmatching).
-     */
     public function copyDataFromDefaultToModule(string $moduleName): void
     {
         if (config('database.default') !== 'pgsql') {
@@ -243,12 +455,9 @@ class ModuleDatabaseService
         }
 
         $this->resetSequences($conn);
-        Log::info("Data copy to module database {$conn} completed.");
+        Log::info("Data copy to module connection {$conn} completed.");
     }
 
-    /**
-     * Reset PostgreSQL sequences in de gegeven connection na data-copy.
-     */
     protected function resetSequences(string $conn): void
     {
         $columns = DB::connection($conn)->select("
@@ -269,42 +478,42 @@ class ModuleDatabaseService
         }
     }
 
-    /**
-     * Verwijder de module-database (bij uninstall). Wordt altijd aangeroepen bij Verwijderen van een module.
-     */
-    public function dropDatabase(string $moduleName): void
+    // ------------------------------------------------------------------
+    //  Legacy PG helper (database strategy)
+    // ------------------------------------------------------------------
+
+    protected function applyPgsqlModuleSearchPath(string $moduleName, string $connName, array $config): array
     {
-        $connName = $this->getModuleConnectionName($moduleName);
-        Config::set("database.connections.{$connName}", null);
+        $module = app(ModuleManager::class)->loadModule($moduleName);
+        $schemaName = $module !== null ? $module->getSchemaName() : null;
+        if (! $schemaName) {
+            $config['search_path'] = $config['search_path'] ?? 'public';
 
-        $this->terminateAndDropDatabase($moduleName);
-    }
-
-    /**
-     * Alleen de fysieke drop uitvoeren (zonder config te clearen). Gebruikt bij uninstall en bij createDatabase als DB al bestaat.
-     */
-    protected function terminateAndDropDatabase(string $moduleName): void
-    {
-        $dbName = $this->getModuleDatabaseName($moduleName);
-        $driver = config('database.default');
-
-        if ($driver === 'pgsql') {
-            DB::statement('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()', [$dbName]);
-            $quoted = '"'.str_replace('"', '""', $dbName).'"';
-            DB::statement("DROP DATABASE IF EXISTS {$quoted}");
-            Log::info("Module database dropped: {$dbName} (pgsql)");
-
-            return;
+            return $config;
         }
 
-        if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            $quoted = '`'.str_replace('`', '``', $dbName).'`';
-            DB::statement("DROP DATABASE IF EXISTS {$quoted}");
-            Log::info("Module database dropped: {$dbName} (mysql)");
+        Config::set("database.connections.{$connName}", $config);
+        DB::purge($connName);
 
-            return;
+        try {
+            $legacyPublicCore = DB::connection($connName)->selectOne(
+                "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users' LIMIT 1"
+            ) !== null;
+
+            if ($legacyPublicCore) {
+                $config['search_path'] = 'public';
+                Log::info("Module PG search_path=public (legacy) voor {$connName}");
+            } else {
+                $quoted = '"'.str_replace('"', '""', $schemaName).'"';
+                DB::connection($connName)->statement("CREATE SCHEMA IF NOT EXISTS {$quoted}");
+                $config['search_path'] = $schemaName.',public';
+                Log::info("Module PG search_path={$schemaName},public voor {$connName}");
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Module PG search_path fallback naar public: {$e->getMessage()}");
+            $config['search_path'] = $config['search_path'] ?? 'public';
         }
 
-        throw new \RuntimeException("Module databases are not supported for driver: {$driver}");
+        return $config;
     }
 }

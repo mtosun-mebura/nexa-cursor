@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Leegt alle tabellen en herstelt alleen de super admin (m.tosun@mebura.nl) met alle rechten.
+ * Leegt alle tabellen en draait {@see \Database\Seeders\ApplicationBootstrapSeeder}
+ * (super admin, rollen/rechten, branches, pipeline-stadia, thema's, …).
  */
 class DatabaseResetService
 {
@@ -29,7 +30,7 @@ class DatabaseResetService
         }
 
         Artisan::call('db:seed', [
-            '--class' => \Database\Seeders\RoleSeeder::class,
+            '--class' => \Database\Seeders\ApplicationBootstrapSeeder::class,
             '--force' => true,
         ]);
     }

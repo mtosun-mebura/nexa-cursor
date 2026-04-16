@@ -22,10 +22,16 @@
     <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data">
         @csrf
         @method('PUT')
-        <input type="hidden" name="is_active" id="is_active_hidden" value="{{ old('is_active', $company->is_active) ? '1' : '0' }}">
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
+
+            @if(session('error'))
+                <div class="kt-alert kt-alert-danger" role="alert">
+                    <i class="ki-filled ki-cross-circle me-2"></i>
+                    {{ session('error') }}
+                </div>
+            @endif
 
             <!-- General Info -->
             <div class="kt-card min-w-full">
@@ -221,6 +227,34 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
+                                Hoofdkantoor (wizard)
+                            </td>
+                            <td>
+                                <label class="kt-label flex items-center gap-2 mb-0">
+                                    <input type="checkbox" name="is_main" value="1" class="kt-switch kt-switch-sm" {{ old('is_main', $company->is_main) ? 'checked' : '' }}>
+                                    <span class="text-sm text-muted-foreground">Dit bedrijf gebruikt het adres uit stap Bedrijf als hoofdvestiging (zoals in de tenant-wizard).</span>
+                                </label>
+                                @error('is_main')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Actief
+                            </td>
+                            <td>
+                                <label class="kt-label flex items-center gap-2 mb-0">
+                                    <input type="checkbox" name="is_active" value="1" class="kt-switch kt-switch-sm" {{ old('is_active', $company->is_active) ? 'checked' : '' }}>
+                                    <span class="text-sm text-muted-foreground">Bedrijf is actief in het systeem.</span>
+                                </label>
+                                @error('is_active')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
                                 Website
                             </td>
                             <td>
@@ -294,6 +328,39 @@
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-destructive mt-1 hidden" id="phone_error"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Contactpersoon voornaam
+                            </td>
+                            <td>
+                                <input type="text" class="kt-input @error('contact_first_name') border-destructive @enderror" name="contact_first_name" value="{{ old('contact_first_name', $company->contact_first_name) }}" maxlength="255" autocomplete="given-name">
+                                @error('contact_first_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Contactpersoon tussenvoegsel
+                            </td>
+                            <td>
+                                <input type="text" class="kt-input @error('contact_middle_name') border-destructive @enderror" name="contact_middle_name" value="{{ old('contact_middle_name', $company->contact_middle_name) }}" maxlength="255">
+                                @error('contact_middle_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Contactpersoon achternaam
+                            </td>
+                            <td>
+                                <input type="text" class="kt-input @error('contact_last_name') border-destructive @enderror" name="contact_last_name" value="{{ old('contact_last_name', $company->contact_last_name) }}" maxlength="255" autocomplete="family-name">
+                                @error('contact_last_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
                             </td>
                         </tr>
                         <tr>
@@ -388,6 +455,57 @@
                     </table>
                 </div>
             </div>
+
+            @can('edit-companies')
+            <div class="kt-card min-w-full" id="company-modules">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Modules voor deze tenant</h3>
+                </div>
+                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
+                    Zelfde keuze als in de tenant-wizard (stap 4). Niet-geïnstalleerde of niet-actieve modules worden bij opslaan geïnstalleerd en geactiveerd waar mogelijk.
+                </p>
+                <input type="hidden" name="apply_module_sync" value="1">
+                @if(($allModules ?? collect())->isEmpty())
+                    <div class="px-6 pb-6">
+                        <p class="text-sm text-muted-foreground mb-0">Er zijn nog geen modules in de database. Registreer modules via <a href="{{ route('admin.modules.index') }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary/90">Modules</a>.</p>
+                    </div>
+                @else
+                    <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                            <thead>
+                                <tr>
+                                    <th class="w-12"></th>
+                                    <th>Module</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allModules as $mod)
+                                    @php
+                                        $attached = $company->modules->contains('id', $mod->id);
+                                    @endphp
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="kt-checkbox" name="module_ids[]" value="{{ $mod->id }}" {{ old('module_ids') !== null ? in_array((string) $mod->id, array_map('strval', (array) old('module_ids', [])), true) : ($attached ? 'checked' : '') }}>
+                                        </td>
+                                        <td class="font-medium">{{ $mod->display_name }} <span class="text-muted-foreground text-xs">({{ $mod->name }})</span></td>
+                                        <td>
+                                            @if($mod->installed && $mod->active)
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                            @elseif($mod->installed)
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Geïnstalleerd</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-outline">Niet geïnstalleerd</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
+            @endcan
         </div>
 
         <div class="flex items-center justify-end gap-2.5 mt-5">

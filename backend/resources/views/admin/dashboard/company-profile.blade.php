@@ -1,13 +1,20 @@
 @php
-    $totalVacancies = $company->vacancies()->where('status', 'active')->count();
+    $skillmatchingOnDefault = \App\Support\ModuleSchemaAvailability::vacanciesTableExists();
+    $totalVacancies = $skillmatchingOnDefault
+        ? $company->vacancies()->where('status', 'active')->count()
+        : 0;
     $totalUsers = \App\Models\User::where('company_id', $company->id)->count();
     $totalRevenue = \App\Models\Payment::where('company_id', $company->id)->where('status', 'paid')->sum('amount');
     $companyRank = \App\Models\Company::where('created_at', '<=', $company->created_at)->count();
     $locationsCount = $company->locations()->count();
-    $activeVacancies = $company->vacancies()->where('status', 'active')->get();
-    $totalMatches = \App\Models\JobMatch::whereHas('vacancy', function($q) use ($company) {
-        $q->where('company_id', $company->id);
-    })->count();
+    $activeVacancies = $skillmatchingOnDefault
+        ? $company->vacancies()->where('status', 'active')->get()
+        : collect();
+    $totalMatches = $skillmatchingOnDefault
+        ? \App\Models\JobMatch::whereHas('vacancy', function ($q) use ($company) {
+            $q->where('company_id', $company->id);
+        })->count()
+        : 0;
     $companyUsers = $company->users()->limit(8)->get();
 @endphp
 

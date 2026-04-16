@@ -7,13 +7,19 @@
 */
 
 return [
+    /*
+    | Bij strategy=database: core+shared+module-specifiek (volledige standalone DB).
+    | Bij strategy=schema: alleen module-specifiek (core+shared staan al in public).
+    */
     'module_migration_sets' => [
-        'taxiroyaal' => ['core', 'shared', 'taxiroyaal'],
+        'taxi' => ['core', 'shared', 'taxiroyaal'],
         'skillmatching' => ['core', 'shared', 'skillmatching'],
     ],
 
-    /*
-    | Voor een onbekende module: alleen core + shared (geen module-specifieke tabellen).
-    */
+    'schema_only_sets' => [
+        'taxi' => ['taxiroyaal'],
+        'skillmatching' => ['skillmatching'],
+    ],
+
     'default_set' => ['core', 'shared'],
 ];
