@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.skillmatching.branches.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.skillmatching.branches.store') }}" method="POST"  data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">

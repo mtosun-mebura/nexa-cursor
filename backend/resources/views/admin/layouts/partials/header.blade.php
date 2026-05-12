@@ -6,7 +6,7 @@
         <!-- Mobile Logo -->
         <div class="-ms-1 flex items-center gap-2.5 lg:hidden">
             <a class="shrink-0" href="{{ route('admin.dashboard') }}">
-                <img class="h-[30px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
+                <img class="h-[30px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
             </a>
             <div class="flex items-center">
                 <button class="kt-btn kt-btn-icon kt-btn-ghost" data-kt-drawer-toggle="#sidebar">

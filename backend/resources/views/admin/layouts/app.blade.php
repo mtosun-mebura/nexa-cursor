@@ -35,6 +35,7 @@
     <!-- End of Theme Mode -->
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('styles')
 
     <style>
         /* Maak menu heading borders grijs - voeg border-top toe aan menu items met headings */
@@ -379,9 +380,17 @@
                     document.addEventListener('DOMContentLoaded', function() {
                         var content = document.getElementById('content');
                         if (!content) return;
+                        var hash = (window.location.hash || '').replace(/^#/, '');
+                        if (hash) {
+                            var byId = document.getElementById(hash);
+                            if (byId && typeof byId.scrollIntoView === 'function') {
+                                byId.scrollIntoView({ behavior: 'auto', block: 'start' });
+                                return;
+                            }
+                        }
                         var first = content.querySelector('[data-validation-error], .border-destructive, [data-server-error]');
                         if (first && typeof first.scrollIntoView === 'function') {
-                            first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            first.scrollIntoView({ behavior: 'auto', block: 'center' });
                         }
                     });
                     </script>
@@ -882,5 +891,6 @@
             };
         }
     </script>
+    @stack('scripts')
 </body>
 </html>

@@ -147,6 +147,7 @@
             gap: 0.75rem;
             justify-content: center;
             align-items: center;
+            margin-bottom: 0.5rem;
         }
 
         .error403-actions a {
@@ -401,11 +402,13 @@
         <p class="muted">Neem contact op met je beheerder als je denkt dat dit een fout is.</p>
         <div class="error403-actions">
             <a href="{{ $backUrl }}" class="btn-outline">Terug</a>
-            @if(Route::has('admin.dashboard') && auth()->check())
-                <a href="{{ route('admin.dashboard') }}" class="btn-primary">Dashboard</a>
-            @elseif(Route::has('home'))
-                <a href="{{ route('home') }}" class="btn-primary">Home</a>
-            @endif
+            @auth
+                @if(Route::has('admin.dashboard'))
+                    <a href="{{ route('admin.dashboard') }}" class="btn-primary">Dashboard</a>
+                @endif
+            @else
+                <a href="{{ url('/index.html') }}" class="btn-primary">Home</a>
+            @endauth
         </div>
         <p class="error403-hint">Tip: klik op het donkere vlak om de animatie te herhalen.</p>
     </footer>

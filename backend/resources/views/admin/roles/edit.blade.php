@@ -236,7 +236,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.roles.update', $role) }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.roles.update', $role) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -432,6 +432,68 @@
                             'permissions' => 'Permissies',
                             'dashboard' => 'Dashboard',
                         ];
+
+                        // Resource labels uit module-menu ophalen zodat permissie-rijen
+                        // dezelfde naam gebruiken als in de sidebar (bijv. Tarieven i.p.v. Rates).
+                        $moduleResourceMenuLabels = [];
+                        try {
+                            $moduleMenuItemsForLabels = app(\App\Services\MenuService::class)->getModuleMenuItems();
+                            foreach ($moduleMenuItemsForLabels as $menuItem) {
+                                $menuModule = \Illuminate\Support\Str::of((string)($menuItem['module'] ?? ''))
+                                    ->replace('_', '-')
+                                    ->lower()
+                                    ->value();
+                                $menuTitle = trim((string)($menuItem['title'] ?? ''));
+                                if ($menuModule === '' || $menuTitle === '') {
+                                    continue;
+                                }
+
+                                $candidateKeys = [];
+
+                                if (!empty($menuItem['key'])) {
+                                    $candidateKeys[] = (string)$menuItem['key'];
+                                }
+
+                                if (!empty($menuItem['route']) && is_string($menuItem['route'])) {
+                                    $routeParts = explode('.', $menuItem['route']);
+                                    // Typical route: admin.<module>.<resource>.index
+                                    if (count($routeParts) >= 4 && $routeParts[0] === 'admin' && $routeParts[1] === $menuModule) {
+                                        $candidateKeys[] = (string)$routeParts[2];
+                                    }
+                                }
+
+                                if (!empty($menuItem['permission']) && is_string($menuItem['permission'])) {
+                                    $permissionParts = explode('.', $menuItem['permission']);
+                                    if (count($permissionParts) >= 2) {
+                                        $candidateKeys[] = (string)$permissionParts[0];
+                                    }
+                                }
+
+                                if (!empty($menuItem['permission_any']) && is_array($menuItem['permission_any'])) {
+                                    foreach ($menuItem['permission_any'] as $permissionAny) {
+                                        if (!is_string($permissionAny)) {
+                                            continue;
+                                        }
+                                        $permissionParts = explode('.', $permissionAny);
+                                        if (count($permissionParts) >= 2) {
+                                            $candidateKeys[] = (string)$permissionParts[0];
+                                        }
+                                    }
+                                }
+
+                                foreach ($candidateKeys as $candidateKey) {
+                                    $normalized = \Illuminate\Support\Str::of($candidateKey)
+                                        ->replace('_', '-')
+                                        ->lower()
+                                        ->value();
+                                    if ($normalized !== '') {
+                                        $moduleResourceMenuLabels[$menuModule . '-' . $normalized] = $menuTitle;
+                                    }
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            // Fallback naar bestaande formatting als menu labels niet beschikbaar zijn.
+                        }
                         
                         // Add module permissions from active modules
                         if (isset($modulePermissions) && count($modulePermissions) > 0) {
@@ -481,7 +543,17 @@
                                     
                                     $displayModuleKey = $moduleKey . '-' . $resource;
                                     if (!isset($moduleNames[$displayModuleKey])) {
-                                        $moduleNames[$displayModuleKey] = ucfirst($resource);
+                                        $normalizedModule = \Illuminate\Support\Str::of($moduleKey)
+                                            ->replace('_', '-')
+                                            ->lower()
+                                            ->value();
+                                        $normalizedResource = \Illuminate\Support\Str::of($resource)
+                                            ->replace('_', '-')
+                                            ->lower()
+                                            ->value();
+                                        $menuLabelKey = $normalizedModule . '-' . $normalizedResource;
+                                        $moduleNames[$displayModuleKey] = $moduleResourceMenuLabels[$menuLabelKey]
+                                            ?? ucfirst($resource);
                                     }
                                     if (!isset($permissionMap[$displayModuleKey])) {
                                         $permissionMap[$displayModuleKey] = [];

@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.companies.store') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('admin.companies.store') }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -629,6 +629,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Contact address: postcode + huisnummer lookup on blur

@@ -4,9 +4,10 @@ globs: backend/**/views/admin/**/*.blade.php
 alwaysApply: false
 ---
 
-# Admin: Terug-knop positie
+# Admin: Terug-knop positie en icoon
 
 De "Terug"-knop in admin-pagina's staat **onder** de paginatitel en subtitel, op een eigen regel.
+Elke terug-knop bevat **altijd** een linkspijltje vóór de tekst.
 
 ## Correct patroon
 
@@ -23,8 +24,18 @@ De "Terug"-knop in admin-pagina's staat **onder** de paginatitel en subtitel, op
 </div>
 ```
 
+## Ook correct bij "Terug naar ..."
+
+```html
+<a href="..." class="kt-btn kt-btn-outline mt-3 inline-flex">
+    <i class="ki-filled ki-arrow-left me-2"></i>
+    Terug naar componenten
+</a>
+```
+
 ## Niet doen
 
 - De terug-knop niet boven de titel plaatsen.
 - De terug-knop niet naast of rechts van de titel op dezelfde regel.
 - De knop hoort in een eigen `<div class="pt-3">` onder de titel/subtitel.
+- Geen terug-knop zonder linkspijltje (`ki-arrow-left`) gebruiken.

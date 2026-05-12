@@ -362,6 +362,7 @@
         detectFieldType(input) {
             const type = input.type.toLowerCase();
             const name = input.name.toLowerCase();
+            const skipUrlValidation = this.form?.dataset?.skipUrlValidation === 'true';
 
             if (type === 'number') return 'number';
             if (name === 'license_plate' || name.endsWith('[license_plate]')) return 'license_plate';
@@ -370,7 +371,7 @@
             if (name.includes('postal_code') || name.includes('postcode')) return 'postal_code';
             if (name.includes('kvk_number') || name.includes('kvk')) return 'kvk_number';
             if (type === 'password' || name.includes('password') || name.includes('wachtwoord')) return 'password';
-            if (type === 'url' || name.includes('website') || name.includes('url')) return 'url';
+            if (!skipUrlValidation && (type === 'url' || name.includes('website') || name.includes('url'))) return 'url';
             
             return 'text';
         }
@@ -379,6 +380,22 @@
          * Get minimum lengte voor een veld
          */
         getMinLength(input, fieldType) {
+            const name = (input.name || '').toLowerCase();
+            const isFooterLinkLabelField =
+                name.includes('home_sections[footer][quick_links]') && name.endsWith('[label]') ||
+                name.includes('home_sections[footer][support_links]') && name.endsWith('[label]');
+            const isFooterLinkUrlField =
+                name.includes('home_sections[footer][quick_links]') && name.endsWith('[url]') ||
+                name.includes('home_sections[footer][support_links]') && name.endsWith('[url]');
+            if (isFooterLinkLabelField) {
+                return null;
+            }
+            if (isFooterLinkUrlField) {
+                return null;
+            }
+            if (input.dataset.skipMinlengthValidation === 'true') {
+                return null;
+            }
             // Number-velden: geen minimale tekenlengte (waarde 1 is geldig); min/max via HTML5
             if (fieldType === 'number') {
                 return null;
@@ -479,6 +496,7 @@
             const isSelect = input.tagName === 'SELECT';
             const type = (input.type || '').toLowerCase();
             const isCheckboxOrRadio = input.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio');
+            const isRequired = input.hasAttribute('required');
             const value = isSelect
                 ? input.value
                 : (isCheckboxOrRadio ? (input.checked ? (input.value || '1') : '') : input.value.trim());
@@ -497,8 +515,9 @@
                 iconWrapper = this.createValidationIcon(input);
             }
             
-            // Only show validation icon if user has interacted
-            if (userInteracted && !isCheckboxOrRadio) {
+            // Green success icon only for required fields
+            const shouldShowSuccessIcon = userInteracted && !isCheckboxOrRadio && isRequired;
+            if (shouldShowSuccessIcon) {
                 // Show green checkmark icon
                 if (iconWrapper) {
                     iconWrapper.innerHTML = '<i class="ki-filled ki-check-circle text-green-500" style="font-size: 1.25rem; line-height: 1;"></i>';
@@ -514,36 +533,37 @@
                     input.style.paddingRight = '2.25rem';
                 }
                 
-                // Hide error message if it was shown
+            } else {
+                // Hide icon for optional fields, checkboxes/radios or untouched fields
+                if (iconWrapper) {
+                    iconWrapper.classList.add('hidden');
+                    iconWrapper.style.display = 'none';
+                    // Remove padding when icon is hidden
+                    input.style.paddingRight = '';
+                }
+            }
+
+            // For valid fields: hide inline and server-side errors after interaction
+            if (userInteracted) {
                 if (feedbackElement) {
                     feedbackElement.classList.add('hidden');
                     feedbackElement.style.display = 'none';
                     feedbackElement.textContent = '';
                 }
-                
-                // Also hide any server-side error messages (from @error directive)
+
                 const tdWrapper = input.closest('td');
                 if (tdWrapper) {
                     const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
                     serverErrors.forEach(errorEl => {
-                        // Only hide if it's an error message (not the help text)
-                        if (errorEl.textContent && errorEl.textContent.trim() !== '' && 
+                        if (errorEl.textContent && errorEl.textContent.trim() !== '' &&
                             !errorEl.classList.contains('text-muted-foreground')) {
                             errorEl.classList.add('hidden');
                             errorEl.style.display = 'none';
                         }
                     });
                 }
-            } else {
-                // Hide icon if user hasn't interacted or for checkboxes/radios
-                if (iconWrapper) {
-                    iconWrapper.classList.add('hidden');
-                    // Remove padding when icon is hidden
-                    input.style.paddingRight = '';
-                }
-                if (feedbackElement) {
-                    feedbackElement.classList.add('hidden');
-                }
+            } else if (feedbackElement) {
+                feedbackElement.classList.add('hidden');
             }
         }
 
@@ -655,6 +675,18 @@
             if (!inputWrapper) {
                 inputWrapper = input.parentElement;
             }
+
+            // Never apply width:100% / relative on <label> — it stretches flex layouts (e.g. centered Menuitem).
+            // Wrap the input in a div.relative instead (same as td-branch below).
+            if (inputWrapper && inputWrapper.tagName === 'LABEL') {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative';
+                wrapper.style.position = 'relative';
+                wrapper.style.width = '100%';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+                inputWrapper = wrapper;
+            }
             
             // If input is directly in a td, find or create a relative wrapper
             if (!inputWrapper || inputWrapper.tagName === 'TD') {
@@ -756,7 +788,7 @@
                         if (validationWrapper) {
                             let feedbackElement = validationWrapper.querySelector('.field-feedback[data-field="actions[]"]');
                             if (feedbackElement) {
-                                feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                            feedbackElement.textContent = 'Selecteer minimaal één optie.';
                                 // Remove hidden class and ensure it's visible
                                 validationWrapper.classList.remove('hidden');
                                 validationWrapper.style.display = 'block';
@@ -765,6 +797,17 @@
                                 // Force reflow to ensure visibility
                                 void validationWrapper.offsetHeight;
                             }
+                        }
+                    } else if (groupName === 'module_ids[]') {
+                        // Modules op company edit: toon fout onderaan de modulekaart (niet in tabelcel).
+                        const moduleValidationWrapper = document.getElementById('module-validation-wrapper');
+                        if (moduleValidationWrapper) {
+                            const feedbackElement = moduleValidationWrapper.querySelector('.field-feedback[data-field="module_ids[]"]');
+                            if (feedbackElement) {
+                                feedbackElement.textContent = 'Selecteer minimaal één module.';
+                            }
+                            moduleValidationWrapper.classList.remove('hidden');
+                            moduleValidationWrapper.style.display = 'block';
                         }
                     } else {
                         // Standard handling for other checkbox groups
@@ -781,7 +824,7 @@
                                 groupContainer.insertBefore(feedbackElement, groupContainer.firstChild);
                             }
                         }
-                        feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                        feedbackElement.textContent = 'Selecteer minimaal één optie.';
                         feedbackElement.classList.remove('hidden');
                         feedbackElement.style.display = 'block';
                     }
@@ -802,6 +845,12 @@
                         if (validationWrapper) {
                             validationWrapper.classList.add('hidden');
                             validationWrapper.style.display = 'none';
+                        }
+                    } else if (groupName === 'module_ids[]') {
+                        const moduleValidationWrapper = document.getElementById('module-validation-wrapper');
+                        if (moduleValidationWrapper) {
+                            moduleValidationWrapper.classList.add('hidden');
+                            moduleValidationWrapper.style.display = 'none';
                         }
                     } else {
                         const feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
@@ -839,6 +888,25 @@
             const checkboxes = groupContainer.querySelectorAll(`input[type="checkbox"][data-checkbox-group="${groupName}"], input[type="checkbox"][name="${groupName}"]`);
             const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
             
+            if (groupName === 'module_ids[]') {
+                const moduleValidationWrapper = document.getElementById('module-validation-wrapper');
+                if (!moduleValidationWrapper) return checkedCount > 0;
+
+                const moduleFeedback = moduleValidationWrapper.querySelector('.field-feedback[data-field="module_ids[]"]');
+                if (!moduleFeedback) return checkedCount > 0;
+
+                if (checkedCount === 0) {
+                    moduleFeedback.textContent = 'Selecteer minimaal één module.';
+                    moduleValidationWrapper.classList.remove('hidden');
+                    moduleValidationWrapper.style.display = 'block';
+                    return false;
+                }
+
+                moduleValidationWrapper.classList.add('hidden');
+                moduleValidationWrapper.style.display = 'none';
+                return true;
+            }
+
             let feedbackElement = groupContainer.querySelector('.field-feedback[data-field]');
             if (!feedbackElement) {
                 feedbackElement = document.createElement('div');
@@ -853,7 +921,7 @@
             }
             
             if (checkedCount === 0) {
-                feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                feedbackElement.textContent = 'Selecteer minimaal één optie.';
                 feedbackElement.classList.remove('hidden');
                 feedbackElement.style.display = 'block';
                 return false;

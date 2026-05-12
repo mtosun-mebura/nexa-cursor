@@ -56,7 +56,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.payment-providers.update', $paymentProvider) }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.payment-providers.update', $paymentProvider) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -262,5 +262,9 @@
         </div>
     </form>
 </div>
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
 @endsection

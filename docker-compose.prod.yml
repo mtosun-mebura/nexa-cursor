@@ -15,7 +15,7 @@ services:
       APP_KEY: ${APP_KEY}
 
       DB_CONNECTION: pgsql
-      DB_HOST: 192.168.178.249
+      DB_HOST: 192.168.2.40
       DB_PORT: 5432
       # Via shell of root-.env (Compose-substitutie); niet hardcoded — anders overschrijft dit de gemounte .env in Laravel.
       # Standaard staging; productie: zet DB_DATABASE in root-.env (niet in git).

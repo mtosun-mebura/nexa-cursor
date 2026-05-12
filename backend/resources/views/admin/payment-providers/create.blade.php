@@ -42,7 +42,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.payment-providers.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.payment-providers.store') }}" method="POST"  data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -254,5 +254,9 @@
         </div>
     </form>
 </div>
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
 @endsection

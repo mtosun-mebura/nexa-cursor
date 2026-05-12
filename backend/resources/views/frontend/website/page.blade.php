@@ -1,6 +1,6 @@
 @extends('frontend.layouts.website')
 
-@section('title', $page->title . ' - ' . ($branding['site_name'] ?? config('app.name')))
+@section('title', filled(trim((string) ($page->title ?? ''))) ? trim($page->title).' - '.($branding['site_name'] ?? config('app.name')) : ($branding['site_name'] ?? config('app.name')))
 @section('description', $page->meta_description ?? Str::limit(strip_tags($page->content), 160))
 
 @section('content')

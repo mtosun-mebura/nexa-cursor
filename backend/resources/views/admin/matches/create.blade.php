@@ -27,7 +27,6 @@
         <div class="w-full">
             <div class="kt-container-fixed">
     <div class="flex flex-col items-stretch grow">
-        <form[^>]*class="[^"]*"
                     @if($errors->any())
                         <div class="kt-alert kt-alert-danger">
                             <ul >
@@ -38,7 +37,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.matches.store') }}" method="POST">
+                    <form action="{{ route('admin.matches.store') }}" method="POST" data-validate="true" novalidate>
                         @csrf
                         
                         <div class="grid gap-5 lg:gap-7.5">
@@ -209,4 +208,8 @@
                 </div>
     </div>
 </div>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

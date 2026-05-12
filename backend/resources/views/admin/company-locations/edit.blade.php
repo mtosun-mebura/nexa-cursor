@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.companies.locations.update', [$company, $location]) }}" method="POST">
+    <form action="{{ route('admin.companies.locations.update', [$company, $location]) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -555,5 +555,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </style>
 @endpush
 
-@endsection
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
+@endsection

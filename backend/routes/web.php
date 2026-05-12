@@ -26,7 +26,9 @@ use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\WebsitePageController;
 use App\Http\Controllers\PublicVacancyController;
+use App\Models\Vacancy;
 use App\Services\WebsiteBuilderService;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +37,14 @@ use Illuminate\Support\Facades\Route;
 | Web Routes
 |--------------------------------------------------------------------------
 */
+
+Route::bind('job', function (string $value) {
+    if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+        abort(404);
+    }
+
+    return Vacancy::whereKey($value)->firstOrFail();
+});
 
 // Debug route for upload limits (publiek)
 Route::get('/debug-upload-limits', function () {
@@ -261,9 +271,9 @@ Route::get('/meld/sessie-verlopen', function (\Illuminate\Http\Request $request)
 // Frontend vacancy details (company slug + vacancy id; no model binding to avoid type confusion)
 Route::get('/vacature/{companySlug}/{vacancyId}', [PublicVacancyController::class, 'frontendShow'])->name('frontend.vacancy-details')->whereNumber('vacancyId');
 
-// Frontend job routes (publiek inzien)
-Route::get('/jobs', [App\Http\Controllers\Frontend\JobController::class, 'index'])->name('jobs.index');
-Route::get('/jobs/{job}', [App\Http\Controllers\Frontend\JobController::class, 'show'])->name('jobs.show');
+// Legacy Skillmatching route(s) uitgefaseerd: centrale NEXA-welkomstpagina is leidend.
+Route::get('/jobs', fn () => redirect()->route('home'))->name('jobs.index');
+Route::get('/jobs/{job}', fn () => redirect()->route('home'))->name('jobs.show');
 
 // Admin Authentication Routes (without admin middleware)
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
@@ -334,6 +344,11 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::post('companies/{company}/domains', [AdminCompanyDomainController::class, 'store'])->name('companies.domains.store');
     Route::delete('companies/{company}/domains/{domain}', [AdminCompanyDomainController::class, 'destroy'])->name('companies.domains.destroy');
     Route::post('companies/{company}/domains/{domain}/primary', [AdminCompanyDomainController::class, 'setPrimary'])->name('companies.domains.primary');
+
+    Route::middleware('role:super-admin')->group(function () {
+        Route::get('companies/{company}/website-bundle/export', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'export'])->name('companies.website-bundle.export');
+        Route::post('companies/{company}/website-bundle/import', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'import'])->name('companies.website-bundle.import');
+    });
 
     // Pipeline Templates
     Route::get('companies/{company}/pipeline-templates', [App\Http\Controllers\Admin\PipelineTemplateController::class, 'index'])->name('companies.pipeline-templates.index');
@@ -595,8 +610,14 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
         Route::post('settings/seo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
+        Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
         Route::post('settings/coming-soon', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateComingSoon'])->name('settings.coming-soon.update');
+        Route::post('settings/tenant-sync', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateTenantSync'])->name('settings.tenant-sync.update');
+        Route::post('settings/tenant-sync/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testTenantSync'])->name('settings.tenant-sync.test');
+        Route::post('settings/tenant-sync/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runTenantSync'])->name('settings.tenant-sync.run');
+        Route::get('settings/tenant-storage-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantStorageBundle'])->name('settings.tenant-storage-bundle.export');
+        Route::post('settings/tenant-storage-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantStorageBundle'])->name('settings.tenant-storage-bundle.import');
 
         // General Settings (Super Admin only)
         Route::get('settings/frontend', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');
@@ -618,6 +639,9 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/remove-coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'removeComingSoonImage'])->name('settings.remove-coming-soon-image');
         Route::get('settings/coming-soon-image', [App\Http\Controllers\Admin\AdminSettingsController::class, 'getComingSoonImage'])->name('settings.coming-soon-image');
 
+        // Welkom-pagina editor (Super Admin only)
+        Route::get('welcome-page', [App\Http\Controllers\Admin\AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
+
         // Website builder (Super Admin only)
         Route::get('website-pages/theme-blocks', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'themeBlocks'])->name('website-pages.theme-blocks');
         Route::get('website-pages/section-card-html', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'sectionCardHtml'])->name('website-pages.section-card-html');
@@ -632,28 +656,45 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('frontend-themes/preview', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
         Route::get('frontend-themes/staging', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');
         Route::post('frontend-themes/publish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'publish'])->name('frontend-themes.publish');
+        Route::post('frontend-themes/unpublish', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'unpublish'])->name('frontend-themes.unpublish');
         Route::get('frontend-themes/setup', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'showSetup'])->name('frontend-themes.setup');
         Route::post('frontend-themes/module-theme', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'updateModuleTheme'])->name('frontend-themes.update-module-theme');
         Route::post('frontend-themes/{frontend_theme}/set-active', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'setActive'])->name('frontend-themes.set-active');
         Route::get('frontend-themes/{frontend_theme}/edit', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'edit'])->name('frontend-themes.edit');
         Route::put('frontend-themes/{frontend_theme}', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'update'])->name('frontend-themes.update');
         Route::get('frontend-components', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'index'])->name('frontend-components.index');
+        Route::get('frontend-components/{componentId}/demo', [App\Http\Controllers\Admin\AdminFrontendComponentController::class, 'demo'])->name('frontend-components.demo');
 
         // Postcode lookup (for address autocomplete)
         Route::post('postcode/lookup', [App\Http\Controllers\PostcodeController::class, 'lookup'])->name('postcode.lookup');
     });
 });
 
-// Frontend home page: coming soon als geen actieve module; anders website-builder home indien geconfigureerd; anders app home
+// Frontend home page
+// Centraal domein (localhost, nexa.tosun.nl): altijd NEXA welkomstpagina.
+// Tenant-domein (bedrijf.nl, demo.nexasuite.nl): bedrijfsspecifieke pagina via website-builder.
 Route::get('/', function (\Illuminate\Http\Request $request) {
-    $moduleManager = app(\App\Services\ModuleManager::class);
-    if (! $moduleManager->hasAnyActiveModule()) {
-        return app(\App\Http\Controllers\Frontend\ComingSoonController::class)->index();
+    $isTenant = app()->bound('resolved_tenant') && app('resolved_tenant') !== null;
+
+    if (! $isTenant) {
+        $central = app(\App\Services\WebsiteBuilderService::class)->getCentralMarketingWelcomePage();
+        if ($central) {
+            return app(\App\Http\Controllers\Frontend\WebsitePageController::class)->showCentralWelcome($central);
+        }
+        $w = \App\Http\Controllers\Admin\AdminWelcomePageController::getWelcomeContent();
+
+        return view('frontend.welcome', compact('w'));
     }
+
     $websiteBuilder = app(WebsiteBuilderService::class);
     $homePage = $websiteBuilder->getHomePage();
     if ($homePage) {
         return app(WebsitePageController::class)->showHome($request);
+    }
+
+    $moduleManager = app(\App\Services\ModuleManager::class);
+    if (! $moduleManager->hasAnyActiveModule()) {
+        return app(\App\Http\Controllers\Frontend\ComingSoonController::class)->index();
     }
 
     return app(\App\Http\Controllers\Frontend\HomeController::class)->index($request);
@@ -707,90 +748,11 @@ Route::middleware('auth')->group(function () {
 // Email verification route (public, no auth required)
 Route::get('/verify-email/{user}', [App\Http\Controllers\Admin\AdminUserController::class, 'verifyEmail'])->name('verify-email');
 
-// Auth routes
-Route::get('/login', function () {
-    return view('frontend.pages.login');
-})->name('login');
-
-Route::post('/login', function () {
-    $credentials = request()->validate([
-        'email' => 'required|email',
-        'password' => 'required',
-    ]);
-
-    // Check if user exists and password is correct
-    $user = \App\Models\User::where('email', $credentials['email'])->first();
-
-    if (! $user || ! \Illuminate\Support\Facades\Hash::check($credentials['password'], $user->password)) {
-        return redirect()->back()->withErrors(['email' => 'Ongeldige inloggegevens']);
-    }
-
-    // Check if email is verified
-    if (! $user->email_verified_at) {
-        return redirect()->back()->withErrors([
-            'email' => 'Je e-mailadres is nog niet geverifieerd. Controleer je inbox voor de verificatielink of vraag een nieuwe aan via de beheerder.',
-        ])->withInput(request()->only('email'));
-    }
-
-    // Check if user has candidate role or super-admin role (frontend users)
-    if (! $user->hasAnyRole(['candidate', 'super-admin'])) {
-        return redirect()->back()->withErrors([
-            'email' => 'Je hebt geen toegang tot het frontend. Gebruik de admin login voor backend toegang.',
-        ])->withInput(request()->only('email'));
-    }
-
-    // Check if this is the first login (no previous login recorded)
-    $isFirstLogin = ! session()->has('has_logged_in_before');
-
-    // Login the user
-    if (Auth::guard('web')->loginUsingId($user->id)) {
-        request()->session()->regenerate();
-
-        // Mark that user has logged in before
-        session()->put('has_logged_in_before', true);
-
-        // If first login, always redirect to dashboard
-        if ($isFirstLogin) {
-            return redirect()->route('dashboard');
-        }
-
-        // Anders doorgaan waar de gebruiker gebleven was (intended) of dashboard
-        return redirect()->intended(route('dashboard'));
-    }
-
-    return redirect()->back()->withErrors(['email' => 'Ongeldige inloggegevens']);
-})->name('login.post');
-
-Route::get('/register', function () {
-    return view('frontend.pages.register');
-})->name('register');
-
-Route::post('/register', function () {
-    $validated = request()->validate([
-        'first_name' => 'required|string|max:255',
-        'last_name' => 'required|string|max:255',
-        'email' => 'required|string|email|max:255|unique:users',
-        'password' => 'required|string|min:8|confirmed',
-    ]);
-
-    $user = \App\Models\User::create([
-        'first_name' => $validated['first_name'],
-        'last_name' => $validated['last_name'],
-        'email' => $validated['email'],
-        'password' => Hash::make($validated['password']),
-        'email_verified_at' => now(),
-    ]);
-
-    // Assign candidate role to new frontend users
-    $candidateRole = \Spatie\Permission\Models\Role::firstOrCreate(
-        ['name' => 'candidate', 'guard_name' => 'web']
-    );
-    $user->assignRole($candidateRole);
-
-    Auth::guard('web')->login($user);
-
-    return redirect()->route('dashboard');
-})->name('register.post');
+// Legacy Skillmatching auth-routes uitgefaseerd (gebruik alleen /admin/login).
+Route::get('/login', fn () => redirect()->route('home'))->name('login');
+Route::post('/login', fn () => redirect()->route('home'))->name('login.post');
+Route::get('/register', fn () => redirect()->route('home'))->name('register');
+Route::post('/register', fn () => redirect()->route('home'))->name('register.post');
 Route::post('/logout', function () {
     Auth::guard('web')->logout();
     request()->session()->invalidate();
@@ -807,10 +769,14 @@ Route::get('/logout', function () {
     return redirect('/');
 })->name('logout.get');
 
-// Test route voor 502 error pagina (alleen in development)
+// Test routes voor error pagina's (alleen in development)
 if (app()->environment('local', 'development')) {
     Route::get('/test-502', function () {
         return response()->view('errors.502', [], 502);
+    });
+
+    Route::get('/test-403', function () {
+        return response()->view('errors.403', [], 403);
     });
 }
 
@@ -898,15 +864,13 @@ Route::post('/language/switch', function () {
     return response()->json(['success' => true, 'language' => $language]);
 })->name('language.switch');
 
-// Static / website-builder pages: toon geconfigureerde website-pagina indien aanwezig
+// About/contact: website builder wanneer geconfigureerd, anders doorverwijzen naar home (legacy).
 Route::get('/about', function () {
-    $websiteBuilder = app(WebsiteBuilderService::class);
-    $page = $websiteBuilder->getAboutPage();
-    if ($page) {
+    if (app(WebsiteBuilderService::class)->getAboutPage()) {
         return app(WebsitePageController::class)->showAbout();
     }
 
-    return view('frontend.pages.about');
+    return redirect()->route('home');
 })->name('about');
 
 Route::get('/help', function () {
@@ -914,15 +878,13 @@ Route::get('/help', function () {
 })->name('help');
 
 Route::get('/contact', function () {
-    $websiteBuilder = app(WebsiteBuilderService::class);
-    $page = $websiteBuilder->getContactPage();
-    if ($page) {
+    if (app(WebsiteBuilderService::class)->getContactPage()) {
         return app(WebsitePageController::class)->showContact();
     }
 
-    return app(\App\Http\Controllers\Frontend\ContactController::class)->index();
+    return redirect()->route('home');
 })->name('contact');
-Route::post('/contact', [App\Http\Controllers\Frontend\ContactController::class, 'submit'])->name('contact.submit');
+Route::post('/contact', fn () => redirect()->route('home'))->name('contact.submit');
 
 Route::get('/privacy', function () {
     return view('frontend.pages.privacy');

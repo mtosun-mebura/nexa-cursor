@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Module;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Registry van front-end componenten. Componenten worden uit config gelezen
@@ -17,6 +19,7 @@ class FrontendComponentService
     {
         if ($this->components === null) {
             $items = config('frontend_components.components', []);
+            $items = $this->appendDiscoveredComponents($items);
             $this->components = collect($items)->map(fn ($c) => (object) $c);
         }
 
@@ -116,5 +119,61 @@ class FrontendComponentService
         }
 
         return substr($key, 9);
+    }
+
+    /**
+     * Voeg component-views automatisch toe als ze ontbreken in config.
+     */
+    private function appendDiscoveredComponents(array $configured): array
+    {
+        $byId = collect($configured)
+            ->filter(fn ($item) => is_array($item) && ! empty($item['id']))
+            ->keyBy(fn ($item) => strtolower((string) $item['id']))
+            ->all();
+        $existingViews = collect($configured)
+            ->filter(fn ($item) => is_array($item) && ! empty($item['view']))
+            ->map(fn ($item) => strtolower(trim((string) $item['view'])))
+            ->filter()
+            ->values()
+            ->all();
+        $existingViewsLookup = array_fill_keys($existingViews, true);
+
+        $componentsDir = resource_path('views/frontend/website/components');
+        if (! File::isDirectory($componentsDir)) {
+            return array_values($byId);
+        }
+
+        $files = File::files($componentsDir);
+        foreach ($files as $file) {
+            $filename = $file->getFilename();
+            if (! str_ends_with($filename, '.blade.php')) {
+                continue;
+            }
+
+            $basename = Str::before($filename, '.blade.php');
+            $view = 'frontend.website.components.' . $basename;
+            $viewKey = strtolower($view);
+            if (isset($existingViewsLookup[$viewKey])) {
+                continue;
+            }
+            $autoId = 'website.' . str_replace('-', '_', $basename);
+            $idKey = strtolower($autoId);
+            if (isset($byId[$idKey])) {
+                continue;
+            }
+
+            $label = str($basename)->replace(['-', '_'], ' ')->title()->toString();
+            $byId[$idKey] = [
+                'id' => $autoId,
+                'name' => $label,
+                'module_name' => 'Algemeen',
+                'view' => $view,
+                'description' => 'Automatisch ontdekt component (nog niet expliciet geconfigureerd).',
+                'available_on_all_pages' => true,
+            ];
+            $existingViewsLookup[$viewKey] = true;
+        }
+
+        return array_values($byId);
     }
 }

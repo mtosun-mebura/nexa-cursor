@@ -92,8 +92,8 @@ Author: Keenthemes
                 <div class="text-center mb-2.5">
                     <div class="mb-4">
                         <img
-                            src="{{ asset('images/nexa-skillmatching-logo.png') }}"
-                            alt="Nexa Skillmatching"
+                            src="{{ asset('images/nexa-logo.png') }}"
+                            alt="NEXA"
                             class="h-10 w-auto mx-auto object-contain"
                         />
                         <div class="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">

@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.users.update', $user) }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.users.update', $user) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 

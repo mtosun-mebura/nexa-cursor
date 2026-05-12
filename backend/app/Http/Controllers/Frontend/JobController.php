@@ -7,12 +7,38 @@ use App\Models\Vacancy;
 use App\Models\Category;
 use App\Models\Company;
 use App\Helpers\GeoHelper;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class JobController extends Controller
 {
     public function index(Request $request)
     {
+        if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+            $perPage = (int) $request->get('per_page', 15);
+            $allowedPerPage = [5, 15, 25, 50, 100];
+            if (! in_array($perPage, $allowedPerPage, true)) {
+                $perPage = 15;
+            }
+            $jobs = new LengthAwarePaginator(
+                collect(),
+                0,
+                $perPage,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+
+            return view()->first(
+                ['skillmatching::frontend.pages.jobs.index', 'frontend.pages.jobs.index'],
+                [
+                    'jobs' => $jobs,
+                    'categories' => collect(),
+                    'companies' => collect(),
+                ]
+            );
+        }
+
             $query = Vacancy::with(['company', 'category'])
                     ->where('is_active', true)
                     ->where(function($q) {
@@ -160,7 +186,7 @@ class JobController extends Controller
         
         // Get filter options
         $categories = Category::orderBy('name')->get();
-        $companies = Company::whereHas('vacancies', function($q) {
+        $companies = Company::whereHas('vacancies', function ($q) {
             $q->where('is_active', true);
         })->orderBy('name')->get();
         
@@ -180,16 +206,18 @@ class JobController extends Controller
         $job->load(['company', 'category']);
         
         // Get related jobs (branch_id replaced category_id in schema)
-        $relatedJobs = Vacancy::with(['company', 'category'])
-            ->where('id', '!=', $job->id)
-            ->where('is_active', true)
-            ->where('published_at', '<=', now())
-            ->where(function($q) use ($job) {
-                $q->where('branch_id', $job->branch_id)
-                  ->orWhere('company_id', $job->company_id);
-            })
-            ->limit(4)
-            ->get();
+        $relatedJobs = ModuleSchemaAvailability::vacanciesTableExists()
+            ? Vacancy::with(['company', 'category'])
+                ->where('id', '!=', $job->id)
+                ->where('is_active', true)
+                ->where('published_at', '<=', now())
+                ->where(function ($q) use ($job) {
+                    $q->where('branch_id', $job->branch_id)
+                        ->orWhere('company_id', $job->company_id);
+                })
+                ->limit(4)
+                ->get()
+            : collect();
         
         return view()->first(
             ['skillmatching::frontend.pages.jobs.show', 'frontend.pages.jobs.show'],

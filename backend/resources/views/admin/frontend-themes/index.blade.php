@@ -93,7 +93,10 @@
 
     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         @foreach($themes as $theme)
-            <div class="kt-card overflow-hidden {{ $theme->is_active ? 'ring-2 ring-primary' : '' }}">
+            @php
+                $isThemeActive = ((string)($activeThemeId ?? '') === (string)$theme->id) || (bool)$theme->is_active;
+            @endphp
+            <div class="kt-card overflow-hidden {{ $isThemeActive ? 'ring-2 ring-primary' : '' }}">
                 {{-- Screenshot / preview van het thema --}}
                 <div class="aspect-video w-full bg-muted flex items-center justify-center overflow-hidden">
                     @if($theme->preview_path && file_exists(public_path($theme->preview_path)))
@@ -114,14 +117,14 @@
                 </div>
                 <div class="kt-card-header flex items-center justify-between">
                     <h3 class="kt-card-title">{{ $theme->name }}</h3>
-                    @if($theme->is_active)
+                    @if($isThemeActive)
                         <span class="kt-badge kt-badge-success">Actief</span>
                     @endif
                 </div>
                 <div class="kt-card-content">
                     <p class="text-sm text-muted-foreground mb-4">{{ $theme->description }}</p>
                     <div class="flex flex-wrap gap-2 theme-card-actions">
-                        @if(!$theme->is_active)
+                        @if(!$isThemeActive)
                             <form action="{{ route('admin.frontend-themes.set-active', $theme) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Activeren</button>

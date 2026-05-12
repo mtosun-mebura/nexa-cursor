@@ -106,3 +106,5 @@ backend/resources/views/demo/
 
 # Local notes/docs not for VCS
 backend/IS_ACTIVE_COLUMN_FIX.md
+/docs/
+/backend/public/docs/

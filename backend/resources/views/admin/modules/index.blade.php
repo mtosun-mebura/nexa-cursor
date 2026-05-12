@@ -166,7 +166,7 @@
                                              data-kt-menu-item-placement-rtl="bottom-start" 
                                              data-kt-menu-item-toggle="dropdown" 
                                              data-kt-menu-item-trigger="click">
-                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties" aria-expanded="false" data-modules-action-toggle="true">
                                                 <x-heroicon-o-ellipsis-vertical class="w-5 h-5" />
                                             </button>
                                             <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -523,78 +523,70 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMenus();
     setTimeout(initializeMenus, 300);
     
-    // Find all menu toggles
-    const menuToggles = document.querySelectorAll('.kt-menu-toggle');
-    
-    // Add click handlers directly to toggle buttons
-    menuToggles.forEach(function(toggle) {
-        toggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            
-            const menuItem = toggle.closest('.kt-menu-item');
-            
-            if (menuItem) {
-                const dropdown = menuItem.querySelector('.kt-menu-dropdown');
-                
-                if (dropdown) {
-                    // Toggle show class
-                    const isShowing = menuItem.classList.contains('show');
-                    
-                    // Close all other dropdowns
-                    document.querySelectorAll('.kt-menu-item.show').forEach(function(item) {
-                        if (item !== menuItem) {
-                            item.classList.remove('show');
-                            const otherDropdown = item.querySelector('.kt-menu-dropdown');
-                            if (otherDropdown) {
-                                otherDropdown.style.display = 'none';
-                            }
-                        }
-                    });
-                    
-                    if (!isShowing) {
-                        menuItem.classList.add('show');
-                    } else {
-                        menuItem.classList.remove('show');
-                    }
-                    
-                    setTimeout(function() {
-                        const stillShowing = menuItem.classList.contains('show');
-                        
-                        if (stillShowing) {
-                            const buttonRect = toggle.getBoundingClientRect();
-                            
-                            dropdown.style.position = 'fixed';
-                            dropdown.style.left = (buttonRect.right - 175) + 'px';
-                            dropdown.style.top = (buttonRect.bottom + 5) + 'px';
-                            dropdown.style.right = 'auto';
-                            dropdown.style.minWidth = '175px';
-                            dropdown.style.width = '175px';
-                            dropdown.style.zIndex = '99999';
-                            dropdown.style.display = 'block';
-                            dropdown.style.visibility = 'visible';
-                            dropdown.style.opacity = '1';
-                        } else {
-                            dropdown.style.display = 'none';
-                        }
-                    }, 10);
-                }
+    function closeModuleActionMenus(exceptMenuItem) {
+        document.querySelectorAll('.kt-card-table .kt-menu-item.show').forEach(function(item) {
+            if (exceptMenuItem && item === exceptMenuItem) return;
+            item.classList.remove('show');
+            const toggle = item.querySelector('[data-modules-action-toggle="true"]');
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+            const dropdown = item.querySelector('.kt-menu-dropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
             }
         });
-    });
-    
-    // Close dropdowns when clicking outside
+    }
+
+    // Event delegation keeps working for dynamically replaced table rows
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.kt-menu-item')) {
-            document.querySelectorAll('.kt-menu-item.show').forEach(function(item) {
-                item.classList.remove('show');
-                const dropdown = item.querySelector('.kt-menu-dropdown');
-                if (dropdown) {
-                    dropdown.style.display = 'none';
-                }
-            });
+        const toggle = e.target.closest('[data-modules-action-toggle="true"]');
+
+        if (toggle) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') {
+                e.stopImmediatePropagation();
+            }
+
+            const menuItem = toggle.closest('.kt-menu-item');
+            if (!menuItem) return;
+
+            const dropdown = menuItem.querySelector('.kt-menu-dropdown');
+            if (!dropdown) return;
+
+            const isShowing = menuItem.classList.contains('show');
+            closeModuleActionMenus(menuItem);
+
+            if (isShowing) {
+                menuItem.classList.remove('show');
+                toggle.setAttribute('aria-expanded', 'false');
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            menuItem.classList.add('show');
+            toggle.setAttribute('aria-expanded', 'true');
+
+            const buttonRect = toggle.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.left = (buttonRect.right - 175) + 'px';
+            dropdown.style.top = (buttonRect.bottom + 5) + 'px';
+            dropdown.style.right = 'auto';
+            dropdown.style.minWidth = '175px';
+            dropdown.style.width = '175px';
+            dropdown.style.zIndex = '99999';
+            dropdown.style.display = 'block';
+            dropdown.style.visibility = 'visible';
+            dropdown.style.opacity = '1';
+            return;
         }
-    });
+
+        // Close dropdowns when clicking outside module action menus
+        if (!e.target.closest('.kt-card-table .kt-menu-item')) {
+            closeModuleActionMenus();
+        }
+    }, true);
 });
 </script>
 @endpush

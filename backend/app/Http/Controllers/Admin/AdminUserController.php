@@ -161,20 +161,26 @@ class AdminUserController extends Controller
 
         // Terug-link: vanuit company-wizard (hidden wizard_back_url + old() na validatiefout)
         $userCreateBackFallback = route('admin.users.index');
+        $wizardContextCompanyId = null;
+        $wizardContextStep = null;
         if ($request->boolean('from_wizard') && $request->filled('wizard_company')) {
             $wizardCompany = Company::find((int) $request->query('wizard_company'));
             $wizardStep = max(1, min(7, (int) ($request->query('wizard_step') ?: 5)));
             if ($wizardCompany && $this->canAccessResource($wizardCompany)) {
                 $userCreateBackFallback = route('admin.companies.wizard.step', [$wizardCompany, $wizardStep]);
+                $wizardContextCompanyId = (int) $wizardCompany->id;
+                $wizardContextStep = $wizardStep;
             }
         }
         $userCreateBackUrl = old('wizard_back_url') ?: $userCreateBackFallback;
 
-        return view('admin.users.create', compact('companies', 'roles', 'defaultRoleForForm', 'userCreateBackUrl'));
+        return view('admin.users.create', compact('companies', 'roles', 'defaultRoleForForm', 'userCreateBackUrl', 'wizardContextCompanyId', 'wizardContextStep'));
     }
 
     public function store(StoreUserRequest $request)
     {
+        $this->hydrateUserWizardParamsFromSession($request);
+
         $userData = [
             'first_name' => $request->validated()['first_name'],
             'last_name' => $request->validated()['last_name'],
@@ -185,10 +191,16 @@ class AdminUserController extends Controller
             'function' => $request->validated()['function'] ?? null,
         ];
 
-        // Super-admin: altijd het gekozen bedrijf uit het formulier (wizard kan selected_tenant zetten;
-        // die sessie is alleen UI-context en mag een expliciete keuze in het select niet overschrijven).
+        // Super-admin: wizard_company (hidden/session) wint altijd van het dropdown — onboarding moet vast aan stap-1-bedrijf hangen.
         if (auth()->user()->hasRole('super-admin')) {
             $cid = $request->validated()['company_id'] ?? null;
+            if ($request->filled('wizard_company') && is_numeric($request->input('wizard_company'))) {
+                $wizId = (int) $request->input('wizard_company');
+                $wizCompany = Company::find($wizId);
+                if ($wizCompany && $this->canAccessResource($wizCompany)) {
+                    $cid = $wizId;
+                }
+            }
             $userData['company_id'] = $cid !== null && $cid !== '' ? (int) $cid : null;
         } else {
             // Voor niet-super-admins: gebruik altijd het bedrijf van de ingelogde gebruiker
@@ -219,6 +231,25 @@ class AdminUserController extends Controller
         }
 
         return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol aangemaakt.');
+    }
+
+    /**
+     * Zorg dat wizard_company/from_wizard op POST staan als de browser ze niet meestuurt (sessie tenant-onboarding).
+     */
+    private function hydrateUserWizardParamsFromSession(Request $request): void
+    {
+        if ($request->filled('wizard_company') && is_numeric($request->input('wizard_company'))) {
+            return;
+        }
+        $sid = session(AdminCompanyWizardController::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
+        if ($sid === null || $sid === '' || ! is_numeric($sid) || ! Company::whereKey((int) $sid)->exists()) {
+            return;
+        }
+        $request->merge([
+            'from_wizard' => '1',
+            'wizard_company' => (string) (int) $sid,
+            'wizard_step' => (string) max(1, min(7, (int) $request->input('wizard_step', 5))),
+        ]);
     }
 
     public function show(User $user)

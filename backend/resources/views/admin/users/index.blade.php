@@ -907,7 +907,7 @@
                 // Click was buiten alle dropdowns, sluit ze allemaal
                 closeAllDropdowns(null);
                 openDropdown = null;
-            });
+            }, true);
         }
         
         // Initialiseer

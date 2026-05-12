@@ -39,6 +39,9 @@
 
     async function initEditor(wrapper) {
         if (wrapper._flowbiteEditor) return wrapper._flowbiteEditor;
+        if (wrapper.getAttribute('data-flowbite-initializing') === '1') return null;
+        wrapper.setAttribute('data-flowbite-initializing', '1');
+        try {
         const contentEl = wrapper.querySelector('[data-editor-content]');
         const textarea = wrapper.querySelector('[data-editor-input]');
         if (!contentEl || !textarea) return null;
@@ -377,6 +380,9 @@
         updateToolbarState();
 
         return editor;
+        } finally {
+            wrapper.removeAttribute('data-flowbite-initializing');
+        }
     }
 
     function initAll() {

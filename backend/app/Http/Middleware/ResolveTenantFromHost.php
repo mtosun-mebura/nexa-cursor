@@ -2,11 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Company;
 use App\Models\CompanyDomain;
 use App\Support\Tenancy\CentralDomains;
-use App\Support\Tenancy\TenantParentDomains;
+use App\Support\Tenancy\TenantFromHostResolver;
 use Closure;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,37 +19,25 @@ class ResolveTenantFromHost
 
         $host = CompanyDomain::normalizeHost($request->getHost());
 
+        if (! app()->isProduction()) {
+            $map = config('tenancy.dev_host_company_map', []);
+            $forcedId = is_array($map) ? (int) ($map[$host] ?? 0) : 0;
+            if ($forcedId > 0) {
+                $company = Company::query()->find($forcedId);
+                if ($company !== null && $company->is_active) {
+                    app()->instance('resolved_tenant', $company);
+                    app()->instance('resolved_tenant_id', $forcedId);
+
+                    return $next($request);
+                }
+            }
+        }
+
         if (CentralDomains::isCentral($host)) {
             return $next($request);
         }
 
-        try {
-            $domain = CompanyDomain::query()->where('host', $host)->first();
-        } catch (QueryException) {
-            // Tabel ontbreekt (migraties niet gedraaid) of DB tijdelijk niet bereikbaar
-            return $next($request);
-        }
-        if ($domain === null) {
-            try {
-                $fallbackCompany = TenantParentDomains::companyFromSubdomainHost($host);
-            } catch (QueryException) {
-                $fallbackCompany = null;
-            }
-            if ($fallbackCompany !== null) {
-                app()->instance('resolved_tenant', $fallbackCompany);
-                app()->instance('resolved_tenant_id', (int) $fallbackCompany->id);
-            }
-
-            return $next($request);
-        }
-
-        $company = $domain->company;
-        if ($company === null || ! $company->is_active) {
-            return $next($request);
-        }
-
-        app()->instance('resolved_tenant', $company);
-        app()->instance('resolved_tenant_id', (int) $company->id);
+        TenantFromHostResolver::bindTenantForNormalizedHost($host);
 
         return $next($request);
     }

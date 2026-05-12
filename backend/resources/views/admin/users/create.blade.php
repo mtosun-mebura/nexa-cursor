@@ -22,6 +22,11 @@
     <form action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
         <input type="hidden" name="wizard_back_url" value="{{ $userCreateBackUrl }}">
+        @if(!empty($wizardContextCompanyId))
+            <input type="hidden" name="from_wizard" value="1">
+            <input type="hidden" name="wizard_company" value="{{ $wizardContextCompanyId }}">
+            <input type="hidden" name="wizard_step" value="{{ $wizardContextStep ?? 5 }}">
+        @endif
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -206,7 +211,7 @@
                                             name="company_id">
                                         <option value="">-- Geen bedrijf --</option>
                                         @foreach($companies as $company)
-                                            <option value="{{ $company->id }}" {{ old('company_id', session('selected_tenant')) == $company->id ? 'selected' : '' }}>
+                                            <option value="{{ $company->id }}" {{ (string) old('company_id', $wizardContextCompanyId ?? session('selected_tenant')) === (string) $company->id ? 'selected' : '' }}>
                                                 {{ $company->name }}
                                             </option>
                                         @endforeach

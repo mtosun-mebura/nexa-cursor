@@ -96,7 +96,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-5 lg:gap-7.5" data-validate="true">
+    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-5 lg:gap-7.5"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 

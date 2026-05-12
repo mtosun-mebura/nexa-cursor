@@ -5,7 +5,7 @@
                     <!-- Company Info -->
                     <div class="col-span-1 md:col-span-2">
                         <div class="flex items-center mb-4">
-                            <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-16 w-auto">
+                            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-16 w-auto">
                         </div>
                         <p class="text-gray-600 dark:text-gray-200 mb-4 w-full leading-relaxed">
                             Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.

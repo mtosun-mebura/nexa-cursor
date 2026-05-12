@@ -29,7 +29,7 @@
             <div class="flex items-center gap-2 flex-shrink-0">
                 <div class="ml-2 md:ml-8 py-1">
                     <a href="{{ route('home') }}" class="flex items-center" aria-label="Nexa Skillmatching">
-                        <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-12 md:h-16 w-auto">
+                        <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-12 md:h-16 w-auto">
                     </a>
                 </div>
                 <!-- Hamburger menu button (rechts naast logo, tonen onder md) -->

@@ -21,6 +21,14 @@
     </script>
     @endif
     <p class="text-sm text-muted-foreground mb-5">De pagina hoort bij een <strong>module</strong> of bij kernpagina's (geen). Pagina's worden altijd getoond in het actieve thema. De inhoud bewerk je met de website builder onderaan.</p>
+    @if($isCentralMarketingWelcome ?? false)
+        <div class="kt-alert kt-alert-info mb-5">
+            <p>
+                <i class="ki-filled ki-information-2 me-2"></i>
+                Dit is de <strong>centrale NEXA-welkomstpagina</strong> (hoofddomein zonder tenant).<br><br> Slug en bedrijfskoppeling zijn vastgezet; secties en teksten bewerk je hier zoals bij elke andere frontend-pagina.
+            </p>
+        </div>
+    @endif
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
@@ -45,13 +53,16 @@
         </div>
     </div>
 
-    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}">
+    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" data-validate="true" novalidate>
         @csrf
         @method('PUT')
         @if(!empty($wizardIndexQuery))
             @foreach($wizardIndexQuery as $k => $v)
                 <input type="hidden" name="{{ $k }}" value="{{ $v }}">
             @endforeach
+        @endif
+        @if(!empty($wizardIndexQuery['wizard_company']))
+            <input type="hidden" name="company_id" value="{{ (int) $wizardIndexQuery['wizard_company'] }}">
         @endif
         {{-- Fallback voor section_order bovenaan formulier (bij grote PUT-request kan section_order anders ontbreken) --}}
         @php $editSectionOrder = $page->getHomeSections()['section_order'] ?? []; $editSectionOrderStr = is_array($editSectionOrder) ? implode(',', $editSectionOrder) : (is_string($editSectionOrder) ? $editSectionOrder : ''); @endphp
@@ -63,8 +74,9 @@
             <x-error-card :errors="$errors" />
 
             <div class="kt-card min-w-full">
-                <div class="kt-card-header flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <h3 class="kt-card-title">
+                {{-- Eén regel: titel | Menuitem (gecentreerd) | Actief rechts. !flex-nowrap overschrijft .kt-card-header { flex-wrap: wrap }. --}}
+                <div class="kt-card-header !flex-nowrap flex items-center justify-between gap-3 w-full min-w-0">
+                    <h3 class="kt-card-title shrink-0 truncate">
                         Pagina-informatie
                     </h3>
                     @php
@@ -78,54 +90,65 @@
                             $__menuOn = (bool) ($page->show_in_menu ?? true);
                         }
                     @endphp
-                    <label class="kt-label inline-flex items-center gap-2 flex-wrap">
-                        <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
-                        {{-- Select i.p.v. kt-switch: native waarde gaat altijd mee in POST (geen verborgen checkbox/sync-problemen) --}}
-                        <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-[120px] max-w-full shrink-0" autocomplete="off">
-                            <option value="1" {{ $__menuOn ? 'selected' : '' }}>Ja</option>
-                            <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>Nee</option>
-                        </select>
-                    </label>
-                    <label class="kt-label inline-flex items-center gap-2" for="is_active">
-                        <input type="hidden" name="is_active" value="0">
-                        <input type="checkbox"
-                               class="kt-switch kt-switch-sm"
-                               id="is_active"
-                               name="is_active"
-                               value="1"
-                               {{ old('is_active', $page->is_active) ? 'checked' : '' }}/>
-                        Actief (zichtbaar op de website)
-                    </label>
+                    <div class="flex flex-1 flex-nowrap items-center justify-center gap-x-2 min-w-0 px-2">
+                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
+                            <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
+                            {{-- Wrapper: form-validation.js gebruikt .relative op het veld; niet op <label> (anders width:100% → links uitgelijnd). --}}
+                            <div class="relative w-[120px] max-w-full shrink-0">
+                                <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-full" autocomplete="off">
+                                    <option value="1" {{ $__menuOn ? 'selected' : '' }}>Ja</option>
+                                    <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>Nee</option>
+                                </select>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex flex-nowrap items-center gap-2 shrink-0">
+                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0" for="is_active">
+                            <input type="hidden" name="is_active" value="0">
+                            <input type="checkbox"
+                                   class="kt-switch kt-switch-sm shrink-0"
+                                   id="is_active"
+                                   name="is_active"
+                                   value="1"
+                                   {{ old('is_active', $page->is_active) ? 'checked' : '' }}/>
+                            <span class="text-sm font-medium text-secondary-foreground">Actief (zichtbaar op de website)</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
-                                Bij welke module hoort deze pagina? *
-                            </td>
-                            <td class="min-w-48 w-full">
-                                <select id="module_choice"
-                                        class="kt-input"
-                                        required
-                                        data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
-                                    <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
-                                        {{ !old('module_name', $page->module_name) ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
-                                    @foreach($installedModules as $module)
-                                        @php
-                                            $moduleName = $module->getName();
-                                            $moduleModel = $moduleThemes[$moduleName] ?? null;
-                                            $themeId = ($moduleModel && $moduleModel->theme) ? $moduleModel->theme->id : ($defaultTheme?->id ?? '');
-                                        @endphp
-                                        <option value="{{ $moduleName }}"
-                                            data-theme-id="{{ $themeId }}"
-                                            {{ old('module_name', $page->module_name) === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
-                                    @endforeach
-                                </select>
-                                <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
-                                <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name', $page->module_name) }}">
-                            </td>
-                        </tr>
-                        @include('admin.website-pages.partials.tenant-context-row')
+                        @if(!($isCentralMarketingWelcome ?? false))
+                            <tr>
+                                <td class="min-w-56 text-secondary-foreground font-normal">
+                                    Bij welke module hoort deze pagina? *
+                                </td>
+                                <td class="min-w-48 w-full">
+                                    <select id="module_choice"
+                                            class="kt-input"
+                                            required
+                                            data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
+                                        <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
+                                            {{ !old('module_name', $page->module_name) ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
+                                        @foreach($installedModules as $module)
+                                            @php
+                                                $moduleName = $module->getName();
+                                                $moduleModel = $moduleThemes[$moduleName] ?? null;
+                                                $themeId = ($moduleModel && $moduleModel->theme) ? $moduleModel->theme->id : ($defaultTheme?->id ?? '');
+                                            @endphp
+                                            <option value="{{ $moduleName }}"
+                                                data-theme-id="{{ $themeId }}"
+                                                {{ old('module_name', $page->module_name) === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
+                                    <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name', $page->module_name) }}">
+                                </td>
+                            </tr>
+                            @include('admin.website-pages.partials.tenant-context-row')
+                        @else
+                            <input type="hidden" name="module_name" id="module_name_hidden" value="">
+                            <input type="hidden" name="company_id" value="">
+                        @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal">
                                 Thema
@@ -186,8 +209,15 @@
                                        required
                                        pattern="[a-z0-9\-]+"
                                        placeholder="over-ons"
-                                       autocomplete="off">
-                                <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld op basis van de titel. Alleen kleine letters, cijfers en streepjes.</div>
+                                       autocomplete="off"
+                                       @if($isCentralMarketingWelcome ?? false) readonly @endif>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    @if($isCentralMarketingWelcome ?? false)
+                                        Deze slug is gereserveerd voor de centrale welkomstpagina en kan niet worden gewijzigd.
+                                    @else
+                                        Wordt automatisch ingevuld op basis van de titel. Alleen kleine letters, cijfers en streepjes.
+                                    @endif
+                                </div>
                                 @error('slug')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -501,9 +531,13 @@
             : 'Standaard tonen deze pagina\'s alleen een Hero-banner, footer en copyright. Voeg hieronder secties toe met de knop "Sectie toevoegen" of pas de Hero aan.';
     }
 
-    moduleChoice.addEventListener('change', updateForm);
+    if (moduleChoice) moduleChoice.addEventListener('change', updateForm);
     pageTypeSelect.addEventListener('change', toggleHomeAndContentRows);
-    updateForm();
+    if (moduleChoice) {
+        updateForm();
+    } else {
+        toggleHomeAndContentRows();
+    }
 
     // Slug automatisch uit titel (bij intypen)
     var titleInput = document.getElementById('title');
@@ -545,4 +579,8 @@
     }
 })();
 </script>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

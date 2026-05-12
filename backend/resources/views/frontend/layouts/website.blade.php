@@ -144,24 +144,6 @@
         /* Eén grootte voor alle paginatitels (h1) */
         .kt-page-title { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
         @media (min-width: 768px) { .kt-page-title { font-size: 2.25rem; } }
-        /* Stagingbalk: tekst zwart, donkere achtergrond in dark mode */
-        .staging-bar { color: #0f172a; }
-        .staging-bar a { color: #0f172a; }
-        .staging-bar a:hover { color: #1e293b; }
-        .staging-bar button { color: #0f172a; }
-        html.dark .staging-bar {
-            background-color: #b45309 !important;
-            color: #fffbeb;
-            border-bottom-color: rgba(180, 83, 9, 0.5);
-        }
-        html.dark .staging-bar a { color: #fef3c7; }
-        html.dark .staging-bar a:hover { color: #fff; }
-        html.dark .staging-bar button {
-            background: rgba(255,255,255,0.15);
-            color: #fffbeb;
-            border-color: rgba(254, 243, 199, 0.3);
-        }
-        html.dark .staging-bar button:hover { background: rgba(255,255,255,0.25); }
         /* Logo light/dark op frontend: toon juiste logo volgens thema */
         .fe-logo-light { display: block !important; }
         .fe-logo-dark { display: none !important; }
@@ -392,27 +374,31 @@
 </head>
 <body class="min-h-screen antialiased flex flex-col theme-{{ $themeSlug ?? 'modern' }} bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" style="font-family: var(--theme-font-body);">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">Spring naar hoofdinhoud</a>
+    @php
+        $previewThemeSuffix = !empty($theme->name ?? null) ? ': thema: '.$theme->name : '';
+    @endphp
     @if(isset($isPreview) && $isPreview && isset($previewEditUrl))
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" role="banner" aria-label="Voorbeeldmodus">
         <a href="{{ $previewEditUrl }}" class="preview-bar-back shrink-0">
             <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
             Terug naar admin
         </a>
-        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema.</span>
+        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
     </div>
     @endif
     @if(!empty($isStaging) && !empty($stagingBackUrl))
-    <div class="staging-bar sticky top-0 z-[100] flex flex-wrap items-center justify-center gap-4 py-2 px-4 text-sm font-medium bg-amber-600 border-b border-amber-500/30" data-staging-theme-id="{{ $theme->id ?? '' }}" data-staging-theme-slug="{{ $themeSlug ?? '' }}">
-        <span>Staging — Thema: {{ $theme->name ?? '—' }} (id: {{ $theme->id ?? '—' }}){{ !empty($stagingModule) ? ' · Module: ' . $stagingModule : '' }}</span>
-        <a href="{{ $stagingBackUrl }}" class="underline hover:no-underline font-semibold">Terug naar thema's</a>
-        <form action="{{ $stagingPublishUrl ?? '' }}" method="POST" class="inline">
-            @csrf
-            <input type="hidden" name="theme_id" value="{{ $stagingThemeId ?? '' }}">
-            <button type="submit" class="px-3 py-1 rounded bg-white/20 hover:bg-white/30 font-semibold border border-white/30">Publiceren</button>
-        </form>
+    <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" data-staging-theme-id="{{ $theme->id ?? '' }}" data-staging-theme-slug="{{ $themeSlug ?? '' }}" role="banner" aria-label="Stagingmodus">
+        <a href="{{ $stagingBackUrl }}" class="preview-bar-back shrink-0">
+            <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Terug naar admin
+        </a>
+        <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
     </div>
     @endif
 
+    @php
+        $hideWebsiteMenu = isset($page) && \App\Models\WebsitePage::isCentralMarketingWelcomeSlug($page->slug ?? null);
+    @endphp
     <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div class="container-custom">
             <div class="flex justify-between items-center h-16 md:h-20">
@@ -434,11 +420,12 @@
                                 <img src="{{ $branding['logo_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="h-10 md:h-12 w-auto">
                             @endif
                         @else
-                            <span class="text-xl font-bold" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
+                            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-10 md:h-12 w-auto object-contain">
                         @endif
                     </a>
                 </div>
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
+                @unless($hideWebsiteMenu)
                 <nav id="website-desktop-nav" class="flex flex-nowrap items-center gap-4 flex-1 justify-center px-4 min-w-0 overflow-hidden" role="navigation" aria-label="Hoofdnavigatie">
                     @forelse(($menuPages ?? collect()) as $menuPage)
                         @php
@@ -466,6 +453,7 @@
                     @endif
                     @endauth
                 </nav>
+                @endunless
                 {{-- Rechterkant desktop: streep (border-l), thema-toggle + Mijn Nexa/Inloggen; verborgen onder 1025px --}}
                 <div id="website-desktop-right" class="flex items-center gap-2 lg:gap-4 ml-auto flex-shrink-0 pl-4">
                     @if($themeSettings['dark_mode_available'] ?? true)
@@ -498,12 +486,15 @@
                         <svg id="theme-icon-moon-mobile" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>
                     @endif
+                    @unless($hideWebsiteMenu)
                     <button type="button" id="website-mobile-menu-toggle" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Menu openen">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
+                    @endunless
                 </div>
             </div>
         </div>
+        @unless($hideWebsiteMenu)
         <div id="website-mobile-menu" class="hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div class="container-custom py-4 space-y-1">
                 @forelse(($menuPages ?? collect()) as $menuPage)
@@ -531,6 +522,7 @@
                 {{-- Mijn Nexa / Inloggen: zie #website-hamburger-row (smalle viewport) en #website-desktop-right (breed) --}}
             </div>
         </div>
+        @endunless
     </header>
 
     <main id="main-content" class="flex-1 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -640,7 +632,7 @@
                                     @endif
                                     </div>
                                 @elseif($footVis['footer_logo'] ?? true)
-                                    <span class="footer-animate-brand font-semibold text-xl mb-4 inline-block" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
+                                    <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="footer-animate-brand h-10 md:h-12 w-auto object-contain mb-4 inline-block">
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
                                     <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
@@ -706,7 +698,7 @@
                                     @endif
                                     </div>
                                 @elseif($footVis['footer_logo'] ?? true)
-                                    <span class="footer-animate-brand font-semibold text-xl mb-4 inline-block" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
+                                    <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="footer-animate-brand h-10 md:h-12 w-auto object-contain mb-4 inline-block">
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
                                     <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
@@ -784,10 +776,16 @@
                             <img src="{{ $branding['logo_url'] }}" alt="" class="h-8 w-auto opacity-80">
                         @endif
                     @else
-                        <span class="font-semibold" style="color: var(--theme-primary);">{{ $branding['site_name'] ?? config('app.name') }}</span>
+                        <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-10 md:h-12 w-auto object-contain">
                     @endif
+                    @php
+                        $footerBrandName = trim((string) ($branding['site_name'] ?? config('app.name')));
+                        if (strcasecmp($footerBrandName, 'NEXA Taxi') === 0) {
+                            $footerBrandName = 'NEXA';
+                        }
+                    @endphp
                     <p class="text-sm">
-                        {{ !empty($themeSettings['footer_text']) ? $themeSettings['footer_text'] : '© ' . date('Y') . ' ' . ($branding['site_name'] ?? config('app.name')) }}
+                        {{ !empty($themeSettings['footer_text']) ? $themeSettings['footer_text'] : '© ' . date('Y') . ' ' . $footerBrandName }}
                     </p>
                 </div>
             </div>

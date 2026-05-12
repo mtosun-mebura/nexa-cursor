@@ -641,7 +641,7 @@
                 
                 closeAllDropdowns(null);
                 openDropdown = null;
-            });
+            }, true);
         }
         
         if (document.readyState === 'loading') {

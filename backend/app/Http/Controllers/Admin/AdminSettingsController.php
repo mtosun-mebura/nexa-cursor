@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
+use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Services\EnvService;
+use App\Services\TenantCompanyDataPushService;
+use App\Services\TenantStorageBundleService;
+use App\Services\TenantWebsiteBundleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -15,9 +19,22 @@ class AdminSettingsController extends Controller
 {
     protected $envService;
 
-    public function __construct(EnvService $envService)
-    {
+    protected TenantWebsiteBundleService $tenantWebsiteBundle;
+
+    protected TenantCompanyDataPushService $tenantCompanyDataPush;
+
+    protected TenantStorageBundleService $tenantStorageBundle;
+
+    public function __construct(
+        EnvService $envService,
+        TenantWebsiteBundleService $tenantWebsiteBundle,
+        TenantCompanyDataPushService $tenantCompanyDataPush,
+        TenantStorageBundleService $tenantStorageBundle
+    ) {
         $this->envService = $envService;
+        $this->tenantWebsiteBundle = $tenantWebsiteBundle;
+        $this->tenantCompanyDataPush = $tenantCompanyDataPush;
+        $this->tenantStorageBundle = $tenantStorageBundle;
     }
 
     /**
@@ -93,7 +110,216 @@ class AdminSettingsController extends Controller
         $googleReviewsMinStars = (int) GeneralSetting::get('google_reviews_min_stars', '1');
         $googleReviewsMinStars = max(1, min(5, $googleReviewsMinStars));
 
-        return view('admin.settings.index', compact('mailSettings', 'seoSettings', 'mapsSettings', 'whatsappSettings', 'googleReviewsPlaceId', 'googleReviewsBusinessName', 'googleReviewsCacheHours', 'googleReviewsCount', 'googleReviewsMinStars'));
+        $companiesForSync = Company::query()->orderBy('name')->get(['id', 'name']);
+
+        $tenantSyncScope = $this->tenantCompanyDataPush->describeSyncScope();
+
+        $tenantSyncSettings = [
+            'tenant_sync_target_database_url' => (string) GeneralSetting::get('tenant_sync_target_database_url', ''),
+            'tenant_sync_push_enabled' => GeneralSetting::get('tenant_sync_push_enabled', '0') === '1',
+        ];
+
+        return view('admin.settings.index', compact(
+            'mailSettings',
+            'seoSettings',
+            'mapsSettings',
+            'whatsappSettings',
+            'googleReviewsPlaceId',
+            'googleReviewsBusinessName',
+            'googleReviewsCacheHours',
+            'googleReviewsCount',
+            'googleReviewsMinStars',
+            'tenantSyncSettings',
+            'companiesForSync',
+            'tenantSyncScope',
+        ));
+    }
+
+    /**
+     * Doel-database voor website-push (PROD) + vlag om push toe te staan.
+     */
+    public function updateTenantSync(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate([
+            'tenant_sync_target_database_url' => ['nullable', 'string', 'max:2000'],
+            'tenant_sync_push_enabled' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            GeneralSetting::set('tenant_sync_target_database_url', trim((string) $request->input('tenant_sync_target_database_url', '')));
+            GeneralSetting::set('tenant_sync_push_enabled', $request->boolean('tenant_sync_push_enabled') ? '1' : '0');
+
+            return redirect()->route('admin.settings.index')
+                ->with('success', 'Omgeving-sync (doel-database) opgeslagen.');
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index')
+                ->with('error', 'Opslaan mislukt: '.$e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Test PDO-verbinding naar de opgegeven database-URL (formulier of opgeslagen waarde).
+     */
+    public function testTenantSync(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $url = trim((string) $request->input('tenant_sync_target_database_url', ''));
+        if ($url === '') {
+            $url = trim((string) GeneralSetting::get('tenant_sync_target_database_url', ''));
+        }
+        if ($url === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vul eerst een database-URL in.',
+            ], 422);
+        }
+
+        try {
+            $this->tenantWebsiteBundle->testSyncConnection($url);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Verbinding met doel-database OK.',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Voer volledige tenant-push uit (alle tabellen met company_id + companies-rij).
+     * Bij AJAX/JSON (Accept: application/json of X-Requested-With: XMLHttpRequest): JSON zonder redirect.
+     */
+    public function runTenantSync(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $wantsJson = $request->expectsJson() || $request->ajax();
+
+        $tenantSyncRedirect = fn () => redirect()->route('admin.settings.index')->withFragment('tenant-sync');
+
+        if (! $this->tenantWebsiteBundle->isPushGloballyEnabled()) {
+            $msg = 'Sync staat uit. Schakel push in bij onderstaande instellingen of zet TENANT_SYNC_PUSH_ENABLED in .env.';
+            if ($wantsJson) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+
+            return $tenantSyncRedirect()->with('error', $msg);
+        }
+
+        if (! $this->tenantWebsiteBundle->pushAllowedForEnvironment()) {
+            $msg = 'Sync naar productie is geblokkeerd. Zet TENANT_SYNC_ALLOW_PRODUCTION_PUSH=true in .env als dit bewust moet.';
+            if ($wantsJson) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+
+            return $tenantSyncRedirect()->with('error', $msg);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'source_company_id' => ['required', 'integer', 'exists:companies,id'],
+            'confirm_full_sync' => ['required', 'accepted'],
+        ], [
+            'source_company_id.required' => 'Kies een bron-tenant (bedrijf).',
+            'source_company_id.exists' => 'Het gekozen bedrijf bestaat niet.',
+            'confirm_full_sync.required' => 'Vink de bevestiging aan om de sync te starten.',
+            'confirm_full_sync.accepted' => 'Vink de bevestiging aan om de sync te starten.',
+        ]);
+
+        if ($validator->fails()) {
+            if ($wantsJson) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Controleer het formulier.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            return $tenantSyncRedirect()
+                ->withErrors($validator)
+                ->withInput();
+        }
+
+        try {
+            $result = $this->tenantCompanyDataPush->pushFullTenant((int) $request->input('source_company_id'));
+        } catch (\Throwable $e) {
+            $msg = 'Sync mislukt: '.$e->getMessage();
+            if ($wantsJson) {
+                return response()->json(['success' => false, 'message' => $msg], 500);
+            }
+
+            return $tenantSyncRedirect()->with('error', $msg);
+        }
+
+        $msg = 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
+            .'. Ingevoegd: '.$result['inserted'].', overgeslagen (duplicaat / bestond al): '.$result['skipped'].'.';
+        if ($result['messages'] !== []) {
+            $msg .= ' '.implode(' ', $result['messages']);
+        }
+
+        if ($wantsJson) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'result' => $result,
+            ]);
+        }
+
+        return redirect()->route('admin.settings.index')
+            ->withFragment('tenant-sync')
+            ->with('success', $msg)
+            ->with('tenant_sync_completed', true);
+    }
+
+    /**
+     * ZIP-download: alle publieke tenant-bestanden (website-media, logo-pad, CV’s, factuur-PDF’s, …).
+     */
+    public function exportTenantStorageBundle(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+        ]);
+
+        $company = Company::query()->findOrFail((int) $request->query('company_id'));
+
+        return $this->tenantStorageBundle->exportZip($company);
+    }
+
+    /**
+     * ZIP-import: bestanden uit tenant-media-bundle naar storage/app/public.
+     */
+    public function importTenantStorageBundle(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'bundle' => ['required', 'file', 'mimes:zip', 'max:512000'],
+        ], [
+            'bundle.required' => 'Selecteer een ZIP-bestand.',
+            'bundle.mimes' => 'Alleen ZIP is toegestaan.',
+        ]);
+
+        try {
+            $company = Company::query()->findOrFail((int) $request->input('company_id'));
+            $result = $this->tenantStorageBundle->importZip($company, $request->file('bundle'));
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index')
+                ->withFragment('tenant-sync')
+                ->with('error', 'Import mislukt: '.$e->getMessage())
+                ->withInput();
+        }
+
+        return redirect()->route('admin.settings.index')
+            ->withFragment('tenant-sync')
+            ->with('success', 'Tenant-bestanden geïmporteerd: '.$result['copied_files'].' bestand(en) naar storage/app/public.');
     }
 
     /**

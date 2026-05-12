@@ -29,7 +29,7 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.email-templates.store') }}" method="POST">
+    <form action="{{ route('admin.email-templates.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
         
         <div class="grid gap-5 lg:gap-7.5">
@@ -276,6 +276,7 @@
 @include('admin.email-templates.partials.tinymce-html-editor')
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 window.defaultTemplateInformatieaanvraag = @json($defaultHtmlTemplateInformatieaanvraag ?? '');
 document.addEventListener('DOMContentLoaded', function() {

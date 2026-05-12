@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.job-configurations.update', $jobConfiguration) }}" method="POST">
+    <form action="{{ route('admin.job-configurations.update', $jobConfiguration) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -88,5 +88,8 @@
     </form>
 </div>
 
-@endsection
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
+@endsection

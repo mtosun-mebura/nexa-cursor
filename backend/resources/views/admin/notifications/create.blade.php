@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.notifications.store') }}" method="POST" enctype="multipart/form-data" novalidate>
+    <form action="{{ route('admin.notifications.store') }}" method="POST" enctype="multipart/form-data" novalidate data-validate="true">
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -621,6 +621,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize datepicker elements

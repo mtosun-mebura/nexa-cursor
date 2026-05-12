@@ -24,7 +24,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.permissions.update', $permission) }}" method="POST" data-validate="true" id="edit-permission-form">
+    <form action="{{ route('admin.permissions.update', $permission) }}" method="POST"  data-validate="true" id="edit-permission-form" novalidate>
         @csrf
         @method('PUT')
 

@@ -25,7 +25,7 @@
         </div>
     @endif
 
-    <form action="{{ $isCreate ? route('admin.email-templates.form-fields.store') : route('admin.email-templates.form-fields.update', $field) }}" method="POST">
+    <form action="{{ $isCreate ? route('admin.email-templates.form-fields.store') : route('admin.email-templates.form-fields.update', $field) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @if(!$isCreate)
             @method('PUT')
@@ -110,6 +110,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var labelEl = document.getElementById('form-field-label');

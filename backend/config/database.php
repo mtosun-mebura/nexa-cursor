@@ -53,7 +53,7 @@ return [
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
-            'host' => '192.168.178.249',
+            'host' => '192.168.2.40',
             'port' => env('DB_PORT', '3306'),
             'database' => 'nexa',
             'username' => 'mtosun',
@@ -73,7 +73,7 @@ return [
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
-            'host' => '192.168.178.249',
+            'host' => '192.168.2.40',
             'port' => env('DB_PORT', '3306'),
             'database' => 'nexa',
             'username' => 'mtosun',
@@ -93,7 +93,7 @@ return [
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
-            'host' => env('DB_HOST', '192.168.178.249'),
+            'host' => env('DB_HOST', '192.168.2.40'),
             'port' => env('DB_PORT', '5432'),
             'database' => env('DB_DATABASE', 'nexa'),
             'username' => env('DB_USERNAME', 'mtosun'),

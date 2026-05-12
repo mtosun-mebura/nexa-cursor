@@ -20,6 +20,9 @@ class AdminCompanyWizardController extends AdminCompanyController
 
     private const SESSION_PREFIX = 'company_wizard.';
 
+    /** Tijdens onboarding (stap 2–7): koppel nieuwe resources aan dit bedrijf als URL-parameters ontbreken. */
+    public const SESSION_ACTIVE_ONBOARDING_COMPANY_ID = 'tenant_onboarding_active_company_id';
+
     public function __construct(
         EnvService $envService,
         protected ModuleManager $moduleManager,
@@ -31,6 +34,8 @@ class AdminCompanyWizardController extends AdminCompanyController
     public function start(Request $request): View|RedirectResponse
     {
         $this->authorizeWizard();
+
+        session()->forget(self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
 
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
@@ -90,6 +95,10 @@ class AdminCompanyWizardController extends AdminCompanyController
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
         $company->load(['domains', 'locations', 'modules']);
+
+        if ($step >= 2) {
+            session([self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID => $company->id]);
+        }
 
         $viewData = [
             'company' => $company,
@@ -403,6 +412,7 @@ class AdminCompanyWizardController extends AdminCompanyController
     private function submitStep7(Company $company): RedirectResponse
     {
         session()->forget($this->sessionKey($company));
+        session()->forget(self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
 
         return redirect()
             ->route('admin.companies.show', $company)

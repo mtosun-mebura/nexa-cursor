@@ -10,6 +10,7 @@ use App\Models\WebsitePage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -95,7 +96,9 @@ class WebsiteBuilderService
         $model = $query->getModel();
         $table = $model->getTable();
         $connection = $query->getConnection()->getName();
-        if (! Schema::connection($connection)->hasColumn($table, 'company_id')) {
+        $defaultConn = (string) config('database.default');
+        if (! Schema::connection($connection)->hasColumn($table, 'company_id')
+            && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
             return;
         }
 
@@ -122,7 +125,9 @@ class WebsiteBuilderService
         $model = $query->getModel();
         $table = $model->getTable();
         $connection = $query->getConnection()->getName();
-        if (! Schema::connection($connection)->hasColumn($table, 'company_id')) {
+        $defaultConn = (string) config('database.default');
+        if (! Schema::connection($connection)->hasColumn($table, 'company_id')
+            && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
             return;
         }
         $query->where($table.'.company_id', $tenantCompanyId);
@@ -152,7 +157,9 @@ class WebsiteBuilderService
         $model = $query->getModel();
         $table = $model->getTable();
         $connection = $query->getConnection()->getName();
-        if (! Schema::connection($connection)->hasColumn($table, 'company_id')) {
+        $defaultConn = (string) config('database.default');
+        if (! Schema::connection($connection)->hasColumn($table, 'company_id')
+            && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
             return;
         }
         if ($this->isAdminLikeRequest()) {
@@ -605,6 +612,23 @@ class WebsiteBuilderService
     }
 
     /**
+     * Marketing-landingspagina voor het centrale domein (geen tenant). Geen tenant-scope: vaste slug + null company.
+     */
+    public function getCentralMarketingWelcomePage(): ?WebsitePage
+    {
+        $q = WebsitePage::query()
+            ->where('slug', WebsitePage::CENTRAL_WELCOME_SLUG)
+            ->whereNull('module_name')
+            ->where('is_active', true);
+        $table = (new WebsitePage)->getTable();
+        if (Schema::hasColumn($table, 'company_id')) {
+            $q->whereNull($table.'.company_id');
+        }
+
+        return $q->first();
+    }
+
+    /**
      * About-pagina: eerst uit actieve/branding module, anders uit core (module_name null).
      */
     public function getAboutPage(): ?WebsitePage
@@ -653,6 +677,9 @@ class WebsiteBuilderService
 
     public function getPageBySlug(string $slug): ?WebsitePage
     {
+        if (WebsitePage::isCentralMarketingWelcomeSlug($slug)) {
+            return null;
+        }
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
         $page = $this->websitePageQuery($moduleName)->active()
@@ -697,7 +724,7 @@ class WebsiteBuilderService
             && $this->moduleDb->supportsModuleDatabases();
 
         if (! $hasModuleDb) {
-            return $corePages->values();
+            return $this->excludeCentralWelcomeFromMenu($corePages);
         }
 
         $modulePages = $this->websitePageQuery($moduleName)->active()
@@ -716,7 +743,23 @@ class WebsiteBuilderService
             }
         }
 
-        return $modulePages->sortBy(['sort_order', 'id'])->values();
+        return $this->excludeCentralWelcomeFromMenu(
+            $modulePages->sortBy(['sort_order', 'id'])->values()
+        );
+    }
+
+    /**
+     * Centrale marketing-welkom (slug nexa-centraal-welkom) hoort niet in het hoofdmenu;
+     * de paginatitel blijft beschikbaar voor &lt;title&gt; in de layout.
+     *
+     * @param  Collection<int, WebsitePage>  $pages
+     * @return Collection<int, WebsitePage>
+     */
+    private function excludeCentralWelcomeFromMenu(Collection $pages): Collection
+    {
+        return $pages->filter(function (WebsitePage $p) {
+            return ! WebsitePage::isCentralMarketingWelcomeSlug($p->slug);
+        })->values();
     }
 
     /**
@@ -727,11 +770,13 @@ class WebsiteBuilderService
     public function getMenuPagesForStaging(?string $moduleName): Collection
     {
         if ($moduleName !== null && $moduleName !== '') {
-            return $this->websitePageQuery($moduleName)->active()
-                ->showInMenu()
-                ->orderBy('sort_order')
-                ->orderBy('title')
-                ->get();
+            return $this->excludeCentralWelcomeFromMenu(
+                $this->websitePageQuery($moduleName)->active()
+                    ->showInMenu()
+                    ->orderBy('sort_order')
+                    ->orderBy('title')
+                    ->get()
+            );
         }
 
         return $this->getActiveMenuPages();
@@ -748,6 +793,35 @@ class WebsiteBuilderService
         }
 
         return (int) $id;
+    }
+
+    /**
+     * Bestaat `website_pages` echt in het schema/database van deze module-connectie?
+     *
+     * Bij schema-strategy heeft elke module-connectie `search_path = "<module_schema>,public"`. Zonder eigen
+     * `website_pages` valt PG terug op `public.website_pages` en zou een query op die connectie de hoofd-DB
+     * rijen retourneren. Daarom controleren we hier eerst of de tabel daadwerkelijk in het module-schema
+     * (of de module-DB bij `database`-strategy) staat.
+     */
+    protected function moduleConnectionHasOwnWebsitePagesTable(string $moduleName, string $connection): bool
+    {
+        try {
+            $driver = (string) (Config::get("database.connections.{$connection}.driver") ?? '');
+
+            if ($this->moduleDb->usesSchemaStrategy() && $driver === 'pgsql') {
+                $schema = $this->moduleDb->getModuleSchemaName($moduleName);
+                $row = DB::connection($connection)->selectOne(
+                    'SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?',
+                    [$schema, 'website_pages']
+                );
+
+                return $row !== null;
+            }
+
+            return Schema::connection($connection)->hasTable('website_pages');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -825,9 +899,31 @@ class WebsiteBuilderService
             if (! Config::has("database.connections.{$conn}")) {
                 continue;
             }
+            // Geen eigen website_pages in het module-schema: rijen staan in public.website_pages (module_name gezet).
+            // Die hier ophalen vanuit de hoofddatabase — niet overslaan, anders ontbreken alle module-pagina's in de admin-index.
+            if (! $this->moduleConnectionHasOwnWebsitePagesTable($moduleName, $conn)) {
+                try {
+                    $onSharedMain = WebsitePage::query()->with('theme')
+                        ->whereRaw('LOWER(module_name) = ?', [strtolower((string) $moduleName)]);
+                    $applyTenantScope($onSharedMain);
+                    $modulePages = $modulePages->concat(
+                        $onSharedMain
+                            ->orderBy('sort_order')
+                            ->orderBy('title')
+                            ->get()
+                    );
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                continue;
+            }
             try {
                 $onModule = WebsitePage::on($conn)->with('theme');
                 $applyTenantScope($onModule);
+                // Defensief: alleen rijen die echt bij deze module horen — zo glippen kernrijen
+                // (module_name IS NULL) niet alsnog mee via een eventuele search_path-fallback.
+                $onModule->whereRaw('LOWER(module_name) = ?', [strtolower((string) $moduleName)]);
                 $modulePages = $modulePages->concat(
                     $onModule
                         ->orderBy('sort_order')

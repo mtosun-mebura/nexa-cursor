@@ -49,7 +49,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.candidates.update', $candidate) }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('admin.candidates.update', $candidate) }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
                         @csrf
                         @method('PUT')
                         
@@ -594,4 +594,8 @@
                 </div>
     </div>
 </div>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

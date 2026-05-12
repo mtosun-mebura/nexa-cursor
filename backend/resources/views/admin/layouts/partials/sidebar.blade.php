@@ -31,7 +31,7 @@
                 <img class="default-logo logo-light w-auto max-w-[200px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
                 <img class="default-logo logo-dark w-auto max-w-[200px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
             @else
-                <img class="default-logo h-[26px] w-auto max-w-[200px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
+                <img class="default-logo h-[26px] w-auto max-w-[200px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
             @endif
         </a>
         <button
@@ -560,7 +560,19 @@
 
                 <!-- Front-end (Super Admin only): Coming Soon, Pagina's, Thema's, Componenten -->
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || request()->routeIs('admin.website-pages.*') || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
+                @php
+                    $websitePageRouteParam = request()->route('website_page');
+                    $websitePageOnRoute = $websitePageRouteParam instanceof \App\Models\WebsitePage
+                        ? $websitePageRouteParam
+                        : (\is_numeric($websitePageRouteParam) ? \App\Models\WebsitePage::find((int) $websitePageRouteParam) : null);
+                    $isCentralWelcomeWebsitePage = $websitePageOnRoute
+                        && \App\Models\WebsitePage::isCentralMarketingWelcomeSlug((string) $websitePageOnRoute->slug)
+                        && ($websitePageOnRoute->module_name === null || $websitePageOnRoute->module_name === '');
+                    $isWelcomeMenuActive = request()->routeIs('admin.welcome-page.*')
+                        || (request()->routeIs('admin.website-pages.*') && $isCentralWelcomeWebsitePage);
+                    $isWebsitePagesMenuActive = request()->routeIs('admin.website-pages.*') && ! $isCentralWelcomeWebsitePage;
+                @endphp
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -597,7 +609,16 @@
                                 </span>
                             </a>
                         </div>
-                        <div class="kt-menu-item {{ request()->routeIs('admin.website-pages.*') ? 'active' : '' }}">
+                        <div class="kt-menu-item {{ $isWelcomeMenuActive ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.welcome-page.edit') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Welkom
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ $isWebsitePagesMenuActive ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.website-pages.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>

@@ -14,6 +14,9 @@
     if ($successSize > 200) $successSize = 200;
     $hasSuccessImage = $successImagePath && \Storage::disk('public')->exists($successImagePath);
     $embeddedInTextBlock = $embeddedInTextBlock ?? false;
+    $infoRequestAction = \Illuminate\Support\Facades\Route::has('frontend.send-info-request')
+        ? route('frontend.send-info-request')
+        : '#';
 @endphp
 @if($template)
 <section id="info-request-section-{{ $sectionKey }}" class="info-request-section {{ $embeddedInTextBlock ? 'w-full min-w-0 pt-0 pb-16 md:pb-20' : 'py-16 md:py-20' }}">
@@ -40,7 +43,7 @@
             <h2 class="info-req-animate-left text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">{{ $sectionTitle }}</h2>
             @endif
             <p class="info-req-animate-right text-gray-600 dark:text-gray-300 mb-6 text-center">Vul het formulier in en wij nemen contact met u op.</p>
-            <form id="info-request-form-{{ $sectionKey }}" action="{{ route('frontend.send-info-request') }}" method="POST" class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
+            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
                 @csrf
                 <input type="hidden" name="template_id" value="{{ $template->id }}">
                 {{-- Honeypot: verborgen voor bezoekers, bots vullen dit vaak in --}}

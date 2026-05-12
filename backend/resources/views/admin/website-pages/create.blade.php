@@ -32,20 +32,25 @@
         </div>
     </div>
 
-    <form id="website-page-form" action="{{ route('admin.website-pages.store') }}" method="POST">
+    <form id="website-page-form" action="{{ route('admin.website-pages.store') }}" method="POST" data-validate="true" data-skip-url-validation="true" novalidate>
         @csrf
         @if(!empty($wizardIndexQuery))
             @foreach($wizardIndexQuery as $k => $v)
                 <input type="hidden" name="{{ $k }}" value="{{ $v }}">
             @endforeach
         @endif
+        @if(!empty($wizardIndexQuery['wizard_company']))
+            {{-- Expliciete company_id: resolveWebsitePageCompanyIdForPersistence leest dit altijd mee (ook als from_wizard-flag faalt). --}}
+            <input type="hidden" name="company_id" value="{{ (int) $wizardIndexQuery['wizard_company'] }}">
+        @endif
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
             <div class="kt-card min-w-full">
-                <div class="kt-card-header flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <h3 class="kt-card-title">
+                {{-- Zie edit.blade: één regel; !flex-nowrap overschrijft theme flex-wrap op .kt-card-header. --}}
+                <div class="kt-card-header !flex-nowrap flex items-center justify-between gap-3 w-full min-w-0">
+                    <h3 class="kt-card-title shrink-0 truncate">
                         Pagina-informatie
                     </h3>
                     @php
@@ -58,23 +63,29 @@
                             $__menuOn = true;
                         }
                     @endphp
-                    <label class="kt-label inline-flex items-center gap-2 flex-wrap">
-                        <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
-                        <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-[120px] max-w-full shrink-0" autocomplete="off">
-                            <option value="1" {{ $__menuOn ? 'selected' : '' }}>Ja</option>
-                            <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>Nee</option>
-                        </select>
-                    </label>
-                    <label class="kt-label inline-flex items-center gap-2" for="is_active">
-                        <input type="hidden" name="is_active" value="0">
-                        <input type="checkbox"
-                               class="kt-switch kt-switch-sm"
-                               id="is_active"
-                               name="is_active"
-                               value="1"
-                               {{ old('is_active', true) ? 'checked' : '' }}/>
-                        Actief (zichtbaar op de website)
-                    </label>
+                    <div class="flex flex-1 flex-nowrap items-center justify-center gap-x-2 min-w-0 px-2">
+                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
+                            <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
+                            <div class="relative w-[120px] max-w-full shrink-0">
+                                <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-full" autocomplete="off">
+                                    <option value="1" {{ $__menuOn ? 'selected' : '' }}>Ja</option>
+                                    <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>Nee</option>
+                                </select>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="flex flex-nowrap items-center gap-2 shrink-0">
+                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0" for="is_active">
+                            <input type="hidden" name="is_active" value="0">
+                            <input type="checkbox"
+                                   class="kt-switch kt-switch-sm shrink-0"
+                                   id="is_active"
+                                   name="is_active"
+                                   value="1"
+                                   {{ old('is_active', true) ? 'checked' : '' }}/>
+                            <span class="text-sm font-medium text-secondary-foreground">Actief (zichtbaar op de website)</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
@@ -368,4 +379,8 @@
     }
 })();
 </script>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

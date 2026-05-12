@@ -30,7 +30,7 @@
     @endif
 
     <div class="grid gap-5 lg:gap-7.5">
-        <form action="{{ route('admin.email-templates.update', $emailTemplate) }}" method="POST" style="display: contents;">
+        <form action="{{ route('admin.email-templates.update', $emailTemplate) }}" method="POST" style="display: contents;" data-validate="true" novalidate>
             @csrf
             @method('PUT')
             @if(auth()->user()->hasRole('super-admin'))
@@ -421,6 +421,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+@endpush
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 @endpush
 
 @endsection

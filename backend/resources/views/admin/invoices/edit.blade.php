@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('admin.invoices.update', $invoice->id) }}">
+    <form method="POST" action="{{ route('admin.invoices.update', $invoice->id) }}" data-validate="true" novalidate>
         @csrf
         @method('PUT')
         
@@ -350,6 +350,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 (function() {
     'use strict';

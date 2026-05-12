@@ -1635,6 +1635,234 @@
             </div>
         </div>
     </div>
+    @elseif($sectionKey === 'component:website.nexa_modules_overview')
+            @php
+                $modulesData = $sections[$sectionKey] ?? [];
+                $modulesItems = isset($modulesData['items']) && is_array($modulesData['items']) ? array_values($modulesData['items']) : [];
+                $nexaHeroiconsRaw = config('heroicons.icons', []);
+                $nexaHeroiconKeys = is_array($nexaHeroiconsRaw) ? array_keys($nexaHeroiconsRaw) : [];
+                sort($nexaHeroiconKeys, SORT_STRING);
+                $nexaHeroiconOptions = [];
+                foreach ($nexaHeroiconKeys as $hk) {
+                    $def = $nexaHeroiconsRaw[$hk] ?? null;
+                    if (! is_array($def)) {
+                        continue;
+                    }
+                    $svg = (string) ($def['svg'] ?? '');
+                    if ($svg === '') {
+                        continue;
+                    }
+                    $nexaHeroiconOptions[] = [
+                        'key' => (string) $hk,
+                        'label' => (string) ($def['label'] ?? $hk),
+                        'svg' => $svg,
+                    ];
+                }
+                usort($nexaHeroiconOptions, static function (array $a, array $b): int {
+                    $cmp = strcasecmp($a['label'], $b['label']);
+                    if ($cmp !== 0) {
+                        return $cmp;
+                    }
+
+                    return strcmp($a['key'], $b['key']);
+                });
+                $resolveNexaModuleHeroiconKey = static function (?string $rawIcon) use ($nexaHeroiconKeys): string {
+                    $icon = trim((string) $rawIcon);
+                    $legacyMap = [
+                        'users' => 'user-group',
+                        'car' => 'truck',
+                        'wrench' => 'cog-6-tooth',
+                        'bulb' => 'light-bulb',
+                        'lightning' => 'bolt',
+                    ];
+                    if ($icon !== '' && isset($legacyMap[$icon])) {
+                        $icon = $legacyMap[$icon];
+                    }
+                    if ($icon !== '' && in_array($icon, $nexaHeroiconKeys, true)) {
+                        return $icon;
+                    }
+
+                    return 'user-group';
+                };
+                $defaultModuleItems = [
+                    [
+                        'name' => 'NEXA Skillmatching',
+                        'description' => 'AI-gestuurde vacature-matching, kandidaatbeheer en sollicitatieflow. Van publicatie tot plaatsing in een gestroomlijnd proces.',
+                        'features' => ['Vacaturebeheer met branches en functies', 'Kandidaat-pipeline en interviews', 'AI-matching op skills, locatie en ervaring'],
+                        'badge' => 'Beschikbaar',
+                        'badge_variant' => 'available',
+                        'icon' => 'user-group',
+                    ],
+                    [
+                        'name' => 'NEXA Taxi',
+                        'description' => 'Compleet ritbeheer voor taxi- en vervoersbedrijven. Van boeking tot facturatie, met voertuig- en tarievenbeheer.',
+                        'features' => ['Voertuigbeheer met foto\'s en kenmerken', 'Ritaanvragen en boekingen', 'Flexibele tarieven per voertuigtype'],
+                        'badge' => 'Beschikbaar',
+                        'badge_variant' => 'available',
+                        'icon' => 'truck',
+                    ],
+                    [
+                        'name' => 'NEXA Garage',
+                        'description' => 'Werkplaatsbeheer voor garages en autobedrijven. Werkorders, planning, onderdelen en klantcommunicatie.',
+                        'features' => ['Werkorderbeheer en planning', 'Voertuighistorie per klant', 'Onderdelenvoorraad en leveranciers'],
+                        'badge' => 'Binnenkort',
+                        'badge_variant' => 'soon',
+                        'icon' => 'cog-6-tooth',
+                    ],
+                ];
+                if (count($modulesItems) < 3) {
+                    $modulesItems = array_merge($modulesItems, array_slice($defaultModuleItems, count($modulesItems)));
+                }
+            @endphp
+    <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
+        <div class="kt-card-header home-section-header home-section-header--footer flex items-center justify-between gap-2">
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">NEXA modules overzicht (Algemeen)</h3>
+            <div class="flex items-center gap-1 shrink-0">
+                <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+            </div>
+        </div>
+        <div class="home-section-card-body kt-card-table p-4 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label class="text-sm text-muted-foreground">Boventitel</label>
+                    <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][eyebrow]" value="{{ old('home_sections.'.$sectionKey.'.eyebrow', $modulesData['eyebrow'] ?? 'Onze modules') }}">
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Titel</label>
+                    <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $modulesData['title'] ?? 'Alles wat uw bedrijf nodig heeft') }}">
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Subtitel</label>
+                    <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $modulesData['subtitle'] ?? 'Elke module werkt standalone of in combinatie. Installeer alleen wat u nodig heeft.') }}">
+                </div>
+            </div>
+
+            @foreach($modulesItems as $i => $item)
+                @php
+                    $nexaIconFromOld = old('home_sections.'.$sectionKey.'.items.'.$i.'.icon');
+                    $nexaResolvedIconKey = $resolveNexaModuleHeroiconKey(is_string($nexaIconFromOld) ? $nexaIconFromOld : (isset($item['icon']) ? (string) $item['icon'] : null));
+                    $nexaSelectedHeroicon = $nexaHeroiconsRaw[$nexaResolvedIconKey] ?? ($nexaHeroiconsRaw['user-group'] ?? null);
+                    $nexaSelectedHeroiconLabel = is_array($nexaSelectedHeroicon) ? (string) ($nexaSelectedHeroicon['label'] ?? $nexaResolvedIconKey) : $nexaResolvedIconKey;
+                    $nexaSelectedHeroiconSvg = is_array($nexaSelectedHeroicon) ? (string) ($nexaSelectedHeroicon['svg'] ?? '') : '';
+                @endphp
+                <div class="border border-border rounded-lg p-3 space-y-3">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h4 class="text-sm font-medium">Moduleblok {{ $i + 1 }}</h4>
+                        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                            <label class="text-xs text-muted-foreground whitespace-nowrap">Badge stijl</label>
+                            <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][badge_variant]" class="kt-input w-32 text-sm">
+                                <option value="available" {{ ($item['badge_variant'] ?? 'available') === 'available' ? 'selected' : '' }}>Beschikbaar</option>
+                                <option value="soon" {{ ($item['badge_variant'] ?? '') === 'soon' ? 'selected' : '' }}>Binnenkort</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-muted-foreground">Icoon (heroicons)</label>
+                        <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon]" value="{{ $nexaResolvedIconKey }}" data-nexa-module-icon-input="1">
+                        <details class="nexa-module-icon-details group mt-1 rounded-lg border border-border bg-background">
+                            <summary class="list-none cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-3 hover:bg-muted/40 rounded-lg">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <span class="nexa-module-icon-summary-preview inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/30 text-foreground" aria-hidden="true">
+                                        @if($nexaSelectedHeroiconSvg !== '')
+                                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">{!! $nexaSelectedHeroiconSvg !!}</svg>
+                                        @endif
+                                    </span>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-medium truncate"><span class="nexa-module-icon-summary-label">{{ $nexaSelectedHeroiconLabel }}</span></div>
+                                        <div class="text-xs text-muted-foreground truncate"><span class="font-mono nexa-module-icon-summary-key">{{ $nexaResolvedIconKey }}</span></div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-muted-foreground shrink-0">Kiezen…</span>
+                            </summary>
+                            <div class="p-2 border-t border-border max-h-64 overflow-y-auto">
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                    @foreach($nexaHeroiconOptions as $opt)
+                                        @php $isSelected = $opt['key'] === $nexaResolvedIconKey; @endphp
+                                        <button type="button" class="nexa-heroicon-option flex items-center gap-2 rounded-md border px-2 py-2 text-left text-xs transition-colors {{ $isSelected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40' }}" data-heroicon-key="{{ $opt['key'] }}" data-heroicon-label="{{ e($opt['label']) }}" data-heroicon-svg="{{ e($opt['svg']) }}" aria-pressed="{{ $isSelected ? 'true' : 'false' }}">
+                                            <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground" aria-hidden="true">
+                                                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">{!! $opt['svg'] !!}</svg>
+                                            </span>
+                                            <span class="min-w-0">
+                                                <span class="block font-medium leading-snug truncate">{{ $opt['label'] }}</span>
+                                                <span class="block font-mono text-[10px] text-muted-foreground truncate">{{ $opt['key'] }}</span>
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-sm text-muted-foreground">Naam</label>
+                            <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][name]" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.name', $item['name'] ?? '') }}">
+                        </div>
+                        <div>
+                            <label class="text-sm text-muted-foreground">Badge tekst</label>
+                            <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][badge]" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.badge', $item['badge'] ?? '') }}" placeholder="Beschikbaar of Binnenkort">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm text-muted-foreground">Beschrijving</label>
+                        @include('admin.website-pages.partials.flowbite-wysiwyg', [
+                            'editorId' => 'home-' . $sectionKey . '-nexa-module-' . $i . '-description',
+                            'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][description]',
+                            'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.description', $item['description'] ?? ''),
+                            'placeholder' => 'Beschrijving van dit moduleblok...',
+                            'textareaId' => 'home-' . $sectionKey . '-nexa-module-' . $i . '-description',
+                        ])
+                    </div>
+                    @php
+                        $featuresFromOld = old('home_sections.'.$sectionKey.'.items.'.$i.'.features');
+                        if (is_array($featuresFromOld)) {
+                            $featuresRows = array_values(array_filter(array_map(function ($row) {
+                                if (!is_array($row)) return '';
+                                return trim((string) ($row['text'] ?? ''));
+                            }, $featuresFromOld), fn ($v) => $v !== ''));
+                        } else {
+                            $featuresRows = array_values(array_filter(array_map(fn ($v) => trim((string) $v), (array) ($item['features'] ?? [])), fn ($v) => $v !== ''));
+                        }
+                        if (empty($featuresRows)) {
+                            $featuresRows = [''];
+                        }
+                    @endphp
+                    <div>
+                        <label class="text-sm text-muted-foreground">Features</label>
+                        <div class="mt-2 space-y-2 nexa-module-features-list" data-features-list data-section-key="{{ $sectionKey }}" data-item-index="{{ $i }}">
+                            @foreach($featuresRows as $featureIndex => $featureText)
+                                <div class="flex items-center gap-2 nexa-feature-row" data-feature-row>
+                                    <span class="text-emerald-500 text-sm font-semibold shrink-0" title="Wordt met vinkje getoond op de website">✓</span>
+                                    <input type="text"
+                                           class="kt-input w-full text-sm"
+                                           name="home_sections[{{ $sectionKey }}][items][{{ $i }}][features][{{ $featureIndex }}][text]"
+                                           value="{{ $featureText }}"
+                                           placeholder="Feature tekst">
+                                    <button type="button"
+                                            class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove"
+                                            title="Feature verwijderen"
+                                            aria-label="Feature verwijderen"
+                                            data-feature-remove>
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+                        <button type="button"
+                                class="kt-btn kt-btn-xs kt-btn-outline mt-2"
+                                data-feature-add
+                                data-section-key="{{ $sectionKey }}"
+                                data-item-index="{{ $i }}">
+                            + Feature toevoegen
+                        </button>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
     @elseif(str_starts_with(strtolower($sectionKey ?? ''), 'component:'))
             @php
                 $rawCompId = $componentService::componentIdFromKey($sectionKey);
@@ -1889,7 +2117,7 @@
                         @php $quickLinks = $footer['quick_links'] ?? []; @endphp
                         @foreach($quickLinks as $i => $link)
                         <div class="footer-link-row flex flex-wrap items-center gap-3" data-index="{{ $i }}">
-                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" value="{{ old("home_sections.footer.quick_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
+                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="{{ old("home_sections.footer.quick_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
                             <input type="text" name="home_sections[footer][quick_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.quick_links.{$i}.url", $link['url'] ?? '') }}" placeholder="/pad of https://...">
                             <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>
                         </div>
@@ -1920,7 +2148,7 @@
                     @php $supportLinks = $footer['support_links'] ?? []; @endphp
                     @foreach($supportLinks as $i => $link)
                     <div class="footer-link-row flex flex-wrap items-center gap-3" data-index="{{ $i }}">
-                        <input type="text" name="home_sections[footer][support_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" value="{{ old("home_sections.footer.support_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
+                        <input type="text" name="home_sections[footer][support_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="{{ old("home_sections.footer.support_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
                         <input type="text" name="home_sections[footer][support_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.support_links.{$i}.url", $link['url'] ?? '') }}" placeholder="/pad of https://...">
                         <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>
                     </div>
@@ -2565,7 +2793,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var div = document.createElement('div');
         div.className = 'footer-link-row flex flex-wrap items-center gap-3';
         div.setAttribute('data-index', index);
-        div.innerHTML = '<input type="text" name="' + prefix + '[' + index + '][label]" class="kt-input flex-1 min-w-[120px]" value="' + (label || '').replace(/"/g, '&quot;') + '" placeholder="Label">' +
+        div.innerHTML = '<input type="text" name="' + prefix + '[' + index + '][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="' + (label || '').replace(/"/g, '&quot;') + '" placeholder="Label">' +
             '<input type="text" name="' + prefix + '[' + index + '][url]" class="kt-input flex-1 min-w-[160px]" value="' + (url || '').replace(/"/g, '&quot;') + '" placeholder="/pad of https://...">' +
             '<button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>';
         return div;
@@ -2871,6 +3099,23 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var addBtn = document.getElementById('features-item-add');
         if (!container) return;
 
+        // Guard: als dezelfde Flowbite-editor per ongeluk dubbel in de DOM staat,
+        // verwijder de extra instantie zodat toolbar-teksten niet dubbel renderen.
+        function dedupeFlowbiteEditors(scope) {
+            var root = scope && scope.nodeType === 1 ? scope : container;
+            var seen = new Set();
+            root.querySelectorAll('[data-flowbite-wysiwyg]').forEach(function(wrapper) {
+                var editorId = wrapper.getAttribute('data-editor-id') || '';
+                if (!editorId) return;
+                if (seen.has(editorId)) {
+                    wrapper.remove();
+                    return;
+                }
+                seen.add(editorId);
+            });
+        }
+        dedupeFlowbiteEditors(container);
+
         function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder) {
             var tpl = document.getElementById('flowbite-wysiwyg-tpl');
             if (!tpl || !tpl.textContent) return '';
@@ -2957,6 +3202,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label><select name="home_sections[features][items][' + nextIndex + '][icon]" class="kt-input w-44 shrink-0 features-item-icon">' + iconOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">' + sizeOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align"><option value="left">Links</option><option value="center" selected>Midden</option><option value="right">Rechts</option></select></div></div>' +
                     '</div>';
                 container.appendChild(div);
+                dedupeFlowbiteEditors(container);
                 if (typeof window.initFlowbiteWysiwyg === 'function') window.initFlowbiteWysiwyg(div);
                 var newToggle = div.querySelector('.section-visibility-toggle');
                 if (newToggle) {
@@ -3755,6 +4001,119 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         });
 
+        function renumberNexaModuleFeatureRows(listEl) {
+            if (!listEl) return;
+            var sectionKey = listEl.getAttribute('data-section-key');
+            var itemIndex = listEl.getAttribute('data-item-index');
+            if (!sectionKey || itemIndex === null) return;
+            var rows = listEl.querySelectorAll('[data-feature-row]');
+            rows.forEach(function(row, idx) {
+                var input = row.querySelector('input[name*="[features]"]');
+                if (!input) return;
+                input.name = 'home_sections[' + sectionKey + '][items][' + itemIndex + '][features][' + idx + '][text]';
+            });
+        }
+
+        function getNexaModuleFeaturesListFromButton(btn) {
+            if (!btn) return null;
+            var scope = btn.closest('.border.border-border.rounded-lg.p-3.space-y-3') || btn.parentElement;
+            if (!scope) return null;
+            return scope.querySelector('[data-features-list]');
+        }
+
+        document.addEventListener('click', function(e) {
+            var addBtn = e.target.closest && e.target.closest('[data-feature-add]');
+            if (addBtn) {
+                e.preventDefault();
+                var sectionKey = addBtn.getAttribute('data-section-key');
+                var itemIndex = addBtn.getAttribute('data-item-index');
+                var listEl = getNexaModuleFeaturesListFromButton(addBtn);
+                if (!listEl || !sectionKey || itemIndex === null) return;
+                var nextIndex = listEl.querySelectorAll('[data-feature-row]').length;
+                var row = document.createElement('div');
+                row.className = 'flex items-center gap-2 nexa-feature-row';
+                row.setAttribute('data-feature-row', '1');
+                row.innerHTML = '' +
+                    '<span class="text-emerald-500 text-sm font-semibold shrink-0" title="Wordt met vinkje getoond op de website">✓</span>' +
+                    '<input type="text" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][items][' + itemIndex + '][features][' + nextIndex + '][text]" placeholder="Feature tekst">' +
+                    '<button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove" title="Feature verwijderen" aria-label="Feature verwijderen" data-feature-remove>' +
+                        '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>' +
+                    '</button>';
+                listEl.appendChild(row);
+                renumberNexaModuleFeatureRows(listEl);
+                var input = row.querySelector('input');
+                if (input) input.focus();
+                return;
+            }
+
+            var removeBtn = e.target.closest && e.target.closest('[data-feature-remove]');
+            if (removeBtn) {
+                e.preventDefault();
+                var rowEl = removeBtn.closest('[data-feature-row]');
+                var listEl = removeBtn.closest('[data-features-list]');
+                if (!rowEl || !listEl) return;
+                rowEl.remove();
+                if (!listEl.querySelector('[data-feature-row]')) {
+                    var sectionKey = listEl.getAttribute('data-section-key');
+                    var itemIndex = listEl.getAttribute('data-item-index');
+                    var row = document.createElement('div');
+                    row.className = 'flex items-center gap-2 nexa-feature-row';
+                    row.setAttribute('data-feature-row', '1');
+                    row.innerHTML = '' +
+                        '<span class="text-emerald-500 text-sm font-semibold shrink-0" title="Wordt met vinkje getoond op de website">✓</span>' +
+                        '<input type="text" class="kt-input w-full text-sm" placeholder="Feature tekst">' +
+                        '<button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove" title="Feature verwijderen" aria-label="Feature verwijderen" data-feature-remove>' +
+                            '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>' +
+                        '</button>';
+                    listEl.appendChild(row);
+                }
+                renumberNexaModuleFeatureRows(listEl);
+                return;
+            }
+        });
+
+        document.querySelectorAll('[data-features-list]').forEach(function(listEl) {
+            renumberNexaModuleFeatureRows(listEl);
+        });
+
+        function setNexaModuleIconPickerSelection(detailsEl, key, label, svgInner) {
+            if (!detailsEl) return;
+            var hidden = detailsEl.querySelector('input[data-nexa-module-icon-input="1"]');
+            if (hidden) hidden.value = key;
+            var labelEl = detailsEl.querySelector('.nexa-module-icon-summary-label');
+            if (labelEl) labelEl.textContent = label;
+            var keyEl = detailsEl.querySelector('.nexa-module-icon-summary-key');
+            if (keyEl) keyEl.textContent = key;
+            var preview = detailsEl.querySelector('.nexa-module-icon-summary-preview');
+            if (preview) {
+                preview.innerHTML = '' +
+                    '<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">' +
+                    (svgInner || '') +
+                    '</svg>';
+            }
+            detailsEl.querySelectorAll('.nexa-heroicon-option').forEach(function(btn) {
+                var pressed = btn.getAttribute('data-heroicon-key') === key;
+                btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+                btn.classList.toggle('border-primary', pressed);
+                btn.classList.toggle('bg-primary/5', pressed);
+                btn.classList.toggle('border-border', !pressed);
+                btn.classList.toggle('hover:bg-muted/40', !pressed);
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.nexa-heroicon-option') : null;
+            if (!btn) return;
+            e.preventDefault();
+            var detailsEl = btn.closest('.nexa-module-icon-details');
+            if (!detailsEl) return;
+            var key = btn.getAttribute('data-heroicon-key') || '';
+            var label = btn.getAttribute('data-heroicon-label') || key;
+            var svgInner = btn.getAttribute('data-heroicon-svg') || '';
+            setNexaModuleIconPickerSelection(detailsEl, key, label, svgInner);
+            detailsEl.open = false;
+        });
+
         // Bij submit: section_order uit DOM halen; ingeklapte secties verzamelen voor admin_collapsed
         var form = document.getElementById('website-page-form');
         if (form) {
@@ -3764,6 +4123,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var f = document.getElementById('section-order-fallback');
                 var collapsedInp = document.getElementById('admin-collapsed-input');
                 if (sortable && o) {
+                    document.querySelectorAll('[data-features-list]').forEach(function(listEl) {
+                        renumberNexaModuleFeatureRows(listEl);
+                    });
                     var order = [];
                     var collapsed = [];
                     [].slice.call(sortable.children).forEach(function(el) {
@@ -3798,6 +4160,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .tox .tox-edit-area__iframe { background: #1f2937 !important; }
     /* Home-sectie inklappen: body verbergen wanneer ingeklapt */
     .home-section-card--collapsed .home-section-card-body { display: none !important; }
+    /* NEXA modules overzicht: heroicon picker (details/summary) */
+    .nexa-module-icon-details > summary { list-style: none; }
+    .nexa-module-icon-details > summary::-webkit-details-marker { display: none; }
     /* Home-sectie kopjes + card body: duidelijke kleur per component */
     .home-section-header { border-left-width: 4px; border-radius: var(--radius, 0.375rem) var(--radius, 0.375rem) 0 0; }
     .home-section-header--hero { background-color: rgb(239 246 255); border-left-color: rgb(59 130 246); }

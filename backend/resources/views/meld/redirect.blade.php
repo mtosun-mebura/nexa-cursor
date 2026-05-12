@@ -14,7 +14,7 @@
     <div class="w-full max-w-md">
         <div class="mb-6 text-center">
             <a href="{{ url('/') }}" class="inline-block">
-                <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="NEXA" class="mx-auto h-10 w-auto">
+                <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="mx-auto h-10 w-auto">
             </a>
         </div>
         @include('partials.redirect-message')

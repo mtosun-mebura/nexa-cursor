@@ -7,6 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 class WebsitePage extends Model
 {
     /**
+     * Gereserveerde slug voor de marketing-landingspagina op het centrale domein (geen tenant).
+     * Niet bedoeld als publieke URL; alleen bewerkbaar via Admin → Welkom / website-pagina's.
+     */
+    public const CENTRAL_WELCOME_SLUG = 'nexa-centraal-welkom';
+
+    public static function isCentralMarketingWelcomeSlug(?string $slug): bool
+    {
+        return $slug !== null && $slug !== '' && strtolower($slug) === strtolower(self::CENTRAL_WELCOME_SLUG);
+    }
+
+    /**
      * Demo-pagina voor staging wanneer er geen actieve pagina's zijn.
      * Niet opgeslagen; getHomeSections() gebruikt de defaults van het thema.
      */
@@ -572,6 +583,18 @@ class WebsitePage extends Model
                         $raw = [];
                     }
                     $sections[$canonicalKey] = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig(array_replace_recursive($nexaTaxiBoekingsmoduleDefault, $raw));
+                } elseif ($sectionKey === 'component:website.nexa_modules_overview') {
+                    $raw = $stored[$sectionKey] ?? [];
+                    if (! is_array($raw)) {
+                        $raw = [];
+                    }
+                    $sections[$sectionKey] = $raw;
+                } else {
+                    $raw = $stored[$sectionKey] ?? [];
+                    if (! is_array($raw)) {
+                        $raw = [];
+                    }
+                    $sections[$sectionKey] = $raw;
                 }
 
                 continue;

@@ -49,7 +49,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.categories.update', $category) }}" method="POST">
+                    <form action="{{ route('admin.categories.update', $category) }}" method="POST" data-validate="true" novalidate>
                         @csrf
                         @method('PUT')
                         
@@ -200,5 +200,9 @@
     </div>
 </div>
 
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
 @endsection

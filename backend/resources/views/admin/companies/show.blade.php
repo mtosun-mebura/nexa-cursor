@@ -409,10 +409,34 @@
                         <a href="{{ route('admin.users.index', ['company' => $company->id]) }}" class="text-primary font-medium hover:underline">Gebruikers bekijken</a>
                     @endcan
                 </li>
+                @if(! empty($companyWebsiteDevPreviewUrl))
+                    <li class="flex flex-wrap items-center gap-3">
+                        <a href="{{ $companyWebsiteDevPreviewUrl }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
+                            Website openen (dev)
+                        </a>
+                        <span class="text-xs text-muted-foreground">
+                            Opent <code class="text-xs">{{ parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost' }}</code> met <code class="text-xs">{{ config('tenancy.dev_effective_host_query_param') }}={{ $companyWebsiteDevPreviewHost }}</code>.
+                        </span>
+                    </li>
+                @endif
                 @if(auth()->user()->hasRole('super-admin'))
                     <li class="flex flex-wrap items-center gap-2">
                         <span>Website-pagina's voor deze tenant beheren (zoals in wizard stap Website).</span>
                         <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">Naar website-pagina's</a>
+                    </li>
+                    <li class="flex flex-col gap-3 pt-2 border-t border-border mt-2">
+                        <span class="text-foreground font-medium text-sm">Export / import website (ZIP)</span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ route('admin.companies.website-bundle.export', $company) }}" class="kt-btn kt-btn-sm kt-btn-outline">
+                                Download website (ZIP)
+                            </a>
+                            <form method="post" action="{{ route('admin.companies.website-bundle.import', $company) }}" enctype="multipart/form-data" class="inline-flex flex-wrap items-center gap-2">
+                                @csrf
+                                <input type="file" name="bundle" accept=".zip,application/zip" required class="kt-input text-xs max-w-[240px] py-1">
+                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Import ZIP</button>
+                            </form>
+                        </div>
+                        <p class="text-xs text-muted-foreground mb-0">Volledige tenant-database-sync staat onder Configuraties → Omgeving-sync.</p>
                     </li>
                 @endif
             </ul>

@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -320,6 +320,7 @@
                                        class="kt-input @error('phone') border-destructive @enderror" 
                                        name="phone" 
                                        value="{{ old('phone', $company->phone) }}"
+                                       required
                                        pattern="(\+31|0)[1-9][0-9]{8}"
                                        placeholder="0612345678 of +31612345678"
                                        maxlength="13">
@@ -373,6 +374,7 @@
                                        class="kt-input @error('postal_code') border-destructive @enderror" 
                                        name="postal_code" 
                                        value="{{ old('postal_code', $company->postal_code) }}"
+                                       required
                                        pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
                                        placeholder="1234AB"
                                        maxlength="7"
@@ -393,6 +395,7 @@
                                        id="house_number"
                                        class="kt-input @error('house_number') border-destructive @enderror" 
                                        name="house_number" 
+                                       required
                                        value="{{ old('house_number', $company->house_number) }}">
                                 <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld wordt straat en plaats automatisch ingevuld.</div>
                                 @error('house_number')
@@ -412,6 +415,7 @@
                                        id="street"
                                        class="kt-input @error('street') border-destructive @enderror" 
                                        name="street" 
+                                       required
                                        value="{{ old('street', $company->street) }}"
                                        @if($hasAddress) readonly @endif>
                                 <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.</div>
@@ -429,6 +433,7 @@
                                        id="city"
                                        class="kt-input @error('city') border-destructive @enderror" 
                                        name="city" 
+                                       required
                                        value="{{ old('city', $company->city) }}"
                                        @if($hasAddress) readonly @endif>
                                 @error('city')
@@ -457,7 +462,7 @@
             </div>
 
             @can('edit-companies')
-            <div class="kt-card min-w-full" id="company-modules">
+            <div class="kt-card min-w-full @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">Modules voor deze tenant</h3>
                 </div>
@@ -465,6 +470,29 @@
                     Zelfde keuze als in de tenant-wizard (stap 4). Niet-geïnstalleerde of niet-actieve modules worden bij opslaan geïnstalleerd en geactiveerd waar mogelijk.
                 </p>
                 <input type="hidden" name="apply_module_sync" value="1">
+                @php
+                    $selectedModuleIds = [];
+                    $oldModuleIdsState = old('module_ids_state');
+                    if (is_string($oldModuleIdsState) && $oldModuleIdsState !== '') {
+                        $selectedModuleIds = collect(explode(',', $oldModuleIdsState))
+                            ->map(static fn($id) => (int) trim((string) $id))
+                            ->filter(static fn($id) => $id > 0)
+                            ->values()
+                            ->all();
+                    } elseif (old('module_ids') !== null) {
+                        $selectedModuleIds = collect((array) old('module_ids', []))
+                            ->map(static fn($id) => (int) $id)
+                            ->filter(static fn($id) => $id > 0)
+                            ->values()
+                            ->all();
+                    } else {
+                        $selectedModuleIds = $company->modules->pluck('id')
+                            ->map(static fn($id) => (int) $id)
+                            ->values()
+                            ->all();
+                    }
+                @endphp
+                <input type="hidden" name="module_ids_state" id="module_ids_state" value="{{ implode(',', $selectedModuleIds) }}">
                 @if(($allModules ?? collect())->isEmpty())
                     <div class="px-6 pb-6">
                         <p class="text-sm text-muted-foreground mb-0">Er zijn nog geen modules in de database. Registreer modules via <a href="{{ route('admin.modules.index') }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary/90">Modules</a>.</p>
@@ -474,19 +502,23 @@
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                             <thead>
                                 <tr>
-                                    <th class="w-12"></th>
+                                    <th class="w-16"></th>
                                     <th>Module</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($allModules as $mod)
-                                    @php
-                                        $attached = $company->modules->contains('id', $mod->id);
-                                    @endphp
                                     <tr>
                                         <td>
-                                            <input type="checkbox" class="kt-checkbox" name="module_ids[]" value="{{ $mod->id }}" {{ old('module_ids') !== null ? in_array((string) $mod->id, array_map('strval', (array) old('module_ids', [])), true) : ($attached ? 'checked' : '') }}>
+                                            <label class="kt-label flex items-center justify-center mb-0">
+                                                <input type="checkbox"
+                                                       class="kt-switch kt-switch-sm"
+                                                       data-checkbox-group="module_ids[]"
+                                                       name="module_ids[]"
+                                                       value="{{ $mod->id }}"
+                                                       {{ in_array((int) $mod->id, $selectedModuleIds, true) ? 'checked' : '' }}>
+                                            </label>
                                         </td>
                                         <td class="font-medium">{{ $mod->display_name }} <span class="text-muted-foreground text-xs">({{ $mod->name }})</span></td>
                                         <td>
@@ -503,6 +535,17 @@
                             </tbody>
                         </table>
                     </div>
+                    <div id="module-validation-wrapper" class="hidden px-6 pb-4">
+                        <div class="field-feedback text-xs text-destructive mt-1 whitespace-nowrap" data-field="module_ids[]">
+                            Selecteer minimaal één module.
+                        </div>
+                    </div>
+                    @error('module_ids')
+                        <div class="px-6 pb-4 text-xs text-destructive">{{ $message }}</div>
+                    @enderror
+                    @if($errors->has('module_ids.*'))
+                        <div class="px-6 pb-4 text-xs text-destructive">{{ $errors->first('module_ids.*') }}</div>
+                    @endif
                 @endif
             </div>
             @endcan
@@ -562,6 +605,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Contact address: postcode + huisnummer lookup on blur
@@ -598,6 +642,18 @@
                             streetInput.setAttribute('readonly', 'readonly');
                             cityInput.setAttribute('readonly', 'readonly');
                             if (countryInput) countryInput.setAttribute('readonly', 'readonly');
+
+                            // Als velden automatisch zijn ingevuld via postcodecheck:
+                            // direct als geldig markeren (groene vink) en foutmeldingen verbergen.
+                            var validator = postalCodeInput.closest('form')?._formValidator;
+                            [streetInput, cityInput, countryInput].forEach(function(field) {
+                                if (!field) return;
+                                field.dataset.userInteracted = 'true';
+                                field.dispatchEvent(new Event('input', { bubbles: true }));
+                                if (validator && typeof validator.validateField === 'function') {
+                                    validator.validateField(field, null, true);
+                                }
+                            });
                         } else {
                             streetInput.removeAttribute('readonly');
                             cityInput.removeAttribute('readonly');
@@ -643,6 +699,30 @@
             }
         })();
 
+        (function() {
+            var moduleCheckboxes = document.querySelectorAll('input[name="module_ids[]"]');
+            var moduleStateInput = document.getElementById('module_ids_state');
+            if (!moduleStateInput || moduleCheckboxes.length === 0) return;
+
+            function syncModuleState() {
+                var selected = Array.from(moduleCheckboxes)
+                    .filter(function(checkbox) { return checkbox.checked; })
+                    .map(function(checkbox) { return checkbox.value; });
+                moduleStateInput.value = selected.join(',');
+            }
+
+            moduleCheckboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', syncModuleState);
+            });
+
+            var form = moduleStateInput.closest('form');
+            if (form) {
+                form.addEventListener('submit', syncModuleState);
+            }
+
+            syncModuleState();
+        })();
+
         // Branch dropdown handling
         const branchSelect = document.getElementById('branch_select');
         const industryCustom = document.getElementById('industry_custom');
@@ -672,193 +752,7 @@
                 });
             }
         }
-    // Real-time validation for all form fields
-    const form = document.querySelector('form');
-    if (form) {
-        // KVK Number validation
-        const kvkInput = document.querySelector('input[name="kvk_number"]');
-        if (kvkInput) {
-            kvkInput.addEventListener('input', function() {
-                const value = this.value.replace(/\D/g, ''); // Remove non-digits
-                this.value = value;
-                validateKVK(this);
-            });
-            kvkInput.addEventListener('blur', function() {
-                validateKVK(this);
-            });
-        }
-        
-        // Phone validation
-        const phoneInput = document.querySelector('input[name="phone"]');
-        if (phoneInput) {
-            phoneInput.addEventListener('input', function() {
-                let value = this.value.replace(/\s/g, ''); // Remove spaces
-                // Auto-format: add +31 if starts with 0 and has 10 digits
-                if (value.startsWith('0') && value.length === 10) {
-                    value = '+31' + value.substring(1);
-                }
-                this.value = value;
-                validatePhone(this);
-            });
-            phoneInput.addEventListener('blur', function() {
-                validatePhone(this);
-            });
-        }
-        
-        // Postal code validation
-        const postalCodeInput = document.querySelector('input[name="postal_code"]');
-        if (postalCodeInput) {
-            postalCodeInput.addEventListener('input', function() {
-                let value = this.value.replace(/\s/g, '').toUpperCase(); // Remove spaces, uppercase
-                // Auto-format: add space after 4 digits
-                if (value.length > 4) {
-                    value = value.substring(0, 4) + ' ' + value.substring(4, 7);
-                }
-                this.value = value;
-                validatePostalCode(this);
-            });
-            postalCodeInput.addEventListener('blur', function() {
-                validatePostalCode(this);
-            });
-        }
-        
-        // Email validation
-        const emailInput = document.querySelector('input[type="email"]');
-        if (emailInput) {
-            emailInput.addEventListener('blur', function() {
-                validateEmail(this);
-            });
-        }
-        
-        // Website validation
-        const websiteInput = document.querySelector('input[name="website"]');
-        if (websiteInput) {
-            websiteInput.addEventListener('blur', function() {
-                validateWebsite(this);
-            });
-        }
-        
-        // Form submission validation
-        form.addEventListener('submit', function(e) {
-            let isValid = true;
-            
-            // Validate all required fields
-            const requiredFields = form.querySelectorAll('[required]');
-            requiredFields.forEach(field => {
-                if (!field.value.trim()) {
-                    isValid = false;
-                    field.classList.add('border-destructive');
-                } else {
-                    field.classList.remove('border-destructive');
-                }
-            });
-            
-            // Validate pattern fields
-            const patternFields = form.querySelectorAll('[pattern]');
-            patternFields.forEach(field => {
-                if (field.value && !validatePattern(field)) {
-                    isValid = false;
-                    field.classList.add('border-destructive');
-                } else if (field.value) {
-                    field.classList.remove('border-destructive');
-                }
-            });
-            
-            if (!isValid) {
-                e.preventDefault();
-                alert('Controleer de ingevulde gegevens. Sommige velden zijn ongeldig.');
-            }
-        });
-    }
-    
-    function validateKVK(input) {
-        const value = input.value.replace(/\D/g, '');
-        const errorDiv = document.getElementById('kvk_number_error');
-        
-        if (value && value.length !== 8) {
-            input.classList.add('border-destructive');
-            if (errorDiv) {
-                errorDiv.textContent = 'KVK nummer moet 8 cijfers bevatten.';
-                errorDiv.classList.remove('hidden');
-            }
-            return false;
-        } else {
-            input.classList.remove('border-destructive');
-            if (errorDiv) {
-                errorDiv.classList.add('hidden');
-            }
-            return true;
-        }
-    }
-    
-    function validatePhone(input) {
-        const value = input.value.replace(/\s/g, '');
-        const pattern = /^(\+31|0)[1-9][0-9]{8}$/;
-        const isValid = !value || pattern.test(value);
-        
-        if (!isValid && value) {
-            input.classList.add('border-destructive');
-        } else {
-            input.classList.remove('border-destructive');
-        }
-        
-        return isValid;
-    }
-    
-    function validatePostalCode(input) {
-        const value = input.value.replace(/\s/g, '').toUpperCase();
-        const pattern = /^[1-9][0-9]{3}[A-Z]{2}$/;
-        const isValid = !value || pattern.test(value);
-        
-        if (!isValid && value) {
-            input.classList.add('border-destructive');
-        } else {
-            input.classList.remove('border-destructive');
-        }
-        
-        return isValid;
-    }
-    
-    function validateEmail(input) {
-        const value = input.value.trim();
-        const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const isValid = !value || pattern.test(value);
-        
-        if (!isValid && value) {
-            input.classList.add('border-destructive');
-        } else {
-            input.classList.remove('border-destructive');
-        }
-        
-        return isValid;
-    }
-    
-    function validateWebsite(input) {
-        const value = input.value.trim();
-        if (!value) return true;
-        
-        try {
-            const url = new URL(value);
-            const isValid = url.protocol === 'http:' || url.protocol === 'https:';
-            
-            if (!isValid) {
-                input.classList.add('border-destructive');
-            } else {
-                input.classList.remove('border-destructive');
-            }
-            
-            return isValid;
-        } catch (e) {
-            input.classList.add('border-destructive');
-            return false;
-        }
-    }
-    
-    function validatePattern(input) {
-        const pattern = new RegExp(input.getAttribute('pattern'));
-        const value = input.value.replace(/\s/g, ''); // Remove spaces for validation
-        return pattern.test(value);
-    }
+        // Live inline validatie verloopt via assets/js/form-validation.js (zelfde patroon als admin/users/create).
 });
 </script>
 @endpush

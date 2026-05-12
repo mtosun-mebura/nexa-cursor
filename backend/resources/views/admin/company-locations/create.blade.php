@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.companies.locations.store', $company) }}" method="POST">
+    <form action="{{ route('admin.companies.locations.store', $company) }}" method="POST" data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -535,5 +535,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </style>
 @endpush
 
-@endsection
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
+@endsection

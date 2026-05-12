@@ -10,6 +10,7 @@ use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -27,6 +28,7 @@ class WebsitePageController extends Controller
         'jobs', 'dashboard', 'profile', 'matches', 'agenda', 'help', 'privacy', 'terms',
         'vacature-matching', 'favorites', 'verify-email', 'admin', 'storage', 'file',
         'demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7', 'demo8', 'demo9', 'demo10',
+        \App\Models\WebsitePage::CENTRAL_WELCOME_SLUG,
     ];
 
     public function __construct(
@@ -76,6 +78,14 @@ class WebsitePageController extends Controller
     /**
      * Toon een pagina op basis van slug (custom of module).
      */
+    /**
+     * Centrale NEXA-welkom (website builder), alleen bedoeld voor route / op niet-tenant hosts.
+     */
+    public function showCentralWelcome(WebsitePage $page): View
+    {
+        return $this->renderPage($page);
+    }
+
     public function showBySlug(string $slug): View
     {
         if (in_array(strtolower($slug), self::RESERVED_SLUGS, true)) {
@@ -112,6 +122,10 @@ class WebsitePageController extends Controller
         if ($isHomePage && $isSkillmatchingModule) {
             $rotationKey = floor(now()->timestamp / (2 * 3600));
             $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () {
+                if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+                    return collect();
+                }
+
                 return Vacancy::with(['company', 'category'])
                     ->where('is_active', true)
                     ->where(function ($q) {

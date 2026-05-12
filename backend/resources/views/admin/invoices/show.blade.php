@@ -40,7 +40,7 @@
                         <!-- Logo and Header Info -->
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-12 w-auto">
+                                <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-12 w-auto">
                             </div>
                             <div class="text-right ml-auto pl-8">
                                 <div class="mb-2">

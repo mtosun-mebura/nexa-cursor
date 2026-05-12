@@ -12,6 +12,7 @@ use App\Services\EnvService;
 use App\Services\ModuleManager;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AdminCompanyController extends Controller
 {
@@ -281,7 +282,33 @@ class AdminCompanyController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
-        return view('admin.companies.show', compact('company', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
+        $companyWebsiteDevPreviewUrl = null;
+        $companyWebsiteDevPreviewHost = null;
+        $devTenantHostQueryParam = (string) config('tenancy.dev_effective_host_query_param', '');
+        if (! app()->isProduction() && $devTenantHostQueryParam !== '') {
+            $primaryDomain = $company->domains->firstWhere('is_primary', true);
+            $previewHost = $primaryDomain?->host ?? $company->domains->sortBy('id')->first()?->host;
+            if ($previewHost !== null && $previewHost !== '') {
+                $companyWebsiteDevPreviewHost = $previewHost;
+                $companyWebsiteDevPreviewUrl = url('/').'?'.http_build_query(
+                    [$devTenantHostQueryParam => $previewHost],
+                    '',
+                    '&',
+                    PHP_QUERY_RFC3986
+                );
+            }
+        }
+
+        return view('admin.companies.show', compact(
+            'company',
+            'googleMapsApiKey',
+            'googleMapsZoom',
+            'googleMapsCenterLat',
+            'googleMapsCenterLng',
+            'googleMapsType',
+            'companyWebsiteDevPreviewUrl',
+            'companyWebsiteDevPreviewHost'
+        ));
     }
 
     public function edit(Company $company)
@@ -348,7 +375,7 @@ class AdminCompanyController extends Controller
             'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
-            'module_ids' => 'nullable|array',
+            'module_ids' => [Rule::requiredIf(ModuleModel::query()->exists()), 'array', 'min:1'],
             'module_ids.*' => 'integer|exists:modules,id',
             'apply_module_sync' => 'nullable|boolean',
         ], [
@@ -368,6 +395,8 @@ class AdminCompanyController extends Controller
             'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
             'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
             'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
+            'module_ids.required' => 'Selecteer minimaal één module.',
+            'module_ids.min' => 'Selecteer minimaal één module.',
         ]);
 
         $data = $request->all();

@@ -47,6 +47,16 @@ class AdminWebsitePageController extends Controller
             $tenantCompanyId,
             $tenantCompanyId !== null
         );
+        // Centrale welkompagina is de app-start/fallback (hoofddomein zonder tenant) en hoort niet in de algemene pagina-lijst.
+        $pages = $pages->reject(function ($page) {
+            if (! $page instanceof WebsitePage) {
+                return false;
+            }
+
+            return WebsitePage::isCentralMarketingWelcomeSlug((string) $page->slug)
+                && ($page->module_name === null || $page->module_name === '')
+                && (! isset($page->company_id) || $page->company_id === null || $page->company_id === '');
+        })->values();
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
         $wizardIndexQuery = $this->websitePagesIndexQuery($request);
@@ -80,6 +90,7 @@ class AdminWebsitePageController extends Controller
     public function store(Request $request)
     {
         $this->ensureSuperAdmin();
+        $this->hydrateWebsitePageWizardParamsFromSession($request);
         $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
         $connection = null;
         if ($moduleName !== null && $this->moduleDb->supportsModuleDatabases()) {
@@ -223,6 +234,9 @@ class AdminWebsitePageController extends Controller
         $moduleNameForComponents = $this->moduleNameForWebsiteComponents($website_page->module_name, $request);
         $websiteTenantContext = $this->buildWebsitePageCompanyContext($request, $website_page);
 
+        $isCentralMarketingWelcome = WebsitePage::isCentralMarketingWelcomeSlug((string) $website_page->slug)
+            && ($website_page->module_name === null || $website_page->module_name === '');
+
         return view('admin.website-pages.edit', [
             'page' => $website_page,
             'installedModules' => $installedModules,
@@ -237,6 +251,7 @@ class AdminWebsitePageController extends Controller
             'wizardIndexQuery' => $wizardIndexQuery,
             'moduleNameForComponents' => $moduleNameForComponents,
             'websiteTenantContext' => $websiteTenantContext,
+            'isCentralMarketingWelcome' => $isCentralMarketingWelcome,
         ]);
     }
 
@@ -591,6 +606,7 @@ class AdminWebsitePageController extends Controller
     public function update(Request $request, WebsitePage $website_page)
     {
         $this->ensureSuperAdmin();
+        $this->hydrateWebsitePageWizardParamsFromSession($request);
         $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
         // Zelfde DB als route-binding (module-DB vs hoofddatabase). Request-module_name kan afwijken;
         // dan gold hasColumn/validatie voor de verkeerde connection en werd company_id niet opgeslagen.
@@ -644,6 +660,15 @@ class AdminWebsitePageController extends Controller
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         $data['module_name'] = $moduleName;
+        if (WebsitePage::isCentralMarketingWelcomeSlug((string) $website_page->slug)
+            && ($website_page->module_name === null || $website_page->module_name === '')) {
+            $data['slug'] = WebsitePage::CENTRAL_WELCOME_SLUG;
+            $data['module_name'] = null;
+            $data['page_type'] = 'custom';
+            if (\Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($table, 'company_id')) {
+                $data['company_id'] = null;
+            }
+        }
         $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         // home_sections niet meenemen in validate() om BadRequestException te voorkomen (ParameterBag verwacht array;
         // bij PUT kan de structuur anders zijn). We halen het veilig op en normaliseren zelf.
@@ -1023,6 +1048,83 @@ class AdminWebsitePageController extends Controller
         return app(NexaTaxiBookingPricingService::class)->mergeSectionConfig($raw);
     }
 
+    private function normalizeNexaModulesOverviewSection(array $raw): array
+    {
+        $toPlainTextLines = static function ($value): array {
+            $text = trim((string) $value);
+            if ($text === '') {
+                return [];
+            }
+            $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+            $text = preg_replace('/<\/p>/i', "\n", $text);
+            $text = preg_replace('/<\/div>/i', "\n", $text);
+            $text = strip_tags((string) $text);
+            $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $text = preg_replace("/\r\n|\r/u", "\n", $text);
+            return array_values(array_filter(array_map('trim', explode("\n", (string) $text)), fn ($v) => $v !== ''));
+        };
+
+        $allowedHeroiconKeys = array_keys(config('heroicons.icons', []));
+        $resolveNexaModuleIconKey = static function (?string $rawIcon) use ($allowedHeroiconKeys): string {
+            $icon = trim((string) $rawIcon);
+            $legacyMap = [
+                'users' => 'user-group',
+                'car' => 'truck',
+                'wrench' => 'cog-6-tooth',
+                'bulb' => 'light-bulb',
+                'lightning' => 'bolt',
+            ];
+            if ($icon !== '' && isset($legacyMap[$icon])) {
+                $icon = $legacyMap[$icon];
+            }
+            if ($icon !== '' && in_array($icon, $allowedHeroiconKeys, true)) {
+                return $icon;
+            }
+
+            return 'user-group';
+        };
+
+        $items = isset($raw['items']) && is_array($raw['items']) ? array_values($raw['items']) : [];
+        $normalizedItems = [];
+        foreach ($items as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $features = [];
+            if (isset($item['features']) && is_array($item['features'])) {
+                foreach (array_values($item['features']) as $featureRow) {
+                    if (! is_array($featureRow)) {
+                        continue;
+                    }
+                    $featureText = trim((string) ($featureRow['text'] ?? ''));
+                    if ($featureText !== '') {
+                        $features[] = $featureText;
+                    }
+                }
+            }
+            if (empty($features)) {
+                // Backward compatibility for older form structure.
+                $features = $toPlainTextLines($item['features_text'] ?? '');
+            }
+            $description = trim(strip_tags((string) ($item['description'] ?? '')));
+            $normalizedItems[] = [
+                'name' => trim((string) ($item['name'] ?? '')),
+                'description' => $description,
+                'features' => $features,
+                'badge' => trim((string) ($item['badge'] ?? '')),
+                'badge_variant' => in_array(($item['badge_variant'] ?? ''), ['available', 'soon'], true) ? $item['badge_variant'] : 'available',
+                'icon' => $resolveNexaModuleIconKey(isset($item['icon']) ? (string) $item['icon'] : null),
+            ];
+        }
+
+        return array_filter([
+            'eyebrow' => trim((string) ($raw['eyebrow'] ?? '')),
+            'title' => trim((string) ($raw['title'] ?? '')),
+            'subtitle' => trim((string) ($raw['subtitle'] ?? '')),
+            'items' => array_values($normalizedItems),
+        ], fn ($value) => $value !== '' && $value !== [] && $value !== null);
+    }
+
     /**
      * Normaliseer home_sections uit request; ondersteunt dynamische sectie-keys (hero_2, features_2, etc.).
      * Bij themeSlug wordt defaultHomeSectionsForTheme (of bij forNonHome: defaultPageSectionsForNonHome) gebruikt.
@@ -1062,8 +1164,12 @@ class AdminWebsitePageController extends Controller
                     $sections[$sectionKey] = $this->normalizeNexaTaxiBoekingsmoduleSection(
                         $input[$sectionKey] ?? $input['component:taxiroyaal.boekingsmodule'] ?? []
                     );
+                } elseif ($sectionKey === 'component:website.nexa_modules_overview') {
+                    $sections[$sectionKey] = $this->normalizeNexaModulesOverviewSection(
+                        $input[$sectionKey] ?? []
+                    );
                 } else {
-                    $sections[$sectionKey] = [];
+                    $sections[$sectionKey] = is_array($input[$sectionKey] ?? null) ? $input[$sectionKey] : [];
                 }
 
                 continue;
@@ -1654,15 +1760,19 @@ class AdminWebsitePageController extends Controller
                 return (int) $cid;
             }
         }
-        $implicit = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
-        if ($implicit !== null) {
-            return $implicit;
+        $wiz = $this->resolveExplicitWizardCompanyId($request);
+        if ($wiz !== null) {
+            return $wiz;
         }
         $raw = $request->input('company_id');
         if ($raw !== null && $raw !== '' && is_numeric($raw)) {
             $id = (int) $raw;
 
             return Company::whereKey($id)->exists() ? $id : null;
+        }
+        $implicit = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        if ($implicit !== null) {
+            return $implicit;
         }
 
         return null;
@@ -1742,13 +1852,9 @@ class AdminWebsitePageController extends Controller
      */
     private function resolveTenantCompanyIdForWebsitePagesList(Request $request): ?int
     {
-        if ($request->boolean('from_wizard')) {
-            $wizardCompany = $request->input('wizard_company');
-            if ($wizardCompany !== null && $wizardCompany !== '' && is_numeric($wizardCompany)) {
-                $id = (int) $wizardCompany;
-
-                return Company::whereKey($id)->exists() ? $id : null;
-            }
+        $wizardListId = $this->resolveExplicitWizardCompanyId($request);
+        if ($wizardListId !== null) {
+            return $wizardListId;
         }
         $tc = $request->input('tenant_company');
         if ($tc !== null && $tc !== '' && is_numeric($tc)) {
@@ -1774,7 +1880,13 @@ class AdminWebsitePageController extends Controller
     private function websitePagesIndexQuery(Request $request): array
     {
         $q = [];
-        if ($request->boolean('from_wizard')) {
+        $fwRaw = $request->input('from_wizard');
+        $fromWizardFlag = $request->boolean('from_wizard')
+            || $fwRaw === '1'
+            || $fwRaw === 1
+            || $fwRaw === true;
+
+        if ($fromWizardFlag) {
             $companyId = $request->input('wizard_company');
             if ($companyId !== null && $companyId !== '' && is_numeric($companyId)) {
                 $q = [
@@ -1817,12 +1929,49 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * Zorg dat POST/PUT wizard_company/from_wizard krijgt als die velden door formulier-limiet of navigatie ontbreken
+     * maar de tenant-onboarding-sessie nog actief is.
+     */
+    private function hydrateWebsitePageWizardParamsFromSession(Request $request): void
+    {
+        if ($request->filled('wizard_company') && is_numeric($request->input('wizard_company'))) {
+            return;
+        }
+        $sid = session(AdminCompanyWizardController::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
+        if ($sid === null || $sid === '' || ! is_numeric($sid) || ! Company::whereKey((int) $sid)->exists()) {
+            return;
+        }
+        $request->merge([
+            'from_wizard' => '1',
+            'wizard_company' => (string) (int) $sid,
+            'wizard_step' => (string) max(1, min(7, (int) $request->input('wizard_step', 6))),
+        ]);
+    }
+
+    /**
+     * Of `company_id` op de centrale website_pages-tabel bestaat (public). Module-connecties geven vaak false
+     * terug voor Schema::hasColumn terwijl rijen wél in public.website_pages staan — merge dan niet overslaan.
+     */
+    private function centralWebsitePagesHasCompanyIdColumn(): bool
+    {
+        $table = (new WebsitePage)->getTable();
+
+        return Schema::connection(config('database.default'))->hasColumn($table, 'company_id');
+    }
+
+    /**
      * Koppel website_pages aan een bedrijf (tenant) wanneer de kolom bestaat: wizard, geselecteerde tenant of user.company_id.
      */
     private function mergeCompanyIdIntoWebsitePageSaveData(array &$data, Request $request, string $connectionForSchema, ?WebsitePage $existing): void
     {
-        $table = (new WebsitePage)->getTable();
-        if (! Schema::connection($connectionForSchema)->hasColumn($table, 'company_id')) {
+        if (! $this->centralWebsitePagesHasCompanyIdColumn()) {
+            return;
+        }
+        if ($existing !== null
+            && WebsitePage::isCentralMarketingWelcomeSlug((string) $existing->slug)
+            && ($existing->module_name === null || $existing->module_name === '')) {
+            $data['company_id'] = null;
+
             return;
         }
         $resolved = $this->resolveWebsitePageCompanyIdForPersistence($request, $existing);
@@ -1839,30 +1988,61 @@ class AdminWebsitePageController extends Controller
     /**
      * Tenant/wizard/sessie: welk bedrijf impliciet actief is (zonder formulier-dropdown).
      */
+    /**
+     * Alleen tenant/sidebar (normaal gebruik). Geen wizard_company — die gaat via resolveExplicitWizardCompanyId().
+     */
     private function resolveWebsitePageCompanyIdFromImplicitContext(Request $request): ?int
     {
-        $wq = $this->websitePagesIndexQuery($request);
-        if (isset($wq['wizard_company'])) {
-            $id = (int) $wq['wizard_company'];
+        if (auth()->check() && auth()->user()->hasRole('super-admin')) {
+            $tc = $request->input('tenant_company');
+            if ($tc !== null && $tc !== '' && is_numeric($tc)) {
+                $id = (int) $tc;
 
-            return Company::whereKey($id)->exists() ? $id : null;
-        }
-        if (isset($wq['tenant_company'])) {
-            $id = (int) $wq['tenant_company'];
+                return Company::whereKey($id)->exists() ? $id : null;
+            }
+            $st = session('selected_tenant');
+            if ($st !== null && $st !== '') {
+                $id = (int) $st;
 
-            return Company::whereKey($id)->exists() ? $id : null;
-        }
-        $st = session('selected_tenant');
-        if ($st !== null && $st !== '') {
-            $id = (int) $st;
-
-            return Company::whereKey($id)->exists() ? $id : null;
+                return Company::whereKey($id)->exists() ? $id : null;
+            }
         }
         $user = auth()->user();
         if ($user && $user->company_id) {
             $id = (int) $user->company_id;
 
             return Company::whereKey($id)->exists() ? $id : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Wizard-flow: company_id = wizard_company uit URL/hidden velden (niet de sidebar-tenant).
+     */
+    private function resolveExplicitWizardCompanyId(Request $request): ?int
+    {
+        $raw = $request->input('wizard_company');
+        if ($raw === null || $raw === '' || ! is_numeric($raw)) {
+            return null;
+        }
+        $id = (int) $raw;
+        if (! Company::whereKey($id)->exists()) {
+            return null;
+        }
+
+        $fw = $request->input('from_wizard');
+        $fromWizard = $request->boolean('from_wizard')
+            || $fw === '1'
+            || $fw === 1
+            || $fw === true;
+
+        $hasWizardStep = $request->has('wizard_step')
+            && $request->input('wizard_step') !== null
+            && $request->input('wizard_step') !== '';
+
+        if ($fromWizard || $hasWizardStep) {
+            return $id;
         }
 
         return null;
@@ -1879,15 +2059,27 @@ class AdminWebsitePageController extends Controller
                 return (int) $cid;
             }
         }
+        if ($existing !== null
+            && WebsitePage::isCentralMarketingWelcomeSlug((string) $existing->slug)
+            && ($existing->module_name === null || $existing->module_name === '')) {
+            return null;
+        }
+
+        $wizardId = $this->resolveExplicitWizardCompanyId($request);
+        if ($wizardId !== null) {
+            return $wizardId;
+        }
+
+        $rawCompany = $request->input('company_id');
+        if ($rawCompany !== null && $rawCompany !== '' && is_numeric($rawCompany)) {
+            $id = (int) $rawCompany;
+
+            return Company::whereKey($id)->exists() ? $id : null;
+        }
+
         $implicit = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
         if ($implicit !== null) {
             return $implicit;
-        }
-        $raw = $request->input('company_id');
-        if ($raw !== null && $raw !== '' && is_numeric($raw)) {
-            $id = (int) $raw;
-
-            return Company::whereKey($id)->exists() ? $id : null;
         }
 
         return null;
@@ -1900,17 +2092,20 @@ class AdminWebsitePageController extends Controller
      */
     private function websitePageCompanyIdValidationRules(Request $request, ?WebsitePage $existing, ?string $moduleConnection): array
     {
-        $conn = $existing !== null
-            ? $existing->getConnection()->getName()
-            : ($moduleConnection ?? config('database.default'));
-        $table = (new WebsitePage)->getTable();
-        if (! Schema::connection($conn)->hasColumn($table, 'company_id')) {
+        if (! $this->centralWebsitePagesHasCompanyIdColumn()) {
             return [];
         }
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
             return [];
         }
-        if ($this->resolveWebsitePageCompanyIdFromImplicitContext($request) !== null) {
+        if ($this->resolveExplicitWizardCompanyId($request) !== null
+            || $this->resolveWebsitePageCompanyIdFromImplicitContext($request) !== null
+            || ($request->filled('company_id') && is_numeric($request->input('company_id')))) {
+            return ['company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')]];
+        }
+        if ($existing !== null
+            && WebsitePage::isCentralMarketingWelcomeSlug((string) $existing->slug)
+            && ($existing->module_name === null || $existing->module_name === '')) {
             return ['company_id' => ['nullable', 'integer', Rule::exists('companies', 'id')]];
         }
         if ($existing !== null) {
@@ -1936,10 +2131,11 @@ class AdminWebsitePageController extends Controller
         $storedId = $page !== null ? $page->getAttribute('company_id') : null;
         $storedId = ($storedId !== null && $storedId !== '') ? (int) $storedId : null;
         $storedCompany = $storedId ? Company::query()->find($storedId) : null;
-        $implicitId = $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        $implicitId = $this->resolveExplicitWizardCompanyId($request)
+            ?? $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
         $implicitCompany = $implicitId ? Company::query()->find($implicitId) : null;
-        $conn = $page !== null ? $page->getConnection()->getName() : config('database.default');
-        $hasColumn = Schema::connection($conn)->hasColumn((new WebsitePage)->getTable(), 'company_id');
+        $hasColumn = $this->centralWebsitePagesHasCompanyIdColumn()
+            || ($page !== null && Schema::connection($page->getConnection()->getName())->hasColumn((new WebsitePage)->getTable(), 'company_id'));
         $visible = $isSuperAdmin && $hasColumn;
         $showCompanyDropdown = $visible && $storedId === null && $implicitId === null;
         $companies = ($visible && $storedId === null)
