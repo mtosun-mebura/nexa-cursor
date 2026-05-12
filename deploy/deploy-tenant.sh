@@ -126,6 +126,8 @@ fi
 cd "$TENANT_DIR"
 
 _require_docker_socket
+# Vóór elke `compose exec` / `compose run` (chown): anders faalt mount ./.env als dat een map is.
+_ensure_compose_env_mount
 
 _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
@@ -174,6 +176,7 @@ _fix_backend_tree_for_git_reset() {
   fi
 
   echo "ERROR: Kon storage/bootstrap/cache niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
+  echo "Als compose run faalde met mount .env: $(printf %q "$TENANT_DIR/.env") moet een bestand zijn, geen map (rm -rf + cp .env.example .env)." >&2
   echo "TIP: image bouwen: docker compose -f $COMPOSE_FILE build ${LARAVEL_SERVICE}" >&2
   echo "TIP: bij Permission denied op de socket eerst: usermod -aG docker $(id -un) + runner herstarten." >&2
   exit 1
@@ -229,8 +232,8 @@ else
 fi
 
 echo "==> Docker Compose pull/build/up"
-_ensure_compose_env_mount
 cd "$TENANT_DIR"
+_ensure_compose_env_mount
 _compose pull || true
 _docker_safe_prune
 _compose build --pull
