@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Nieuwe Nexa-installatie: alleen de backend-container (Docker), database volgens
-# repo-root .env (bijv. DB_HOST=192.168.178.249 op je netwerk).
+# repo-root .env (DB_HOST, DB_DATABASE, … naar jouw omgeving).
 #
 # Vereisten: Docker met Compose-plugin; openssl; PostgreSQL bereikbaar vanaf de container.
 #

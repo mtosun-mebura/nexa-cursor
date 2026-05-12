@@ -3,6 +3,10 @@
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
 # CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
 #
+# Artisan / Composer: draai in de backend-container, niet met `php artisan` op de host in
+# TENANT_DIR/backend — daar staat geen vendor/ (die zit in de image onder /var/www/html).
+# Voorbeeld: cd TENANT_DIR && docker compose -f docker-compose.prod.yml exec backend php artisan …
+#
 # DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Voor git reset: storage/bootstrap/cache
 # worden vóór fetch teruggechown (container root of sudo), anders blijven www-data-bestanden
 # staan en faalt "unable to unlink".
@@ -217,3 +221,7 @@ _compose exec -T "$LARAVEL_SERVICE" php artisan view:clear
 _compose exec -T "$LARAVEL_SERVICE" php artisan optimize
 
 echo "==> Deploy klaar ($(date -Iseconds))"
+echo ""
+echo "TIP: Geen 'php artisan' op de host in ${BACKEND_DIR} (geen vendor daar)."
+echo "    Voorbeeld: cd $(printf %q "$TENANT_DIR") && docker compose -f ${COMPOSE_FILE} exec -T ${LARAVEL_SERVICE} php artisan config:clear"
+echo "    (zonder -T voor een TTY: laat -T weg)"

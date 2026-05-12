@@ -14,7 +14,7 @@ services:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8085
-      # DB_* komt uit de gemounte ./.env (o.a. DB_HOST=192.168.178.249) — niet hier overschrijven.
+      # DB_* komt uit de gemounte ./.env — niet hier overschrijven.
 
       # N8N - Externe service
       N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
