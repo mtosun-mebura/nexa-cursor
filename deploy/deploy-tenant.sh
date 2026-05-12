@@ -15,6 +15,9 @@
 # compose: bij voorkeur 'docker compose' (v2), anders docker-compose v1. Laravel service: backend.
 # Opruiming vóór build: alleen veilige prune (builder + dangling images + gestopte containers), géén volumes.
 #
+# Bind-mount TENANT_DIR/.env → container /var/www/html/.env vereist een gewoon bestand op de host.
+# Als .env een map is (vaak door eerdere mislukte mount), faalt runc met "not a directory".
+#
 set -euo pipefail
 
 # --- Config per tenant ---
@@ -72,6 +75,30 @@ _docker_safe_prune() {
   docker builder prune -f 2>/dev/null || true
   docker image prune -f 2>/dev/null || true
   docker container prune -f 2>/dev/null || true
+}
+
+# docker-compose.prod: ./.env moet een regulier bestand zijn (geen directory).
+_ensure_compose_env_mount() {
+  local env_path="$TENANT_DIR/.env"
+  if [[ -d "$env_path" ]]; then
+    echo "ERROR: $env_path is een map, geen bestand. Docker kan die niet bind-mounten op /var/www/html/.env." >&2
+    echo "  (runc: not a directory / directory onto file)" >&2
+    echo "Oplossing op de server (inhoud map meestal leeg of fout):" >&2
+    echo "  rm -rf $(printf %q "$env_path")" >&2
+    if [[ -f "$TENANT_DIR/.env.example" ]]; then
+      echo "  cp $(printf %q "$TENANT_DIR/.env.example") $(printf %q "$env_path")" >&2
+    fi
+    echo "  # vul APP_KEY, DB_*, secrets; daarna deploy opnieuw." >&2
+    exit 1
+  fi
+  if [[ ! -f "$env_path" ]]; then
+    echo "ERROR: Ontbrekend bestand voor compose-mount: $(printf %q "$env_path")" >&2
+    if [[ -f "$TENANT_DIR/.env.example" ]]; then
+      echo "Maak aan met: cp $(printf %q "$TENANT_DIR/.env.example") $(printf %q "$env_path")" >&2
+    fi
+    echo "Vul daarna secrets; in CI kun je .env vóór deploy-tenant.sh schrijven." >&2
+    exit 1
+  fi
 }
 
 if [[ "$(id -un)" == "root" ]]; then
@@ -202,6 +229,7 @@ else
 fi
 
 echo "==> Docker Compose pull/build/up"
+_ensure_compose_env_mount
 cd "$TENANT_DIR"
 _compose pull || true
 _docker_safe_prune

@@ -32,7 +32,8 @@ services:
       - ./backend/storage:/var/www/html/storage
       - ./backend/bootstrap/cache:/var/www/html/bootstrap/cache
       - ./backend/public/build:/var/www/html/public/build
-      - ./.env:/var/www/html/.env  # .env file uit root naar container
+      # Hostpad moet een bestand zijn (geen map). Ontbrekend pad → soms map .env → runc-mountfout.
+      - ./.env:/var/www/html/.env
     restart: unless-stopped
 
     healthcheck:
