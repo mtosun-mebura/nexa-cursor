@@ -6,52 +6,57 @@ on:
       - nexa-saas
   workflow_dispatch:
 
-# App op de host: git + docker in TENANT_DIR (standaard in deploy/deploy-tenant.sh).
+# Geen actions/checkout: de app staat in TENANT_DIR (git pull in deploy-tenant.sh).
+# Checkout onder /home/mtosun/actions-runner/_work faalt vaak als de runner-service
+# niet als mtosun draait ("Access to the path /home is denied").
 jobs:
   deploy:
     runs-on: self-hosted
     timeout-minutes: 90
     env:
+      TENANT_DIR: /home/nexasuite.nl/apps/saas/current
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
       DEBUG_DEPLOY: ${{ vars.DEBUG_DEPLOY }}
 
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Preflight (runner / sudo / docker)
+      - name: Preflight (runner / sudo / docker / deploy-script)
         run: |
           set -euxo pipefail
           TARGET="${DEPLOY_USER:-mtosun}"
           U="$(id -un)"
+          SCRIPT="${TENANT_DIR}/deploy/deploy-tenant.sh"
+
           echo "=== Preflight ==="
           echo "Host: $(hostname)"
           echo "Runner user: $U (groups: $(id -Gn))"
           echo "Deploy target user: $TARGET"
-          echo "Workspace: ${GITHUB_WORKSPACE:-<unset>}"
-          test -f "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
-          echo "deploy-tenant.sh: OK ($(wc -c < "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh") bytes)"
+          echo "TENANT_DIR: $TENANT_DIR"
+          echo "Deploy-script: $SCRIPT"
+
+          if [[ ! -d "$TENANT_DIR/.git" ]]; then
+            echo "ERROR: Geen git-repo in TENANT_DIR" >&2
+            exit 1
+          fi
+
+          if [[ ! -f "$SCRIPT" ]]; then
+            echo "ERROR: $SCRIPT ontbreekt. Eerst eenmalig repo klonen in TENANT_DIR." >&2
+            exit 1
+          fi
+          echo "deploy-tenant.sh: OK ($(wc -c < "$SCRIPT") bytes)"
 
           if docker info >/dev/null 2>&1; then
             echo "Docker (as $U): OK"
           else
-            echo "Docker (as $U): NIET bereikbaar — deploy faalt straks als $TARGET ook geen socket heeft"
+            echo "Docker (as $U): niet bereikbaar — deploy-user $TARGET moet docker-groep hebben"
           fi
 
           if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
-            echo "Sudo: niet nodig (draait al als $U)"
+            echo "Sudo: niet nodig"
           elif sudo -n -u "$TARGET" true; then
             echo "Sudo naar $TARGET: OK"
           else
-            echo "Sudo naar $TARGET: MISLUKT (passwordless sudo ontbreekt?)"
-            echo "Zie deploy/github-runner-sudoers.example of zet EXTRA_DEPLOY_USERS voor $U"
-          fi
-
-          TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
-          if [[ -d "$TENANT_DIR/.git" ]]; then
-            echo "TENANT_DIR git: OK ($TENANT_DIR)"
-          else
-            echo "TENANT_DIR git: ontbreekt ($TENANT_DIR) — deploy-tenant.sh stopt hierop"
+            echo "Sudo naar $TARGET: MISLUKT — zie deploy/github-runner-sudoers.example"
           fi
 
       - name: Deploy
@@ -59,44 +64,23 @@ jobs:
           set -euxo pipefail
           TARGET="${DEPLOY_USER:-mtosun}"
           U="$(id -un)"
-          DEPLOY_SRC="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
-          DEPLOY_TMP="/tmp/nexa-deploy-tenant-$$.sh"
-          cp "$DEPLOY_SRC" "$DEPLOY_TMP"
-          chmod 755 "$DEPLOY_TMP"
-          echo "Deploy bron: $DEPLOY_SRC"
-          echo "Deploy kopie: $DEPLOY_TMP"
-          echo "Deploy naar ${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current} (user: ${TARGET})"
+          SCRIPT="${TENANT_DIR}/deploy/deploy-tenant.sh"
 
-          export_args=()
           if [[ "${DEBUG_DEPLOY:-}" == "1" || "${DEBUG_DEPLOY:-}" == "true" ]]; then
-            export_args+=(DEPLOY_DEBUG=1)
+            export DEPLOY_DEBUG=1
           fi
 
           run_deploy() {
-            local script_path="$1"
             env DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" \
-              "${export_args[@]}" bash "$script_path"
-          }
-
-          sudo_deploy() {
-            local script_path="$1"
-            echo "==> sudo -u $TARGET bash $(basename "$script_path")"
-            sudo -n -u "$TARGET" bash "$script_path"
+              TENANT_DIR="$TENANT_DIR" bash "$SCRIPT"
           }
 
           if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
-            run_deploy "$DEPLOY_TMP"
+            run_deploy
           elif sudo -n -u "$TARGET" true; then
-            echo "==> Runner-user is $U; deploy als $TARGET (passwordless sudo)"
-            if sudo_deploy "$DEPLOY_SRC"; then
-              echo "==> Deploy via checkout-pad voltooid"
-            elif sudo_deploy "$DEPLOY_TMP"; then
-              echo "==> Deploy via /tmp-kopie voltooid"
-            else
-              echo "ERROR: sudo bash mislukt (checkout én /tmp). Controleer sudoers: deploy/github-runner-sudoers.example" >&2
-              exit 1
-            fi
+            echo "==> Runner-user is $U; deploy als $TARGET"
+            sudo -n -u "$TARGET" bash "$SCRIPT"
           else
-            echo "==> Geen sudo; probeer als $U (EXTRA_DEPLOY_USERS moet $U bevatten)"
-            run_deploy "$DEPLOY_TMP"
+            echo "==> Geen sudo; deploy als $U (EXTRA_DEPLOY_USERS moet $U bevatten)"
+            run_deploy
           fi

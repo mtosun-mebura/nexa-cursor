@@ -1,3 +1,10 @@
+# --- Fout: "Permission to read ... _work ... Access to /home is denied" ---
+# De self-hosted runner kan de work-map niet openen. Oplossingen (één kiezen):
+#   A) deploy-saas.yml gebruikt GEEN checkout meer — alleen TENANT_DIR/deploy/deploy-tenant.sh
+#   B) Runner-service als mtosun: systemctl show actions.runner.* -p User
+#   C) Eenmalig: sudo bash deploy/fix-runner-home-access.sh
+#   D) Work-map buiten home: deploy/fix-runner-home-access.sh --move-work-to /var/lib/nexa-actions/_work
+#
 # Plaats als apart bestand onder /etc/sudoers.d/ (bijv. nexa-deploy) en chmod 440.
 # Pas de eerste kolom aan naar de gebruiker van de GitHub Actions runner (bijv. mtosun).
 #
