@@ -10,32 +10,93 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    timeout-minutes: 90
     env:
-      # Unix-user die TENANT_DIR (.git, docker) bezit; override via repo variable als anders.
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-      # Optioneel: komma-gescheiden extra users die deploy-tenant direct mogen draaien.
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
+      DEBUG_DEPLOY: ${{ vars.DEBUG_DEPLOY }}
 
     steps:
       - uses: actions/checkout@v5
 
-      # Runner ≠ eigenaar van de app-map → git moet als DEPLOY_USER (standaard mtosun).
-      # Geen TTY: sudo -n. Zie deploy/github-runner-sudoers.example.
-      - name: Deploy
+      - name: Preflight (runner / sudo / docker)
         run: |
-          set -e
-          SCRIPT="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
-          U="$(id -un)"
+          set -euxo pipefail
           TARGET="${DEPLOY_USER:-mtosun}"
+          U="$(id -un)"
+          echo "=== Preflight ==="
+          echo "Host: $(hostname)"
+          echo "Runner user: $U (groups: $(id -Gn))"
+          echo "Deploy target user: $TARGET"
+          echo "Workspace: ${GITHUB_WORKSPACE:-<unset>}"
+          test -f "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
+          echo "deploy-tenant.sh: OK ($(wc -c < "$GITHUB_WORKSPACE/deploy/deploy-tenant.sh") bytes)"
 
-          echo "Deploy naar /home/nexasuite.nl/apps/saas/current (user: ${TARGET})"
+          if docker info >/dev/null 2>&1; then
+            echo "Docker (as $U): OK"
+          else
+            echo "Docker (as $U): NIET bereikbaar — deploy faalt straks als $TARGET ook geen socket heeft"
+          fi
 
           if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
-            DEPLOY_USER="$TARGET" bash "$SCRIPT"
-          elif sudo -n -u "$TARGET" true 2>/dev/null; then
-            echo "==> Runner-user is $U; deploy als $TARGET (passwordless sudo)"
-            # Geen `sudo … env … bash`: sudo ziet dan /usr/bin/env als commando — staat niet in NOPASSWD.
-            sudo -n -u "$TARGET" bash "$SCRIPT"
+            echo "Sudo: niet nodig (draait al als $U)"
+          elif sudo -n -u "$TARGET" true; then
+            echo "Sudo naar $TARGET: OK"
           else
-            DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" bash "$SCRIPT"
+            echo "Sudo naar $TARGET: MISLUKT (passwordless sudo ontbreekt?)"
+            echo "Zie deploy/github-runner-sudoers.example of zet EXTRA_DEPLOY_USERS voor $U"
+          fi
+
+          TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
+          if [[ -d "$TENANT_DIR/.git" ]]; then
+            echo "TENANT_DIR git: OK ($TENANT_DIR)"
+          else
+            echo "TENANT_DIR git: ontbreekt ($TENANT_DIR) — deploy-tenant.sh stopt hierop"
+          fi
+
+      - name: Deploy
+        run: |
+          set -euxo pipefail
+          TARGET="${DEPLOY_USER:-mtosun}"
+          U="$(id -un)"
+          DEPLOY_SRC="$GITHUB_WORKSPACE/deploy/deploy-tenant.sh"
+          DEPLOY_TMP="/tmp/nexa-deploy-tenant-$$.sh"
+          cp "$DEPLOY_SRC" "$DEPLOY_TMP"
+          chmod 755 "$DEPLOY_TMP"
+          echo "Deploy bron: $DEPLOY_SRC"
+          echo "Deploy kopie: $DEPLOY_TMP"
+          echo "Deploy naar ${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current} (user: ${TARGET})"
+
+          export_args=()
+          if [[ "${DEBUG_DEPLOY:-}" == "1" || "${DEBUG_DEPLOY:-}" == "true" ]]; then
+            export_args+=(DEPLOY_DEBUG=1)
+          fi
+
+          run_deploy() {
+            local script_path="$1"
+            env DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" \
+              "${export_args[@]}" bash "$script_path"
+          }
+
+          sudo_deploy() {
+            local script_path="$1"
+            echo "==> sudo -u $TARGET bash $(basename "$script_path")"
+            sudo -n -u "$TARGET" bash "$script_path"
+          }
+
+          if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
+            run_deploy "$DEPLOY_TMP"
+          elif sudo -n -u "$TARGET" true; then
+            echo "==> Runner-user is $U; deploy als $TARGET (passwordless sudo)"
+            if sudo_deploy "$DEPLOY_SRC"; then
+              echo "==> Deploy via checkout-pad voltooid"
+            elif sudo_deploy "$DEPLOY_TMP"; then
+              echo "==> Deploy via /tmp-kopie voltooid"
+            else
+              echo "ERROR: sudo bash mislukt (checkout én /tmp). Controleer sudoers: deploy/github-runner-sudoers.example" >&2
+              exit 1
+            fi
+          else
+            echo "==> Geen sudo; probeer als $U (EXTRA_DEPLOY_USERS moet $U bevatten)"
+            run_deploy "$DEPLOY_TMP"
           fi

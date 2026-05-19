@@ -7,7 +7,11 @@
 # Minimaal (voorbeeld; beide paden exact laten overeenkomen met `command -v true`, `command -v bash`
 # en het echte pad naar deploy-tenant.sh uit de job-log):
 #
-# Als runner ≠ mtosun, bv.: github ALL=(mtosun) NOPASSWD: /usr/bin/true, /usr/bin/bash /home/mtosun/actions-runner/_work/nexa-cursor/nexa-cursor/deploy/deploy-tenant.sh
+# Als runner ≠ mtosun, bv.:
+#   github ALL=(mtosun) NOPASSWD: /usr/bin/true, /usr/bin/bash
+# (ruimer; CI probeert eerst checkout-pad, daarna /tmp/nexa-deploy-tenant-*.sh)
+# Of strikt per pad:
+#   github ALL=(mtosun) NOPASSWD: /usr/bin/true, /usr/bin/bash /pad/naar/actions-runner/_work/.../deploy/deploy-tenant.sh
 #
 # Let op: geen `sudo … env VAR=waarde bash …` in CI — dan is het commando `env` en faalt NOPASSWD.
 #

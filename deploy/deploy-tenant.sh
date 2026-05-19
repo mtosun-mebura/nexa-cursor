@@ -20,6 +20,19 @@
 #
 set -euo pipefail
 
+_on_deploy_err() {
+  local code=$1 line=$2
+  echo "" >&2
+  echo "ERROR: Deploy mislukt (exit ${code}) op regel ${line} van $0" >&2
+  echo "TIP: zet DEBUG_DEPLOY=1 in GitHub repo variables voor bash -x in CI." >&2
+  exit "${code}"
+}
+trap '_on_deploy_err $? $LINENO' ERR
+
+if [[ "${DEPLOY_DEBUG:-}" == "1" || "${DEPLOY_DEBUG:-}" == "true" ]]; then
+  set -x
+fi
+
 # --- Config per tenant ---
 TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
@@ -125,6 +138,16 @@ fi
 
 cd "$TENANT_DIR"
 
+DEPLOY_LOG="${DEPLOY_LOG:-$TENANT_DIR/storage/logs/deploy-latest.log}"
+if mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
+  : >"$DEPLOY_LOG"
+  exec > >(tee -a "$DEPLOY_LOG") 2>&1
+fi
+
+echo "==> Deploy gestart $(date -Iseconds)"
+echo "    user=$(id -un) host=$(hostname) TENANT_DIR=$TENANT_DIR branch=${GIT_BRANCH}"
+echo "    log=${DEPLOY_LOG:-<geen logbestand>}"
+
 _require_docker_socket
 # Vóór elke `compose exec` / `compose run` (chown): anders faalt mount ./.env als dat een map is.
 _ensure_compose_env_mount
@@ -137,7 +160,10 @@ _git() {
 # Daardoor kan chown via compose run direct weer teniet worden gedaan vóór git reset → eerst stoppen.
 _stop_backend_for_git_reset() {
   echo "==> Stop ${LARAVEL_SERVICE} (geen entrypoint-chown naar www-data tijdens git reset)"
-  _compose stop -t 60 "$LARAVEL_SERVICE" 2>/dev/null || true
+  if ! _compose stop -t 60 "$LARAVEL_SERVICE"; then
+    echo "==> compose stop gaf een waarschuwing (container was mogelijk al gestopt)"
+  fi
+  echo "==> Wacht 3s tot container gestopt is..."
   sleep 3
   if _compose ps "$LARAVEL_SERVICE" 2>/dev/null | grep -qiE 'restarting|starting'; then
     echo "==> ${LARAVEL_SERVICE} blijft herstarten; compose kill"
@@ -149,19 +175,36 @@ _stop_backend_for_git_reset() {
 # Laravel/Docker: storage/bootstrap/cache zijn vaak www-data. Git reset moet als deploy-user kunnen
 # unlinken — chown/chmod als root in een compose run (bind mounts), ná stop hierboven.
 _fix_backend_tree_for_git_reset() {
-  local uid gid fix_cmd
+  local uid gid fix_cmd d
   uid=$(id -u)
   gid=$(id -g)
   # Eén regel voor exec/run -c (paden = volume-mounts in docker-compose.prod)
   fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
 
-  echo "==> Laravel writable dirs → ${uid}:${gid} + ug+rwX (Docker root; geen TTY-sudo)"
-  if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c "$fix_cmd"; then
+  echo "==> Laravel writable dirs → ${uid}:${gid} + ug+rwX"
+  if _compose ps -q "$LARAVEL_SERVICE" 2>/dev/null | grep -q .; then
+    echo "==> Container draait nog; probeer compose exec -u root"
+    if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c "$fix_cmd"; then
+      return 0
+    fi
+    echo "==> compose exec mislukt"
+  else
+    echo "==> Container gestopt; sla exec over"
+  fi
+
+  echo "==> compose run --rm (entrypoint /bin/sh) voor chown op volumes"
+  if _compose run --rm --no-deps -T -u root --entrypoint /bin/sh "$LARAVEL_SERVICE" -c "$fix_cmd"; then
     return 0
   fi
 
-  echo "==> exec mislukte of container uit; compose run --rm met /bin/sh (geen entrypoint.sh → geen www-data reset vóór chown)"
-  if _compose run --rm --no-deps -T -u root --entrypoint /bin/sh "$LARAVEL_SERVICE" -c "$fix_cmd"; then
+  echo "==> compose run mislukt; host-paden direct (zonder container)"
+  for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+    [[ -e "$d" ]] || continue
+    chown -R "${uid}:${gid}" "$d" 2>/dev/null || true
+    chmod -R ug+rwX "$d" 2>/dev/null || true
+  done
+  if [[ -w "$BACKEND_DIR/storage" ]]; then
+    echo "==> Host-chown op storage gelukt"
     return 0
   fi
 
