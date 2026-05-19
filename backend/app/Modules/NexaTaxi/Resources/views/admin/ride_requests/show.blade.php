@@ -106,7 +106,7 @@
         <div class="kt-card-content">
             <form action="{{ route('admin.taxi.ride_requests.assign', $ride) }}" method="POST" class="flex flex-wrap gap-4 items-end">
                 @csrf
-                <div>
+                <div class="flex flex-col gap-2.5">
                     <label class="kt-form-label">Voertuig</label>
                     <select name="vehicle_id" class="kt-input w-48">
                         <option value="">— Geen —</option>
@@ -115,7 +115,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div>
+                <div class="flex flex-col gap-2.5">
                     <label class="kt-form-label">Chauffeur</label>
                     <select name="driver_id" class="kt-input w-48">
                         <option value="">— Geen —</option>
@@ -132,7 +132,7 @@
         <div class="kt-card-header"><h3 class="kt-card-title">Communicatie</h3></div>
         <div class="kt-card-content">
             <p class="text-sm text-muted-foreground mb-2">Kopieer onderstaande tekst voor WhatsApp of e-mail naar de klant.</p>
-            <textarea readonly class="kt-input w-full font-mono text-sm" rows="6" id="whatsapp-text">Rit {{ $ride->pickup_at->format('d-m-Y H:i') }}
+            <textarea readonly class="kt-input w-full font-mono text-sm resize-y pt-1" rows="8" id="whatsapp-text" style="min-height: 12rem !important; height: auto !important; box-sizing: border-box;">Rit {{ $ride->pickup_at->format('d-m-Y H:i') }}
 Ophalen: {{ $ride->pickup_address }}
 Afzetten: {{ $ride->dropoff_address }}
 @if($ride->quoted_price)Geschatte prijs: € {{ number_format($ride->quoted_price, 2, ',', '.') }}

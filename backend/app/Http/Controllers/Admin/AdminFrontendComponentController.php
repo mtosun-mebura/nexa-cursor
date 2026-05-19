@@ -107,12 +107,6 @@ class AdminFrontendComponentController extends Controller
             'component:website.email_template_section' => [
                 'title' => 'Vraag direct een demo aan',
             ],
-            'component:website.text_block_section' => [
-                'content' => '<h2>Waarom teams kiezen voor NEXA</h2><p>Met dit tekstblok toon je rijke content, inclusief een formulier of afbeelding naast de tekst.</p><ul><li>Snelle implementatie</li><li>Flexibele componenten</li><li>Duidelijke rapportages</li></ul>',
-                'alignment' => 'left',
-                'side_component_key' => 'component:website.email_template_section',
-                'width_percent' => 100,
-            ],
             'visibility' => [],
         ];
 

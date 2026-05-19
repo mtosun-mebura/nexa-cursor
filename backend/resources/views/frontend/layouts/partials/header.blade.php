@@ -1,6 +1,7 @@
 @php
-    $dashboardLinkLabel = $dashboardLinkLabel ?? \App\Models\GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
-    $dashboardLinkVisible = $dashboardLinkVisible ?? (\App\Models\GeneralSetting::get('dashboard_link_visible', '1') === '1');
+    $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+    $dashboardLinkLabel = $dashboardLinkLabel ?? ($branding['dashboard_link_label'] ?? \App\Models\GeneralSetting::get('dashboard_link_label', 'Mijn Nexa'));
+    $dashboardLinkVisible = $dashboardLinkVisible ?? (bool) ($branding['dashboard_link_visible'] ?? (\App\Models\GeneralSetting::get('dashboard_link_visible', '1') === '1'));
 @endphp
 <!-- Header -->
 <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50" 
@@ -28,9 +29,10 @@
             <!-- Logo + Hamburger (hamburger alleen zichtbaar onder md) -->
             <div class="flex items-center gap-2 flex-shrink-0">
                 <div class="ml-2 md:ml-8 py-1">
-                    <a href="{{ route('home') }}" class="flex items-center" aria-label="Nexa Skillmatching">
-                        <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-12 md:h-16 w-auto">
-                    </a>
+                    @include('frontend.layouts.partials.brand-logo', [
+                        'branding' => $branding,
+                        'logoHref' => route('home'),
+                    ])
                 </div>
                 <!-- Hamburger menu button (rechts naast logo, tonen onder md) -->
                 <div class="md:hidden">

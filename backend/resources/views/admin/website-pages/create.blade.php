@@ -43,6 +43,9 @@
             {{-- Expliciete company_id: resolveWebsitePageCompanyIdForPersistence leest dit altijd mee (ook als from_wizard-flag faalt). --}}
             <input type="hidden" name="company_id" value="{{ (int) $wizardIndexQuery['wizard_company'] }}">
         @endif
+        {{-- Zie edit.blade: vroege hidden voor menu-volgorde bij max_input_vars op grote pagina-formulieren. --}}
+        <input type="hidden" name="_sort_order" id="sort-order-fallback-input" value="{{ old('_sort_order', old('sort_order', $suggestedSortOrder ?? 1)) }}">
+        @include('admin.website-pages.partials.sort-order-sync')
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -220,8 +223,11 @@
                                        name="sort_order"
                                        id="sort_order"
                                        class="kt-input w-24 @error('sort_order') border-destructive @enderror"
-                                       value="{{ old('sort_order', 0) }}"
-                                       min="0">
+                                       value="{{ old('sort_order', $suggestedSortOrder ?? 1) }}"
+                                       min="0"
+                                       readonly
+                                       aria-readonly="true">
+                                <p class="text-xs text-muted-foreground mt-1">Wordt per bedrijf automatisch toegekend bij opslaan (volgende vrije nummer).</p>
                                 @error('sort_order')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -262,7 +268,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor het gekozen thema ({{ $defaultTheme->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde en beschikbare secties hangen af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => true, 'emailTemplates' => $emailTemplates ?? collect()])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => true, 'collapseSectionsByDefault' => true, 'emailTemplates' => $emailTemplates ?? collect(), 'websitePageCompanyId' => ! empty($wizardIndexQuery['wizard_company']) ? (int) $wizardIndexQuery['wizard_company'] : null])
                 </div>
             </div>
 
@@ -289,6 +295,9 @@
         } catch (err) {}
         if (typeof tinymce !== 'undefined' && tinymce.triggerSave) tinymce.triggerSave();
         if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
+        if (typeof window.syncWebsitePageSortOrderFallback === 'function') {
+            window.syncWebsitePageSortOrderFallback();
+        }
         var btn = form.querySelector('button[type="submit"].kt-btn-primary') || form.querySelector('button[type="submit"]');
         if (!btn) return;
         if (btn.disabled) btn.disabled = false;

@@ -20,10 +20,11 @@ use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ChatController;
+use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\MatchController;
-use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
+use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\WebsitePageController;
 use App\Http\Controllers\PublicVacancyController;
 use App\Models\Vacancy;
@@ -242,6 +243,12 @@ Route::get('/company-logo/{company}/dark', function ($companyId) {
         'X-Frame-Options' => 'DENY',
     ]);
 })->name('admin.companies.logo.dark');
+
+// Bedrijfslogo voor frontend (tenant-domein of ingelogde gebruiker van hetzelfde bedrijf)
+Route::get('/brand/company/{company}/logo', [CompanyBrandLogoController::class, 'show'])
+    ->name('frontend.company-brand.logo');
+Route::get('/brand/company/{company}/logo/dark', [CompanyBrandLogoController::class, 'showDark'])
+    ->name('frontend.company-brand.logo.dark');
 
 // Publieke vacatures routes - redirect naar /jobs
 Route::get('/vacatures', function () {
@@ -537,6 +544,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
 
     Route::resource('email-templates', AdminEmailTemplateController::class);
     Route::post('email-templates/{emailTemplate}/toggle-status', [AdminEmailTemplateController::class, 'toggleStatus'])->name('email-templates.toggle-status');
+    Route::post('email-templates/{emailTemplate}/send-test', [AdminEmailTemplateController::class, 'sendTest'])->name('email-templates.send-test');
 
     // Candidates (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {
@@ -618,6 +626,8 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/tenant-sync/run', [App\Http\Controllers\Admin\AdminSettingsController::class, 'runTenantSync'])->name('settings.tenant-sync.run');
         Route::get('settings/tenant-storage-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantStorageBundle'])->name('settings.tenant-storage-bundle.export');
         Route::post('settings/tenant-storage-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantStorageBundle'])->name('settings.tenant-storage-bundle.import');
+        Route::get('settings/tenant-website-bundle/export', [App\Http\Controllers\Admin\AdminSettingsController::class, 'exportTenantWebsiteBundle'])->name('settings.tenant-website-bundle.export');
+        Route::post('settings/tenant-website-bundle/import', [App\Http\Controllers\Admin\AdminSettingsController::class, 'importTenantWebsiteBundle'])->name('settings.tenant-website-bundle.import');
 
         // General Settings (Super Admin only)
         Route::get('settings/frontend', [App\Http\Controllers\Admin\AdminSettingsController::class, 'frontendIndex'])->name('settings.frontend.index');
@@ -652,6 +662,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
+        Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');
         Route::get('frontend-themes', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');
         Route::get('frontend-themes/preview', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'servePreview'])->name('frontend-themes.preview');
         Route::get('frontend-themes/staging', [App\Http\Controllers\Admin\AdminFrontendThemeController::class, 'staging'])->name('frontend-themes.staging');

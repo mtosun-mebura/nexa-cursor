@@ -72,6 +72,27 @@ class AdminWebsiteMediaController extends Controller
     }
 
     /**
+     * Verwijder encrypted website-media (bestand + databaserecord).
+     */
+    public function destroy(Request $request, string $uuid): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $media = WebsiteMedia::where('uuid', $uuid)->first();
+        if (! $media) {
+            return response()->json(['message' => 'Afbeelding niet gevonden.'], 404);
+        }
+
+        if ($media->encrypted_path && Storage::disk(self::DISK)->exists($media->encrypted_path)) {
+            Storage::disk(self::DISK)->delete($media->encrypted_path);
+        }
+
+        $media->delete();
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
      * Verklein en comprimeer afbeelding voor carousel (snel laden, goede kwaliteit).
      * Retourneert JPEG-binary of null bij falen (gebruik dan origineel).
      */

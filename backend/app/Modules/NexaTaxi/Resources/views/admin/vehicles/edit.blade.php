@@ -374,7 +374,11 @@
             .catch(function(err) { showVehicleImageMsg(err.message || 'Upload mislukt.'); });
         fileInput.value = '';
     }
-    area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+    if (typeof window.bindAdminUploadAreaClick === 'function') {
+        window.bindAdminUploadAreaClick(area, fileInput, { clearInputFirst: false });
+    } else {
+        area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+    }
     area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
     area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
     area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });

@@ -2,13 +2,14 @@
 
 namespace App\Modules\NexaTaxi\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
+use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
-use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class RideRequestController extends Controller
@@ -26,7 +27,7 @@ class RideRequestController extends Controller
                 $q->where('company_id', session('selected_tenant'))
                     ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', session('selected_tenant')));
             });
-        } elseif (!auth()->user()->hasRole('super-admin') && auth()->user()->company_id) {
+        } elseif (! auth()->user()->hasRole('super-admin') && auth()->user()->company_id) {
             $query->where(function ($q) {
                 $q->where('company_id', auth()->user()->company_id)
                     ->orWhereHas('vehicle', fn ($v) => $v->where('company_id', auth()->user()->company_id));
@@ -48,7 +49,7 @@ class RideRequestController extends Controller
 
         $allowedPerPage = [10, 15, 25, 50];
         $perPage = (int) $request->integer('per_page', 15);
-        if (!in_array($perPage, $allowedPerPage, true)) {
+        if (! in_array($perPage, $allowedPerPage, true)) {
             $perPage = 15;
         }
 
@@ -72,8 +73,8 @@ class RideRequestController extends Controller
         $this->applyTenantFilter($vehicles);
         $vehicles = $vehicles->where('active', true)->orderBy('name')->get();
 
-        $companyId = $this->resolveTenantCompanyId();
-        $drivers = $this->buildChauffeurQuery($conn, $companyId)->get();
+        $companyId = $this->resolveCompanyIdForChauffeurList(null, $conn);
+        $drivers = $this->buildChauffeurQuery($companyId)->get();
 
         $statusLabels = RideRequest::statusLabels();
 
@@ -86,7 +87,7 @@ class RideRequestController extends Controller
 
         $conn = $this->moduleConnection();
         $validated = $request->validate([
-            'vehicle_id' => ['nullable', Rule::exists($conn . '.vehicles', 'id')],
+            'vehicle_id' => ['nullable', Rule::exists($conn.'.vehicles', 'id')],
             'driver_id' => ['nullable', Rule::exists('users', 'id')],
             'status' => 'required|in:draft,quoted,accepted,assigned,completed,cancelled',
             'pickup_address' => 'required|string|max:500',
@@ -109,7 +110,7 @@ class RideRequestController extends Controller
         $companyId = auth()->user()->hasRole('super-admin') && session('selected_tenant')
             ? session('selected_tenant')
             : auth()->user()->company_id;
-        if (!empty($validated['vehicle_id'])) {
+        if (! empty($validated['vehicle_id'])) {
             $vehicle = Vehicle::on($conn)->find($validated['vehicle_id']);
             if ($vehicle) {
                 $companyId = $vehicle->company_id;
@@ -134,8 +135,8 @@ class RideRequestController extends Controller
         $this->applyTenantFilter($vehicles);
         $vehicles = $vehicles->where('active', true)->orderBy('name')->get();
 
-        $rideCompanyId = $this->resolveRideCompanyId($ride_request, $conn) ?? $this->resolveTenantCompanyId();
-        $drivers = $this->buildChauffeurQuery($conn, $rideCompanyId)->get();
+        $rideCompanyId = $this->resolveCompanyIdForChauffeurList($ride_request, $conn);
+        $drivers = $this->buildChauffeurQuery($rideCompanyId)->get();
 
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
@@ -155,8 +156,8 @@ class RideRequestController extends Controller
         $this->applyTenantFilter($vehicles);
         $vehicles = $vehicles->where('active', true)->orderBy('name')->get();
 
-        $rideCompanyId = $this->resolveRideCompanyId($ride_request, $conn) ?? $this->resolveTenantCompanyId();
-        $drivers = $this->buildChauffeurQuery($conn, $rideCompanyId)->get();
+        $rideCompanyId = $this->resolveCompanyIdForChauffeurList($ride_request, $conn);
+        $drivers = $this->buildChauffeurQuery($rideCompanyId)->get();
 
         $statusLabels = RideRequest::statusLabels();
 
@@ -170,7 +171,7 @@ class RideRequestController extends Controller
 
         $conn = $this->moduleConnection();
         $validated = $request->validate([
-            'vehicle_id' => ['nullable', Rule::exists($conn . '.vehicles', 'id')],
+            'vehicle_id' => ['nullable', Rule::exists($conn.'.vehicles', 'id')],
             'driver_id' => ['nullable', Rule::exists('users', 'id')],
             'status' => 'required|in:draft,quoted,accepted,assigned,completed,cancelled',
             'pickup_address' => 'required|string|max:500',
@@ -201,6 +202,7 @@ class RideRequestController extends Controller
         $this->ensureCanAccessRide($ride_request);
 
         $ride_request->delete();
+
         return redirect()->route('admin.taxi.ride_requests.index')->with('success', 'Rit is verwijderd.');
     }
 
@@ -211,9 +213,19 @@ class RideRequestController extends Controller
         $this->ensureCanAccessRide($ride_request);
 
         $conn = $this->moduleConnection();
+        $companyId = $this->resolveCompanyIdForChauffeurList($ride_request, $conn);
         $request->validate([
-            'vehicle_id' => ['nullable', Rule::exists($conn . '.vehicles', 'id')],
-            'driver_id' => ['nullable', Rule::exists('users', 'id')],
+            'vehicle_id' => ['nullable', Rule::exists($conn.'.vehicles', 'id')],
+            'driver_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(function ($q) use ($companyId) {
+                    if ($companyId) {
+                        $this->applyChauffeurRoleAndCompanyToUserSubquery($q, $companyId);
+                    } else {
+                        $q->whereRaw('1 = 0');
+                    }
+                }),
+            ],
         ]);
         $ride_request->update([
             'vehicle_id' => $request->input('vehicle_id') ?: null,
@@ -226,6 +238,7 @@ class RideRequestController extends Controller
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Toewijzing opgeslagen.']);
         }
+
         return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', 'Voertuig en chauffeur toegewezen.');
     }
 
@@ -234,7 +247,7 @@ class RideRequestController extends Controller
         if (auth()->user()->hasRole('super-admin')) {
             return;
         }
-        if (!auth()->user()->can($ability)) {
+        if (! auth()->user()->can($ability)) {
             abort(403, 'Geen rechten voor deze actie.');
         }
     }
@@ -263,14 +276,39 @@ class RideRequestController extends Controller
         return null;
     }
 
+    /**
+     * Bedrijf waarvoor chauffeurs getoond moeten worden: rit → tenant-keuze → host → gebruiker.
+     */
+    private function resolveCompanyIdForChauffeurList(?RideRequest $ride, string $conn): ?int
+    {
+        if ($ride !== null) {
+            $fromRide = $this->resolveRideCompanyId($ride, $conn);
+            if ($fromRide !== null && $fromRide > 0) {
+                return $fromRide;
+            }
+        }
+        $tenant = $this->getTenantId();
+        if ($tenant !== null && $tenant !== '' && (int) $tenant > 0) {
+            return (int) $tenant;
+        }
+        if (app()->bound('resolved_tenant_id')) {
+            $resolved = app('resolved_tenant_id');
+            if ($resolved !== null && $resolved !== '' && (int) $resolved > 0) {
+                return (int) $resolved;
+            }
+        }
+
+        return $this->resolveTenantCompanyId();
+    }
+
     private function resolveRideCompanyId(RideRequest $ride, string $conn): ?int
     {
-        if (!empty($ride->company_id)) {
+        if (! empty($ride->company_id)) {
             return (int) $ride->company_id;
         }
-        if (!empty($ride->vehicle_id)) {
+        if (! empty($ride->vehicle_id)) {
             $vehicle = Vehicle::on($conn)->find($ride->vehicle_id);
-            if ($vehicle && !empty($vehicle->company_id)) {
+            if ($vehicle && ! empty($vehicle->company_id)) {
                 return (int) $vehicle->company_id;
             }
         }
@@ -278,16 +316,88 @@ class RideRequestController extends Controller
         return null;
     }
 
-    private function buildChauffeurQuery(string $conn, ?int $companyId)
+    /**
+     * Gebruikers met chauffeur-rol voor dit bedrijf (Spatie teams).
+     *
+     * - Pivot `model_has_roles.company_id` kan gelijk zijn aan het tenant-id, óf NULL wanneer de rol
+     *   zonder team is toegekend; dan geldt het bedrijf van de gebruiker (`users.company_id`).
+     * - Rolnemen: exact (case-insensitive) chauffeur, plus gangbare varianten.
+     */
+    private function buildChauffeurQuery(?int $companyId)
     {
-        $query = User::query()->whereHas('roles', function ($roles) {
-            $roles->where('name', 'chauffeur');
-        });
-
-        if ($companyId) {
-            $query->where('company_id', $companyId);
+        if ($companyId === null || $companyId <= 0) {
+            return User::query()->whereRaw('1 = 0');
         }
 
-        return $query->orderBy('first_name')->orderBy('last_name');
+        $pivot = DB::getTablePrefix().config('permission.table_names.model_has_roles');
+        $rolesTable = DB::getTablePrefix().config('permission.table_names.roles');
+        $teamKey = config('permission.column_names.team_foreign_key') ?: 'company_id';
+        $morphTypes = array_values(array_unique(array_filter([
+            User::class,
+            (new User)->getMorphClass(),
+        ])));
+
+        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur'];
+
+        return User::query()
+            ->where('company_id', $companyId)
+            ->whereExists(function ($sub) use ($companyId, $pivot, $rolesTable, $teamKey, $morphTypes, $roleNamesLower) {
+                $sub->select(DB::raw('1'))
+                    ->from($pivot)
+                    ->join($rolesTable, $rolesTable.'.id', '=', $pivot.'.role_id')
+                    ->whereColumn($pivot.'.model_id', 'users.id')
+                    ->whereIn($pivot.'.model_type', $morphTypes)
+                    ->where(function ($q) use ($pivot, $teamKey, $companyId) {
+                        $q->where($pivot.'.'.$teamKey, $companyId)
+                            ->orWhere(function ($q2) use ($pivot, $teamKey, $companyId) {
+                                $q2->whereNull($pivot.'.'.$teamKey)
+                                    ->where('users.company_id', $companyId);
+                            });
+                    })
+                    ->whereIn($rolesTable.'.guard_name', ['web', 'api'])
+                    ->where(function ($q) use ($rolesTable, $roleNamesLower) {
+                        foreach ($roleNamesLower as $i => $slug) {
+                            $method = $i === 0 ? 'whereRaw' : 'orWhereRaw';
+                            $q->{$method}('LOWER(TRIM('.$rolesTable.'.name)) = ?', [$slug]);
+                        }
+                    });
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name');
+    }
+
+    private function applyChauffeurRoleAndCompanyToUserSubquery($query, int $companyId): void
+    {
+        $pivot = DB::getTablePrefix().config('permission.table_names.model_has_roles');
+        $roles = DB::getTablePrefix().config('permission.table_names.roles');
+        $teamKey = config('permission.column_names.team_foreign_key') ?: 'company_id';
+        $morphTypes = array_values(array_unique(array_filter([
+            User::class,
+            (new User)->getMorphClass(),
+        ])));
+        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur'];
+
+        $query->where('company_id', $companyId)
+            ->whereExists(function ($sub) use ($companyId, $pivot, $roles, $teamKey, $morphTypes, $roleNamesLower) {
+                $sub->select(DB::raw('1'))
+                    ->from($pivot)
+                    ->join($roles, $roles.'.id', '=', $pivot.'.role_id')
+                    ->whereColumn($pivot.'.model_id', 'users.id')
+                    ->whereIn($pivot.'.model_type', $morphTypes)
+                    ->where(function ($q) use ($pivot, $teamKey, $companyId) {
+                        $q->where($pivot.'.'.$teamKey, $companyId)
+                            ->orWhere(function ($q2) use ($pivot, $teamKey, $companyId) {
+                                $q2->whereNull($pivot.'.'.$teamKey)
+                                    ->where('users.company_id', $companyId);
+                            });
+                    })
+                    ->whereIn($roles.'.guard_name', ['web', 'api'])
+                    ->where(function ($q) use ($roles, $roleNamesLower) {
+                        foreach ($roleNamesLower as $i => $slug) {
+                            $method = $i === 0 ? 'whereRaw' : 'orWhereRaw';
+                            $q->{$method}('LOWER(TRIM('.$roles.'.name)) = ?', [$slug]);
+                        }
+                    });
+            });
     }
 }

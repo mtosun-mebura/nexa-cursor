@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
-use App\Models\EmailTemplate;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
 use App\Services\EnvService;
@@ -169,7 +168,6 @@ class WebsitePageController extends Controller
                 $homeSections['section_order'] = array_merge(array_values($sectionOrder), ['footer']);
             }
         }
-        $emailTemplateBySectionKey = [];
         $templateConnection = null;
         $moduleName = $page->module_name;
         if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {
@@ -178,23 +176,7 @@ class WebsitePageController extends Controller
                 $templateConnection = $connName;
             }
         }
-        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
-            $base = is_string($sectionKey) ? preg_replace('/_\d+$/', '', $sectionKey) : '';
-            if ($base === 'email_template') {
-                $tid = $homeSections[$sectionKey]['template_id'] ?? null;
-                if (! $tid) {
-                    $emailTemplateBySectionKey[$sectionKey] = null;
-
-                    continue;
-                }
-                $tidInt = (int) $tid;
-                $template = EmailTemplate::find($tidInt);
-                if (! $template && $templateConnection) {
-                    $template = EmailTemplate::on($templateConnection)->find($tidInt);
-                }
-                $emailTemplateBySectionKey[$sectionKey] = $template;
-            }
-        }
+        $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections, $templateConnection);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
         $env = app(EnvService::class);
@@ -210,7 +192,10 @@ class WebsitePageController extends Controller
         }
         $googleMapsMapId = $env->getGoogleMapsMapId();
 
-        $googleReviews = $useThemeHomeLayout ? app(GoogleReviewsService::class)->getReviews() : [];
+        $reviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage($page);
+        $googleReviews = $useThemeHomeLayout
+            ? app(GoogleReviewsService::class)->getReviews($reviewsCompanyId)
+            : [];
 
         try {
             $infoRequestFormFields = \App\Models\InfoRequestFormField::ordered()->get();

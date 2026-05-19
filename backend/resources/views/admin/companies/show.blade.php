@@ -24,18 +24,6 @@
     .dark .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
     }
-    /* Hide scrollbar in Google Maps InfoWindow */
-    .gm-style-iw-c {
-        overflow: hidden !important;
-    }
-    .gm-style-iw-d {
-        overflow: hidden !important;
-        max-height: none !important;
-    }
-    /* Remove close button container */
-    .gm-style-iw-chr {
-        display: none !important;
-    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -270,12 +258,113 @@
                     // Eén adresbron voor weergave én kaart: hoofdkantoor of bedrijfsadres
                     $contactSource = $company->mainLocation ?: $company;
                     $addressLine1 = trim(($contactSource->street ?? '') . ' ' . ($contactSource->house_number ?? '') . (isset($contactSource->house_number_extension) && $contactSource->house_number_extension ? '-' . $contactSource->house_number_extension : ''));
-                    $addressLine2 = trim(($contactSource->postal_code ?? '') . ' ' . ($contactSource->city ?? ''));
+                    $postalRaw = trim((string) ($contactSource->postal_code ?? ''));
+                    // Weergave: NL "1234 AB" | Geocode-string: "1234AB" (zonder spatie) — gewenst voor betrouwbare Maps-load
+                    $postalDisplay = $postalRaw;
+                    $postalGeocode = str_replace(' ', '', $postalRaw);
+                    if ($postalRaw !== '' && preg_match('/^(\d{4})\s*([A-Za-z]{2})$/u', str_replace(' ', '', $postalRaw), $pcm)) {
+                        $postalDisplay = $pcm[1].' '.strtoupper($pcm[2]);
+                        $postalGeocode = $pcm[1].strtoupper($pcm[2]);
+                    }
+                    $addressLine2 = trim($postalDisplay.' '.trim((string) ($contactSource->city ?? '')));
+                    $addressLine2Geocode = trim($postalGeocode.' '.trim((string) ($contactSource->city ?? '')));
                     $addressLine3 = $contactSource->country ?? '';
                     $addressParts = array_filter([$addressLine1, $addressLine2, $addressLine3]);
+                    $addressPartsForGeocode = array_filter([$addressLine1, $addressLine2Geocode, $addressLine3]);
+                    $addrQuery = ! empty($addressPartsForGeocode) ? implode(', ', $addressPartsForGeocode) : '';
+                    $mapCfgZoom = max(1, min(21, (int) (string) ($googleMapsZoom ?? 12)));
+                    $mapCfgCenterLat = (float) ($googleMapsCenterLat ?? 52.3676);
+                    $mapCfgCenterLng = (float) ($googleMapsCenterLng ?? 4.9041);
+                    $mapCfgType = trim((string) ($googleMapsType ?? 'roadmap')) ?: 'roadmap';
+                    $mapFallbackLat = null;
+                    $mapFallbackLng = null;
+                    $mfLat = $contactSource->latitude ?? null;
+                    $mfLng = $contactSource->longitude ?? null;
+                    if ($mfLat !== null && $mfLng !== null && is_numeric($mfLat) && is_numeric($mfLng)) {
+                        $mfLat = (float) $mfLat;
+                        $mfLng = (float) $mfLng;
+                        if ($mfLat != 0.0 && $mfLng != 0.0 && abs($mfLat) <= 90 && abs($mfLng) <= 180) {
+                            $mapFallbackLat = $mfLat;
+                            $mapFallbackLng = $mfLng;
+                        }
+                    }
+                    $resolvedLat = null;
+                    $resolvedLng = null;
+                    $mapsKeyTrim = trim((string) ($googleMapsApiKey ?? ''));
+                    if ($mapsKeyTrim !== '' && $addrQuery !== '') {
+                        try {
+                            $cacheKey = 'maps.geocode.company-show.'.md5($addrQuery);
+                            $resolved = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($addrQuery, $mapsKeyTrim) {
+                                $response = \Illuminate\Support\Facades\Http::timeout(8)->get(
+                                    'https://maps.googleapis.com/maps/api/geocode/json',
+                                    [
+                                        'address' => $addrQuery,
+                                        'key' => $mapsKeyTrim,
+                                        'region' => 'nl',
+                                    ]
+                                );
+                                if (! $response->successful()) {
+                                    return null;
+                                }
+                                $data = $response->json();
+                                if (($data['status'] ?? '') !== 'OK' || empty($data['results'][0]['geometry']['location'])) {
+                                    return null;
+                                }
+                                $loc = $data['results'][0]['geometry']['location'];
+
+                                return [
+                                    'lat' => (float) $loc['lat'],
+                                    'lng' => (float) $loc['lng'],
+                                ];
+                            });
+                            if (is_array($resolved) && isset($resolved['lat'], $resolved['lng'])) {
+                                $resolvedLat = $resolved['lat'];
+                                $resolvedLng = $resolved['lng'];
+                            }
+                        } catch (\Throwable $e) {
+                            $resolvedLat = null;
+                            $resolvedLng = null;
+                        }
+                    }
+                    $companyContactStaticMapUrl = null;
+                    if ($mapsKeyTrim !== '') {
+                        $pinLat = $resolvedLat ?? $mapFallbackLat;
+                        $pinLng = $resolvedLng ?? $mapFallbackLng;
+                        $mapTypeStatic = in_array($mapCfgType, ['roadmap', 'satellite', 'hybrid', 'terrain'], true) ? $mapCfgType : 'roadmap';
+                        $staticParams = [
+                            'size' => '640x296',
+                            'scale' => '2',
+                            'maptype' => $mapTypeStatic,
+                            'key' => $mapsKeyTrim,
+                            'language' => 'nl',
+                            'region' => 'nl',
+                        ];
+                        if ($pinLat !== null && $pinLng !== null) {
+                            $ll = sprintf('%.7f,%.7f', $pinLat, $pinLng);
+                            $staticParams['center'] = $ll;
+                            $staticParams['zoom'] = (string) $mapCfgZoom;
+                            $staticParams['markers'] = 'color:red|'.$ll;
+                        } elseif ($addrQuery !== '') {
+                            $staticParams['center'] = $addrQuery;
+                            $staticParams['zoom'] = (string) max(8, min(18, $mapCfgZoom));
+                        } else {
+                            $staticParams['center'] = sprintf('%.7f,%.7f', $mapCfgCenterLat, $mapCfgCenterLng);
+                            $staticParams['zoom'] = (string) max(6, min(12, $mapCfgZoom));
+                        }
+                        $companyContactStaticMapUrl = 'https://maps.googleapis.com/maps/api/staticmap?'.http_build_query($staticParams, '', '&', PHP_QUERY_RFC3986);
+                    }
                 @endphp
                 <div class="flex flex-col md:flex-row md:items-stretch gap-5">
-                    <div class="rounded-xl w-full md:w-1/2 min-w-0 bg-muted/30" id="company_contact_map" style="height: 208px;">
+                    <div class="rounded-xl w-full md:w-1/2 min-w-0 bg-muted/30 overflow-hidden flex items-center justify-center" id="company_contact_map" style="height: 208px;">
+                        @if(! empty($companyContactStaticMapUrl))
+                            <img src="{{ $companyContactStaticMapUrl }}"
+                                 alt=""
+                                 class="nexa-company-static-map w-full h-full max-w-none object-cover object-center rounded-xl"
+                                 width="640"
+                                 height="296"
+                                 decoding="async"
+                                 fetchpriority="low" />
+                        @endif
                     </div>
                     <div class="flex flex-col gap-2.5 w-full md:w-1/2 min-w-0">
                         @if(!empty($addressParts))
@@ -424,19 +513,8 @@
                         <span>Website-pagina's voor deze tenant beheren (zoals in wizard stap Website).</span>
                         <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">Naar website-pagina's</a>
                     </li>
-                    <li class="flex flex-col gap-3 pt-2 border-t border-border mt-2">
-                        <span class="text-foreground font-medium text-sm">Export / import website (ZIP)</span>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <a href="{{ route('admin.companies.website-bundle.export', $company) }}" class="kt-btn kt-btn-sm kt-btn-outline">
-                                Download website (ZIP)
-                            </a>
-                            <form method="post" action="{{ route('admin.companies.website-bundle.import', $company) }}" enctype="multipart/form-data" class="inline-flex flex-wrap items-center gap-2">
-                                @csrf
-                                <input type="file" name="bundle" accept=".zip,application/zip" required class="kt-input text-xs max-w-[240px] py-1">
-                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Import ZIP</button>
-                            </form>
-                        </div>
-                        <p class="text-xs text-muted-foreground mb-0">Volledige tenant-database-sync staat onder Configuraties → Omgeving-sync.</p>
+                    <li class="flex flex-col gap-1 pt-2 border-t border-border mt-2">
+                        <p class="text-xs text-muted-foreground mb-0">Volledige tenant-ZIP (pagina’s, media, tenant-instellingen): <strong class="text-foreground font-medium">Configuraties → Omgeving-sync</strong>. Database-push naar een andere omgeving staat daar ook.</p>
                     </li>
                 @endif
             </ul>
@@ -1122,221 +1200,6 @@
 </script>
 @endcan
 
-<!-- Google Maps Initialization -->
-@if(!empty($googleMapsApiKey))
-<script>
-// Store reference to initGoogleMap function
-let initGoogleMapFunction = null;
-
-// Define callback function globally before loading the script
-window.initGoogleMapsCallback = function() {
-    // Wait for DOM to be ready and function to be defined
-    function tryInit() {
-        if (typeof initGoogleMapFunction === 'function') {
-            initGoogleMapFunction();
-        } else {
-            setTimeout(tryInit, 50);
-        }
-    }
-    tryInit();
-};
-
-document.addEventListener('DOMContentLoaded', function() {
-    const mapElement = document.getElementById('company_contact_map');
-    if (!mapElement) return;
-
-    @php
-        // Zelfde adres als in Contact Informatie (contactSource / addressParts)
-        $mapStreetAddress = $addressLine1 ?? '';
-        $mapPostalCity = $addressLine2 ?? '';
-        $mapCountry = $addressLine3 ?? '';
-        $mapFullAddress = !empty($addressParts) ? implode(', ', $addressParts) : '';
-        $lat = $contactSource->latitude ?? null;
-        $lng = $contactSource->longitude ?? null;
-        $defaultZoom = $googleMapsZoom;
-        
-        // Store original coordinates before any fallback
-        $originalLat = $lat;
-        $originalLng = $lng;
-        
-        // Check if we have valid stored coordinates (not fallback)
-        // Coordinates must be numeric, not null, not empty, and not zero (0,0 is invalid for Netherlands)
-        $hasCoordinates = false;
-        if ($originalLat !== null && $originalLng !== null) {
-            $originalLat = is_numeric($originalLat) ? (float)$originalLat : null;
-            $originalLng = is_numeric($originalLng) ? (float)$originalLng : null;
-            $hasCoordinates = $originalLat !== null && $originalLng !== null && 
-                             $originalLat != 0 && $originalLng != 0 &&
-                             abs($originalLat) <= 90 && abs($originalLng) <= 180;
-        }
-        
-        // Use original coordinates if we have them
-        if ($hasCoordinates) {
-            $lat = $originalLat;
-            $lng = $originalLng;
-        } elseif (empty($mapFullAddress) && empty($mapStreetAddress) && empty($mapPostalCity)) {
-            // Only use default center if we have no coordinates AND no address to geocode
-            $lat = $googleMapsCenterLat;
-            $lng = $googleMapsCenterLng;
-        } else {
-            // If we have an address but no coordinates, keep lat/lng as null for geocoding
-            $lat = null;
-            $lng = null;
-        }
-        // Aliassen voor de rest van de blade (zelfde adres als in Contact Informatie)
-        $streetAddress = $mapStreetAddress;
-        $postalCity = $mapPostalCity;
-        $country = $mapCountry;
-        $fullAddress = $mapFullAddress;
-    @endphp
-
-    function initGoogleMap() {
-        if (typeof google === 'undefined' || typeof google.maps === 'undefined' || typeof google.maps.Map === 'undefined') {
-            console.error('Google Maps API not loaded');
-            return;
-        }
-
-        const hasCoordinates = {{ $hasCoordinates ? 'true' : 'false' }};
-        const mapLat = {{ $hasCoordinates && $lat ? $lat : 'null' }};
-        const mapLng = {{ $hasCoordinates && $lng ? $lng : 'null' }};
-        const mapZoom = hasCoordinates ? 16 : {{ $defaultZoom }};
-        const defaultCenterLat = {{ $googleMapsCenterLat }};
-        const defaultCenterLng = {{ $googleMapsCenterLng }};
-
-        @if($fullAddress || $streetAddress || $postalCity)
-        const streetAddress = @json($streetAddress);
-        const postalCity = @json($postalCity);
-        const country = @json($country);
-        const companyName = @json($company->name);
-        const fullAddress = @json($fullAddress);
-        const addressText = fullAddress || (streetAddress + (postalCity ? ', ' + postalCity : '') + (country ? ', ' + country : ''));
-        
-        // Determine initial map center
-        let initialCenter;
-        let initialZoom = mapZoom;
-        if (hasCoordinates) {
-            initialCenter = { lat: parseFloat(mapLat), lng: parseFloat(mapLng) };
-        } else if (addressText && addressText.trim() !== '') {
-            // If we have an address but no coordinates, we'll geocode it
-            // Use a wider zoom to show Netherlands while geocoding
-            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
-            initialZoom = 7; // Wider zoom to show Netherlands
-        } else {
-            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
-        }
-
-        const googleMap = new google.maps.Map(mapElement, {
-            center: initialCenter,
-            zoom: initialZoom,
-            mapTypeId: '{{ $googleMapsType }}',
-            mapTypeControl: false
-        });
-        
-        @if($hasCoordinates)
-        // Use stored coordinates (classic Marker works without mapId)
-        const marker = new google.maps.Marker({
-            position: { lat: parseFloat(mapLat), lng: parseFloat(mapLng) },
-            map: googleMap,
-            title: addressText
-        });
-        
-        // Center map on marker
-        googleMap.setCenter({ lat: parseFloat(mapLat), lng: parseFloat(mapLng) });
-        googleMap.setZoom(16);
-
-        // Create HTML for InfoWindow with company name and address
-        let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
-        if (companyName) {
-            addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
-        }
-        if (streetAddress) {
-            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
-        }
-        if (postalCity) {
-            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
-        }
-        if (country) {
-            addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
-        }
-        addressHtml += '</div>';
-        
-        const infoWindow = new google.maps.InfoWindow({
-            content: addressHtml,
-            maxWidth: 300
-        });
-        
-        infoWindow.open(googleMap, marker);
-        @else
-        // Geocode address immediately if no coordinates
-        if (addressText && addressText.trim() !== '') {
-            const geocoder = new google.maps.Geocoder();
-            // Execute geocoding immediately - this is async but will update the map as soon as results arrive
-            geocoder.geocode({ address: addressText }, function(results, status) {
-                if (status === 'OK' && results[0]) {
-                    const location = results[0].geometry.location;
-                    const lat = location.lat();
-                    const lng = location.lng();
-                    
-                    // Create marker at geocoded location (classic Marker works without mapId)
-                    const marker = new google.maps.Marker({
-                        position: { lat: lat, lng: lng },
-                        map: googleMap,
-                        title: addressText
-                    });
-
-                    // Create HTML for InfoWindow with company name and address
-                    let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
-                    if (companyName) {
-                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
-                    }
-                    if (streetAddress) {
-                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
-                    }
-                    if (postalCity) {
-                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
-                    }
-                    if (country) {
-                        addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
-                    }
-                    addressHtml += '</div>';
-                    
-                    const infoWindow = new google.maps.InfoWindow({
-                        content: addressHtml,
-                        maxWidth: 300
-                    });
-                    
-                    // Open InfoWindow immediately
-                    infoWindow.open(googleMap, marker);
-                    
-                    // Center and zoom to the geocoded location AFTER marker and infowindow are created
-                    googleMap.setCenter({ lat: lat, lng: lng });
-                    googleMap.setZoom(16);
-                } else {
-                    console.error('Geocoding failed for address:', addressText, 'Status:', status);
-                }
-            });
-        } else {
-            console.warn('No address text available for geocoding');
-        }
-        @endif
-        @endif
-    }
-    
-    // Store function reference globally
-    initGoogleMapFunction = initGoogleMap;
-    
-    // Fallback: also check if Google Maps is already loaded
-    if (typeof google !== 'undefined' && typeof google.maps !== 'undefined' && typeof google.maps.Map !== 'undefined') {
-        setTimeout(function() {
-            if (typeof initGoogleMapFunction === 'function') {
-                initGoogleMapFunction();
-            }
-        }, 100);
-    }
-});
-</script>
-<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}&libraries=places,geocoding,marker&callback=initGoogleMapsCallback&loading=async"></script>
-@endif
 @endpush
 
 @push('styles')

@@ -1,5 +1,12 @@
 <section class="container-custom pt-12 md:pt-16" aria-labelledby="nexataxi-tarieven-heading">
     @php
+        $taxiVehiclesCompanyId = isset($websitePageCompanyId) && $websitePageCompanyId !== null && $websitePageCompanyId !== '' ? (int) $websitePageCompanyId : null;
+        if ($taxiVehiclesCompanyId === null && app()->bound('resolved_tenant_id')) {
+            $rtid = app('resolved_tenant_id');
+            if ($rtid !== null && $rtid !== '') {
+                $taxiVehiclesCompanyId = (int) $rtid;
+            }
+        }
         // Wanneer alleen homeSections + sectionKey worden doorgegeven (frontend home), data zelf ophalen
         if (isset($sectionKey) && isset($homeSections) && is_array($homeSections)) {
             $sectionData = $homeSections[$sectionKey] ?? [];
@@ -17,9 +24,9 @@
                 $sectionTitleStyle .= ' font-weight: ' . ($sectionData['title_font_style'] === 'bold' ? '700' : '400') . '; font-style: ' . ($sectionData['title_font_style'] === 'italic' ? 'italic' : 'normal') . ';';
             }
             $vehicleDisplayService = $vehicleDisplayService ?? app(\App\Services\NexaTaxiVehicleDisplayService::class);
-            $vehiclesForSelect = $vehicleDisplayService->getVehiclesForSelect();
-            $fallbackVehicleImages = $fallbackVehicleImages ?? collect(array_filter(array_map(function ($v) use ($vehicleDisplayService) {
-                return isset($v['id']) ? $vehicleDisplayService->getImageUrl((int) $v['id']) : null;
+            $vehiclesForSelect = $vehicleDisplayService->getVehiclesForSelect($taxiVehiclesCompanyId);
+            $fallbackVehicleImages = $fallbackVehicleImages ?? collect(array_filter(array_map(function ($v) use ($vehicleDisplayService, $taxiVehiclesCompanyId) {
+                return isset($v['id']) ? $vehicleDisplayService->getImageUrl((int) $v['id'], $taxiVehiclesCompanyId) : null;
             }, $vehiclesForSelect)));
             $cardWidthPx = $cardWidthPx ?? ['small' => 320, 'normal' => 600, 'large' => 800, 'max' => 9999, 'total_width' => 9999];
             $allowedFontSizes = $allowedFontSizes ?? array_merge([''], array_map(fn ($px) => $px . 'px', range(10, 40, 2)));
@@ -74,7 +81,7 @@
                                     return app(\App\Services\WebsiteBuilderService::class)->publicFileUrl($path);
                                 }
                                 return asset(ltrim($u, '/'));
-                            })($item['image_url']) : (!empty($item['vehicle_id']) ? $vehicleDisplayService->getImageUrl((int)$item['vehicle_id']) : null);
+                            })($item['image_url']) : (!empty($item['vehicle_id']) ? $vehicleDisplayService->getImageUrl((int) $item['vehicle_id'], $taxiVehiclesCompanyId) : null);
                             if (!$isOverigeKosten && !$imageUrl && $fallbackVehicleImages->isNotEmpty()) {
                                 $imageUrl = $fallbackVehicleImages->get($itemIndex % $fallbackVehicleImages->count());
                             }

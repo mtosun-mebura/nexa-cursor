@@ -5,11 +5,13 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
+use App\Models\WebsiteMedia;
 use App\Models\WebsitePage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -116,10 +118,35 @@ final class TenantWebsiteBundleService
         return $allPaths;
     }
 
-    public function exportZip(Company $company): StreamedResponse
+    /**
+     * Publieke storage-paden die voorkomen in tenant-gebonden general_settings (logo’s, afbeeldingen in waarden, …).
+     *
+     * @return list<string>
+     */
+    public function collectTenantGeneralSettingsStoragePaths(int $companyId): array
     {
-        $allPaths = $this->collectWebsiteMediaPathsForCompany($company);
+        if (! Schema::hasTable('general_settings')) {
+            return [];
+        }
 
+        $paths = [];
+        $values = GeneralSetting::query()
+            ->where('company_id', $companyId)
+            ->pluck('value');
+        foreach ($values as $v) {
+            if (is_string($v) && $v !== '') {
+                $paths = array_merge($paths, $this->collectStoragePathsFromText($v));
+            }
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @return list<array{connection: string, theme_slug: ?string, attributes: array<string, mixed>}>
+     */
+    public function buildPageExportPayloads(Company $company): array
+    {
         $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
             ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
 
@@ -141,6 +168,62 @@ final class TenantWebsiteBundleService
                 'attributes' => $attrs,
             ];
         }
+
+        return $pagePayloads;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $pages
+     */
+    public function importWebsitePagesFromManifestEntries(Company $targetCompany, array $pages): int
+    {
+        $imported = 0;
+        foreach ($pages as $entry) {
+            if (! is_array($entry) || ! isset($entry['attributes']) || ! is_array($entry['attributes'])) {
+                continue;
+            }
+            $conn = isset($entry['connection']) && is_string($entry['connection']) ? $entry['connection'] : (string) config('database.default');
+            $themeSlug = isset($entry['theme_slug']) && is_string($entry['theme_slug']) ? $entry['theme_slug'] : null;
+
+            $attrs = $entry['attributes'];
+            unset($attrs['id']);
+            $attrs['company_id'] = (int) $targetCompany->id;
+
+            if ($themeSlug) {
+                $tid = FrontendTheme::query()->where('slug', $themeSlug)->value('id');
+                if ($tid) {
+                    $attrs['frontend_theme_id'] = (int) $tid;
+                }
+            }
+
+            $slug = (string) ($attrs['slug'] ?? '');
+            $moduleName = $attrs['module_name'] ?? null;
+
+            $q = WebsitePage::on($conn)->where('company_id', (int) $targetCompany->id)->where('slug', $slug);
+            if ($moduleName === null || $moduleName === '') {
+                $q->whereNull('module_name');
+            } else {
+                $q->where('module_name', $moduleName);
+            }
+
+            $model = $q->first();
+            if ($model === null) {
+                $model = new WebsitePage;
+                $model->setConnection($conn);
+            }
+            $model->fill($attrs);
+            $model->save();
+            $imported++;
+        }
+
+        return $imported;
+    }
+
+    public function exportZip(Company $company): StreamedResponse
+    {
+        $allPaths = $this->collectWebsiteMediaPathsForCompany($company);
+
+        $pagePayloads = $this->buildPageExportPayloads($company);
 
         $manifest = [
             'bundle_version' => self::BUNDLE_VERSION,
@@ -227,49 +310,7 @@ final class TenantWebsiteBundleService
             throw new RuntimeException('Manifest mist pages-array.');
         }
 
-        $imported = 0;
-
-        try {
-            foreach ($pages as $entry) {
-                if (! is_array($entry) || ! isset($entry['attributes']) || ! is_array($entry['attributes'])) {
-                    continue;
-                }
-                $conn = isset($entry['connection']) && is_string($entry['connection']) ? $entry['connection'] : (string) config('database.default');
-                $themeSlug = isset($entry['theme_slug']) && is_string($entry['theme_slug']) ? $entry['theme_slug'] : null;
-
-                $attrs = $entry['attributes'];
-                unset($attrs['id']);
-                $attrs['company_id'] = (int) $targetCompany->id;
-
-                if ($themeSlug) {
-                    $tid = FrontendTheme::query()->where('slug', $themeSlug)->value('id');
-                    if ($tid) {
-                        $attrs['frontend_theme_id'] = (int) $tid;
-                    }
-                }
-
-                $slug = (string) ($attrs['slug'] ?? '');
-                $moduleName = $attrs['module_name'] ?? null;
-
-                $q = WebsitePage::on($conn)->where('company_id', (int) $targetCompany->id)->where('slug', $slug);
-                if ($moduleName === null || $moduleName === '') {
-                    $q->whereNull('module_name');
-                } else {
-                    $q->where('module_name', $moduleName);
-                }
-
-                $model = $q->first();
-                if ($model === null) {
-                    $model = new WebsitePage;
-                    $model->setConnection($conn);
-                }
-                $model->fill($attrs);
-                $model->save();
-                $imported++;
-            }
-        } catch (\Throwable $e) {
-            throw $e;
-        }
+        $imported = $this->importWebsitePagesFromManifestEntries($targetCompany, $pages);
 
         $copied = $this->copyFilesFromZipToPublicDisk($tmp);
 
@@ -327,6 +368,14 @@ final class TenantWebsiteBundleService
             return [];
         }
 
+        return array_slice($this->collectStoragePathsFromText($blob), 0, 500);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function collectStoragePathsFromText(string $blob): array
+    {
         $paths = [];
         if (preg_match_all('#/storage/([^"\'\s<>]+)#i', $blob, $m)) {
             foreach ($m[1] as $raw) {
@@ -337,7 +386,7 @@ final class TenantWebsiteBundleService
             }
         }
 
-        if (preg_match_all('#(?<=[/"\'\s])(?:settings|modules|vehicles|website)/[^"\'\s<>]+\.(?:jpe?g|png|gif|webp|svg|pdf)(?:\?[^"\'\s]*)?#i', $blob, $m2)) {
+        if (preg_match_all('#(?<=[/"\'\s])(?:settings|modules|vehicles|website)/[^"\'\s<>]+\.(?:jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|pptx?|txt|csv)(?:\?[^"\'\s]*)?#i', $blob, $m2)) {
             foreach ($m2[0] as $raw) {
                 $p = $this->normalizeStorageRelativePath((string) $raw);
                 if ($p !== '') {
@@ -346,7 +395,65 @@ final class TenantWebsiteBundleService
             }
         }
 
-        return array_values(array_unique(array_slice($paths, 0, 500)));
+        // /file/encoded  →  storage/app/public (encoded gebruikt "--" i.p.v. "/")
+        if (preg_match_all('#(?:https?://[^/"\']+)?/file/([^"\'\\s<>]+)#i', $blob, $mf)) {
+            foreach ($mf[1] as $enc) {
+                $decoded = str_replace('--', '/', rawurldecode((string) $enc));
+                $p = $this->normalizeStorageRelativePath($decoded);
+                if ($p !== '') {
+                    $paths[] = $p;
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * Versleutelde carousel-/website-media op schijf "local" (storage/app/…), gerefereerd vanuit pagina’s van dit bedrijf.
+     *
+     * @return list<string> paden relatief t.o.v. storage/app (niet public)
+     */
+    public function collectEncryptedWebsiteMediaAppPathsForCompany(Company $company): array
+    {
+        if (! Schema::hasTable('website_media')) {
+            return [];
+        }
+
+        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
+            ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
+
+        $blob = '';
+        foreach ($pages as $page) {
+            $blob .= json_encode([
+                'home_sections' => $page->home_sections,
+                'content' => $page->content,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).' ';
+        }
+
+        if ($blob === '') {
+            return [];
+        }
+
+        if (! preg_match_all('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i', $blob, $mu)) {
+            return [];
+        }
+
+        $uuids = array_values(array_unique(array_slice($mu[0], 0, 500)));
+        if ($uuids === []) {
+            return [];
+        }
+
+        $paths = WebsiteMedia::query()
+            ->whereIn('uuid', $uuids)
+            ->pluck('encrypted_path')
+            ->filter(fn ($p) => is_string($p) && trim($p) !== '' && ! str_contains((string) $p, '..'))
+            ->map(fn ($p) => str_replace('\\', '/', trim((string) $p, '/')))
+            ->unique()
+            ->values()
+            ->all();
+
+        return array_values($paths);
     }
 
     public function normalizeStorageRelativePath(string $path): string

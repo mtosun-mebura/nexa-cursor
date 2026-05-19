@@ -6,6 +6,9 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <meta name="auth-check" content="{{ auth()->check() ? 'true' : 'false' }}">
   <title>@yield('title', 'NEXA Skillmatching – Dashboard')</title>
+  @php
+      $layoutBranding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+  @endphp
   @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
   <!-- Inter (optioneel) -->
   <link rel="preconnect" href="https://rsms.me/" />
@@ -89,6 +92,10 @@
     .kt-dropdown-menu-sub li {
       margin: 0;
     }
+    .fe-logo-light { display: block !important; }
+    .fe-logo-dark { display: none !important; }
+    html.dark .fe-logo-light { display: none !important; }
+    html.dark .fe-logo-dark { display: block !important; }
   </style>
   
   <!-- Dark Mode Initial State (FOUC-vrij) - MUST RUN FIRST -->
@@ -121,7 +128,7 @@
 </head>
 <body class="bg-white dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
   <!-- Header -->
-  @include('frontend.layouts.partials.header')
+  @include('frontend.layouts.partials.header', ['branding' => $layoutBranding])
   
   <div class="w-full py-6 flex-1">
     <div class="grid grid-cols-1 {{ (auth()->check() || request()->routeIs('jobs.*') || request()->routeIs('frontend.vacancy-details')) ? 'lg:grid-cols-12' : 'lg:grid-cols-1' }} gap-6 container-custom">
@@ -497,6 +504,14 @@
       if (switchElement) {
         switchElement.checked = !isDark;
       }
+
+      var dark = html.classList.contains('dark');
+      document.querySelectorAll('.fe-logo-light').forEach(function(el) {
+        el.style.setProperty('display', dark ? 'none' : 'block', 'important');
+      });
+      document.querySelectorAll('.fe-logo-dark').forEach(function(el) {
+        el.style.setProperty('display', dark ? 'block' : 'none', 'important');
+      });
     }
     
     // Ensure dark mode is applied on page load (run after initial state script)

@@ -3,7 +3,7 @@
     $emailTemplateBySectionKey = $emailTemplateBySectionKey ?? [];
     $visibility = $homeSections['visibility'] ?? [];
     $isNexaOrSkillmatching = !isset($page) || $page->module_name === null || strtolower((string)$page->module_name) === 'skillmatching';
-    $defaultSectionOrder = $isNexaOrSkillmatching ? ['hero', 'why_nexa', 'features', 'stats', 'component:nexa.recente_vacatures', 'cta'] : ['hero', 'why_nexa', 'features', 'stats', 'cta'];
+    $defaultSectionOrder = ['hero', 'why_nexa', 'features', 'stats', 'cta'];
     $sectionOrder = $homeSections['section_order'] ?? $defaultSectionOrder;
     if (!is_array($sectionOrder)) {
         $sectionOrder = $defaultSectionOrder;
@@ -34,7 +34,7 @@
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
         @elseif($sectionKey === 'component:taxi.tarieven' && view()->exists('frontend.website.components.nexataxi-tarieven'))
-            @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+            @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey, 'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null])
         @elseif($sectionKey === 'component:taxi.boekingsmodule' && view()->exists('frontend.website.components.nexataxi-boekingsmodule'))
             @include('frontend.website.components.nexataxi-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @elseif(($sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews') && view()->exists('frontend.website.components.google-reviews'))
@@ -92,12 +92,14 @@
             @php
                 $heroTitle = $sectionData['title'] ?? 'Vind je droombaan met AI';
                 $heroHighlight = $sectionData['title_highlight'] ?? 'droombaan';
+                $heroHighlightColor = trim((string) ($sectionData['title_highlight_color'] ?? ''));
+                $heroHighlightColor = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroHighlightColor) ? $heroHighlightColor : '';
                 $heroTitleParts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                 $heroTitleRightDelayMs = 500;
             @endphp
             <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
                 @if(count($heroTitleParts) === 2)
-                    <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span class="text-blue-200 dark:text-blue-300">{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
+                    <span class="scroll-reveal-item hero-reveal-title-left inline-block" style="{{ $heroRevealStyle(0) }}">{{ trim($heroTitleParts[0]) }}</span><span class="inline-block">&nbsp;</span><span class="scroll-reveal-item hero-reveal-title-right inline-block" style="{{ $heroRevealStyle($heroTitleRightDelayMs) }}"><span @class(['text-blue-200 dark:text-blue-300' => $heroHighlightColor === '']) @if($heroHighlightColor !== '') style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span>{{ trim($heroTitleParts[1]) !== '' ? ' ' . trim($heroTitleParts[1]) : '' }}</span>
                 @else
                     @php
                         $heroTitleSplit = preg_split('/\s+/', trim($heroTitle), 2, PREG_SPLIT_NO_EMPTY);
@@ -113,7 +115,11 @@
             </h1>
             @endif
             @if($v('_subtitle'))
-            <div class="scroll-reveal-item hero-reveal-zoom text-xl text-blue-100 dark:text-blue-200 mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none" style="{{ $heroRevealStyle(320) }}">
+            @php
+                $heroSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
+                $heroSubtitleColorStyle = ($heroSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroSubtitleColor)) ? 'color: ' . $heroSubtitleColor . ';' : '';
+            @endphp
+            <div class="scroll-reveal-item hero-reveal-zoom text-xl mb-8 w-full leading-relaxed max-w-3xl mx-auto prose prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none {{ $heroSubtitleColorStyle === '' ? 'text-blue-100 dark:text-blue-200' : '' }}" style="{{ $heroRevealStyle(320) }}{{ $heroSubtitleColorStyle }}">
                 {!! $sectionData['subtitle'] ?? 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.' !!}
             </div>
             @endif
@@ -163,7 +169,11 @@
             </h2>
             @endif
             @if($v('_subtitle'))
-            <div class="text-xl text-gray-600 dark:text-gray-300 leading-relaxed prose prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none mx-auto">
+            @php
+                $whySubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
+                $whySubtitleColorStyle = ($whySubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $whySubtitleColor)) ? 'color: ' . $whySubtitleColor . ';' : '';
+            @endphp
+            <div class="text-xl leading-relaxed prose prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 max-w-none mx-auto {{ $whySubtitleColorStyle === '' ? 'text-gray-600 dark:text-gray-300' : '' }}" @if($whySubtitleColorStyle !== '') style="{{ $whySubtitleColorStyle }}" @endif>
                 {!! $sectionData['subtitle'] ?? 'Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.' !!}
             </div>
             @endif
@@ -195,30 +205,11 @@
                 @foreach(($sectionData['items'] ?? []) as $fi => $item)
                 @if($visibility[$sectionKey . '_item_' . $fi] ?? $visibility['features_item_'.$fi] ?? true)
                 @php
-                    $iconName = $item['icon'] ?? ($fi === 0 ? 'light-bulb' : 'bolt');
-                    $iconDef = config('heroicons.icons.'.$iconName);
-                    if (!is_array($iconDef) || empty($iconDef['svg'])) {
-                        $iconDef = config('heroicons.icons.light-bulb') ?? ['svg' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />'];
-                    }
-                    $iconSize = $item['icon_size'] ?? 'medium';
-                    $sizeDef = config('heroicons.sizes.'.$iconSize);
-                    $iconSizeClass = is_array($sizeDef) && !empty($sizeDef['class']) ? $sizeDef['class'] : 'w-10 h-10';
-                    $iconAlign = $item['icon_align'] ?? 'center';
-                    $iconAlignItems = $iconAlign === 'right' ? 'items-end' : ($iconAlign === 'left' ? 'items-start' : 'items-center');
-                    $iconAlignText = $iconAlign === 'right' ? 'text-right' : ($iconAlign === 'left' ? 'text-left' : 'text-center');
                     $cardRevealDelayMs = $featuresFirstCardDelayMs + $fi * $featuresRevealDelayStepMs;
                     $cardRevealStyle = 'transition: opacity ' . $featuresRevealDuration . ' ' . $featuresEasing . ', transform ' . $featuresRevealDuration . ' ' . $featuresEasing . '; transition-delay: ' . $cardRevealDelayMs . 'ms;';
                 @endphp
-                <div class="scroll-reveal-item" style="{{ $cardRevealStyle }}">
-                <div class="features-card rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-6 transition-colors h-full">
-                    <div class="flex flex-col w-full {{ $iconAlignItems }} {{ $iconAlignText }}">
-                        <div class="features-card-icon w-12 h-12 {{ $fi === 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-green-100 dark:bg-green-500/20' }} rounded-lg flex items-center justify-center shrink-0">
-                            <svg class="{{ $iconSizeClass }} {{ $fi === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">{!! $iconDef['svg'] ?? '' !!}</svg>
-                        </div>
-                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mt-4 mb-3">{{ $item['title'] ?? '' }}</h3>
-                        <div class="text-gray-600 dark:text-gray-300 prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none">{!! $item['description'] ?? '' !!}</div>
-                    </div>
-                </div>
+                <div class="scroll-reveal-item h-full" style="{{ $cardRevealStyle }}">
+                    @include('frontend.website.components.features-card', ['item' => $item, 'index' => $fi, 'class' => 'h-full'])
                 </div>
                 @endif
                 @endforeach
@@ -239,14 +230,6 @@
         opacity: 1;
         transform: translateY(0) scale(1);
     }
-    @keyframes features-icon-bounce-left {
-        0% { transform: translateX(0); }
-        50% { transform: translateX(-8px); }
-        100% { transform: translateX(-3px); }
-    }
-    .modern-home-features .features-card:hover .features-card-icon {
-        animation: features-icon-bounce-left 0.4s ease-out forwards;
-    }
 </style>
 @endpush
     @endif
@@ -256,6 +239,10 @@
     @endif
     @if($base === 'featured_services' && $v(''))
         @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
+    @endif
+
+    @if($base === 'carousel' && $v(''))
+        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'carouselId' => 'modern-home-' . preg_replace('/[^a-z0-9_-]/i', '', $sectionKey), 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5)])
     @endif
 
     @if($base === 'email_template' && $v(''))
@@ -310,7 +297,12 @@
         <h2 class="scroll-reveal-item cta-reveal-rise text-3xl md:text-4xl font-bold {{ $ctaBgUrl !== '' ? 'text-white' : 'text-gray-900 dark:text-white' }} mb-4" style="{{ $ctaRevealStyleRiseTitle(0) }}">{{ $sectionData['title'] ?? 'Klaar om je carrière te starten?' }}</h2>
         @endif
         @if($v('_subtitle'))
-        <div class="scroll-reveal-item cta-reveal-rise text-lg {{ $ctaBgUrl !== '' ? 'text-blue-100' : 'text-gray-600 dark:text-gray-300' }} mb-8 prose {{ $ctaBgUrl !== '' ? 'prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' : 'prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} max-w-none" style="{{ $ctaRevealStyleRiseFast($ctaSubtitleDelayMs) }}">{!! $sectionData['subtitle'] ?? 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.' !!}</div>
+        @php
+            $ctaSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
+            $ctaSubtitleColorStyle = ($ctaSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $ctaSubtitleColor)) ? 'color: ' . $ctaSubtitleColor . ';' : '';
+            $ctaSubtitleThemeClasses = $ctaSubtitleColorStyle === '' ? ($ctaBgUrl !== '' ? 'text-blue-100' : 'text-gray-600 dark:text-gray-300') : '';
+        @endphp
+        <div class="scroll-reveal-item cta-reveal-rise text-lg {{ $ctaSubtitleThemeClasses }} mb-8 prose {{ $ctaBgUrl !== '' ? 'prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' : 'prose-gray dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2' }} max-w-none" style="{{ $ctaRevealStyleRiseFast($ctaSubtitleDelayMs) }}{{ $ctaSubtitleColorStyle }}">{!! $sectionData['subtitle'] ?? 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.' !!}</div>
         @endif
         @if($v('_buttons'))
         @php

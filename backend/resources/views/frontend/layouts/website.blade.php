@@ -411,18 +411,10 @@
                             $logoHref = route('admin.frontend-themes.staging', array_merge($stagingParams, ['page' => $pageParam]));
                         }
                     @endphp
-                    <a href="{{ $logoHref }}" class="flex items-center" aria-label="{{ $branding['site_name'] ?? 'Home' }}">
-                        @if(!empty($branding['logo_url']))
-                            @if(!empty($branding['logo_dark_url']))
-                                <img src="{{ $branding['logo_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="fe-logo-light h-10 md:h-12 w-auto object-contain">
-                                <img src="{{ $branding['logo_dark_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="fe-logo-dark h-10 md:h-12 w-auto object-contain">
-                            @else
-                                <img src="{{ $branding['logo_url'] }}" alt="{{ $branding['site_name'] ?? '' }}" class="h-10 md:h-12 w-auto">
-                            @endif
-                        @else
-                            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-10 md:h-12 w-auto object-contain">
-                        @endif
-                    </a>
+                    @include('frontend.layouts.partials.brand-logo', [
+                        'branding' => $branding,
+                        'logoHref' => $logoHref,
+                    ])
                 </div>
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}
                 @unless($hideWebsiteMenu)
@@ -543,6 +535,16 @@
                     }
                 }
                 $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['site_name'] ?? config('app.name'));
+                $footerUsesCustomLogo = !empty($footerData['logo_url']);
+                if ($footerUsesCustomLogo) {
+                    $footerLogoTw = max(12, min(30, (int) ($footerData['logo_height'] ?? 12)));
+                    $footerLogoImgClass = 'w-auto h-'.$footerLogoTw.' object-contain';
+                    $footerLogoImgStyle = '';
+                } else {
+                    $footerLogoPx = (int) ($branding['logo_size_px'] ?? app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx());
+                    $footerLogoImgClass = 'w-auto max-w-[350px] object-contain';
+                    $footerLogoImgStyle = 'height: '.$footerLogoPx.'px';
+                }
                 $footerLinkUrl = function($u) {
                     if (empty($u)) return url('/');
                     $u = trim($u);
@@ -622,17 +624,18 @@
                         <div class="flex flex-col min-w-0">
                             <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
-                                    @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
                                     <div class="footer-animate-brand inline-block mb-4">
                                     @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto h-{{ $logoHeight }} object-contain">
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
+                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
                                     @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto h-{{ $logoHeight }}">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
                                     @endif
                                     </div>
                                 @elseif($footVis['footer_logo'] ?? true)
-                                    <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="footer-animate-brand h-10 md:h-12 w-auto object-contain mb-4 inline-block">
+                                    <div class="footer-animate-brand inline-block mb-4">
+                                        @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
+                                    </div>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
                                     <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
@@ -688,17 +691,18 @@
                         <div class="col-span-1 {{ $footerFirstColSpan }}">
                             <div class="{{ $footerLogoAlignWrapper }}">
                                 @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
-                                    @php $logoHeight = (int) ($footerData['logo_height'] ?? 12); $logoHeight = $logoHeight >= 12 && $logoHeight <= 30 ? $logoHeight : 12; @endphp
                                     <div class="footer-animate-brand inline-block mb-4">
                                     @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light w-auto h-{{ $logoHeight }} object-contain">
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark w-auto h-{{ $logoHeight }} object-contain">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
+                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
                                     @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="w-auto h-{{ $logoHeight }}">
+                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
                                     @endif
                                     </div>
                                 @elseif($footVis['footer_logo'] ?? true)
-                                    <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="footer-animate-brand h-10 md:h-12 w-auto object-contain mb-4 inline-block">
+                                    <div class="footer-animate-brand inline-block mb-4">
+                                        @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
+                                    </div>
                                 @endif
                                 @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
                                     <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
@@ -768,16 +772,11 @@
         @else
             <div class="container-custom py-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                    @if(!empty($branding['logo_url']))
-                        @if(!empty($branding['logo_dark_url']))
-                            <img src="{{ $branding['logo_url'] }}" alt="" class="fe-logo-light h-8 w-auto opacity-80 object-contain">
-                            <img src="{{ $branding['logo_dark_url'] }}" alt="" class="fe-logo-dark h-8 w-auto opacity-80 object-contain">
-                        @else
-                            <img src="{{ $branding['logo_url'] }}" alt="" class="h-8 w-auto opacity-80">
-                        @endif
-                    @else
-                        <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-10 md:h-12 w-auto object-contain">
-                    @endif
+                    @include('frontend.layouts.partials.brand-logo', [
+                        'branding' => $branding,
+                        'logoHref' => route('home'),
+                        'logoImgClassExtra' => 'opacity-80',
+                    ])
                     @php
                         $footerBrandName = trim((string) ($branding['site_name'] ?? config('app.name')));
                         if (strcasecmp($footerBrandName, 'NEXA Taxi') === 0) {
@@ -805,7 +804,7 @@
     @if($whatsappWidgetEnabled && !empty($whatsappWidgetPhoneDigits))
         <div id="frontend-whatsapp-widget"
              class="pointer-events-auto"
-             style="position: fixed; right: 20px; bottom: 20px; z-index: 9999;">
+             style="position: fixed; right: 20px; bottom: 20px; z-index: 100100;">
             <div id="frontend-whatsapp-widget-menu"
                  class="absolute right-0 flex flex-col items-end gap-3"
                  style="display: none; bottom: 76px;">
@@ -825,19 +824,23 @@
                    aria-label="Bericht sturen"
                    class="inline-flex h-14 w-14 items-center justify-center text-white shadow-xl hover:brightness-110 transition-all"
                    style="background-color: #25D366; border-radius: 9999px;">
-                    <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9" aria-hidden="true">
+                    <span class="pointer-events-none inline-flex h-9 w-9 items-center justify-center" aria-hidden="true">
+                        <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9 max-h-full max-w-full object-contain" width="36" height="36" decoding="async" draggable="false">
+                    </span>
                 </a>
             </div>
             <button type="button"
                     id="frontend-whatsapp-widget-toggle"
                     aria-label="Open WhatsApp opties"
                     aria-expanded="false"
-                    class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-all">
+                    class="relative z-[1] inline-flex h-14 w-14 cursor-pointer touch-manipulation items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-all">
                 <span id="frontend-whatsapp-widget-icon-open" class="inline-flex" style="display: inline-flex;">
-                    <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9" aria-hidden="true">
+                    <span class="pointer-events-none inline-flex h-9 w-9 items-center justify-center" aria-hidden="true">
+                        <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9 max-h-full max-w-full object-contain" width="36" height="36" decoding="async" draggable="false">
+                    </span>
                 </span>
                 <span id="frontend-whatsapp-widget-icon-close" class="inline-flex" style="display: none;">
-                    <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <svg class="pointer-events-none h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
                     </svg>
                 </span>
@@ -1064,18 +1067,70 @@
                 var current = 0;
                 var isSlide = root.getAttribute('data-carousel') === 'slide';
                 var interval = null;
-                var intervalMs = 5000;
+                var intervalMs = null;
+                var intervalSecAttr = root.getAttribute('data-carousel-interval');
+                if (intervalSecAttr !== null && intervalSecAttr !== '') {
+                    var intervalSec = parseInt(intervalSecAttr, 10);
+                    if (!isNaN(intervalSec) && intervalSec > 0) {
+                        intervalMs = intervalSec * 1000;
+                    }
+                } else if (isSlide) {
+                    intervalMs = 5000;
+                }
+
+                function restartAutoplay() {
+                    if (interval) clearInterval(interval);
+                    interval = null;
+                    if (isSlide && intervalMs) interval = setInterval(next, intervalMs);
+                }
+
+                function playCarouselCaption(slideEl) {
+                    root.querySelectorAll('[data-carousel-caption]').forEach(function(c) {
+                        c.classList.remove('is-visible');
+                    });
+                    if (!slideEl) return;
+                    var cap = slideEl.querySelector('[data-carousel-caption]');
+                    if (!cap) return;
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            cap.classList.add('is-visible');
+                        });
+                    });
+                }
 
                 function show(pos) {
                     var n = items.length;
-                    current = (pos % n + n) % n;
+                    var nextIndex = (pos % n + n) % n;
+                    var prevIndex = current;
+                    if (nextIndex === prevIndex && items[prevIndex] && items[prevIndex].classList.contains('opacity-100')) {
+                        indicators.forEach(function(btn, i) {
+                            btn.setAttribute('aria-current', i === current ? 'true' : 'false');
+                            btn.style.background = i === current ? '#ffffff' : '#9ca3af';
+                        });
+                        playCarouselCaption(items[nextIndex]);
+                        return;
+                    }
+                    current = nextIndex;
                     items.forEach(function(el, i) {
                         if (i === current) {
-                            el.classList.remove('opacity-0', 'z-0', 'pointer-events-none');
-                            el.classList.add('opacity-100', 'z-10');
+                            el.classList.remove('opacity-0', 'pointer-events-none', 'z-0');
+                            el.classList.add('opacity-100', 'z-20');
                             el.setAttribute('data-carousel-item', 'active');
+                        } else if (i === prevIndex) {
+                            el.classList.remove('opacity-100', 'z-20', 'z-0');
+                            el.classList.add('opacity-0', 'z-10', 'pointer-events-none');
+                            el.setAttribute('data-carousel-item', '');
+                            (function(outgoing) {
+                                function onFadeEnd(e) {
+                                    if (e.propertyName !== 'opacity') return;
+                                    outgoing.classList.remove('z-10');
+                                    outgoing.classList.add('z-0');
+                                    outgoing.removeEventListener('transitionend', onFadeEnd);
+                                }
+                                outgoing.addEventListener('transitionend', onFadeEnd);
+                            })(el);
                         } else {
-                            el.classList.remove('opacity-100', 'z-10');
+                            el.classList.remove('opacity-100', 'z-20', 'z-10');
                             el.classList.add('opacity-0', 'z-0', 'pointer-events-none');
                             el.setAttribute('data-carousel-item', '');
                         }
@@ -1084,19 +1139,20 @@
                         btn.setAttribute('aria-current', i === current ? 'true' : 'false');
                         btn.style.background = i === current ? '#ffffff' : '#9ca3af';
                     });
+                    playCarouselCaption(items[current]);
                 }
 
                 function next() { show(current + 1); }
                 function prev() { show(current - 1); }
 
-                if (prevBtn) prevBtn.addEventListener('click', function() { prev(); if (interval) clearInterval(interval); interval = isSlide ? setInterval(next, intervalMs) : null; });
-                if (nextBtn) nextBtn.addEventListener('click', function() { next(); if (interval) clearInterval(interval); interval = isSlide ? setInterval(next, intervalMs) : null; });
+                if (prevBtn) prevBtn.addEventListener('click', function() { prev(); restartAutoplay(); });
+                if (nextBtn) nextBtn.addEventListener('click', function() { next(); restartAutoplay(); });
                 indicators.forEach(function(btn, i) {
-                    btn.addEventListener('click', function() { show(i); if (interval) clearInterval(interval); interval = isSlide ? setInterval(next, intervalMs) : null; });
+                    btn.addEventListener('click', function() { show(i); restartAutoplay(); });
                 });
 
                 show(0);
-                if (isSlide) interval = setInterval(next, intervalMs);
+                restartAutoplay();
             });
         }
         if (document.readyState === 'loading') {

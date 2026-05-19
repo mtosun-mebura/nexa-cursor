@@ -222,10 +222,12 @@ class WebsiteBuilderService
      * @param  bool  $forStagingPreview  Staging-thema is niet altijd het actieve site-thema: geen fallback naar
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
-     * @return array{logo_url: ?string, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool}
+     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool}
      */
     public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false): array
     {
+        $logoSizePx = $this->resolveLogoSizePx();
+
         $logoPath = GeneralSetting::get('logo');
         $logoUrl = null;
         if ($logoPath && Storage::disk('public')->exists($logoPath)) {
@@ -286,15 +288,78 @@ class WebsiteBuilderService
             $dashboardLinkVisible = false;
         }
 
+        $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl);
+
         return [
             'logo_url' => $logoUrl,
             'logo_dark_url' => $logoDarkUrl,
+            'logo_size_px' => $logoSizePx,
             'favicon_url' => $faviconUrl,
             'site_name' => $siteName,
             'site_description' => $siteDescription,
             'dashboard_link_label' => $dashboardLinkLabel,
             'dashboard_link_visible' => (bool) $dashboardLinkVisible,
         ];
+    }
+
+    /**
+     * Logo-hoogte uit Algemene instellingen (zelfde bereik als admin #logo_size).
+     */
+    public function resolveLogoSizePx(): int
+    {
+        $raw = GeneralSetting::get('logo_size', '26');
+        $px = is_numeric($raw) ? (int) $raw : 26;
+
+        return max(10, min(100, $px));
+    }
+
+    /**
+     * Bedrijf voor tenant-instellingen of ingelogde gebruiker (frontend skillmatching e.d.).
+     */
+    public function resolveBrandingCompanyId(): ?int
+    {
+        $scoped = GeneralSetting::resolveScopeCompanyId();
+        if ($scoped !== null) {
+            return $scoped;
+        }
+
+        if ($this->isAdminLikeRequest()) {
+            return null;
+        }
+
+        if (function_exists('auth') && auth()->check()) {
+            $companyId = auth()->user()->company_id ?? null;
+            if ($companyId) {
+                return (int) $companyId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Als er geen logo in general_settings staat: logo uit bedrijfsprofiel (wizard).
+     */
+    private function applyCompanyLogoFallback(?string &$logoUrl, ?string &$logoDarkUrl): void
+    {
+        if ($logoUrl !== null && $logoUrl !== '') {
+            return;
+        }
+
+        $companyId = $this->resolveBrandingCompanyId();
+        if ($companyId === null) {
+            return;
+        }
+
+        $company = Company::query()->find($companyId);
+        if (! $company || ! $company->logo_blob) {
+            return;
+        }
+
+        $logoUrl = route('frontend.company-brand.logo', $company);
+        if ($company->logo_dark_blob) {
+            $logoDarkUrl = route('frontend.company-brand.logo.dark', $company);
+        }
     }
 
     /**

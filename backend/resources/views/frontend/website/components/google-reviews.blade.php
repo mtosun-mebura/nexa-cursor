@@ -8,6 +8,10 @@
     $placeRating = (float) ($data['rating'] ?? 0);
     $userRatingCount = (int) ($data['user_rating_count'] ?? 0);
     $writeReviewUrl = $data['write_review_url'] ?? '';
+    $grwHeadingDefault = 'Wat anderen zeggen';
+    $carouselHeading = trim((string) ($data['section_title'] ?? ''));
+    $carouselHeading = $carouselHeading !== '' ? $carouselHeading : $grwHeadingDefault;
+    $sectionBackground = trim((string) ($data['section_background'] ?? ''));
     $carouselId = 'google-reviews-carousel-' . bin2hex(random_bytes(4));
     $componentId = 'grw-' . bin2hex(random_bytes(3));
     $visibleCards = 3;
@@ -24,7 +28,30 @@
 #{{ $componentId }} .grw-card .grw-text { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 #{{ $componentId }} .grw-card .grw-text-short { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
 #{{ $componentId }} .grw-card .grw-read-more { margin-top: auto; flex-shrink: 0; }
-#{{ $componentId }} .grw-card .grw-text.grw-text-expanded { overflow-y: auto; }
+#{{ $componentId }} .grw-card .grw-text.grw-text-expanded {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(15, 23, 42, 0.35) transparent;
+}
+html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded {
+    scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+#{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scrollbar {
+    width: 6px;
+}
+#{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scrollbar-track {
+    background: transparent;
+}
+#{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scrollbar-thumb {
+    background-color: rgba(15, 23, 42, 0.35);
+    border-radius: 9999px;
+}
+#{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scrollbar-corner {
+    background: transparent;
+}
+html.dark #{{ $componentId }} .grw-card .grw-text.grw-text-expanded::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.35);
+}
 /* Dot-navigatie: zichtbaar in light/dark; actieve dot wit in dark mode (html.dark = class-based theme) */
 #{{ $componentId }} .grw-dot.grw-dot-active { background-color: #111827 !important; }
 html.dark #{{ $componentId }} .grw-dot.grw-dot-active { background-color: #ffffff !important; }
@@ -63,7 +90,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 #{{ $componentId }}.grw-in-view .grw-btn-next,
 #{{ $componentId }}.grw-in-view .grw-dots { opacity: 1; transform: translateZ(0); }
 </style>
-<section class="google-reviews-section py-12 md:py-16 bg-gray-100 dark:bg-gray-800" aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
+<section class="google-reviews-section py-12 md:py-16 @if($sectionBackground === '') bg-gray-100 dark:bg-gray-800 @endif" @if($sectionBackground !== '') style="background-color: {{ e($sectionBackground) }};" @endif aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
     <div class="container-custom">
         {{-- Nexa Taxi layout: twee kolommen – links samenvatting, rechts carousel met meerdere kaarten --}}
         <div class="grw-layout flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-8 max-w-6xl mx-auto">
@@ -72,7 +99,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
                 @if($placeName !== '')
                     <h2 id="{{ $carouselId }}-heading" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-2">{{ $placeName }}</h2>
                 @else
-                    <h2 id="{{ $carouselId }}-heading" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-2">Wat anderen zeggen</h2>
+                    <h2 id="{{ $carouselId }}-heading" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-2">{{ $carouselHeading }}</h2>
                 @endif
                 @if($placeRating > 0)
                     <div class="flex items-center gap-2 mb-1">
@@ -101,7 +128,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
             {{-- Rechts: kop boven carousel + carousel met 3 kaarten --}}
             <div class="grw-slider-wrapper flex-1 min-w-0 flex flex-col">
                 <div class="grw-header mb-4 text-center">
-                    <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">Wat anderen zeggen</h2>
+                    <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">{{ $carouselHeading }}</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1">
                         <span>powered by Google</span>
                         <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>

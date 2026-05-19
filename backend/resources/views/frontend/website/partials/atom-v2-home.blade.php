@@ -37,7 +37,7 @@
         @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
         @elseif($sectionKey === 'component:taxi.tarieven' && view()->exists('frontend.website.components.nexataxi-tarieven'))
-            @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+            @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey, 'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null])
         @elseif($sectionKey === 'component:taxi.boekingsmodule' && view()->exists('frontend.website.components.nexataxi-boekingsmodule'))
             @include('frontend.website.components.nexataxi-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @elseif(($sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews') && view()->exists('frontend.website.components.google-reviews'))
@@ -88,17 +88,23 @@
                         @php
                             $heroTitle = $sectionData['title'] ?? 'Welkom bij Nexa';
                             $heroHighlight = $sectionData['title_highlight'] ?? 'Nexa';
+                            $heroHighlightColor = trim((string) ($sectionData['title_highlight_color'] ?? ''));
+                            $heroHighlightColorValid = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroHighlightColor);
                             $parts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                         @endphp
                         @if(count($parts) === 2)
-                            {{ trim($parts[0]) }} <span class="text-yellow">{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
+                            {{ trim($parts[0]) }} <span @class(['text-yellow' => ! $heroHighlightColorValid]) @if($heroHighlightColorValid) style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
                         @else
                             {{ $heroTitle }}
                         @endif
                     </h1>
                     @endif
                     @if($v('_subtitle') && !empty($sectionData['subtitle']))
-                    <div class="pt-3 font-body text-lg uppercase text-white sm:pt-5">{!! $sectionData['subtitle'] !!}</div>
+                    @php
+                        $heroSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
+                        $heroSubtitleColorStyle = ($heroSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroSubtitleColor)) ? 'color: ' . $heroSubtitleColor . ';' : '';
+                    @endphp
+                    <div class="pt-3 font-body text-lg uppercase sm:pt-5 {{ $heroSubtitleColorStyle === '' ? 'text-white' : '' }}" @if($heroSubtitleColorStyle !== '') style="{{ $heroSubtitleColorStyle }}" @endif>{!! $sectionData['subtitle'] !!}</div>
                     @endif
                     @if($v('_cta') && (!empty($sectionData['cta_primary_text']) || !empty($sectionData['cta_secondary_text'])))
                     <div class="flex flex-col justify-center pt-6 sm:flex-row sm:pt-5 lg:justify-start gap-4">
@@ -244,7 +250,7 @@
 
     @if($base === 'carousel' && $v(''))
     <div class="w-full pt-8 md:pt-12">
-        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? []])
+        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5)])
     </div>
     @endif
     @endif

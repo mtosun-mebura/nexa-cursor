@@ -107,14 +107,10 @@
             setPreviewFromFile(file);
         }
 
-        if (linkEl && input) linkEl.addEventListener('click', function(e) { e.preventDefault(); input.click(); });
+        if (area && input && typeof window.bindAdminDropzoneClick === 'function') {
+            window.bindAdminDropzoneClick(area, input, linkEl || null, { clearInputFirst: false });
+        }
         if (area && input) {
-            var areaSelector = '#' + CSS.escape(area.id);
-            area.addEventListener('click', function(e) {
-                if (e.target === area || (e.target.closest && e.target.closest(areaSelector))) {
-                    if (e.target.tagName !== 'A') input.click();
-                }
-            });
             area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
             area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
             area.addEventListener('drop', function(e) {

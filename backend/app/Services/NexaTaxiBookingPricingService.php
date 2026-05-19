@@ -36,12 +36,15 @@ class NexaTaxiBookingPricingService
                 'primary_color' => self::DEFAULT_BRAND_ACCENT_HEX,
                 'active_tab_color' => self::DEFAULT_BRAND_ACCENT_HEX,
                 'tab_font_size_px' => '14',
+                'title_font_size_px' => '36',
+                'step_heading_font_size_px' => '30',
                 'route_map_zoom' => '14',
                 'background_color' => '#ffffff',
                 'text_color' => '#111827',
                 'card_bg_color' => '#ffffff',
                 'border_radius' => 12,
                 'container_max_width' => '100%',
+                'container_min_height' => '',
                 'align' => 'center',
             ],
             'logic' => [
@@ -123,6 +126,22 @@ class NexaTaxiBookingPricingService
         $section['style']['border_radius'] = max(0, min(40, (int) ($section['style']['border_radius'] ?? $defaults['style']['border_radius'])));
         $width = trim((string) ($section['style']['container_max_width'] ?? ''));
         $section['style']['container_max_width'] = preg_match('/^(100|[1-9]\d?)%$/', $width) ? $width : $defaults['style']['container_max_width'];
+        $minHeight = strtolower(trim((string) ($section['style']['container_min_height'] ?? '')));
+        if ($minHeight === '' || $minHeight === 'auto') {
+            $section['style']['container_min_height'] = '';
+        } elseif (preg_match('/^(\d{2,4})(px|vh)$/', $minHeight, $mh)) {
+            $num = (int) $mh[1];
+            $unit = $mh[2];
+            if ($unit === 'px' && $num >= 200 && $num <= 2000) {
+                $section['style']['container_min_height'] = $num.'px';
+            } elseif ($unit === 'vh' && $num >= 20 && $num <= 100) {
+                $section['style']['container_min_height'] = $num.'vh';
+            } else {
+                $section['style']['container_min_height'] = '';
+            }
+        } else {
+            $section['style']['container_min_height'] = '';
+        }
         $align = trim((string) ($section['style']['align'] ?? $defaults['style']['align']));
         $section['style']['align'] = in_array($align, ['left', 'center', 'right'], true) ? $align : $defaults['style']['align'];
 
@@ -131,6 +150,18 @@ class NexaTaxiBookingPricingService
             ? $tabFontPx
             : (int) $defaults['style']['tab_font_size_px'];
         $section['style']['tab_font_size_px'] = (string) $tabFontPx;
+
+        $titleFontPx = (int) ($section['style']['title_font_size_px'] ?? $defaults['style']['title_font_size_px']);
+        $titleFontPx = ($titleFontPx >= 16 && $titleFontPx <= 72 && $titleFontPx % 2 === 0)
+            ? $titleFontPx
+            : (int) $defaults['style']['title_font_size_px'];
+        $section['style']['title_font_size_px'] = (string) $titleFontPx;
+
+        $stepHeadingFontPx = (int) ($section['style']['step_heading_font_size_px'] ?? $defaults['style']['step_heading_font_size_px']);
+        $stepHeadingFontPx = ($stepHeadingFontPx >= 16 && $stepHeadingFontPx <= 48 && $stepHeadingFontPx % 2 === 0)
+            ? $stepHeadingFontPx
+            : (int) $defaults['style']['step_heading_font_size_px'];
+        $section['style']['step_heading_font_size_px'] = (string) $stepHeadingFontPx;
 
         $routeMapZoom = (int) ($section['style']['route_map_zoom'] ?? $defaults['style']['route_map_zoom']);
         $routeMapZoom = max(1, min(21, $routeMapZoom));
@@ -175,7 +206,12 @@ class NexaTaxiBookingPricingService
         return $section;
     }
 
-    public function buildQuotes(array $sectionConfig, array $input): array
+    /**
+     * Bouw tarief-offers voor de boekingsmodule.
+     *
+     * @param  ?int  $tenantCompanyId  Indien gezet: alleen voertuigen en aanbiedingen van dit bedrijf (website-pagina company).
+     */
+    public function buildQuotes(array $sectionConfig, array $input, ?int $tenantCompanyId = null): array
     {
         $passengers = max(
             (int) ($sectionConfig['logic']['min_passengers'] ?? 1),
@@ -193,8 +229,8 @@ class NexaTaxiBookingPricingService
         $extraTotal = $this->calculateExtraCosts($sectionConfig, $input);
 
         $defaultRates = $this->getDefaultRates($range);
-        $vehicleMap = $this->getActiveVehiclesById($range);
-        $allVehicleMap = $this->getAllActiveVehiclesById();
+        $vehicleMap = $this->getActiveVehiclesById($range, $tenantCompanyId);
+        $allVehicleMap = $this->getAllActiveVehiclesById($tenantCompanyId);
         $offers = is_array($sectionConfig['offers'] ?? null) ? $sectionConfig['offers'] : [];
         if (empty($offers)) {
             $offers = $this->buildDefaultOffersFromVehicles(array_values($vehicleMap));
@@ -248,6 +284,9 @@ class NexaTaxiBookingPricingService
 
             foreach ($matchingOffers as $idx => $offer) {
                 $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
+                if ($tenantCompanyId !== null && $tenantCompanyId > 0 && $vehicleId !== null && ! isset($allVehicleMap[$vehicleId])) {
+                    continue;
+                }
                 $vehicleForRate = $vehicleId !== null && isset($vehicleMap[$vehicleId]) ? $vehicleMap[$vehicleId] : null;
                 $vehicleForDisplay = $vehicleId !== null && isset($allVehicleMap[$vehicleId]) ? $allVehicleMap[$vehicleId] : $vehicleForRate;
 
@@ -299,6 +338,9 @@ class NexaTaxiBookingPricingService
                     continue;
                 }
                 $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
+                if ($tenantCompanyId !== null && $tenantCompanyId > 0 && $vehicleId !== null && ! isset($allVehicleMap[$vehicleId])) {
+                    continue;
+                }
                 $vehicleForRate = $vehicleId !== null && isset($vehicleMap[$vehicleId]) ? $vehicleMap[$vehicleId] : null;
                 $vehicleForDisplay = $vehicleId !== null && isset($allVehicleMap[$vehicleId]) ? $allVehicleMap[$vehicleId] : $vehicleForRate;
                 $rate = $this->resolveRateForVehicle($vehicleForRate, $defaultRates);
@@ -510,15 +552,20 @@ class NexaTaxiBookingPricingService
     /**
      * @return array<int, Vehicle>
      */
-    private function getActiveVehiclesById(string $personRange): array
+    private function getActiveVehiclesById(string $personRange, ?int $tenantCompanyId = null): array
     {
         $conn = $this->getTaxiConnection();
         if ($conn === null) {
             return [];
         }
 
-        return Vehicle::on($conn)
-            ->where('active', true)
+        $q = Vehicle::on($conn)
+            ->where('active', true);
+        if ($tenantCompanyId !== null && $tenantCompanyId > 0) {
+            $q->where('company_id', $tenantCompanyId);
+        }
+
+        return $q
             ->orderBy('name')
             ->get()
             ->filter(fn (Vehicle $vehicle) => $this->vehicleMatchesRange($vehicle, $personRange))
@@ -529,15 +576,20 @@ class NexaTaxiBookingPricingService
     /**
      * @return array<int, Vehicle>
      */
-    private function getAllActiveVehiclesById(): array
+    private function getAllActiveVehiclesById(?int $tenantCompanyId = null): array
     {
         $conn = $this->getTaxiConnection();
         if ($conn === null) {
             return [];
         }
 
-        return Vehicle::on($conn)
-            ->where('active', true)
+        $q = Vehicle::on($conn)
+            ->where('active', true);
+        if ($tenantCompanyId !== null && $tenantCompanyId > 0) {
+            $q->where('company_id', $tenantCompanyId);
+        }
+
+        return $q
             ->orderBy('name')
             ->get()
             ->keyBy('id')

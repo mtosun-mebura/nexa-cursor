@@ -55,7 +55,7 @@ class WebsitePageModelTest extends TestCase
             ['name' => 'Modern', 'is_active' => true]
         );
         $conn = $theme->getConnectionName() ?? config('database.default');
-        $hasColumn = Schema::connection($conn)->hasColumn('website_pages', 'show_in_menu');
+        $hasColumn = WebsitePage::tableHasColumnOnConnection($conn, 'show_in_menu');
 
         WebsitePage::create([
             'slug' => 'in-menu',

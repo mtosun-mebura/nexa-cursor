@@ -18,13 +18,6 @@
         </div>
     @endif
 
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-information me-2"></i>
-            {{ session('error') }}
-        </div>
-    @endif
-
     @if($errors->any())
         <div class="kt-alert kt-alert-danger mb-5" role="alert">
             <i class="ki-filled ki-information me-2"></i>
@@ -36,6 +29,8 @@
             </ul>
         </div>
     @endif
+
+    @include('admin.settings.partials.tenant-scope-notice')
 
     <div class="grid gap-5 lg:gap-7.5">
         <!-- Coming Soon pagina -->
@@ -307,14 +302,20 @@ document.addEventListener('DOMContentLoaded', function() {
         csImgInput.value = '';
     }
 
+    if (csImgInput && csImgArea && typeof window.bindAdminUploadAreaClick === 'function') {
+        window.bindAdminUploadAreaClick(csImgArea, csImgInput, { clearInputFirst: false });
+    }
+
     if (csImgInput && csImgArea) {
-        csImgArea.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            csImgInput.click();
-        });
         csImgArea.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); csImgInput.click(); }
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (typeof window.openAdminFilePicker === 'function') {
+                    window.openAdminFilePicker(csImgInput, { clearInputFirst: false });
+                } else {
+                    csImgInput.click();
+                }
+            }
         });
         csImgArea.addEventListener('dragover', function(e) {
             e.preventDefault();

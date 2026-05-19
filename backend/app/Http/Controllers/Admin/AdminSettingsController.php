@@ -7,9 +7,11 @@ use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Services\EnvService;
+use App\Services\GoogleReviewsService;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantWebsiteBundleService;
+use App\Support\DutchPhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -48,12 +50,76 @@ class AdminSettingsController extends Controller
     }
 
     /**
+     * Actieve tenant (company_id) voor per-tenant configuratie in admin.
+     * Super-admin: sessie selected_tenant; overige admins: company_id van de gebruiker.
+     */
+    protected function settingsCompanyId(): ?int
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return null;
+        }
+        if ($user->hasRole('super-admin')) {
+            $st = session('selected_tenant');
+            if ($st !== null && $st !== '' && is_numeric($st)) {
+                $id = (int) $st;
+
+                return Company::query()->whereKey($id)->exists() ? $id : null;
+            }
+
+            return null;
+        }
+
+        return $user->company_id ? (int) $user->company_id : null;
+    }
+
+    /**
+     * Redirect wanneer er geen tenant-context is voor instellingen die per company worden opgeslagen.
+     */
+    protected function requireSettingsTenantOrRedirect(): ?\Illuminate\Http\RedirectResponse
+    {
+        $user = auth()->user();
+        if (! $user) {
+            abort(403);
+        }
+        if ($this->settingsCompanyId() === null) {
+            $message = $user->hasRole('super-admin')
+                ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk om per-tenant configuraties te bewerken.'
+                : 'Geen bedrijf gekoppeld aan dit account.';
+
+            return redirect()->route('admin.settings.index')->with('settings_tenant_save_notice', $message);
+        }
+
+        return null;
+    }
+
+    /**
+     * JSON-fout wanneer AJAX-instellingen geen tenant-context hebben.
+     */
+    protected function jsonTenantRequired(): ?\Illuminate\Http\JsonResponse
+    {
+        if ($this->settingsCompanyId() !== null) {
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => auth()->user()?->hasRole('super-admin')
+                ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk.'
+                : 'Geen bedrijf gekoppeld aan dit account.',
+        ], 422);
+    }
+
+    /**
      * Display the settings page
      * Alleen toegankelijk voor super-admin
      */
     public function index()
     {
         $this->ensureSuperAdmin();
+
+        $settingsCompanyId = $this->settingsCompanyId();
+        $tenantScopedSettingsActive = $settingsCompanyId !== null;
 
         // Get current mail settings (EnvService reads from GeneralSetting first for these keys)
         $mailSettings = [
@@ -109,6 +175,10 @@ class AdminSettingsController extends Controller
         $googleReviewsCount = max(1, min(20, $googleReviewsCount));
         $googleReviewsMinStars = (int) GeneralSetting::get('google_reviews_min_stars', '1');
         $googleReviewsMinStars = max(1, min(5, $googleReviewsMinStars));
+        $googleReviewsSectionTitle = trim((string) GeneralSetting::get('google_reviews_section_title', ''));
+        $googleReviewsSectionBackground = GoogleReviewsService::normalizeHexColor(
+            trim((string) GeneralSetting::get('google_reviews_section_background', ''))
+        );
 
         $companiesForSync = Company::query()->orderBy('name')->get(['id', 'name']);
 
@@ -129,9 +199,13 @@ class AdminSettingsController extends Controller
             'googleReviewsCacheHours',
             'googleReviewsCount',
             'googleReviewsMinStars',
+            'googleReviewsSectionTitle',
+            'googleReviewsSectionBackground',
             'tenantSyncSettings',
             'companiesForSync',
             'tenantSyncScope',
+            'settingsCompanyId',
+            'tenantScopedSettingsActive',
         ));
     }
 
@@ -279,7 +353,7 @@ class AdminSettingsController extends Controller
     }
 
     /**
-     * ZIP-download: alle publieke tenant-bestanden (website-media, logo-pad, CV’s, factuur-PDF’s, …).
+     * ZIP-download: volledige tenant-export (v2): bestanden, website_pages-manifest, tenant-general_settings.
      */
     public function exportTenantStorageBundle(Request $request)
     {
@@ -294,7 +368,7 @@ class AdminSettingsController extends Controller
     }
 
     /**
-     * ZIP-import: bestanden uit tenant-media-bundle naar storage/app/public.
+     * ZIP-import: tenant-export (v2: bestanden + pagina’s + instellingen) of legacy v1 (alleen bestanden).
      */
     public function importTenantStorageBundle(Request $request)
     {
@@ -319,7 +393,52 @@ class AdminSettingsController extends Controller
 
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
-            ->with('success', 'Tenant-bestanden geïmporteerd: '.$result['copied_files'].' bestand(en) naar storage/app/public.');
+            ->with('success', 'Tenant-export geïmporteerd: '.$result['copied_files'].' bestand(en), '
+                .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en).');
+    }
+
+    /**
+     * ZIP-download: website_pages (manifest) + door pagina’s gerefereerde bestanden (zie TenantWebsiteBundleService).
+     */
+    public function exportTenantWebsiteBundle(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+        ]);
+
+        $company = Company::query()->findOrFail((int) $request->query('company_id'));
+
+        return $this->tenantWebsiteBundle->exportZip($company);
+    }
+
+    /**
+     * ZIP-import: website-pagina’s + bestanden naar storage/app/public (website-bundle manifest).
+     */
+    public function importTenantWebsiteBundle(Request $request)
+    {
+        $this->ensureSuperAdmin();
+        $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'bundle' => ['required', 'file', 'mimes:zip', 'max:512000'],
+        ], [
+            'bundle.required' => 'Selecteer een ZIP-bestand.',
+            'bundle.mimes' => 'Alleen ZIP is toegestaan.',
+        ]);
+
+        try {
+            $company = Company::query()->findOrFail((int) $request->input('company_id'));
+            $result = $this->tenantWebsiteBundle->importZip($company, $request->file('bundle'));
+        } catch (\Throwable $e) {
+            return redirect()->route('admin.settings.index')
+                ->withFragment('tenant-sync')
+                ->with('error', 'Website-import mislukt: '.$e->getMessage())
+                ->withInput();
+        }
+
+        return redirect()->route('admin.settings.index')
+            ->withFragment('tenant-sync')
+            ->with('success', 'Website-import voltooid: '.$result['imported_pages']." pagina's, ".$result['copied_files'].' bestand(en) gekopieerd naar storage/app/public.');
     }
 
     /**
@@ -329,6 +448,11 @@ class AdminSettingsController extends Controller
     public function updateMail(Request $request)
     {
         $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
             'MAIL_MAILER' => 'required|in:log,smtp,sendmail,mailgun,ses,postmark,resend',
@@ -370,7 +494,7 @@ class AdminSettingsController extends Controller
             }
 
             foreach ($mailSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value);
+                GeneralSetting::set($key, (string) $value, $companyId);
             }
 
             return redirect()->route('admin.settings.index')
@@ -448,6 +572,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
+
         $validator = Validator::make($request->all(), [
             'GOOGLE_SEO_PROPERTY_ID' => 'nullable|string|max:255',
             'GOOGLE_ANALYTICS_ID' => 'nullable|string|max:255',
@@ -474,7 +603,7 @@ class AdminSettingsController extends Controller
             ];
 
             foreach ($seoSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value);
+                GeneralSetting::set($key, (string) $value, $companyId);
             }
 
             return redirect()->route('admin.settings.index')
@@ -493,6 +622,11 @@ class AdminSettingsController extends Controller
     public function updateMaps(Request $request)
     {
         $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
             'GOOGLE_MAPS_API_KEY' => 'required|string|max:255',
@@ -530,7 +664,7 @@ class AdminSettingsController extends Controller
             ];
 
             foreach ($mapsSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value);
+                GeneralSetting::set($key, (string) $value, $companyId);
             }
 
             return redirect()->route('admin.settings.index')
@@ -549,6 +683,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
+
         // Lege cacheduur normaliseren naar 24 zodat validatie slaagt; waarde 1 blijft gewoon 1
         $cacheHoursInput = $request->input('google_reviews_cache_hours');
         if ($cacheHoursInput === '' || $cacheHoursInput === null) {
@@ -561,6 +700,8 @@ class AdminSettingsController extends Controller
             'google_reviews_cache_hours' => 'nullable|integer|min:1|max:168',
             'google_reviews_count' => 'nullable|integer|min:1|max:5',
             'google_reviews_min_stars' => 'nullable|integer|min:1|max:5',
+            'google_reviews_section_title' => 'nullable|string|max:255',
+            'google_reviews_section_background' => 'nullable|string|max:32',
         ]);
 
         if ($validator->fails()) {
@@ -569,20 +710,30 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
+        $bgRaw = trim((string) $request->input('google_reviews_section_background', ''));
+        $bgNorm = GoogleReviewsService::normalizeHexColor($bgRaw);
+        if ($bgRaw !== '' && $bgNorm === '') {
+            return redirect()->to(route('admin.settings.index').'#google-reviews')
+                ->withErrors(['google_reviews_section_background' => 'Ongeldige kleur. Gebruik een hex-waarde, bijv. #f3f4f6 of #abc.'])
+                ->withInput();
+        }
+
         try {
-            $oldPlaceId = trim((string) GeneralSetting::get('google_reviews_place_id', ''));
-            $oldBusinessName = trim((string) GeneralSetting::get('google_reviews_business_name', ''));
+            $oldPlaceId = trim((string) GeneralSetting::get('google_reviews_place_id', '', $companyId));
+            $oldBusinessName = trim((string) GeneralSetting::get('google_reviews_business_name', '', $companyId));
             $newPlaceId = trim((string) $request->input('google_reviews_place_id', ''));
             $newBusinessName = trim((string) $request->input('google_reviews_business_name', ''));
-            GeneralSetting::set('google_reviews_place_id', $newPlaceId);
-            GeneralSetting::set('google_reviews_business_name', $newBusinessName);
+            GeneralSetting::set('google_reviews_place_id', $newPlaceId, $companyId);
+            GeneralSetting::set('google_reviews_business_name', $newBusinessName, $companyId);
             $hours = (int) $request->input('google_reviews_cache_hours', 24);
             $hours = max(1, min(168, $hours));
-            GeneralSetting::set('google_reviews_cache_hours', (string) $hours);
+            GeneralSetting::set('google_reviews_cache_hours', (string) $hours, $companyId);
             $count = max(1, min(5, (int) $request->input('google_reviews_count', 5)));
-            GeneralSetting::set('google_reviews_count', (string) $count);
+            GeneralSetting::set('google_reviews_count', (string) $count, $companyId);
             $minStars = max(1, min(5, (int) $request->input('google_reviews_min_stars', 1)));
-            GeneralSetting::set('google_reviews_min_stars', (string) $minStars);
+            GeneralSetting::set('google_reviews_min_stars', (string) $minStars, $companyId);
+            GeneralSetting::set('google_reviews_section_title', trim((string) $request->input('google_reviews_section_title', '')), $companyId);
+            GeneralSetting::set('google_reviews_section_background', $bgNorm, $companyId);
 
             // Cache legen (oude en nieuwe key) zodat verse data wordt opgehaald
             try {
@@ -609,6 +760,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
+
         $validator = Validator::make($request->all(), [
             'WHATSAPP_API_TOKEN' => 'nullable|string|max:500',
             'WHATSAPP_PHONE_NUMBER_ID' => 'nullable|string|max:255',
@@ -624,8 +780,26 @@ class AdminSettingsController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->withErrors($validator)
+                ->withInput();
+        }
+
+        $phoneError = 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).';
+        $normalizedClickToChat = DutchPhoneNumber::normalizeOptionalNlToInternational(
+            trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''))
+        );
+        $normalizedWidgetPhone = DutchPhoneNumber::normalizeOptionalNlToInternational(
+            trim((string) $request->input('WHATSAPP_WIDGET_PHONE', ''))
+        );
+        if ($normalizedClickToChat === null) {
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
+                ->withErrors(['WHATSAPP_CLICK_TO_CHAT_NUMBER' => $phoneError])
+                ->withInput();
+        }
+        if ($normalizedWidgetPhone === null) {
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
+                ->withErrors(['WHATSAPP_WIDGET_PHONE' => $phoneError])
                 ->withInput();
         }
 
@@ -638,20 +812,20 @@ class AdminSettingsController extends Controller
                 'WHATSAPP_WEBHOOK_VERIFY_TOKEN' => $request->input('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
                 'WHATSAPP_DEFAULT_MESSAGE' => $request->input('WHATSAPP_DEFAULT_MESSAGE', ''),
                 'WHATSAPP_CLICK_TO_CHAT_ENABLED' => $request->boolean('WHATSAPP_CLICK_TO_CHAT_ENABLED') ? '1' : '0',
-                'WHATSAPP_CLICK_TO_CHAT_NUMBER' => trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', '')),
+                'WHATSAPP_CLICK_TO_CHAT_NUMBER' => $normalizedClickToChat,
                 'WHATSAPP_WIDGET_ENABLED' => $request->boolean('WHATSAPP_WIDGET_ENABLED') ? '1' : '0',
-                'WHATSAPP_WIDGET_PHONE' => trim((string) $request->input('WHATSAPP_WIDGET_PHONE', '')),
+                'WHATSAPP_WIDGET_PHONE' => $normalizedWidgetPhone,
                 'WHATSAPP_WIDGET_DEFAULT_MESSAGE' => trim((string) $request->input('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.')),
             ];
 
             foreach ($whatsappSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value);
+                GeneralSetting::set($key, (string) $value, $companyId);
             }
 
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->with('success', 'WhatsApp Business instellingen succesvol bijgewerkt!');
         } catch (\Exception $e) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to(route('admin.settings.index').'#whatsapp')
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
                 ->withInput();
         }
@@ -663,6 +837,11 @@ class AdminSettingsController extends Controller
     public function updateComingSoon(Request $request)
     {
         $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
             'coming_soon_title' => 'required|string|max:255',
@@ -683,13 +862,13 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
-        GeneralSetting::set('coming_soon_title', $request->input('coming_soon_title'));
-        GeneralSetting::set('coming_soon_text', $request->input('coming_soon_text'));
-        GeneralSetting::set('coming_soon_secondary_text', $request->input('coming_soon_secondary_text', ''));
-        GeneralSetting::set('coming_soon_show_email', $request->has('coming_soon_show_email') && $request->input('coming_soon_show_email') ? '1' : '0');
-        GeneralSetting::set('coming_soon_contact_email', $request->input('coming_soon_contact_email', ''));
-        GeneralSetting::set('coming_soon_contact_label', $request->input('coming_soon_contact_label', 'E-mail'));
-        GeneralSetting::set('coming_soon_footer_text', $request->input('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'));
+        GeneralSetting::set('coming_soon_title', $request->input('coming_soon_title'), $companyId);
+        GeneralSetting::set('coming_soon_text', $request->input('coming_soon_text'), $companyId);
+        GeneralSetting::set('coming_soon_secondary_text', $request->input('coming_soon_secondary_text', ''), $companyId);
+        GeneralSetting::set('coming_soon_show_email', $request->has('coming_soon_show_email') && $request->input('coming_soon_show_email') ? '1' : '0', $companyId);
+        GeneralSetting::set('coming_soon_contact_email', $request->input('coming_soon_contact_email', ''), $companyId);
+        GeneralSetting::set('coming_soon_contact_label', $request->input('coming_soon_contact_label', 'E-mail'), $companyId);
+        GeneralSetting::set('coming_soon_footer_text', $request->input('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'), $companyId);
 
         return redirect()->route('admin.settings.frontend.index')
             ->with('success', 'Coming soon-instellingen opgeslagen. Deze pagina wordt getoond zolang er geen actieve module is.');
@@ -702,6 +881,9 @@ class AdminSettingsController extends Controller
     public function frontendIndex()
     {
         $this->ensureSuperAdmin();
+
+        $settingsCompanyId = $this->settingsCompanyId();
+        $tenantScopedSettingsActive = $settingsCompanyId !== null;
 
         $comingSoonSettings = [
             'coming_soon_title' => GeneralSetting::get('coming_soon_title', 'We zijn bijna live'),
@@ -719,7 +901,7 @@ class AdminSettingsController extends Controller
             $comingSoonImageUrl = app(\App\Services\WebsiteBuilderService::class)->publicFileUrl(ltrim($comingSoonImagePath, '/'));
         }
 
-        return view('admin.settings.frontend', compact('comingSoonSettings', 'comingSoonImageUrl'));
+        return view('admin.settings.frontend', compact('comingSoonSettings', 'comingSoonImageUrl', 'settingsCompanyId', 'tenantScopedSettingsActive'));
     }
 
     /**
@@ -748,6 +930,9 @@ class AdminSettingsController extends Controller
     public function generalIndex()
     {
         $this->ensureSuperAdmin();
+
+        $settingsCompanyId = $this->settingsCompanyId();
+        $tenantScopedSettingsActive = $settingsCompanyId !== null;
 
         $logo = GeneralSetting::get('logo');
         $favicon = GeneralSetting::get('favicon');
@@ -784,8 +969,9 @@ class AdminSettingsController extends Controller
             $logoDark = null;
         }
         // Als er een dark logo is geüpload, toon toggle als aangevinkt (en sync DB indien nodig)
-        if ($logoDark !== null && $logoMode !== 'light_dark') {
-            GeneralSetting::set('logo_mode', 'light_dark');
+        $settingsCompanyId = $this->settingsCompanyId();
+        if ($logoDark !== null && $logoMode !== 'light_dark' && $settingsCompanyId !== null) {
+            GeneralSetting::set('logo_mode', 'light_dark', $settingsCompanyId);
             $logoMode = 'light_dark';
         }
 
@@ -794,7 +980,7 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'settingsCompanyId', 'tenantScopedSettingsActive'));
     }
 
     /**
@@ -804,6 +990,11 @@ class AdminSettingsController extends Controller
     public function generalUpdate(Request $request)
     {
         $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+        $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
             'site_name' => 'nullable|string|max:255',
@@ -839,31 +1030,31 @@ class AdminSettingsController extends Controller
         try {
             // Applicatienaam en omschrijving
             if ($request->has('site_name')) {
-                GeneralSetting::set('site_name', $request->input('site_name', ''));
+                GeneralSetting::set('site_name', $request->input('site_name', ''), $companyId);
             }
             if ($request->has('site_description')) {
-                GeneralSetting::set('site_description', $request->input('site_description', ''));
+                GeneralSetting::set('site_description', $request->input('site_description', ''), $companyId);
             }
-            GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0');
+            GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0', $companyId);
             if ($request->has('info_request_success_title')) {
-                GeneralSetting::set('info_request_success_title', $request->input('info_request_success_title', ''));
+                GeneralSetting::set('info_request_success_title', $request->input('info_request_success_title', ''), $companyId);
             }
             if ($request->has('info_request_success_subtitle')) {
-                GeneralSetting::set('info_request_success_subtitle', $request->input('info_request_success_subtitle', ''));
+                GeneralSetting::set('info_request_success_subtitle', $request->input('info_request_success_subtitle', ''), $companyId);
             }
             if ($request->has('info_request_success_footer')) {
-                GeneralSetting::set('info_request_success_footer', $request->input('info_request_success_footer', ''));
+                GeneralSetting::set('info_request_success_footer', $request->input('info_request_success_footer', ''), $companyId);
             }
             if ($request->has('info_request_success_texts_enabled')) {
-                GeneralSetting::set('info_request_success_texts_enabled', $request->input('info_request_success_texts_enabled') === '0' ? '0' : '1');
+                GeneralSetting::set('info_request_success_texts_enabled', $request->input('info_request_success_texts_enabled') === '0' ? '0' : '1', $companyId);
             } else {
-                GeneralSetting::set('info_request_success_texts_enabled', '1');
+                GeneralSetting::set('info_request_success_texts_enabled', '1', $companyId);
             }
             if ($request->has('info_request_success_icon')) {
-                GeneralSetting::set('info_request_success_icon', $request->input('info_request_success_icon', ''));
+                GeneralSetting::set('info_request_success_icon', $request->input('info_request_success_icon', ''), $companyId);
             }
             if ($request->has('info_request_success_icon_size')) {
-                GeneralSetting::set('info_request_success_icon_size', (string) $request->input('info_request_success_icon_size', '80'));
+                GeneralSetting::set('info_request_success_icon_size', (string) $request->input('info_request_success_icon_size', '80'), $companyId);
             }
 
             // Ensure settings directory exists
@@ -877,7 +1068,7 @@ class AdminSettingsController extends Controller
                 $logoFile = $request->file('logo');
 
                 // Delete old logo if exists
-                $oldLogo = GeneralSetting::get('logo');
+                $oldLogo = GeneralSetting::get('logo', null, $companyId);
                 if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
                     Storage::disk('public')->delete($oldLogo);
                 }
@@ -897,7 +1088,7 @@ class AdminSettingsController extends Controller
                 }
 
                 // Save path to database
-                GeneralSetting::set('logo', $logoPath);
+                GeneralSetting::set('logo', $logoPath, $companyId);
 
                 \Log::info('Logo uploaded successfully', [
                     'path' => $logoPath,
@@ -911,7 +1102,7 @@ class AdminSettingsController extends Controller
                 $faviconFile = $request->file('favicon');
 
                 // Delete old favicon if exists
-                $oldFavicon = GeneralSetting::get('favicon');
+                $oldFavicon = GeneralSetting::get('favicon', null, $companyId);
                 if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
                     Storage::disk('public')->delete($oldFavicon);
                 }
@@ -931,7 +1122,7 @@ class AdminSettingsController extends Controller
                 }
 
                 // Save path to database
-                GeneralSetting::set('favicon', $faviconPath);
+                GeneralSetting::set('favicon', $faviconPath, $companyId);
 
                 \Log::info('Favicon uploaded successfully', [
                     'path' => $faviconPath,
@@ -942,11 +1133,11 @@ class AdminSettingsController extends Controller
 
             // Update logo size
             if ($request->has('logo_size')) {
-                GeneralSetting::set('logo_size', $request->input('logo_size'));
+                GeneralSetting::set('logo_size', $request->input('logo_size'), $companyId);
             }
 
             if ($request->has('logo_mode') && in_array($request->input('logo_mode'), ['single', 'light_dark'], true)) {
-                GeneralSetting::set('logo_mode', $request->input('logo_mode'));
+                GeneralSetting::set('logo_mode', $request->input('logo_mode'), $companyId);
             }
 
             return redirect()->route('admin.settings.general.index')
@@ -970,6 +1161,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
         $request->validate([
             'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'logo_type' => 'nullable|string|in:light,dark',
@@ -992,10 +1188,10 @@ class AdminSettingsController extends Controller
             $logoFile = $request->file('logo');
 
             if ($isDark) {
-                $oldLogo = GeneralSetting::get('logo_dark');
+                $oldLogo = GeneralSetting::get('logo_dark', null, $companyId);
                 $settingKey = 'logo_dark';
             } else {
-                $oldLogo = GeneralSetting::get('logo');
+                $oldLogo = GeneralSetting::get('logo', null, $companyId);
                 $settingKey = 'logo';
             }
             if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
@@ -1016,9 +1212,9 @@ class AdminSettingsController extends Controller
                 ], 500);
             }
 
-            GeneralSetting::set($settingKey, $logoPath);
+            GeneralSetting::set($settingKey, $logoPath, $companyId);
             if ($isDark) {
-                GeneralSetting::set('logo_mode', 'light_dark');
+                GeneralSetting::set('logo_mode', 'light_dark', $companyId);
             }
 
             \Log::info('Logo uploaded successfully', ['path' => $logoPath, 'type' => $isDark ? 'dark' : 'light']);
@@ -1050,11 +1246,16 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        $path = GeneralSetting::get('logo');
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
+        $path = GeneralSetting::get('logo', null, $companyId);
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
-        GeneralSetting::set('logo', '');
+        GeneralSetting::set('logo', '', $companyId);
 
         return response()->json([
             'success' => true,
@@ -1069,12 +1270,17 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        $path = GeneralSetting::get('logo_dark');
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
+        $path = GeneralSetting::get('logo_dark', null, $companyId);
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
-        GeneralSetting::set('logo_dark', '');
-        GeneralSetting::set('logo_mode', 'single');
+        GeneralSetting::set('logo_dark', '', $companyId);
+        GeneralSetting::set('logo_mode', 'single', $companyId);
 
         return response()->json([
             'success' => true,
@@ -1088,6 +1294,11 @@ class AdminSettingsController extends Controller
     public function uploadFavicon(Request $request)
     {
         $this->ensureSuperAdmin();
+
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
 
         $request->validate([
             'favicon' => 'required|file|mimes:ico,png,jpg|max:2048',
@@ -1108,7 +1319,7 @@ class AdminSettingsController extends Controller
             $faviconFile = $request->file('favicon');
 
             // Delete old favicon if exists
-            $oldFavicon = GeneralSetting::get('favicon');
+            $oldFavicon = GeneralSetting::get('favicon', null, $companyId);
             if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
                 Storage::disk('public')->delete($oldFavicon);
             }
@@ -1130,7 +1341,7 @@ class AdminSettingsController extends Controller
             }
 
             // Save path to database
-            GeneralSetting::set('favicon', $faviconPath);
+            GeneralSetting::set('favicon', $faviconPath, $companyId);
 
             \Log::info('Favicon uploaded successfully', ['path' => $faviconPath]);
 
@@ -1156,6 +1367,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
         try {
             $request->validate([
                 'info_request_success_image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
@@ -1180,7 +1396,7 @@ class AdminSettingsController extends Controller
                 File::makeDirectory($settingsDir, 0755, true);
             }
 
-            $oldPath = GeneralSetting::get('info_request_success_image');
+            $oldPath = GeneralSetting::get('info_request_success_image', null, $companyId);
             if ($oldPath && Storage::disk('public')->exists($oldPath)) {
                 Storage::disk('public')->delete($oldPath);
             }
@@ -1190,7 +1406,7 @@ class AdminSettingsController extends Controller
                 return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
             }
 
-            GeneralSetting::set('info_request_success_image', $path);
+            GeneralSetting::set('info_request_success_image', $path, $companyId);
 
             return response()->json([
                 'success' => true,
@@ -1210,11 +1426,17 @@ class AdminSettingsController extends Controller
     public function removeSuccessImage(Request $request)
     {
         $this->ensureSuperAdmin();
-        $oldPath = GeneralSetting::get('info_request_success_image');
+
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
+        $oldPath = GeneralSetting::get('info_request_success_image', null, $companyId);
         if ($oldPath && Storage::disk('public')->exists($oldPath)) {
             Storage::disk('public')->delete($oldPath);
         }
-        GeneralSetting::set('info_request_success_image', '');
+        GeneralSetting::set('info_request_success_image', '', $companyId);
 
         return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
     }
@@ -1225,6 +1447,11 @@ class AdminSettingsController extends Controller
     public function uploadComingSoonImage(Request $request)
     {
         $this->ensureSuperAdmin();
+
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
 
         try {
             $request->validate([
@@ -1250,7 +1477,7 @@ class AdminSettingsController extends Controller
                 File::makeDirectory($settingsDir, 0755, true);
             }
 
-            $oldPath = GeneralSetting::get('coming_soon_image');
+            $oldPath = GeneralSetting::get('coming_soon_image', null, $companyId);
             if ($oldPath && Storage::disk('public')->exists($oldPath)) {
                 Storage::disk('public')->delete($oldPath);
             }
@@ -1260,7 +1487,7 @@ class AdminSettingsController extends Controller
                 return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
             }
 
-            GeneralSetting::set('coming_soon_image', $path);
+            GeneralSetting::set('coming_soon_image', $path, $companyId);
 
             return response()->json([
                 'success' => true,
@@ -1280,11 +1507,17 @@ class AdminSettingsController extends Controller
     public function removeComingSoonImage(Request $request)
     {
         $this->ensureSuperAdmin();
-        $oldPath = GeneralSetting::get('coming_soon_image');
+
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
+        $oldPath = GeneralSetting::get('coming_soon_image', null, $companyId);
         if ($oldPath && Storage::disk('public')->exists($oldPath)) {
             Storage::disk('public')->delete($oldPath);
         }
-        GeneralSetting::set('coming_soon_image', '');
+        GeneralSetting::set('coming_soon_image', '', $companyId);
 
         return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
     }
@@ -1387,6 +1620,11 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        if ($j = $this->jsonTenantRequired()) {
+            return $j;
+        }
+        $companyId = $this->settingsCompanyId();
+
         $request->validate([
             'logo_size' => 'required|integer|min:10|max:100',
         ], [
@@ -1398,7 +1636,7 @@ class AdminSettingsController extends Controller
 
         try {
             $logoSize = $request->input('logo_size');
-            GeneralSetting::set('logo_size', $logoSize);
+            GeneralSetting::set('logo_size', $logoSize, $companyId);
 
             \Log::info('Logo size updated', ['size' => $logoSize]);
 

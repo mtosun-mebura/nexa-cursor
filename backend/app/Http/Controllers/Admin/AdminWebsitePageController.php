@@ -9,11 +9,14 @@ use App\Models\Module;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
 use App\Services\FrontendComponentService;
+use App\Services\GoogleReviewsService;
 use App\Services\ModuleContextService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\NexaTaxiBookingPricingService;
 use App\Services\WebsiteBuilderService;
+use App\Support\ModuleSchemaAvailability;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -84,7 +87,17 @@ class AdminWebsitePageController extends Controller
 
         $websiteTenantContext = $this->buildWebsitePageCompanyContext($request, null);
 
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext'));
+        $connectionForSortSuggest = null;
+        $moduleNameForSort = $this->resolveCanonicalModuleName($request->input('module_name'));
+        if ($moduleNameForSort !== null && $this->moduleDb->supportsModuleDatabases()) {
+            $connectionForSortSuggest = $this->moduleDb->getModuleConnectionName($moduleNameForSort);
+        }
+        $companyIdForSortSuggest = $this->resolveWebsitePageCompanyIdForPersistence($request, null)
+            ?? $this->resolveWebsitePageCompanyIdFromImplicitContext($request)
+            ?? $this->resolveExplicitWizardCompanyId($request);
+        $suggestedSortOrder = WebsitePage::nextSortOrderForTenant($connectionForSortSuggest, $companyIdForSortSuggest);
+
+        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder'));
     }
 
     public function store(Request $request)
@@ -120,24 +133,23 @@ class AdminWebsitePageController extends Controller
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $table = (new WebsitePage)->getTable();
+        $connForSchema = $connection ?? config('database.default');
+        $this->ensureWebsitePagesSortOrderColumn($connForSchema);
         if ($connection !== null) {
-            if (! \Illuminate\Support\Facades\Schema::connection($connection)->hasColumn($table, 'show_in_menu')) {
+            if (! $this->websitePagesTableHasColumn($connection, 'show_in_menu')) {
                 unset($data['show_in_menu']);
             } else {
                 $data['show_in_menu'] = $this->requestHasInput($request, 'show_in_menu')
                     ? $request->boolean('show_in_menu')
                     : true;
             }
-            if (! \Illuminate\Support\Facades\Schema::connection($connection)->hasColumn($table, 'sort_order')) {
+            if (! $this->websitePagesTableHasColumn($connection, 'sort_order')) {
                 unset($data['sort_order']);
-            } else {
-                $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
             }
         } else {
             $data['show_in_menu'] = $this->requestHasInput($request, 'show_in_menu')
                 ? $request->boolean('show_in_menu')
                 : true;
-            $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
         }
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
@@ -151,6 +163,12 @@ class AdminWebsitePageController extends Controller
         }
         $connForCompany = $connection ?? config('database.default');
         $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForCompany, null);
+        $this->applyNextWebsitePageSortOrderOnCreate($data, $connection, $connForSchema);
+        $this->persistGoogleReviewsSettingsFromHomeSectionsInput(
+            $input,
+            $this->resolveGoogleReviewsCompanyIdForSave($data, null, $request),
+            $request
+        );
         if ($connection !== null) {
             $data['frontend_theme_id'] = null;
             WebsitePage::on($connection)->create($data);
@@ -393,9 +411,9 @@ class AdminWebsitePageController extends Controller
             'cta' => $defaults['cta'] ?? [],
             'carousel' => $defaults['carousel'] ?? ['items' => []],
             'cards_ronde_hoeken' => $defaults['cards_ronde_hoeken'] ?? ['cards_per_row' => 4, 'items' => [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left', 'image_padding' => 2, 'image_bg_color' => '', 'text_color' => '']]],
-            'featured_services' => $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => 'Onze diensten in het kort.', 'blocks_per_row' => 3, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'briefcase', 'title' => '', 'description' => ''], ['icon' => 'cog-6-tooth', 'title' => '', 'description' => ''], ['icon' => 'user-group', 'title' => '', 'description' => '']]],
+            'featured_services' => $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => 'Onze diensten in het kort.', 'title_font_size_px' => 24, 'subtitle_font_size_px' => 18, 'item_title_font_size_px' => 18, 'item_description_font_size_px' => 14, 'blocks_per_row' => 3, 'blocks_row_width_percent' => 100, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'briefcase', 'title' => '', 'description' => ''], ['icon' => 'cog-6-tooth', 'title' => '', 'description' => ''], ['icon' => 'user-group', 'title' => '', 'description' => '']]],
             'email_template' => $defaults['email_template'] ?? ['title' => 'Informatie aanvragen', 'template_id' => null],
-            'text_block' => $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'image_url' => '', 'width_percent' => 100],
+            'text_block' => $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'side_template_id' => null, 'image_url' => '', 'width_percent' => 100],
             'footer' => $defaults['footer'] ?? [],
             'copyright' => $defaults['copyright'] ?? '',
         ];
@@ -464,11 +482,16 @@ class AdminWebsitePageController extends Controller
             $moduleNameForUploads = trim($moduleName);
         }
 
+        $companyIdRaw = $request->query('company_id');
+        $websitePageCompanyId = ($companyIdRaw !== null && $companyIdRaw !== '' && is_numeric($companyIdRaw))
+            ? (int) $companyIdRaw
+            : null;
+
         $homeSections = [
             'section_order' => [$sectionKey],
             $sectionKey => [],
             'visibility' => [],
-            'admin_collapsed' => [],
+            'admin_collapsed' => WebsitePage::defaultAdminCollapsedKeys([$sectionKey]),
         ];
 
         $html = view('admin.website-pages.partials.home-sections', [
@@ -478,6 +501,7 @@ class AdminWebsitePageController extends Controller
             'sectionCardOnly' => true,
             'emailTemplates' => $emailTemplates,
             'moduleNameForUploads' => $moduleNameForUploads,
+            'websitePageCompanyId' => $websitePageCompanyId,
         ])->render();
 
         $dom = new \DOMDocument;
@@ -520,9 +544,15 @@ class AdminWebsitePageController extends Controller
 
         $jobs = collect();
         $isHomePage = $website_page->page_type === 'home' || $website_page->slug === 'home';
-        if ($isHomePage) {
+        $moduleName = $website_page->module_name ?? null;
+        $isSkillmatchingModule = $moduleName !== null && strtolower((string) $moduleName) === 'skillmatching';
+        if ($isHomePage && $isSkillmatchingModule) {
             $rotationKey = floor(now()->timestamp / (2 * 3600));
             $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () {
+                if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+                    return collect();
+                }
+
                 return Vacancy::with(['company', 'category'])
                     ->where('is_active', true)
                     ->where(function ($q) {
@@ -543,7 +573,6 @@ class AdminWebsitePageController extends Controller
         // Altijd homeSections doorgeven wanneer de pagina home_sections heeft, zodat footer/visibility op preview werken
         $homeSections = ! empty($website_page->home_sections) ? $website_page->getHomeSections() : [];
         // E-mailtemplate per sectie (zelfde logica als frontend WebsitePageController: module-DB bij module-pagina)
-        $emailTemplateBySectionKey = [];
         $templateConnection = null;
         $moduleName = $website_page->module_name;
         if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {
@@ -552,23 +581,7 @@ class AdminWebsitePageController extends Controller
                 $templateConnection = $connName;
             }
         }
-        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
-            $base = is_string($sectionKey) ? preg_replace('/_\d+$/', '', $sectionKey) : '';
-            if ($base === 'email_template') {
-                $tid = $homeSections[$sectionKey]['template_id'] ?? null;
-                if (! $tid) {
-                    $emailTemplateBySectionKey[$sectionKey] = null;
-
-                    continue;
-                }
-                $tidInt = (int) $tid;
-                $template = \App\Models\EmailTemplate::find($tidInt);
-                if (! $template && $templateConnection) {
-                    $template = \App\Models\EmailTemplate::on($templateConnection)->find($tidInt);
-                }
-                $emailTemplateBySectionKey[$sectionKey] = $template;
-            }
-        }
+        $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections, $templateConnection);
         // Atom v2: laad thema-styles op alle paginatypes (preview) voor dezelfde weergave als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
         // Footer-kaart: expliciet Maps API-key en map-id doorgeven (zelfde bron als frontend)
@@ -580,7 +593,10 @@ class AdminWebsitePageController extends Controller
         if ($website_page->module_name) {
             $previewEditUrl .= '?module='.rawurlencode($website_page->module_name);
         }
-        $googleReviews = $useThemeHomeLayout ? app(\App\Services\GoogleReviewsService::class)->getReviews() : [];
+        $previewReviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage($website_page);
+        $googleReviews = $useThemeHomeLayout
+            ? app(GoogleReviewsService::class)->getReviews($previewReviewsCompanyId)
+            : [];
 
         return view('frontend.website.page', [
             'page' => $website_page,
@@ -647,15 +663,16 @@ class AdminWebsitePageController extends Controller
         $showInMenuValue = $this->requestHasInput($request, 'show_in_menu')
             ? $request->boolean('show_in_menu')
             : (bool) $website_page->getAttribute('show_in_menu');
-        if (! \Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($table, 'show_in_menu')) {
+        if (! $this->websitePagesTableHasColumn($connForSchema, 'show_in_menu')) {
             unset($data['show_in_menu']);
         } else {
             $data['show_in_menu'] = $showInMenuValue;
         }
-        if (! \Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($table, 'sort_order')) {
+        $this->ensureWebsitePagesSortOrderColumn($connForSchema);
+        if (! $this->websitePagesTableHasColumn($connForSchema, 'sort_order')) {
             unset($data['sort_order']);
         } else {
-            $data['sort_order'] = (int) ($data['sort_order'] ?? 0);
+            $data['sort_order'] = $this->resolveWebsitePageSortOrderForSave($request, $website_page);
         }
         $activeTheme = $this->websiteBuilder->getActiveTheme();
         $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
@@ -732,16 +749,35 @@ class AdminWebsitePageController extends Controller
                 }
             }
         }
+        $removedSectionKeys = $this->parseRemovedSectionKeysFromInput($input, $request);
+        $existingOrderRaw = $existingSections['section_order'] ?? [];
+        if (is_string($existingOrderRaw) && $existingOrderRaw !== '') {
+            $existingSectionOrder = array_values(array_filter(array_map('trim', explode(',', $existingOrderRaw))));
+        } elseif (is_array($existingOrderRaw)) {
+            $existingSectionOrder = array_values(array_filter($existingOrderRaw, fn ($k) => is_string($k) && $k !== ''));
+        } else {
+            $existingSectionOrder = [];
+        }
+        $existingSectionOrder = array_map(
+            static fn ($k) => FrontendComponentService::normalizeComponentSectionKey($k),
+            $existingSectionOrder
+        );
         try {
             if ($data['page_type'] === 'home') {
-                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false);
+                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false, $existingSectionOrder, $removedSectionKeys);
             } else {
-                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true);
+                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true, $existingSectionOrder, $removedSectionKeys);
             }
             if ($connection !== null) {
                 $data['frontend_theme_id'] = null;
             }
             $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForSchema, $website_page);
+            $reviewsCompanyId = $this->resolveGoogleReviewsCompanyIdForSave(
+                $data,
+                $website_page,
+                $request
+            );
+            $this->persistGoogleReviewsSettingsFromHomeSectionsInput($input, $reviewsCompanyId, $request);
             $website_page->update($data);
 
             // Footer op de site komt van de home-pagina. Sync vanuit een andere pagina alleen als die pagina
@@ -798,6 +834,106 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * Nieuwe pagina: volgend volgnummer per tenant (company_id) binnen de juiste connection.
+     */
+    private function applyNextWebsitePageSortOrderOnCreate(array &$data, ?string $moduleConnection, string $connForSchema): void
+    {
+        if (! $this->websitePagesTableHasColumn($connForSchema, 'sort_order')) {
+            unset($data['sort_order']);
+
+            return;
+        }
+        $companyId = isset($data['company_id']) && $data['company_id'] !== null && $data['company_id'] !== ''
+            ? (int) $data['company_id']
+            : null;
+        $data['sort_order'] = WebsitePage::nextSortOrderForTenant($moduleConnection, $companyId);
+    }
+
+    /**
+     * Menu-/pagina-volgorde: sort_order of vroege hidden _sort_order (max_input_vars op grote formulieren).
+     */
+    private function resolveWebsitePageSortOrderForSave(Request $request, ?WebsitePage $existing): int
+    {
+        foreach (['sort_order', '_sort_order'] as $key) {
+            if ($this->requestHasInput($request, $key)) {
+                $raw = $request->input($key);
+                if ($raw !== null && $raw !== '' && is_numeric($raw)) {
+                    return max(0, (int) $raw);
+                }
+            }
+            $fromBody = $this->parseScalarFromRequestBody($request, $key);
+            if ($fromBody !== null && $fromBody !== '' && is_numeric($fromBody)) {
+                return max(0, (int) $fromBody);
+            }
+        }
+
+        return (int) ($existing?->getAttribute('sort_order') ?? 0);
+    }
+
+    private function parseScalarFromRequestBody(Request $request, string $key): ?string
+    {
+        if ($request->getContent() === '') {
+            return null;
+        }
+        parse_str($request->getContent(), $parsed);
+        if (! array_key_exists($key, $parsed)) {
+            return null;
+        }
+        $value = $parsed[$key];
+
+        return is_scalar($value) ? (string) $value : null;
+    }
+
+    /**
+     * PostgreSQL module-schema's (search_path): Laravel Schema::hasColumn kan false zijn terwijl de kolom wél bestaat.
+     */
+    private function websitePagesTableHasColumn(string $connection, string $column): bool
+    {
+        $table = (new WebsitePage)->getTable();
+        if (Schema::connection($connection)->hasColumn($table, $column)) {
+            return true;
+        }
+        $driver = Schema::connection($connection)->getConnection()->getDriverName();
+        if ($driver !== 'pgsql') {
+            return false;
+        }
+        try {
+            $row = DB::connection($connection)->selectOne(
+                'SELECT 1 AS x FROM information_schema.columns WHERE table_schema = ANY (current_schemas(true)) AND table_name = ? AND column_name = ? LIMIT 1',
+                [$table, $column]
+            );
+
+            return $row !== null;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Module-DB's kunnen website_pages zonder sort_order hebben; voeg kolom toe indien nodig.
+     */
+    private function ensureWebsitePagesSortOrderColumn(string $connection): void
+    {
+        if ($this->websitePagesTableHasColumn($connection, 'sort_order')) {
+            return;
+        }
+        $table = (new WebsitePage)->getTable();
+        try {
+            Schema::connection($connection)->table($table, function (Blueprint $blueprint) {
+                $blueprint->unsignedInteger('sort_order')->default(0);
+            });
+        } catch (\Throwable $e) {
+            if ($this->websitePagesTableHasColumn($connection, 'sort_order')) {
+                return;
+            }
+            \Illuminate\Support\Facades\Log::warning('website_pages.sort_order column could not be added', [
+                'connection' => $connection,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Haal home_sections uit de request zonder ParameterBag::all($key) aan te roepen
      * (die gooit BadRequestException als de waarde geen array is).
      * Ondersteunt POST (form) en fallback parse van body bij lege request bag.
@@ -844,16 +980,28 @@ class AdminWebsitePageController extends Controller
                 }
             }
         }
-        // Section order kan ontbreken bij grote body (max_input_vars): vul aan uit fallback-veld bovenaan formulier
+        // Section order: fallback bovenaan formulier is leidend (JS + max_input_vars)
         $orderFromFallback = $request->input('_section_order');
-        if (is_string($orderFromFallback) && trim($orderFromFallback) !== '') {
-            $currentOrder = $input['section_order'] ?? null;
-            $orderEmpty = $currentOrder === null || $currentOrder === ''
-                || (is_array($currentOrder) && empty(array_filter($currentOrder)))
-                || (is_string($currentOrder) && trim($currentOrder) === '');
-            if ($orderEmpty) {
-                $input['section_order'] = trim($orderFromFallback);
+        if ((! is_string($orderFromFallback) || trim($orderFromFallback) === '') && $request->getContent() !== '') {
+            parse_str($request->getContent(), $parsedOrder);
+            $fromBody = $parsedOrder['_section_order'] ?? null;
+            if (is_string($fromBody) && trim($fromBody) !== '') {
+                $orderFromFallback = $fromBody;
             }
+        }
+        if (is_string($orderFromFallback) && trim($orderFromFallback) !== '') {
+            $input['section_order'] = trim($orderFromFallback);
+        }
+        $removedFromFallback = $request->input('_removed_section_keys');
+        if ((! is_string($removedFromFallback) || $removedFromFallback === '') && $request->getContent() !== '') {
+            parse_str($request->getContent(), $parsedRemoved);
+            $fromBodyRemoved = $parsedRemoved['_removed_section_keys'] ?? null;
+            if (is_string($fromBodyRemoved) && $fromBodyRemoved !== '') {
+                $removedFromFallback = $fromBodyRemoved;
+            }
+        }
+        if (is_string($removedFromFallback) && trim($removedFromFallback) !== '') {
+            $input['removed_section_keys'] = trim($removedFromFallback);
         }
         // email_template template_id kan ontbreken (custom select/JS of max_input_vars): vul aan uit fallback-velden
         $sectionOrder = $input['section_order'] ?? [];
@@ -880,7 +1028,230 @@ class AdminWebsitePageController extends Controller
             }
         }
 
+        $this->mergeGoogleReviewsFallbackIntoHomeSectionsInput($input, $request);
+
         return $input;
+    }
+
+    /**
+     * @param  array<string, mixed>  $saveData
+     */
+    private function resolveGoogleReviewsCompanyIdForSave(
+        array $saveData,
+        ?WebsitePage $existingPage,
+        Request $request
+    ): ?int {
+        if (isset($saveData['company_id']) && $saveData['company_id'] !== null && is_numeric($saveData['company_id'])) {
+            return (int) $saveData['company_id'];
+        }
+        if ($existingPage !== null && $existingPage->company_id !== null && $existingPage->company_id !== '') {
+            return (int) $existingPage->company_id;
+        }
+        $fromRequest = $request->input('company_id');
+        if ($fromRequest !== null && $fromRequest !== '' && is_numeric($fromRequest)) {
+            return (int) $fromRequest;
+        }
+
+        return \App\Models\GeneralSetting::resolveScopeCompanyId();
+    }
+
+    /**
+     * Google Reviews-instellingen uit website-paginaformulier (per gekoppeld bedrijf).
+     */
+    private function persistGoogleReviewsSettingsFromHomeSectionsInput(array $input, ?int $companyId, Request $request): void
+    {
+        $companyId = $companyId !== null && $companyId > 0
+            ? $companyId
+            : $this->resolveGoogleReviewsCompanyIdForSave([], null, $request);
+        if ($companyId === null || $companyId < 1) {
+            return;
+        }
+
+        $fields = $this->extractGoogleReviewsFieldsFromHomeSectionsInput($input, $request);
+        if ($fields === null || $fields === []) {
+            return;
+        }
+
+        if (! $this->homeSectionsInputHasGoogleReviewsComponent($input)) {
+            return;
+        }
+
+        app(GoogleReviewsService::class)->persistSettingsForCompany($companyId, $fields);
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function homeSectionsInputHasGoogleReviewsComponent(array $input): bool
+    {
+        $order = $input['section_order'] ?? [];
+        if (is_string($order) && $order !== '') {
+            $order = array_values(array_filter(array_map('trim', explode(',', $order))));
+        }
+        if (! is_array($order)) {
+            $order = [];
+        }
+        $normalizedOrder = array_map(
+            static fn ($k) => is_string($k) ? FrontendComponentService::normalizeComponentSectionKey($k) : $k,
+            $order
+        );
+        $componentKeys = array_map(
+            static fn ($k) => FrontendComponentService::normalizeComponentSectionKey($k),
+            GoogleReviewsService::COMPONENT_SECTION_KEYS
+        );
+        if (array_intersect($componentKeys, $normalizedOrder) !== []) {
+            return true;
+        }
+
+        foreach (GoogleReviewsService::COMPONENT_SECTION_KEYS as $sectionKey) {
+            if (isset($input[$sectionKey]) && is_array($input[$sectionKey])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>|null
+     */
+    private function extractGoogleReviewsFieldsFromHomeSectionsInput(array $input, Request $request): ?array
+    {
+        $raw = null;
+        foreach (GoogleReviewsService::COMPONENT_SECTION_KEYS as $sectionKey) {
+            $canonical = FrontendComponentService::normalizeComponentSectionKey($sectionKey);
+            if (isset($input[$canonical]) && is_array($input[$canonical])) {
+                $raw = $input[$canonical];
+                break;
+            }
+            if (isset($input[$sectionKey]) && is_array($input[$sectionKey])) {
+                $raw = $input[$sectionKey];
+                break;
+            }
+        }
+
+        if ($raw === null) {
+            $homeSections = $request->input('home_sections');
+            if (is_array($homeSections)) {
+                foreach (GoogleReviewsService::COMPONENT_SECTION_KEYS as $sectionKey) {
+                    $canonical = FrontendComponentService::normalizeComponentSectionKey($sectionKey);
+                    if (isset($homeSections[$canonical]) && is_array($homeSections[$canonical])) {
+                        $raw = $homeSections[$canonical];
+                        break;
+                    }
+                    if (isset($homeSections[$sectionKey]) && is_array($homeSections[$sectionKey])) {
+                        $raw = $homeSections[$sectionKey];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($raw === null) {
+            return $this->googleReviewsFieldsFromRequestFallbacks($request);
+        }
+
+        $out = [
+            'place_id' => trim((string) ($raw['place_id'] ?? '')),
+            'business_name' => trim((string) ($raw['business_name'] ?? '')),
+            'count' => $raw['count'] ?? null,
+            'cache_hours' => $raw['cache_hours'] ?? null,
+            'min_stars' => $raw['min_stars'] ?? null,
+        ];
+        if (array_key_exists('section_title', $raw)) {
+            $out['section_title'] = trim((string) $raw['section_title']);
+        }
+        if (array_key_exists('section_background', $raw)) {
+            $out['section_background'] = GoogleReviewsService::normalizeHexColor((string) ($raw['section_background'] ?? ''));
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function googleReviewsFieldsFromRequestFallbacks(Request $request): ?array
+    {
+        $placeId = $this->requestScalar($request, '_google_reviews_place_id');
+        $businessName = $this->requestScalar($request, '_google_reviews_business_name');
+        $hasSectionTitle = $request->has('_google_reviews_section_title');
+        $hasSectionBackground = $request->has('_google_reviews_section_background');
+
+        if ($placeId === '' && $businessName === '' && ! $hasSectionTitle && ! $hasSectionBackground) {
+            return null;
+        }
+
+        $out = [];
+        if ($placeId !== '') {
+            $out['place_id'] = $placeId;
+        }
+        if ($businessName !== '') {
+            $out['business_name'] = $businessName;
+        }
+        if ($hasSectionTitle) {
+            $out['section_title'] = trim((string) $request->input('_google_reviews_section_title', ''));
+        }
+        if ($hasSectionBackground) {
+            $out['section_background'] = GoogleReviewsService::normalizeHexColor((string) $request->input('_google_reviews_section_background', ''));
+        }
+        $count = $request->input('_google_reviews_count');
+        if ($count !== null && $count !== '') {
+            $out['count'] = $count;
+        }
+        $cacheHours = $request->input('_google_reviews_cache_hours');
+        if ($cacheHours !== null && $cacheHours !== '') {
+            $out['cache_hours'] = $cacheHours;
+        }
+        $minStars = $request->input('_google_reviews_min_stars');
+        if ($minStars !== null && $minStars !== '') {
+            $out['min_stars'] = $minStars;
+        }
+
+        return $out === [] ? null : $out;
+    }
+
+    private function requestScalar(Request $request, string $key): string
+    {
+        $value = $request->input($key);
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
+        }
+        if ($request->getContent() !== '') {
+            parse_str($request->getContent(), $parsed);
+            $fromBody = $parsed[$key] ?? null;
+            if (is_string($fromBody) && trim($fromBody) !== '') {
+                return trim($fromBody);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function mergeGoogleReviewsFallbackIntoHomeSectionsInput(array &$input, Request $request): void
+    {
+        $fallbackFields = $this->googleReviewsFieldsFromRequestFallbacks($request);
+        if ($fallbackFields === null) {
+            return;
+        }
+
+        $sectionKey = GoogleReviewsService::COMPONENT_SECTION_KEY;
+        if (! isset($input[$sectionKey]) || ! is_array($input[$sectionKey])) {
+            $input[$sectionKey] = [];
+        }
+        foreach (['place_id', 'business_name', 'count', 'cache_hours', 'min_stars', 'section_title', 'section_background'] as $field) {
+            $fallback = $fallbackFields[$field] ?? null;
+            if ($fallback === null || $fallback === '') {
+                continue;
+            }
+            if (! array_key_exists($field, $input[$sectionKey]) || trim((string) ($input[$sectionKey][$field] ?? '')) === '') {
+                $input[$sectionKey][$field] = $fallback;
+            }
+        }
     }
 
     private const HOME_SECTION_BASE_TYPES = ['hero', 'stats', 'why_nexa', 'features', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
@@ -941,7 +1312,69 @@ class AdminWebsitePageController extends Controller
 
     private static function homeSectionOrderValid(string $key): bool
     {
-        return self::homeSectionBaseType($key) !== null || FrontendComponentService::isComponentKey($key);
+        $key = FrontendComponentService::normalizeComponentSectionKey($key);
+        if (FrontendComponentService::isComponentKey($key)) {
+            return app(FrontendComponentService::class)->isPersistableComponentSectionKey($key);
+        }
+
+        return self::homeSectionBaseType($key) !== null;
+    }
+
+    /** @return list<string> */
+    private function parseRemovedSectionKeysFromInput(array $input, Request $request): array
+    {
+        $raw = $input['removed_section_keys'] ?? $request->input('_removed_section_keys', '');
+        if (is_array($raw)) {
+            $parts = $raw;
+        } elseif (is_string($raw) && $raw !== '') {
+            $parts = array_map('trim', explode(',', $raw));
+        } else {
+            $parts = [];
+        }
+
+        $keys = [];
+        foreach ($parts as $part) {
+            if (! is_string($part) || trim($part) === '') {
+                continue;
+            }
+            $keys[] = FrontendComponentService::normalizeComponentSectionKey(trim($part));
+        }
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * Herstel componenten die per ongeluk uit de request-volgorde vielen, tenzij de gebruiker ze verwijderde.
+     *
+     * @param  list<string>  $incomingOrder
+     * @param  list<string>  $existingOrder
+     * @param  list<string>  $removedKeys
+     * @return list<string>
+     */
+    private function mergePreservedComponentSectionOrder(array $incomingOrder, array $existingOrder, array $removedKeys): array
+    {
+        if ($existingOrder === []) {
+            return $incomingOrder;
+        }
+        $removedSet = array_fill_keys($removedKeys, true);
+        $incomingSet = array_fill_keys($incomingOrder, true);
+        $merged = $incomingOrder;
+        foreach ($existingOrder as $key) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+            $key = FrontendComponentService::normalizeComponentSectionKey($key);
+            if (! FrontendComponentService::isComponentKey($key) || ! self::homeSectionOrderValid($key)) {
+                continue;
+            }
+            if (isset($incomingSet[$key]) || isset($removedSet[$key])) {
+                continue;
+            }
+            $merged[] = $key;
+            $incomingSet[$key] = true;
+        }
+
+        return array_values(array_unique($merged, SORT_REGULAR));
     }
 
     /** Normaliseer items voor component:taxi.tarieven (rate_type, title, image, card-opties per card). */
@@ -1061,6 +1494,7 @@ class AdminWebsitePageController extends Controller
             $text = strip_tags((string) $text);
             $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $text = preg_replace("/\r\n|\r/u", "\n", $text);
+
             return array_values(array_filter(array_map('trim', explode("\n", (string) $text)), fn ($v) => $v !== ''));
         };
 
@@ -1129,8 +1563,13 @@ class AdminWebsitePageController extends Controller
      * Normaliseer home_sections uit request; ondersteunt dynamische sectie-keys (hero_2, features_2, etc.).
      * Bij themeSlug wordt defaultHomeSectionsForTheme (of bij forNonHome: defaultPageSectionsForNonHome) gebruikt.
      */
-    private function normalizeHomeSections(array $input, ?string $themeSlug = null, bool $forNonHome = false): array
-    {
+    private function normalizeHomeSections(
+        array $input,
+        ?string $themeSlug = null,
+        bool $forNonHome = false,
+        array $existingSectionOrder = [],
+        array $removedSectionKeys = []
+    ): array {
         if ($forNonHome && $themeSlug) {
             $defaults = WebsitePage::defaultPageSectionsForNonHome($themeSlug);
         } else {
@@ -1144,14 +1583,18 @@ class AdminWebsitePageController extends Controller
         } elseif (is_string($orderInput) && $orderInput !== '') {
             $sectionOrder = array_values(array_filter(array_map('trim', explode(',', $orderInput)), fn ($k) => self::homeSectionOrderValid($k)));
         }
+        $sectionOrder = array_map(
+            static fn ($k) => is_string($k) ? FrontendComponentService::normalizeComponentSectionKey($k) : $k,
+            $sectionOrder
+        );
         // Gebruik alleen de door de gebruiker opgegeven volgorde; niet mergen met defaults, zodat verwijderde secties weg blijven.
         $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
-        $legacyTaxiComponentKeys = [
-            'component:taxiroyaal.tarieven' => 'component:taxi.tarieven',
-            'component:taxiroyaal.boekingsmodule' => 'component:taxi.boekingsmodule',
-        ];
-        $sectionOrder = array_map(static fn ($k) => $legacyTaxiComponentKeys[$k] ?? $k, $sectionOrder);
-        $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
+        $sectionOrder = $this->mergePreservedComponentSectionOrder($sectionOrder, $existingSectionOrder, $removedSectionKeys);
+        $removedComponents = array_fill_keys(FrontendComponentService::removedComponentSectionKeys(), true);
+        $sectionOrder = array_values(array_filter(
+            $sectionOrder,
+            static fn ($k) => ! isset($removedComponents[$k])
+        ));
 
         $sections = [];
         foreach ($sectionOrder as $sectionKey) {
@@ -1297,6 +1740,9 @@ class AdminWebsitePageController extends Controller
         } else {
             $adminCollapsed = [];
         }
+        if ($adminCollapsed === [] && $orderInput === null && ! is_array($input['admin_collapsed'] ?? null)) {
+            $adminCollapsed = WebsitePage::defaultAdminCollapsedKeys($sectionOrder);
+        }
 
         return array_merge($sections, [
             'footer' => $footer,
@@ -1318,8 +1764,13 @@ class AdminWebsitePageController extends Controller
                 $data = array_merge($defaults['hero'], $raw);
                 $data = $this->sanitizeButtonColors($data);
                 $data['overlay'] = ! empty($raw['overlay']);
+                $highlightColor = isset($data['title_highlight_color']) ? trim((string) $data['title_highlight_color']) : '';
+                $data['title_highlight_color'] = ($highlightColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $highlightColor))
+                    ? $highlightColor
+                    : '';
+                $data = $this->normalizeSubtitleColor($data);
                 // Behoud hero-afbeeldingen (atom-v2) ook als leeg, zodat "geen custom" = thema-default
-                $keepEmptyKeys = ['overlay', 'background_image_url', 'author_image_url'];
+                $keepEmptyKeys = ['overlay', 'background_image_url', 'author_image_url', 'title_highlight_color', 'subtitle_color'];
 
                 return array_filter($data, fn ($v, $k) => in_array($k, $keepEmptyKeys, true) ? true : $v !== '' && $v !== null, ARRAY_FILTER_USE_BOTH);
             case 'stats':
@@ -1366,7 +1817,7 @@ class AdminWebsitePageController extends Controller
                     'background_image' => $bgImage,
                 ];
             case 'why_nexa':
-                return array_filter(array_merge($defaults['why_nexa'], $raw));
+                return array_filter($this->normalizeSubtitleColor(array_merge($defaults['why_nexa'], $raw)));
             case 'features':
                 $items = [];
                 if (! empty($raw['items']) && is_array($raw['items'])) {
@@ -1395,24 +1846,28 @@ class AdminWebsitePageController extends Controller
             case 'cta':
                 $data = array_merge($defaults['cta'], $raw);
                 $data = $this->sanitizeButtonColors($data);
+                $data = $this->normalizeSubtitleColor($data);
                 // Behoud background_image_url ook als leeg (Atom-v2 CTA achtergrond)
-                $keepEmptyCta = ['background_image_url'];
+                $keepEmptyCta = ['background_image_url', 'subtitle_color'];
 
                 return array_filter($data, fn ($v, $k) => in_array($k, $keepEmptyCta, true) ? true : $v !== '' && $v !== null, ARRAY_FILTER_USE_BOTH);
             case 'carousel':
                 $items = [];
                 if (! empty($raw['items']) && is_array($raw['items'])) {
                     foreach (array_values($raw['items']) as $row) {
-                        if (is_array($row) && ! empty($row['uuid'])) {
-                            $items[] = [
-                                'uuid' => (string) $row['uuid'],
-                                'alt' => isset($row['alt']) ? trim((string) $row['alt']) : '',
-                            ];
+                        if (is_array($row) && $this->carouselSlideRowShouldPersist($row)) {
+                            $items[] = $this->normalizeCarouselSlideItem($row);
                         }
                     }
                 }
 
-                return ['items' => $items];
+                $intervalSeconds = isset($raw['interval_seconds']) ? (int) $raw['interval_seconds'] : 5;
+                $intervalSeconds = max(0, min(120, $intervalSeconds));
+
+                return [
+                    'items' => $items,
+                    'interval_seconds' => $intervalSeconds,
+                ];
             case 'cards_ronde_hoeken':
                 $items = [];
                 if (! empty($raw['items']) && is_array($raw['items'])) {
@@ -1471,6 +1926,8 @@ class AdminWebsitePageController extends Controller
                 $defItems = $defaults['featured_services']['items'] ?? [['icon' => 'light-bulb', 'title' => '', 'description' => '']];
                 $blocksPerRow = isset($raw['blocks_per_row']) ? (int) $raw['blocks_per_row'] : ($defaults['featured_services']['blocks_per_row'] ?? 3);
                 $blocksPerRow = in_array($blocksPerRow, [2, 3, 4], true) ? $blocksPerRow : 3;
+                $blocksRowWidthPct = isset($raw['blocks_row_width_percent']) && $raw['blocks_row_width_percent'] !== '' ? (int) $raw['blocks_row_width_percent'] : (int) ($defaults['featured_services']['blocks_row_width_percent'] ?? 100);
+                $blocksRowWidthPct = max(1, min(100, $blocksRowWidthPct));
                 $blockSize = isset($raw['block_size']) && in_array($raw['block_size'], ['small', 'medium', 'large', 'full'], true) ? $raw['block_size'] : ($defaults['featured_services']['block_size'] ?? 'medium');
                 $blockAlign = isset($raw['block_align']) && in_array($raw['block_align'], ['left', 'center', 'right'], true) ? $raw['block_align'] : ($defaults['featured_services']['block_align'] ?? 'center');
                 $iconSize = isset($raw['icon_size']) && in_array($raw['icon_size'], ['small', 'medium', 'large'], true) ? $raw['icon_size'] : ($defaults['featured_services']['icon_size'] ?? 'medium');
@@ -1478,11 +1935,25 @@ class AdminWebsitePageController extends Controller
                 $cardBgColor = isset($raw['card_bg_color']) && is_string($raw['card_bg_color']) ? trim($raw['card_bg_color']) : ($defaults['featured_services']['card_bg_color'] ?? '');
                 $cardBgColor = $cardBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $cardBgColor) ? $cardBgColor : '';
                 $animationSpeed = isset($raw['animation_speed']) && in_array($raw['animation_speed'], ['fast', 'normal', 'slow', 'slower'], true) ? $raw['animation_speed'] : ($defaults['featured_services']['animation_speed'] ?? 'slow');
+                $allowedFsPx = range(10, 40, 2);
+                $titleFontPx = isset($raw['title_font_size_px']) && $raw['title_font_size_px'] !== '' ? (int) $raw['title_font_size_px'] : (int) ($defaults['featured_services']['title_font_size_px'] ?? 24);
+                $titleFontPx = in_array($titleFontPx, $allowedFsPx, true) ? $titleFontPx : 24;
+                $subtitleFontPx = isset($raw['subtitle_font_size_px']) && $raw['subtitle_font_size_px'] !== '' ? (int) $raw['subtitle_font_size_px'] : (int) ($defaults['featured_services']['subtitle_font_size_px'] ?? 18);
+                $subtitleFontPx = in_array($subtitleFontPx, $allowedFsPx, true) ? $subtitleFontPx : 18;
+                $itemTitleFontPx = isset($raw['item_title_font_size_px']) && $raw['item_title_font_size_px'] !== '' ? (int) $raw['item_title_font_size_px'] : (int) ($defaults['featured_services']['item_title_font_size_px'] ?? 18);
+                $itemTitleFontPx = in_array($itemTitleFontPx, $allowedFsPx, true) ? $itemTitleFontPx : 18;
+                $itemDescFontPx = isset($raw['item_description_font_size_px']) && $raw['item_description_font_size_px'] !== '' ? (int) $raw['item_description_font_size_px'] : (int) ($defaults['featured_services']['item_description_font_size_px'] ?? 14);
+                $itemDescFontPx = in_array($itemDescFontPx, $allowedFsPx, true) ? $itemDescFontPx : 14;
 
                 return [
                     'title' => trim((string) ($raw['title'] ?? ($defaults['featured_services']['title'] ?? 'Diensten'))),
                     'subtitle' => trim((string) ($raw['subtitle'] ?? ($defaults['featured_services']['subtitle'] ?? ''))),
+                    'title_font_size_px' => $titleFontPx,
+                    'subtitle_font_size_px' => $subtitleFontPx,
+                    'item_title_font_size_px' => $itemTitleFontPx,
+                    'item_description_font_size_px' => $itemDescFontPx,
                     'blocks_per_row' => $blocksPerRow,
+                    'blocks_row_width_percent' => $blocksRowWidthPct,
                     'block_size' => $blockSize,
                     'block_align' => $blockAlign,
                     'icon_size' => $iconSize,
@@ -1505,6 +1976,12 @@ class AdminWebsitePageController extends Controller
                     ? $raw['alignment']
                     : ($defaults['text_block']['alignment'] ?? 'left');
                 $sideKey = isset($raw['side_component_key']) && is_string($raw['side_component_key']) ? trim($raw['side_component_key']) : '';
+                $sideTemplateId = isset($raw['side_template_id']) && $raw['side_template_id'] !== '' && is_numeric($raw['side_template_id'])
+                    ? (int) $raw['side_template_id']
+                    : null;
+                if ($sideKey === '') {
+                    $sideTemplateId = null;
+                }
                 $content = array_key_exists('content', $raw)
                     ? (is_string($raw['content']) ? $raw['content'] : '')
                     : (string) ($defaults['text_block']['content'] ?? '');
@@ -1518,6 +1995,7 @@ class AdminWebsitePageController extends Controller
                     'content' => $content,
                     'alignment' => $alignment,
                     'side_component_key' => $sideKey,
+                    'side_template_id' => $sideTemplateId,
                     'image_url' => $imageUrl,
                     'width_percent' => $widthPercent,
                 ];
@@ -1542,6 +2020,81 @@ class AdminWebsitePageController extends Controller
                 $data[$key] = $v;
             }
         }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function carouselSlideRowShouldPersist(array $row): bool
+    {
+        if (trim((string) ($row['uuid'] ?? '')) !== '') {
+            return true;
+        }
+
+        return trim((string) ($row['alt'] ?? '')) !== '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{uuid: string, alt: string, text_color: string, text_bg_color: string, text_size_px: int, text_position: string, text_animation: string, text_animation_duration_ms: int, text_animation_stagger_ms: int}
+     */
+    private function normalizeCarouselSlideItem(array $row): array
+    {
+        $textColor = isset($row['text_color']) ? trim((string) $row['text_color']) : '';
+        $textColor = ($textColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $textColor))
+            ? $textColor
+            : '';
+
+        $textBgColor = isset($row['text_bg_color']) ? trim((string) $row['text_bg_color']) : '';
+        $textBgColor = ($textBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $textBgColor))
+            ? $textBgColor
+            : '';
+
+        $textSizePx = isset($row['text_size_px']) ? (int) $row['text_size_px'] : 24;
+        $textSizePx = max(12, min(50, $textSizePx));
+        $textSizePx = (int) (round($textSizePx / 2) * 2);
+
+        $textPosition = isset($row['text_position']) ? trim((string) $row['text_position']) : 'bottom';
+        if (! in_array($textPosition, ['top', 'center', 'bottom'], true)) {
+            $textPosition = 'bottom';
+        }
+
+        $textAnimation = isset($row['text_animation']) ? trim((string) $row['text_animation']) : 'rise';
+        if (! in_array($textAnimation, ['rise', 'fade', 'slide_left', 'zoom', 'blur'], true)) {
+            $textAnimation = 'rise';
+        }
+
+        $textAnimationDurationMs = isset($row['text_animation_duration_ms']) ? (int) $row['text_animation_duration_ms'] : 550;
+        $textAnimationDurationMs = max(200, min(5000, $textAnimationDurationMs));
+
+        $textAnimationStaggerMs = isset($row['text_animation_stagger_ms']) ? (int) $row['text_animation_stagger_ms'] : 90;
+        $textAnimationStaggerMs = max(0, min(1000, $textAnimationStaggerMs));
+
+        return [
+            'uuid' => isset($row['uuid']) ? trim((string) $row['uuid']) : '',
+            'alt' => isset($row['alt']) ? trim((string) $row['alt']) : '',
+            'text_color' => $textColor,
+            'text_bg_color' => $textBgColor,
+            'text_size_px' => $textSizePx,
+            'text_position' => $textPosition,
+            'text_animation' => $textAnimation,
+            'text_animation_duration_ms' => $textAnimationDurationMs,
+            'text_animation_stagger_ms' => $textAnimationStaggerMs,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeSubtitleColor(array $data): array
+    {
+        $color = isset($data['subtitle_color']) ? trim((string) $data['subtitle_color']) : '';
+        $data['subtitle_color'] = ($color !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $color))
+            ? $color
+            : '';
 
         return $data;
     }

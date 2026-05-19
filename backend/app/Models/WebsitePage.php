@@ -2,7 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\FrontendComponentService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class WebsitePage extends Model
 {
@@ -60,6 +64,52 @@ class WebsitePage extends Model
 
     public const PAGE_TYPES = ['home', 'about', 'contact', 'custom', 'module'];
 
+    /**
+     * Volgende menu-/paginavolgorde voor een tenant (company_id) binnen één database-connection.
+     */
+    public static function nextSortOrderForTenant(?string $connection = null, ?int $companyId = null): int
+    {
+        $connection = $connection ?? (string) config('database.default');
+        $query = static::on($connection)->newQuery();
+
+        if (static::tableHasColumnOnConnection($connection, 'company_id')) {
+            if ($companyId !== null) {
+                $query->where('company_id', $companyId);
+            } else {
+                $query->whereNull('company_id');
+            }
+        }
+
+        if (! static::tableHasColumnOnConnection($connection, 'sort_order')) {
+            return 1;
+        }
+
+        $max = $query->max('sort_order');
+
+        return max(0, (int) $max) + 1;
+    }
+
+    public static function tableHasColumnOnConnection(string $connection, string $column): bool
+    {
+        $table = (new static)->getTable();
+        if (Schema::connection($connection)->hasColumn($table, $column)) {
+            return true;
+        }
+        if (Schema::connection($connection)->getConnection()->getDriverName() !== 'pgsql') {
+            return false;
+        }
+        try {
+            $row = DB::connection($connection)->selectOne(
+                'SELECT 1 AS x FROM information_schema.columns WHERE table_schema = ANY (current_schemas(true)) AND table_name = ? AND column_name = ? LIMIT 1',
+                [$table, $column]
+            );
+
+            return $row !== null;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -72,8 +122,8 @@ class WebsitePage extends Model
     public function scopeShowInMenu($query)
     {
         $connectionName = $query->getConnection()->getName();
-        if (\Illuminate\Support\Facades\Schema::connection($connectionName)->hasColumn($this->getTable(), 'show_in_menu')) {
-            return $query->where('show_in_menu', true);
+        if (static::tableHasColumnOnConnection($connectionName, 'show_in_menu')) {
+            return $query->where($this->getTable().'.show_in_menu', true);
         }
 
         return $query;
@@ -129,12 +179,35 @@ class WebsitePage extends Model
     /**
      * Standaardwaarden voor home-secties (Metronic thema).
      */
+    /**
+     * Standaard ingeklapte admin-kaarten voor alle secties in section_order + footer + copyright.
+     *
+     * @param  array<int, string>  $sectionOrder
+     * @return array<int, string>
+     */
+    public static function defaultAdminCollapsedKeys(array $sectionOrder): array
+    {
+        $keys = array_values(array_filter($sectionOrder, static fn ($k) => is_string($k) && $k !== ''));
+
+        foreach (['footer', 'copyright'] as $fixed) {
+            if (! in_array($fixed, $keys, true)) {
+                $keys[] = $fixed;
+            }
+        }
+
+        return $keys;
+    }
+
     public static function defaultHomeSections(): array
     {
+        $sectionOrder = ['hero', 'why_nexa', 'features', 'stats', 'cta'];
+
         return [
             'hero' => [
                 'title' => 'Vind je droombaan met AI',
                 'title_highlight' => 'droombaan',
+                'title_highlight_color' => '',
+                'subtitle_color' => '',
                 'subtitle' => 'Ons geavanceerde AI-platform matcht jouw vaardigheden met de perfecte vacatures van topbedrijven. Start vandaag nog je carrière.',
                 'cta_primary_text' => 'Gratis account aanmaken',
                 'cta_primary_url' => '/register',
@@ -160,6 +233,7 @@ class WebsitePage extends Model
             ],
             'why_nexa' => [
                 'title' => 'Waarom kiezen voor Nexa?',
+                'subtitle_color' => '',
                 'subtitle' => 'Onze geavanceerde AI-technologie maakt het vinden van de perfecte baan eenvoudiger dan ooit.',
             ],
             'features' => [
@@ -183,6 +257,7 @@ class WebsitePage extends Model
             ],
             'cta' => [
                 'title' => 'Klaar om je carrière te starten?',
+                'subtitle_color' => '',
                 'subtitle' => 'Sluit je aan bij duizenden professionals die hun droombaan hebben gevonden.',
                 'cta_primary_text' => 'Gratis account aanmaken',
                 'cta_primary_url' => '/register',
@@ -197,6 +272,7 @@ class WebsitePage extends Model
             ],
             'carousel' => [
                 'items' => [],
+                'interval_seconds' => 5,
             ],
             'cards_ronde_hoeken' => [
                 'cards_per_row' => 4,
@@ -207,7 +283,12 @@ class WebsitePage extends Model
             'featured_services' => [
                 'title' => 'Diensten',
                 'subtitle' => 'Onze diensten in het kort.',
+                'title_font_size_px' => 24,
+                'subtitle_font_size_px' => 18,
+                'item_title_font_size_px' => 18,
+                'item_description_font_size_px' => 14,
                 'blocks_per_row' => 3,
+                'blocks_row_width_percent' => 100,
                 'block_size' => 'medium',
                 'block_align' => 'center',
                 'icon_size' => 'medium',
@@ -228,6 +309,7 @@ class WebsitePage extends Model
                 'content' => '',
                 'alignment' => 'left',
                 'side_component_key' => '',
+                'side_template_id' => null,
                 'image_url' => '',
                 'width_percent' => 100,
             ],
@@ -265,7 +347,8 @@ class WebsitePage extends Model
                 'map_show_address_balloon' => false,
             ],
             'copyright' => '© {year} Nexa Skillmatching. Alle rechten voorbehouden.',
-            'section_order' => ['hero', 'why_nexa', 'features', 'stats', 'component:nexa.recente_vacatures', 'cta'],
+            'section_order' => $sectionOrder,
+            'admin_collapsed' => self::defaultAdminCollapsedKeys($sectionOrder),
             'visibility' => [
                 'hero' => true,
                 'hero_title' => true,
@@ -417,6 +500,8 @@ class WebsitePage extends Model
                 break;
         }
 
+        $base['admin_collapsed'] = self::defaultAdminCollapsedKeys($base['section_order'] ?? []);
+
         return $base;
     }
 
@@ -428,6 +513,7 @@ class WebsitePage extends Model
     {
         $base = self::defaultHomeSectionsForTheme($themeSlug);
         $base['section_order'] = ['hero'];
+        $base['admin_collapsed'] = self::defaultAdminCollapsedKeys($base['section_order']);
         $base['visibility'] = [
             'hero' => true,
             'hero_title' => true,
@@ -455,6 +541,141 @@ class WebsitePage extends Model
         $base = preg_replace('/_\d+$/', '', $sectionKey);
 
         return in_array($base, self::HOME_SECTION_BASE_TYPES, true) ? $base : null;
+    }
+
+    /**
+     * E-mailtemplate-modellen per home_sections-sleutel (standalone sectie en tekstblok "component naast tekst").
+     *
+     * @param  array<string, mixed>  $homeSections
+     * @return array<string, EmailTemplate|null>
+     */
+    public static function emailTemplatesBySectionKeyForHomeSections(array $homeSections, ?string $templateDbConnection = null): array
+    {
+        $map = [];
+        $connectionConfigured = $templateDbConnection !== null && $templateDbConnection !== ''
+            && Config::has("database.connections.{$templateDbConnection}");
+
+        $findTemplate = static function (int $templateId) use ($connectionConfigured, $templateDbConnection): ?EmailTemplate {
+            if ($templateId <= 0) {
+                return null;
+            }
+            $template = EmailTemplate::find($templateId);
+            if (! $template && $connectionConfigured) {
+                $template = EmailTemplate::on($templateDbConnection)->find($templateId);
+            }
+
+            return $template;
+        };
+
+        $resolveOne = static function (string $sectionKey) use (&$map, $homeSections, $findTemplate): void {
+            if (array_key_exists($sectionKey, $map)) {
+                return;
+            }
+            $base = preg_replace('/_\d+$/', '', $sectionKey);
+            if ($base !== 'email_template') {
+                return;
+            }
+            $raw = $homeSections[$sectionKey] ?? null;
+            if (! is_array($raw)) {
+                $map[$sectionKey] = null;
+
+                return;
+            }
+            $tid = $raw['template_id'] ?? null;
+            if ($tid === null || $tid === '') {
+                $map[$sectionKey] = null;
+
+                return;
+            }
+            $map[$sectionKey] = $findTemplate((int) $tid);
+        };
+
+        $isEmailFormSideKey = static function (string $sectionKey): bool {
+            if (preg_replace('/_\d+$/', '', $sectionKey) === 'email_template') {
+                return true;
+            }
+            if (! FrontendComponentService::isComponentKey($sectionKey)) {
+                return false;
+            }
+            $componentId = FrontendComponentService::componentIdFromKey(
+                FrontendComponentService::normalizeComponentSectionKey($sectionKey)
+            );
+
+            return strtolower((string) $componentId) === 'website.email_template_section';
+        };
+
+        $assignSideTemplate = static function (string $sideKey, ?int $templateId) use (&$map, $findTemplate): void {
+            if ($templateId === null || $templateId <= 0) {
+                return;
+            }
+            if (($map[$sideKey] ?? null) !== null) {
+                return;
+            }
+            $map[$sideKey] = $findTemplate($templateId);
+        };
+
+        foreach ($homeSections['section_order'] ?? [] as $sectionKey) {
+            if (! is_string($sectionKey)) {
+                continue;
+            }
+            if (preg_replace('/_\d+$/', '', $sectionKey) === 'email_template') {
+                $resolveOne($sectionKey);
+            }
+        }
+
+        foreach ($homeSections as $sk => $data) {
+            if (! is_string($sk) || ! is_array($data)) {
+                continue;
+            }
+            if (preg_replace('/_\d+$/', '', $sk) !== 'text_block') {
+                continue;
+            }
+            $sideKey = isset($data['side_component_key']) && is_string($data['side_component_key'])
+                ? trim($data['side_component_key'])
+                : '';
+            if ($sideKey === '' || ! $isEmailFormSideKey($sideKey)) {
+                continue;
+            }
+            if (preg_replace('/_\d+$/', '', $sideKey) === 'email_template') {
+                $resolveOne($sideKey);
+            }
+            $sideTemplateId = isset($data['side_template_id']) && is_numeric($data['side_template_id'])
+                ? (int) $data['side_template_id']
+                : null;
+            $assignSideTemplate($sideKey, $sideTemplateId);
+            if (($map[$sideKey] ?? null) === null && FrontendComponentService::isComponentKey($sideKey)) {
+                $rawSide = $homeSections[$sideKey] ?? null;
+                $tid = is_array($rawSide) ? ($rawSide['template_id'] ?? null) : null;
+                if ($tid !== null && $tid !== '') {
+                    $assignSideTemplate($sideKey, (int) $tid);
+                }
+            }
+            if (($map[$sideKey] ?? null) === null) {
+                $companyId = app()->bound('resolved_tenant_id') ? (int) app('resolved_tenant_id') : null;
+                if ($companyId) {
+                    $candidates = EmailTemplate::query()
+                        ->where('company_id', $companyId)
+                        ->where('is_active', true)
+                        ->where('type', 'informatieaanvraag')
+                        ->get();
+                    if ($candidates->count() === 1) {
+                        $map[$sideKey] = $candidates->first();
+                    }
+                }
+            }
+        }
+
+        $skipRootKeys = ['section_order', 'visibility', 'admin_collapsed', 'footer', 'copyright'];
+        foreach ($homeSections as $sk => $data) {
+            if (! is_string($sk) || in_array($sk, $skipRootKeys, true) || ! is_array($data)) {
+                continue;
+            }
+            if (preg_replace('/_\d+$/', '', $sk) === 'email_template') {
+                $resolveOne($sk);
+            }
+        }
+
+        return $map;
     }
 
     /**
@@ -718,9 +939,12 @@ class WebsitePage extends Model
                 if (! is_array($items)) {
                     $items = [];
                 }
+                $intervalSeconds = isset($raw['interval_seconds']) ? (int) $raw['interval_seconds'] : (int) ($defaults['carousel']['interval_seconds'] ?? 5);
+                $intervalSeconds = max(0, min(120, $intervalSeconds));
 
                 return [
                     'items' => array_values($items),
+                    'interval_seconds' => $intervalSeconds,
                 ];
             case 'cards_ronde_hoeken':
                 $items = $raw['items'] ?? [];
@@ -768,9 +992,20 @@ class WebsitePage extends Model
                 if (! is_array($items)) {
                     $items = [];
                 }
-                $defFs = $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => '', 'blocks_per_row' => 3, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'light-bulb', 'title' => '', 'description' => '']]];
+                $defFs = $defaults['featured_services'] ?? ['title' => 'Diensten', 'subtitle' => '', 'title_font_size_px' => 24, 'subtitle_font_size_px' => 18, 'item_title_font_size_px' => 18, 'item_description_font_size_px' => 14, 'blocks_per_row' => 3, 'blocks_row_width_percent' => 100, 'block_size' => 'medium', 'block_align' => 'center', 'icon_size' => 'medium', 'icon_align' => 'center', 'card_bg_color' => '', 'animation_speed' => 'slow', 'items' => [['icon' => 'light-bulb', 'title' => '', 'description' => '']]];
+                $allowedFsPx = range(10, 40, 2);
+                $titleFontPx = isset($raw['title_font_size_px']) && $raw['title_font_size_px'] !== '' ? (int) $raw['title_font_size_px'] : (int) ($defFs['title_font_size_px'] ?? 24);
+                $titleFontPx = in_array($titleFontPx, $allowedFsPx, true) ? $titleFontPx : 24;
+                $subtitleFontPx = isset($raw['subtitle_font_size_px']) && $raw['subtitle_font_size_px'] !== '' ? (int) $raw['subtitle_font_size_px'] : (int) ($defFs['subtitle_font_size_px'] ?? 18);
+                $subtitleFontPx = in_array($subtitleFontPx, $allowedFsPx, true) ? $subtitleFontPx : 18;
+                $itemTitleFontPx = isset($raw['item_title_font_size_px']) && $raw['item_title_font_size_px'] !== '' ? (int) $raw['item_title_font_size_px'] : (int) ($defFs['item_title_font_size_px'] ?? 18);
+                $itemTitleFontPx = in_array($itemTitleFontPx, $allowedFsPx, true) ? $itemTitleFontPx : 18;
+                $itemDescFontPx = isset($raw['item_description_font_size_px']) && $raw['item_description_font_size_px'] !== '' ? (int) $raw['item_description_font_size_px'] : (int) ($defFs['item_description_font_size_px'] ?? 14);
+                $itemDescFontPx = in_array($itemDescFontPx, $allowedFsPx, true) ? $itemDescFontPx : 14;
                 $blocksPerRow = isset($raw['blocks_per_row']) ? (int) $raw['blocks_per_row'] : ($defFs['blocks_per_row'] ?? 3);
                 $blocksPerRow = in_array($blocksPerRow, [2, 3, 4], true) ? $blocksPerRow : 3;
+                $blocksRowWidthPct = isset($raw['blocks_row_width_percent']) && $raw['blocks_row_width_percent'] !== '' ? (int) $raw['blocks_row_width_percent'] : (int) ($defFs['blocks_row_width_percent'] ?? 100);
+                $blocksRowWidthPct = max(1, min(100, $blocksRowWidthPct));
                 $blockSize = isset($raw['block_size']) && in_array($raw['block_size'], ['small', 'medium', 'large', 'full'], true) ? $raw['block_size'] : ($defFs['block_size'] ?? 'medium');
                 $blockAlign = isset($raw['block_align']) && in_array($raw['block_align'], ['left', 'center', 'right'], true) ? $raw['block_align'] : ($defFs['block_align'] ?? 'center');
                 $iconSize = isset($raw['icon_size']) && in_array($raw['icon_size'], ['small', 'medium', 'large'], true) ? $raw['icon_size'] : ($defFs['icon_size'] ?? 'medium');
@@ -781,7 +1016,12 @@ class WebsitePage extends Model
                 $out = [
                     'title' => trim((string) ($raw['title'] ?? $defFs['title'] ?? '')),
                     'subtitle' => trim((string) ($raw['subtitle'] ?? $defFs['subtitle'] ?? '')),
+                    'title_font_size_px' => $titleFontPx,
+                    'subtitle_font_size_px' => $subtitleFontPx,
+                    'item_title_font_size_px' => $itemTitleFontPx,
+                    'item_description_font_size_px' => $itemDescFontPx,
                     'blocks_per_row' => $blocksPerRow,
+                    'blocks_row_width_percent' => $blocksRowWidthPct,
                     'block_size' => $blockSize,
                     'block_align' => $blockAlign,
                     'icon_size' => $iconSize,
@@ -817,14 +1057,22 @@ class WebsitePage extends Model
                     'template_id' => $templateId,
                 ];
             case 'text_block':
-                $def = $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'image_url' => '', 'width_percent' => 100];
+                $def = $defaults['text_block'] ?? ['content' => '', 'alignment' => 'left', 'side_component_key' => '', 'side_template_id' => null, 'image_url' => '', 'width_percent' => 100];
                 $wp = isset($raw['width_percent']) && is_numeric($raw['width_percent']) ? (int) $raw['width_percent'] : ($def['width_percent'] ?? 100);
                 $wp = max(30, min(100, $wp));
+                $sideKey = isset($raw['side_component_key']) && is_string($raw['side_component_key']) ? trim($raw['side_component_key']) : ($def['side_component_key'] ?? '');
+                $sideTemplateId = isset($raw['side_template_id']) && $raw['side_template_id'] !== '' && is_numeric($raw['side_template_id'])
+                    ? (int) $raw['side_template_id']
+                    : ($def['side_template_id'] ?? null);
+                if ($sideKey === '') {
+                    $sideTemplateId = null;
+                }
 
                 return [
                     'content' => isset($raw['content']) && is_string($raw['content']) ? $raw['content'] : ($def['content'] ?? ''),
                     'alignment' => isset($raw['alignment']) && in_array($raw['alignment'], ['left', 'center', 'right', 'full'], true) ? $raw['alignment'] : ($def['alignment'] ?? 'left'),
-                    'side_component_key' => isset($raw['side_component_key']) && is_string($raw['side_component_key']) ? trim($raw['side_component_key']) : ($def['side_component_key'] ?? ''),
+                    'side_component_key' => $sideKey,
+                    'side_template_id' => $sideTemplateId,
                     'image_url' => isset($raw['image_url']) && is_string($raw['image_url']) ? trim($raw['image_url']) : ($def['image_url'] ?? ''),
                     'width_percent' => $wp,
                 ];

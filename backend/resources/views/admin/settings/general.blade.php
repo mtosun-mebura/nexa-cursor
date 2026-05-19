@@ -17,14 +17,6 @@
             </div>
         @endif
 
-        @if(session('error'))
-            <div class="kt-alert kt-alert-danger mb-5">
-                <div class="kt-alert-content">
-                    {{ session('error') }}
-                </div>
-            </div>
-        @endif
-
         @if($errors->any())
             <div class="kt-alert kt-alert-danger mb-5">
                 <div class="kt-alert-content">
@@ -36,6 +28,8 @@
                 </div>
             </div>
         @endif
+
+        @include('admin.settings.partials.tenant-scope-notice')
 
         <!-- Huidige logo en favicon bovenaan gecentreerd -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 py-8 mb-8 rounded-xl bg-muted/30 dark:bg-muted/10 border border-border">
@@ -422,19 +416,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const logoUploadLink = document.getElementById('logo-upload-link');
     const logoPreview = document.getElementById('logo-preview');
     
+    if (logoInput && logoUploadArea && logoUploadLink && typeof window.bindAdminDropzoneClick === 'function') {
+        window.bindAdminDropzoneClick(logoUploadArea, logoInput, logoUploadLink, { clearInputFirst: false });
+    }
+
     if (logoInput && logoUploadArea && logoUploadLink) {
-        // Click to upload
-        logoUploadLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            logoInput.click();
-        });
-        
-        logoUploadArea.addEventListener('click', function(e) {
-            if (e.target === logoUploadArea || e.target.closest('#logo-upload-area')) {
-                logoInput.click();
-            }
-        });
-        
         // Drag and drop
         logoUploadArea.addEventListener('dragover', function(e) {
             e.preventDefault();
@@ -558,11 +544,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const logoDarkUploadArea = document.getElementById('logo-dark-upload-area');
     const logoDarkUploadLink = document.getElementById('logo-dark-upload-link');
     const logoDarkPreview = document.getElementById('logo-dark-preview');
+    if (logoDarkInput && logoDarkUploadArea && logoDarkUploadLink && typeof window.bindAdminDropzoneClick === 'function') {
+        window.bindAdminDropzoneClick(logoDarkUploadArea, logoDarkInput, logoDarkUploadLink, { clearInputFirst: false });
+    }
+
     if (logoDarkInput && logoDarkUploadArea && logoDarkUploadLink) {
-        logoDarkUploadLink.addEventListener('click', function(e) { e.preventDefault(); logoDarkInput.click(); });
-        logoDarkUploadArea.addEventListener('click', function(e) {
-            if (e.target === logoDarkUploadArea || e.target.closest('#logo-dark-upload-area')) logoDarkInput.click();
-        });
         logoDarkUploadArea.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); logoDarkUploadArea.classList.add('border-primary'); });
         logoDarkUploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); logoDarkUploadArea.classList.remove('border-primary'); });
         logoDarkUploadArea.addEventListener('drop', function(e) {
@@ -702,19 +688,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const faviconUploadLink = document.getElementById('favicon-upload-link');
     const faviconPreview = document.getElementById('favicon-preview');
     
+    if (faviconInput && faviconUploadArea && faviconUploadLink && typeof window.bindAdminDropzoneClick === 'function') {
+        window.bindAdminDropzoneClick(faviconUploadArea, faviconInput, faviconUploadLink, { clearInputFirst: false });
+    }
+
     if (faviconInput && faviconUploadArea && faviconUploadLink) {
-        // Click to upload
-        faviconUploadLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            faviconInput.click();
-        });
-        
-        faviconUploadArea.addEventListener('click', function(e) {
-            if (e.target === faviconUploadArea || e.target.closest('#favicon-upload-area')) {
-                faviconInput.click();
-            }
-        });
-        
         // Drag and drop
         faviconUploadArea.addEventListener('dragover', function(e) {
             e.preventDefault();
@@ -904,14 +882,20 @@ document.addEventListener('DOMContentLoaded', function() {
         successImageInput.value = '';
     }
     
+    if (successImageInput && successImageUploadArea && typeof window.bindAdminUploadAreaClick === 'function') {
+        window.bindAdminUploadAreaClick(successImageUploadArea, successImageInput, { clearInputFirst: false });
+    }
+
     if (successImageInput && successImageUploadArea) {
-        successImageUploadArea.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            successImageInput.click();
-        });
         successImageUploadArea.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); successImageInput.click(); }
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (typeof window.openAdminFilePicker === 'function') {
+                    window.openAdminFilePicker(successImageInput, { clearInputFirst: false });
+                } else {
+                    successImageInput.click();
+                }
+            }
         });
         successImageUploadArea.addEventListener('dragover', function(e) {
             e.preventDefault();

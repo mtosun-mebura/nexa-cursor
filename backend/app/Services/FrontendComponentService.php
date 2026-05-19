@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Module;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 /**
@@ -20,10 +20,79 @@ class FrontendComponentService
         if ($this->components === null) {
             $items = config('frontend_components.components', []);
             $items = $this->appendDiscoveredComponents($items);
+            $excluded = $this->excludedComponentIdLookup();
+            $items = array_values(array_filter($items, function ($item) use ($excluded) {
+                if (! is_array($item)) {
+                    return false;
+                }
+                $id = strtolower(trim((string) ($item['id'] ?? '')));
+
+                return $id !== '' && ! isset($excluded[$id]);
+            }));
             $this->components = collect($items)->map(fn ($c) => (object) $c);
         }
 
         return $this->components;
+    }
+
+    /** Section-order keys voor uitgefaseerde componenten (niet meer toevoegen / tonen). */
+    public static function removedComponentSectionKeys(): array
+    {
+        return array_map(
+            fn (string $id) => 'component:'.ltrim($id, ':'),
+            config('frontend_components.excluded_component_ids', [])
+        );
+    }
+
+    public function isAllowedComponentSectionKey(string $key): bool
+    {
+        if (! $this->isPersistableComponentSectionKey($key)) {
+            return false;
+        }
+        $componentId = self::componentIdFromKey(self::normalizeComponentSectionKey($key));
+
+        return $componentId !== null && $this->getById($componentId) !== null;
+    }
+
+    /**
+     * Of een component-key in section_order bewaard mag blijven (ook legacy/ontdekte ids zonder registry-match).
+     */
+    public function isPersistableComponentSectionKey(string $key): bool
+    {
+        $key = self::normalizeComponentSectionKey($key);
+        if (! self::isComponentKey($key)) {
+            return false;
+        }
+        $componentId = self::componentIdFromKey($key);
+        if ($componentId === null || trim($componentId) === '') {
+            return false;
+        }
+
+        return ! isset($this->excludedComponentIdLookup()[strtolower(trim($componentId))]);
+    }
+
+    /** @return array<string, string> oude section_order key => canonieke key */
+    public static function legacyComponentSectionKeyMap(): array
+    {
+        return [
+            'component:nexa.google_reviews' => 'component:website.google_reviews',
+            'component:taxiroyaal.tarieven' => 'component:taxi.tarieven',
+            'component:taxiroyaal.boekingsmodule' => 'component:taxi.boekingsmodule',
+        ];
+    }
+
+    public static function normalizeComponentSectionKey(string $key): string
+    {
+        $key = trim($key);
+        if ($key === '') {
+            return $key;
+        }
+        if (str_starts_with(strtolower($key), 'component:')) {
+            $rest = preg_replace('/^component:+/i', '', $key);
+            $key = $rest !== '' ? 'component:'.$rest : $key;
+        }
+
+        return self::legacyComponentSectionKeyMap()[$key] ?? $key;
     }
 
     public function getById(string $id): ?object
@@ -105,10 +174,13 @@ class FrontendComponentService
         return $forModule->merge($global)->unique('id')->values();
     }
 
+    private const COMPONENT_KEY_PREFIX = 'component:';
+
     /** Controleer of een section_order key een component-key is (component:module.key). */
     public static function isComponentKey(string $key): bool
     {
-        return str_starts_with($key, 'component:') && strlen($key) > 9;
+        return str_starts_with($key, self::COMPONENT_KEY_PREFIX)
+            && strlen($key) > strlen(self::COMPONENT_KEY_PREFIX);
     }
 
     /** Component-id uit section key halen (component:nexa.recente_vacatures -> nexa.recente_vacatures). */
@@ -118,7 +190,7 @@ class FrontendComponentService
             return null;
         }
 
-        return substr($key, 9);
+        return substr($key, strlen(self::COMPONENT_KEY_PREFIX));
     }
 
     /**
@@ -138,6 +210,11 @@ class FrontendComponentService
             ->all();
         $existingViewsLookup = array_fill_keys($existingViews, true);
 
+        $excludedBasenames = array_fill_keys(
+            array_map('strtolower', config('frontend_components.excluded_discovered_basenames', [])),
+            true
+        );
+
         $componentsDir = resource_path('views/frontend/website/components');
         if (! File::isDirectory($componentsDir)) {
             return array_values($byId);
@@ -151,12 +228,15 @@ class FrontendComponentService
             }
 
             $basename = Str::before($filename, '.blade.php');
-            $view = 'frontend.website.components.' . $basename;
+            if (isset($excludedBasenames[strtolower($basename)])) {
+                continue;
+            }
+            $view = 'frontend.website.components.'.$basename;
             $viewKey = strtolower($view);
             if (isset($existingViewsLookup[$viewKey])) {
                 continue;
             }
-            $autoId = 'website.' . str_replace('-', '_', $basename);
+            $autoId = 'website.'.str_replace('-', '_', $basename);
             $idKey = strtolower($autoId);
             if (isset($byId[$idKey])) {
                 continue;
@@ -175,5 +255,13 @@ class FrontendComponentService
         }
 
         return array_values($byId);
+    }
+
+    /** @return array<string, true> */
+    private function excludedComponentIdLookup(): array
+    {
+        $ids = config('frontend_components.excluded_component_ids', []);
+
+        return array_fill_keys(array_map('strtolower', array_map('strval', $ids)), true);
     }
 }

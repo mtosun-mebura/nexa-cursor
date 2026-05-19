@@ -28,34 +28,16 @@
         'large' => 40,
         default => 30,
     };
-    /* Bij 4 kolommen altijd grid gebruiken zodat 4 blokken naast elkaar passen; anders vaste breedte mogelijk */
-    $useGridLayout = $blockSize === 'full' || $blocksPerRow === 4;
-    $cardMaxWidth = $useGridLayout ? null : match($blockSize) {
-        'small' => '300px',
-        'medium' => '500px',
-        'large' => '700px',
-        default => null,
-    };
     $alignClass = match($blockAlign) {
         'left' => 'justify-start',
         'right' => 'justify-end',
         default => 'justify-center',
-    };
-    $gridCols = match($blocksPerRow) {
-        2 => 'md:grid-cols-2',
-        4 => 'md:grid-cols-2 lg:grid-cols-4',
-        default => 'md:grid-cols-2 lg:grid-cols-3',
     };
     $cardPadding = match($blockSize) {
         'small' => 'p-4',
         'large' => 'p-8',
         'full', 'medium' => 'p-6',
         default => 'p-6',
-    };
-    $titleSize = match($blockSize) {
-        'small' => 'text-base',
-        'large' => 'text-xl',
-        default => 'text-lg',
     };
     $cardBgColor = isset($data['card_bg_color']) && is_string($data['card_bg_color']) ? trim($data['card_bg_color']) : '';
     $cardBgColor = $cardBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $cardBgColor) ? $cardBgColor : '';
@@ -66,24 +48,36 @@
     $revealDuration = match($animationSpeed) { 'fast' => '0.5s', 'normal' => '0.65s', 'slow' => '0.8s', 'slower' => '1s', default => '0.8s' };
     $revealFirstCardDelayMs = 90;
     $revealDelayStepMs = match($animationSpeed) { 'fast' => 100, 'normal' => 150, 'slow' => 200, 'slower' => 260, default => 200 };
+    $blocksRowWidthPctRaw = $data['blocks_row_width_percent'] ?? null;
+    $blocksRowWidthPct = ($blocksRowWidthPctRaw === null || $blocksRowWidthPctRaw === '') ? 100 : (int) $blocksRowWidthPctRaw;
+    $blocksRowWidthPct = max(1, min(100, $blocksRowWidthPct));
+    $allowedSectionFsPx = range(10, 40, 2);
+    $titleFontPx = isset($data['title_font_size_px']) && $data['title_font_size_px'] !== '' ? (int) $data['title_font_size_px'] : 24;
+    $titleFontPx = in_array($titleFontPx, $allowedSectionFsPx, true) ? $titleFontPx : 24;
+    $subtitleFontPx = isset($data['subtitle_font_size_px']) && $data['subtitle_font_size_px'] !== '' ? (int) $data['subtitle_font_size_px'] : 18;
+    $subtitleFontPx = in_array($subtitleFontPx, $allowedSectionFsPx, true) ? $subtitleFontPx : 18;
+    $itemTitleFontPx = isset($data['item_title_font_size_px']) && $data['item_title_font_size_px'] !== '' ? (int) $data['item_title_font_size_px'] : 18;
+    $itemTitleFontPx = in_array($itemTitleFontPx, $allowedSectionFsPx, true) ? $itemTitleFontPx : 18;
+    $itemDescFontPx = isset($data['item_description_font_size_px']) && $data['item_description_font_size_px'] !== '' ? (int) $data['item_description_font_size_px'] : 14;
+    $itemDescFontPx = in_array($itemDescFontPx, $allowedSectionFsPx, true) ? $itemDescFontPx : 14;
 @endphp
 <section class="website-block website-block-featured-services py-12 md:py-16 scroll-reveal-section" data-scroll-reveal>
     <div class="container-custom">
         <div class="max-w-4xl mx-auto text-center mb-10 md:mb-14 scroll-reveal-item" style="transition: opacity {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94), transform {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 0ms;">
             @if($title !== '')
-                <h2 class="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3" style="font-family: var(--theme-font-heading, inherit);">{!! e($title) !!}</h2>
+                <h2 class="font-bold text-gray-900 dark:text-white mb-3 leading-tight" style="font-family: var(--theme-font-heading, inherit); font-size: {{ $titleFontPx }}px;">{!! e($title) !!}</h2>
             @endif
             @if($subtitle !== '')
-                <p class="text-lg text-gray-600 dark:text-gray-300">{!! e($subtitle) !!}</p>
+                <p class="text-gray-600 dark:text-gray-300 leading-relaxed" style="font-size: {{ $subtitleFontPx }}px;">{!! e($subtitle) !!}</p>
             @endif
         </div>
         @if(count($items) > 0)
             <div class="flex {{ $alignClass }} w-full">
-                @if($cardMaxWidth)
-                <div class="featured-services-grid-fixed featured-services-align-{{ $blockAlign }} flex flex-wrap gap-6 lg:gap-8" style="--fs-cols: {{ $blocksPerRow }}; --fs-col-width: {{ $cardMaxWidth }};">
-                @else
-                <div class="grid grid-cols-1 {{ $gridCols }} gap-6 lg:gap-8 w-full max-w-full px-4 lg:px-6">
-                @endif
+                <div
+                    class="featured-services-cards flex flex-wrap justify-center gap-6 lg:gap-8 w-full max-w-full px-4 lg:px-6"
+                    data-blocks-per-row="{{ $blocksPerRow }}"
+                    @if($blocksRowWidthPct < 100) style="max-width: {{ $blocksRowWidthPct }}%;" @endif
+                >
                 @foreach($items as $index => $item)
                     @php
                         $itemTitle = $decode($item['title'] ?? '');
@@ -99,7 +93,7 @@
                     <div class="featured-service-item min-w-0">
                         <div class="scroll-reveal-item min-w-0 h-full" style="{{ $revealStyle }}" data-scroll-reveal-delay="{{ $index }}">
                         <div class="featured-service-card min-w-0 h-full rounded-xl border border-gray-200 dark:border-gray-700 {{ $cardPadding }} shadow-sm w-full {{ $cardBgColor ? '' : 'bg-white dark:bg-gray-800/50' }}" @if($cardBgColor) style="background-color: {{ $cardBgColor }};" @endif>
-                        <div class="flex {{ $iconAlignClass }} gap-4">
+                        <div class="flex {{ $iconAlignClass }} gap-4 min-w-0">
                             @php
                                 $iconColorStyle = $iconColor ? ' color: ' . e($iconColor) . ';' : '';
                             @endphp
@@ -108,10 +102,10 @@
                             </div>
                             <div class="min-w-0 flex-1">
                                 @if($itemTitle !== '')
-                                    <h3 class="{{ $titleSize }} font-semibold text-gray-900 dark:text-white mb-2">{!! e($itemTitle) !!}</h3>
+                                    <h3 class="font-semibold text-gray-900 dark:text-white mb-2 break-words [overflow-wrap:anywhere] leading-snug" style="font-size: {{ $itemTitleFontPx }}px;">{!! e($itemTitle) !!}</h3>
                                 @endif
                                 @if($itemDesc !== '')
-                                    <p class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">{!! nl2br(e($itemDesc)) !!}</p>
+                                    <p class="text-gray-600 dark:text-gray-300 leading-relaxed break-words [overflow-wrap:anywhere]" style="font-size: {{ $itemDescFontPx }}px;">{!! nl2br(e($itemDesc)) !!}</p>
                                 @endif
                             </div>
                             </div>
@@ -127,30 +121,48 @@
 
 @push('styles')
 <style>
-    .featured-services-grid-fixed {
+    /* Kaarten per rij: flex + justify-center zodat een onvolledige laatste rij gecentreerd is (o.a. 3+2 bij 3 kolommen) */
+    .website-block-featured-services .featured-services-cards > .featured-service-item {
         width: 100%;
+        min-width: 0;
     }
-    .featured-services-grid-fixed .featured-service-item {
-        width: 100%;
+    /* 2 kolommen vanaf sm; gap-6 tot lg, daarna gap-8 */
+    @media (min-width: 640px) and (max-width: 1023px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="2"] > .featured-service-item {
+            flex: 0 1 calc((100% - 1.5rem) / 2);
+            max-width: calc((100% - 1.5rem) / 2);
+        }
     }
-    @media (min-width: 768px) {
-        /* Breedte = één volle rij (zodat laatste rij met minder cards dezelfde breedte heeft en uitlijning werkt) */
-        .featured-services-grid-fixed {
-            width: calc(var(--fs-cols) * var(--fs-col-width) + (var(--fs-cols) - 1) * 1.5rem);
-            max-width: 100%;
+    @media (min-width: 1024px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="2"] > .featured-service-item {
+            flex: 0 1 calc((100% - 2rem) / 2);
+            max-width: calc((100% - 2rem) / 2);
         }
-        .featured-services-grid-fixed.featured-services-align-left {
-            justify-content: flex-start;
+    }
+    /* 3 kolommen vanaf md */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
+            flex: 0 1 calc((100% - 3rem) / 3);
+            max-width: calc((100% - 3rem) / 3);
         }
-        .featured-services-grid-fixed.featured-services-align-center {
-            justify-content: center;
+    }
+    @media (min-width: 1024px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
+            flex: 0 1 calc((100% - 4rem) / 3);
+            max-width: calc((100% - 4rem) / 3);
         }
-        .featured-services-grid-fixed.featured-services-align-right {
-            justify-content: flex-end;
+    }
+    /* 4: 2 kolommen md, 4 kolommen lg */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="4"] > .featured-service-item {
+            flex: 0 1 calc((100% - 1.5rem) / 2);
+            max-width: calc((100% - 1.5rem) / 2);
         }
-        .featured-services-grid-fixed .featured-service-item {
-            width: var(--fs-col-width);
-            max-width: 100%;
+    }
+    @media (min-width: 1024px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="4"] > .featured-service-item {
+            flex: 0 1 calc((100% - 6rem) / 4);
+            max-width: calc((100% - 6rem) / 4);
         }
     }
     /* Zelfde invliegen als Elementor Overige Diensten: van beneden, lichte scale, cards duidelijk na elkaar */
@@ -165,6 +177,8 @@
         transform: translateY(0) scale(1);
     }
     .website-block-featured-services .featured-service-card {
+        overflow-wrap: anywhere;
+        word-break: break-word;
         transition: transform 0.25s ease-out, box-shadow 0.25s ease-out;
     }
     .website-block-featured-services.is-in-view .featured-service-card:hover {

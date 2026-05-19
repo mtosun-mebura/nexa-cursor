@@ -46,7 +46,7 @@
                                        value="{{ old('first_name', $user->first_name) }}" 
                                        required>
                                 @error('first_name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="first_name" role="alert">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -61,7 +61,7 @@
                                        value="{{ old('last_name', $user->last_name) }}" 
                                        required>
                                 @error('last_name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="last_name" role="alert">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>

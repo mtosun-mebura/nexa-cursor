@@ -6,12 +6,15 @@
     $imageUrl = $imageUrlRaw !== '' ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imageUrlRaw) : '';
     $widthPercent = (int) ($sectionData['width_percent'] ?? 100);
     $widthPercent = max(30, min(100, $widthPercent));
-    $showSideComponent = $sideKey !== '' && in_array($alignment, ['left', 'right'], true);
+    $emailTemplateBySectionKey = $emailTemplateBySectionKey ?? [];
+    $sideTemplate = null;
+    if ($sideKey !== '' && in_array($alignment, ['left', 'right'], true)) {
+        $sideTemplate = $emailTemplateBySectionKey[$sideKey] ?? null;
+    }
+    $showSideComponent = $sideTemplate !== null;
     $showSideImage = $imageUrl !== '' && in_array($alignment, ['left', 'right'], true);
     $showSideColumn = $showSideComponent || $showSideImage;
-    $emailTemplateBySectionKey = $emailTemplateBySectionKey ?? [];
-    $sideTemplate = $showSideComponent ? ($emailTemplateBySectionKey[$sideKey] ?? null) : null;
-    $sideSectionData = $showSideComponent && $sideTemplate ? ($homeSections[$sideKey] ?? []) : [];
+    $sideSectionData = $showSideComponent ? ($homeSections[$sideKey] ?? []) : [];
     $sideFormFields = $sideTemplate ? $sideTemplate->getOrderedFormFields() : collect();
     $textAlignClass = match($alignment) {
         'center' => 'text-center',
@@ -25,7 +28,8 @@
         'full' => 'justify-start',
         default => 'justify-start',
     };
-    $isHalfWidth = in_array($alignment, ['left', 'right'], true);
+    // Halve breedte alleen als er daadwerkelijk een kolom naast de tekst is (component of afbeelding)
+    $textMaxWidthClass = ($showSideColumn && in_array($alignment, ['left', 'right'], true)) ? 'max-w-3xl' : '';
 @endphp
 <style>
     @keyframes text-block-fade-in {
@@ -54,7 +58,7 @@
                             <img src="{{ $imageUrl }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
                         </div>
                         @endif
-                        @if($showSideComponent && $sideTemplate)
+                        @if($showSideComponent)
                         @include('frontend.website.components.email-template-section', ['sectionData' => $sideSectionData, 'sectionKey' => $sideKey, 'emailTemplate' => $sideTemplate, 'formFields' => $sideFormFields, 'embeddedInTextBlock' => true])
                         @endif
                     </div>
@@ -72,7 +76,7 @@
                             <img src="{{ $imageUrl }}" alt="" class="max-w-full h-auto rounded-xl object-contain">
                         </div>
                         @endif
-                        @if($showSideComponent && $sideTemplate)
+                        @if($showSideComponent)
                         @include('frontend.website.components.email-template-section', ['sectionData' => $sideSectionData, 'sectionKey' => $sideKey, 'emailTemplate' => $sideTemplate, 'formFields' => $sideFormFields, 'embeddedInTextBlock' => true])
                         @endif
                     </div>
@@ -80,10 +84,10 @@
                 </div>
             </div>
             @else
-            {{-- Alleen tekst:zelfde opmaak als editor, geen achtergrond; bij links/rechts/midden halve breedte voor de content --}}
+            {{-- Alleen tekst: volledige breedte (geen component/afbeelding naast) --}}
             <div class="text-block-content-fade-in flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
                 <div class="flex {{ $blockAlignClass }} w-full">
-                    <div class="prose prose-gray dark:prose-invert format format-lg dark:format-invert max-w-none w-full {{ $alignment === 'full' ? '' : ($isHalfWidth ? 'max-w-3xl' : 'max-w-4xl') }} {{ $textAlignClass }}">
+                    <div class="prose prose-gray dark:prose-invert format format-lg dark:format-invert max-w-none w-full {{ $textAlignClass }}">
                         {!! $content !!}
                     </div>
                 </div>

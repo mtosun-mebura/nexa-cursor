@@ -201,6 +201,28 @@
     color: #fed7aa;
   }
 
+  /*
+   * Admin tenant-scope notice (settings): use explicit colors.
+   * bg-sky-* / dark:bg-* utilities are not guaranteed in the Vite bundle for this partial,
+   * so without this rule the box stays transparent on the forced black admin canvas.
+   */
+  .tenant-scope-notice {
+    background-color: #0369a1;
+    border: 2px solid #075985;
+    color: #ffffff;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.08),
+      0 0 0 1px rgb(7 89 133 / 0.35);
+  }
+  .dark .tenant-scope-notice {
+    background-color: #1d4ed8 !important;
+    border-color: #93c5fd !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 0 0 1px rgb(147 197 253 / 0.5),
+      0 10px 25px -5px rgb(0 0 0 / 0.45);
+  }
+
   .pill {
     display: inline-flex;
     align-items: center;
@@ -339,6 +361,48 @@
     border-color: #e5e7eb;
     background-color: #ffffff;
   }
+  .flowbite-wysiwyg-toolbar {
+    overflow: visible;
+    position: relative;
+    z-index: 40;
+  }
+  .flowbite-wysiwyg-icon-picker {
+    position: relative;
+    z-index: 50;
+  }
+  .flowbite-wysiwyg-icon-picker__menu {
+    z-index: 60;
+  }
+  .flowbite-wysiwyg-content {
+    position: relative;
+    z-index: 1;
+  }
+  .flowbite-wysiwyg-toolbar .kt-input {
+    max-width: 100%;
+  }
+  /* Toolbar: actieve knop (P/H1/H2/H3 en icoonknoppen) – leesbaar in light + dark */
+  .flowbite-wysiwyg-toolbar .flowbite-wysiwyg-toolbar-btn.is-active {
+    background-color: #e5e7eb !important;
+    color: #111827 !important;
+    box-shadow: inset 0 0 0 1px #9ca3af;
+  }
+  .dark .flowbite-wysiwyg-toolbar .flowbite-wysiwyg-toolbar-btn.is-active {
+    background-color: #4b5563 !important;
+    color: #f3f4f6 !important;
+    box-shadow: inset 0 0 0 1px #9ca3af;
+  }
+  .flowbite-wysiwyg-toolbar .flowbite-wysiwyg-toolbar-btn.is-active svg {
+    color: inherit !important;
+  }
+  .flowbite-wysiwyg-icon-picker > summary {
+    list-style: none;
+  }
+  .flowbite-wysiwyg-icon-picker > summary::-webkit-details-marker {
+    display: none;
+  }
+  .flowbite-wysiwyg-icon-picker[open] .flowbite-wysiwyg-icon-picker__menu {
+    display: block;
+  }
   .dark .flowbite-wysiwyg-wrapper {
     border-color: #4b5563;
     background-color: #1f2937;
@@ -349,12 +413,115 @@
   .dark .flowbite-wysiwyg-content {
     background-color: #1f2937;
   }
-  .flowbite-wysiwyg-content .ProseMirror {
+  /* Hogere specificiteit dan flowbite .format { font-size: 1rem } zodat editor ≈ text-sm / prose-sm op de site */
+  .flowbite-wysiwyg-content .ProseMirror.format {
     background-color: transparent;
-    min-height: 280px;
+    min-height: 2.5em;
+    font-size: 0.875rem;
+    line-height: 1.625;
   }
 
-  /* Cards ronde hoeken (frontend): lettergrootte en lettertype uit admin; H1/H2/H3 schalen mee met --card-fs */
+  /* Inline Heroicons in WYSIWYG-inhoud (editor + website prose/format) */
+  .wysiwyg-inline-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: -0.15em;
+    margin: 0 0.2em;
+    color: currentColor;
+    line-height: 1;
+    min-width: 1.15em;
+    min-height: 1.15em;
+  }
+  .wysiwyg-inline-icon__svg,
+  .wysiwyg-inline-icon__img,
+  img.wysiwyg-inline-icon {
+    width: 1.15em;
+    height: 1.15em;
+    min-width: 1.15em;
+    min-height: 1.15em;
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: -0.15em;
+    margin: 0 0.2em;
+    object-fit: contain;
+  }
+  .prose .wysiwyg-inline-icon,
+  .format .wysiwyg-inline-icon,
+  .flowbite-wysiwyg-content .wysiwyg-inline-icon {
+    color: inherit;
+  }
+  .flowbite-wysiwyg-content .ProseMirror .wysiwyg-inline-icon,
+  .flowbite-wysiwyg-content .ProseMirror .wysiwyg-inline-icon__svg {
+    color: currentColor;
+  }
+
+  /* Cards ronde hoeken (admin): zelfde basis- en kopgroottes als frontend (.cards-ronde-hoeken-text / --card-fs) */
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format {
+    font-size: var(--card-fs, 0.875rem) !important;
+    line-height: 1.6;
+    font-family: var(--theme-font-body, inherit);
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p,
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format li {
+    font-size: inherit;
+    line-height: 1.6;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p {
+    margin-top: 0.6em;
+    margin-bottom: 0.6em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p:first-child {
+    margin-top: 0;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p:last-child {
+    margin-bottom: 0;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format ul,
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format ol {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format ol {
+    list-style-type: decimal;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format li {
+    display: list-item;
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h1 {
+    font-size: 1.35em !important;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 0.5em;
+    margin-bottom: 0.4em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h2 {
+    font-size: 1.2em !important;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 0.5em;
+    margin-bottom: 0.35em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h3 {
+    font-size: 1.1em !important;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-top: 0.45em;
+    margin-bottom: 0.3em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h4 {
+    font-size: 1.05em !important;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-top: 0.4em;
+    margin-bottom: 0.25em;
+  }
+
+  /* Cards ronde hoeken (frontend): lettergrootte en lettertype uit admin; H1/H2/H3/H4 schalen mee met --card-fs */
   .cards-ronde-hoeken-text .prose,
   .cards-ronde-hoeken-text .cards-ronde-hoeken-prose {
     font-size: var(--card-fs) !important;
@@ -417,6 +584,14 @@
     margin-top: 0.45em;
     margin-bottom: 0.3em;
   }
+  .cards-ronde-hoeken-text .prose h4,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h4 {
+    font-size: 1.05em !important;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-top: 0.4em;
+    margin-bottom: 0.25em;
+  }
 
   /* Cards ronde hoeken: WYSIWYG blijft binnen kaart, geen overflow of scheve uitlijning */
   .cards-ronde-hoeken-item .flowbite-wysiwyg-wrapper {
@@ -429,7 +604,7 @@
     box-sizing: border-box;
   }
 
-  /* Tekstblok frontend: zelfde opmaak als editor (flowbite-typography); zorgt dat H1/H2/H3 etc. correct worden weergegeven */
+  /* Tekstblok frontend: zelfde opmaak als editor (flowbite-typography); zorgt dat H1–H4 etc. correct worden weergegeven */
   .text-block-section .prose.format h1,
   .text-block-section .format.prose h1 {
     font-size: 2.25em !important;
@@ -454,6 +629,14 @@
     margin-top: 0;
     margin-bottom: 0.6em;
   }
+  .text-block-section .prose.format h4,
+  .text-block-section .format.prose h4 {
+    font-size: 1.125em !important;
+    font-weight: 600;
+    line-height: 1.6;
+    margin-top: 0;
+    margin-bottom: 0.5em;
+  }
   @media (min-width: 1024px) {
     .text-block-section .prose.format h1,
     .text-block-section .format.prose h1 {
@@ -470,6 +653,11 @@
     .text-block-section .format.prose h3 {
       font-size: 1.3333333em !important;
       margin-bottom: 0.6666667em;
+    }
+    .text-block-section .prose.format h4,
+    .text-block-section .format.prose h4 {
+      font-size: 1.2em !important;
+      margin-bottom: 0.5em;
     }
   }
 
@@ -598,4 +786,12 @@
   textarea {
     padding-top: 0.25rem;
   }
+}
+
+/*
+ * Google Maps JavaScript API: tegels zijn <img>-mozaïek. Tailwind-preflight zet
+ * img { max-width: 100%; height: auto; } waardoor tegels verkeerd schalen en de kaart leeg/grijs blijft.
+ */
+.gm-style img {
+  max-width: none !important;
 }

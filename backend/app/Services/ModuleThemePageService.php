@@ -65,6 +65,9 @@ class ModuleThemePageService
         $conn = $this->moduleDb->supportsModuleDatabases()
             ? $this->moduleDb->getModuleConnectionName($module->name)
             : null;
+        $companyId = $referenceHome?->company_id !== null && $referenceHome->company_id !== ''
+            ? (int) $referenceHome->company_id
+            : null;
         $data = [
             'slug' => $slug,
             'title' => 'Home',
@@ -75,7 +78,7 @@ class ModuleThemePageService
             'module_name' => $module->name,
             'frontend_theme_id' => $theme->id,
             'is_active' => true,
-            'sort_order' => 0,
+            'sort_order' => WebsitePage::nextSortOrderForTenant($conn, $companyId),
         ];
         return $conn !== null ? WebsitePage::on($conn)->create($data) : WebsitePage::create($data);
     }

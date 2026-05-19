@@ -3,6 +3,22 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Component-ids die niet in de admin-picker staan (geen paginacomponent).
+    | Blade-partials in excluded_discovered_basenames worden ook niet auto-ontdekt.
+    */
+    'excluded_component_ids' => [
+        'website.features_card',
+        // Gebruik de sectie "Tekstblok" (text_block) in de page builder; die heeft de WYSIWYG-editor.
+        'website.text_block_section',
+    ],
+    'excluded_discovered_basenames' => [
+        'features-card',
+        'features-card-section',
+        'text-block-section',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Front-end componenten (automatisch ontdekt door de applicatie).
     | Alleen aanpasbaar in code; niet via beheerpagina's.
     | id: unieke key (module.key), gebruikt in section_order als "component:module.key"
@@ -34,14 +50,6 @@ return [
             'module_name' => 'Algemeen',
             'view' => 'frontend.website.components.email-template-section',
             'description' => 'Herbruikbare e-mail template sectie voor website builder contentblokken.',
-            'available_on_all_pages' => true,
-        ],
-        [
-            'id' => 'website.text_block_section',
-            'name' => 'Text Block Section',
-            'module_name' => 'Algemeen',
-            'view' => 'frontend.website.components.text-block-section',
-            'description' => 'Vrij tekstblok met opmaakopties voor algemene contentsecties.',
             'available_on_all_pages' => true,
         ],
         [

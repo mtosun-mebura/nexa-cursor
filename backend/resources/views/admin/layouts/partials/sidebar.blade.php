@@ -20,18 +20,18 @@
                     : $logoLightUrl;
             @endphp
             @if($hasSettingsLogo)
-                <img class="default-logo logo-light w-auto max-w-[200px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ $logoLightUrl }}" alt="Logo" />
-                <img class="default-logo logo-dark w-auto max-w-[200px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $logoDarkUrl }}" alt="Logo" />
+                <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ $logoLightUrl }}" alt="Logo" />
+                <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $logoDarkUrl }}" alt="Logo" />
             @elseif($useCompanyLogo)
                 @php
                     $companyLogoDarkUrl = ! empty($company->logo_dark_blob)
                         ? route('admin.companies.logo.dark', $company)
                         : route('admin.companies.logo', $company);
                 @endphp
-                <img class="default-logo logo-light w-auto max-w-[200px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
-                <img class="default-logo logo-dark w-auto max-w-[200px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
+                <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
+                <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
             @else
-                <img class="default-logo h-[26px] w-auto max-w-[200px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
+                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
             @endif
         </a>
         <button

@@ -11,19 +11,239 @@
     };
 
     function applyImportMap() {
-        if (document.querySelector('script[type="importmap"][data-flowbite-wysiwyg]')) return;
-        const existing = document.querySelector('script[type="importmap"]');
-        if (existing && existing.textContent && existing.textContent.indexOf('prosemirror-model') !== -1) return;
+        if (document.querySelector('script[type="importmap"]')) return;
         const script = document.createElement('script');
         script.type = 'importmap';
-        script.setAttribute('data-flowbite-wysiwyg', '1');
         script.textContent = JSON.stringify(PROSEMIRROR_IMPORTMAP);
         document.head.appendChild(script);
+    }
+
+    function buildWysiwygIconDataUrl(iconKey, icons) {
+        var def = icons[iconKey];
+        if (!def || !def.svg) return '';
+        var svgInner = String(def.svg).replace(/\sstroke="currentColor"/gi, '').replace(/\sstroke='currentColor'/gi, '');
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#374151">' + svgInner + '</svg>';
+        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     }
 
     function getCsrfToken() {
         const m = document.querySelector('meta[name="csrf-token"]');
         return m ? m.getAttribute('content') : '';
+    }
+
+    function parseWysiwygIconsFromWrapper(wrapper) {
+        var raw = wrapper.getAttribute('data-wysiwyg-icons');
+        if (!raw) return {};
+        try {
+            var parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function buildWysiwygIconHtml(iconKey, icons) {
+        var def = icons[iconKey];
+        if (!def || !def.svg) return '';
+        var label = String(def.label || iconKey).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        return '<span class="wysiwyg-inline-icon" data-wysiwyg-icon="' + iconKey + '" contenteditable="false" role="img" aria-label="' + label + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="wysiwyg-inline-icon__svg" aria-hidden="true">' +
+            def.svg + '</svg></span>';
+    }
+
+    function paintWysiwygIconDom(dom, iconKey, icons) {
+        var def = icons[iconKey];
+        dom.className = 'wysiwyg-inline-icon';
+        dom.setAttribute('data-wysiwyg-icon', iconKey || '');
+        dom.setAttribute('role', 'img');
+        dom.draggable = false;
+        if (def && def.label) {
+            dom.setAttribute('aria-label', def.label);
+        } else {
+            dom.removeAttribute('aria-label');
+        }
+        if (def && def.svg) {
+            dom.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="#374151" class="wysiwyg-inline-icon__svg" aria-hidden="true">' +
+                def.svg + '</svg>';
+        } else {
+            dom.innerHTML = '';
+        }
+        return dom;
+    }
+
+    function clearCodeMarkBeforeIconInsert(chain, editor) {
+        if (editor && editor.isActive('code') && chain && typeof chain.unsetMark === 'function') {
+            return chain.unsetMark('code');
+        }
+        return chain;
+    }
+
+    function insertWysiwygIconIntoEditor(editor, iconKey, icons, savedSelection) {
+        if (!iconKey || !icons[iconKey]) return false;
+        if (!editor.schema.nodes.wysiwygIcon) return false;
+        var chain = editor.chain().focus();
+        if (savedSelection && typeof savedSelection.from === 'number') {
+            chain = chain.setTextSelection({ from: savedSelection.from, to: savedSelection.to });
+        } else if (!(editor.view && editor.view.hasFocus && editor.view.hasFocus())) {
+            chain = chain.focus('end');
+        }
+        chain = clearCodeMarkBeforeIconInsert(chain, editor);
+        var inserted = chain.insertContent({ type: 'wysiwygIcon', attrs: { icon: iconKey } }).run();
+        if (inserted) {
+            editor.chain().focus().insertContent('\u00a0').run();
+            return true;
+        }
+        chain = editor.chain().focus();
+        if (savedSelection && typeof savedSelection.from === 'number') {
+            chain = chain.setTextSelection({ from: savedSelection.from, to: savedSelection.to });
+        }
+        chain = clearCodeMarkBeforeIconInsert(chain, editor);
+        if (editor.commands.insertWysiwygIcon && chain.insertWysiwygIcon(iconKey).run()) {
+            return true;
+        }
+        return false;
+    }
+
+    function repairWysiwygIconHtmlInTextNodes(editor, icons) {
+        if (!editor || !editor.state || !editor.schema.nodes.wysiwygIcon) return;
+        var re = /<span[^>]*\sdata-wysiwyg-icon="([^"]+)"[^>]*>[\s\S]*?<\/span>/gi;
+        var tr = editor.state.tr;
+        var replacements = [];
+        editor.state.doc.descendants(function (node, pos) {
+            if (!node.isText || !node.text || node.text.indexOf('wysiwyg-inline-icon') === -1) return;
+            var text = node.text;
+            var match;
+            re.lastIndex = 0;
+            while ((match = re.exec(text)) !== null) {
+                var iconKey = match[1];
+                if (!icons[iconKey]) continue;
+                replacements.push({
+                    from: pos + match.index,
+                    to: pos + match.index + match[0].length,
+                    iconKey: iconKey
+                });
+            }
+        });
+        if (!replacements.length) return;
+        replacements.sort(function (a, b) { return b.from - a.from; });
+        replacements.forEach(function (item) {
+            var iconNode = editor.schema.nodes.wysiwygIcon.create({ icon: item.iconKey });
+            tr.replaceWith(item.from, item.to, iconNode);
+        });
+        if (tr.docChanged) editor.view.dispatch(tr);
+    }
+
+    function buildIconSvgNode(svgInner) {
+        var pathNodes = [];
+        try {
+            var doc = new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg">' + svgInner + '</svg>', 'application/xml');
+            if (doc.querySelector('parsererror')) {
+                doc = new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg">' + svgInner + '</svg>', 'text/html');
+            }
+            var svgRoot = doc.querySelector('svg');
+            if (svgRoot) {
+                svgRoot.querySelectorAll('path').forEach(function (p) {
+                    var attrs = {};
+                    for (var i = 0; i < p.attributes.length; i++) {
+                        var attr = p.attributes[i];
+                        attrs[attr.name] = attr.value;
+                    }
+                    if (!attrs.stroke) attrs.stroke = 'currentColor';
+                    if (!attrs['stroke-width']) attrs['stroke-width'] = '1.5';
+                    if (!attrs['stroke-linecap']) attrs['stroke-linecap'] = 'round';
+                    if (!attrs['stroke-linejoin']) attrs['stroke-linejoin'] = 'round';
+                    if (attrs.d) pathNodes.push(['path', attrs]);
+                });
+            }
+        } catch (e) {}
+        if (!pathNodes.length) return null;
+        return ['svg', {
+            fill: 'none',
+            viewBox: '0 0 24 24',
+            stroke: 'currentColor',
+            'stroke-width': '1.5',
+            class: 'wysiwyg-inline-icon__svg',
+            'aria-hidden': 'true'
+        }].concat(pathNodes);
+    }
+
+    function createWysiwygIconExtension(icons, Node) {
+        return Node.create({
+            name: 'wysiwygIcon',
+            group: 'inline',
+            inline: true,
+            atom: true,
+            selectable: true,
+            draggable: true,
+            addAttributes: function () {
+                return {
+                    icon: {
+                        default: null,
+                        parseHTML: function (el) {
+                            return el.getAttribute('data-wysiwyg-icon') || null;
+                        },
+                        renderHTML: function (attrs) {
+                            if (!attrs.icon) return {};
+                            return { 'data-wysiwyg-icon': attrs.icon };
+                        }
+                    }
+                };
+            },
+            parseHTML: function () {
+                return [{
+                    tag: 'span[data-wysiwyg-icon]',
+                    priority: 1000,
+                    getAttrs: function (el) {
+                        var icon = el.getAttribute('data-wysiwyg-icon');
+                        return icon ? { icon: icon } : false;
+                    }
+                }];
+            },
+            renderHTML: function (_a) {
+                var node = _a.node;
+                var iconKey = node.attrs.icon;
+                var def = icons[iconKey];
+                var svgSpec = def && def.svg ? buildIconSvgNode(def.svg) : null;
+                var children = svgSpec ? [svgSpec] : [];
+                return ['span', {
+                    class: 'wysiwyg-inline-icon',
+                    'data-wysiwyg-icon': iconKey,
+                    role: 'img',
+                    'aria-label': def && def.label ? def.label : (iconKey || 'Icoon')
+                }].concat(children);
+            },
+            addNodeView: function () {
+                var iconMap = icons;
+                return function (props) {
+                    var currentNode = props.node;
+                    var dom = document.createElement('span');
+                    dom.className = 'wysiwyg-inline-icon';
+                    dom.contentEditable = 'false';
+                    paintWysiwygIconDom(dom, currentNode.attrs.icon, iconMap);
+                    return {
+                        dom: dom,
+                        ignoreMutation: function () { return true; },
+                        update: function (updatedNode) {
+                            if (updatedNode.type.name !== 'wysiwygIcon') return false;
+                            currentNode = updatedNode;
+                            paintWysiwygIconDom(dom, currentNode.attrs.icon, iconMap);
+                            return true;
+                        }
+                    };
+                };
+            },
+            addCommands: function () {
+                return {
+                    insertWysiwygIcon: function (iconKey) {
+                        return function (_a) {
+                            var chain = _a.chain;
+                            if (!iconKey || !icons[iconKey]) return false;
+                            return chain().focus().insertContent({ type: 'wysiwygIcon', attrs: { icon: iconKey } }).run();
+                        };
+                    }
+                };
+            }
+        });
     }
 
     async function uploadFile(url, fileKey, file, editor) {
@@ -48,8 +268,10 @@
 
         applyImportMap();
 
+        const wysiwygIcons = parseWysiwygIconsFromWrapper(wrapper);
+
         const [
-            { Editor, Mark },
+            { Editor, Mark, Node },
             { default: StarterKit },
             { default: Link },
             { default: Image },
@@ -213,12 +435,15 @@
         });
 
         const extensions = [
-            StarterKit,
+            StarterKit.configure({
+                heading: { levels: [1, 2, 3, 4] }
+            }),
             FontSize,
             FontFamily,
             TextColor,
+            createWysiwygIconExtension(wysiwygIcons, Node),
             Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener' } }),
-            Image
+            Image.configure({ inline: true, allowBase64: true })
         ];
         if (Underline) extensions.push(Underline);
         if (Highlight) extensions.push(Highlight.configure({ multicolor: false }));
@@ -234,7 +459,7 @@
             extensions: extensions,
             content: initialContent || undefined,
             editorProps: {
-                attributes: { class: 'format lg:format-lg dark:format-invert focus:outline-none format-blue max-w-none min-h-[280px]' },
+                attributes: { class: 'format format-sm dark:format-invert focus:outline-none format-blue max-w-none min-h-[280px]' },
                 handleDOMEvents: {
                     keydown: function (_view, event) {
                         if ((event.metaKey || event.ctrlKey) && (event.key === 's' || event.key === 'S' || event.keyCode === 83 || event.which === 83)) {
@@ -255,6 +480,7 @@
         });
 
         wrapper._flowbiteEditor = editor;
+        wrapper._wysiwygIcons = wysiwygIcons;
 
         function q(id) { return document.getElementById(prefix + id) || wrapper.querySelector('[id="' + prefix + id + '"]'); }
         function on(id, fn) { const el = q(id); if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); }); }
@@ -287,6 +513,7 @@
         on('-setH1', () => editor.chain().focus().toggleHeading({ level: 1 }).run());
         on('-setH2', () => editor.chain().focus().toggleHeading({ level: 2 }).run());
         on('-setH3', () => editor.chain().focus().toggleHeading({ level: 3 }).run());
+        on('-setH4', () => editor.chain().focus().toggleHeading({ level: 4 }).run());
 
         var fontSizeSelect = q('-fontSize');
         if (fontSizeSelect) fontSizeSelect.addEventListener('change', function () {
@@ -323,6 +550,23 @@
             input.click();
         });
 
+        wrapper.querySelectorAll('.flowbite-wysiwyg-icon-pick-btn').forEach(function (btn) {
+            var savedIconInsertSelection = null;
+            btn.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                savedIconInsertSelection = editor.state.selection;
+            });
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var iconKey = btn.getAttribute('data-icon-key');
+                if (!iconKey) return;
+                insertWysiwygIconIntoEditor(editor, iconKey, wysiwygIcons, savedIconInsertSelection);
+                savedIconInsertSelection = null;
+                if (textarea && editor) textarea.value = editor.getHTML();
+            });
+        });
+
         on('-addDocument', () => {
             const input = wrapper.querySelector('.flowbite-wysiwyg-document-input');
             if (!input || !uploadDocumentUrl) return;
@@ -344,12 +588,18 @@
 
         editor.on('update', () => { textarea.value = editor.getHTML(); });
         textarea.value = editor.getHTML();
+        repairWysiwygIconHtmlInTextNodes(editor, wysiwygIcons);
+        textarea.value = editor.getHTML();
 
-        var activeBtnClasses = ['bg-gray-200', 'dark:bg-gray-600'];
         function setBtnActive(el, active) {
             if (!el) return;
-            activeBtnClasses.forEach(function (c) { el.classList.toggle(c, active); });
+            el.classList.toggle('is-active', active);
         }
+        wrapper.querySelectorAll('.flowbite-wysiwyg-toolbar button[type="button"]').forEach(function (btn) {
+            if (!btn.classList.contains('flowbite-wysiwyg-toolbar-btn')) {
+                btn.classList.add('flowbite-wysiwyg-toolbar-btn');
+            }
+        });
         function updateToolbarState() {
             setBtnActive(q('-toggleBold'), editor.isActive('bold'));
             setBtnActive(q('-toggleItalic'), editor.isActive('italic'));
@@ -368,6 +618,7 @@
             setBtnActive(q('-setH1'), editor.isActive('heading', { level: 1 }));
             setBtnActive(q('-setH2'), editor.isActive('heading', { level: 2 }));
             setBtnActive(q('-setH3'), editor.isActive('heading', { level: 3 }));
+            setBtnActive(q('-setH4'), editor.isActive('heading', { level: 4 }));
             var fs = fontSizeSelect; if (fs) { var attrs = editor.getAttributes('fontSize'); fs.value = (attrs && attrs.fontSize) ? attrs.fontSize : ''; }
             var ff = fontFamilySelect; if (ff) { var attrs = editor.getAttributes('fontFamily'); ff.value = (attrs && attrs.fontFamily) ? attrs.fontFamily : ''; }
             var tc = textColorInput; if (tc) { var attrs = editor.getAttributes('textColor'); var c = (attrs && attrs.color) ? attrs.color : ''; var hex = colorToHex(c); tc.value = hex || '#000000'; }

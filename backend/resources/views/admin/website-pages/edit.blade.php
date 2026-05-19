@@ -53,7 +53,7 @@
         </div>
     </div>
 
-    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" data-validate="true" novalidate>
+    <form id="website-page-form" action="{{ route('admin.website-pages.update', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" method="POST" data-success-url="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" data-validate="true" data-skip-url-validation="true" novalidate>
         @csrf
         @method('PUT')
         @if(!empty($wizardIndexQuery))
@@ -67,8 +67,20 @@
         {{-- Fallback voor section_order bovenaan formulier (bij grote PUT-request kan section_order anders ontbreken) --}}
         @php $editSectionOrder = $page->getHomeSections()['section_order'] ?? []; $editSectionOrderStr = is_array($editSectionOrder) ? implode(',', $editSectionOrder) : (is_string($editSectionOrder) ? $editSectionOrder : ''); @endphp
         <input type="hidden" name="_section_order" id="section-order-fallback" value="{{ $editSectionOrderStr }}">
+        <input type="hidden" name="_removed_section_keys" id="removed-section-keys-fallback" value="">
+        {{-- Fallback Google Reviews (max_input_vars / geneste component-key) --}}
+        <input type="hidden" name="_google_reviews_place_id" id="google-reviews-place-fallback" value="">
+        <input type="hidden" name="_google_reviews_business_name" id="google-reviews-business-fallback" value="">
+        <input type="hidden" name="_google_reviews_count" id="google-reviews-count-fallback" value="">
+        <input type="hidden" name="_google_reviews_cache_hours" id="google-reviews-cache-fallback" value="">
+        <input type="hidden" name="_google_reviews_min_stars" id="google-reviews-min-stars-fallback" value="">
+        <input type="hidden" name="_google_reviews_section_title" id="google-reviews-section-title-fallback" value="">
+        <input type="hidden" name="_google_reviews_section_background" id="google-reviews-section-background-fallback" value="">
         {{-- Fallback voor visibility footer (max_input_vars): JSON met footer_* keys bovenaan formulier --}}
         <input type="hidden" name="_visibility_footer_fallback" id="visibility-footer-fallback" value="">
+        {{-- Zelfde patroon als _section_order: Volgorde-input staat laat in het formulier; bij max_input_vars vult JS deze vroege hidden. --}}
+        <input type="hidden" name="_sort_order" id="sort-order-fallback-input" value="{{ old('_sort_order', old('sort_order', $page->sort_order ?? 0)) }}">
+        @include('admin.website-pages.partials.sort-order-sync')
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -294,7 +306,7 @@
                 </div>
                 <div class="kt-card-table p-4">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
-                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null, 'emailTemplates' => $emailTemplates ?? collect(), 'emailTemplateSelectedIds' => $emailTemplateSelectedIds ?? []])
+                    @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null, 'emailTemplates' => $emailTemplates ?? collect(), 'emailTemplateSelectedIds' => $emailTemplateSelectedIds ?? [], 'websitePageCompanyId' => $page->company_id])
                 </div>
             </div>
 
@@ -322,6 +334,9 @@
         } catch (err) {}
         if (typeof tinymce !== 'undefined' && tinymce.triggerSave) tinymce.triggerSave();
         if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
+        if (typeof window.syncWebsitePageSortOrderFallback === 'function') {
+            window.syncWebsitePageSortOrderFallback();
+        }
         var btn = form.querySelector('button[type="submit"].kt-btn-primary') || form.querySelector('button[type="submit"]');
         if (!btn) return;
         // Na een submit kan de knop disabled blijven; requestSubmit() gooit dan of doet niets
@@ -425,6 +440,9 @@
             } catch (err) {}
             if (typeof tinymce !== 'undefined' && tinymce.editors) tinymce.triggerSave();
             if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
+            if (typeof window.syncWebsitePageSortOrderFallback === 'function') {
+                window.syncWebsitePageSortOrderFallback();
+            }
             // Visibility footer-fallback: alle footer_* visibility-waarden in één veld (voorkomt verlies door max_input_vars)
             var fallbackInp = document.getElementById('visibility-footer-fallback');
             if (fallbackInp) {
@@ -452,6 +470,8 @@
             var sortable = document.getElementById('home-sections-sortable');
             var orderInp = document.getElementById('home-sections-order-input');
             var fallbackInp = document.getElementById('section-order-fallback');
+            var removedInp = document.getElementById('home-sections-removed-keys-input');
+            var removedFallbackInp = document.getElementById('removed-section-keys-fallback');
             var collapsedInp = document.getElementById('admin-collapsed-input');
             if (sortable && orderInp) {
                 var order = [];
@@ -463,9 +483,46 @@
                         if (el.classList.contains('home-section-card--collapsed')) collapsed.push(s);
                     }
                 });
+                var footerCardOrder = document.querySelector('.home-section-card[data-section="footer"]');
+                var copyrightCardOrder = document.getElementById('copyright-section-card');
+                if (footerCardOrder && order.indexOf('footer') === -1) order.push('footer');
+                if (copyrightCardOrder && order.indexOf('copyright') === -1) order.push('copyright');
                 var orderStr = order.join(',');
                 orderInp.value = orderStr;
                 if (fallbackInp) fallbackInp.value = orderStr;
+                if (removedInp && removedFallbackInp) removedFallbackInp.value = removedInp.value;
+                var grCard = sortable.querySelector('.home-section-card[data-section="component:website.google_reviews"], .home-section-card[data-section="component:nexa.google_reviews"]');
+                if (grCard) {
+                    var grPlace = grCard.querySelector('input[name*="[place_id]"]');
+                    var grBusiness = grCard.querySelector('input[name*="[business_name]"]');
+                    var grCount = grCard.querySelector('input[name*="[count]"]');
+                    var grCache = grCard.querySelector('input[name*="[cache_hours]"]');
+                    var grMin = grCard.querySelector('input[name*="[min_stars]"]');
+                    var grSectionTitle = grCard.querySelector('input[name*="[section_title]"]');
+                    var grSectionBackground = grCard.querySelector('input[name*="[section_background]"]');
+                    var grPlaceFb = document.getElementById('google-reviews-place-fallback');
+                    var grBusinessFb = document.getElementById('google-reviews-business-fallback');
+                    var grCountFb = document.getElementById('google-reviews-count-fallback');
+                    var grCacheFb = document.getElementById('google-reviews-cache-fallback');
+                    var grMinFb = document.getElementById('google-reviews-min-stars-fallback');
+                    var grSectionTitleFb = document.getElementById('google-reviews-section-title-fallback');
+                    var grSectionBackgroundFb = document.getElementById('google-reviews-section-background-fallback');
+                    if (grPlaceFb && grPlace) grPlaceFb.value = grPlace.value || '';
+                    if (grBusinessFb && grBusiness) grBusinessFb.value = grBusiness.value || '';
+                    if (grCountFb && grCount) grCountFb.value = grCount.value || '';
+                    if (grCacheFb && grCache) grCacheFb.value = grCache.value || '';
+                    if (grMinFb && grMin) grMinFb.value = grMin.value || '';
+                    if (grSectionTitleFb && grSectionTitle) grSectionTitleFb.value = grSectionTitle.value || '';
+                    if (grSectionBackgroundFb && grSectionBackground) grSectionBackgroundFb.value = grSectionBackground.value || '';
+                }
+                var footerCardSubmit = document.querySelector('.home-section-card[data-section="footer"]');
+                var copyrightCardSubmit = document.getElementById('copyright-section-card');
+                if (footerCardSubmit && footerCardSubmit.classList.contains('home-section-card--collapsed')) {
+                    collapsed.push('footer');
+                }
+                if (copyrightCardSubmit && copyrightCardSubmit.classList.contains('home-section-card--collapsed')) {
+                    collapsed.push('copyright');
+                }
                 if (collapsedInp) collapsedInp.value = collapsed.join(',');
             } else if (orderInp && fallbackInp) {
                 fallbackInp.value = orderInp.value;

@@ -27,9 +27,14 @@
             message: 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).',
             successMessage: 'Telefoonnummer is geldig',
             format: function(value) {
-                // Auto-format: add +31 if starts with 0 and has 10 digits
-                let formatted = value.replace(/\s/g, '');
-                if (formatted.startsWith('0') && formatted.length === 10) {
+                let formatted = String(value || '').trim().replace(/\s/g, '').replace(/-/g, '').replace(/\./g, '');
+                if (formatted.startsWith('0031') && /^0031[1-9]\d{8}$/.test(formatted)) {
+                    formatted = '+31' + formatted.substring(4);
+                } else if (/^\+31[1-9]\d{8}$/.test(formatted)) {
+                    return formatted;
+                } else if (/^31[1-9]\d{8}$/.test(formatted)) {
+                    formatted = '+' + formatted;
+                } else if (formatted.startsWith('0') && formatted.length === 10 && /^0[1-9]\d{8}$/.test(formatted)) {
                     formatted = '+31' + formatted.substring(1);
                 }
                 return formatted;
@@ -68,6 +73,12 @@
             successMessage: 'URL is geldig',
         },
         text: {
+            minLength: 2,
+        },
+        /** Zelfde regel als StoreUserRequest / UpdateUserRequest (voornaam, achternaam, contactnamen) */
+        person_name: {
+            pattern: /^[\p{L}\s\-'\.]+$/u,
+            message: 'Alleen letters, spaties, streepjes (-), apostrofs (\') en punten zijn toegestaan (geen cijfers).',
             minLength: 2,
         },
         /** Kenteken (Nexa Taxi voertuigen): verplicht, max 20 op server; geen strikt NL-patroon i.v.m. import/varianten */
@@ -137,6 +148,10 @@
                 if (!this.validateForm()) {
                     e.preventDefault();
                     e.stopPropagation();
+                    // Andere listeners (o.a. website-pagina) kunnen submit al gemuteerd hebben — knop weer bruikbaar maken
+                    this.form.querySelectorAll('button[type="submit"]').forEach((btn) => {
+                        btn.disabled = false;
+                    });
                 }
             });
 
@@ -156,7 +171,7 @@
                 // Check if element is an input, textarea, or select
                 if (element.tagName && ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)) {
                     // Skip hidden inputs en submit buttons
-                    if (element.type === 'hidden' || element.type === 'submit' || element.type === 'button' || element.type === 'file') {
+                    if (element.type === 'hidden' || element.type === 'submit' || element.type === 'button' || element.type === 'file' || element.type === 'color') {
                         return;
                     }
                     inputs.push(element);
@@ -281,6 +296,17 @@
 
             // Special handling for SELECT dropdowns
             if (isSelect) {
+                if (input.hasAttribute('data-email-template-select')) {
+                    if (!value || value === '') {
+                        this.setInvalid(input, feedbackElement, 'Kies een e-mailtemplate.', forceShow);
+
+                        return false;
+                    }
+                    this.clearValidationState(input, feedbackElement);
+                    this.setValid(input, feedbackElement, 'text', forceShow);
+
+                    return true;
+                }
                 // For select fields, only validate if required
                 if (isRequired && (!value || value === '')) {
                     this.setInvalid(input, feedbackElement, 'Selecteer een optie.', forceShow);
@@ -329,6 +355,15 @@
             // Check pattern (from attribute or from validation rules)
             // Not applicable for selects
             if (!isSelect) {
+                let patternValue = value;
+                if (fieldType === 'phone' && validationRules[fieldType]?.format) {
+                    const formatted = validationRules[fieldType].format(value);
+                    if (formatted !== value) {
+                        input.value = formatted;
+                        patternValue = formatted;
+                    }
+                }
+
                 let pattern = null;
                 if (hasPattern) {
                     pattern = new RegExp(input.getAttribute('pattern'));
@@ -336,14 +371,13 @@
                     pattern = validationRules[fieldType].pattern;
                 }
 
-                if (pattern && !pattern.test(value)) {
+                if (pattern && !pattern.test(patternValue)) {
                     const message = validationRules[fieldType]?.message || 'Deze invoer is ongeldig.';
                     this.setInvalid(input, feedbackElement, message, forceShow);
                     return false;
                 }
 
-                // Apply formatting if available
-                if (validationRules[fieldType]?.format) {
+                if (validationRules[fieldType]?.format && fieldType !== 'phone') {
                     const formatted = validationRules[fieldType].format(value);
                     if (formatted !== value) {
                         input.value = formatted;
@@ -365,7 +399,19 @@
             const skipUrlValidation = this.form?.dataset?.skipUrlValidation === 'true';
 
             if (type === 'number') return 'number';
+            if (
+                name === 'first_name' ||
+                name === 'last_name' ||
+                name === 'contact_first_name' ||
+                name === 'contact_last_name'
+            ) {
+                return 'person_name';
+            }
             if (name === 'license_plate' || name.endsWith('[license_plate]')) return 'license_plate';
+            // Sectie "E-mailtemplate (informatieaanvraag)": titel/template_id bevat "email" maar is geen e-mailadres
+            if (/\[email_template/.test(name)) {
+                return 'text';
+            }
             if (type === 'email' || name.includes('email')) return 'email';
             if (type === 'tel' || name.includes('phone') || name.includes('telefoon')) return 'phone';
             if (name.includes('postal_code') || name.includes('postcode')) return 'postal_code';
@@ -393,6 +439,9 @@
             if (isFooterLinkUrlField) {
                 return null;
             }
+            if (fieldType === 'person_name') {
+                return validationRules.person_name?.minLength ?? 2;
+            }
             if (input.dataset.skipMinlengthValidation === 'true') {
                 return null;
             }
@@ -411,6 +460,21 @@
             }
 
             return null;
+        }
+
+        /**
+         * Verwijdert Laravel @error-blokken gemarkeerd met data-laravel-field (zelfde td als input).
+         */
+        removeLaravelInlineMessagesFor(input) {
+            const fieldKey = input.getAttribute('name');
+            if (!fieldKey) return;
+            const td = input.closest('td');
+            if (!td) return;
+            td.querySelectorAll('[data-laravel-field]').forEach((el) => {
+                if (el.getAttribute('data-laravel-field') === fieldKey) {
+                    el.remove();
+                }
+            });
         }
 
         /**
@@ -455,26 +519,13 @@
                 
                 // Show error message below input
                 if (feedbackElement) {
-                    feedbackElement.className = 'text-xs text-red-600 text-destructive mt-1';
+                    feedbackElement.className = 'field-feedback text-xs text-red-600 text-destructive mt-1';
                     feedbackElement.textContent = message;
                     feedbackElement.classList.remove('hidden');
                     feedbackElement.style.display = 'block';
                 }
-                
-                // Also hide any server-side error messages that might conflict
-                const tdWrapper = input.closest('td');
-                if (tdWrapper) {
-                    const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
-                    serverErrors.forEach(errorEl => {
-                        // Only hide server errors if they're not the current feedback element
-                        if (errorEl !== feedbackElement && 
-                            errorEl.textContent && errorEl.textContent.trim() !== '' && 
-                            !errorEl.classList.contains('text-muted-foreground')) {
-                            errorEl.classList.add('hidden');
-                            errorEl.style.display = 'none';
-                        }
-                    });
-                }
+
+                this.removeLaravelInlineMessagesFor(input);
             } else {
                 // Hide everything if user hasn't interacted
                 if (iconWrapper) {
@@ -543,7 +594,7 @@
                 }
             }
 
-            // For valid fields: hide inline and server-side errors after interaction
+            // For valid fields: verberg eigen feedback; Laravel-inline alleen via data-laravel-field verwijderen
             if (userInteracted) {
                 if (feedbackElement) {
                     feedbackElement.classList.add('hidden');
@@ -551,17 +602,7 @@
                     feedbackElement.textContent = '';
                 }
 
-                const tdWrapper = input.closest('td');
-                if (tdWrapper) {
-                    const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
-                    serverErrors.forEach(errorEl => {
-                        if (errorEl.textContent && errorEl.textContent.trim() !== '' &&
-                            !errorEl.classList.contains('text-muted-foreground')) {
-                            errorEl.classList.add('hidden');
-                            errorEl.style.display = 'none';
-                        }
-                    });
-                }
+                this.removeLaravelInlineMessagesFor(input);
             } else if (feedbackElement) {
                 feedbackElement.classList.add('hidden');
             }
@@ -598,20 +639,6 @@
                 feedbackElement.classList.add('hidden');
                 feedbackElement.style.display = 'none';
                 feedbackElement.textContent = '';
-            }
-            
-            // Also hide any server-side error messages
-            const tdWrapper = input.closest('td');
-            if (tdWrapper) {
-                const serverErrors = tdWrapper.querySelectorAll('.text-destructive');
-                serverErrors.forEach(errorEl => {
-                    // Only hide if it's an error message (not the help text)
-                    if (errorEl.textContent && errorEl.textContent.trim() !== '' && 
-                        !errorEl.classList.contains('text-muted-foreground')) {
-                        errorEl.classList.add('hidden');
-                        errorEl.style.display = 'none';
-                    }
-                });
             }
         }
 
@@ -657,6 +684,10 @@
          * Create validation icon element voor een input
          */
         createValidationIcon(input) {
+            // Native color pickers: geen validatie-icoon/padding — die breekt de kleurvak-weergave (smalle sliver).
+            if (input.type === 'color') {
+                return null;
+            }
             // Don't create validation icons for checkboxes or radio buttons
             if (input.type === 'checkbox' || input.type === 'radio') {
                 return null;
@@ -708,11 +739,18 @@
 
             // Ensure input wrapper has relative positioning and full width
             if (inputWrapper) {
+                const inCarouselCaptionRow = inputWrapper.closest(
+                    '.carousel-slide-caption-options, .carousel-slide-caption-timing-options'
+                );
                 if (!inputWrapper.classList.contains('relative')) {
                     inputWrapper.classList.add('relative');
                 }
                 inputWrapper.style.position = 'relative';
-                if (!inputWrapper.style.width || inputWrapper.style.width === '') {
+                if (inCarouselCaptionRow) {
+                    inputWrapper.style.width = '';
+                    inputWrapper.style.maxWidth = '';
+                    inputWrapper.classList.add('flex-none');
+                } else if (!inputWrapper.style.width || inputWrapper.style.width === '') {
                     inputWrapper.style.width = '100%';
                 }
             }

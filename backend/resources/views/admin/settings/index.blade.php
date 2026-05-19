@@ -15,18 +15,18 @@
         </h1>
     </div>
 
+    @if(session('settings_tenant_save_notice'))
+        <div class="mb-5 flex gap-3 rounded-lg border-2 border-orange-700 bg-orange-950 px-4 py-3 text-sm text-orange-50 shadow-md dark:border-orange-600 dark:bg-orange-950 dark:text-orange-50 dark:shadow-lg dark:shadow-orange-950/50" role="alert">
+            <i class="ki-filled ki-information mt-0.5 shrink-0 text-2xl text-orange-300"></i>
+            <div class="min-w-0 leading-relaxed font-medium text-orange-50">{{ session('settings_tenant_save_notice') }}</div>
+        </div>
+    @endif
+
     <!-- Success Alert -->
     @if(session('success'))
         <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
             <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-information me-2"></i>
-            {{ session('error') }}
         </div>
     @endif
 
@@ -51,6 +51,8 @@
             </ul>
         </div>
     @endif
+
+    @include('admin.settings.partials.tenant-scope-notice')
 
     <div class="grid gap-5 lg:gap-7.5">
         <!-- Mail Server Instellingen -->
@@ -536,6 +538,56 @@
                             </td>
                         </tr>
                         <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Carousel-titel</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('google_reviews_section_title') border-destructive @enderror"
+                                           id="google_reviews_section_title"
+                                           name="google_reviews_section_title"
+                                           value="{{ old('google_reviews_section_title', $googleReviewsSectionTitle ?? '') }}"
+                                           maxlength="255"
+                                           placeholder="Standaard: Wat anderen zeggen">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Tekst boven de review-slider op de website. Laat leeg voor de standaardtekst.</div>
+                                @error('google_reviews_section_title')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Achtergrondkleur sectie</td>
+                            <td class="min-w-48 w-full">
+                                @php
+                                    $__grSettingsBg = trim((string) old('google_reviews_section_background', $googleReviewsSectionBackground ?? ''));
+                                    $__grSettingsBgPicker = $__grSettingsBg !== '' ? \App\Services\GoogleReviewsService::normalizeHexColor($__grSettingsBg) : '';
+                                    if ($__grSettingsBgPicker === '') {
+                                        $__grSettingsBgPicker = '#f3f4f6';
+                                    }
+                                @endphp
+                                <div class="flex items-center gap-2 relative" style="position: relative; width: 100%;">
+                                    <input type="color"
+                                           id="google_reviews_section_background_picker"
+                                           class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0"
+                                           value="{{ $__grSettingsBgPicker }}"
+                                           title="Kies achtergrondkleur"
+                                           aria-label="Achtergrondkleur Google Reviews-sectie">
+                                    <input type="text"
+                                           class="kt-input font-mono text-sm flex-1 min-w-0 max-w-xs @error('google_reviews_section_background') border-destructive @enderror"
+                                           id="google_reviews_section_background"
+                                           name="google_reviews_section_background"
+                                           value="{{ $__grSettingsBg }}"
+                                           maxlength="7"
+                                           placeholder="Leeg = standaard (#f3f4f6)"
+                                           pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Hex (#RGB of #RRGGBB). Leeg = standaard thema-achtergrond.</div>
+                                @error('google_reviews_section_background')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Aantal reviews</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
@@ -639,6 +691,28 @@
                             this.value = v === '' ? '' : Math.min(parseInt(v, 10) || 0, 999);
                         });
                     }
+                })();
+                (function() {
+                    var pick = document.getElementById('google_reviews_section_background_picker');
+                    var hex = document.getElementById('google_reviews_section_background');
+                    if (!pick || !hex) return;
+                    pick.addEventListener('input', function() {
+                        hex.value = pick.value;
+                    });
+                    hex.addEventListener('input', function() {
+                        var valBg = (hex.value || '').trim();
+                        if (valBg === '') {
+                            pick.value = '#f3f4f6';
+                            return;
+                        }
+                        var h = valBg[0] === '#' ? valBg : '#' + valBg;
+                        if (/^#([A-Fa-f0-9]{3})$/.test(h)) {
+                            h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+                        }
+                        if (/^#([A-Fa-f0-9]{6})$/.test(h)) {
+                            pick.value = h.toLowerCase();
+                        }
+                    });
                 })();
                 </script>
             </div>
@@ -783,14 +857,15 @@
                             <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Nummer (zonder Business API)</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="text"
+                                    <input type="tel"
                                            class="kt-input @error('WHATSAPP_CLICK_TO_CHAT_NUMBER') border-destructive @enderror"
                                            id="WHATSAPP_CLICK_TO_CHAT_NUMBER"
                                            name="WHATSAPP_CLICK_TO_CHAT_NUMBER"
                                            value="{{ old('WHATSAPP_CLICK_TO_CHAT_NUMBER', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_NUMBER'] ?? '') }}"
-                                           placeholder="+31612345678">
+                                           placeholder="0612345678 of +31612345678"
+                                           autocomplete="tel">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt voor `wa.me` (bijv. +31612345678 of 31612345678).</div>
+                                <div class="text-xs text-muted-foreground mt-1">Zelfde controle als het widgetnummer; wordt opgeslagen als +31… voor <code class="text-xs">wa.me</code>.</div>
                                 @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -823,14 +898,15 @@
                             <td class="min-w-56 text-secondary-foreground font-normal">Widget telefoonnummer</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
-                                    <input type="text"
+                                    <input type="tel"
                                            class="kt-input @error('WHATSAPP_WIDGET_PHONE') border-destructive @enderror"
                                            id="WHATSAPP_WIDGET_PHONE"
                                            name="WHATSAPP_WIDGET_PHONE"
                                            value="{{ old('WHATSAPP_WIDGET_PHONE', $whatsappSettings['WHATSAPP_WIDGET_PHONE'] ?? '') }}"
-                                           placeholder="+31612345678">
+                                           placeholder="0612345678 of +31612345678"
+                                           autocomplete="tel">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt voor zowel bellen (`tel:`) als WhatsApp (`wa.me`).</div>
+                                <div class="text-xs text-muted-foreground mt-1">Zelfde controle als “WhatsApp Nummer (zonder Business API)”; wordt opgeslagen als +31… voor <code class="text-xs">tel:</code> en <code class="text-xs">wa.me</code>.</div>
                                 @error('WHATSAPP_WIDGET_PHONE')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -962,40 +1038,53 @@
                 </div>
 
                 <div class="border-t border-border pt-6 mt-2">
-                    <h4 class="text-sm font-medium text-foreground mb-2">Tenant-bestanden (ZIP)</h4>
+                    <h4 class="text-sm font-medium text-foreground mb-2">ZIP-export / -import (volledige tenant)</h4>
                     <p class="text-xs text-muted-foreground mb-4">
-                        Export en import van <strong>publieke</strong> bestanden die bij de tenant horen: website-media (uit pagina’s), <code class="font-mono text-[11px]">companies.logo_path</code>, gebruikers-<code class="font-mono text-[11px]">cv_path</code>, <code class="font-mono text-[11px]">cv_files</code>, notificatie- en factuur-PDF-paden, enz.
-                        In de ZIP: <code class="font-mono text-[11px]">manifest.json</code> (type <code class="font-mono text-[11px]">tenant_media</code>) en map <code class="font-mono text-[11px]">files/…</code> — dezelfde structuur als onder <code class="font-mono text-[11px]">storage/app/public</code>.
-                        Tip: eerst DB-tenant-sync, daarna deze ZIP op de doelomgeving voor het juiste bedrijf importeren.
+                        Eén bundle per bedrijf: <strong class="text-foreground">bestanden</strong> (o.a. website-media uit pagina’s en uit tenant-instellingen, logo-pad, CV’s, factuur-PDF’s),
+                        <strong class="text-foreground">website_pages</strong> in het manifest, en <strong class="text-foreground">tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys).
+                        Bestandsnaam begint met <code class="font-mono text-[11px]">tenant-export-</code>. Manifest: <code class="font-mono text-[11px]">bundle_type</code> <code class="font-mono text-[11px]">tenant_media</code>, <code class="font-mono text-[11px]">bundle_version</code> 2.
+                        Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.
                     </p>
-                    <div class="space-y-4 max-w-2xl">
+                    <div class="space-y-6 max-w-2xl">
                         <div>
-                            <label for="tenant-files-bundle-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
-                            <select id="tenant-files-bundle-company-id" class="kt-select w-full">
+                            <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
+                            <select id="tenant-sync-zip-company-id" class="kt-select w-full" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
                                 <option value="">— Kies een bedrijf —</option>
                                 @foreach (($companiesForSync ?? []) as $c)
                                     <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
                                 @endforeach
                             </select>
+                            <p id="tenant-sync-zip-company-error" class="mt-1.5 hidden text-sm text-destructive" role="alert"></p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
-                                <i class="ki-filled ki-file-down me-2"></i> Download ZIP
-                            </button>
-                        </div>
-                        <form method="POST" action="{{ route('admin.settings.tenant-storage-bundle.import') }}" enctype="multipart/form-data" class="space-y-3" id="tenant-files-import-form">
-                            @csrf
-                            <input type="hidden" name="company_id" id="tenant-files-import-company-id" value="">
-                            <div>
-                                <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">ZIP importeren</label>
-                                <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
-                                <p class="text-xs text-muted-foreground mt-1">Max. 500 MB per upload. Bestaande bestanden met dezelfde relatieve padnaam worden overschreven.</p>
+
+                        <div class="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-3">
+                            <h5 class="text-sm font-medium text-foreground m-0">Tenant-export (ZIP)</h5>
+                            <p class="text-xs text-muted-foreground m-0">
+                                Download of importeer één ZIP met <code class="font-mono text-[11px]">manifest.json</code>.
+                                Publieke bestanden staan onder <code class="font-mono text-[11px]">files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/public</code> met dezelfde mappenstructuur).
+                                Versleutelde website-carouselbestanden staan onder <code class="font-mono text-[11px]">private_files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/…</code>).
+                                Import overschrijft <code class="font-mono text-[11px]">website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug.
+                                Voor alleen databaserijen naar een andere database: gebruik hierboven <strong class="text-foreground">Volledige tenant-sync</strong> (die neemt o.a. <code class="font-mono text-[11px]">general_settings</code> per tenant automatisch mee als die tabel <code class="font-mono text-[11px]">company_id</code> heeft).
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
+                                    <i class="ki-filled ki-file-down me-2"></i> Download tenant-ZIP
+                                </button>
                             </div>
-                            <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
-                                    @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
-                                <i class="ki-filled ki-file-up me-2"></i> Importeer ZIP
-                            </button>
-                        </form>
+                            <form method="POST" action="{{ route('admin.settings.tenant-storage-bundle.import') }}" enctype="multipart/form-data" class="space-y-3" id="tenant-files-import-form">
+                                @csrf
+                                <input type="hidden" name="company_id" id="tenant-files-import-company-id" value="">
+                                <div>
+                                    <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">Tenant-ZIP importeren</label>
+                                    <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
+                                    <p class="text-xs text-muted-foreground mt-1">Max. 500 MB per upload. Bestaande bestanden met dezelfde relatieve padnaam worden overschreven.</p>
+                                </div>
+                                <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
+                                        @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
+                                    <i class="ki-filled ki-file-up me-2"></i> Importeer tenant-ZIP
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1309,29 +1398,52 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    var tenantZipCompanySel = document.getElementById('tenant-sync-zip-company-id');
+    var tenantZipCompanyErr = document.getElementById('tenant-sync-zip-company-error');
+    var tenantStorageExportUrl = @json(route('admin.settings.tenant-storage-bundle.export'));
     var tenantFilesExportBtn = document.getElementById('tenant-files-export-btn');
-    var tenantFilesCompanySel = document.getElementById('tenant-files-bundle-company-id');
     var tenantFilesImportForm = document.getElementById('tenant-files-import-form');
     var tenantFilesImportHid = document.getElementById('tenant-files-import-company-id');
-    var tenantStorageExportUrl = @json(route('admin.settings.tenant-storage-bundle.export'));
-    if (tenantFilesExportBtn && tenantFilesCompanySel) {
+    function clearTenantZipCompanyError() {
+        if (!tenantZipCompanyErr) return;
+        tenantZipCompanyErr.textContent = '';
+        tenantZipCompanyErr.classList.add('hidden');
+        if (tenantZipCompanySel) {
+            tenantZipCompanySel.setAttribute('aria-invalid', 'false');
+        }
+    }
+    function showTenantZipCompanyError(message) {
+        if (!tenantZipCompanyErr) return;
+        tenantZipCompanyErr.textContent = message;
+        tenantZipCompanyErr.classList.remove('hidden');
+        if (tenantZipCompanySel) {
+            tenantZipCompanySel.setAttribute('aria-invalid', 'true');
+            try { tenantZipCompanySel.focus(); } catch (e) {}
+        }
+    }
+    if (tenantZipCompanySel) {
+        tenantZipCompanySel.addEventListener('change', clearTenantZipCompanyError);
+    }
+    if (tenantFilesExportBtn && tenantZipCompanySel) {
         tenantFilesExportBtn.addEventListener('click', function() {
-            var id = tenantFilesCompanySel.value;
+            var id = tenantZipCompanySel.value;
             if (!id) {
-                window.alert('Kies eerst een tenant (bedrijf).');
+                showTenantZipCompanyError('Selecteer een tenant (bedrijf) om de ZIP te downloaden.');
                 return;
             }
+            clearTenantZipCompanyError();
             window.location.href = tenantStorageExportUrl + '?company_id=' + encodeURIComponent(id);
         });
     }
-    if (tenantFilesImportForm && tenantFilesCompanySel && tenantFilesImportHid) {
+    if (tenantFilesImportForm && tenantZipCompanySel && tenantFilesImportHid) {
         tenantFilesImportForm.addEventListener('submit', function(ev) {
-            var id = tenantFilesCompanySel.value;
+            var id = tenantZipCompanySel.value;
             if (!id) {
                 ev.preventDefault();
-                window.alert('Kies eerst een tenant (bedrijf) voor de import.');
+                showTenantZipCompanyError('Selecteer een tenant (bedrijf) om de tenant-ZIP te importeren.');
                 return;
             }
+            clearTenantZipCompanyError();
             tenantFilesImportHid.value = id;
         });
     }

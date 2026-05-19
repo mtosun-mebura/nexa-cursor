@@ -38,12 +38,12 @@ class NexaTaxiBookingController extends Controller
             'special_baggage.*' => 'nullable|integer|min:0|max:20',
         ]);
 
-        $sectionConfig = $this->resolveSectionConfig(
+        $resolved = $this->resolveSectionConfig(
             isset($data['page_id']) ? (int) $data['page_id'] : null,
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
-        $quotes = $this->pricing->buildQuotes($sectionConfig, $data);
+        $quotes = $this->pricing->buildQuotes($resolved['config'], $data, $resolved['tenant_company_id']);
 
         return response()->json([
             'success' => true,
@@ -89,12 +89,13 @@ class NexaTaxiBookingController extends Controller
             'special_baggage.*' => 'nullable|integer|min:0|max:20',
         ]);
 
-        $sectionConfig = $this->resolveSectionConfig(
+        $resolved = $this->resolveSectionConfig(
             isset($data['page_id']) ? (int) $data['page_id'] : null,
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
-        $quotes = $this->pricing->buildQuotes($sectionConfig, $data);
+        $sectionConfig = $resolved['config'];
+        $quotes = $this->pricing->buildQuotes($sectionConfig, $data, $resolved['tenant_company_id']);
         $selected = collect($quotes['offers'] ?? [])->firstWhere('id', (string) $data['selected_offer_id']);
         if (! $selected) {
             return response()->json([
@@ -104,7 +105,7 @@ class NexaTaxiBookingController extends Controller
         }
 
         $conn = $this->moduleDb->getModuleConnectionName('taxi');
-        $customerName = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
+        $customerName = trim(($data['first_name'] ?? '').' '.($data['last_name'] ?? ''));
         $vehicleId = isset($selected['vehicle_id']) && is_numeric($selected['vehicle_id'])
             ? (int) $selected['vehicle_id']
             : null;
@@ -128,7 +129,7 @@ class NexaTaxiBookingController extends Controller
             'step_data' => [
                 'distance_meters' => $data['distance_meters'],
                 'duration_seconds' => $data['duration_seconds'],
-                'return_trip' => !empty($data['return_trip']),
+                'return_trip' => ! empty($data['return_trip']),
                 'baggage' => $data['baggage'] ?? [],
                 'special_baggage' => $data['special_baggage'] ?? [],
                 'remarks' => $data['remarks'] ?? '',
@@ -187,9 +188,9 @@ class NexaTaxiBookingController extends Controller
         $dedupe = $request->input('dedupe', '1');
         $acceptLanguage = $request->input('accept-language', 'nl');
 
-        $cacheKey = 'nominatim_search:' . md5($q . '|' . $countrycodes . '|' . $limit . '|' . $addressdetails);
+        $cacheKey = 'nominatim_search:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails);
         $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage) {
-            $url = 'https://nominatim.openstreetmap.org/search?' . http_build_query([
+            $url = 'https://nominatim.openstreetmap.org/search?'.http_build_query([
                 'format' => $format,
                 'addressdetails' => $addressdetails,
                 'limit' => $limit,
@@ -199,38 +200,48 @@ class NexaTaxiBookingController extends Controller
                 'q' => $q,
             ]);
             $response = Http::withHeaders([
-                'User-Agent' => config('app.name', 'NexaTaxiBooking') . '/1.0 (address search)',
+                'User-Agent' => config('app.name', 'NexaTaxiBooking').'/1.0 (address search)',
             ])->timeout(8)->get($url);
             if (! $response->successful()) {
                 return [];
             }
             $body = $response->json();
+
             return is_array($body) ? $body : [];
         });
 
         return response()->json($data);
     }
 
+    /**
+     * @return array{config: array, tenant_company_id: ?int}
+     */
     private function resolveSectionConfig(?int $pageId, string $sectionKey, ?string $moduleName = null): array
     {
         $default = $this->pricing->getDefaultSectionConfig();
         if (! $pageId) {
-            return $default;
+            return ['config' => $default, 'tenant_company_id' => null];
         }
         $query = $moduleName && $this->moduleDb->supportsModuleDatabases()
             ? WebsitePage::on($this->moduleDb->getModuleConnectionName($moduleName))
             : WebsitePage::query();
         $page = $query->find($pageId);
         if (! $page) {
-            return $default;
+            return ['config' => $default, 'tenant_company_id' => null];
         }
+        $tenantCompanyId = $page->company_id !== null && (int) $page->company_id > 0
+            ? (int) $page->company_id
+            : null;
         $homeSections = $page->getHomeSections();
         $raw = $homeSections[$sectionKey] ?? [];
         if (! is_array($raw)) {
-            return $default;
+            return ['config' => $default, 'tenant_company_id' => $tenantCompanyId];
         }
 
-        return $this->pricing->mergeSectionConfig($raw);
+        return [
+            'config' => $this->pricing->mergeSectionConfig($raw),
+            'tenant_company_id' => $tenantCompanyId,
+        ];
     }
 
     private function isBookingPhoneValid(string $value): bool
@@ -283,4 +294,3 @@ class NexaTaxiBookingController extends Controller
         return false;
     }
 }
-

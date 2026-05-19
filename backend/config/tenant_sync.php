@@ -30,6 +30,7 @@ return [
     */
     'priority_tables' => [
         'company_domains',
+        'general_settings',
         'company_module',
         'company_locations',
         'users',

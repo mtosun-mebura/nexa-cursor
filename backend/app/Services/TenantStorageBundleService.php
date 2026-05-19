@@ -3,22 +3,26 @@
 namespace App\Services;
 
 use App\Models\Company;
+use App\Models\GeneralSetting;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use ZipArchive;
 
 /**
- * ZIP-export/import van alle publieke storage-bestanden die bij een tenant horen
- * (website-media, bedrijfslogo, gebruikers-CV’s, factuur-PDF’s, module-uploadmappen, …).
- * Alleen bestanden — geen databaserijen. Combineer met tenant DB-sync waar nodig.
+ * ZIP-export/import: tenant-bestanden + website-pagina’s + tenant-general_settings in één bundle (v2).
+ * Legacy v1: alleen manifest + files/ (zelfde bundle_type).
  */
 final class TenantStorageBundleService
 {
-    public const BUNDLE_VERSION = 1;
+    public const BUNDLE_VERSION = 2;
+
+    public const BUNDLE_VERSION_LEGACY = 1;
 
     public const BUNDLE_TYPE = 'tenant_media';
 
@@ -27,11 +31,14 @@ final class TenantStorageBundleService
     ) {}
 
     /**
+     * Alle publieke storage-bestanden voor de tenant: expliciet uit DB/pagina’s + volledige bomen onder standaard-uploadmappen.
+     *
      * @return list<string> relatieve paden t.o.v. storage/app/public
      */
     public function collectAllTenantStoragePaths(Company $company): array
     {
         $paths = $this->websiteBundle->collectWebsiteMediaPathsForCompany($company);
+        $paths = array_merge($paths, $this->websiteBundle->collectTenantGeneralSettingsStoragePaths((int) $company->id));
 
         $logo = $company->getAttribute('logo_path');
         if (is_string($logo) && trim($logo) !== '') {
@@ -39,6 +46,7 @@ final class TenantStorageBundleService
         }
 
         $paths = array_merge($paths, $this->collectPathsFromCompanyTables((int) $company->id));
+        $paths = array_merge($paths, $this->collectRecursiveStandardPublicUploadDirs());
 
         $unique = [];
         foreach ($paths as $p) {
@@ -55,9 +63,51 @@ final class TenantStorageBundleService
         return $keys;
     }
 
+    /**
+     * @return list<string> paden relatief t.o.v. storage/app (local / encrypted website_media)
+     */
+    public function collectPrivateAppPathsForExport(Company $company): array
+    {
+        $paths = $this->websiteBundle->collectEncryptedWebsiteMediaAppPathsForCompany($company);
+        sort($paths);
+
+        return $paths;
+    }
+
+    /**
+     * @return list<array{key: string, value: string}>
+     */
+    private function buildGeneralSettingsExportPayload(int $companyId): array
+    {
+        if (! Schema::hasTable('general_settings')) {
+            return [];
+        }
+
+        $rows = GeneralSetting::query()
+            ->where('company_id', $companyId)
+            ->get(['key', 'value']);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $key = (string) $row->getAttribute('key');
+            if ($key === '' || GeneralSetting::isGlobalPlatformKey($key)) {
+                continue;
+            }
+            $out[] = [
+                'key' => $key,
+                'value' => (string) $row->getAttribute('value'),
+            ];
+        }
+
+        return $out;
+    }
+
     public function exportZip(Company $company): StreamedResponse
     {
         $allPaths = $this->collectAllTenantStoragePaths($company);
+        $privateAppPaths = $this->collectPrivateAppPathsForExport($company);
+        $pagePayloads = $this->websiteBundle->buildPageExportPayloads($company);
+        $settingsPayload = $this->buildGeneralSettingsExportPayload((int) $company->id);
 
         $manifest = [
             'bundle_type' => self::BUNDLE_TYPE,
@@ -65,14 +115,17 @@ final class TenantStorageBundleService
             'exported_at' => now()->toIso8601String(),
             'source_company_id' => (int) $company->id,
             'source_company_name' => (string) $company->name,
+            'pages' => $pagePayloads,
+            'general_settings' => $settingsPayload,
             'storage_paths' => $allPaths,
-            'note' => 'Import schrijft bestanden naar storage/app/public (overschrijft bestaande bestanden met dezelfde relatieve padnaam). Gebruik na DB-tenant-sync op dezelfde omgeving.',
+            'private_storage_paths' => $privateAppPaths,
+            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (o.a. versleutelde website_media). Import zet beide terug. /file/-URL’s in de DB worden bij export als normale publieke paden meegenomen.',
         ];
 
         $safeSlug = Str::slug($company->name) ?: 'company';
-        $filename = 'tenant-bestanden-'.$company->id.'-'.$safeSlug.'-'.now()->format('Y-m-d-His').'.zip';
+        $filename = 'tenant-export-'.$company->id.'-'.$safeSlug.'-'.now()->format('Y-m-d-His').'.zip';
 
-        return response()->streamDownload(function () use ($manifest, $allPaths) {
+        return response()->streamDownload(function () use ($manifest, $allPaths, $privateAppPaths) {
             $zipPath = tempnam(sys_get_temp_dir(), 'nexa_ts_');
             if ($zipPath === false) {
                 throw new RuntimeException('Kon geen tijdelijk bestand aanmaken.');
@@ -93,7 +146,18 @@ final class TenantStorageBundleService
                 }
                 $abs = storage_path('app/public/'.$rel);
                 if (is_file($abs) && is_readable($abs)) {
-                    $zip->addFile($abs, 'files/'.$rel);
+                    $this->zipAddFileOrFromString($zip, $abs, 'files/'.$rel);
+                }
+            }
+
+            foreach ($privateAppPaths as $rel) {
+                $rel = str_replace('\\', '/', trim((string) $rel, '/'));
+                if ($rel === '' || str_contains($rel, '..')) {
+                    continue;
+                }
+                $abs = storage_path('app/'.$rel);
+                if (is_file($abs) && is_readable($abs)) {
+                    $this->zipAddFileOrFromString($zip, $abs, 'private_files/'.$rel);
                 }
             }
 
@@ -114,7 +178,7 @@ final class TenantStorageBundleService
     }
 
     /**
-     * @return array{copied_files: int}
+     * @return array{copied_files: int, imported_pages: int, imported_settings: int}
      */
     public function importZip(Company $targetCompany, UploadedFile $file): array
     {
@@ -141,13 +205,155 @@ final class TenantStorageBundleService
         if (($manifest['bundle_type'] ?? '') !== self::BUNDLE_TYPE) {
             throw new RuntimeException('Dit is geen tenant-media-bundle (verwacht bundle_type "'.self::BUNDLE_TYPE.'").');
         }
-        if ((int) ($manifest['bundle_version'] ?? 0) !== self::BUNDLE_VERSION) {
-            throw new RuntimeException('Onbekende bundle_version in manifest.');
+
+        $version = (int) ($manifest['bundle_version'] ?? 0);
+        if ($version !== self::BUNDLE_VERSION && $version !== self::BUNDLE_VERSION_LEGACY) {
+            throw new RuntimeException('Onbekende bundle_version in manifest (ondersteund: '.self::BUNDLE_VERSION_LEGACY.' of '.self::BUNDLE_VERSION.').');
         }
 
-        $copied = $this->copyFilesFromZipToPublicDisk($tmp);
+        $copied = $this->copyFilesFromZipToPublicDisk($tmp)
+            + $this->copyPrivateFilesFromZipToAppDisk($tmp);
 
-        return ['copied_files' => $copied];
+        $importedPages = 0;
+        $importedSettings = 0;
+
+        if ($version === self::BUNDLE_VERSION) {
+            $pages = $manifest['pages'] ?? [];
+            if (is_array($pages) && $pages !== []) {
+                $importedPages = $this->websiteBundle->importWebsitePagesFromManifestEntries($targetCompany, $pages);
+            }
+
+            $settings = $manifest['general_settings'] ?? [];
+            if (is_array($settings) && $settings !== []) {
+                $importedSettings = $this->importGeneralSettingsPayload($targetCompany, $settings);
+            }
+        }
+
+        return [
+            'copied_files' => $copied,
+            'imported_pages' => $importedPages,
+            'imported_settings' => $importedSettings,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>|mixed>  $entries
+     */
+    private function importGeneralSettingsPayload(Company $targetCompany, array $entries): int
+    {
+        if (! Schema::hasTable('general_settings')) {
+            return 0;
+        }
+
+        $n = 0;
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $key = isset($entry['key']) && is_string($entry['key']) ? trim($entry['key']) : '';
+            if ($key === '' || GeneralSetting::isGlobalPlatformKey($key)) {
+                continue;
+            }
+            $value = $entry['value'] ?? '';
+            if (is_bool($value) || is_int($value) || is_float($value)) {
+                $value = (string) $value;
+            } elseif (! is_string($value)) {
+                continue;
+            }
+
+            GeneralSetting::query()->updateOrCreate(
+                ['key' => $key, 'company_id' => (int) $targetCompany->id],
+                ['value' => $value]
+            );
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /**
+     * Standaard uploadmappen onder public volledig meenemen (plaatjes/documenten die niet overal in JSON staan).
+     *
+     * @return list<string>
+     */
+    private function collectRecursiveStandardPublicUploadDirs(): array
+    {
+        $out = [];
+        foreach (['website', 'settings', 'vehicles'] as $root) {
+            $out = array_merge($out, $this->listFilesRecursivelyUnderPublicPrefix($root));
+        }
+
+        $modulesRoot = storage_path('app/public/modules');
+        if (is_dir($modulesRoot)) {
+            foreach (scandir($modulesRoot) as $slug) {
+                if ($slug === '.' || $slug === '..') {
+                    continue;
+                }
+                $out = array_merge($out, $this->listFilesRecursivelyUnderPublicPrefix('modules/'.$slug.'/website'));
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function listFilesRecursivelyUnderPublicPrefix(string $prefixRelative): array
+    {
+        $prefixRelative = trim(str_replace('\\', '/', $prefixRelative), '/');
+        if ($prefixRelative === '' || str_contains($prefixRelative, '..')) {
+            return [];
+        }
+
+        $abs = storage_path('app/public/'.$prefixRelative);
+        if (! is_dir($abs)) {
+            return [];
+        }
+
+        $base = realpath(storage_path('app/public'));
+        if ($base === false) {
+            return [];
+        }
+
+        $out = [];
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($abs, \FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::LEAVES_ONLY
+            );
+            foreach ($iterator as $file) {
+                if (! $file->isFile()) {
+                    continue;
+                }
+                $real = $file->getRealPath();
+                if ($real === false) {
+                    continue;
+                }
+                $rel = ltrim(str_replace('\\', '/', substr($real, strlen($base))), '/');
+                if ($rel !== '' && ! str_contains($rel, '..')) {
+                    $out[] = $rel;
+                }
+                if (count($out) >= 8000) {
+                    break;
+                }
+            }
+        } catch (\Throwable) {
+            // permissies / verwijderde map tijdens iteratie
+        }
+
+        return $out;
+    }
+
+    private function zipAddFileOrFromString(ZipArchive $zip, string $absolutePath, string $zipEntryName): void
+    {
+        if ($zip->addFile($absolutePath, $zipEntryName)) {
+            return;
+        }
+        $bytes = file_get_contents($absolutePath);
+        if (is_string($bytes) && $bytes !== '') {
+            $zip->addFromString($zipEntryName, $bytes);
+        }
     }
 
     /**
@@ -213,6 +419,44 @@ final class TenantStorageBundleService
             }
 
             $target = storage_path('app/public/'.$rel);
+            $dir = dirname($target);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            $content = $zip->getFromIndex($i);
+            if (is_string($content)) {
+                file_put_contents($target, $content);
+                $copied++;
+            }
+        }
+        $zip->close();
+
+        return $copied;
+    }
+
+    private function copyPrivateFilesFromZipToAppDisk(string $zipRealPath): int
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($zipRealPath) !== true) {
+            return 0;
+        }
+
+        $copied = 0;
+        $prefix = 'private_files/';
+        $plen = strlen($prefix);
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (! is_string($name) || ! str_starts_with($name, $prefix)) {
+                continue;
+            }
+            $rel = substr($name, $plen);
+            $rel = str_replace('\\', '/', trim($rel, '/'));
+            if ($rel === '' || str_contains($rel, '..')) {
+                continue;
+            }
+
+            $target = storage_path('app/'.$rel);
             $dir = dirname($target);
             if (! is_dir($dir)) {
                 mkdir($dir, 0755, true);

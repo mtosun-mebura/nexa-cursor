@@ -49,6 +49,8 @@
         return $k;
     }, $sectionOrder);
     $sectionOrder = array_values(array_unique($sectionOrder, SORT_REGULAR));
+    $removedComponentKeys = array_fill_keys(\App\Services\FrontendComponentService::removedComponentSectionKeys(), true);
+    $sectionOrder = array_values(array_filter($sectionOrder, static fn ($k) => ! isset($removedComponentKeys[$k])));
     $sectionOrder = array_values($sectionOrder);
     // Niet sectionOrder vervangen door thema-default: opgeslagen volgorde is bron van waarheid (verwijderde secties blijven weg).
     $componentService = app(\App\Services\FrontendComponentService::class);
@@ -90,16 +92,53 @@
         return in_array($base, $allowedBaseTypesForTheme, true);
     }));
     $adminCollapsed = $sections['admin_collapsed'] ?? [];
-    if (!is_array($adminCollapsed)) $adminCollapsed = [];
+    if (!is_array($adminCollapsed)) {
+        $adminCollapsed = [];
+    }
+    if (empty($adminCollapsed) && !empty($collapseSectionsByDefault ?? false)) {
+        $adminCollapsed = \App\Models\WebsitePage::defaultAdminCollapsedKeys($sectionOrder);
+    }
+    $isFooterCollapsed = in_array('footer', $adminCollapsed, true);
+    $isCopyrightCollapsed = in_array('copyright', $adminCollapsed, true);
     // Voor "Component naast de tekst" altijd alle beschikbare types + huidige section_order tonen, zodat de dropdown direct gevuld is ook bij nieuw toegevoegde tekstblokken (sectionCardOnly).
     $availableTypesForTheme = array_column(\App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlugForOrder), 'type');
     $sideComponentOptionKeys = array_values(array_unique(array_merge($availableTypesForTheme, $sectionOrder)));
-    $sideComponentOptionKeys = array_values(array_filter($sideComponentOptionKeys, fn($k) => $k !== 'text_block' && !in_array($k, ['footer', 'copyright'], true)));
+    $sideComponentOptionKeys = array_values(array_filter($sideComponentOptionKeys, function ($k) use ($baseType) {
+        if ($k === 'text_block' || in_array($k, ['footer', 'copyright'], true)) {
+            return false;
+        }
+        if ($baseType($k) === 'email_template') {
+            return true;
+        }
+        if (\App\Services\FrontendComponentService::isComponentKey($k)) {
+            $componentId = \App\Services\FrontendComponentService::componentIdFromKey(
+                \App\Services\FrontendComponentService::normalizeComponentSectionKey($k)
+            );
+
+            return strtolower((string) $componentId) === 'website.email_template_section';
+        }
+
+        return false;
+    }));
+    if (! in_array('email_template', $sideComponentOptionKeys, true)) {
+        $sideComponentOptionKeys[] = 'email_template';
+    }
+    $websitePageCompanyIdForTaxiVehicles = isset($websitePageCompanyId) && $websitePageCompanyId !== null && $websitePageCompanyId !== '' ? (int) $websitePageCompanyId : null;
 @endphp
 {{-- Heroicons: eye (tonen) en eye-slash (verborgen op website) --}}
 <input type="hidden" name="home_sections[section_order]" id="home-sections-order-input" value="{{ implode(',', $sectionOrder) }}">
+<input type="hidden" name="home_sections[removed_section_keys]" id="home-sections-removed-keys-input" value="">
 <input type="hidden" name="home_sections[admin_collapsed]" id="admin-collapsed-input" value="{{ implode(',', $adminCollapsed) }}">
-<div id="home-sections-meta" class="hidden" data-section-card-url="{{ route('admin.website-pages.section-card-html') }}" data-component-section-url="{{ route('admin.website-pages.component-section-html') }}" data-theme-slug="{{ $themeSlugForOrder }}" data-section-labels="{{ json_encode($sectionTypeLabels) }}"></div>
+<div id="home-sections-meta" class="hidden" data-section-card-url="{{ route('admin.website-pages.section-card-html') }}" data-component-section-url="{{ route('admin.website-pages.component-section-html') }}" data-theme-slug="{{ $themeSlugForOrder }}" data-section-labels="{{ json_encode($sectionTypeLabels) }}" data-website-page-company-id="{{ $websitePageCompanyIdForTaxiVehicles !== null ? (string) $websitePageCompanyIdForTaxiVehicles : '' }}" data-website-media-delete-url="{{ url('/admin/website-media') }}" data-website-media-serve-base="{{ url('/website-media') }}"></div>
+{{-- Carousel slide: thumbnail groot bekijken --}}
+<div id="carousel-slide-preview-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Carousel-afbeelding groot">
+    <div class="relative max-h-[90vh] max-w-[90vw] p-4" id="carousel-slide-preview-modal-inner">
+        <button type="button" id="carousel-slide-preview-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="Sluiten">
+            <i class="ki-filled ki-cross text-xl"></i>
+        </button>
+        <img id="carousel-slide-preview-modal-img" src="" alt="Carousel-afbeelding" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
+    </div>
+</div>
 <div id="home-sections-sortable" class="space-y-6" data-admin-collapsed="{{ json_encode($adminCollapsed) }}">
     @foreach($sectionOrder as $sectionKey)
     @php
@@ -142,9 +181,40 @@
                     </div>
                     <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-4xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Vind je droombaan met AI') }}" placeholder="Vind je droombaan met AI">
                 </div>
-                <div class="w-full">
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Woord benadrukt (oranje)</label>
-                    <input type="text" name="home_sections[{{ $sectionKey }}][title_highlight]" class="kt-input w-full max-w-xs" value="{{ old('home_sections.'.$sectionKey.'.title_highlight', $sectionData['title_highlight'] ?? 'droombaan') }}" placeholder="droombaan">
+                <div class="w-full relative">
+                    @php
+                        $titleHighlightColorDefault = '#93c5fd';
+                        $titleHighlightColor = old('home_sections.'.$sectionKey.'.title_highlight_color', $sectionData['title_highlight_color'] ?? '');
+                        $titleHighlightColor = is_string($titleHighlightColor) ? trim($titleHighlightColor) : '';
+                        if ($titleHighlightColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $titleHighlightColor)) {
+                            $titleHighlightColor = '';
+                        }
+                        $titleHighlightColorPicker = $titleHighlightColor !== '' ? $titleHighlightColor : $titleHighlightColorDefault;
+                    @endphp
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-title_highlight">Woord benadrukt</label>
+                    <input type="text"
+                           name="home_sections[{{ $sectionKey }}][title_highlight]"
+                           id="hero-{{ $sectionKey }}-title_highlight"
+                           class="kt-input w-full max-w-md mb-3"
+                           value="{{ old('home_sections.'.$sectionKey.'.title_highlight', $sectionData['title_highlight'] ?? 'droombaan') }}"
+                           placeholder="droombaan">
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-title_highlight_color">Kleur benadrukking</label>
+                    <div class="flex items-center gap-2 max-w-md">
+                        <input type="color"
+                               id="hero-{{ $sectionKey }}-title_highlight_color_color"
+                               class="hero-title-highlight-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
+                               value="{{ $titleHighlightColorPicker }}"
+                               title="Kleur kiezen"
+                               data-target-input="hero-{{ $sectionKey }}-title_highlight_color">
+                        <input type="text"
+                               name="home_sections[{{ $sectionKey }}][title_highlight_color]"
+                               id="hero-{{ $sectionKey }}-title_highlight_color"
+                               class="kt-input flex-1 font-mono text-sm hero-title-highlight-hex-input"
+                               value="{{ $titleHighlightColor }}"
+                               placeholder="{{ $titleHighlightColorDefault }}"
+                               maxlength="7">
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-1">Het woord uit de titel dat in deze kleur wordt getoond. Leeg = standaard themakleur.</p>
                 </div>
             </div>
             @if(($themeSlugForOrder ?? '') === 'atom-v2')
@@ -259,10 +329,32 @@
                     <p class="text-xs text-muted-foreground mt-1">Eindkleur van de gradient.</p>
                 </div>
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Helderheid overloop</label>
+                    @php
+                        $overlayOpacityVal = (int) old('home_sections.'.$sectionKey.'.overlay_opacity', $sectionData['overlay_opacity'] ?? 85);
+                        $overlayOpacityVal = max(0, min(100, $overlayOpacityVal));
+                    @endphp
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="text-sm font-medium text-secondary-foreground" for="hero-{{ $sectionKey }}-overlay_opacity">Helderheid overloop</label>
+                        <span id="hero-{{ $sectionKey }}-overlay_opacity-value"
+                              class="hero-overlay-opacity-value inline-flex items-center justify-center min-w-[3.25rem] rounded-md bg-muted px-2 py-0.5 text-sm font-semibold tabular-nums text-foreground"
+                              aria-live="polite">{{ $overlayOpacityVal }}%</span>
+                    </div>
                     <div class="flex items-center gap-3">
                         <span class="text-xs text-muted-foreground shrink-0">Lichter (afbeelding duidelijker)</span>
-                        <input type="range" name="home_sections[{{ $sectionKey }}][overlay_opacity]" id="hero-{{ $sectionKey }}-overlay_opacity" class="flex-1 h-2 rounded appearance-none bg-muted accent-primary" min="0" max="100" value="{{ old('home_sections.'.$sectionKey.'.overlay_opacity', $sectionData['overlay_opacity'] ?? '85') }}">
+                        <div class="hero-overlay-opacity-slider flex-1 min-w-0">
+                            <input type="range"
+                                   name="home_sections[{{ $sectionKey }}][overlay_opacity]"
+                                   id="hero-{{ $sectionKey }}-overlay_opacity"
+                                   class="hero-overlay-opacity-range w-full"
+                                   min="0"
+                                   max="100"
+                                   step="1"
+                                   value="{{ $overlayOpacityVal }}"
+                                   aria-valuemin="0"
+                                   aria-valuemax="100"
+                                   aria-valuenow="{{ $overlayOpacityVal }}"
+                                   aria-describedby="hero-{{ $sectionKey }}-overlay_opacity-value">
+                        </div>
                         <span class="text-xs text-muted-foreground shrink-0">Donkerder</span>
                     </div>
                     <p class="text-xs text-muted-foreground mt-1">0 = overloop bijna transparant (achtergrond goed zichtbaar), 100 = donkerste overloop.</p>
@@ -275,6 +367,7 @@
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" title="Zichtbaar op website" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
+                                @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#bfdbfe'])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ons geavanceerde AI-platform...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row">
@@ -512,14 +605,22 @@
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
+                                @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#4b5563'])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ondertitel...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
         </div>
     </div>
     @elseif($base === 'features')
     @php
-        $featureSectionData = $sectionData; $featureSectionKey = $sectionKey; $featureVis = $vis;
-        $heroiconList = collect(config('heroicons.icons', []))->filter(fn($v) => is_array($v) && isset($v['label']) && isset($v['svg']))->all();
+        $featureSectionData = $sectionData;
+        $featureSectionKey = $sectionKey;
+        $featureVis = $vis;
+        $featureItems = array_values($featureSectionData['items'] ?? []);
+        if (count($featureItems) < 2) {
+            $defItems = (\App\Models\WebsitePage::defaultHomeSections())['features']['items'] ?? [['title' => '', 'description' => '', 'icon' => 'light-bulb'], ['title' => '', 'description' => '', 'icon' => 'bolt']];
+            $featureItems = array_merge($featureItems, array_slice($defItems, count($featureItems), 2 - count($featureItems)));
+        }
+        $heroiconList = \App\Support\HeroiconSelectOptions::sortedLabelsById();
         $heroiconSizes = config('heroicons.sizes', ['small' => ['label' => 'Klein'], 'medium' => ['label' => 'Normaal'], 'large' => ['label' => 'Groot']]);
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
@@ -527,9 +628,9 @@
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('features') }}{{ $sectionKey !== 'features' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
-                <input type="hidden" name="home_sections[visibility][features]" id="visibility-features" value="{{ ($visibility['features'] ?? true) ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-features" title="{{ ($visibility['features'] ?? true) ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
-                    @if($visibility['features'] ?? true)
+                <input type="hidden" name="home_sections[visibility][{{ $featureSectionKey }}]" id="visibility-{{ $featureSectionKey }}" value="{{ $featureVis('') ? '1' : '0' }}">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $featureSectionKey }}" title="{{ $featureVis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                    @if($featureVis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
@@ -547,65 +648,64 @@
             @if(($themeSlugForOrder ?? '') === 'next-landing-vpn')
             @php
                 $defaultFeaturesImg = asset('frontend-themes/next-landing-vpn/public/assets/Illustration2.png');
-                $featuresPreviewSrc = !empty($features['illustration_url']) ? $features['illustration_url'] : $defaultFeaturesImg;
+                $featuresPreviewSrc = !empty($featureSectionData['illustration_url']) ? $featureSectionData['illustration_url'] : $defaultFeaturesImg;
             @endphp
             <div class="row-visibility-row">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Illustratie Kenmerken-sectie</label>
                 <p class="text-xs text-muted-foreground mb-2">Afbeelding naast de kenmerken. Standaard: Illustration2.png.</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Kenmerken illustratie" id="hero-features-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $featuresPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($featuresPreviewSrc) }}" data-default-src="{{ $defaultFeaturesImg ?? '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-features-illustration_url" data-preview-id="hero-features-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="Kenmerken illustratie" id="hero-{{ $featureSectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $featuresPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($featuresPreviewSrc) }}" data-default-src="{{ $defaultFeaturesImg ?? '' }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $featureSectionKey }}-illustration_url" data-preview-id="hero-{{ $featureSectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
-                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="features" data-field="illustration_url" style="width: 500px; min-width: 500px; height: 130px;">
+                    <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $featureSectionKey }}" data-field="illustration_url" style="width: 500px; min-width: 500px; height: 130px;">
                         <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
                         <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
                     </div>
                 </div>
-                <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="features" data-field="illustration_url">
-                <input type="hidden" name="home_sections[features][illustration_url]" id="hero-features-illustration_url" value="{{ old('home_sections.features.illustration_url', $features['illustration_url'] ?? '') }}">
+                <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $featureSectionKey }}" data-field="illustration_url">
+                <input type="hidden" name="home_sections[{{ $featureSectionKey }}][illustration_url]" id="hero-{{ $featureSectionKey }}-illustration_url" value="{{ old('home_sections.'.$featureSectionKey.'.illustration_url', $featureSectionData['illustration_url'] ?? '') }}">
             </div>
             @endif
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Sectietitel</label>
-                    <input type="hidden" name="home_sections[visibility][features_section_title]" id="visibility-features_section_title" value="{{ ($visibility['features_section_title'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-features_section_title" aria-label="Sectietitel tonen/verbergen">@if($visibility['features_section_title'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <input type="hidden" name="home_sections[visibility][{{ $featureSectionKey }}_section_title]" id="visibility-{{ $featureSectionKey }}_section_title" value="{{ ($visibility[$featureSectionKey.'_section_title'] ?? $visibility['features_section_title'] ?? true) ? '1' : '0' }}">
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $featureSectionKey }}_section_title" aria-label="Sectietitel tonen/verbergen">@if($visibility[$featureSectionKey.'_section_title'] ?? $visibility['features_section_title'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <input type="text" name="home_sections[features][section_title]" class="kt-input home-section-input-400" value="{{ old('home_sections.features.section_title', $features['section_title'] ?? 'Kenmerken') }}">
+                <input type="text" name="home_sections[{{ $featureSectionKey }}][section_title]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$featureSectionKey.'.section_title', $featureSectionData['section_title'] ?? 'Kenmerken') }}">
             </div>
-            <div id="features-items-sortable" class="space-y-4" data-icon-options="{{ json_encode(collect($heroiconList)->map(fn($v) => $v['label'] ?? '')->all()) }}" data-size-options="{{ json_encode(collect($heroiconSizes)->map(fn($v) => $v['label'] ?? '')->all()) }}">
+            <div class="features-items-sortable space-y-4" data-section-key="{{ $featureSectionKey }}" data-icon-options="{{ json_encode($heroiconList) }}" data-size-options="{{ json_encode(collect($heroiconSizes)->map(fn($v) => $v['label'] ?? '')->all()) }}">
             @foreach($featureItems as $i => $item)
-            @php $itemKey = 'features_item_'.$i; @endphp
             <div class="features-item-row row-visibility-row border border-border rounded-lg p-4 space-y-3 flex gap-3" data-features-index="{{ $i }}">
                 <span class="features-item-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 mt-1 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
                 <div class="flex-1 min-w-0 space-y-3">
                     <div class="flex items-center gap-2 mb-1 flex-wrap">
                         <p class="text-sm font-medium text-secondary-foreground">Kaart <span class="features-item-num">{{ $i + 1 }}</span></p>
-                        <input type="hidden" name="home_sections[visibility][features_item_{{ $i }}]" id="visibility-features_item_{{ $i }}" value="{{ ($visibility['features_item_'.$i] ?? true) ? '1' : '0' }}">
-                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-features_item_{{ $i }}" aria-label="Kaart tonen/verbergen">@if($visibility['features_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                        <input type="hidden" name="home_sections[visibility][{{ $featureSectionKey }}_item_{{ $i }}]" id="visibility-{{ $featureSectionKey }}_item_{{ $i }}" value="{{ ($visibility[$featureSectionKey.'_item_'.$i] ?? $visibility['features_item_'.$i] ?? true) ? '1' : '0' }}">
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $featureSectionKey }}_item_{{ $i }}" aria-label="Kaart tonen/verbergen">@if($visibility[$featureSectionKey.'_item_'.$i] ?? $visibility['features_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                         <button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div>
                         <label class="block text-xs text-muted-foreground mb-1">Titel</label>
-                        <input type="text" name="home_sections[features][items][{{ $i }}][title]" class="kt-input home-section-input-400 features-item-title" value="{{ old("home_sections.features.items.{$i}.title", $item['title'] ?? '') }}">
+                        <input type="text" name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][title]" class="kt-input home-section-input-400 features-item-title" value="{{ old("home_sections.".$featureSectionKey.".items.{$i}.title", $item['title'] ?? '') }}">
                     </div>
                     <div>
                         <label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>
-                        @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-features-item-'.$i.'-description', 'name' => 'home_sections[features][items]['.$i.'][description]', 'value' => old("home_sections.features.items.{$i}.description", $item['description'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-features-item-'.$i.'-description'])
+                        @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-'.$featureSectionKey.'-item-'.$i.'-description', 'name' => 'home_sections['.$featureSectionKey.'][items]['.$i.'][description]', 'value' => old('home_sections.'.$featureSectionKey.'.items.'.$i.'.description', $item['description'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-'.$featureSectionKey.'-item-'.$i.'-description'])
                     </div>
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-3">
                             <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label>
-                            <select name="home_sections[features][items][{{ $i }}][icon]" class="kt-input w-44 shrink-0 features-item-icon">
-                                @foreach($heroiconList as $iconId => $iconData)
-                                <option value="{{ $iconId }}" {{ ($item['icon'] ?? ($i === 0 ? 'light-bulb' : 'bolt')) === $iconId ? 'selected' : '' }}>{{ $iconData['label'] ?? $iconId }}</option>
+                            <select name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][icon]" class="kt-input w-44 shrink-0 features-item-icon">
+                                @foreach($heroiconList as $iconId => $iconLabel)
+                                <option value="{{ $iconId }}" {{ ($item['icon'] ?? ($i === 0 ? 'light-bulb' : 'bolt')) === $iconId ? 'selected' : '' }}>{{ $iconLabel }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="flex items-center gap-3">
                             <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label>
-                            <select name="home_sections[features][items][{{ $i }}][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">
+                            <select name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">
                                 @foreach($heroiconSizes as $sizeId => $sizeData)
                                 <option value="{{ $sizeId }}" {{ ($item['icon_size'] ?? 'medium') === $sizeId ? 'selected' : '' }}>{{ $sizeData['label'] ?? $sizeId }}</option>
                                 @endforeach
@@ -613,7 +713,7 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label>
-                            <select name="home_sections[features][items][{{ $i }}][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align">
+                            <select name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align">
                                 <option value="left" {{ ($item['icon_align'] ?? 'center') === 'left' ? 'selected' : '' }}>Links</option>
                                 <option value="center" {{ ($item['icon_align'] ?? 'center') === 'center' ? 'selected' : '' }}>Midden</option>
                                 <option value="right" {{ ($item['icon_align'] ?? 'center') === 'right' ? 'selected' : '' }}>Rechts</option>
@@ -625,7 +725,7 @@
             @endforeach
             </div>
             <div class="mt-4">
-                <button type="button" id="features-item-add" class="kt-btn kt-btn-sm kt-btn-outline"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Kaart toevoegen</button>
+                <button type="button" class="features-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $featureSectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Kaart toevoegen</button>
             </div>
         </div>
     </div>
@@ -665,14 +765,17 @@
             </div>
             <div id="cards-ronde-hoeken-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}">
                 @foreach($cardsItems as $i => $cardItem)
-                <div class="cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3" data-cards-index="{{ $i }}">
+                @php
+                    $cardBodyFontPx = max(10, min(24, (int) old('home_sections.'.$sectionKey.'.items.'.$i.'.font_size', $cardItem['font_size'] ?? 14)));
+                @endphp
+                <div class="cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3" style="--card-fs: {{ $cardBodyFontPx }}px;" data-cards-index="{{ $i }}">
                     <div class="flex items-center justify-between gap-2">
                         <span class="text-sm font-medium">Kaart {{ $i + 1 }}</span>
                         <button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($cardItem['image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($cardItem['image_url'] ?? '') }}">
+                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" class="cards-ronde-hoeken-upload-preview w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($cardItem['image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($cardItem['image_url'] ?? '') }}">
                             <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-file-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-file" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" style="width: 500px; min-width: 500px; height: 130px;">
@@ -705,6 +808,7 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_size]" value="{{ $cardBodyFontPx }}">
                             <div class="flex items-center gap-3">
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_align]" class="kt-input w-28 text-sm">
@@ -740,7 +844,7 @@
                             </div>
                         </div>
                         <div class="w-full min-w-0">
-                            @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][text]', 'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.text', $cardItem['text'] ?? ''), 'placeholder' => 'Tekst onder de afbeelding (rich text)', 'textareaId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text'])
+                            @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][text]', 'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.text', $cardItem['text'] ?? ''), 'placeholder' => 'Tekst onder de afbeelding (rich text)', 'textareaId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'contentMinHeightPx' => 200, 'contentMaxHeightPx' => 220])
                         </div>
                     </div>
                 </div>
@@ -757,9 +861,24 @@
         if (empty($fsItems)) {
             $fsItems = [['icon' => 'light-bulb', 'title' => '', 'description' => '']];
         }
-        $heroiconAliases = ['bulb', 'lightning'];
-        $heroiconListFs = collect(config('heroicons.icons', []))->filter(fn($v) => is_array($v) && isset($v['label']) && isset($v['svg']))->keys()->filter(fn($k) => !in_array($k, $heroiconAliases, true))->values()->all();
-        $heroiconLabels = config('heroicons.icons', []);
+        $heroiconListFs = \App\Support\HeroiconSelectOptions::sortedLabelsById(['bulb', 'lightning']);
+        $allowedFsHeadingPx = range(10, 40, 2);
+        $fsTitlePxSel = (int) old('home_sections.'.$sectionKey.'.title_font_size_px', (int) ($sectionData['title_font_size_px'] ?? 24));
+        if (! in_array($fsTitlePxSel, $allowedFsHeadingPx, true)) {
+            $fsTitlePxSel = 24;
+        }
+        $fsSubtitlePxSel = (int) old('home_sections.'.$sectionKey.'.subtitle_font_size_px', (int) ($sectionData['subtitle_font_size_px'] ?? 18));
+        if (! in_array($fsSubtitlePxSel, $allowedFsHeadingPx, true)) {
+            $fsSubtitlePxSel = 18;
+        }
+        $fsItemTitlePxSel = (int) old('home_sections.'.$sectionKey.'.item_title_font_size_px', (int) ($sectionData['item_title_font_size_px'] ?? 18));
+        if (! in_array($fsItemTitlePxSel, $allowedFsHeadingPx, true)) {
+            $fsItemTitlePxSel = 18;
+        }
+        $fsItemDescPxSel = (int) old('home_sections.'.$sectionKey.'.item_description_font_size_px', (int) ($sectionData['item_description_font_size_px'] ?? 14));
+        if (! in_array($fsItemDescPxSel, $allowedFsHeadingPx, true)) {
+            $fsItemDescPxSel = 14;
+        }
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--featured-services flex items-center justify-between gap-2">
@@ -774,7 +893,7 @@
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-6">
             <p class="text-sm text-muted-foreground">Dienstenblok met scroll-animatie. Titel, ondertitel en per blok icoon, titel en beschrijving bewerkbaar.</p>
-            <div class="grid gap-x-4" style="grid-template-columns: 10rem 11rem; row-gap: 1rem;">
+            <div class="grid gap-x-4" style="grid-template-columns: 11rem minmax(18rem, 1fr); row-gap: 1rem;">
                 <label class="text-sm font-medium text-secondary-foreground flex items-center">Blokken per regel</label>
                 <select name="home_sections[{{ $sectionKey }}][blocks_per_row]" class="kt-input text-sm w-full">
                     @foreach([2 => '2', 3 => '3', 4 => '4'] as $val => $label)
@@ -794,6 +913,11 @@
                     <option value="center" {{ ($sectionData['block_align'] ?? 'center') === 'center' ? 'selected' : '' }}>Midden</option>
                     <option value="right" {{ ($sectionData['block_align'] ?? 'center') === 'right' ? 'selected' : '' }}>Rechts</option>
                 </select>
+                <label class="text-sm font-medium text-secondary-foreground flex items-start gap-1 self-start">Breedte blokkenrij <span class="font-normal text-muted-foreground">(%)</span></label>
+                <div class="w-full">
+                    <input type="number" name="home_sections[{{ $sectionKey }}][blocks_row_width_percent]" class="kt-input text-sm w-full" min="1" max="100" step="1" value="{{ old('home_sections.'.$sectionKey.'.blocks_row_width_percent', (int)($sectionData['blocks_row_width_percent'] ?? 100)) }}" title="Ten opzichte van de inhoudscontainer op de website (100 = volle breedte)">
+                    <p class="text-xs text-muted-foreground mt-1">Beperkt de breedte van het raster met de dienstblokken; uitlijning hierboven bepaalt de positie.</p>
+                </div>
                 <label class="text-sm font-medium text-secondary-foreground flex items-center">Icoon grootte</label>
                 <select name="home_sections[{{ $sectionKey }}][icon_size]" class="kt-input text-sm w-full">
                     <option value="small" {{ ($sectionData['icon_size'] ?? 'medium') === 'small' ? 'selected' : '' }}>Klein (20px)</option>
@@ -820,15 +944,56 @@
                     <button type="button" class="featured-services-card-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="featured_services_card_bg_picker_{{ $sectionKey }}" data-input-id="featured_services_card_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
-            <div class="space-y-2" style="margin-top: 1rem;">
-                <label class="text-sm font-medium text-secondary-foreground">Sectietitel</label>
-                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Diensten') }}" placeholder="Bijv. Diensten">
+            <div class="space-y-2 max-w-xl mt-3">
+                <div>
+                    <label class="text-sm font-medium text-secondary-foreground block mb-1">Sectietitel</label>
+                    <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Diensten') }}" placeholder="Bijv. Diensten">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Tekstgrootte titel</label>
+                        <select name="home_sections[{{ $sectionKey }}][title_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                            @foreach(range(10, 40, 2) as $fsPx)
+                            <option value="{{ $fsPx }}" {{ $fsTitlePxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Tekstgrootte ondertitel</label>
+                        <select name="home_sections[{{ $sectionKey }}][subtitle_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                            @foreach(range(10, 40, 2) as $fsPx)
+                            <option value="{{ $fsPx }}" {{ $fsSubtitlePxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-secondary-foreground block mb-1">Ondertitel</label>
+                    <textarea name="home_sections[{{ $sectionKey }}][subtitle]" class="kt-input w-full min-h-[52px]" rows="2" placeholder="Korte ondertitel">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
+                </div>
             </div>
-            <div class="space-y-2" style="margin-top: 1rem;">
-                <label class="text-sm font-medium text-secondary-foreground">Ondertitel</label>
-                <textarea name="home_sections[{{ $sectionKey }}][subtitle]" class="kt-input w-full max-w-xl min-h-[60px]" rows="2" placeholder="Korte ondertitel">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
+            <div class="space-y-2 max-w-xl mt-4 pt-3 border-t border-border">
+                <p class="text-sm font-medium text-secondary-foreground">Tekst in de kaarten <span class="font-normal text-muted-foreground">(geldt voor alle blokken)</span></p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Titel per blok</label>
+                        <select name="home_sections[{{ $sectionKey }}][item_title_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                            @foreach(range(10, 40, 2) as $fsPx)
+                            <option value="{{ $fsPx }}" {{ $fsItemTitlePxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Beschrijving per blok</label>
+                        <select name="home_sections[{{ $sectionKey }}][item_description_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                            @foreach(range(10, 40, 2) as $fsPx)
+                            <option value="{{ $fsPx }}" {{ $fsItemDescPxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div class="featured-services-items space-y-4" data-section-key="{{ $sectionKey }}" id="featured-services-items-{{ $sectionKey }}" style="margin-top: 1rem;">
+            <div class="featured-services-items space-y-4 mt-3" data-section-key="{{ $sectionKey }}" id="featured-services-items-{{ $sectionKey }}" data-icon-options="{{ json_encode($heroiconListFs) }}">
                 @foreach($fsItems as $i => $fsItem)
                 <div class="featured-services-item border border-border rounded-lg p-3 space-y-2">
                     <div class="flex items-center justify-between gap-2">
@@ -838,8 +1003,7 @@
                     <div class="flex gap-2 items-center">
                         <label class="text-sm text-muted-foreground shrink-0 w-24">Icoon</label>
                         <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon]" class="kt-input text-sm w-auto min-w-[10rem] max-w-full">
-                            @foreach($heroiconListFs as $ic)
-                                @php $lbl = is_array($heroiconLabels[$ic] ?? null) ? ($heroiconLabels[$ic]['label'] ?? $ic) : $ic; @endphp
+                            @foreach($heroiconListFs as $ic => $lbl)
                                 <option value="{{ $ic }}" {{ ($fsItem['icon'] ?? 'light-bulb') === $ic ? 'selected' : '' }}>{{ $lbl }}</option>
                             @endforeach
                         </select>
@@ -939,7 +1103,25 @@
                             @endif
                         @endforeach
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Toon een sectie van deze pagina naast de tekst (bijv. formulier links of rechts). Alleen bij uitlijning Links of Rechts. Alleen het e-mailformulier wordt momenteel naast de tekst getoond.</p>
+                    <p class="text-xs text-muted-foreground mt-1">Toon een informatieaanvraag-formulier naast de tekst. Alleen bij uitlijning Links of Rechts.</p>
+                </div>
+                <div id="text-block-{{ $sectionKey }}-side-template-row" class="{{ old('home_sections.'.$sectionKey.'.side_component_key', $sectionData['side_component_key'] ?? '') !== '' ? '' : 'hidden' }}">
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">E-mailtemplate voor het formulier</label>
+                    @php
+                        $textBlockSideTemplateId = (int) old('home_sections.'.$sectionKey.'.side_template_id', $sectionData['side_template_id'] ?? 0);
+                        $textBlockSideKey = old('home_sections.'.$sectionKey.'.side_component_key', $sectionData['side_component_key'] ?? '');
+                        if ($textBlockSideTemplateId <= 0 && $textBlockSideKey !== '' && preg_replace('/_\d+$/', '', $textBlockSideKey) === 'email_template') {
+                            $linkedSection = $sections[$textBlockSideKey] ?? [];
+                            $textBlockSideTemplateId = (int) ($linkedSection['template_id'] ?? 0);
+                        }
+                    @endphp
+                    <select name="home_sections[{{ $sectionKey }}][side_template_id]" id="text-block-{{ $sectionKey }}-side-template-id" class="kt-input w-full max-w-xl">
+                        <option value="">— Kies een e-mailtemplate —</option>
+                        @foreach($emailTemplatesForSelect as $et)
+                            <option value="{{ $et->id }}" {{ $textBlockSideTemplateId === (int) $et->id ? 'selected' : '' }}>{{ $et->name }} ({{ $et->type }})</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1">Verplicht wanneer u een formulier naast de tekst toont. U hoeft geen aparte e-mailtemplate-sectie op de pagina te plaatsen.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Sectiebreedte op de website</label>
@@ -1030,6 +1212,7 @@
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
                 <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
+                                @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#e5e7eb'])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'cta-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row">
@@ -1143,26 +1326,87 @@
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
-            <p class="text-sm text-muted-foreground mb-3">Voeg afbeeldingen toe voor de carousel (geüpload via website media, versleuteld opgeslagen). Gebruik de knop + om een afbeelding te uploaden, prullenbak om een slide te verwijderen.</p>
-            <div id="carousel-slides-{{ $sectionKey }}" class="space-y-2 mb-3" data-section-key="{{ $sectionKey }}">
+            @php
+                $carouselIntervalSeconds = (int) old('home_sections.'.$sectionKey.'.interval_seconds', $sectionData['interval_seconds'] ?? 5);
+                $carouselIntervalSeconds = max(0, min(120, $carouselIntervalSeconds));
+            @endphp
+            <style>
+                .carousel-slide-caption-options,
+                .carousel-slide-caption-timing-options { display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 0.5rem; }
+                .carousel-slide-caption-options .carousel-slide-caption-field,
+                .carousel-slide-caption-timing-options .carousel-slide-caption-field { flex: 0 0 auto !important; width: auto !important; max-width: none !important; }
+            </style>
+            <p class="text-sm text-muted-foreground mb-3">Carousel-slides (website media, versleuteld opgeslagen). Upload via de zone hieronder; per slide een omschrijving (alt-tekst). Sleep slides via het icoon links om de volgorde te wijzigen.</p>
+            <div class="max-w-xs">
+                <label for="carousel-interval-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">Wisselinterval (seconden)</label>
+                <input type="number"
+                       id="carousel-interval-{{ $sectionKey }}"
+                       name="home_sections[{{ $sectionKey }}][interval_seconds]"
+                       class="kt-input w-full"
+                       min="0"
+                       max="120"
+                       step="1"
+                       value="{{ $carouselIntervalSeconds }}">
+                <p class="text-xs text-muted-foreground mt-1">Tijd tussen slides op de website. 0 = geen automatisch wisselen (alleen pijltjes/indicators).</p>
+            </div>
+            <div class="carousel-upload-area hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 mb-3 cursor-pointer text-center"
+                 data-section-key="{{ $sectionKey }}"
+                 data-upload-url="{{ route('admin.website-media.upload') }}"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Carousel-afbeeldingen uploaden">
+                <span class="text-sm font-medium text-secondary-foreground">Klik of sleep afbeeldingen</span>
+                <span class="text-xs text-muted-foreground mt-1">JPG, PNG, WebP (max. 5MB per bestand, meerdere tegelijk)</span>
+                <span class="carousel-upload-status text-xs text-primary mt-2 hidden" aria-live="polite"></span>
+            </div>
+            <input type="file"
+                   id="carousel-upload-{{ $sectionKey }}"
+                   class="carousel-upload-file-input hidden"
+                   accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+                   multiple>
+            <div id="carousel-slides-{{ $sectionKey }}" class="carousel-slides-sortable space-y-2" data-section-key="{{ $sectionKey }}">
                 @foreach (($sectionData['items'] ?? []) as $idx => $item)
-                    @php $uuid = $item['uuid'] ?? ''; $alt = $item['alt'] ?? ''; @endphp
-                    <div class="carousel-slide-row flex items-center gap-2 rounded border border-border p-2" data-uuid="{{ $uuid }}">
-                        <img src="{{ $uuid ? route('website-media.serve', ['uuid' => $uuid]) : '' }}" alt="" class="h-12 w-16 object-cover rounded flex-shrink-0" loading="lazy">
+                    @php
+                        $uuid = $item['uuid'] ?? '';
+                        $alt = $item['alt'] ?? '';
+                        $slideTextColor = old('home_sections.'.$sectionKey.'.items.'.$idx.'.text_color', $item['text_color'] ?? '');
+                        $slideTextColor = is_string($slideTextColor) ? trim($slideTextColor) : '';
+                        if ($slideTextColor !== '' && ! preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $slideTextColor)) {
+                            $slideTextColor = '';
+                        }
+                        $slideTextColorPicker = $slideTextColor !== '' ? $slideTextColor : '#ffffff';
+                    @endphp
+                    <div class="carousel-slide-row flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 bg-muted/20" data-uuid="{{ $uuid }}">
+                        <span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 self-center p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+                        @include('admin.website-pages.partials.carousel-slide-image-preview', ['uuid' => $uuid])
+                        <div class="flex-1 min-w-[12rem] space-y-1">
+                            <label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">{{ $idx + 1 }}</span> · tekst op carousel</label>
+                            <div class="flex items-center gap-2">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][alt]" value="{{ $alt }}" placeholder="Bijv. Comfortabel, betrouwbaar en altijd op tijd" class="kt-input flex-1 min-w-0 text-sm">
+                                <input type="color"
+                                       id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}_color"
+                                       class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
+                                       value="{{ $slideTextColorPicker }}"
+                                       title="Tekstkleur op carousel"
+                                       data-target-input="carousel-text-color-{{ $sectionKey }}-{{ $idx }}">
+                                <input type="text"
+                                       name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_color]"
+                                       id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}"
+                                       class="carousel-slide-text-color-hex-input kt-input w-24 font-mono text-sm shrink-0"
+                                       value="{{ $slideTextColor }}"
+                                       placeholder="#ffffff"
+                                       maxlength="7">
+                            </div>
+                            @include('admin.website-pages.partials.carousel-slide-text-bg-color', ['sectionKey' => $sectionKey, 'idx' => $idx, 'item' => $item])
+                            <p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>
+                            @include('admin.website-pages.partials.carousel-slide-caption-fields', ['sectionKey' => $sectionKey, 'idx' => $idx, 'item' => $item])
+                        </div>
                         <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][uuid]" value="{{ $uuid }}">
-                        <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][alt]" value="{{ $alt }}" placeholder="Alt-tekst (optioneel)" class="kt-input flex-1 min-w-0 text-sm">
-                        <button type="button" class="carousel-slide-remove rounded p-1.5 text-destructive hover:bg-destructive/10" title="Verwijderen" aria-label="Slide verwijderen">
+                        <button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0 self-start" title="Slide verwijderen" aria-label="Slide verwijderen">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
                 @endforeach
-            </div>
-            <div class="flex items-center gap-2">
-                <input type="file" id="carousel-upload-{{ $sectionKey }}" class="hidden" accept="image/*" multiple>
-                <button type="button" class="carousel-add-slide inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent" data-section-key="{{ $sectionKey }}" data-upload-url="{{ route('admin.website-media.upload') }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Afbeelding(en) toevoegen
-                </button>
             </div>
         </div>
     </div>
@@ -1174,7 +1418,7 @@
                     $tarievenItems = [['rate_type' => '1-4', 'title' => 't/m 4 personen'], ['rate_type' => '5-8', 'title' => '5 t/m 8 personen']];
                 }
                 $tarievenRateTypes = ['1-4' => 't/m 4 personen', '5-8' => '5 t/m 8 personen', 'overige_kosten' => 'Overige kosten'];
-                $tarievenVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect();
+                $tarievenVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect($websitePageCompanyIdForTaxiVehicles);
                 $tarievenVehiclesForJs = array_map(function($v) {
                     $url = $v['image_url'] ?? null;
                     $url = $url ? (str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'))) : null;
@@ -1276,7 +1520,7 @@
                     </div>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\NexaTaxiVehicleDisplayService::class)->getImageUrl($itemVehicleId) ?? '') : '') }}" data-nexataxi-preview>
+                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\NexaTaxiVehicleDisplayService::class)->getImageUrl((int) $itemVehicleId, $websitePageCompanyIdForTaxiVehicles) ?? '') : '') }}" data-nexataxi-preview>
                             <button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="flex flex-col gap-2 flex-1 min-w-0">
@@ -1285,7 +1529,11 @@
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" data-upload-wrap="nexataxi-{{ $sectionKey }}-items-{{ $i }}-upload-wrap" data-image-url-input="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}">
                                     <option value="">Geen</option>
                                     @foreach($tarievenVehicles as $v)
-                                    <option value="{{ $v['id'] }}" {{ $itemVehicleId == $v['id'] ? 'selected' : '' }}>{{ $v['name'] }}</option>
+                                    @php
+                                        $optImgUrl = $v['image_url'] ?? null;
+                                        $optImgUrl = $optImgUrl ? (str_starts_with($optImgUrl, 'http') ? $optImgUrl : asset(ltrim($optImgUrl, '/'))) : null;
+                                    @endphp
+                                    <option value="{{ $v['id'] }}"@if($optImgUrl) data-image-url="{{ e($optImgUrl) }}"@endif {{ $itemVehicleId == $v['id'] ? 'selected' : '' }}>{{ $v['name'] }}</option>
                                     @endforeach
                                     <option value="custom" {{ $itemImageSource === 'custom' ? 'selected' : '' }}>Eigen afbeelding</option>
                                 </select>
@@ -1428,7 +1676,7 @@
     @elseif($sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:taxiroyaal.boekingsmodule')
             @php
                 $bookingData = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig($sections[$sectionKey] ?? []);
-                $bookingVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect();
+                $bookingVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect($websitePageCompanyIdForTaxiVehicles);
                 $offerPersonRangeOptions = [
                     '' => 'Alle personen',
                     '1-4' => 't/m 4 personen',
@@ -1451,6 +1699,15 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg">
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Tekstgrootte titel</label>
+                    @php $bookingTitleFontPx = old('home_sections.'.$sectionKey.'.style.title_font_size_px', $bookingData['style']['title_font_size_px'] ?? '36'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][title_font_size_px]">
+                        @foreach(range(16, 72, 2) as $px)
+                            <option value="{{ $px }}" {{ (string) $bookingTitleFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div><label class="text-sm text-muted-foreground">Subtitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
                 <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
                 <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
@@ -1460,6 +1717,15 @@
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][tab_font_size_px]">
                         @foreach(range(10, 24, 2) as $px)
                             <option value="{{ $px }}" {{ (string) $bookingTabFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Tekstgrootte stapkop (Reisgegevens e.d.)</label>
+                    @php $bookingStepHeadingFontPx = old('home_sections.'.$sectionKey.'.style.step_heading_font_size_px', $bookingData['style']['step_heading_font_size_px'] ?? '30'); @endphp
+                    <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][step_heading_font_size_px]">
+                        @foreach(range(16, 48, 2) as $px)
+                            <option value="{{ $px }}" {{ (string) $bookingStepHeadingFontPx === (string) $px ? 'selected' : '' }}>{{ $px }} px</option>
                         @endforeach
                     </select>
                 </div>
@@ -1475,6 +1741,11 @@
                 <div>
                     <label class="text-sm text-muted-foreground">Max breedte (%)</label>
                     <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_max_width]" value="{{ old('home_sections.'.$sectionKey.'.style.container_max_width', $bookingData['style']['container_max_width'] ?? '100%') }}" placeholder="100%">
+                </div>
+                <div>
+                    <label class="text-sm text-muted-foreground">Min. hoogte blok</label>
+                    <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_min_height]" value="{{ old('home_sections.'.$sectionKey.'.style.container_min_height', $bookingData['style']['container_min_height'] ?? '') }}" placeholder="auto">
+                    <p class="text-xs text-muted-foreground mt-1">Leeg of auto = geen minimum. Bijv. 600px of 80vh.</p>
                 </div>
                 <div><label class="text-sm text-muted-foreground">Border radius (px)</label><input type="number" min="0" max="40" class="kt-input mt-1 w-28 text-sm" name="home_sections[{{ $sectionKey }}][style][border_radius]" value="{{ old('home_sections.'.$sectionKey.'.style.border_radius', $bookingData['style']['border_radius'] ?? 12) }}"></div>
                 <div>
@@ -1863,6 +2134,8 @@
             @endforeach
         </div>
     </div>
+    @elseif($sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews')
+        @include('admin.website-pages.partials.home-section-google-reviews-component')
     @elseif(str_starts_with(strtolower($sectionKey ?? ''), 'component:'))
             @php
                 $rawCompId = $componentService::componentIdFromKey($sectionKey);
@@ -1873,17 +2146,23 @@
                 $componentTitle = $displayName . ' (' . $moduleLabel . ')';
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
-        <div class="kt-card-header home-section-header home-section-header--footer flex items-center justify-between gap-2">
+        <div class="kt-card-header home-section-header home-section-header--component flex items-center justify-between gap-2">
             <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $componentTitle }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
                 <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
                 <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
         </div>
+        @if($comp && !empty($comp->description))
+        <div class="home-section-card-body home-section-component-hint">
+            <p class="text-sm text-muted-foreground leading-relaxed">{{ $comp->description }}</p>
+        </div>
+        @endif
     </div>
     @else
     {{-- Onbekende of dynamische sectie (bijv. hero_2): toon generieke kaart zodat volgorde zichtbaar blijft --}}
@@ -1909,6 +2188,7 @@
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" class="home-section-component-visibility-input" value="1" autocomplete="off">
                 <button type="button" class="section-visibility-toggle home-section-component-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="" title="Verbergen op website" aria-label="Zichtbaarheid"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
                 <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
@@ -1918,7 +2198,7 @@
 </template>
 
 <div class="space-y-6 mt-6">
-    <div class="kt-card home-section-card home-section-card--no-drag">
+    <div class="kt-card home-section-card home-section-card--no-drag @if($isFooterCollapsed) home-section-card--collapsed @endif" data-section="footer">
         <div class="kt-card-header home-section-header home-section-header--footer flex items-center justify-between gap-2">
             <h3 class="kt-card-title">Footer (bovenste blok)</h3>
             <div class="flex items-center gap-1 shrink-0">
@@ -2196,7 +2476,7 @@
         </div>
     </div>
 
-    <div class="kt-card home-section-card home-section-card--no-drag" id="copyright-section-card">
+    <div class="kt-card home-section-card home-section-card--no-drag @if($isCopyrightCollapsed) home-section-card--collapsed @endif" id="copyright-section-card" data-section="copyright">
         <div class="kt-card-header home-section-header home-section-header--copyright flex items-center justify-between gap-2">
             <h3 class="kt-card-title">Copyright (onderste balk)</h3>
             <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
@@ -2250,8 +2530,12 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     var fileInput = document.getElementById('footer-logo-input');
 
     if (area && fileInput && urlInput) {
-        linkEl && linkEl.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
-        area.addEventListener('click', function(e) { if (e.target === area || e.target.closest('#footer-logo-upload-area')) fileInput.click(); });
+        if (typeof window.bindAdminDropzoneClick === 'function') {
+            window.bindAdminDropzoneClick(area, fileInput, linkEl || null, { clearInputFirst: false });
+        } else {
+            linkEl && linkEl.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+            area.addEventListener('click', function(e) { if (e.target === area || e.target.closest('#footer-logo-upload-area')) fileInput.click(); });
+        }
         area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
         area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
         area.addEventListener('drop', function(e) {
@@ -2558,6 +2842,18 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     })();
 
     var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
+    /** Veilig id in [id="..."]; bij cards altijd eerst binnen .cards-ronde-hoeken-item zoeken (duplicate document id). */
+    function escapeIdForAttrSelector(id) {
+        return String(id).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+    function queryByIdInCardOrDocument(cardRow, id) {
+        if (!id) return null;
+        if (cardRow && cardRow.querySelector) {
+            var scoped = cardRow.querySelector('[id="' + escapeIdForAttrSelector(id) + '"]');
+            if (scoped) return scoped;
+        }
+        return document.getElementById(id);
+    }
     /** Zet /storage/... (relatief of volledige URL) om naar /file/... zodat preview laadt. */
     function storageUrlToFileUrl(url) {
         if (!url || typeof url !== 'string') return url;
@@ -2571,7 +2867,17 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (path) return (window.location.origin || '') + '/file/' + path;
         return u;
     }
-    function handleHeroImageFile(file, fileInput, urlInput, previewEl, wrapperEl) {
+    function resolveCardsRondeHoekenPreviewImg(uploadAreaEl, previewEl) {
+        if (uploadAreaEl && uploadAreaEl.closest) {
+            var cardRow = uploadAreaEl.closest('.cards-ronde-hoeken-item');
+            if (cardRow) {
+                var scoped = cardRow.querySelector('img.cards-ronde-hoeken-upload-preview');
+                if (scoped) return scoped;
+            }
+        }
+        return previewEl || null;
+    }
+    function handleHeroImageFile(file, fileInput, urlInput, previewEl, wrapperEl, uploadAreaEl) {
         if (!file || !(file instanceof File)) { alert('Geen bestand geselecteerd.'); if (fileInput) fileInput.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
         if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'); fileInput.value = ''; return; }
@@ -2598,65 +2904,169 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     throw new Error(msg);
                 });
             })
-            .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (previewEl) { previewEl.src = storageUrlToFileUrl(d.url); previewEl.classList.remove('hidden'); previewEl.removeAttribute('srcset'); } if (wrapperEl) wrapperEl.classList.remove('hidden'); } })
+            .then(function(d) {
+                if (d.success && d.url) {
+                    urlInput.value = d.url;
+                    var imgTarget = resolveCardsRondeHoekenPreviewImg(uploadAreaEl, previewEl);
+                    if (imgTarget) {
+                        imgTarget.src = storageUrlToFileUrl(d.url);
+                        imgTarget.classList.remove('hidden');
+                        imgTarget.removeAttribute('srcset');
+                    }
+                    if (wrapperEl) wrapperEl.classList.remove('hidden');
+                }
+            })
             .catch(function(err) { alert(err.message || 'Upload mislukt'); });
         fileInput.value = '';
     }
     function bindHeroUploadAreasIn(container) {
         var root = container || document;
         root.querySelectorAll('.hero-image-upload-area').forEach(function(area) {
+            if (area.getAttribute('data-hero-upload-area-bound') === '1') return;
             var sectionKey = area.getAttribute('data-section-key');
             var field = area.getAttribute('data-field');
             if (!sectionKey || !field) return;
             var urlInputId = area.getAttribute('data-url-input-id');
             var fileInputId = area.getAttribute('data-file-input-id');
             var previewId = area.getAttribute('data-preview-id') || (field === 'background_image_url' ? 'hero-' + sectionKey + '-bg-preview' : (field === 'author_image_url' ? 'hero-' + sectionKey + '-author-preview' : 'hero-' + sectionKey + '-' + field + '-preview'));
-            var fileInput = (fileInputId && document.getElementById(fileInputId)) || (function() {
-                var cardRow = area.closest && area.closest('.cards-ronde-hoeken-item');
-                var scope = cardRow || root;
+            var cardsItemRow = area.closest && area.closest('.cards-ronde-hoeken-item');
+            var fileInput = (fileInputId && queryByIdInCardOrDocument(cardsItemRow, fileInputId)) || (function() {
+                var scope = cardsItemRow || root;
                 return scope.querySelector('.hero-image-file-input[data-section-key="' + sectionKey + '"][data-field="' + field + '"]');
             })();
-            var urlInput = (urlInputId && document.getElementById(urlInputId)) || document.getElementById('hero-' + sectionKey + '-' + field);
-            var preview = (previewId && document.getElementById(previewId)) || (function() {
-                var cardRow = area.closest && area.closest('.cards-ronde-hoeken-item');
-                return (cardRow || root).querySelector('[id="' + previewId + '"]');
+            var urlInput = (urlInputId && queryByIdInCardOrDocument(cardsItemRow, urlInputId)) || document.getElementById('hero-' + sectionKey + '-' + field);
+            var preview = (previewId && queryByIdInCardOrDocument(cardsItemRow, previewId)) || (function() {
+                return (cardsItemRow || root).querySelector('[id="' + escapeIdForAttrSelector(previewId) + '"]');
             })();
+            if (cardsItemRow) {
+                var scopedPreview = cardsItemRow.querySelector('img.cards-ronde-hoeken-upload-preview');
+                if (scopedPreview) preview = scopedPreview;
+            }
             if (!fileInput || !urlInput) return;
-            area.addEventListener('click', function(e) {
-                e.preventDefault();
-                fileInput.value = '';
-                fileInput.click();
-            });
+            area.setAttribute('data-hero-upload-area-bound', '1');
+            if (typeof window.bindAdminUploadAreaClick === 'function') {
+                window.bindAdminUploadAreaClick(area, fileInput, { clearInputFirst: true });
+            } else {
+                area.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    fileInput.value = '';
+                    fileInput.click();
+                });
+            }
             area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
             area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
-            area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview); });
-            fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleHeroImageFile(this.files[0], fileInput, urlInput, preview); });
+            area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview, undefined, area); });
+            fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleHeroImageFile(this.files[0], fileInput, urlInput, preview, undefined, area); });
         });
     }
     bindHeroUploadAreasIn(document);
     window.bindHeroUploadAreasIn = bindHeroUploadAreasIn;
 
-    document.querySelectorAll('.hero-overlay-color-picker').forEach(function(picker) {
-        var targetId = picker.getAttribute('data-target-input');
-        if (!targetId) return;
-        var textInput = document.getElementById(targetId);
-        if (!textInput) return;
-        picker.addEventListener('input', function() { textInput.value = picker.value; });
-        picker.addEventListener('change', function() { textInput.value = picker.value; });
-    });
-    document.querySelectorAll('.hero-overlay-hex-input').forEach(function(textInput) {
-        var id = textInput.id;
-        if (!id) return;
-        var colorPicker = document.getElementById(id + '_color');
-        if (!colorPicker) return;
-        function syncToPicker() {
-            var v = (textInput.value || '').trim();
-            if (/^#[0-9A-Fa-f]{6}$/.test(v)) colorPicker.value = v;
+    function expandShortHex(v) {
+        if (!v || v.length !== 4 || v.charAt(0) !== '#') return v;
+        return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+    }
+    function syncHeroOverlayOpacityDisplay(range) {
+        if (!range || !range.id) return;
+        var valueEl = document.getElementById(range.id + '-value');
+        var v = String(range.value);
+        range.setAttribute('aria-valuenow', v);
+        if (valueEl) valueEl.textContent = v + '%';
+    }
+    function bindHeroAdminColorControlsIn(container) {
+        var root = container && container.querySelectorAll ? container : document;
+        root.querySelectorAll('.hero-overlay-opacity-range').forEach(syncHeroOverlayOpacityDisplay);
+    }
+    window.bindHeroAdminColorControlsIn = bindHeroAdminColorControlsIn;
+    bindHeroAdminColorControlsIn(document);
+    function handleHeroAdminColorControlEvent(e) {
+        var target = e.target;
+        if (!target || !target.closest) return;
+        var titlePicker = target.closest('.hero-title-highlight-color-picker');
+        if (titlePicker) {
+            var titleTargetId = titlePicker.getAttribute('data-target-input');
+            var titleHex = titleTargetId && document.getElementById(titleTargetId);
+            if (titleHex) titleHex.value = titlePicker.value;
+            return;
         }
-        textInput.addEventListener('input', syncToPicker);
-        textInput.addEventListener('change', syncToPicker);
-        syncToPicker();
-    });
+        var titleHexInp = target.closest('.hero-title-highlight-hex-input');
+        if (titleHexInp && titleHexInp.id) {
+            var titleCp = document.getElementById(titleHexInp.id + '_color');
+            if (titleCp) {
+                var tv = (titleHexInp.value || '').trim();
+                if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(tv)) titleCp.value = expandShortHex(tv);
+            }
+            return;
+        }
+        var subtitlePicker = target.closest('.hero-subtitle-color-picker');
+        if (subtitlePicker) {
+            var subtitleTargetId = subtitlePicker.getAttribute('data-target-input');
+            var subtitleHex = subtitleTargetId && document.getElementById(subtitleTargetId);
+            if (subtitleHex) subtitleHex.value = subtitlePicker.value;
+            return;
+        }
+        var subtitleHexInp = target.closest('.hero-subtitle-color-hex-input');
+        if (subtitleHexInp && subtitleHexInp.id) {
+            var subtitleCp = document.getElementById(subtitleHexInp.id + '_color');
+            if (subtitleCp) {
+                var sv = (subtitleHexInp.value || '').trim();
+                if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(sv)) subtitleCp.value = expandShortHex(sv);
+            }
+            return;
+        }
+        var overlayPicker = target.closest('.hero-overlay-color-picker');
+        if (overlayPicker) {
+            var overlayTargetId = overlayPicker.getAttribute('data-target-input');
+            var overlayHex = overlayTargetId && document.getElementById(overlayTargetId);
+            if (overlayHex) overlayHex.value = overlayPicker.value;
+            return;
+        }
+        var overlayHexInp = target.closest('.hero-overlay-hex-input');
+        if (overlayHexInp && overlayHexInp.id) {
+            var overlayCp = document.getElementById(overlayHexInp.id + '_color');
+            if (overlayCp) {
+                var ov = (overlayHexInp.value || '').trim();
+                if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(ov)) overlayCp.value = expandShortHex(ov);
+            }
+            return;
+        }
+        var carouselTextPicker = target.closest('.carousel-slide-text-color-picker');
+        if (carouselTextPicker) {
+            var carouselTextTargetId = carouselTextPicker.getAttribute('data-target-input');
+            var carouselTextHex = carouselTextTargetId && document.getElementById(carouselTextTargetId);
+            if (carouselTextHex) carouselTextHex.value = carouselTextPicker.value;
+            return;
+        }
+        var carouselTextHexInp = target.closest('.carousel-slide-text-color-hex-input');
+        if (carouselTextHexInp && carouselTextHexInp.id) {
+            var carouselTextCp = document.getElementById(carouselTextHexInp.id + '_color');
+            if (carouselTextCp) {
+                var cv = (carouselTextHexInp.value || '').trim();
+                if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(cv)) carouselTextCp.value = expandShortHex(cv);
+            }
+            return;
+        }
+        var carouselBgPicker = target.closest('.carousel-slide-text-bg-color-picker');
+        if (carouselBgPicker) {
+            var carouselBgTargetId = carouselBgPicker.getAttribute('data-target-input');
+            var carouselBgHex = carouselBgTargetId && document.getElementById(carouselBgTargetId);
+            if (carouselBgHex) carouselBgHex.value = carouselBgPicker.value;
+            return;
+        }
+        var carouselBgHexInp = target.closest('.carousel-slide-text-bg-color-hex-input');
+        if (carouselBgHexInp && carouselBgHexInp.id) {
+            var carouselBgCp = document.getElementById(carouselBgHexInp.id + '_color');
+            if (carouselBgCp) {
+                var bgv = (carouselBgHexInp.value || '').trim();
+                if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(bgv)) carouselBgCp.value = expandShortHex(bgv);
+            }
+            return;
+        }
+        var opacityRange = target.closest('.hero-overlay-opacity-range');
+        if (opacityRange) syncHeroOverlayOpacityDisplay(opacityRange);
+    }
+    document.addEventListener('input', handleHeroAdminColorControlEvent);
+    document.addEventListener('change', handleHeroAdminColorControlEvent);
 
     document.querySelectorAll('.cta-image-upload-area').forEach(function(area) {
         var sectionKey = area.getAttribute('data-section-key');
@@ -2666,11 +3076,15 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var preview = document.getElementById('cta-' + sectionKey + '-bg-preview');
         var wrapper = document.getElementById('cta-' + sectionKey + '-bg-preview-wrapper');
         if (!fileInput || !urlInput) return;
-        area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+        if (typeof window.bindAdminUploadAreaClick === 'function') {
+            window.bindAdminUploadAreaClick(area, fileInput, { clearInputFirst: false });
+        } else {
+            area.addEventListener('click', function(e) { e.preventDefault(); fileInput.click(); });
+        }
         area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
         area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
-        area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview, wrapper); });
-        fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleHeroImageFile(this.files[0], fileInput, urlInput, preview, wrapper); });
+        area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleHeroImageFile(e.dataTransfer.files[0], fileInput, urlInput, preview, wrapper, area); });
+        fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleHeroImageFile(this.files[0], fileInput, urlInput, preview, wrapper, area); });
     });
 
     document.querySelectorAll('.image-remove-btn').forEach(function(btn) {
@@ -2679,8 +3093,16 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             var previewId = btn.getAttribute('data-preview-id');
             var wrapperId = btn.getAttribute('data-preview-wrapper-id');
             if (!urlInputId || !previewId) return;
+            var cardItem = btn.closest && btn.closest('.cards-ronde-hoeken-item');
             var urlInput = document.getElementById(urlInputId);
             var preview = document.getElementById(previewId);
+            if (cardItem) {
+                var idEsc = String(urlInputId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                var scopedUrl = cardItem.querySelector('[id="' + idEsc + '"]');
+                if (scopedUrl) urlInput = scopedUrl;
+                var scopedPrev = cardItem.querySelector('img.cards-ronde-hoeken-upload-preview');
+                if (scopedPrev) preview = scopedPrev;
+            }
             var wrapper = wrapperId ? document.getElementById(wrapperId) : null;
             if (urlInput) urlInput.value = '';
             if (preview) {
@@ -2698,96 +3120,635 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         });
     });
 
-    // Carousel: add slide(s) – meerdere afbeeldingen tegelijk (upload via website-media, encrypted)
-    var carouselAddBtnLabel = 'Afbeelding(en) toevoegen';
-    var carouselAddBtnHtml = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>\n                ' + carouselAddBtnLabel;
-    document.querySelectorAll('.carousel-add-slide').forEach(function(btn) {
-        var sectionKey = btn.getAttribute('data-section-key');
-        var uploadUrl = btn.getAttribute('data-upload-url');
-        var listEl = document.getElementById('carousel-slides-' + sectionKey);
-        var fileInput = document.getElementById('carousel-upload-' + sectionKey);
-        if (!sectionKey || !uploadUrl || !listEl || !fileInput) return;
-        btn.addEventListener('click', function() { fileInput.click(); });
-        fileInput.addEventListener('change', function() {
-            var files = this.files;
-            if (!files || !files.length) return;
-            var valid = [];
-            for (var i = 0; i < files.length; i++) {
-                var f = files[i];
-                if (!f.type || !f.type.startsWith('image/')) continue;
-                if (f.size > 5 * 1024 * 1024) continue;
-                valid.push(f);
-            }
-            if (valid.length === 0) {
-                alert('Geen geldige afbeeldingen (max. 5MB per bestand, alleen afbeeldingen).');
-                this.value = '';
-                return;
-            }
-            var token = (csrfToken && csrfToken.getAttribute('content')) || '';
-            btn.disabled = true;
-            btn.setAttribute('aria-busy', 'true');
-            btn.innerHTML = '<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span> Bezig met uploaden' + (valid.length > 1 ? ' (' + valid.length + ' afbeeldingen)...' : '...');
-            var uploads = valid.map(function(file) {
-                var fd = new FormData();
-                fd.append('file', file);
-                fd.append('_token', token);
-                if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
-                return fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-                    .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || 'Upload mislukt'); }); });
-            });
-            Promise.all(uploads)
-                .then(function(results) {
-                    var startIdx = listEl.querySelectorAll('.carousel-slide-row').length;
-                    results.forEach(function(d, i) {
-                        var idx = startIdx + i;
-                        var url = (d && d.url) ? d.url : ('/website-media/' + (d && d.uuid ? d.uuid : ''));
-                        var uuid = (d && d.uuid) ? d.uuid : '';
-                        var row = document.createElement('div');
-                        row.className = 'carousel-slide-row flex items-center gap-2 rounded border border-border p-2';
-                        row.setAttribute('data-uuid', uuid);
-                        row.innerHTML = '<img src="' + url.replace(/"/g, '&quot;') + '" alt="" class="h-12 w-16 object-cover rounded flex-shrink-0" loading="lazy">' +
-                            '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + idx + '][uuid]" value="' + (uuid.replace(/"/g, '&quot;')) + '">' +
-                            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][alt]" value="" placeholder="Alt-tekst (optioneel)" class="kt-input flex-1 min-w-0 text-sm">' +
-                            '<button type="button" class="carousel-slide-remove rounded p-1.5 text-destructive hover:bg-destructive/10" title="Verwijderen" aria-label="Slide verwijderen">' +
-                            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>';
-                        listEl.appendChild(row);
-                    });
-                    bindCarouselRemove(listEl, sectionKey);
-                })
-                .catch(function(err) {
-                    alert(err.message || 'Upload mislukt.');
-                })
-                .finally(function() {
-                    btn.disabled = false;
-                    btn.removeAttribute('aria-busy');
-                    btn.innerHTML = carouselAddBtnHtml;
-                    fileInput.value = '';
-                });
+    // Carousel: drag-and-drop upload + slides (website-media); bindCarouselSlidesIn voor dynamisch toegevoegde secties
+    var carouselDragHandleHtml = '<span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 self-center p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>';
+    var carouselSlideImageTrashHtml = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+    function getWebsiteMediaDeleteUrl(uuid) {
+        var meta = document.getElementById('home-sections-meta');
+        var base = meta && meta.getAttribute('data-website-media-delete-url');
+        if (!base || !uuid) return '';
+        return base.replace(/\/$/, '') + '/' + encodeURIComponent(uuid);
+    }
+    function getCarouselSlideMediaUrl(uuid) {
+        uuid = (uuid || '').trim();
+        if (!uuid) return '';
+        var meta = document.getElementById('home-sections-meta');
+        var base = meta && meta.getAttribute('data-website-media-serve-base');
+        if (base) return base.replace(/\/$/, '') + '/' + encodeURIComponent(uuid);
+        return '/website-media/' + encodeURIComponent(uuid);
+    }
+    function handleCarouselSlidePreviewImgError(img) {
+        if (!img || img.getAttribute('data-carousel-preview-error-handled') === '1') return;
+        img.setAttribute('data-carousel-preview-error-handled', '1');
+        var row = img.closest('.carousel-slide-row');
+        if (!row) return;
+        var uuidInp = row.querySelector('input[name$="[uuid]"]');
+        if (uuidInp) uuidInp.value = '';
+        row.setAttribute('data-uuid', '');
+        img.removeAttribute('data-carousel-preview-uuid');
+        img.src = '';
+        img.classList.add('hidden');
+        var uploadZone = row.querySelector('.carousel-slide-preview-upload');
+        if (uploadZone) {
+            uploadZone.classList.remove('hidden');
+            bindCarouselSlidePreviewUpload(row);
+        }
+        var removeBtn = row.querySelector('.carousel-slide-image-remove');
+        if (removeBtn) removeBtn.classList.add('hidden');
+    }
+    function bindCarouselSlidePreviewImgError(img) {
+        if (!img || img.getAttribute('data-carousel-preview-error-bound') === '1') return;
+        img.setAttribute('data-carousel-preview-error-bound', '1');
+        img.addEventListener('error', function() { handleCarouselSlidePreviewImgError(img); });
+    }
+    function bindCarouselSlidePreviewImgErrorsIn(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slide-preview-img').forEach(bindCarouselSlidePreviewImgError);
+    }
+    var carouselSlidePreviewModal = document.getElementById('carousel-slide-preview-modal');
+    var carouselSlidePreviewModalImg = document.getElementById('carousel-slide-preview-modal-img');
+    var carouselSlidePreviewModalClose = document.getElementById('carousel-slide-preview-modal-close');
+    function openCarouselSlidePreviewModal(src) {
+        if (!carouselSlidePreviewModal || !carouselSlidePreviewModalImg || !src) return;
+        carouselSlidePreviewModalImg.src = src;
+        carouselSlidePreviewModal.classList.remove('hidden');
+        carouselSlidePreviewModal.classList.add('flex');
+        carouselSlidePreviewModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeCarouselSlidePreviewModal() {
+        if (!carouselSlidePreviewModal) return;
+        carouselSlidePreviewModal.classList.add('hidden');
+        carouselSlidePreviewModal.classList.remove('flex');
+        carouselSlidePreviewModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        if (carouselSlidePreviewModalImg) carouselSlidePreviewModalImg.src = '';
+    }
+    function bindCarouselSlidePreviewLightbox(img) {
+        if (!img || img.getAttribute('data-carousel-preview-lightbox-bound') === '1') return;
+        if (img.classList.contains('hidden')) return;
+        img.setAttribute('data-carousel-preview-lightbox-bound', '1');
+        img.classList.add('cursor-zoom-in');
+        if (!img.getAttribute('title')) img.setAttribute('title', 'Klik om groot te bekijken');
+        if (!img.getAttribute('role')) img.setAttribute('role', 'button');
+        if (!img.hasAttribute('tabindex')) img.setAttribute('tabindex', '0');
+        img.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var src = img.currentSrc || img.src;
+            if (!src || img.classList.contains('hidden')) return;
+            openCarouselSlidePreviewModal(src);
         });
-    });
+        img.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                var src = img.currentSrc || img.src;
+                if (src && !img.classList.contains('hidden')) openCarouselSlidePreviewModal(src);
+            }
+        });
+    }
+    function bindCarouselSlidePreviewLightboxIn(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slide-preview-img').forEach(function(img) {
+            if (!img.classList.contains('hidden') && (img.src || img.getAttribute('src'))) {
+                bindCarouselSlidePreviewLightbox(img);
+            }
+        });
+    }
+    if (carouselSlidePreviewModal) {
+        if (carouselSlidePreviewModalClose) {
+            carouselSlidePreviewModalClose.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeCarouselSlidePreviewModal();
+            });
+        }
+        carouselSlidePreviewModal.addEventListener('click', function(e) {
+            if (e.target === carouselSlidePreviewModal) closeCarouselSlidePreviewModal();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && carouselSlidePreviewModal && !carouselSlidePreviewModal.classList.contains('hidden')) {
+                closeCarouselSlidePreviewModal();
+            }
+        });
+    }
+    function setCarouselSlidePreviewImage(row, uuid, imageUrl) {
+        uuid = (uuid || '').trim();
+        var hasImage = uuid !== '';
+        var resolvedUrl = hasImage ? (imageUrl || getCarouselSlideMediaUrl(uuid)) : '';
+        var img = row.querySelector('.carousel-slide-preview-img');
+        var uploadZone = row.querySelector('.carousel-slide-preview-upload');
+        var removeBtn = row.querySelector('.carousel-slide-image-remove');
+        var uuidInp = row.querySelector('input[name$="[uuid]"]');
+        if (uuidInp) uuidInp.value = uuid;
+        row.setAttribute('data-uuid', uuid);
+        if (img) {
+            img.removeAttribute('data-carousel-preview-error-handled');
+            if (hasImage) {
+                img.setAttribute('data-carousel-preview-uuid', uuid);
+                img.src = resolvedUrl;
+                img.classList.remove('hidden');
+                bindCarouselSlidePreviewImgError(img);
+                bindCarouselSlidePreviewLightbox(img);
+            } else {
+                img.removeAttribute('data-carousel-preview-uuid');
+                img.src = '';
+                img.classList.add('hidden');
+            }
+        }
+        if (uploadZone) uploadZone.classList.toggle('hidden', hasImage);
+        if (removeBtn) removeBtn.classList.toggle('hidden', !hasImage);
+        if (!hasImage) bindCarouselSlidePreviewUpload(row);
+    }
+    function getCarouselUploadUrlForRow(row) {
+        var cardBody = row.closest('.home-section-card-body');
+        var area = cardBody && cardBody.querySelector('.carousel-upload-area[data-upload-url]');
+        return area ? area.getAttribute('data-upload-url') : '';
+    }
+    function setCarouselSlidePreviewUploadStatus(row, message, isError) {
+        var statusEl = row.querySelector('.carousel-slide-preview-upload-status');
+        if (!statusEl) return;
+        if (!message) {
+            statusEl.textContent = '';
+            statusEl.classList.add('hidden');
+            statusEl.classList.remove('text-destructive');
+            return;
+        }
+        statusEl.textContent = message;
+        statusEl.classList.remove('hidden');
+        statusEl.classList.toggle('text-destructive', !!isError);
+        statusEl.classList.toggle('text-primary', !isError);
+    }
+    function uploadCarouselFileToRow(row, file) {
+        var uploadUrl = getCarouselUploadUrlForRow(row);
+        if (!uploadUrl || !file) return Promise.reject(new Error('Upload niet beschikbaar.'));
+        if (!file.type || !file.type.startsWith('image/')) {
+            return Promise.reject(new Error('Alleen afbeeldingen (JPG, PNG, WebP).'));
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            return Promise.reject(new Error('Maximaal 5MB per afbeelding.'));
+        }
+        var uploadZone = row.querySelector('.carousel-slide-preview-upload');
+        var token = (csrfToken && csrfToken.getAttribute('content')) || '';
+        if (uploadZone) {
+            uploadZone.setAttribute('aria-busy', 'true');
+            uploadZone.classList.add('pointer-events-none', 'opacity-70');
+        }
+        setCarouselSlidePreviewUploadStatus(row, 'Uploaden...', false);
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('_token', token);
+        if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
+        return fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+            .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || 'Upload mislukt'); }); })
+            .then(function(d) {
+                var uuid = (d && d.uuid) ? d.uuid : '';
+                var url = (d && d.url) ? d.url : getCarouselSlideMediaUrl(uuid);
+                setCarouselSlidePreviewImage(row, uuid, url);
+                setCarouselSlidePreviewUploadStatus(row, 'Geüpload', false);
+                setTimeout(function() { setCarouselSlidePreviewUploadStatus(row, ''); }, 2000);
+                return d;
+            })
+            .catch(function(err) {
+                setCarouselSlidePreviewUploadStatus(row, err.message || 'Upload mislukt', true);
+                throw err;
+            })
+            .finally(function() {
+                if (uploadZone) {
+                    uploadZone.removeAttribute('aria-busy');
+                    uploadZone.classList.remove('pointer-events-none', 'opacity-70');
+                }
+                var fileInput = row.querySelector('.carousel-slide-preview-file-input');
+                if (fileInput) fileInput.value = '';
+            });
+    }
+    function openCarouselSlideFilePicker(fileInput) {
+        if (!fileInput) return;
+        if (typeof window.openAdminFilePicker === 'function') {
+            window.openAdminFilePicker(fileInput, { clearInputFirst: true });
+        } else {
+            try { fileInput.value = ''; } catch (err) { /* ignore */ }
+            fileInput.click();
+        }
+    }
+    function bindCarouselSlidePreviewUpload(row) {
+        if (!row) return;
+        var uploadZone = row.querySelector('.carousel-slide-preview-upload');
+        var fileInput = row.querySelector('.carousel-slide-preview-file-input');
+        if (!uploadZone || !fileInput || uploadZone.classList.contains('hidden')) return;
+        if (uploadZone.getAttribute('data-carousel-preview-upload-bound') === '1') return;
+        uploadZone.setAttribute('data-carousel-preview-upload-bound', '1');
+        if (typeof window.bindAdminUploadAreaClick === 'function') {
+            window.bindAdminUploadAreaClick(uploadZone, fileInput, { clearInputFirst: true });
+        } else {
+            uploadZone.addEventListener('click', function(e) {
+                if (e.target.closest('.carousel-slide-image-remove')) return;
+                e.preventDefault();
+                e.stopPropagation();
+                openCarouselSlideFilePicker(fileInput);
+            });
+        }
+        uploadZone.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                openCarouselSlideFilePicker(fileInput);
+            }
+        });
+        uploadZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.classList.add('border-primary');
+        });
+        uploadZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('border-primary');
+        });
+        uploadZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.classList.remove('border-primary');
+            var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) {
+                uploadCarouselFileToRow(row, file).catch(function(err) { alert(err.message || 'Upload mislukt.'); });
+            }
+        });
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    uploadCarouselFileToRow(row, this.files[0]).catch(function(err) { alert(err.message || 'Upload mislukt.'); });
+                }
+            });
+        }
+    }
+    function bindCarouselSlidePreviewUploadIn(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slide-row').forEach(function(row) {
+            bindCarouselSlidePreviewUpload(row);
+        });
+    }
+    function carouselSlidePreviewHtml(uuid, imageUrl) {
+        uuid = (uuid || '').trim();
+        var hasImage = uuid !== '';
+        var resolvedUrl = hasImage ? (imageUrl || getCarouselSlideMediaUrl(uuid)) : '';
+        var safeUrl = resolvedUrl.replace(/"/g, '&quot;');
+        var safeUuid = uuid.replace(/"/g, '&quot;');
+        return '<div class="carousel-slide-preview shrink-0 flex flex-col items-center gap-1">' +
+            '<div class="relative h-20 w-28 shrink-0">' +
+            '<img src="' + safeUrl + '" alt="" class="carousel-slide-preview-img absolute inset-0 h-full w-full object-cover rounded border border-border' + (hasImage ? ' cursor-zoom-in' : ' hidden') + '"' + (hasImage ? ' data-carousel-preview-uuid="' + safeUuid + '" title="Klik om groot te bekijken" role="button" tabindex="0"' : '') + '>' +
+            '<div class="carousel-slide-preview-upload absolute inset-0 rounded border border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-0.5 text-center px-1 cursor-pointer hover:border-primary hover:bg-muted/50' + (hasImage ? ' hidden' : '') + '" role="button" tabindex="0" aria-label="Afbeelding uploaden voor deze slide">' +
+            '<span class="text-xs font-medium text-secondary-foreground leading-tight">Klik of sleep</span>' +
+            '<span class="text-[10px] text-muted-foreground leading-tight">JPG, PNG, WebP</span>' +
+            '<span class="carousel-slide-preview-upload-status text-[10px] text-primary hidden" aria-live="polite"></span></div>' +
+            '<input type="file" class="carousel-slide-preview-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" tabindex="-1" aria-hidden="true">' +
+            '</div>' +
+            '<button type="button" class="carousel-slide-image-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive' + (hasImage ? '' : ' hidden') + '" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' +
+            carouselSlideImageTrashHtml + '</button></div>';
+    }
+    var carouselCaptionAnimationOptions = [
+        { value: 'rise', label: 'Woorden omhoog' },
+        { value: 'fade', label: 'Infaden' },
+        { value: 'slide_left', label: 'Van links' },
+        { value: 'zoom', label: 'Inzoomen' },
+        { value: 'blur', label: 'Scherp worden' }
+    ];
+    var carouselCaptionAnimationDurationOptions = [
+        { value: 300, label: '0,3 s' },
+        { value: 450, label: '0,45 s' },
+        { value: 550, label: '0,55 s (standaard)' },
+        { value: 800, label: '0,8 s' },
+        { value: 1000, label: '1 s' },
+        { value: 1500, label: '1,5 s' },
+        { value: 2000, label: '2 s' },
+        { value: 3000, label: '3 s' },
+        { value: 4000, label: '4 s' }
+    ];
+    var carouselCaptionAnimationStaggerOptions = [
+        { value: 0, label: 'Geen' },
+        { value: 50, label: '0,05 s' },
+        { value: 90, label: '0,09 s (standaard)' },
+        { value: 120, label: '0,12 s' },
+        { value: 150, label: '0,15 s' },
+        { value: 200, label: '0,2 s' },
+        { value: 300, label: '0,3 s' },
+        { value: 500, label: '0,5 s' }
+    ];
+    function buildCarouselSlideBgColorHtml(sectionKey, idx, textBgColor) {
+        var safeBg = (textBgColor || '').replace(/"/g, '&quot;');
+        var bgId = 'carousel-bg-color-' + sectionKey + '-' + idx;
+        var bgPickerVal = (safeBg && /^#/.test(safeBg)) ? safeBg : '#000000';
+        return '<div class="flex items-center gap-2 mt-1">' +
+            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Achtergrond</span>' +
+            '<input type="color" id="' + bgId + '_color" class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + bgPickerVal + '" title="Achtergrondkleur tekstblok" data-target-input="' + bgId + '">' +
+            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_color]" id="' + bgId + '" class="carousel-slide-text-bg-color-hex-input kt-input w-24 font-mono text-sm shrink-0" value="' + safeBg + '" placeholder="#000000" maxlength="7">' +
+            '<span class="text-xs text-muted-foreground">Leeg = donker semi-transparant</span></div>';
+    }
+    function buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, opts) {
+        opts = opts || {};
+        var textSizePx = parseInt(opts.textSizePx, 10);
+        if (isNaN(textSizePx) || textSizePx < 12 || textSizePx > 50) textSizePx = 24;
+        textSizePx = Math.round(textSizePx / 2) * 2;
+        var textPosition = opts.textPosition || 'bottom';
+        if (['top', 'center', 'bottom'].indexOf(textPosition) === -1) textPosition = 'bottom';
+        var textAnimation = opts.textAnimation || 'rise';
+        var animDurationMs = parseInt(opts.textAnimationDurationMs, 10);
+        if (isNaN(animDurationMs) || animDurationMs < 200 || animDurationMs > 5000) animDurationMs = 550;
+        var animStaggerMs = parseInt(opts.textAnimationStaggerMs, 10);
+        if (isNaN(animStaggerMs) || animStaggerMs < 0 || animStaggerMs > 1000) animStaggerMs = 90;
+        var sizeHtml = '';
+        for (var px = 12; px <= 50; px += 2) {
+            sizeHtml += '<option value="' + px + '"' + (px === textSizePx ? ' selected' : '') + '>' + px + ' px</option>';
+        }
+        var posHtml = [
+            { value: 'top', label: 'Boven' },
+            { value: 'center', label: 'Midden' },
+            { value: 'bottom', label: 'Onder' }
+        ].map(function(p) {
+            return '<option value="' + p.value + '"' + (textPosition === p.value ? ' selected' : '') + '>' + p.label + '</option>';
+        }).join('');
+        var animHtml = carouselCaptionAnimationOptions.map(function(a) {
+            return '<option value="' + a.value + '"' + (textAnimation === a.value ? ' selected' : '') + '>' + a.label + '</option>';
+        }).join('');
+        var durationHtml = carouselCaptionAnimationDurationOptions.map(function(d) {
+            return '<option value="' + d.value + '"' + (animDurationMs === d.value ? ' selected' : '') + '>' + d.label + '</option>';
+        }).join('');
+        var staggerHtml = carouselCaptionAnimationStaggerOptions.map(function(s) {
+            return '<option value="' + s.value + '"' + (animStaggerMs === s.value ? ' selected' : '') + '>' + s.label + '</option>';
+        }).join('');
+        return '<div class="carousel-slide-caption-options flex flex-row flex-nowrap items-end gap-2 mt-2 max-w-full">' +
+            '<div class="carousel-slide-caption-field w-28 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Tekstgrootte</label>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_size_px]" class="kt-input w-full text-sm carousel-slide-text-size-select">' + sizeHtml + '</select></div>' +
+            '<div class="carousel-slide-caption-field w-28 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Positie</label>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_position]" class="kt-input w-full text-sm carousel-slide-text-position-select">' + posHtml + '</select></div>' +
+            '<div class="carousel-slide-caption-field w-40 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Animatie</label>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_animation]" class="kt-input w-full text-sm carousel-slide-text-animation-select">' + animHtml + '</select></div>' +
+            '</div>' +
+            '<div class="carousel-slide-caption-timing-options flex flex-row flex-nowrap items-end gap-2 mt-2 max-w-full">' +
+            '<div class="carousel-slide-caption-field w-44 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Animatieduur (per woord)</label>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_animation_duration_ms]" class="kt-input w-full text-sm carousel-slide-text-animation-duration-select">' + durationHtml + '</select></div>' +
+            '<div class="carousel-slide-caption-field w-44 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Pauze tussen woorden</label>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_animation_stagger_ms]" class="kt-input w-full text-sm carousel-slide-text-animation-stagger-select">' + staggerHtml + '</select></div>' +
+            '</div>';
+    }
     function reindexCarouselRows(listEl, sectionKey) {
         var rows = listEl.querySelectorAll('.carousel-slide-row');
         rows.forEach(function(row, i) {
             var uuidInp = row.querySelector('input[name$="[uuid]"]');
             var altInp = row.querySelector('input[name$="[alt]"]');
+            var textColorInp = row.querySelector('input[name$="[text_color]"]');
+            var textColorId = 'carousel-text-color-' + sectionKey + '-' + i;
             if (uuidInp) uuidInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][uuid]';
             if (altInp) altInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][alt]';
+            if (textColorInp) {
+                textColorInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_color]';
+                textColorInp.id = textColorId;
+            }
+            var textColorPicker = row.querySelector('.carousel-slide-text-color-picker');
+            if (textColorPicker) {
+                textColorPicker.id = textColorId + '_color';
+                textColorPicker.setAttribute('data-target-input', textColorId);
+            }
+            var textBgColorInp = row.querySelector('input[name$="[text_bg_color]"]');
+            var textBgColorId = 'carousel-bg-color-' + sectionKey + '-' + i;
+            if (textBgColorInp) {
+                textBgColorInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_bg_color]';
+                textBgColorInp.id = textBgColorId;
+            }
+            var textBgColorPicker = row.querySelector('.carousel-slide-text-bg-color-picker');
+            if (textBgColorPicker) {
+                textBgColorPicker.id = textBgColorId + '_color';
+                textBgColorPicker.setAttribute('data-target-input', textBgColorId);
+            }
+            var sizeSel = row.querySelector('.carousel-slide-text-size-select');
+            var posSel = row.querySelector('.carousel-slide-text-position-select');
+            var animSel = row.querySelector('.carousel-slide-text-animation-select');
+            var durationSel = row.querySelector('.carousel-slide-text-animation-duration-select');
+            var staggerSel = row.querySelector('.carousel-slide-text-animation-stagger-select');
+            if (sizeSel) sizeSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_size_px]';
+            if (posSel) posSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_position]';
+            if (animSel) animSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_animation]';
+            if (durationSel) durationSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_animation_duration_ms]';
+            if (staggerSel) staggerSel.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_animation_stagger_ms]';
+            var numEl = row.querySelector('.carousel-slide-num');
+            if (numEl) numEl.textContent = i + 1;
         });
     }
-    function bindCarouselRemove(listEl, sectionKey) {
-        listEl.querySelectorAll('.carousel-slide-remove').forEach(function(btn) {
-            if (btn._carouselBound) return;
-            btn._carouselBound = true;
-            btn.addEventListener('click', function() {
-                var row = btn.closest('.carousel-slide-row');
-                if (row) { row.remove(); reindexCarouselRows(listEl, sectionKey); }
+    function initCarouselSlidesSortable(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slides-sortable:not([data-carousel-sortable-bound])').forEach(function(container) {
+            container.setAttribute('data-carousel-sortable-bound', '1');
+            var sectionKey = container.getAttribute('data-section-key');
+            if (!sectionKey) return;
+            if (typeof Sortable !== 'undefined' && !container._carouselSortable) {
+                container._carouselSortable = new Sortable(container, {
+                    handle: '.carousel-slide-drag-handle',
+                    animation: 150,
+                    ghostClass: 'opacity-50',
+                    draggable: '.carousel-slide-row',
+                    onEnd: function() { reindexCarouselRows(container, sectionKey); }
+                });
+            }
+        });
+    }
+    function appendCarouselSlideRow(listEl, sectionKey, idx, uuid, url, alt, textColor) {
+        var row = document.createElement('div');
+        row.className = 'carousel-slide-row flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 bg-muted/20';
+        row.setAttribute('data-uuid', uuid || '');
+        var safeUrl = (url || '').replace(/"/g, '&quot;');
+        var safeUuid = (uuid || '').replace(/"/g, '&quot;');
+        var safeAlt = (alt || '').replace(/"/g, '&quot;');
+        var safeTextColor = (textColor || '').replace(/"/g, '&quot;');
+        var textColorId = 'carousel-text-color-' + sectionKey + '-' + idx;
+        var textColorPickerVal = (safeTextColor && /^#/.test(safeTextColor)) ? safeTextColor : '#ffffff';
+        row.innerHTML = carouselDragHandleHtml +
+            carouselSlidePreviewHtml(uuid, url) +
+            '<div class="flex-1 min-w-[12rem] space-y-1">' +
+            '<label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">' + (idx + 1) + '</span> · tekst op carousel</label>' +
+            '<div class="flex items-center gap-2">' +
+            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][alt]" value="' + safeAlt + '" placeholder="Bijv. Comfortabel, betrouwbaar en altijd op tijd" class="kt-input flex-1 min-w-0 text-sm">' +
+            '<input type="color" id="' + textColorId + '_color" class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + textColorPickerVal + '" title="Tekstkleur op carousel" data-target-input="' + textColorId + '">' +
+            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][text_color]" id="' + textColorId + '" class="carousel-slide-text-color-hex-input kt-input w-24 font-mono text-sm shrink-0" value="' + safeTextColor + '" placeholder="#ffffff" maxlength="7">' +
+            '</div>' +
+            buildCarouselSlideBgColorHtml(sectionKey, idx, '') +
+            '<p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>' +
+            buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, {}) +
+            '</div>' +
+            '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + idx + '][uuid]" value="' + safeUuid + '">' +
+            '<button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0 self-start" title="Slide verwijderen" aria-label="Slide verwijderen">' +
+            '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>';
+        listEl.appendChild(row);
+        bindCarouselSlidePreviewUpload(row);
+        var previewImg = row.querySelector('.carousel-slide-preview-img');
+        if (previewImg) {
+            bindCarouselSlidePreviewImgError(previewImg);
+            bindCarouselSlidePreviewLightbox(previewImg);
+        }
+    }
+    function setCarouselUploadStatus(area, message, isError) {
+        var statusEl = area && area.querySelector('.carousel-upload-status');
+        if (!statusEl) return;
+        if (!message) {
+            statusEl.textContent = '';
+            statusEl.classList.add('hidden');
+            statusEl.classList.remove('text-destructive');
+            return;
+        }
+        statusEl.textContent = message;
+        statusEl.classList.remove('hidden');
+        statusEl.classList.toggle('text-destructive', !!isError);
+        statusEl.classList.toggle('text-primary', !isError);
+    }
+    function processCarouselUploadFiles(area, fileList) {
+        var sectionKey = area.getAttribute('data-section-key');
+        var uploadUrl = area.getAttribute('data-upload-url');
+        var listEl = sectionKey ? document.getElementById('carousel-slides-' + sectionKey) : null;
+        var fileInput = sectionKey ? document.getElementById('carousel-upload-' + sectionKey) : null;
+        if (!sectionKey || !uploadUrl || !listEl || !fileList || !fileList.length) return;
+        var valid = [];
+        for (var i = 0; i < fileList.length; i++) {
+            var f = fileList[i];
+            if (!f.type || !f.type.startsWith('image/')) continue;
+            if (f.size > 5 * 1024 * 1024) continue;
+            valid.push(f);
+        }
+        if (valid.length === 0) {
+            setCarouselUploadStatus(area, 'Geen geldige afbeeldingen (max. 5MB, alleen JPG/PNG/WebP).', true);
+            if (fileInput) fileInput.value = '';
+            return;
+        }
+        var token = (csrfToken && csrfToken.getAttribute('content')) || '';
+        area.setAttribute('aria-busy', 'true');
+        area.classList.add('pointer-events-none', 'opacity-70');
+        setCarouselUploadStatus(area, 'Bezig met uploaden' + (valid.length > 1 ? ' (' + valid.length + ' afbeeldingen)...' : '...'), false);
+        var uploads = valid.map(function(file) {
+            var fd = new FormData();
+            fd.append('file', file);
+            fd.append('_token', token);
+            if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
+            return fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || 'Upload mislukt'); }); });
+        });
+        Promise.all(uploads)
+            .then(function(results) {
+                var startIdx = listEl.querySelectorAll('.carousel-slide-row').length;
+                results.forEach(function(d, i) {
+                    var idx = startIdx + i;
+                    var url = (d && d.url) ? d.url : ('/website-media/' + (d && d.uuid ? d.uuid : ''));
+                    var uuid = (d && d.uuid) ? d.uuid : '';
+                    appendCarouselSlideRow(listEl, sectionKey, idx, uuid, url, '');
+                });
+                setCarouselUploadStatus(area, valid.length > 1 ? valid.length + ' afbeeldingen toegevoegd.' : 'Afbeelding toegevoegd.', false);
+                setTimeout(function() { setCarouselUploadStatus(area, ''); }, 2500);
+            })
+            .catch(function(err) {
+                setCarouselUploadStatus(area, err.message || 'Upload mislukt.', true);
+                alert(err.message || 'Upload mislukt.');
+            })
+            .finally(function() {
+                area.removeAttribute('aria-busy');
+                area.classList.remove('pointer-events-none', 'opacity-70');
+                if (fileInput) fileInput.value = '';
+            });
+    }
+    function bindCarouselSlidesIn(container) {
+        var root = container || document;
+        root.querySelectorAll('.carousel-upload-area').forEach(function(area) {
+            if (area.getAttribute('data-carousel-upload-bound') === '1') return;
+            var sectionKey = area.getAttribute('data-section-key');
+            var fileInput = sectionKey ? document.getElementById('carousel-upload-' + sectionKey) : null;
+            if (!sectionKey || !fileInput) return;
+            area.setAttribute('data-carousel-upload-bound', '1');
+            area.addEventListener('click', function(e) {
+                if (e.target.closest('.carousel-slide-remove') || e.target.closest('.carousel-slide-image-remove')) return;
+                e.preventDefault();
+                fileInput.value = '';
+                fileInput.click();
+            });
+            area.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInput.value = '';
+                    fileInput.click();
+                }
+            });
+            area.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.add('border-primary');
+            });
+            area.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                area.classList.remove('border-primary');
+            });
+            area.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                area.classList.remove('border-primary');
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                    processCarouselUploadFiles(area, e.dataTransfer.files);
+                }
+            });
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files.length) processCarouselUploadFiles(area, this.files);
             });
         });
+        initCarouselSlidesSortable(root);
+        bindCarouselSlidePreviewUploadIn(root);
+        bindCarouselSlidePreviewImgErrorsIn(root);
+        bindCarouselSlidePreviewLightboxIn(root);
     }
-    document.querySelectorAll('[id^="carousel-slides-"]').forEach(function(listEl) {
-        var sectionKey = listEl.getAttribute('data-section-key');
-        if (sectionKey) bindCarouselRemove(listEl, sectionKey);
-    });
+    if (!window._carouselSlideRemoveDelegated) {
+        window._carouselSlideRemoveDelegated = true;
+        document.addEventListener('click', function(e) {
+            var imageRemoveBtn = e.target.closest('.carousel-slide-image-remove');
+            if (imageRemoveBtn) {
+                var imageRow = imageRemoveBtn.closest('.carousel-slide-row');
+                if (!imageRow) return;
+                var uuidInp = imageRow.querySelector('input[name$="[uuid]"]');
+                var mediaUuid = (uuidInp && uuidInp.value) ? uuidInp.value.trim() : (imageRow.getAttribute('data-uuid') || '').trim();
+                if (!mediaUuid) return;
+                if (!confirm('Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.')) return;
+                var deleteUrl = getWebsiteMediaDeleteUrl(mediaUuid);
+                if (!deleteUrl) return;
+                var token = (csrfToken && csrfToken.getAttribute('content')) || '';
+                imageRemoveBtn.disabled = true;
+                fetch(deleteUrl, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': token
+                    }
+                })
+                    .then(function(r) {
+                        return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Verwijderen mislukt'); });
+                    })
+                    .then(function() {
+                        setCarouselSlidePreviewImage(imageRow, '', '');
+                    })
+                    .catch(function(err) {
+                        alert(err.message || 'Afbeelding verwijderen mislukt.');
+                    })
+                    .finally(function() {
+                        imageRemoveBtn.disabled = false;
+                    });
+                return;
+            }
+            var btn = e.target.closest('.carousel-slide-remove');
+            if (!btn) return;
+            var row = btn.closest('.carousel-slide-row');
+            var listEl = btn.closest('[id^="carousel-slides-"]');
+            if (!row || !listEl) return;
+            var sectionKey = listEl.getAttribute('data-section-key');
+            row.remove();
+            if (sectionKey) reindexCarouselRows(listEl, sectionKey);
+        });
+    }
+    bindCarouselSlidesIn(document);
+    window.bindCarouselSlidesIn = bindCarouselSlidesIn;
+    window.initCarouselSlidesSortable = initCarouselSlidesSortable;
+    initCarouselSlidesSortable(document);
 
     function makeLinkRow(prefix, index, label, url) {
         var div = document.createElement('div');
@@ -2917,6 +3878,23 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (prev && prev.type === 'color') prev.value = val;
             }
         }
+        // Google Reviews: sectie-achtergrond tekst → color picker (#rgb uitbreiden naar #rrggbb)
+        if (e.target.matches && e.target.matches('input[type=text][name*="[section_background]"]')) {
+            var valBg = (e.target.value || '').trim();
+            var prevBg = e.target.previousElementSibling;
+            if (!prevBg || prevBg.type !== 'color') return;
+            if (valBg === '') {
+                prevBg.value = '#f3f4f6';
+                return;
+            }
+            var h = valBg[0] === '#' ? valBg : '#' + valBg;
+            if (/^#([A-Fa-f0-9]{3})$/.test(h)) {
+                h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+            }
+            if (/^#([A-Fa-f0-9]{6})$/.test(h)) {
+                prevBg.value = h.toLowerCase();
+            }
+        }
     });
     // Reset achtergrondkleur naar standaard (featured_services + stats)
     document.addEventListener('click', function(e) {
@@ -2958,6 +3936,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         });
     }
     updateCollapseAllButton();
+    document.querySelectorAll('.home-section-card.home-section-card--collapsed').forEach(function(card) {
+        setSectionCollapsed(card, true);
+    });
+    updateCollapseAllButton();
 
     // Herstel ingeklapte staat uit opgeslagen admin_collapsed (na refresh/save)
     var sortableForCollapsed = document.getElementById('home-sections-sortable');
@@ -2972,11 +3954,28 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         [].slice.call(cardsInSortable).forEach(function(card) {
                             if (card.getAttribute('data-section') === key) setSectionCollapsed(card, true);
                         });
+                        var footerCard = document.querySelector('.home-section-card[data-section="footer"]');
+                        var copyrightCard = document.getElementById('copyright-section-card');
+                        if (key === 'footer' && footerCard) setSectionCollapsed(footerCard, true);
+                        if (key === 'copyright' && copyrightCard) setSectionCollapsed(copyrightCard, true);
                     });
                     updateCollapseAllButton();
                 }
             } catch (err) {}
         }
+    }
+
+    function trackRemovedSectionKey(sectionKey) {
+        if (!sectionKey) return;
+        var removedInp = document.getElementById('home-sections-removed-keys-input');
+        if (!removedInp) return;
+        var removed = (removedInp.value || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        if (removed.indexOf(sectionKey) === -1) {
+            removed.push(sectionKey);
+            removedInp.value = removed.join(',');
+        }
+        var removedFallback = document.getElementById('removed-section-keys-fallback');
+        if (removedFallback) removedFallback.value = removedInp.value;
     }
 
     // Sectie of componentkaart verwijderen: event delegation (normale secties .home-section-remove, componenten .home-section-component-remove)
@@ -2989,6 +3988,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             if (!card) return;
             var sectionKey = card.getAttribute('data-section');
             if (!sectionKey) return;
+            trackRemovedSectionKey(sectionKey);
             if (typeof window.destroyFlowbiteWysiwygIn === 'function') window.destroyFlowbiteWysiwygIn(card);
             if (typeof tinymce !== 'undefined') {
                 card.querySelectorAll('textarea[id]').forEach(function(ta) {
@@ -3093,16 +4093,17 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         }
     })();
 
-    // Feature-kaarten: sortable, toevoegen, verwijderen, reindex
+    // Feature-kaarten: sortable, toevoegen, verwijderen, reindex (alle Kenmerken-secties, ook features_2)
     (function() {
-        var container = document.getElementById('features-items-sortable');
-        var addBtn = document.getElementById('features-item-add');
-        if (!container) return;
+        var sortableRoot = document.getElementById('home-sections-sortable');
+        if (!sortableRoot) return;
 
-        // Guard: als dezelfde Flowbite-editor per ongeluk dubbel in de DOM staat,
-        // verwijder de extra instantie zodat toolbar-teksten niet dubbel renderen.
+        var eyeSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>';
+        var dragSvg = '<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>';
+        var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
+
         function dedupeFlowbiteEditors(scope) {
-            var root = scope && scope.nodeType === 1 ? scope : container;
+            var root = scope && scope.nodeType === 1 ? scope : sortableRoot;
             var seen = new Set();
             root.querySelectorAll('[data-flowbite-wysiwyg]').forEach(function(wrapper) {
                 var editorId = wrapper.getAttribute('data-editor-id') || '';
@@ -3114,78 +4115,115 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 seen.add(editorId);
             });
         }
-        dedupeFlowbiteEditors(container);
 
-        function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder) {
+        function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder, heightOpts) {
+            heightOpts = heightOpts || {};
+            var minH = heightOpts.minH != null ? String(heightOpts.minH) : '300';
+            var maxH = heightOpts.maxH != null ? String(heightOpts.maxH) : minH;
             var tpl = document.getElementById('flowbite-wysiwyg-tpl');
             if (!tpl || !tpl.textContent) return '';
             return tpl.textContent
                 .replace(/__FLOWBITE_EDITOR_ID__/g, editorId)
                 .replace(/__FLOWBITE_NAME__/g, name)
                 .replace(/__FLOWBITE_TEXTAREA_ID__/g, textareaId)
-                .replace(/__FLOWBITE_PLACEHOLDER__/g, placeholder || '');
+                .replace(/__FLOWBITE_PLACEHOLDER__/g, placeholder || '')
+                .replace(/__FLOWBITE_MIN_H__/g, minH)
+                .replace(/__FLOWBITE_MAX_H__/g, maxH);
         }
         window.getFlowbiteWysiwygHtml = getFlowbiteWysiwygHtml;
-        function reindexFeaturesItems() {
+
+        function resolveFeaturesSectionKey(container, card) {
+            return container.getAttribute('data-section-key')
+                || (card && card.getAttribute('data-section'))
+                || 'features';
+        }
+
+        function reindexFeaturesItems(container, sectionKey) {
             var rows = container.querySelectorAll('.features-item-row');
             rows.forEach(function(row, i) {
                 row.setAttribute('data-features-index', i);
                 var numEl = row.querySelector('.features-item-num');
                 if (numEl) numEl.textContent = i + 1;
                 var titleInp = row.querySelector('.features-item-title');
-                if (titleInp) titleInp.name = 'home_sections[features][items][' + i + '][title]';
+                if (titleInp) titleInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][title]';
                 var iconInp = row.querySelector('.features-item-icon');
-                if (iconInp) iconInp.name = 'home_sections[features][items][' + i + '][icon]';
+                if (iconInp) iconInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][icon]';
                 var iconSizeInp = row.querySelector('.features-item-icon-size');
-                if (iconSizeInp) iconSizeInp.name = 'home_sections[features][items][' + i + '][icon_size]';
+                if (iconSizeInp) iconSizeInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][icon_size]';
                 var iconAlignInp = row.querySelector('.features-item-icon-align');
-                if (iconAlignInp) iconAlignInp.name = 'home_sections[features][items][' + i + '][icon_align]';
-                var visInput = row.querySelector('input[type="hidden"][name*="visibility"][name*="features_item"]');
+                if (iconAlignInp) iconAlignInp.name = 'home_sections[' + sectionKey + '][items][' + i + '][icon_align]';
+                var visInput = row.querySelector('input[type="hidden"][name*="visibility"]');
                 if (visInput) {
-                    visInput.name = 'home_sections[visibility][features_item_' + i + ']';
-                    visInput.id = 'visibility-features_item_' + i;
+                    visInput.name = 'home_sections[visibility][' + sectionKey + '_item_' + i + ']';
+                    visInput.id = 'visibility-' + sectionKey + '_item_' + i;
                 }
+                var visToggle = row.querySelector('.section-visibility-toggle[data-target]');
+                if (visToggle) visToggle.setAttribute('data-target', 'visibility-' + sectionKey + '_item_' + i);
                 var wrapper = row.querySelector('[data-flowbite-wysiwyg]');
                 var ta = wrapper ? wrapper.querySelector('[data-editor-input]') : row.querySelector('textarea');
+                var editorId = 'home-' + sectionKey + '-item-' + i + '-description';
                 if (ta) {
-                    ta.name = 'home_sections[features][items][' + i + '][description]';
-                    ta.id = 'home-features-item-' + i + '-description';
+                    ta.name = 'home_sections[' + sectionKey + '][items][' + i + '][description]';
+                    ta.id = editorId;
                 }
+                if (wrapper) wrapper.setAttribute('data-editor-id', editorId);
             });
         }
 
-        container.addEventListener('click', function(e) {
-            var removeBtn = e.target.closest('.features-item-remove');
-            if (!removeBtn) return;
-            var row = removeBtn.closest('.features-item-row');
-            if (!row) return;
-            var rows = container.querySelectorAll('.features-item-row');
-            if (rows.length <= 2) return;
-            var ta = row.querySelector('textarea');
-            if (ta && typeof tinymce !== 'undefined' && tinymce.get(ta.id)) tinymce.get(ta.id).remove();
-            row.remove();
-            reindexFeaturesItems();
-        });
+        function initFeaturesItemsSection(scope) {
+            var root = scope && scope.nodeType === 1 ? scope : sortableRoot;
+            root.querySelectorAll('.features-items-sortable:not([data-features-bound])').forEach(function(container) {
+                container.setAttribute('data-features-bound', '1');
+                var card = container.closest('.home-section-card');
+                var sectionKey = resolveFeaturesSectionKey(container, card);
+                container.setAttribute('data-section-key', sectionKey);
+                container.querySelectorAll('.features-item-add').forEach(function(btn) {
+                    btn.setAttribute('data-section-key', sectionKey);
+                });
+                dedupeFlowbiteEditors(container);
+                if (typeof Sortable !== 'undefined' && !container._featuresSortable) {
+                    container._featuresSortable = new Sortable(container, {
+                        handle: '.features-item-drag-handle',
+                        animation: 150,
+                        ghostClass: 'opacity-50',
+                        onEnd: function() { reindexFeaturesItems(container, sectionKey); }
+                    });
+                }
+            });
+        }
+        window.initFeaturesItemsSection = initFeaturesItemsSection;
 
-        if (addBtn) {
-            addBtn.addEventListener('click', function() {
+        sortableRoot.addEventListener('click', function(e) {
+            var addBtn = e.target.closest('.features-item-add');
+            if (addBtn) {
+                e.preventDefault();
+                var card = addBtn.closest('.home-section-card');
+                var container = card ? card.querySelector('.features-items-sortable') : null;
+                if (!container) return;
+                var sectionKey = resolveFeaturesSectionKey(container, card);
                 var rows = container.querySelectorAll('.features-item-row');
                 var nextIndex = rows.length;
-                var isDark = document.documentElement.classList.contains('dark');
-                var eyeSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>';
-                var eyeSlashSvg = '<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>';
-                var dragSvg = '<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>';
-                var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
                 var iconOpts = '';
                 try {
                     var iconData = JSON.parse(container.getAttribute('data-icon-options') || '{}');
-                    for (var k in iconData) { iconOpts += '<option value="' + k + '">' + (iconData[k] || k) + '</option>'; }
-                } catch (e) { iconOpts = '<option value="light-bulb">Gloeilamp</option><option value="bolt">Bliksem</option><option value="key">Sleutel</option>'; }
+                    for (var k in iconData) {
+                        if (!Object.prototype.hasOwnProperty.call(iconData, k)) continue;
+                        iconOpts += '<option value="' + k + '">' + (iconData[k] || k) + '</option>';
+                    }
+                } catch (err) {
+                    iconOpts = '<option value="light-bulb">Gloeilamp</option><option value="bolt">Bliksem</option><option value="key">Sleutel</option>';
+                }
                 var sizeOpts = '';
                 try {
                     var sizeData = JSON.parse(container.getAttribute('data-size-options') || '{}');
-                    for (var s in sizeData) { sizeOpts += '<option value="' + s + '"' + (s === 'medium' ? ' selected' : '') + '>' + (sizeData[s] || s) + '</option>'; }
-                } catch (e) { sizeOpts = '<option value="small">Klein</option><option value="medium" selected>Normaal</option><option value="large">Groot</option>'; }
+                    for (var s in sizeData) {
+                        if (!Object.prototype.hasOwnProperty.call(sizeData, s)) continue;
+                        sizeOpts += '<option value="' + s + '"' + (s === 'medium' ? ' selected' : '') + '>' + (sizeData[s] || s) + '</option>';
+                    }
+                } catch (err2) {
+                    sizeOpts = '<option value="small">Klein</option><option value="medium" selected>Normaal</option><option value="large">Groot</option>';
+                }
+                var editorId = 'home-' + sectionKey + '-item-' + nextIndex + '-description';
                 var div = document.createElement('div');
                 div.className = 'features-item-row row-visibility-row border border-border rounded-lg p-4 space-y-3 flex gap-3';
                 div.setAttribute('data-features-index', nextIndex);
@@ -3193,79 +4231,45 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     '<div class="flex-1 min-w-0 space-y-3">' +
                     '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
                     '<p class="text-sm font-medium text-secondary-foreground">Kaart <span class="features-item-num">' + (nextIndex + 1) + '</span></p>' +
-                    '<input type="hidden" name="home_sections[visibility][features_item_' + nextIndex + ']" id="visibility-features_item_' + nextIndex + '" value="1">' +
-                    '<button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-features_item_' + nextIndex + '" aria-label="Kaart tonen/verbergen">' + eyeSvg + '</button>' +
+                    '<input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1">' +
+                    '<button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Kaart tonen/verbergen">' + eyeSvg + '</button>' +
                     '<button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button>' +
                     '</div>' +
-                    '<div><label class="block text-xs text-muted-foreground mb-1">Titel</label><input type="text" name="home_sections[features][items][' + nextIndex + '][title]" class="kt-input home-section-input-400 features-item-title" value=""></div>' +
-                    '<div><label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>' + getFlowbiteWysiwygHtml('home-features-item-' + nextIndex + '-description', 'home_sections[features][items][' + nextIndex + '][description]', 'home-features-item-' + nextIndex + '-description', '') + '</div>' +
-                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label><select name="home_sections[features][items][' + nextIndex + '][icon]" class="kt-input w-44 shrink-0 features-item-icon">' + iconOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">' + sizeOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label><select name="home_sections[features][items][' + nextIndex + '][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align"><option value="left">Links</option><option value="center" selected>Midden</option><option value="right">Rechts</option></select></div></div>' +
+                    '<div><label class="block text-xs text-muted-foreground mb-1">Titel</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input home-section-input-400 features-item-title" value=""></div>' +
+                    '<div><label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>' + getFlowbiteWysiwygHtml(editorId, 'home_sections[' + sectionKey + '][items][' + nextIndex + '][description]', editorId, '') + '</div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input w-44 shrink-0 features-item-icon">' + iconOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">' + sizeOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align"><option value="left">Links</option><option value="center" selected>Midden</option><option value="right">Rechts</option></select></div></div>' +
                     '</div>';
                 container.appendChild(div);
                 dedupeFlowbiteEditors(container);
                 if (typeof window.initFlowbiteWysiwyg === 'function') window.initFlowbiteWysiwyg(div);
-                var newToggle = div.querySelector('.section-visibility-toggle');
-                if (newToggle) {
-                    newToggle.addEventListener('click', function() {
-                        var id = this.getAttribute('data-target');
-                        var input = document.getElementById(id);
-                        if (!input) return;
-                        var visible = input.value !== '1';
-                        input.value = visible ? '1' : '0';
-                        this.innerHTML = visible ? eyeSvg : eyeSlashSvg;
-                    });
-                }
-            });
-        }
+                return;
+            }
+            var removeBtn = e.target.closest('.features-item-remove');
+            if (!removeBtn) return;
+            var row = removeBtn.closest('.features-item-row');
+            if (!row) return;
+            var container = row.closest('.features-items-sortable');
+            if (!container) return;
+            var card = container.closest('.home-section-card');
+            var sectionKey = resolveFeaturesSectionKey(container, card);
+            var rows = container.querySelectorAll('.features-item-row');
+            if (rows.length <= 1) return;
+            if (typeof window.destroyFlowbiteWysiwygIn === 'function') window.destroyFlowbiteWysiwygIn(row);
+            var ta = row.querySelector('textarea');
+            if (ta && typeof tinymce !== 'undefined' && tinymce.get(ta.id)) tinymce.get(ta.id).remove();
+            row.remove();
+            reindexFeaturesItems(container, sectionKey);
+        });
 
-        if (typeof Sortable !== 'undefined') {
-            new Sortable(container, {
-                handle: '.features-item-drag-handle',
-                animation: 150,
-                ghostClass: 'opacity-50',
-                onEnd: reindexFeaturesItems
-            });
-        }
+        initFeaturesItemsSection(sortableRoot);
     })();
-
     // Cards ronde hoeken: card toevoegen/verwijderen en hero-upload voor nieuwe rijen
     (function() {
-        var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
         function bindOneHeroUpload(area) {
-            if (!area) return;
-            var sectionKey = area.getAttribute('data-section-key');
-            var field = area.getAttribute('data-field');
-            if (!sectionKey || !field) return;
-            var urlInputId = area.getAttribute('data-url-input-id');
-            var fileInputId = area.getAttribute('data-file-input-id');
-            var previewId = area.getAttribute('data-preview-id') || (field === 'background_image_url' ? 'hero-' + sectionKey + '-bg-preview' : (field === 'author_image_url' ? 'hero-' + sectionKey + '-author-preview' : 'hero-' + sectionKey + '-' + field + '-preview'));
-            var cardRow = area.closest ? area.closest('.cards-ronde-hoeken-item') : null;
-            var scope = cardRow || document;
-            var fileInput = (fileInputId && document.getElementById(fileInputId)) || scope.querySelector('.hero-image-file-input[data-section-key="' + sectionKey + '"][data-field="' + field + '"]');
-            var urlInput = (urlInputId && document.getElementById(urlInputId)) || document.getElementById('hero-' + sectionKey + '-' + field) || scope.querySelector('[id="hero-' + sectionKey + '-' + field + '"]');
-            var preview = (previewId && document.getElementById(previewId)) || (scope.querySelector && scope.querySelector('[id="' + previewId + '"]'));
-            if (!fileInput || !urlInput) return;
-            function handleFile(file) {
-                if (!file) return;
-                var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
-                if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'); fileInput.value = ''; return; }
-                if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); fileInput.value = ''; return; }
-                var fd = new FormData();
-                fd.append('image', file);
-                fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                if (urlInput.value && urlInput.value.trim()) fd.append('previous_url', urlInput.value.trim());
-                if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
-                fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' })
-                    .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
-                    .then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); preview.removeAttribute('srcset'); } } })
-                    .catch(function(err) { alert(err.message || 'Upload mislukt'); });
-                fileInput.value = '';
-            }
-            area.addEventListener('click', function(e) { e.preventDefault(); fileInput.value = ''; fileInput.click(); });
-            area.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); area.classList.add('border-primary'); });
-            area.addEventListener('dragleave', function(e) { e.preventDefault(); area.classList.remove('border-primary'); });
-            area.addEventListener('drop', function(e) { e.preventDefault(); area.classList.remove('border-primary'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
-            fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleFile(this.files[0]); });
+            if (!area || typeof window.bindHeroUploadAreasIn !== 'function') return;
+            var card = area.closest && area.closest('.cards-ronde-hoeken-item');
+            if (!card) return;
+            window.bindHeroUploadAreasIn(card);
         }
         document.addEventListener('click', function(e) {
             var addBtn = e.target.closest('.cards-ronde-hoeken-item-add');
@@ -3282,22 +4286,23 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var div = document.createElement('div');
                 div.className = 'cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3';
                 div.setAttribute('data-cards-index', nextIndex);
+                div.style.setProperty('--card-fs', '14px');
                 var urlInputId = 'hero-' + sectionKey + '-items_' + nextIndex + '_image_url';
                 var fileInputId = urlInputId + '-file';
                 var previewId = urlInputId + '-preview';
                 div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="' + previewId + '" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="' + urlInputId + '" data-preview-id="' + previewId + '" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="' + previewId + '" class="cards-ronde-hoeken-upload-preview w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="' + urlInputId + '" data-preview-id="' + previewId + '" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
                     '<div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url" data-url-input-id="' + urlInputId + '" data-file-input-id="' + fileInputId + '" data-preview-id="' + previewId + '" style="width: 500px; min-width: 500px; height: 130px;"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div></div>' +
                     '<input type="file" id="' + fileInputId + '" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="' + urlInputId + '" value="">' +
                     '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
-                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (600px)</option><option value="xlarge">Extra groot (800px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
-                    '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)') : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (600px)</option><option value="xlarge">Extra groot (800px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_size]" value="14"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
+                    '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)', { minH: 200, maxH: 220 }) : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
                 container.appendChild(div);
+                var newArea = div.querySelector('.hero-image-upload-area');
+                if (newArea) bindOneHeroUpload(newArea);
                 if (typeof window.initFlowbiteWysiwyg === 'function') window.initFlowbiteWysiwyg(div);
                 if (typeof window.bindColorSyncIn === 'function') window.bindColorSyncIn(div);
-                var newArea = div.querySelector('.hero-image-upload-area');
-                if (newArea && heroImageUploadUrl) bindOneHeroUpload(newArea);
                 var newToggle = div.querySelector('.section-visibility-toggle');
                 if (newToggle) {
                     newToggle.addEventListener('click', function() {
@@ -3329,14 +4334,16 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (!container) return;
                 var items = container.querySelectorAll('.featured-services-item');
                 var nextIndex = items.length;
-                var iconOpts = [
-                    { v: 'light-bulb', l: 'Gloeilamp' }, { v: 'bolt', l: 'Bliksem' }, { v: 'key', l: 'Sleutel' },
-                    { v: 'chart-bar', l: 'Grafiek' }, { v: 'user-group', l: 'Gebruikers' }, { v: 'cog-6-tooth', l: 'Tandwiel' },
-                    { v: 'sparkles', l: 'Sterren' }, { v: 'academic-cap', l: 'Academisch' }, { v: 'briefcase', l: 'Koffer' },
-                    { v: 'clipboard-document-check', l: 'Clipboard check' },
-                    { v: 'truck', l: 'Auto' }, { v: 'paper-airplane', l: 'Vliegtuig' }, { v: 'building-office-2', l: 'Ziekenhuis' }, { v: 'cake', l: 'Feest' }
-                ];
-                var iconSelect = iconOpts.map(function(o) { return '<option value="' + o.v + '">' + o.l + '</option>'; }).join('');
+                var iconSelect = '';
+                try {
+                    var fsIconData = JSON.parse(container.getAttribute('data-icon-options') || '{}');
+                    for (var fsIconKey in fsIconData) {
+                        if (!Object.prototype.hasOwnProperty.call(fsIconData, fsIconKey)) continue;
+                        iconSelect += '<option value="' + fsIconKey + '">' + (fsIconData[fsIconKey] || fsIconKey) + '</option>';
+                    }
+                } catch (fsIconErr) {
+                    iconSelect = '<option value="light-bulb">Gloeilamp</option>';
+                }
                 var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
                 var div = document.createElement('div');
                 div.className = 'featured-services-item border border-border rounded-lg p-3 space-y-2';
@@ -3361,6 +4368,68 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     // Nexa Taxi tarieven: image-source select, kaart toevoegen/verwijderen
     (function() {
         var heroImageUploadUrl = {!! json_encode(route('admin.website-pages.upload-hero-image')) !!};
+        function getNexaTaxiVehiclesJsonForSelect(sel) {
+            if (!sel) return [];
+            function tryParse(attr) {
+                try { return JSON.parse(attr || '[]'); } catch (x) { return []; }
+            }
+            var fromSel = tryParse(sel.getAttribute('data-vehicles'));
+            if (fromSel.length) return fromSel;
+            var container = sel.closest('[id^="nexataxi-tarieven-items-"]');
+            if (container) return tryParse(container.getAttribute('data-vehicles'));
+            return [];
+        }
+        function escapeAttrUrl(url) {
+            if (!url || typeof url !== 'string') return '';
+            return url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        }
+        function resolveNexaTaxiPreviewRow(sel) {
+            var row = sel && sel.closest ? sel.closest('.nexataxi-tarieven-item') : null;
+            var previewId = sel ? sel.getAttribute('data-preview-target') : null;
+            var preview = previewId ? document.getElementById(previewId) : null;
+            if (!preview && row) preview = row.querySelector('img[data-nexataxi-preview]');
+            return preview;
+        }
+        function applyNexaTaxiImageSourceSelect(sel) {
+            if (!sel || !sel.classList || !sel.classList.contains('nexataxi-image-source-select')) return;
+            var val = sel.value;
+            var row = sel.closest('.nexataxi-tarieven-item');
+            var wrap = document.getElementById(sel.getAttribute('data-upload-wrap'));
+            var preview = resolveNexaTaxiPreviewRow(sel);
+            var urlInput = document.getElementById(sel.getAttribute('data-image-url-input'));
+            if (wrap) wrap.classList.toggle('hidden', val !== 'custom');
+            if (urlInput && val !== 'custom') urlInput.value = '';
+            if (preview) {
+                if (val === '' || val === 'custom') {
+                    preview.classList.add('hidden');
+                    if (val === 'custom' && urlInput && urlInput.value) {
+                        preview.removeAttribute('srcset');
+                        preview.src = storageUrlToFileUrl(urlInput.value);
+                        preview.classList.remove('hidden');
+                    }
+                } else {
+                    var opt = sel.options[sel.selectedIndex];
+                    var dataUrl = opt && opt.getAttribute('data-image-url');
+                    if (dataUrl) {
+                        preview.removeAttribute('srcset');
+                        preview.src = storageUrlToFileUrl(dataUrl);
+                        preview.classList.remove('hidden');
+                    } else {
+                        var vehicles = getNexaTaxiVehiclesJsonForSelect(sel);
+                        var vid = parseInt(val, 10);
+                        var v = vehicles.find(function(x) { return Number(x.id) === vid || String(x.id) === String(val); });
+                        if (v && v.image_url) {
+                            preview.removeAttribute('srcset');
+                            preview.src = storageUrlToFileUrl(v.image_url);
+                            preview.classList.remove('hidden');
+                        } else {
+                            preview.classList.add('hidden');
+                        }
+                    }
+                }
+            }
+            if (row) updateNexaTaxiImageLabel(row);
+        }
         function updateNexaTaxiImageLabel(row) {
             if (!row) return;
             var label = row.querySelector('.nexataxi-image-label');
@@ -3388,28 +4457,11 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         });
         document.addEventListener('change', function(e) {
             var sel = e.target.closest('.nexataxi-image-source-select');
-            if (sel) {
-                var val = sel.value;
-                var wrap = document.getElementById(sel.getAttribute('data-upload-wrap'));
-                var preview = document.getElementById(sel.getAttribute('data-preview-target'));
-                var urlInput = document.getElementById(sel.getAttribute('data-image-url-input'));
-                if (wrap) wrap.classList.toggle('hidden', val !== 'custom');
-                if (urlInput && val !== 'custom') urlInput.value = '';
-                if (preview) {
-                    if (val === '' || val === 'custom') {
-                        preview.classList.add('hidden');
-                        if (val === 'custom' && urlInput && urlInput.value) preview.src = storageUrlToFileUrl(urlInput.value);
-                    } else {
-                        var vehicles = [];
-                        try { vehicles = JSON.parse(sel.getAttribute('data-vehicles') || '[]'); } catch (x) {}
-                        var vid = parseInt(val, 10);
-                        var v = vehicles.find(function(x) { return x.id === vid; });
-                        if (v && v.image_url) { preview.src = storageUrlToFileUrl(v.image_url); preview.classList.remove('hidden'); }
-                        else { preview.classList.add('hidden'); }
-                    }
-                }
-                updateNexaTaxiImageLabel(sel.closest('.nexataxi-tarieven-item'));
-            }
+            if (sel) applyNexaTaxiImageSourceSelect(sel);
+        });
+        document.addEventListener('input', function(e) {
+            var sel = e.target.closest('.nexataxi-image-source-select');
+            if (sel) applyNexaTaxiImageSourceSelect(sel);
         });
         function reindexNexaTaxiTarievenItems(container, sectionKey) {
             var rows = container ? container.querySelectorAll('.nexataxi-tarieven-item') : [];
@@ -3439,6 +4491,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     sourceSelect.setAttribute('data-preview-target', previewId);
                     sourceSelect.setAttribute('data-upload-wrap', uploadWrapId);
                     sourceSelect.setAttribute('data-image-url-input', hiddenId);
+                    var tarievenContainer = row.closest('[id^="nexataxi-tarieven-items-"]');
+                    if (tarievenContainer) {
+                        sourceSelect.setAttribute('data-vehicles', tarievenContainer.getAttribute('data-vehicles') || '[]');
+                    }
                 }
                 var uploadWrap = row.querySelector('.nexataxi-upload-wrap');
                 if (uploadWrap) uploadWrap.id = uploadWrapId;
@@ -3521,7 +4577,11 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 try { imagePaddings = JSON.parse(container.getAttribute('data-image-paddings') || '{}'); } catch (x) {}
                 var field = 'taxi_items_' + nextIndex + '_image_url';
                 var vehicleOpts = '<option value="">Geen</option>';
-                vehicles.forEach(function(v) { vehicleOpts += '<option value="' + v.id + '">' + (v.name || '') + '</option>'; });
+                vehicles.forEach(function(v) {
+                    var rawUrl = v.image_url ? String(v.image_url) : '';
+                    var attr = rawUrl ? ' data-image-url="' + escapeAttrUrl(rawUrl) + '"' : '';
+                    vehicleOpts += '<option value="' + v.id + '"' + attr + '>' + (v.name || '') + '</option>';
+                });
                 vehicleOpts += '<option value="custom">Eigen afbeelding</option>';
                 var cardSizeOpts = ''; for (var k in cardSizes) cardSizeOpts += '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' + cardSizes[k] + '</option>';
                 var fontStyleOpts = ''; for (var k in fontStyles) fontStyleOpts += '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' + fontStyles[k] + '</option>';
@@ -3538,7 +4598,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 div.className = 'nexataxi-tarieven-item border border-border rounded-lg p-4 space-y-3';
                 div.setAttribute('data-tarieven-index', nextIndex);
                 div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-' + field + '-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-' + field + '" data-preview-id="hero-' + sectionKey + '-' + field + '-preview" title="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-' + field + '-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src="" data-nexataxi-preview><button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-' + field + '" data-preview-id="hero-' + sectionKey + '-' + field + '-preview" title="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
                     '<div class="flex flex-col gap-2 flex-1 min-w-0"><div class="flex items-center gap-3"><label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40">Afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-' + sectionKey + '-' + field + '-preview" data-upload-wrap="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap" data-image-url-input="hero-' + sectionKey + '-' + field + '" data-vehicles="' + (container.getAttribute('data-vehicles') || '[]').replace(/"/g, '&quot;') + '">' + vehicleOpts + '</select></div>' +
                     '<div class="nexataxi-upload-wrap hidden" id="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-' + field + '" value=""></div></div>' +
@@ -3570,7 +4630,11 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
                         fileInput.value = '';
                     }
-                    area.addEventListener('click', function(ev) { ev.preventDefault(); fileInput.click(); });
+                    if (typeof window.bindAdminUploadAreaClick === 'function') {
+                        window.bindAdminUploadAreaClick(area, fileInput, { clearInputFirst: false });
+                    } else {
+                        area.addEventListener('click', function(ev) { ev.preventDefault(); fileInput.click(); });
+                    }
                     fileInput.addEventListener('change', function() { if (this.files && this.files.length) handleFile(this.files[0]); });
                 })();
                 return;
@@ -3622,33 +4686,82 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
 
         function addSectionCard(baseType, newKey, sourceCard, done) {
             var clone = sourceCard.cloneNode(true);
-            clone.classList.remove('home-section-card--collapsed');
             clone.setAttribute('data-section', newKey);
+            setSectionCollapsed(clone, true);
             var walk = function(el, fn) {
                 fn(el);
                 var i = 0, ch = el.children;
                 while (i < ch.length) walk(ch[i++], fn);
             };
+            var escapedBase = baseType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            var heroKeyPrefix = new RegExp('^hero-' + escapedBase + '-');
+            var heroKeyPrefixReplacement = 'hero-' + newKey + '-';
+            function remapHeroSectionKeyToken(value) {
+                if (!value || typeof value !== 'string') return value;
+                if (heroKeyPrefix.test(value)) return value.replace(heroKeyPrefix, heroKeyPrefixReplacement);
+                if (value.indexOf('carousel-slides-' + baseType) === 0) {
+                    return 'carousel-slides-' + newKey;
+                }
+                if (value.indexOf('carousel-upload-' + baseType) === 0) {
+                    return 'carousel-upload-' + newKey;
+                }
+                if (value.indexOf('carousel-interval-' + baseType) === 0) {
+                    return 'carousel-interval-' + newKey;
+                }
+                if (value.indexOf('carousel-text-color-' + baseType + '-') === 0) {
+                    return 'carousel-text-color-' + newKey + value.slice(('carousel-text-color-' + baseType).length);
+                }
+                if (value.indexOf('carousel-bg-color-' + baseType + '-') === 0) {
+                    return 'carousel-bg-color-' + newKey + value.slice(('carousel-bg-color-' + baseType).length);
+                }
+                if (value.indexOf('visibility-' + baseType) === 0) {
+                    return 'visibility-' + newKey + value.slice(('visibility-' + baseType).length);
+                }
+                return value;
+            }
             walk(clone, function(el) {
                 if (el.name && el.name.indexOf('home_sections[') === 0) {
                     el.name = el.name.replace('home_sections[' + baseType + ']', 'home_sections[' + newKey + ']');
                     el.name = el.name.replace('home_sections[visibility][' + baseType, 'home_sections[visibility][' + newKey);
                 }
-                if (el.id && el.id.indexOf(baseType) !== -1) {
-                    el.id = el.id.replace(baseType, newKey);
+                if (el.id) {
+                    el.id = remapHeroSectionKeyToken(el.id);
                 }
-                if (el.getAttribute && el.getAttribute('data-editor-id') && el.getAttribute('data-editor-id').indexOf(baseType) !== -1) {
-                    el.setAttribute('data-editor-id', el.getAttribute('data-editor-id').replace(new RegExp(baseType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newKey));
+                if (el.getAttribute && el.getAttribute('data-editor-id')) {
+                    var de = el.getAttribute('data-editor-id');
+                    var deNew = remapHeroSectionKeyToken(de);
+                    if (deNew !== de) el.setAttribute('data-editor-id', deNew);
                 }
                 if (el.getAttribute && el.getAttribute('data-target')) {
                     var t = el.getAttribute('data-target');
-                    if (t.indexOf('visibility-' + baseType) === 0) el.setAttribute('data-target', 'visibility-' + newKey + t.slice(('visibility-' + baseType).length));
+                    var tNew = remapHeroSectionKeyToken(t);
+                    if (tNew !== t) el.setAttribute('data-target', tNew);
+                }
+                if (el.getAttribute && el.getAttribute('data-target-input')) {
+                    var dt = el.getAttribute('data-target-input');
+                    var dtNew = remapHeroSectionKeyToken(dt);
+                    if (dtNew !== dt) el.setAttribute('data-target-input', dtNew);
+                }
+                if (el.getAttribute && el.getAttribute('aria-describedby')) {
+                    var ad = el.getAttribute('aria-describedby');
+                    var adNew = remapHeroSectionKeyToken(ad);
+                    if (adNew !== ad) el.setAttribute('aria-describedby', adNew);
+                }
+                if (el.getAttribute && el.getAttribute('for')) {
+                    var f = el.getAttribute('for');
+                    var fNew = remapHeroSectionKeyToken(f);
+                    if (fNew !== f) el.setAttribute('for', fNew);
                 }
                 if (el.getAttribute && el.getAttribute('data-section-key') === baseType) {
                     el.setAttribute('data-section-key', newKey);
                 }
                 if (el.tagName === 'TEXTAREA') { el.value = ''; el.style.display = ''; }
-                if (el.tagName === 'INPUT' && el.type !== 'hidden' && el.type !== 'submit' && el.type !== 'button') el.value = '';
+                if (el.tagName === 'INPUT' && el.type !== 'hidden' && el.type !== 'submit' && el.type !== 'button') {
+                    if (el.type === 'color' && (el.classList.contains('hero-title-highlight-color-picker') || el.classList.contains('hero-subtitle-color-picker') || el.classList.contains('hero-overlay-color-picker') || el.classList.contains('carousel-slide-text-color-picker') || el.classList.contains('carousel-slide-text-bg-color-picker'))) {
+                        return;
+                    }
+                    el.value = '';
+                }
             });
             clone.querySelectorAll('.tox-tinymce').forEach(function(tox) { tox.remove(); });
             clone.querySelectorAll('textarea').forEach(function(ta) { ta.style.display = ''; ta.style.visibility = ''; });
@@ -3675,8 +4788,31 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 }
                 clone.querySelectorAll('.featured-services-item-add').forEach(function(btn) { btn.setAttribute('data-section-key', newKey); });
             }
+            if (baseType === 'features' && clone.querySelector) {
+                clone.querySelectorAll('.features-items-sortable').forEach(function(wrap) {
+                    wrap.removeAttribute('data-features-bound');
+                    wrap._featuresSortable = null;
+                    wrap.setAttribute('data-section-key', newKey);
+                });
+                clone.querySelectorAll('.features-item-add').forEach(function(btn) { btn.setAttribute('data-section-key', newKey); });
+            }
+            if (baseType === 'carousel' && clone.querySelector) {
+                clone.querySelectorAll('.carousel-slides-sortable').forEach(function(wrap) {
+                    wrap.removeAttribute('data-carousel-sortable-bound');
+                    wrap._carouselSortable = null;
+                    wrap.setAttribute('data-section-key', newKey);
+                });
+                clone.querySelectorAll('.carousel-upload-area').forEach(function(area) {
+                    area.removeAttribute('data-carousel-upload-bound');
+                });
+            }
             sortableContainer.appendChild(clone);
+            if (baseType === 'features' && typeof window.initFeaturesItemsSection === 'function') {
+                window.initFeaturesItemsSection(clone);
+            }
             if (typeof window.bindHeroUploadAreasIn === 'function') window.bindHeroUploadAreasIn(clone);
+            if (typeof window.bindCarouselSlidesIn === 'function') window.bindCarouselSlidesIn(clone);
+            if (typeof window.bindHeroAdminColorControlsIn === 'function') window.bindHeroAdminColorControlsIn(clone);
             /* Flowbite WYSIWYG (Tiptap): initialiseer editors in de nieuwe sectie; geen TinyMCE op deze textareas */
             var flowbiteWrappers = clone.querySelectorAll('[data-flowbite-wysiwyg]');
             if (flowbiteWrappers.length && typeof window.initFlowbiteWysiwyg === 'function') {
@@ -3882,7 +5018,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             function finishAppendComponentCard(card) {
                 if (!card) return;
                 card.setAttribute('data-section', sectionKey);
-                card.classList.remove('home-section-card--collapsed');
+                setSectionCollapsed(card, true);
                 var visInput = card.querySelector('input.home-section-component-visibility-input');
                 if (visInput) {
                     visInput.setAttribute('name', 'home_sections[visibility][' + sectionKey + ']');
@@ -3896,6 +5032,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (titleEl) titleEl.textContent = name + ' (' + (btn.getAttribute('data-module') || 'Module') + ')';
                 sortableContainer.appendChild(card);
                 if (typeof window.bindHeroUploadAreasIn === 'function') window.bindHeroUploadAreasIn(card);
+                if (typeof window.initGrwAdminStarPickers === 'function') window.initGrwAdminStarPickers(card);
                 var orderNow = (orderInput.value || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
                 orderNow.push(sectionKey);
                 orderInput.value = orderNow.join(',');
@@ -3923,6 +5060,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     ? window.__websitePageModuleName : '';
                 var fetchUrl = componentSectionUrl + '?component=' + encodeURIComponent(compIdRaw) + '&theme=' + encodeURIComponent(themeSlug);
                 if (moduleNameForFetch) fetchUrl += '&module_name=' + encodeURIComponent(moduleNameForFetch);
+                var metaForCompany = document.getElementById('home-sections-meta');
+                var cid = metaForCompany ? String(metaForCompany.getAttribute('data-website-page-company-id') || '').trim() : '';
+                if (cid !== '') fetchUrl += '&company_id=' + encodeURIComponent(cid);
                 btn.disabled = true;
                 fetch(fetchUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }, credentials: 'same-origin' })
                     .then(function(r) { return r.ok ? r.text() : Promise.reject(new Error('HTTP')); })
@@ -4118,6 +5258,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var form = document.getElementById('website-page-form');
         if (form) {
             form.addEventListener('submit', function() {
+                if (typeof window.syncWebsitePageSortOrderFallback === 'function') {
+                    window.syncWebsitePageSortOrderFallback();
+                }
                 var sortable = document.getElementById('home-sections-sortable');
                 var o = document.getElementById('home-sections-order-input');
                 var f = document.getElementById('section-order-fallback');
@@ -4138,6 +5281,14 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     var orderStr = order.join(',');
                     o.value = orderStr;
                     if (f) f.value = orderStr;
+                    var footerCardSubmit = document.querySelector('.home-section-card[data-section="footer"]');
+                    var copyrightCardSubmit = document.getElementById('copyright-section-card');
+                    if (footerCardSubmit && footerCardSubmit.classList.contains('home-section-card--collapsed')) {
+                        collapsed.push('footer');
+                    }
+                    if (copyrightCardSubmit && copyrightCardSubmit.classList.contains('home-section-card--collapsed')) {
+                        collapsed.push('copyright');
+                    }
                     if (collapsedInp) collapsedInp.value = collapsed.join(',');
                 } else if (o && f) f.value = o.value;
             });
@@ -4223,7 +5374,17 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .home-section-header--component { background-color: rgb(127 29 63 / 0.4); border-left-color: rgb(251 113 133); }
     .home-section-header--component .kt-card-title { color: rgb(159 18 57); }
     .dark .home-section-header--component .kt-card-title { color: rgb(253 164 175); }
-    .home-section-card--component.home-section-card--module .home-section-card-body { padding-bottom: 0; }
+    .home-section-card--component.home-section-card--module .home-section-card-body:not(.home-section-component-hint) { padding-bottom: 0; }
+    .home-section-card:has(.home-section-header--component) .home-section-card-body.home-section-component-hint {
+        background-color: rgb(255 228 230 / 0.25);
+        border-top: 1px solid rgb(254 205 211 / 0.6);
+        padding: 0.875rem 1rem;
+    }
+    .dark .home-section-card:has(.home-section-header--component) .home-section-card-body.home-section-component-hint {
+        background-color: rgb(127 29 63 / 0.12);
+        border-top-color: rgb(190 18 60 / 0.35);
+    }
+    .home-section-component-hint p { margin: 0; }
     .home-section-header--footer { background-color: rgb(241 245 249); border-left-color: rgb(100 116 139); }
     .dark .home-section-header--footer { background-color: rgb(30 41 59 / 0.5); border-left-color: rgb(148 163 184); }
     .home-section-header--footer .kt-card-title { color: rgb(51 65 85); }
@@ -4247,6 +5408,86 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .home-section-header--featured-services .text-muted-foreground { color: rgb(134 239 172); }
     .home-section-card:has(.home-section-header--featured-services) .home-section-card-body { background-color: rgb(220 252 231 / 0.3); }
     .dark .home-section-card:has(.home-section-header--featured-services) .home-section-card-body { background-color: rgb(20 83 45 / 0.15); }
+    /* Hero overloop: duidelijke schuiflijn + bolletje (light + dark) */
+    .hero-overlay-opacity-slider {
+        display: flex;
+        align-items: center;
+        min-height: 1.75rem;
+        padding: 0.25rem 0;
+    }
+    .hero-overlay-opacity-range {
+        width: 100%;
+        height: 1.25rem;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        background: transparent;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    .hero-overlay-opacity-range:focus {
+        outline: none;
+    }
+    .hero-overlay-opacity-range:focus-visible::-webkit-slider-thumb {
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+    }
+    .hero-overlay-opacity-range:focus-visible::-moz-range-thumb {
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+    }
+    .hero-overlay-opacity-range::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 9999px;
+        background: #64748b;
+        border: 1px solid #475569;
+    }
+    html.dark .hero-overlay-opacity-range::-webkit-slider-runnable-track,
+    .dark .hero-overlay-opacity-range::-webkit-slider-runnable-track {
+        background: #9ca3af;
+        border-color: #e5e7eb;
+    }
+    .hero-overlay-opacity-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        margin-top: -8px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 2px solid #2563eb;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
+    }
+    html.dark .hero-overlay-opacity-range::-webkit-slider-thumb,
+    .dark .hero-overlay-opacity-range::-webkit-slider-thumb {
+        background: #f8fafc;
+        border-color: #60a5fa;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+    }
+    .hero-overlay-opacity-range::-moz-range-track {
+        height: 6px;
+        border-radius: 9999px;
+        background: #64748b;
+        border: 1px solid #475569;
+    }
+    html.dark .hero-overlay-opacity-range::-moz-range-track,
+    .dark .hero-overlay-opacity-range::-moz-range-track {
+        background: #9ca3af;
+        border-color: #e5e7eb;
+    }
+    .hero-overlay-opacity-range::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #ffffff;
+        border: 2px solid #2563eb;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
+        box-sizing: border-box;
+    }
+    html.dark .hero-overlay-opacity-range::-moz-range-thumb,
+    .dark .hero-overlay-opacity-range::-moz-range-thumb {
+        background: #f8fafc;
+        border-color: #60a5fa;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+    }
 </style>
 @endpush
 
@@ -4257,20 +5498,27 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
     'name' => '__FLOWBITE_NAME__',
     'value' => '',
     'textareaId' => '__FLOWBITE_TEXTAREA_ID__',
-    'placeholder' => '__FLOWBITE_PLACEHOLDER__'
+    'placeholder' => '__FLOWBITE_PLACEHOLDER__',
+    'contentMinHeightPx' => '__FLOWBITE_MIN_H__',
+    'contentMaxHeightPx' => '__FLOWBITE_MAX_H__',
 ])->render();
 @endphp
 <script type="text/template" id="flowbite-wysiwyg-tpl">{!! $flowbiteWysiwygTemplate !!}</script>
 <script>
 (function() {
-    function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder) {
+    function getFlowbiteWysiwygHtml(editorId, name, textareaId, placeholder, heightOpts) {
+        heightOpts = heightOpts || {};
+        var minH = heightOpts.minH != null ? String(heightOpts.minH) : '300';
+        var maxH = heightOpts.maxH != null ? String(heightOpts.maxH) : minH;
         var tpl = document.getElementById('flowbite-wysiwyg-tpl');
         if (!tpl || !tpl.textContent) return '';
         return tpl.textContent
             .replace(/__FLOWBITE_EDITOR_ID__/g, editorId)
             .replace(/__FLOWBITE_NAME__/g, name)
             .replace(/__FLOWBITE_TEXTAREA_ID__/g, textareaId)
-            .replace(/__FLOWBITE_PLACEHOLDER__/g, placeholder || '');
+            .replace(/__FLOWBITE_PLACEHOLDER__/g, placeholder || '')
+            .replace(/__FLOWBITE_MIN_H__/g, minH)
+            .replace(/__FLOWBITE_MAX_H__/g, maxH);
     }
     window.getFlowbiteWysiwygHtml = getFlowbiteWysiwygHtml;
 })();
@@ -4278,7 +5526,7 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
 <script type="importmap">
 {"imports":{"https://esm.sh/v135/prosemirror-model@1.22.3/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs","https://esm.sh/v135/prosemirror-model@1.22.1/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs"}}
 </script>
-<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}"></script>
+<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260516c"></script>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 (function() {
@@ -4356,6 +5604,37 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
         config.selector = sel;
         tinymce.init(config);
     };
+    window.initGrwAdminStarPickers = function(root) {
+        var scope = root || document;
+        scope.querySelectorAll('[data-grw-star-picker]:not([data-grw-star-picker-init])').forEach(function(picker) {
+            picker.setAttribute('data-grw-star-picker-init', '1');
+            var hiddenId = picker.getAttribute('data-grw-star-hidden');
+            var hidden = hiddenId ? document.getElementById(hiddenId) : null;
+            if (!hidden) return;
+            var buttons = picker.querySelectorAll('.grw-admin-star');
+            function updateStars(value) {
+                var v = parseInt(value, 10) || 1;
+                v = Math.max(1, Math.min(5, v));
+                hidden.value = String(v);
+                buttons.forEach(function(btn) {
+                    var starVal = parseInt(btn.getAttribute('data-value'), 10);
+                    if (starVal <= v) {
+                        btn.classList.add('text-yellow-500', 'dark:text-yellow-400');
+                        btn.classList.remove('text-muted-foreground');
+                    } else {
+                        btn.classList.remove('text-yellow-500', 'dark:text-yellow-400');
+                        btn.classList.add('text-muted-foreground');
+                    }
+                });
+            }
+            buttons.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    updateStars(btn.getAttribute('data-value'));
+                });
+            });
+            updateStars(hidden.value);
+        });
+    };
     function initAllHomeSectionTinymce() {
         var selector = '.home-section-tinymce';
         if (typeof tinymce === 'undefined' || !document.querySelector(selector)) return;
@@ -4363,10 +5642,31 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
         config.selector = selector;
         tinymce.init(config);
     }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initAllHomeSectionTinymce);
-    } else {
+    function syncTextBlockSideTemplateRow(selectEl) {
+        if (!selectEl || !selectEl.id) return;
+        var match = selectEl.id.match(/^text-block-(.+)-side-component$/);
+        if (!match) return;
+        var row = document.getElementById('text-block-' + match[1] + '-side-template-row');
+        if (row) row.classList.toggle('hidden', !selectEl.value);
+    }
+    function initTextBlockSideTemplateRows(root) {
+        var scope = root || document;
+        scope.querySelectorAll('[id^="text-block-"][id$="-side-component"]').forEach(syncTextBlockSideTemplateRow);
+    }
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.matches && e.target.matches('[id^="text-block-"][id$="-side-component"]')) {
+            syncTextBlockSideTemplateRow(e.target);
+        }
+    });
+    function initHomeSectionAdminWidgets() {
         initAllHomeSectionTinymce();
+        if (typeof window.initGrwAdminStarPickers === 'function') window.initGrwAdminStarPickers(document);
+        initTextBlockSideTemplateRows(document);
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initHomeSectionAdminWidgets);
+    } else {
+        initHomeSectionAdminWidgets();
     }
     // Sync editors naar textareas vóór form submit
     var form = document.getElementById('website-page-form');
