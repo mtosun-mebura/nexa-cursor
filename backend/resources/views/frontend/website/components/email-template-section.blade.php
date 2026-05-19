@@ -225,13 +225,20 @@
                 (function () {
                     var section = document.getElementById('info-request-section-{{ $sectionKey }}');
                     if (!section) return;
+                    var opts = { rootMargin: '0px 0px -60px 0px', threshold: 0.1 };
+                    if (typeof window.nexaObserveWhenVisible === 'function') {
+                        window.nexaObserveWhenVisible(section, function () {
+                            section.classList.add('in-view');
+                        }, opts);
+                        return;
+                    }
                     var observer = new IntersectionObserver(function (entries) {
                         entries.forEach(function (entry) {
                             if (entry.isIntersecting) {
                                 section.classList.add('in-view');
                             }
                         });
-                    }, { rootMargin: '0px 0px -60px 0px', threshold: 0.1 });
+                    }, opts);
                     observer.observe(section);
                 })();
             </script>

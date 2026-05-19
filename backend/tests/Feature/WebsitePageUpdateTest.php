@@ -633,6 +633,74 @@ class WebsitePageUpdateTest extends TestCase
 
     #[Test]
     #[Group('website-pages')]
+    public function update_preserves_footer_tagline_and_map_when_footer_fields_missing_from_post(): void
+    {
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $customTagline = '<p>Taxi footer tekst op maat</p>';
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => 'taxi',
+            'company_id' => $companyId,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+                'footer' => [
+                    'tagline' => $customTagline,
+                    'map_street' => 'Stationsweg',
+                    'map_huisnummer' => '1',
+                    'map_postcode' => '1234AB',
+                    'map_city' => 'Amsterdam',
+                    'quick_links' => [['label' => 'Home', 'url' => '/']],
+                ],
+                'copyright' => '© Taxi Test',
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = array_filter([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'module_name' => 'taxi',
+            'company_id' => $companyId !== null ? (string) $companyId : null,
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+                'hero' => ['title' => 'Nieuwe hero titel'],
+            ],
+        ], fn ($v) => $v !== null);
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $page->refresh();
+        $footer = $page->home_sections['footer'] ?? [];
+        $this->assertSame($customTagline, $footer['tagline'] ?? null);
+        $this->assertSame('Stationsweg', $footer['map_street'] ?? null);
+        $this->assertSame('Amsterdam', $footer['map_city'] ?? null);
+        $this->assertNotSame(
+            WebsitePage::defaultHomeSections()['footer']['tagline'] ?? '',
+            $footer['tagline'] ?? '',
+            'Footer mag niet terugvallen naar Skillmatching-default tagline'
+        );
+    }
+
+    #[Test]
+    #[Group('website-pages')]
     public function update_persists_sort_order_from_early_fallback_when_primary_key_missing(): void
     {
         if (! Schema::hasColumn('website_pages', 'sort_order')) {

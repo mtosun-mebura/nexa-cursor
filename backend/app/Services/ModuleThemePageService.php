@@ -33,7 +33,9 @@ class ModuleThemePageService
     {
         $query = $this->pageQuery($module);
         if ($oldThemeId !== null) {
-            (clone $query)->where('frontend_theme_id', $oldThemeId)->update(['is_active' => false]);
+            (clone $query)->where('frontend_theme_id', $oldThemeId)
+                ->whereNull('company_id')
+                ->update(['is_active' => false]);
         }
         if ($newThemeId === null) {
             return;
@@ -42,7 +44,9 @@ class ModuleThemePageService
         if (!$theme) {
             return;
         }
-        (clone $query)->where('frontend_theme_id', $newThemeId)->update(['is_active' => true]);
+        (clone $query)->where('frontend_theme_id', $newThemeId)
+            ->whereNull('company_id')
+            ->update(['is_active' => true]);
         $this->ensureHomePageForModuleTheme($module, $theme);
     }
 

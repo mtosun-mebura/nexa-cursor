@@ -370,6 +370,66 @@
       else { el.classList.remove('dark'); }
     })();
     </script>
+    <script>
+    (function() {
+        function parseRootMarginBottomPx(rootMargin) {
+            if (!rootMargin || typeof rootMargin !== 'string') return 0;
+            var parts = rootMargin.trim().split(/\s+/);
+            var bottom = parts.length >= 3 ? parts[2] : parts[0];
+            var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+            if (String(bottom).indexOf('%') !== -1) {
+                return vh * ((parseFloat(bottom, 10) || 0) / 100);
+            }
+            return parseFloat(bottom, 10) || 0;
+        }
+        function isRoughlyInViewport(el, rootMargin) {
+            if (!el || !el.getBoundingClientRect) return false;
+            var rect = el.getBoundingClientRect();
+            var vh = window.innerHeight || document.documentElement.clientHeight;
+            var vw = window.innerWidth || document.documentElement.clientWidth;
+            var bottomMargin = parseRootMarginBottomPx(rootMargin);
+            var visibleBottom = bottomMargin >= 0 ? vh + bottomMargin : vh + bottomMargin;
+            return rect.bottom > 0 && rect.top < visibleBottom && rect.right > 0 && rect.left < vw;
+        }
+        window.nexaObserveWhenVisible = function(targets, callback, options) {
+            options = options || {};
+            var list = typeof targets === 'string'
+                ? Array.prototype.slice.call(document.querySelectorAll(targets))
+                : (targets && targets.length !== undefined ? Array.prototype.slice.call(targets) : (targets ? [targets] : []));
+            if (!list.length) return null;
+            var rootMargin = options.rootMargin || '0px';
+            var threshold = options.threshold !== undefined ? options.threshold : 0;
+            var once = options.once !== false;
+            function run(el) {
+                if (once && el.getAttribute('data-nexa-visible-fired') === '1') return;
+                if (once) el.setAttribute('data-nexa-visible-fired', '1');
+                callback(el);
+            }
+            if (!('IntersectionObserver' in window)) {
+                list.forEach(run);
+                return null;
+            }
+            var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        run(entry.target);
+                        if (once) observer.unobserve(entry.target);
+                    }
+                });
+            }, { root: options.root || null, rootMargin: rootMargin, threshold: threshold });
+            function checkAll() {
+                list.forEach(function(el) {
+                    if (isRoughlyInViewport(el, rootMargin)) run(el);
+                });
+            }
+            list.forEach(function(el) { observer.observe(el); });
+            checkAll();
+            requestAnimationFrame(function() { requestAnimationFrame(checkAll); });
+            window.addEventListener('load', checkAll, { once: true });
+            return observer;
+        };
+    })();
+    </script>
     @stack('styles')
 </head>
 <body class="min-h-screen antialiased flex flex-col theme-{{ $themeSlug ?? 'modern' }} bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" style="font-family: var(--theme-font-body);">
@@ -385,6 +445,11 @@
         </a>
         <span class="min-w-0 flex-1 truncate text-center text-sm font-medium leading-snug">Dit is een voorbeeld met het gekozen thema{{ $previewThemeSuffix }}.</span>
     </div>
+    @if(!empty($previewPageInactive))
+    <div class="sticky top-11 z-[99] w-full border-b border-amber-300 bg-amber-50 px-3 py-2 text-center text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100 sm:px-4" role="status">
+        Deze pagina staat op <strong>Inactief</strong>. Op de live website (inclusief &ldquo;Website openen (dev)&rdquo;) is hij niet zichtbaar totdat je <strong>Actief</strong> aanvinkt en opslaat.
+    </div>
+    @endif
     @endif
     @if(!empty($isStaging) && !empty($stagingBackUrl))
     <div class="preview-bar sticky top-0 z-[100] flex min-h-11 w-full flex-nowrap items-center gap-2.5 px-3 py-1.5 sm:gap-3 sm:px-4 text-sm font-medium leading-snug text-white" data-staging-theme-id="{{ $theme->id ?? '' }}" data-staging-theme-slug="{{ $themeSlug ?? '' }}" role="banner" aria-label="Stagingmodus">
@@ -1241,6 +1306,12 @@
             var sections = document.querySelectorAll('[data-scroll-reveal]');
             if (!sections.length) return;
             var opts = { rootMargin: '0px 0px 22% 0px', threshold: 0.04 };
+            if (typeof window.nexaObserveWhenVisible === 'function') {
+                window.nexaObserveWhenVisible(sections, function(el) {
+                    el.classList.add('is-in-view');
+                }, opts);
+                return;
+            }
             var observer = new IntersectionObserver(function(entries) {
                 entries.forEach(function(entry) {
                     if (entry.isIntersecting) entry.target.classList.add('is-in-view');

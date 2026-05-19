@@ -59,9 +59,15 @@
                      * Eerder: Company::on(module_*) op basis van de huidige route — die module-DB's bevatten
                      * vaak geen (of andere) company-rijen, waardoor de lijst leek terwijl Bedrijven wél gevuld is.
                      */
-                    $companies = \App\Models\Company::query()->orderBy('name')->get();
+                    $companies = \Illuminate\Support\Facades\Cache::remember(
+                        'admin.tenant_switcher.companies',
+                        300,
+                        fn () => \App\Models\Company::query()->orderBy('name')->get(['id', 'name'])
+                    );
                     $selectedTenant = session('selected_tenant');
-                    $selectedCompany = $selectedTenant ? \App\Models\Company::find($selectedTenant) : null;
+                    $selectedCompany = $selectedTenant
+                        ? $companies->firstWhere('id', (int) $selectedTenant)
+                        : null;
                 @endphp
                 <div class="mb-2 tenant-switcher" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-start" data-kt-dropdown-trigger="click" data-kt-dropdown-offset="0px, 5px">
                     <!-- Collapsed sidebar: icon-only toggle (opens same dropdown) -->

@@ -24,6 +24,20 @@ class GeneralSetting extends Model
     /** @var array<string, bool> */
     private static array $tableExistsCache = [];
 
+    /** @var array<string, mixed> */
+    private static array $getCache = [];
+
+    private static ?int $resolvedScopeCompanyId = null;
+
+    private static bool $resolvedScopeCompanyIdComputed = false;
+
+    public static function clearRequestCache(): void
+    {
+        self::$getCache = [];
+        self::$resolvedScopeCompanyId = null;
+        self::$resolvedScopeCompanyIdComputed = false;
+    }
+
     public static function isGlobalPlatformKey(string $key): bool
     {
         return in_array($key, self::GLOBAL_PLATFORM_KEYS, true);
@@ -56,6 +70,12 @@ class GeneralSetting extends Model
      */
     public static function resolveScopeCompanyId(): ?int
     {
+        if (self::$resolvedScopeCompanyIdComputed) {
+            return self::$resolvedScopeCompanyId;
+        }
+
+        self::$resolvedScopeCompanyIdComputed = true;
+
         if (! app()->runningInConsole() && request()) {
             $path = request()->path();
             if (str_starts_with($path, 'admin')) {
@@ -64,15 +84,22 @@ class GeneralSetting extends Model
                     $st = session('selected_tenant');
                     if ($st !== null && $st !== '' && is_numeric($st)) {
                         $id = (int) $st;
+                        self::$resolvedScopeCompanyId = Company::query()->whereKey($id)->exists() ? $id : null;
 
-                        return Company::query()->whereKey($id)->exists() ? $id : null;
+                        return self::$resolvedScopeCompanyId;
                     }
+
+                    self::$resolvedScopeCompanyId = null;
 
                     return null;
                 }
                 if ($user && $user->company_id) {
-                    return (int) $user->company_id;
+                    self::$resolvedScopeCompanyId = (int) $user->company_id;
+
+                    return self::$resolvedScopeCompanyId;
                 }
+
+                self::$resolvedScopeCompanyId = null;
 
                 return null;
             }
@@ -81,11 +108,71 @@ class GeneralSetting extends Model
         if (app()->bound('resolved_tenant_id')) {
             $id = app('resolved_tenant_id');
             if ($id !== null && $id !== '') {
-                return (int) $id;
+                self::$resolvedScopeCompanyId = (int) $id;
+
+                return self::$resolvedScopeCompanyId;
             }
         }
 
+        self::$resolvedScopeCompanyId = null;
+
         return null;
+    }
+
+    /**
+     * @param  list<string>  $keys
+     * @return array<string, string|null>
+     */
+    public static function getMany(array $keys, ?int $forCompanyId = null): array
+    {
+        $keys = array_values(array_unique(array_filter($keys, fn ($k) => is_string($k) && $k !== '')));
+        $result = array_fill_keys($keys, null);
+        if ($keys === [] || ! self::settingsTableAvailable()) {
+            return $result;
+        }
+
+        $platformKeys = array_values(array_filter($keys, [self::class, 'isGlobalPlatformKey']));
+        $scopedKeys = array_values(array_diff($keys, $platformKeys));
+
+        if ($platformKeys !== []) {
+            foreach (self::query()->whereIn('key', $platformKeys)->whereNull('company_id')->pluck('value', 'key') as $key => $value) {
+                $result[$key] = $value;
+            }
+        }
+
+        $cid = $forCompanyId ?? self::resolveScopeCompanyId();
+
+        if ($scopedKeys !== [] && $cid !== null) {
+            foreach (self::query()->whereIn('key', $scopedKeys)->where('company_id', $cid)->pluck('value', 'key') as $key => $value) {
+                $result[$key] = $value;
+            }
+        }
+
+        $missingScoped = array_values(array_filter($scopedKeys, fn ($key) => $result[$key] === null));
+        if ($missingScoped !== []) {
+            foreach (self::query()->whereIn('key', $missingScoped)->whereNull('company_id')->pluck('value', 'key') as $key => $value) {
+                if ($result[$key] === null) {
+                    $result[$key] = $value;
+                }
+            }
+        }
+
+        foreach ($result as $key => $value) {
+            self::$getCache[self::getCacheKey($key, $forCompanyId)] = $value;
+        }
+
+        return $result;
+    }
+
+    private static function getCacheKey(string $key, ?int $forCompanyId): string
+    {
+        if (self::isGlobalPlatformKey($key)) {
+            return 'g|'.$key;
+        }
+
+        $cid = $forCompanyId ?? self::resolveScopeCompanyId();
+
+        return 't|'.$key.'|'.($cid ?? 'null');
     }
 
     /**
@@ -94,6 +181,13 @@ class GeneralSetting extends Model
      */
     public static function get(string $key, $default = null, ?int $forCompanyId = null)
     {
+        $cacheKey = self::getCacheKey($key, $forCompanyId);
+        if (array_key_exists($cacheKey, self::$getCache)) {
+            $cached = self::$getCache[$cacheKey];
+
+            return $cached !== null ? $cached : $default;
+        }
+
         if (! self::settingsTableAvailable()) {
             return $default;
         }
@@ -101,8 +195,10 @@ class GeneralSetting extends Model
         if (self::isGlobalPlatformKey($key)) {
             try {
                 $setting = self::query()->where('key', $key)->whereNull('company_id')->first();
+                $value = $setting ? $setting->value : null;
+                self::$getCache[$cacheKey] = $value;
 
-                return $setting ? $setting->value : $default;
+                return $value !== null ? $value : $default;
             } catch (\Throwable) {
                 return $default;
             }
@@ -114,13 +210,17 @@ class GeneralSetting extends Model
             if ($cid !== null) {
                 $setting = self::query()->where('key', $key)->where('company_id', $cid)->first();
                 if ($setting) {
+                    self::$getCache[$cacheKey] = $setting->value;
+
                     return $setting->value;
                 }
             }
 
             $fallback = self::query()->where('key', $key)->whereNull('company_id')->first();
+            $value = $fallback ? $fallback->value : null;
+            self::$getCache[$cacheKey] = $value;
 
-            return $fallback ? $fallback->value : $default;
+            return $value !== null ? $value : $default;
         } catch (\Throwable) {
             return $default;
         }
@@ -153,6 +253,8 @@ class GeneralSetting extends Model
             ['key' => $key, 'company_id' => $companyId],
             ['value' => (string) $value]
         );
+
+        self::clearRequestCache();
 
         return $model;
     }

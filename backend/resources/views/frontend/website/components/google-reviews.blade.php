@@ -367,7 +367,15 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
         }
         (function initScrollAnimation() {
             var section = document.getElementById(componentId);
-            if (!section || typeof IntersectionObserver === 'undefined') return;
+            if (!section) return;
+            var opts = { rootMargin: '0px 0px -12% 0px', threshold: 0 };
+            if (typeof window.nexaObserveWhenVisible === 'function') {
+                window.nexaObserveWhenVisible(section, function(el) {
+                    el.classList.add('grw-in-view');
+                }, opts);
+                return;
+            }
+            if (typeof IntersectionObserver === 'undefined') return;
             var observer = new IntersectionObserver(function(entries) {
                 entries.forEach(function(entry) {
                     if (entry.isIntersecting) {
@@ -375,7 +383,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
                         observer.unobserve(entry.target);
                     }
                 });
-            }, { rootMargin: '0px 0px -12% 0px', threshold: 0 });
+            }, opts);
             observer.observe(section);
         })();
     })();

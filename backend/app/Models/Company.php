@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class Company extends Model
@@ -18,6 +19,7 @@ class Company extends Model
         'contact_first_name', 'contact_middle_name', 'contact_last_name', 'contact_email',
         'is_active', 'is_intermediary', 'is_main', 'logo_path', 'logo_blob', 'logo_mime_type',
         'logo_dark_blob', 'logo_dark_mime_type', 'building_image',
+        'frontend_theme_id',
     ];
 
     protected $casts = [
@@ -42,6 +44,12 @@ class Company extends Model
                 $company->slug = Str::slug($company->name);
             }
         });
+
+        $forgetTenantSwitcherCache = static function () {
+            Cache::forget('admin.tenant_switcher.companies');
+        };
+        static::saved($forgetTenantSwitcherCache);
+        static::deleted($forgetTenantSwitcherCache);
     }
 
     /**
@@ -152,6 +160,14 @@ class Company extends Model
         return $this->belongsToMany(Module::class, 'company_module')
             ->withPivot('settings')
             ->withTimestamps();
+    }
+
+    /**
+     * Frontend-thema voor deze tenant (website-styling en standaard bij website-pagina's).
+     */
+    public function frontendTheme()
+    {
+        return $this->belongsTo(FrontendTheme::class, 'frontend_theme_id');
     }
 
     /**

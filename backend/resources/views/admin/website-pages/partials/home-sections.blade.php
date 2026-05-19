@@ -1382,20 +1382,23 @@
                         <div class="flex-1 min-w-[12rem] space-y-1">
                             <label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">{{ $idx + 1 }}</span> · tekst op carousel</label>
                             <div class="flex items-center gap-2">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][alt]" value="{{ $alt }}" placeholder="Bijv. Comfortabel, betrouwbaar en altijd op tijd" class="kt-input flex-1 min-w-0 text-sm">
+                                @include('admin.website-pages.partials.carousel-slide-alt-input', ['sectionKey' => $sectionKey, 'idx' => $idx, 'alt' => $alt])
                                 <input type="color"
                                        id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}_color"
                                        class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
                                        value="{{ $slideTextColorPicker }}"
                                        title="Tekstkleur op carousel"
                                        data-target-input="carousel-text-color-{{ $sectionKey }}-{{ $idx }}">
-                                <input type="text"
-                                       name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_color]"
-                                       id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}"
-                                       class="carousel-slide-text-color-hex-input kt-input w-24 font-mono text-sm shrink-0"
-                                       value="{{ $slideTextColor }}"
-                                       placeholder="#ffffff"
-                                       maxlength="7">
+                                <div class="carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]">
+                                    <input type="text"
+                                           name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_color]"
+                                           id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}"
+                                           class="carousel-slide-text-color-hex-input kt-input w-full font-mono text-sm"
+                                           value="{{ $slideTextColor }}"
+                                           placeholder="#ffffff"
+                                           maxlength="7"
+                                           data-skip-validation-wrapper="1">
+                                </div>
                             </div>
                             @include('admin.website-pages.partials.carousel-slide-text-bg-color', ['sectionKey' => $sectionKey, 'idx' => $idx, 'item' => $item])
                             <p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>
@@ -2966,6 +2969,75 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (!v || v.length !== 4 || v.charAt(0) !== '#') return v;
         return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
     }
+    function carouselSlideBgOpacityDefaultPercent(hex) {
+        var h = (hex || '').trim();
+        return /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(h) ? 88 : 78;
+    }
+    function carouselSlideBgOpacitySliderValue(hex, storedOpacity) {
+        if (storedOpacity !== undefined && storedOpacity !== null && storedOpacity !== '') {
+            return Math.max(0, Math.min(100, parseInt(storedOpacity, 10)));
+        }
+        return carouselSlideBgOpacityDefaultPercent(hex);
+    }
+    function carouselSlideBgRgba(hex, opacityPercent) {
+        hex = (hex || '').trim();
+        var hasHex = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex);
+        var alpha = Math.max(0, Math.min(100, parseInt(opacityPercent, 10) || 0)) / 100;
+        if (!hasHex) {
+            return 'rgba(0, 0, 0, ' + alpha + ')';
+        }
+        if (hex.length === 4) {
+            hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+        }
+        var r = parseInt(hex.slice(1, 3), 16);
+        var g = parseInt(hex.slice(3, 5), 16);
+        var b = parseInt(hex.slice(5, 7), 16);
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    }
+    var carouselSlideBgOpacityPreviewChecker = 'linear-gradient(45deg, #d1d5db 25%, transparent 25%), linear-gradient(-45deg, #d1d5db 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d1d5db 75%), linear-gradient(-45deg, transparent 75%, #d1d5db 75%)';
+    function carouselSlideBgOpacityPreviewBackground(hex, opacityPercent) {
+        var rgba = carouselSlideBgRgba(hex, opacityPercent);
+        return 'linear-gradient(' + rgba + ',' + rgba + '), ' + carouselSlideBgOpacityPreviewChecker;
+    }
+    function getCarouselSlideBgHexFromRow(row) {
+        if (!row) return '';
+        var hexInp = row.querySelector('.carousel-slide-text-bg-color-hex-input');
+        var hex = hexInp ? (hexInp.value || '').trim() : '';
+        if (/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex)) return expandShortHex(hex);
+        var picker = row.querySelector('.carousel-slide-text-bg-color-picker');
+        return picker && picker.value ? picker.value : '';
+    }
+    function syncCarouselSlideBgOpacityDisplay(range) {
+        if (!range || !range.id) return;
+        var valueEl = document.getElementById(range.id + '-value');
+        var previewEl = document.getElementById(range.id + '-preview');
+        var v = String(range.value);
+        range.setAttribute('aria-valuenow', v);
+        if (valueEl) valueEl.textContent = v + '%';
+        if (previewEl) {
+            var row = range.closest('.carousel-slide-row');
+            var hex = getCarouselSlideBgHexFromRow(row);
+            previewEl.style.backgroundImage = carouselSlideBgOpacityPreviewBackground(hex, v);
+            previewEl.style.backgroundSize = 'auto, 8px 8px, 8px 8px, 8px 8px, 8px 8px';
+            previewEl.style.backgroundColor = 'transparent';
+        }
+    }
+    function bindCarouselSlideBgOpacityIn(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slide-text-bg-opacity-range').forEach(syncCarouselSlideBgOpacityDisplay);
+    }
+    function carouselSlideBgOpacityControlsHtml(sectionKey, idx, hex, storedOpacity) {
+        var opacityId = 'carousel-bg-opacity-' + sectionKey + '-' + idx;
+        var sliderVal = carouselSlideBgOpacitySliderValue(hex, storedOpacity);
+        return '<div class="carousel-slide-bg-opacity-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">' +
+            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Transparantie</span>' +
+            '<div class="carousel-slide-text-bg-opacity-slider hero-overlay-opacity-slider flex-1 min-w-[8rem] max-w-[14rem]">' +
+            '<input type="range" name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_opacity]" id="' + opacityId + '" class="carousel-slide-text-bg-opacity-range hero-overlay-opacity-range w-full" min="0" max="100" step="1" value="' + sliderVal + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + sliderVal + '" aria-describedby="' + opacityId + '-value" title="0 = volledig doorzichtig, 100 = ondoorzichtig">' +
+            '</div>' +
+            '<span id="' + opacityId + '-value" class="carousel-slide-text-bg-opacity-value inline-flex items-center justify-center min-w-[2.75rem] rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shrink-0" aria-live="polite">' + sliderVal + '%</span>' +
+            '<span id="' + opacityId + '-preview" class="carousel-slide-text-bg-opacity-preview h-10 w-10 rounded border border-input shrink-0 shadow-sm" title="Voorbeeld achtergrondvlak" role="img" aria-label="Voorbeeld achtergrond"></span>' +
+            '</div>';
+    }
     function syncHeroOverlayOpacityDisplay(range) {
         if (!range || !range.id) return;
         var valueEl = document.getElementById(range.id + '-value');
@@ -3051,6 +3123,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             var carouselBgTargetId = carouselBgPicker.getAttribute('data-target-input');
             var carouselBgHex = carouselBgTargetId && document.getElementById(carouselBgTargetId);
             if (carouselBgHex) carouselBgHex.value = carouselBgPicker.value;
+            var carouselBgRow = carouselBgPicker.closest('.carousel-slide-row');
+            var carouselBgOpacityRange = carouselBgRow && carouselBgRow.querySelector('.carousel-slide-text-bg-opacity-range');
+            if (carouselBgOpacityRange) syncCarouselSlideBgOpacityDisplay(carouselBgOpacityRange);
             return;
         }
         var carouselBgHexInp = target.closest('.carousel-slide-text-bg-color-hex-input');
@@ -3060,6 +3135,14 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var bgv = (carouselBgHexInp.value || '').trim();
                 if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(bgv)) carouselBgCp.value = expandShortHex(bgv);
             }
+            var carouselBgHexRow = carouselBgHexInp.closest('.carousel-slide-row');
+            var carouselBgHexOpacityRange = carouselBgHexRow && carouselBgHexRow.querySelector('.carousel-slide-text-bg-opacity-range');
+            if (carouselBgHexOpacityRange) syncCarouselSlideBgOpacityDisplay(carouselBgHexOpacityRange);
+            return;
+        }
+        var carouselBgOpacityRangeEvt = target.closest('.carousel-slide-text-bg-opacity-range');
+        if (carouselBgOpacityRangeEvt) {
+            syncCarouselSlideBgOpacityDisplay(carouselBgOpacityRangeEvt);
             return;
         }
         var opacityRange = target.closest('.hero-overlay-opacity-range');
@@ -3213,6 +3296,79 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         root.querySelectorAll('.carousel-slide-preview-img').forEach(function(img) {
             if (!img.classList.contains('hidden') && (img.src || img.getAttribute('src'))) {
                 bindCarouselSlidePreviewLightbox(img);
+            }
+        });
+    }
+    function carouselSlideHexInputHtml(sectionKey, idx, field, value, id, placeholder, inputClass) {
+        var safeVal = (value || '').replace(/"/g, '&quot;');
+        return '<div class="carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]">' +
+            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][' + field + ']" id="' + id + '" class="' + inputClass + ' kt-input w-full font-mono text-sm" value="' + safeVal + '" placeholder="' + placeholder + '" maxlength="7" data-skip-validation-wrapper="1">' +
+            '</div>';
+    }
+    function carouselSlideAltInputHtml(sectionKey, idx, alt) {
+        var safeAlt = (alt || '').replace(/"/g, '&quot;');
+        var clearHidden = (alt || '').trim() !== '' ? '' : ' hidden';
+        return '<div class="carousel-slide-alt-input-wrap relative flex-1 min-w-0">' +
+            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][alt]" value="' + safeAlt + '" placeholder="Bijv. Comfortabel, betrouwbaar en altijd op tijd" class="kt-input carousel-slide-alt-input w-full min-w-0 text-sm pe-9">' +
+            '<button type="button" class="carousel-slide-alt-clear kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-1 top-1/2 z-[2] -translate-y-1/2' + clearHidden + '" aria-label="Tekst wissen" tabindex="-1" title="Tekst wissen"><i class="ki-filled ki-cross text-sm"></i></button>' +
+            '</div>';
+    }
+    function bindCarouselSlideAltClear(wrap) {
+        if (!wrap || wrap.getAttribute('data-carousel-alt-clear-bound') === '1') return;
+        var input = wrap.querySelector('.carousel-slide-alt-input');
+        var btn = wrap.querySelector('.carousel-slide-alt-clear');
+        if (!input || !btn) return;
+        wrap.setAttribute('data-carousel-alt-clear-bound', '1');
+        function syncClearBtn() {
+            btn.classList.toggle('hidden', !String(input.value || '').trim());
+        }
+        input.addEventListener('input', syncClearBtn);
+        input.addEventListener('change', syncClearBtn);
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            try { input.focus(); } catch (err) { /* ignore */ }
+            syncClearBtn();
+        });
+        syncClearBtn();
+    }
+    function bindCarouselSlideAltClearIn(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slide-alt-input-wrap').forEach(bindCarouselSlideAltClear);
+    }
+    function fixCarouselHexInputLayout(scope) {
+        var root = scope && scope.nodeType === 1 ? scope : document;
+        root.querySelectorAll('.carousel-slide-text-bg-color-hex-input, .carousel-slide-text-color-hex-input').forEach(function(inp) {
+            inp.style.paddingRight = '';
+            inp.style.width = '';
+            var iconWrap = inp.parentElement && inp.parentElement.querySelector('.validation-icon-wrapper');
+            if (iconWrap) iconWrap.remove();
+            var wrap = inp.closest('.carousel-slide-hex-input-wrap');
+            if (!wrap) {
+                wrap = document.createElement('div');
+                wrap.className = 'carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]';
+                inp.parentNode.insertBefore(wrap, inp);
+                wrap.appendChild(inp);
+            }
+            wrap.classList.add('shrink-0', 'flex-none', 'w-[90px]', 'min-w-[90px]', 'max-w-[90px]');
+            wrap.style.width = '90px';
+            wrap.style.minWidth = '90px';
+            wrap.style.maxWidth = '90px';
+            var badWrapper = inp.parentElement;
+            if (badWrapper && badWrapper !== wrap && badWrapper.classList.contains('relative') && badWrapper.style.width === '100%') {
+                wrap.appendChild(inp);
+                if (!badWrapper.querySelector('input, select, textarea') && !badWrapper.querySelector('.validation-icon-wrapper')) {
+                    badWrapper.remove();
+                }
+            }
+            var flexRow = inp.closest('.flex.items-center.gap-2');
+            if (flexRow && flexRow.classList.contains('relative') && flexRow.style.width === '100%') {
+                flexRow.classList.remove('relative');
+                flexRow.style.width = '';
+                flexRow.style.position = '';
             }
         });
     }
@@ -3434,15 +3590,16 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         { value: 300, label: '0,3 s' },
         { value: 500, label: '0,5 s' }
     ];
-    function buildCarouselSlideBgColorHtml(sectionKey, idx, textBgColor) {
+    function buildCarouselSlideBgColorHtml(sectionKey, idx, textBgColor, textBgOpacity) {
         var safeBg = (textBgColor || '').replace(/"/g, '&quot;');
         var bgId = 'carousel-bg-color-' + sectionKey + '-' + idx;
         var bgPickerVal = (safeBg && /^#/.test(safeBg)) ? safeBg : '#000000';
-        return '<div class="flex items-center gap-2 mt-1">' +
+        return '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">' +
             '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Achtergrond</span>' +
             '<input type="color" id="' + bgId + '_color" class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + bgPickerVal + '" title="Achtergrondkleur tekstblok" data-target-input="' + bgId + '">' +
-            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_color]" id="' + bgId + '" class="carousel-slide-text-bg-color-hex-input kt-input w-24 font-mono text-sm shrink-0" value="' + safeBg + '" placeholder="#000000" maxlength="7">' +
-            '<span class="text-xs text-muted-foreground">Leeg = donker semi-transparant</span></div>';
+            carouselSlideHexInputHtml(sectionKey, idx, 'text_bg_color', safeBg, bgId, '#000000', 'carousel-slide-text-bg-color-hex-input') +
+            '</div>' +
+            carouselSlideBgOpacityControlsHtml(sectionKey, idx, safeBg, textBgOpacity);
     }
     function buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, opts) {
         opts = opts || {};
@@ -3520,6 +3677,18 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 textBgColorPicker.id = textBgColorId + '_color';
                 textBgColorPicker.setAttribute('data-target-input', textBgColorId);
             }
+            var textBgOpacityRange = row.querySelector('.carousel-slide-text-bg-opacity-range');
+            var textBgOpacityId = 'carousel-bg-opacity-' + sectionKey + '-' + i;
+            if (textBgOpacityRange) {
+                textBgOpacityRange.name = 'home_sections[' + sectionKey + '][items][' + i + '][text_bg_opacity]';
+                textBgOpacityRange.id = textBgOpacityId;
+                textBgOpacityRange.setAttribute('aria-describedby', textBgOpacityId + '-value');
+                var textBgOpacityValueEl = row.querySelector('.carousel-slide-text-bg-opacity-value');
+                if (textBgOpacityValueEl) textBgOpacityValueEl.id = textBgOpacityId + '-value';
+                var textBgOpacityPreviewEl = row.querySelector('.carousel-slide-text-bg-opacity-preview');
+                if (textBgOpacityPreviewEl) textBgOpacityPreviewEl.id = textBgOpacityId + '-preview';
+                syncCarouselSlideBgOpacityDisplay(textBgOpacityRange);
+            }
             var sizeSel = row.querySelector('.carousel-slide-text-size-select');
             var posSel = row.querySelector('.carousel-slide-text-position-select');
             var animSel = row.querySelector('.carousel-slide-text-animation-select');
@@ -3566,9 +3735,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             '<div class="flex-1 min-w-[12rem] space-y-1">' +
             '<label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">' + (idx + 1) + '</span> · tekst op carousel</label>' +
             '<div class="flex items-center gap-2">' +
-            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][alt]" value="' + safeAlt + '" placeholder="Bijv. Comfortabel, betrouwbaar en altijd op tijd" class="kt-input flex-1 min-w-0 text-sm">' +
+            carouselSlideAltInputHtml(sectionKey, idx, alt) +
             '<input type="color" id="' + textColorId + '_color" class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + textColorPickerVal + '" title="Tekstkleur op carousel" data-target-input="' + textColorId + '">' +
-            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][text_color]" id="' + textColorId + '" class="carousel-slide-text-color-hex-input kt-input w-24 font-mono text-sm shrink-0" value="' + safeTextColor + '" placeholder="#ffffff" maxlength="7">' +
+            carouselSlideHexInputHtml(sectionKey, idx, 'text_color', safeTextColor, textColorId, '#ffffff', 'carousel-slide-text-color-hex-input') +
             '</div>' +
             buildCarouselSlideBgColorHtml(sectionKey, idx, '') +
             '<p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>' +
@@ -3584,6 +3753,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             bindCarouselSlidePreviewImgError(previewImg);
             bindCarouselSlidePreviewLightbox(previewImg);
         }
+        var altWrap = row.querySelector('.carousel-slide-alt-input-wrap');
+        if (altWrap) bindCarouselSlideAltClear(altWrap);
+        var bgOpacityRange = row.querySelector('.carousel-slide-text-bg-opacity-range');
+        if (bgOpacityRange) syncCarouselSlideBgOpacityDisplay(bgOpacityRange);
     }
     function setCarouselUploadStatus(area, message, isError) {
         var statusEl = area && area.querySelector('.carousel-upload-status');
@@ -3697,6 +3870,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         bindCarouselSlidePreviewUploadIn(root);
         bindCarouselSlidePreviewImgErrorsIn(root);
         bindCarouselSlidePreviewLightboxIn(root);
+        bindCarouselSlideAltClearIn(root);
+        bindCarouselSlideBgOpacityIn(root);
+        fixCarouselHexInputLayout(root);
     }
     if (!window._carouselSlideRemoveDelegated) {
         window._carouselSlideRemoveDelegated = true;
@@ -3746,6 +3922,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         });
     }
     bindCarouselSlidesIn(document);
+    bindCarouselSlideBgOpacityIn(document);
+    fixCarouselHexInputLayout(document);
+    setTimeout(function() { fixCarouselHexInputLayout(document); bindCarouselSlideBgOpacityIn(document); }, 300);
     window.bindCarouselSlidesIn = bindCarouselSlidesIn;
     window.initCarouselSlidesSortable = initCarouselSlidesSortable;
     initCarouselSlidesSortable(document);
@@ -5467,6 +5646,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         border-radius: 9999px;
         background: #64748b;
         border: 1px solid #475569;
+    }
+    html.dark .carousel-slide-text-bg-opacity-preview,
+    .dark .carousel-slide-text-bg-opacity-preview {
+        filter: brightness(0.92);
     }
     html.dark .hero-overlay-opacity-range::-moz-range-track,
     .dark .hero-overlay-opacity-range::-moz-range-track {

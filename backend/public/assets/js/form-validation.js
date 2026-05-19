@@ -688,6 +688,15 @@
             if (input.type === 'color') {
                 return null;
             }
+            // Carousel hex-velden (#RRGGBB): vast smal veld — geen 100%-wrapper of icoon.
+            if (
+                input.hasAttribute('data-skip-validation-wrapper') ||
+                input.classList.contains('carousel-slide-text-bg-color-hex-input') ||
+                input.classList.contains('carousel-slide-text-color-hex-input') ||
+                input.closest('.carousel-slide-hex-input-wrap')
+            ) {
+                return null;
+            }
             // Don't create validation icons for checkboxes or radio buttons
             if (input.type === 'checkbox' || input.type === 'radio') {
                 return null;
@@ -742,11 +751,13 @@
                 const inCarouselCaptionRow = inputWrapper.closest(
                     '.carousel-slide-caption-options, .carousel-slide-caption-timing-options'
                 );
+                const inCarouselHexWrap = inputWrapper.classList.contains('carousel-slide-hex-input-wrap') ||
+                    inputWrapper.closest('.carousel-slide-hex-input-wrap');
                 if (!inputWrapper.classList.contains('relative')) {
                     inputWrapper.classList.add('relative');
                 }
                 inputWrapper.style.position = 'relative';
-                if (inCarouselCaptionRow) {
+                if (inCarouselCaptionRow || inCarouselHexWrap) {
                     inputWrapper.style.width = '';
                     inputWrapper.style.maxWidth = '';
                     inputWrapper.classList.add('flex-none');

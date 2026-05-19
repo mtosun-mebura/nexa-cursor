@@ -3664,13 +3664,18 @@ body.booking-modal-open {
     function initBookingModuleScrollReveal() {
         var section = document.querySelector('[data-booking-module-scroll-reveal]');
         if (!section) return;
+        var opts = { rootMargin: '0px 0px -60px 0px', threshold: 0.06 };
+        if (typeof window.nexaObserveWhenVisible === 'function') {
+            window.nexaObserveWhenVisible(section, function(el) {
+                el.classList.add('is-in-view');
+            }, opts);
+            return;
+        }
         var observer = new IntersectionObserver(function(entries) {
             entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('is-in-view');
-                }
+                if (entry.isIntersecting) entry.target.classList.add('is-in-view');
             });
-        }, { rootMargin: '0px 0px -60px 0px', threshold: 0.06 });
+        }, opts);
         observer.observe(section);
     }
     if (document.readyState === 'loading') {

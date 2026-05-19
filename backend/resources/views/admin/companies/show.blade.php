@@ -499,13 +499,27 @@
                     @endcan
                 </li>
                 @if(! empty($companyWebsiteDevPreviewUrl))
-                    <li class="flex flex-wrap items-center gap-3">
-                        <a href="{{ $companyWebsiteDevPreviewUrl }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
-                            Website openen (dev)
-                        </a>
-                        <span class="text-xs text-muted-foreground">
-                            Opent <code class="text-xs">{{ parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost' }}</code> met <code class="text-xs">{{ config('tenancy.dev_effective_host_query_param') }}={{ $companyWebsiteDevPreviewHost }}</code>.
-                        </span>
+                    <li class="flex flex-col gap-2">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <a href="{{ $companyWebsiteDevPreviewUrl }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
+                                Website openen (dev)
+                            </a>
+                            <span class="text-xs text-muted-foreground">
+                                Opent <code class="text-xs">{{ parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost' }}</code> met <code class="text-xs">{{ config('tenancy.dev_effective_host_query_param') }}={{ $companyWebsiteDevPreviewHost }}</code>.
+                            </span>
+                        </div>
+                        @if($companyWebsiteInactivePages->isNotEmpty())
+                            <p class="text-xs text-amber-800 dark:text-amber-200 mb-0 rounded-md border border-amber-300/80 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700/80 px-3 py-2">
+                                @if(! empty($companyWebsiteHomeInactive))
+                                    De home staat op <strong>Inactief</strong> en de live site toont dan niet de website-builder.
+                                @else
+                                    Sommige geconfigureerde pagina&rsquo;s staan op <strong>Inactief</strong> en ontbreken in het menu; footer-links geven 404.
+                                @endif
+                                Inactief:
+                                <strong>{{ $companyWebsiteInactivePages->map(fn ($p) => $p->title ?: $p->slug)->implode(', ') }}</strong>.
+                                Zet bij <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="font-medium underline">Website-pagina&rsquo;s</a> per pagina <strong>Actief</strong> aan en sla op.
+                            </p>
+                        @endif
                     </li>
                 @endif
                 @if(auth()->user()->hasRole('super-admin'))

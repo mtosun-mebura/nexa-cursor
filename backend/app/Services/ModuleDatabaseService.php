@@ -101,6 +101,10 @@ class ModuleDatabaseService
     public function registerConnection(string $moduleName): void
     {
         $connName = $this->getModuleConnectionName($moduleName);
+        if (Config::has("database.connections.{$connName}")) {
+            return;
+        }
+
         $default = config('database.default');
         $config = config("database.connections.{$default}");
 
@@ -124,7 +128,6 @@ class ModuleDatabaseService
 
         Config::set("database.connections.{$connName}", $config);
         DB::purge($connName);
-        Log::info("Module connection registered: {$connName} (strategy={$this->getStrategy()})");
     }
 
     // ------------------------------------------------------------------
@@ -222,7 +225,7 @@ class ModuleDatabaseService
         $schemaName = $this->getModuleSchemaName($moduleName);
 
         return DB::selectOne(
-            "SELECT 1 FROM information_schema.schemata WHERE schema_name = ?",
+            'SELECT 1 FROM information_schema.schemata WHERE schema_name = ?',
             [$schemaName]
         ) !== null;
     }

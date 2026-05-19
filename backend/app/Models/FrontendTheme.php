@@ -35,9 +35,20 @@ class FrontendTheme extends Model
         return $query->where('is_active', true);
     }
 
+    /**
+     * Eerste gepubliceerde (beschikbare) thema — fallback voor centraal domein zonder tenant.
+     */
     public static function getActive(): ?self
     {
-        return static::active()->first();
+        return static::active()->orderBy('id')->first();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, self>
+     */
+    public static function getAllActive(): \Illuminate\Database\Eloquent\Collection
+    {
+        return static::active()->orderBy('slug')->get();
     }
 
     public function getSettings(): array

@@ -46,7 +46,10 @@
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug naar overzicht
             </a>
-            <a href="{{ route('admin.website-pages.preview', $page) }}{{ $page->module_name ? '?module=' . rawurlencode($page->module_name) : '' }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
+            @php
+                $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('admin.website-pages.preview', $page).($page->module_name ? '?module='.rawurlencode($page->module_name) : '');
+            @endphp
+            <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
                 Pagina voorbeeld
             </a>
@@ -78,6 +81,8 @@
         <input type="hidden" name="_google_reviews_section_background" id="google-reviews-section-background-fallback" value="">
         {{-- Fallback voor visibility footer (max_input_vars): JSON met footer_* keys bovenaan formulier --}}
         <input type="hidden" name="_visibility_footer_fallback" id="visibility-footer-fallback" value="">
+        {{-- Fallback footer-config (tagline, kaart, links) — staat bovenaan i.v.m. max_input_vars --}}
+        <input type="hidden" name="_footer_config_fallback" id="footer-config-fallback" value="">
         {{-- Zelfde patroon als _section_order: Volgorde-input staat laat in het formulier; bij max_input_vars vult JS deze vroege hidden. --}}
         <input type="hidden" name="_sort_order" id="sort-order-fallback-input" value="{{ old('_sort_order', old('sort_order', $page->sort_order ?? 0)) }}">
         @include('admin.website-pages.partials.sort-order-sync')
@@ -442,6 +447,45 @@
             if (typeof window.syncAllFlowbiteWysiwygEditors === 'function') window.syncAllFlowbiteWysiwygEditors();
             if (typeof window.syncWebsitePageSortOrderFallback === 'function') {
                 window.syncWebsitePageSortOrderFallback();
+            }
+            var footerConfigFb = document.getElementById('footer-config-fallback');
+            if (footerConfigFb) {
+                var footerPayload = {};
+                var taglineTa = document.getElementById('home-footer-tagline');
+                if (taglineTa) footerPayload.tagline = taglineTa.value || '';
+                ['map_postcode', 'map_huisnummer', 'map_street', 'map_city'].forEach(function(key) {
+                    var el = document.querySelector('[name="home_sections[footer][' + key + ']"]');
+                    if (el) footerPayload[key] = el.value || '';
+                });
+                var latEl = document.getElementById('footer-map-lat');
+                var lngEl = document.getElementById('footer-map-lng');
+                if (latEl) footerPayload.map_lat = latEl.value || '';
+                if (lngEl) footerPayload.map_lng = lngEl.value || '';
+                var mapSizeEl = document.querySelector('[name="home_sections[footer][map_size]"]');
+                var mapZoomEl = document.getElementById('footer-map-zoom');
+                if (mapSizeEl) footerPayload.map_size = mapSizeEl.value || '';
+                if (mapZoomEl) footerPayload.map_zoom = mapZoomEl.value || '';
+                var cityOnlyEl = document.querySelector('[name="home_sections[footer][map_city_only]"]');
+                if (cityOnlyEl && cityOnlyEl.type === 'checkbox') footerPayload.map_city_only = cityOnlyEl.checked ? 1 : 0;
+                var balloonEl = document.getElementById('footer-map-show-address-balloon');
+                if (balloonEl) footerPayload.map_show_address_balloon = balloonEl.checked ? 1 : 0;
+                function collectFooterLinks(listId, key) {
+                    var list = document.getElementById(listId);
+                    if (!list) return;
+                    var rows = [];
+                    list.querySelectorAll('.footer-link-row').forEach(function(row) {
+                        var labelInp = row.querySelector('input[name*="[label]"]');
+                        var urlInp = row.querySelector('input[name*="[url]"]');
+                        var label = labelInp ? (labelInp.value || '').trim() : '';
+                        if (label !== '') {
+                            rows.push({ label: label, url: urlInp ? (urlInp.value || '') : '' });
+                        }
+                    });
+                    footerPayload[key] = rows;
+                }
+                collectFooterLinks('footer-quick-links-list', 'quick_links');
+                collectFooterLinks('footer-support-links-list', 'support_links');
+                footerConfigFb.value = JSON.stringify(footerPayload);
             }
             // Visibility footer-fallback: alle footer_* visibility-waarden in één veld (voorkomt verlies door max_input_vars)
             var fallbackInp = document.getElementById('visibility-footer-fallback');

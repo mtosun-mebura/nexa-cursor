@@ -166,6 +166,14 @@
             (function () {
                 if (window.__nexaModulesOverviewObserverInit) return;
                 window.__nexaModulesOverviewObserverInit = true;
+                var opts = { threshold: 0.2 };
+                var sections = document.querySelectorAll('.nexa-modules-overview-scroll-reveal');
+                if (typeof window.nexaObserveWhenVisible === 'function') {
+                    window.nexaObserveWhenVisible(sections, function (el) {
+                        el.classList.add('is-visible');
+                    }, opts);
+                    return;
+                }
                 var observer = new IntersectionObserver(function (entries) {
                     entries.forEach(function (entry) {
                         if (entry.isIntersecting) {
@@ -173,8 +181,8 @@
                             observer.unobserve(entry.target);
                         }
                     });
-                }, { threshold: 0.2 });
-                document.querySelectorAll('.nexa-modules-overview-scroll-reveal').forEach(function (el) {
+                }, opts);
+                sections.forEach(function (el) {
                     observer.observe(el);
                 });
             })();

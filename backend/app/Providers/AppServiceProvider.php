@@ -148,10 +148,11 @@ class AppServiceProvider extends ServiceProvider
         if (! $dbService->supportsModuleDatabases()) {
             return;
         }
-        foreach (ModuleModel::where('installed', true)->pluck('name') as $name) {
+        $moduleNames = ModuleModel::where('installed', true)->pluck('name');
+        foreach ($moduleNames as $name) {
             try {
-                $dbService->registerConnection($name);
-            } catch (\Throwable $e) {
+                $dbService->registerConnection((string) $name);
+            } catch (\Throwable) {
                 // Bij eerste request na install kan DB nog niet bestaan; negeer
             }
         }

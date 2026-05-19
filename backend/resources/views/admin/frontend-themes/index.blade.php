@@ -78,7 +78,7 @@
             </a>
         </div>
     </div>
-    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema te gebruiken; het actieve thema bepaalt het uiterlijk van de website. Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
+    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per <strong>bedrijf</strong> kies je welk thema op de tenant-site wordt getoond (Bedrijf bewerken → Website-thema). Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
 
     @if(session('success'))
         <div class="kt-alert kt-alert-success mb-5">
@@ -131,9 +131,10 @@
                             </form>
                         @else
                             <a href="{{ $themeStagingUrls[$theme->id] ?? route('admin.frontend-themes.staging', ['theme_id' => $theme->id]) }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-warning" title="Geconfigureerde website van dit thema tonen">Website tonen</a>
-                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline" onsubmit="return confirm('Thema de-publiceren? De website wordt dan inactief en op localhost:8000 verschijnt de Coming soon-pagina.');">
+                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline" onsubmit="return confirm('Thema de-publiceren? Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.');">
                                 @csrf
-                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-muted-foreground hover:text-destructive" title="Thema inactief maken">De-publiceren</button>
+                                <input type="hidden" name="theme_id" value="{{ $theme->id }}">
+                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-muted-foreground hover:text-destructive" title="Thema niet meer beschikbaar maken">De-publiceren</button>
                             </form>
                             <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground" title="Kleur, lettertypen en footer aanpassen">Instellingen</a>
                         @endif
@@ -146,7 +147,7 @@
     @if(count($activeModulesForThemes ?? []) > 0)
         <div class="mt-8">
             <h2 class="text-lg font-medium mb-3">Thema per module</h2>
-            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module. Kernpagina's (geen module) gebruiken het actieve standaardthema hierboven. Alleen actieve modules worden getoond.</p>
+            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module (fallback). Per tenant bepaalt het <strong>website-thema op het bedrijf</strong> het uiterlijk. Alleen actieve modules worden getoond.</p>
             <div class="kt-card">
                 <div class="kt-card-table kt-scrollable-x-auto">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm">

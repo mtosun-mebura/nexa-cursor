@@ -77,13 +77,20 @@
     if (!root) return;
     var imgs = root.querySelectorAll('.nexataxi-card-image');
     if (!imgs.length) return;
+    var opts = { threshold: 0.12 };
+    if (typeof window.nexaObserveWhenVisible === 'function') {
+        window.nexaObserveWhenVisible(imgs, function(img) {
+            img.classList.add('opacity-100');
+        }, opts);
+        return;
+    }
     var io = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
             if (!entry.isIntersecting) return;
             entry.target.classList.add('opacity-100');
             io.unobserve(entry.target);
         });
-    }, { threshold: 0.12 });
+    }, opts);
     imgs.forEach(function(img) { io.observe(img); });
 })();
 </script>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\FrontendTheme;
 use App\Models\Module as ModuleModel;
 use App\Models\User;
 use App\Services\EnvService;
@@ -113,7 +114,9 @@ class AdminCompanyController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
-        return view('admin.companies.create', compact('branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
+        $publishedFrontendThemes = FrontendTheme::active()->orderBy('name')->get();
+
+        return view('admin.companies.create', compact('branches', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes'));
     }
 
     public function store(Request $request)
@@ -157,6 +160,7 @@ class AdminCompanyController extends Controller
             'company_logo_mode' => 'nullable|in:single,light_dark',
             'logo' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
             'logo_dark' => 'nullable|file|mimes:svg,png,jpg,jpeg|max:5120',
+            'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -202,6 +206,7 @@ class AdminCompanyController extends Controller
 
         // Handle logo upload (must run before create; do not pass UploadedFile to create)
         unset($companyData['logo'], $companyData['logo_dark'], $companyData['company_logo_mode']);
+        $companyData['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
             $companyData['logo_blob'] = base64_encode(file_get_contents($file->getRealPath()));
@@ -284,6 +289,8 @@ class AdminCompanyController extends Controller
 
         $companyWebsiteDevPreviewUrl = null;
         $companyWebsiteDevPreviewHost = null;
+        $companyWebsiteHomeInactive = false;
+        $companyWebsiteInactivePages = collect();
         $devTenantHostQueryParam = (string) config('tenancy.dev_effective_host_query_param', '');
         if (! app()->isProduction() && $devTenantHostQueryParam !== '') {
             $primaryDomain = $company->domains->firstWhere('is_primary', true);
@@ -296,6 +303,10 @@ class AdminCompanyController extends Controller
                     '&',
                     PHP_QUERY_RFC3986
                 );
+                app()->instance('resolved_tenant_id', $company->id);
+                $websiteBuilder = app(\App\Services\WebsiteBuilderService::class);
+                $companyWebsiteHomeInactive = $websiteBuilder->tenantHasInactiveConfiguredHomePage($company->id);
+                $companyWebsiteInactivePages = $websiteBuilder->getInactiveTenantWebsitePages($company->id);
             }
         }
 
@@ -307,7 +318,9 @@ class AdminCompanyController extends Controller
             'googleMapsCenterLng',
             'googleMapsType',
             'companyWebsiteDevPreviewUrl',
-            'companyWebsiteDevPreviewHost'
+            'companyWebsiteDevPreviewHost',
+            'companyWebsiteHomeInactive',
+            'companyWebsiteInactivePages'
         ));
     }
 
@@ -332,7 +345,9 @@ class AdminCompanyController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
 
-        return view('admin.companies.edit', compact('company', 'branches', 'allModules', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
+        $publishedFrontendThemes = FrontendTheme::active()->orderBy('name')->get();
+
+        return view('admin.companies.edit', compact('company', 'branches', 'allModules', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType', 'publishedFrontendThemes'));
     }
 
     public function update(Request $request, Company $company)
@@ -378,6 +393,7 @@ class AdminCompanyController extends Controller
             'module_ids' => [Rule::requiredIf(ModuleModel::query()->exists()), 'array', 'min:1'],
             'module_ids.*' => 'integer|exists:modules,id',
             'apply_module_sync' => 'nullable|boolean',
+            'frontend_theme_id' => 'nullable|integer|exists:frontend_themes,id',
         ], [
             'name.required' => 'Bedrijfsnaam is verplicht.',
             'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
@@ -417,6 +433,7 @@ class AdminCompanyController extends Controller
         unset($data['branch_select']);
 
         unset($data['logo'], $data['logo_dark'], $data['company_logo_mode'], $data['module_ids'], $data['apply_module_sync']);
+        $data['frontend_theme_id'] = $this->normalizeCompanyFrontendThemeId($request->input('frontend_theme_id'));
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
@@ -645,5 +662,19 @@ class AdminCompanyController extends Controller
                 $moduleManager->activateModule($name);
             }
         }
+    }
+
+    private function normalizeCompanyFrontendThemeId(mixed $raw): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        $id = (int) $raw;
+        if ($id <= 0) {
+            return null;
+        }
+        $theme = FrontendTheme::query()->whereKey($id)->where('is_active', true)->first();
+
+        return $theme ? $theme->id : null;
     }
 }

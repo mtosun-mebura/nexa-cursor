@@ -11,10 +11,17 @@
         'center' => 'carousel-caption-pos-center inset-0 flex items-center justify-center px-6 py-12 md:px-12',
         'bottom' => 'carousel-caption-pos-bottom bottom-0 pb-14 pt-20 md:pb-20 md:pt-28',
     ];
-    $carouselCaptionBgRgba = function (string $hex): string {
+    $carouselCaptionBgRgba = function (string $hex, mixed $opacityPercent = null): string {
         $hex = trim($hex);
-        if ($hex === '' || ! preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $hex)) {
-            return 'rgba(0, 0, 0, 0.78)';
+        $hasCustomHex = $hex !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $hex);
+        $defaultAlpha = $hasCustomHex ? 0.88 : 0.78;
+        if ($opacityPercent !== null && $opacityPercent !== '') {
+            $alpha = max(0, min(100, (int) $opacityPercent)) / 100;
+        } else {
+            $alpha = $defaultAlpha;
+        }
+        if (! $hasCustomHex) {
+            return 'rgba(0, 0, 0, '.$alpha.')';
         }
         if (strlen($hex) === 4) {
             $hex = '#'.$hex[1].$hex[1].$hex[2].$hex[2].$hex[3].$hex[3];
@@ -23,7 +30,7 @@
         $g = hexdec(substr($hex, 3, 2));
         $b = hexdec(substr($hex, 5, 2));
 
-        return 'rgba('.$r.', '.$g.', '.$b.', 0.88)';
+        return 'rgba('.$r.', '.$g.', '.$b.', '.$alpha.')';
     };
 @endphp
 @if(count($items) > 0)
@@ -93,7 +100,8 @@
                 $textColor = trim((string) ($item['text_color'] ?? ''));
                 $captionColor = ($textColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $textColor)) ? $textColor : '#ffffff';
                 $textBgColor = trim((string) ($item['text_bg_color'] ?? ''));
-                $captionBgColor = $carouselCaptionBgRgba($textBgColor);
+                $textBgOpacity = $item['text_bg_opacity'] ?? null;
+                $captionBgColor = $carouselCaptionBgRgba($textBgColor, $textBgOpacity);
                 $textSizePx = isset($item['text_size_px']) ? (int) $item['text_size_px'] : 24;
                 $textSizePx = max(12, min(50, $textSizePx));
                 $textSizePx = (int) (round($textSizePx / 2) * 2);

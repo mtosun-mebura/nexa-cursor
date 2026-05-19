@@ -99,8 +99,16 @@
         (function() {
             var section = document.currentScript.closest('.text-block-section');
             var el = section ? section.querySelector('.text-block-content-fade-in') : null;
-            if (!el || !('IntersectionObserver' in window)) {
-                if (el) el.style.opacity = '1';
+            if (!el) return;
+            var opts = { rootMargin: '0px 0px -50px 0px', threshold: 0.1 };
+            if (typeof window.nexaObserveWhenVisible === 'function') {
+                window.nexaObserveWhenVisible(el, function(target) {
+                    target.classList.add('text-block-in-view');
+                }, opts);
+                return;
+            }
+            if (!('IntersectionObserver' in window)) {
+                el.style.opacity = '1';
                 return;
             }
             var observer = new IntersectionObserver(function(entries) {
@@ -110,7 +118,7 @@
                         observer.unobserve(entry.target);
                     }
                 });
-            }, { rootMargin: '0px 0px -50px 0px', threshold: 0.1 });
+            }, opts);
             observer.observe(el);
         })();
     </script>

@@ -128,7 +128,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             ])),
             6 => view('admin.companies.wizard.step6', array_merge($viewData, [
                 'websitePages' => $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true),
-                'activeTheme' => $this->websiteBuilder->getActiveTheme(),
+                'activeTheme' => $this->websiteBuilder->getActiveTheme((int) $company->id),
             ])),
             7 => view('admin.companies.wizard.step7', $viewData),
             default => abort(404),

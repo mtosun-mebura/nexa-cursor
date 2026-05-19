@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\CompanyDomain;
 use App\Models\FrontendTheme;
 use App\Models\Module;
 use App\Models\Vacancy;
@@ -60,13 +61,15 @@ class AdminWebsitePageController extends Controller
                 && ($page->module_name === null || $page->module_name === '')
                 && (! isset($page->company_id) || $page->company_id === null || $page->company_id === '');
         })->values();
-        $activeTheme = $this->websiteBuilder->getActiveTheme();
+        $activeTheme = $this->resolveDefaultThemeForWebsiteAdmin($request, null);
         $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
         $wizardIndexQuery = $this->websitePagesIndexQuery($request);
         $websiteTenantContext = $this->buildWebsitePageCompanyContext($request, null);
         $websitePagesCompanyNames = $this->websitePagesCompanyNameMapForIndex($pages);
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames'));
+        $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, null);
+
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl'));
     }
 
     public function create(Request $request)
@@ -74,7 +77,7 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $installedModules = $this->moduleManager->getInstalledModules();
         $themes = FrontendTheme::orderBy('slug')->get();
-        $defaultTheme = $this->websiteBuilder->getActiveTheme();
+        $defaultTheme = $this->resolveDefaultThemeForWebsiteAdmin($request, null);
         $moduleThemes = $this->getModuleThemesForForm($installedModules);
         $env = app(\App\Services\EnvService::class);
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
@@ -97,7 +100,9 @@ class AdminWebsitePageController extends Controller
             ?? $this->resolveExplicitWizardCompanyId($request);
         $suggestedSortOrder = WebsitePage::nextSortOrderForTenant($connectionForSortSuggest, $companyIdForSortSuggest);
 
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder'));
+        $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, null);
+
+        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder', 'websiteDevPreviewUrl'));
     }
 
     public function store(Request $request)
@@ -151,9 +156,11 @@ class AdminWebsitePageController extends Controller
                 ? $request->boolean('show_in_menu')
                 : true;
         }
-        $activeTheme = $this->websiteBuilder->getActiveTheme();
-        $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         $data['module_name'] = $moduleName;
+        $connForCompany = $connection ?? config('database.default');
+        $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForCompany, null);
+        $activeTheme = $this->resolveThemeModelForWebsitePageSave($request, $data, $moduleName);
+        $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         $input = $this->getHomeSectionsInput($request);
         if ($data['page_type'] === 'home') {
@@ -161,8 +168,6 @@ class AdminWebsitePageController extends Controller
         } else {
             $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true);
         }
-        $connForCompany = $connection ?? config('database.default');
-        $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForCompany, null);
         $this->applyNextWebsitePageSortOrderOnCreate($data, $connection, $connForSchema);
         $this->persistGoogleReviewsSettingsFromHomeSectionsInput(
             $input,
@@ -208,7 +213,7 @@ class AdminWebsitePageController extends Controller
         }
         $installedModules = $this->moduleManager->getInstalledModules();
         $themes = FrontendTheme::orderBy('slug')->get();
-        $defaultTheme = $this->websiteBuilder->getActiveTheme();
+        $defaultTheme = $this->resolveDefaultThemeForWebsiteAdmin($request, $website_page);
         $moduleThemes = $this->getModuleThemesForForm($installedModules);
         $env = app(\App\Services\EnvService::class);
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
@@ -255,6 +260,8 @@ class AdminWebsitePageController extends Controller
         $isCentralMarketingWelcome = WebsitePage::isCentralMarketingWelcomeSlug((string) $website_page->slug)
             && ($website_page->module_name === null || $website_page->module_name === '');
 
+        $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, $website_page);
+
         return view('admin.website-pages.edit', [
             'page' => $website_page,
             'installedModules' => $installedModules,
@@ -270,6 +277,7 @@ class AdminWebsitePageController extends Controller
             'moduleNameForComponents' => $moduleNameForComponents,
             'websiteTenantContext' => $websiteTenantContext,
             'isCentralMarketingWelcome' => $isCentralMarketingWelcome,
+            'websiteDevPreviewUrl' => $websiteDevPreviewUrl,
         ]);
     }
 
@@ -277,9 +285,11 @@ class AdminWebsitePageController extends Controller
      * De modulenaam van de "actieve" frontend: de module die het actieve thema gebruikt,
      * anders de eerste actieve module. Null als er geen actieve module is.
      */
-    private function getActiveModuleNameForFrontend(): ?string
+    private function getActiveModuleNameForFrontend(?Request $request = null): ?string
     {
-        $activeTheme = $this->websiteBuilder->getActiveTheme();
+        $activeTheme = $request
+            ? $this->resolveDefaultThemeForWebsiteAdmin($request, null)
+            : $this->websiteBuilder->getActiveTheme();
         if ($activeTheme) {
             $module = Module::where('installed', true)->where('active', true)
                 ->where('frontend_theme_id', $activeTheme->id)
@@ -311,7 +321,7 @@ class AdminWebsitePageController extends Controller
             return $this->resolveCanonicalModuleName((string) $q);
         }
 
-        return $this->getActiveModuleNameForFrontend();
+        return $this->getActiveModuleNameForFrontend($request);
     }
 
     /**
@@ -380,7 +390,7 @@ class AdminWebsitePageController extends Controller
             }
         }
         if (! $theme) {
-            $theme = $this->websiteBuilder->getActiveTheme();
+            $theme = $this->resolveDefaultThemeForWebsiteAdmin($request, null);
         }
         $blocks = $theme && $theme->default_blocks ? $theme->default_blocks : [];
 
@@ -607,6 +617,7 @@ class AdminWebsitePageController extends Controller
             'branding' => $branding,
             'showContactForm' => $website_page->page_type === 'contact',
             'isPreview' => true,
+            'previewPageInactive' => ! $website_page->is_active,
             'previewEditUrl' => $previewEditUrl,
             'jobs' => $jobs,
             'useModernHomeLayout' => $useThemeHomeLayout,
@@ -626,7 +637,8 @@ class AdminWebsitePageController extends Controller
         $moduleName = $this->resolveCanonicalModuleName($request->input('module_name'));
         // Zelfde DB als route-binding (module-DB vs hoofddatabase). Request-module_name kan afwijken;
         // dan gold hasColumn/validatie voor de verkeerde connection en werd company_id niet opgeslagen.
-        $connection = $website_page->getConnectionName();
+        $usesModuleDatabase = $this->websitePageUsesSeparateModuleDatabase($website_page, $moduleName);
+        $connection = $usesModuleDatabase ? $website_page->getConnectionName() : null;
         $slugRule = $this->buildSlugUniqueRule(
             $connection,
             $moduleName,
@@ -674,8 +686,6 @@ class AdminWebsitePageController extends Controller
         } else {
             $data['sort_order'] = $this->resolveWebsitePageSortOrderForSave($request, $website_page);
         }
-        $activeTheme = $this->websiteBuilder->getActiveTheme();
-        $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         $data['module_name'] = $moduleName;
         if (WebsitePage::isCentralMarketingWelcomeSlug((string) $website_page->slug)
             && ($website_page->module_name === null || $website_page->module_name === '')) {
@@ -685,6 +695,11 @@ class AdminWebsitePageController extends Controller
             if (\Illuminate\Support\Facades\Schema::connection($connForSchema)->hasColumn($table, 'company_id')) {
                 $data['company_id'] = null;
             }
+        }
+        $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForSchema, $website_page);
+        $activeTheme = $this->resolveThemeModelForWebsitePageSave($request, $data, $moduleName);
+        if (! $usesModuleDatabase) {
+            $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
         }
         $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         // home_sections niet meenemen in validate() om BadRequestException te voorkomen (ParameterBag verwacht array;
@@ -727,6 +742,7 @@ class AdminWebsitePageController extends Controller
             $input['section_order'] = $existing['section_order'] ?? WebsitePage::defaultPageSectionsForNonHome($themeSlug)['section_order'];
         }
         // Tekstblok-content kan ontbreken in de request (bijv. max_input_vars of async WYSIWYG-sync): neem bestaande content over
+        $rawStoredHomeSections = is_array($website_page->home_sections) ? $website_page->home_sections : [];
         $existingSections = $website_page->getHomeSections();
         $orderForMerge = $input['section_order'] ?? [];
         if (is_string($orderForMerge) && $orderForMerge !== '') {
@@ -749,6 +765,7 @@ class AdminWebsitePageController extends Controller
                 }
             }
         }
+        $input = $this->mergePreservedFooterIntoHomeSectionsInput($input, $rawStoredHomeSections, $request);
         $removedSectionKeys = $this->parseRemovedSectionKeysFromInput($input, $request);
         $existingOrderRaw = $existingSections['section_order'] ?? [];
         if (is_string($existingOrderRaw) && $existingOrderRaw !== '') {
@@ -764,14 +781,13 @@ class AdminWebsitePageController extends Controller
         );
         try {
             if ($data['page_type'] === 'home') {
-                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false, $existingSectionOrder, $removedSectionKeys);
+                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, false, $existingSectionOrder, $removedSectionKeys, $rawStoredHomeSections);
             } else {
-                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true, $existingSectionOrder, $removedSectionKeys);
+                $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true, $existingSectionOrder, $removedSectionKeys, $rawStoredHomeSections);
             }
-            if ($connection !== null) {
+            if ($usesModuleDatabase) {
                 $data['frontend_theme_id'] = null;
             }
-            $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForSchema, $website_page);
             $reviewsCompanyId = $this->resolveGoogleReviewsCompanyIdForSave(
                 $data,
                 $website_page,
@@ -779,18 +795,7 @@ class AdminWebsitePageController extends Controller
             );
             $this->persistGoogleReviewsSettingsFromHomeSectionsInput($input, $reviewsCompanyId, $request);
             $website_page->update($data);
-
-            // Footer op de site komt van de home-pagina. Sync vanuit een andere pagina alleen als die pagina
-            // de footer zelf beheert (geen "Overnemen van Home"); anders zou een save van bv. Over ons de
-            // home-footer overschrijven met lege/verouderde data uit het verborgen formulier.
-            $homePage = $this->websiteBuilder->getHomePage();
-            $footerInheritsFromHome = ! empty($data['home_sections']['footer']['inherit_from_home'] ?? false);
-            if ($homePage && $homePage->id !== $website_page->id && $homePage->frontend_theme_id == $website_page->frontend_theme_id && ! $footerInheritsFromHome) {
-                $current = is_array($homePage->home_sections) ? $homePage->home_sections : [];
-                $current['footer'] = $data['home_sections']['footer'] ?? ($current['footer'] ?? []);
-                $current['visibility'] = array_merge($current['visibility'] ?? [], $data['home_sections']['visibility'] ?? []);
-                $homePage->update(['home_sections' => $current]);
-            }
+            $this->syncWebsitePageMirrorConnection($website_page->fresh(), $data);
         } catch (\Throwable $e) {
             \Log::error('Website page update failed', [
                 'page_id' => $website_page->id,
@@ -1029,8 +1034,100 @@ class AdminWebsitePageController extends Controller
         }
 
         $this->mergeGoogleReviewsFallbackIntoHomeSectionsInput($input, $request);
+        $this->mergeFooterConfigFallbackIntoHomeSectionsInput($input, $request);
 
         return $input;
+    }
+
+    /**
+     * Voorkomt dat footer (tagline, kaart, links) terugvalt naar thema-defaults wanneer velden ontbreken
+     * in de POST (max_input_vars) of een andere pagina wordt opgeslagen.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $existingSections
+     * @return array<string, mixed>
+     */
+    private function mergePreservedFooterIntoHomeSectionsInput(array $input, array $existingSections, Request $request): array
+    {
+        $storedFooter = is_array($existingSections['footer'] ?? null) ? $existingSections['footer'] : [];
+        if ($storedFooter === []) {
+            return $input;
+        }
+
+        $footerInput = $input['footer'] ?? [];
+        if (! is_array($footerInput)) {
+            $footerInput = [];
+        }
+
+        $merged = array_merge($storedFooter, $footerInput);
+
+        $storedTagline = trim((string) ($storedFooter['tagline'] ?? ''));
+        if (array_key_exists('tagline', $footerInput)) {
+            $incomingTagline = trim((string) $footerInput['tagline']);
+            if ($incomingTagline === '' && $storedTagline !== '') {
+                $merged['tagline'] = $storedFooter['tagline'];
+            }
+        }
+
+        foreach (['quick_links', 'support_links'] as $linksKey) {
+            $incomingLinks = $footerInput[$linksKey] ?? null;
+            $storedLinks = $storedFooter[$linksKey] ?? null;
+            if (! is_array($incomingLinks) || $incomingLinks === []) {
+                if (is_array($storedLinks) && $storedLinks !== []) {
+                    $merged[$linksKey] = $storedLinks;
+                }
+            }
+        }
+
+        foreach (['map_postcode', 'map_huisnummer', 'map_street', 'map_city', 'map_lat', 'map_lng', 'map_size', 'map_zoom'] as $mapKey) {
+            if (! array_key_exists($mapKey, $footerInput) && array_key_exists($mapKey, $storedFooter)) {
+                $merged[$mapKey] = $storedFooter[$mapKey];
+            }
+        }
+        foreach (['map_city_only', 'map_show_address_balloon'] as $boolKey) {
+            if (! array_key_exists($boolKey, $footerInput) && array_key_exists($boolKey, $storedFooter)) {
+                $merged[$boolKey] = $storedFooter[$boolKey];
+            }
+        }
+
+        if (! array_key_exists('copyright', $input) || trim((string) ($input['copyright'] ?? '')) === '') {
+            $storedCopyright = $existingSections['copyright'] ?? null;
+            if (is_string($storedCopyright) && trim($storedCopyright) !== '') {
+                $input['copyright'] = $storedCopyright;
+            }
+        }
+
+        $input['footer'] = $merged;
+
+        return $input;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function mergeFooterConfigFallbackIntoHomeSectionsInput(array &$input, Request $request): void
+    {
+        $raw = $request->input('_footer_config_fallback');
+        if ((! is_string($raw) || $raw === '') && $request->getContent() !== '') {
+            parse_str($request->getContent(), $parsed);
+            $raw = $parsed['_footer_config_fallback'] ?? null;
+        }
+        if (! is_string($raw) || $raw === '') {
+            return;
+        }
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return;
+        }
+        if (! isset($input['footer']) || ! is_array($input['footer'])) {
+            $input['footer'] = [];
+        }
+        foreach ($decoded as $key => $value) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+            $input['footer'][$key] = $value;
+        }
     }
 
     /**
@@ -1560,6 +1657,126 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $footerInput
+     * @param  array<string, mixed>  $defaultFooter
+     * @param  array<string, mixed>  $storedFooter  Ruwe opgeslagen footer (zonder thema-defaults eroverheen).
+     * @return array<string, mixed>
+     */
+    private function normalizeFooterSection(array $footerInput, array $defaultFooter, array $storedFooter): array
+    {
+        $footer = array_merge($defaultFooter, $storedFooter);
+
+        $quickLinks = [];
+        if (array_key_exists('quick_links', $footerInput) && is_array($footerInput['quick_links'])) {
+            foreach (array_values($footerInput['quick_links']) as $row) {
+                if (is_array($row) && trim((string) ($row['label'] ?? '')) !== '') {
+                    $quickLinks[] = [
+                        'label' => trim((string) ($row['label'] ?? '')),
+                        'url' => trim((string) ($row['url'] ?? '')),
+                    ];
+                }
+            }
+            $footer['quick_links'] = $quickLinks;
+        }
+
+        $supportLinks = [];
+        if (array_key_exists('support_links', $footerInput) && is_array($footerInput['support_links'])) {
+            foreach (array_values($footerInput['support_links']) as $row) {
+                if (is_array($row) && trim((string) ($row['label'] ?? '')) !== '') {
+                    $supportLinks[] = [
+                        'label' => trim((string) ($row['label'] ?? '')),
+                        'url' => trim((string) ($row['url'] ?? '')),
+                    ];
+                }
+            }
+            $footer['support_links'] = $supportLinks;
+        }
+
+        foreach (['tagline', 'logo_url', 'logo_alt', 'quick_links_title', 'support_links_title'] as $scalarKey) {
+            if (array_key_exists($scalarKey, $footerInput)) {
+                $footer[$scalarKey] = trim((string) $footerInput[$scalarKey]);
+            }
+        }
+
+        if (array_key_exists('logo_height', $footerInput)) {
+            $logoHeight = (int) $footerInput['logo_height'];
+            $footer['logo_height'] = ($logoHeight >= 12 && $logoHeight <= 30) ? $logoHeight : 16;
+        }
+
+        foreach (['map_postcode', 'map_huisnummer', 'map_street', 'map_city'] as $mapKey) {
+            if (array_key_exists($mapKey, $footerInput)) {
+                $footer[$mapKey] = trim((string) $footerInput[$mapKey]);
+            }
+        }
+
+        if (array_key_exists('map_city_only', $footerInput)) {
+            $footer['map_city_only'] = ! empty($footerInput['map_city_only']);
+        }
+        if (array_key_exists('map_lat', $footerInput)) {
+            $footer['map_lat'] = $footerInput['map_lat'] !== '' && is_numeric($footerInput['map_lat'])
+                ? (float) $footerInput['map_lat'] : null;
+        }
+        if (array_key_exists('map_lng', $footerInput)) {
+            $footer['map_lng'] = $footerInput['map_lng'] !== '' && is_numeric($footerInput['map_lng'])
+                ? (float) $footerInput['map_lng'] : null;
+        }
+        if (! empty($footer['map_city_only'])) {
+            $footer['map_postcode'] = '';
+            $footer['map_huisnummer'] = '';
+            $footer['map_street'] = '';
+            $footer['map_lat'] = null;
+            $footer['map_lng'] = null;
+        }
+
+        if (array_key_exists('map_size', $footerInput) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true)) {
+            $footer['map_size'] = $footerInput['map_size'];
+        }
+        if (array_key_exists('map_zoom', $footerInput) && is_numeric($footerInput['map_zoom'])) {
+            $mapZoom = (int) $footerInput['map_zoom'];
+            $footer['map_zoom'] = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17;
+        }
+        if (array_key_exists('map_show_address_balloon', $footerInput)) {
+            $footer['map_show_address_balloon'] = ! empty($footerInput['map_show_address_balloon']);
+        }
+
+        foreach (['logo_align', 'quick_links_align', 'support_links_align'] as $alignKey) {
+            if (array_key_exists($alignKey, $footerInput) && in_array($footerInput[$alignKey], ['left', 'center', 'right'], true)) {
+                $footer[$alignKey] = $footerInput[$alignKey];
+            }
+        }
+
+        foreach (['social_facebook', 'social_instagram', 'social_x', 'social_linkedin', 'social_youtube', 'social_tiktok'] as $socialKey) {
+            if (array_key_exists($socialKey, $footerInput)) {
+                $footer[$socialKey] = trim((string) $footerInput[$socialKey]);
+            }
+        }
+
+        if (array_key_exists('inherit_from_home', $footerInput)) {
+            $footer['inherit_from_home'] = ! empty($footerInput['inherit_from_home']);
+        }
+
+        return $footer;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $defaults
+     * @param  array<string, mixed>  $existingStoredSections
+     */
+    private function normalizeCopyrightFromInput(array $input, array $defaults, array $existingStoredSections): string
+    {
+        if (array_key_exists('copyright', $input) && is_string($input['copyright'])) {
+            return trim($input['copyright']);
+        }
+        $stored = $existingStoredSections['copyright'] ?? null;
+        if (is_string($stored) && trim($stored) !== '') {
+            return trim($stored);
+        }
+
+        return (string) ($defaults['copyright'] ?? '');
+    }
+
+    /**
      * Normaliseer home_sections uit request; ondersteunt dynamische sectie-keys (hero_2, features_2, etc.).
      * Bij themeSlug wordt defaultHomeSectionsForTheme (of bij forNonHome: defaultPageSectionsForNonHome) gebruikt.
      */
@@ -1568,7 +1785,8 @@ class AdminWebsitePageController extends Controller
         ?string $themeSlug = null,
         bool $forNonHome = false,
         array $existingSectionOrder = [],
-        array $removedSectionKeys = []
+        array $removedSectionKeys = [],
+        array $existingStoredSections = []
     ): array {
         if ($forNonHome && $themeSlug) {
             $defaults = WebsitePage::defaultPageSectionsForNonHome($themeSlug);
@@ -1624,76 +1842,12 @@ class AdminWebsitePageController extends Controller
             $sections[$sectionKey] = $this->normalizeOneHomeSection($input, $sectionKey, $baseType, $defaults);
         }
 
-        $footerInput = $input['footer'] ?? [];
-        $quickLinks = [];
-        if (! empty($footerInput['quick_links']) && is_array($footerInput['quick_links'])) {
-            foreach (array_values($footerInput['quick_links']) as $row) {
-                if (is_array($row) && trim((string) ($row['label'] ?? '')) !== '') {
-                    $quickLinks[] = [
-                        'label' => trim((string) ($row['label'] ?? '')),
-                        'url' => trim((string) ($row['url'] ?? '')),
-                    ];
-                }
-            }
-        }
-        $supportLinks = [];
-        if (! empty($footerInput['support_links']) && is_array($footerInput['support_links'])) {
-            foreach (array_values($footerInput['support_links']) as $row) {
-                if (is_array($row) && trim((string) ($row['label'] ?? '')) !== '') {
-                    $supportLinks[] = [
-                        'label' => trim((string) ($row['label'] ?? '')),
-                        'url' => trim((string) ($row['url'] ?? '')),
-                    ];
-                }
-            }
-        }
-        $logoHeight = isset($footerInput['logo_height']) ? (int) $footerInput['logo_height'] : null;
-        if ($logoHeight !== null && ($logoHeight < 12 || $logoHeight > 30)) {
-            $logoHeight = 16;
-        }
-        $footer = array_filter([
-            'tagline' => isset($footerInput['tagline']) ? trim((string) $footerInput['tagline']) : null,
-            'logo_url' => isset($footerInput['logo_url']) ? trim((string) $footerInput['logo_url']) : null,
-            'logo_alt' => isset($footerInput['logo_alt']) ? trim((string) $footerInput['logo_alt']) : null,
-            'logo_height' => $logoHeight,
-            'quick_links_title' => isset($footerInput['quick_links_title']) ? trim((string) $footerInput['quick_links_title']) : null,
-            'quick_links' => $quickLinks ?: null,
-            'support_links_title' => isset($footerInput['support_links_title']) ? trim((string) $footerInput['support_links_title']) : null,
-            'support_links' => $supportLinks ?: null,
-        ], fn ($v) => $v !== null && $v !== '');
-        if (isset($footer['quick_links']) && $footer['quick_links'] === null) {
-            unset($footer['quick_links']);
-        }
-        if (isset($footer['support_links']) && $footer['support_links'] === null) {
-            unset($footer['support_links']);
-        }
-        $footer = array_merge($defaults['footer'], $footer);
-        $footer['map_postcode'] = isset($footerInput['map_postcode']) ? trim((string) $footerInput['map_postcode']) : ($defaults['footer']['map_postcode'] ?? '');
-        $footer['map_huisnummer'] = isset($footerInput['map_huisnummer']) ? trim((string) $footerInput['map_huisnummer']) : ($defaults['footer']['map_huisnummer'] ?? '');
-        $footer['map_street'] = isset($footerInput['map_street']) ? trim((string) $footerInput['map_street']) : ($defaults['footer']['map_street'] ?? '');
-        $footer['map_city'] = isset($footerInput['map_city']) ? trim((string) $footerInput['map_city']) : ($defaults['footer']['map_city'] ?? '');
-        $footer['map_city_only'] = ! empty($footerInput['map_city_only']);
-        $footer['map_lat'] = isset($footerInput['map_lat']) && $footerInput['map_lat'] !== '' ? (is_numeric($footerInput['map_lat']) ? (float) $footerInput['map_lat'] : null) : null;
-        $footer['map_lng'] = isset($footerInput['map_lng']) && $footerInput['map_lng'] !== '' ? (is_numeric($footerInput['map_lng']) ? (float) $footerInput['map_lng'] : null) : null;
-        if (! empty($footer['map_city_only'])) {
-            // Stad-modus: adres wordt op basis van alleen plaats bepaald.
-            $footer['map_postcode'] = '';
-            $footer['map_huisnummer'] = '';
-            $footer['map_street'] = '';
-            $footer['map_lat'] = null;
-            $footer['map_lng'] = null;
-        }
-        $footer['map_size'] = isset($footerInput['map_size']) && in_array($footerInput['map_size'], ['small', 'normal', 'large'], true) ? $footerInput['map_size'] : ($defaults['footer']['map_size'] ?? 'normal');
-        $mapZoom = isset($footerInput['map_zoom']) && is_numeric($footerInput['map_zoom']) ? (int) $footerInput['map_zoom'] : (int) ($defaults['footer']['map_zoom'] ?? 17);
-        $footer['map_zoom'] = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17;
-        $footer['map_show_address_balloon'] = ! empty($footerInput['map_show_address_balloon']);
-        $footer['logo_align'] = isset($footerInput['logo_align']) && in_array($footerInput['logo_align'], ['left', 'center', 'right'], true) ? $footerInput['logo_align'] : ($defaults['footer']['logo_align'] ?? 'left');
-        $footer['quick_links_align'] = isset($footerInput['quick_links_align']) && in_array($footerInput['quick_links_align'], ['left', 'center', 'right'], true) ? $footerInput['quick_links_align'] : ($defaults['footer']['quick_links_align'] ?? 'left');
-        $footer['support_links_align'] = isset($footerInput['support_links_align']) && in_array($footerInput['support_links_align'], ['left', 'center', 'right'], true) ? $footerInput['support_links_align'] : ($defaults['footer']['support_links_align'] ?? 'left');
-        foreach (['social_facebook', 'social_instagram', 'social_x', 'social_linkedin', 'social_youtube', 'social_tiktok'] as $socialKey) {
-            $footer[$socialKey] = isset($footerInput[$socialKey]) ? trim((string) $footerInput[$socialKey]) : '';
-        }
-        $footer['inherit_from_home'] = ! empty($footerInput['inherit_from_home']);
+        $storedFooter = is_array($existingStoredSections['footer'] ?? null) ? $existingStoredSections['footer'] : [];
+        $footer = $this->normalizeFooterSection(
+            is_array($input['footer'] ?? null) ? $input['footer'] : [],
+            $defaults['footer'] ?? [],
+            $storedFooter
+        );
 
         $visibilityInput = $input['visibility'] ?? [];
         if (! is_array($visibilityInput)) {
@@ -1746,7 +1900,7 @@ class AdminWebsitePageController extends Controller
 
         return array_merge($sections, [
             'footer' => $footer,
-            'copyright' => is_string($input['copyright'] ?? null) ? trim($input['copyright']) : ($defaults['copyright'] ?? ''),
+            'copyright' => $this->normalizeCopyrightFromInput($input, $defaults, $existingStoredSections),
             'section_order' => $sectionOrder,
             'visibility' => $visibility,
             'admin_collapsed' => $adminCollapsed,
@@ -2038,7 +2192,7 @@ class AdminWebsitePageController extends Controller
 
     /**
      * @param  array<string, mixed>  $row
-     * @return array{uuid: string, alt: string, text_color: string, text_bg_color: string, text_size_px: int, text_position: string, text_animation: string, text_animation_duration_ms: int, text_animation_stagger_ms: int}
+     * @return array{uuid: string, alt: string, text_color: string, text_bg_color: string, text_bg_opacity: ?int, text_size_px: int, text_position: string, text_animation: string, text_animation_duration_ms: int, text_animation_stagger_ms: int}
      */
     private function normalizeCarouselSlideItem(array $row): array
     {
@@ -2051,6 +2205,11 @@ class AdminWebsitePageController extends Controller
         $textBgColor = ($textBgColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $textBgColor))
             ? $textBgColor
             : '';
+
+        $textBgOpacity = null;
+        if (isset($row['text_bg_opacity']) && $row['text_bg_opacity'] !== '' && $row['text_bg_opacity'] !== null) {
+            $textBgOpacity = max(0, min(100, (int) $row['text_bg_opacity']));
+        }
 
         $textSizePx = isset($row['text_size_px']) ? (int) $row['text_size_px'] : 24;
         $textSizePx = max(12, min(50, $textSizePx));
@@ -2077,6 +2236,7 @@ class AdminWebsitePageController extends Controller
             'alt' => isset($row['alt']) ? trim((string) $row['alt']) : '',
             'text_color' => $textColor,
             'text_bg_color' => $textBgColor,
+            'text_bg_opacity' => $textBgOpacity,
             'text_size_px' => $textSizePx,
             'text_position' => $textPosition,
             'text_animation' => $textAnimation,
@@ -2368,6 +2528,14 @@ class AdminWebsitePageController extends Controller
      */
     private function resolveFrontendThemeIdFromRequest(Request $request): ?int
     {
+        $companyId = $this->resolveWebsitePageCompanyIdForPersistence($request, null)
+            ?? $this->resolveWebsitePageCompanyIdFromImplicitContext($request)
+            ?? $this->resolveExplicitWizardCompanyId($request);
+        $companyTheme = $this->websiteBuilder->getThemeForCompany($companyId);
+        if ($companyTheme) {
+            return (int) $companyTheme->id;
+        }
+
         $themeId = $request->input('frontend_theme_id');
         if ($themeId !== null && $themeId !== '') {
             $id = (int) $themeId;
@@ -2383,9 +2551,131 @@ class AdminWebsitePageController extends Controller
         if ($module && $module->frontend_theme_id) {
             return (int) $module->frontend_theme_id;
         }
-        $active = $this->websiteBuilder->getActiveTheme();
+        $active = $this->websiteBuilder->getActiveTheme($companyId);
 
         return $active ? (int) $active->id : null;
+    }
+
+    private function resolveCompanyIdForWebsiteThemeAdmin(Request $request, ?WebsitePage $page): ?int
+    {
+        if ($page !== null) {
+            $stored = $page->getAttribute('company_id');
+            if ($stored !== null && $stored !== '') {
+                return (int) $stored;
+            }
+        }
+
+        return $this->resolveWebsitePageCompanyIdForPersistence($request, $page)
+            ?? $this->resolveWebsitePageCompanyIdFromImplicitContext($request)
+            ?? $this->resolveExplicitWizardCompanyId($request);
+    }
+
+    private function resolveDefaultThemeForWebsiteAdmin(Request $request, ?WebsitePage $page): ?FrontendTheme
+    {
+        $companyId = $this->resolveCompanyIdForWebsiteThemeAdmin($request, $page);
+        $companyTheme = $this->websiteBuilder->getThemeForCompany($companyId);
+        if ($companyTheme) {
+            return $companyTheme;
+        }
+
+        return $this->websiteBuilder->getActiveTheme($companyId);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    /**
+     * Spiegel is_active/show_in_menu/frontend_theme_id naar de andere connection (pgsql ↔ module_*).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function syncWebsitePageMirrorConnection(WebsitePage $page, array $data): void
+    {
+        $moduleName = $page->module_name;
+        if ($moduleName === null || trim((string) $moduleName) === '' || ! $this->moduleDb->supportsModuleDatabases()) {
+            return;
+        }
+
+        $moduleConn = $this->moduleDb->getModuleConnectionName(trim((string) $moduleName));
+        if (! Config::has("database.connections.{$moduleConn}")) {
+            return;
+        }
+
+        $defaultConn = (string) config('database.default');
+        $sourceConn = $page->getConnectionName();
+        $targetConn = $sourceConn === $moduleConn ? $defaultConn : $moduleConn;
+        if ($targetConn === $sourceConn || ! Config::has("database.connections.{$targetConn}")) {
+            return;
+        }
+
+        $sync = array_filter([
+            'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : null,
+            'show_in_menu' => array_key_exists('show_in_menu', $data) ? (bool) $data['show_in_menu'] : null,
+            'frontend_theme_id' => array_key_exists('frontend_theme_id', $data) ? $data['frontend_theme_id'] : null,
+        ], fn ($v) => $v !== null);
+
+        if ($sync === []) {
+            return;
+        }
+
+        $mirror = WebsitePage::on($targetConn)
+            ->where('slug', $page->slug)
+            ->whereRaw('LOWER(module_name) = ?', [strtolower(trim((string) $moduleName))]);
+        if ($page->company_id !== null && $page->company_id !== '') {
+            $mirror->where('company_id', (int) $page->company_id);
+        } else {
+            $mirror->whereNull('company_id');
+        }
+        $mirror->update($sync);
+    }
+
+    /**
+     * Alleen echte module-databases (nexa_taxi, …), niet de standaard connection-naam (pgsql/mysql).
+     */
+    private function websitePageUsesSeparateModuleDatabase(WebsitePage $page, ?string $moduleName): bool
+    {
+        if ($moduleName === null || trim($moduleName) === '' || ! $this->moduleDb->supportsModuleDatabases()) {
+            return false;
+        }
+
+        $moduleConn = $this->moduleDb->getModuleConnectionName(trim($moduleName));
+        if (! Config::has("database.connections.{$moduleConn}")) {
+            return false;
+        }
+
+        return $page->getConnectionName() === $moduleConn;
+    }
+
+    private function resolveThemeModelForWebsitePageSave(Request $request, array $data, ?string $moduleName): ?FrontendTheme
+    {
+        $companyId = isset($data['company_id']) && $data['company_id'] !== null && $data['company_id'] !== ''
+            ? (int) $data['company_id']
+            : null;
+        $companyTheme = $this->websiteBuilder->getThemeForCompany($companyId);
+        if ($companyTheme) {
+            return $companyTheme;
+        }
+
+        $themeId = $request->input('frontend_theme_id');
+        if ($themeId !== null && $themeId !== '') {
+            $id = (int) $themeId;
+            $theme = FrontendTheme::find($id);
+            if ($theme?->is_active) {
+                return $theme;
+            }
+        }
+
+        if ($moduleName !== null && trim($moduleName) !== '') {
+            $module = Module::where('installed', true)->whereRaw('LOWER(name) = ?', [strtolower(trim($moduleName))])->first();
+            if ($module?->frontend_theme_id) {
+                $moduleTheme = FrontendTheme::find((int) $module->frontend_theme_id);
+                if ($moduleTheme?->is_active) {
+                    return $moduleTheme;
+                }
+            }
+        }
+
+        return $this->websiteBuilder->getActiveTheme($companyId);
     }
 
     protected function ensureSuperAdmin(): void
@@ -2678,6 +2968,84 @@ class AdminWebsitePageController extends Controller
      *
      * @return array{visible: bool, has_company_column: bool, stored_company: ?\App\Models\Company, effective_company: ?\App\Models\Company, stored_id: ?int, show_company_dropdown: bool, companies: \Illuminate\Support\Collection<int, \App\Models\Company>}
      */
+    /**
+     * Volledige tenant-website openen (dev: ?_tenant_host=… op APP_URL; productie: primair domein).
+     * Inclusief nexa_admin_preview + admin_back voor terug naar admin.
+     */
+    private function buildWebsiteDevPreviewUrl(Request $request, ?WebsitePage $page): ?string
+    {
+        $company = $this->resolveCompanyForWebsiteDevPreview($request, $page);
+        $host = $this->resolveTenantPreviewHost($company);
+        if ($host === null || $host === '') {
+            return null;
+        }
+
+        $adminBack = $page !== null
+            ? route('admin.website-pages.edit', array_merge(['website_page' => $page], $this->websitePagesIndexQuery($request)), false)
+            : route('admin.website-pages.index', $this->websitePagesIndexQuery($request), false);
+
+        $previewQuery = [
+            'nexa_admin_preview' => 1,
+            'admin_back' => $adminBack,
+        ];
+
+        $devParam = (string) config('tenancy.dev_effective_host_query_param', '');
+        if (! app()->isProduction() && $devParam !== '') {
+            $previewQuery[$devParam] = $host;
+
+            return url('/').'?'.http_build_query($previewQuery, '', '&', PHP_QUERY_RFC3986);
+        }
+
+        $scheme = $request->secure() ? 'https' : 'http';
+
+        return $scheme.'://'.$host.'/?'.http_build_query($previewQuery, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    private function resolveCompanyForWebsiteDevPreview(Request $request, ?WebsitePage $page): ?Company
+    {
+        if ($page !== null && $page->getAttribute('company_id')) {
+            $found = Company::query()->find((int) $page->company_id);
+            if ($found) {
+                return $found;
+            }
+        }
+
+        $context = $this->buildWebsitePageCompanyContext($request, $page);
+        $fromContext = $context['effective_company'] ?? $context['stored_company'] ?? null;
+        if ($fromContext instanceof Company) {
+            return $fromContext;
+        }
+
+        $tenantId = $this->resolveTenantCompanyIdForWebsitePagesList($request);
+        if ($tenantId !== null) {
+            return Company::query()->find($tenantId);
+        }
+
+        return null;
+    }
+
+    private function resolveTenantPreviewHost(?Company $company): ?string
+    {
+        if ($company === null) {
+            return null;
+        }
+
+        $company->loadMissing('domains');
+        $primaryDomain = $company->domains->firstWhere('is_primary', true);
+        $host = $primaryDomain?->host ?? $company->domains->sortBy('id')->first()?->host;
+        if (is_string($host) && $host !== '') {
+            return CompanyDomain::normalizeHost($host);
+        }
+
+        foreach (config('tenancy.dev_host_company_map', []) as $mapHost => $mapCompanyId) {
+            if ((int) $mapCompanyId === (int) $company->id) {
+                return CompanyDomain::normalizeHost((string) $mapHost);
+            }
+        }
+
+        return null;
+    }
+
     private function buildWebsitePageCompanyContext(Request $request, ?WebsitePage $page): array
     {
         $isSuperAdmin = auth()->check() && auth()->user()->hasRole('super-admin');

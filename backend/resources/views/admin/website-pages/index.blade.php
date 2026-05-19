@@ -42,9 +42,12 @@
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
             @php
-                $previewAdminBack = route('admin.website-pages.index', $wizardIndexQuery ?? [], false);
+                $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('home', [
+                    'nexa_admin_preview' => 1,
+                    'admin_back' => route('admin.website-pages.index', $wizardIndexQuery ?? [], false),
+                ]);
             @endphp
-            <a href="{{ route('home', ['nexa_admin_preview' => 1, 'admin_back' => $previewAdminBack]) }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
+            <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
                 Pagina voorbeeld
             </a>

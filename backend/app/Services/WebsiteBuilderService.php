@@ -178,12 +178,64 @@ class WebsiteBuilderService
     }
 
     /**
-     * Bepaalt het thema waarmee een website-pagina wordt getoond: altijd het actieve thema.
-     * Pagina-inhoud (componenten) blijft gelijk; alleen de styling past zich aan het actieve thema aan.
+     * Thema toegewezen aan een tenant-bedrijf (alleen als het thema gepubliceerd/is_active is).
+     */
+    public function getThemeForCompany(?int $companyId): ?FrontendTheme
+    {
+        if ($companyId === null || $companyId <= 0) {
+            return null;
+        }
+
+        $company = Company::query()->with('frontendTheme')->find($companyId);
+        if (! $company || ! $company->frontend_theme_id) {
+            return null;
+        }
+
+        $theme = $company->frontendTheme;
+        if ($theme && $theme->is_active) {
+            return $theme;
+        }
+
+        return null;
+    }
+
+    /**
+     * Bepaalt het thema waarmee een website-pagina wordt getoond.
+     * Volgorde: tenant-thema op bedrijf → opgeslagen pagina-thema (indien gepubliceerd) → module-thema → fallback.
      */
     public function getThemeForPage(WebsitePage $page): ?FrontendTheme
     {
-        return $this->getActiveTheme();
+        $companyId = $page->getAttribute('company_id');
+        $companyId = ($companyId !== null && $companyId !== '') ? (int) $companyId : null;
+        if ($companyId === null) {
+            $companyId = $this->resolvedPublicTenantCompanyId();
+        }
+
+        $companyTheme = $this->getThemeForCompany($companyId);
+        if ($companyTheme) {
+            return $companyTheme;
+        }
+
+        if ($page->frontend_theme_id) {
+            $pageTheme = FrontendTheme::find((int) $page->frontend_theme_id);
+            if ($pageTheme?->is_active) {
+                return $pageTheme;
+            }
+        }
+
+        if (filled($page->module_name)) {
+            $module = Module::where('installed', true)
+                ->whereRaw('LOWER(name) = ?', [strtolower(trim((string) $page->module_name))])
+                ->first();
+            if ($module?->frontend_theme_id) {
+                $moduleTheme = FrontendTheme::find((int) $module->frontend_theme_id);
+                if ($moduleTheme?->is_active) {
+                    return $moduleTheme;
+                }
+            }
+        }
+
+        return $this->getActiveTheme($companyId);
     }
 
     /**
@@ -469,9 +521,9 @@ class WebsiteBuilderService
             return null;
         }
 
-        $activeTheme = $this->getActiveTheme();
-        if ($activeTheme && $activeTheme->active_module_id) {
-            $pinned = $mods->firstWhere('id', (int) $activeTheme->active_module_id);
+        $companyTheme = $this->getThemeForCompany($companyId);
+        if ($companyTheme && $companyTheme->active_module_id) {
+            $pinned = $mods->firstWhere('id', (int) $companyTheme->active_module_id);
             if ($pinned && $pinned->active) {
                 $name = $pinned->name;
                 if ($name !== null && $name !== '') {
@@ -480,8 +532,8 @@ class WebsiteBuilderService
             }
         }
 
-        if ($activeTheme) {
-            foreach ($mods->where('frontend_theme_id', $activeTheme->id) as $module) {
+        if ($companyTheme) {
+            foreach ($mods->where('frontend_theme_id', $companyTheme->id) as $module) {
                 $name = $module->name;
                 if ($name === null || $name === '') {
                     continue;
@@ -562,8 +614,20 @@ class WebsiteBuilderService
         return null;
     }
 
-    public function getActiveTheme(): ?FrontendTheme
+    /**
+     * Gepubliceerd thema voor context: tenant-bedrijf eerst, anders eerste beschikbare thema.
+     */
+    public function getActiveTheme(?int $companyId = null): ?FrontendTheme
     {
+        if ($companyId === null) {
+            $companyId = $this->resolvedPublicTenantCompanyId();
+        }
+
+        $companyTheme = $this->getThemeForCompany($companyId);
+        if ($companyTheme) {
+            return $companyTheme;
+        }
+
         return FrontendTheme::getActive();
     }
 
@@ -661,19 +725,160 @@ class WebsiteBuilderService
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
         $query = $this->websitePageQuery($moduleName)->active()
-            ->where('page_type', 'home')
-            ->orderBy('sort_order')
-            ->orderBy('id');
+            ->where('page_type', 'home');
+        $this->orderWebsiteHomePagesForTenant($query);
         $page = $query->first();
         if ($page !== null) {
             return $page;
         }
 
-        return $this->websitePageQuery(null)->active()
+        $fallback = $this->websitePageQuery(null)->active()
             ->forModule(null)
+            ->where('page_type', 'home');
+        $this->orderWebsiteHomePagesForTenant($fallback);
+
+        return $fallback->first();
+    }
+
+    /**
+     * True wanneer er een tenant-home is met inhoud die op inactief staat, waardoor de live site
+     * niet via {@see getHomePage()} naar de website-builder gaat.
+     */
+    public function tenantHasInactiveConfiguredHomePage(?int $companyId = null): bool
+    {
+        $companyId = $companyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $this->getHomePage() !== null) {
+            return false;
+        }
+
+        $brandingModule = $this->getBrandingModuleForResolvedCompany($companyId);
+        $moduleName = $brandingModule?->name;
+        $table = (new WebsitePage)->getTable();
+        $page = $this->websitePageQuery($moduleName)
             ->where('page_type', 'home')
-            ->orderBy('sort_order')
+            ->where($table.'.company_id', $companyId)
+            ->where('is_active', false)
             ->first();
+
+        if ($page === null) {
+            return false;
+        }
+
+        $sections = $page->home_sections;
+
+        return is_array($sections) && $sections !== [];
+    }
+
+    /**
+     * Op tenant-hosts: eigen bedrijf-pagina's vóór gedeelde module-pagina's.
+     */
+    protected function orderWebsitePagesForTenant(Builder $query): void
+    {
+        $tenantId = $this->resolvedPublicTenantCompanyId();
+        if ($tenantId === null) {
+            $query->orderBy('sort_order')->orderBy('id');
+
+            return;
+        }
+
+        $table = $query->getModel()->getTable();
+        $grammar = $query->getGrammar();
+        $companyCol = $grammar->wrap($table.'.company_id');
+        $query->orderByRaw(
+            'CASE WHEN '.$companyCol.' = ? THEN 0 WHEN '.$companyCol.' IS NULL THEN 1 ELSE 2 END',
+            [$tenantId]
+        )
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    /** @deprecated Use {@see orderWebsitePagesForTenant()} */
+    protected function orderWebsiteHomePagesForTenant(Builder $query): void
+    {
+        $this->orderWebsitePagesForTenant($query);
+    }
+
+    /**
+     * Zet alle website-pagina's van een tenant op actief (hoofd- én module-connection indien van toepassing).
+     */
+    public function publishTenantWebsitePages(int $companyId): int
+    {
+        if ($companyId <= 0) {
+            return 0;
+        }
+
+        $updated = 0;
+        foreach ($this->tenantWebsitePageConnectionNames() as $conn) {
+            $updated += WebsitePage::on($conn)
+                ->where('company_id', $companyId)
+                ->where('is_active', false)
+                ->update(['is_active' => true]);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Inactieve tenant-pagina's die op de live site ontbreken (menu of footer-slugs).
+     *
+     * @return Collection<int, WebsitePage>
+     */
+    public function getInactiveTenantWebsitePages(?int $companyId = null): Collection
+    {
+        $companyId = $companyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null) {
+            return collect();
+        }
+
+        $pages = collect();
+        foreach ($this->tenantWebsitePageConnectionNames() as $conn) {
+            $chunk = WebsitePage::on($conn)
+                ->where('company_id', $companyId)
+                ->where('is_active', false)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+            foreach ($chunk as $page) {
+                if (! $pages->contains(fn (WebsitePage $p) => $p->slug === $page->slug && $p->page_type === $page->page_type)) {
+                    $pages->push($page);
+                }
+            }
+        }
+
+        return $pages->values();
+    }
+
+    public function tenantHasInactiveWebsitePages(?int $companyId = null): bool
+    {
+        return $this->getInactiveTenantWebsitePages($companyId)->isNotEmpty();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function tenantWebsitePageConnectionNames(): array
+    {
+        $connections = [(string) config('database.default')];
+        if ($this->moduleDb && $this->moduleDb->supportsModuleDatabases()) {
+            foreach (Module::where('installed', true)->pluck('name') as $name) {
+                if ($name === null || $name === '') {
+                    continue;
+                }
+                $conn = $this->moduleDb->getModuleConnectionName((string) $name);
+                if (Config::has("database.connections.{$conn}") && ! in_array($conn, $connections, true)) {
+                    $connections[] = $conn;
+                }
+            }
+        }
+
+        return $connections;
+    }
+
+    protected function firstActiveWebsitePage(Builder $query): ?WebsitePage
+    {
+        $this->orderWebsitePagesForTenant($query);
+
+        return $query->first();
     }
 
     /**
@@ -700,20 +905,16 @@ class WebsiteBuilderService
     {
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
-        $page = $this->websitePageQuery($moduleName)->active()
-            ->where('page_type', 'about')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->first();
+        $page = $this->firstActiveWebsitePage(
+            $this->websitePageQuery($moduleName)->active()->where('page_type', 'about')
+        );
         if ($page !== null) {
             return $page;
         }
 
-        return $this->websitePageQuery(null)->active()
-            ->forModule(null)
-            ->where('page_type', 'about')
-            ->orderBy('sort_order')
-            ->first();
+        return $this->firstActiveWebsitePage(
+            $this->websitePageQuery(null)->active()->forModule(null)->where('page_type', 'about')
+        );
     }
 
     /**
@@ -724,20 +925,16 @@ class WebsiteBuilderService
     {
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
-        $page = $this->websitePageQuery($moduleName)->active()
-            ->where('page_type', 'contact')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->first();
+        $page = $this->firstActiveWebsitePage(
+            $this->websitePageQuery($moduleName)->active()->where('page_type', 'contact')
+        );
         if ($page !== null) {
             return $page;
         }
 
-        return $this->websitePageQuery(null)->active()
-            ->forModule(null)
-            ->where('page_type', 'contact')
-            ->orderBy('sort_order')
-            ->first();
+        return $this->firstActiveWebsitePage(
+            $this->websitePageQuery(null)->active()->forModule(null)->where('page_type', 'contact')
+        );
     }
 
     public function getPageBySlug(string $slug): ?WebsitePage
@@ -747,13 +944,13 @@ class WebsiteBuilderService
         }
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
-        $page = $this->websitePageQuery($moduleName)->active()
-            ->where('slug', $slug)
-            ->first();
+        $page = $this->firstActiveWebsitePage(
+            $this->websitePageQuery($moduleName)->active()->where('slug', $slug)
+        );
         if (! $page && $moduleName !== null) {
-            $page = $this->websitePageQuery(null)->active()
-                ->where('slug', $slug)
-                ->first();
+            $page = $this->firstActiveWebsitePage(
+                $this->websitePageQuery(null)->active()->where('slug', $slug)
+            );
         }
         if (! $page) {
             return null;
@@ -789,14 +986,19 @@ class WebsiteBuilderService
             && $this->moduleDb->supportsModuleDatabases();
 
         if (! $hasModuleDb) {
+            if ($moduleName !== null && $moduleName !== '') {
+                $moduleOnly = $this->websitePageQuery($moduleName)->active()->showInMenu();
+                $this->orderWebsitePagesForTenant($moduleOnly);
+
+                return $this->excludeCentralWelcomeFromMenu($moduleOnly->get());
+            }
+
             return $this->excludeCentralWelcomeFromMenu($corePages);
         }
 
-        $modulePages = $this->websitePageQuery($moduleName)->active()
-            ->showInMenu()
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
+        $moduleQuery = $this->websitePageQuery($moduleName)->active()->showInMenu();
+        $this->orderWebsitePagesForTenant($moduleQuery);
+        $modulePages = $moduleQuery->get();
 
         $coreTypes = ['home', 'about', 'contact'];
         $moduleHasType = $modulePages->keyBy('page_type');

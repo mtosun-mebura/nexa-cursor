@@ -9,6 +9,12 @@ class EnvService
 {
     protected $envPath;
 
+    /** @var array<string, string>|null */
+    private ?array $envFileCache = null;
+
+    /** @var array<string, string|null>|null */
+    private ?array $mailOverlayCache = null;
+
     /** Keys that are stored in GeneralSetting (admin settings); EnvService::get() prefers DB over .env */
     private const GENERAL_SETTING_KEYS = [
         'MAIL_MAILER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION',
@@ -50,9 +56,13 @@ class EnvService
      */
     public function getAll()
     {
+        if ($this->envFileCache !== null) {
+            return $this->envFileCache;
+        }
+
         $env = [];
         if (! is_string($this->envPath) || $this->envPath === '' || ! is_file($this->envPath) || ! is_readable($this->envPath)) {
-            return $env;
+            return $this->envFileCache = $env;
         }
 
         $lines = @file($this->envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -82,7 +92,38 @@ class EnvService
             }
         }
 
-        return $env;
+        return $this->envFileCache = $env;
+    }
+
+    /**
+     * Mail-instellingen voor config-overlay (één batch-query i.p.v. per key).
+     *
+     * @return array<string, string|null>
+     */
+    public function getMailOverlayValues(): array
+    {
+        if ($this->mailOverlayCache !== null) {
+            return $this->mailOverlayCache;
+        }
+
+        $keys = [
+            'MAIL_MAILER', 'MAIL_HOST', 'MAIL_PORT', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_ENCRYPTION',
+            'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
+        ];
+
+        $fromDb = GeneralSetting::getMany($keys);
+        $fromEnv = $this->getAll();
+        $merged = [];
+
+        foreach ($keys as $key) {
+            $value = $fromDb[$key] ?? null;
+            if ($value === null || $value === '') {
+                $value = $fromEnv[$key] ?? null;
+            }
+            $merged[$key] = $value !== null && $value !== '' ? (string) $value : null;
+        }
+
+        return $this->mailOverlayCache = $merged;
     }
 
     /**

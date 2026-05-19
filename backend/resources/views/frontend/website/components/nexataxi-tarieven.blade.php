@@ -291,34 +291,41 @@
                     roots.forEach(function(root) {
                         var cards = root.querySelectorAll('[data-nexataxi-card]');
                         if (!cards.length) return;
-                        var io = new IntersectionObserver(function(entries) {
-                            entries.forEach(function(entry) {
-                                if (!entry.isIntersecting) return;
-                                var card = entry.target;
-                                var idx = parseInt(card.getAttribute('data-card-index'), 10) || 0;
-                                io.unobserve(card);
-                                setTimeout(function() {
-                                    card.classList.remove('opacity-0', 'translate-y-4');
-                                    card.classList.add('opacity-100', 'translate-y-0');
-                                    card.querySelectorAll('.nexataxi-card-image').forEach(function(img) { img.classList.add('opacity-100'); });
-                                    var animate = root.getAttribute('data-price-animation') !== '0';
-                                    card.querySelectorAll('.price-count').forEach(function(el) {
-                                        if (!el.getAttribute('data-price-end') || el.getAttribute('data-price-end') === '') return;
-                                        if (animate) {
-                                            animatePrice(el);
-                                        } else {
-                                            var end = parseFloat(el.getAttribute('data-price-end'), 10);
-                                            if (!isNaN(end)) {
-                                                var prefix = el.getAttribute('data-price-prefix') || '€ ';
-                                                var suffix = el.getAttribute('data-price-suffix') || '';
-                                                el.textContent = prefix + end.toFixed(2).replace('.', ',') + suffix;
-                                            }
+                        function revealCard(card) {
+                            var idx = parseInt(card.getAttribute('data-card-index'), 10) || 0;
+                            setTimeout(function() {
+                                card.classList.remove('opacity-0', 'translate-y-4');
+                                card.classList.add('opacity-100', 'translate-y-0');
+                                card.querySelectorAll('.nexataxi-card-image').forEach(function(img) { img.classList.add('opacity-100'); });
+                                var animate = root.getAttribute('data-price-animation') !== '0';
+                                card.querySelectorAll('.price-count').forEach(function(el) {
+                                    if (!el.getAttribute('data-price-end') || el.getAttribute('data-price-end') === '') return;
+                                    if (animate) {
+                                        animatePrice(el);
+                                    } else {
+                                        var end = parseFloat(el.getAttribute('data-price-end'), 10);
+                                        if (!isNaN(end)) {
+                                            var prefix = el.getAttribute('data-price-prefix') || '€ ';
+                                            var suffix = el.getAttribute('data-price-suffix') || '';
+                                            el.textContent = prefix + end.toFixed(2).replace('.', ',') + suffix;
                                         }
-                                    });
-                                }, idx * 200);
-                            });
-                        }, { threshold: 0.12 });
-                        cards.forEach(function(card) { io.observe(card); });
+                                    }
+                                });
+                            }, idx * 200);
+                        }
+                        var cardOpts = { threshold: 0.12 };
+                        if (typeof window.nexaObserveWhenVisible === 'function') {
+                            window.nexaObserveWhenVisible(cards, revealCard, cardOpts);
+                        } else {
+                            var io = new IntersectionObserver(function(entries) {
+                                entries.forEach(function(entry) {
+                                    if (!entry.isIntersecting) return;
+                                    revealCard(entry.target);
+                                    io.unobserve(entry.target);
+                                });
+                            }, cardOpts);
+                            cards.forEach(function(card) { io.observe(card); });
+                        }
                     });
                 }
 

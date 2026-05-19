@@ -462,6 +462,38 @@
             </div>
 
             @can('edit-companies')
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Website-thema</h3>
+                </div>
+                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
+                    Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij nieuwe website-pagina's voor dit bedrijf. Alleen gepubliceerde thema's zijn kiesbaar (Frontend Thema's → Activeren).
+                </p>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Thema</td>
+                            <td class="min-w-48 w-full">
+                                <select name="frontend_theme_id" class="kt-input @error('frontend_theme_id') border-destructive @enderror">
+                                    <option value="">— Geen thema —</option>
+                                    @foreach($publishedFrontendThemes ?? [] as $theme)
+                                        <option value="{{ $theme->id }}" {{ (string) old('frontend_theme_id', $company->frontend_theme_id) === (string) $theme->id ? 'selected' : '' }}>
+                                            {{ $theme->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @if(($publishedFrontendThemes ?? collect())->isEmpty())
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Er is nog geen thema gepubliceerd. Ga naar <a href="{{ route('admin.frontend-themes.index') }}" class="text-primary underline">Frontend Thema's</a> en klik op Activeren.</p>
+                                @endif
+                                @error('frontend_theme_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
             <div class="kt-card min-w-full @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">Modules voor deze tenant</h3>

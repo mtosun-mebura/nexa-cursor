@@ -337,14 +337,18 @@ class AdminFrontendThemeController extends Controller
     }
 
     /**
-     * De-publiceren: actief thema op inactief zetten. Geen thema actief → op localhost:8000 verschijnt Coming soon.
+     * De-publiceren: één thema niet meer beschikbaar maken (andere actieve thema's blijven actief).
      */
     public function unpublish(Request $request): RedirectResponse
     {
         $this->ensureSuperAdmin();
-        FrontendTheme::where('is_active', true)->update(['is_active' => false]);
+        $request->validate(['theme_id' => 'required|exists:frontend_themes,id']);
+
+        $theme = FrontendTheme::findOrFail((int) $request->input('theme_id'));
+        $theme->update(['is_active' => false]);
+
         return redirect()->route('admin.frontend-themes.index')
-            ->with('success', 'Geen thema meer actief. Op de website verschijnt nu de Coming soon-pagina.');
+            ->with('success', "Thema \"{$theme->name}\" is gedeactiveerd. Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.");
     }
 
     /**
@@ -356,17 +360,7 @@ class AdminFrontendThemeController extends Controller
         $request->validate(['theme_id' => 'required|exists:frontend_themes,id']);
 
         $theme = FrontendTheme::findOrFail($request->theme_id);
-        FrontendTheme::where('is_active', true)->update(['is_active' => false]);
         $theme->update(['is_active' => true]);
-
-        $chosenThemeId = $theme->id;
-        WebsitePage::query()
-            ->where(function ($q) use ($chosenThemeId) {
-                $q->where('frontend_theme_id', '!=', $chosenThemeId)
-                    ->orWhereNull('frontend_theme_id');
-            })
-            ->update(['is_active' => false]);
-        WebsitePage::where('frontend_theme_id', $chosenThemeId)->update(['is_active' => true]);
 
         $stagingBasePath = parse_url(route('admin.frontend-themes.staging', [], true), PHP_URL_PATH);
         $productionBase = rtrim(config('app.url'), '/');
@@ -384,7 +378,7 @@ class AdminFrontendThemeController extends Controller
             }
         }
 
-        $message = "Thema \"{$theme->name}\" is gepubliceerd en actief.";
+        $message = "Thema \"{$theme->name}\" is gepubliceerd en beschikbaar voor tenants.";
         if ($updated > 0) {
             $message .= " In {$updated} pagina('s) zijn staging-URL's omgezet naar de daadwerkelijke URL's.";
         }
@@ -452,28 +446,14 @@ class AdminFrontendThemeController extends Controller
     }
 
     /**
-     * Maak dit thema het actieve standaardthema. Alle website_pages (kern + module):
-     * - frontend_theme_id ongelijk aan gekozen thema of null → is_active = false.
-     * - frontend_theme_id gelijk aan gekozen thema → is_active = true.
+     * Publiceer dit thema (meerdere thema's kunnen tegelijk actief zijn).
      */
     public function setActive(FrontendTheme $frontend_theme)
     {
         $this->ensureSuperAdmin();
-        $chosenThemeId = $frontend_theme->id;
-
-        FrontendTheme::where('is_active', true)->update(['is_active' => false]);
         $frontend_theme->update(['is_active' => true]);
 
-        WebsitePage::query()
-            ->where(function ($q) use ($chosenThemeId) {
-                $q->where('frontend_theme_id', '!=', $chosenThemeId)
-                    ->orWhereNull('frontend_theme_id');
-            })
-            ->update(['is_active' => false]);
-
-        WebsitePage::where('frontend_theme_id', $chosenThemeId)->update(['is_active' => true]);
-
-        return redirect()->route('admin.frontend-themes.index')->with('success', "Thema \"{$frontend_theme->name}\" is nu actief. Pagina's van andere thema's staan op inactief.");
+        return redirect()->route('admin.frontend-themes.index')->with('success', "Thema \"{$frontend_theme->name}\" is nu beschikbaar. Koppel het aan een bedrijf onder Bedrijven bewerken.");
     }
 
     public function edit(FrontendTheme $frontend_theme)
