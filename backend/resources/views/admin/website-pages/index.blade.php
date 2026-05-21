@@ -90,7 +90,10 @@
                                 $wizSuffix = ($pageModule !== '' ? '&' : '?').http_build_query($wizardIndexQuery);
                             }
                         @endphp
-                        <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-preview-url="{{ route('admin.website-pages.preview', $page) }}{{ $pageModule }}" role="button" tabindex="0">
+                        @php
+                            $rowEditUrl = route('admin.website-pages.edit', $page).$pageModule.$wizSuffix;
+                        @endphp
+                        <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-row-href="{{ $rowEditUrl }}" role="button" tabindex="0">
                             <td>{{ $page->sort_order }}</td>
                             <td>{{ $page->title }}</td>
                             <td><code>{{ $page->slug }}</code></td>
@@ -191,18 +194,18 @@ document.addEventListener('DOMContentLoaded', function() {
     var toggles = document.querySelectorAll('.website-pages-actions-toggle');
     var openDropdown = null;
 
-    document.querySelectorAll('.website-page-row').forEach(function(row) {
+    document.querySelectorAll('.website-page-row[data-row-href]').forEach(function(row) {
         row.addEventListener('click', function(e) {
             if (e.target.closest('.website-page-actions-cell')) return;
-            var url = row.getAttribute('data-preview-url');
-            if (url) window.open(url, '_blank', 'noopener');
+            var url = row.getAttribute('data-row-href');
+            if (url) window.location.href = url;
         });
         row.addEventListener('keydown', function(e) {
             if (e.target.closest('.website-page-actions-cell')) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                var url = row.getAttribute('data-preview-url');
-                if (url) window.open(url, '_blank', 'noopener');
+                var url = row.getAttribute('data-row-href');
+                if (url) window.location.href = url;
             }
         });
     });

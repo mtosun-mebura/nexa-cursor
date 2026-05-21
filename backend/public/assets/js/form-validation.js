@@ -481,6 +481,9 @@
          * Set veld als ongeldig
          */
         setInvalid(input, feedbackElement, message, forceShow = false) {
+            if (this.shouldSkipValidationIcon(input)) {
+                return;
+            }
             const type = (input.type || '').toLowerCase();
             const isCheckboxOrRadio = input.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio');
             const value = isCheckboxOrRadio ? (input.checked ? (input.value || '1') : '') : input.value.trim();
@@ -543,7 +546,18 @@
         /**
          * Set veld als geldig
          */
+        shouldSkipValidationIcon(input) {
+            return (
+                input.hasAttribute('data-skip-validation-wrapper') ||
+                input.id === 'html_content'
+            );
+        }
+
         setValid(input, feedbackElement, fieldType, forceShow = false) {
+            if (this.shouldSkipValidationIcon(input)) {
+                this.clearValidationState(input, feedbackElement);
+                return;
+            }
             const isSelect = input.tagName === 'SELECT';
             const type = (input.type || '').toLowerCase();
             const isCheckboxOrRadio = input.tagName === 'INPUT' && (type === 'checkbox' || type === 'radio');
@@ -691,6 +705,7 @@
             // Carousel hex-velden (#RRGGBB): vast smal veld — geen 100%-wrapper of icoon.
             if (
                 input.hasAttribute('data-skip-validation-wrapper') ||
+                input.id === 'html_content' ||
                 input.classList.contains('carousel-slide-text-bg-color-hex-input') ||
                 input.classList.contains('carousel-slide-text-color-hex-input') ||
                 input.closest('.carousel-slide-hex-input-wrap')

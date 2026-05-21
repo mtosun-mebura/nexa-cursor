@@ -6,7 +6,10 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
+use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +56,10 @@ class RideRequestController extends Controller
             $perPage = 15;
         }
 
+        if (TaxiNotificationLogSchema::tableExists($conn)) {
+            $query->withCount('notificationLogs');
+        }
+
         $rideRequests = $query->orderByDesc('pickup_at')->paginate($perPage)->withQueryString();
 
         $vehicles = Vehicle::on($conn);
@@ -61,7 +68,12 @@ class RideRequestController extends Controller
 
         $statusLabels = RideRequest::statusLabels();
 
-        return view('taxi::admin.ride_requests.index', compact('rideRequests', 'vehicles', 'statusLabels'));
+        return view('taxi::admin.ride_requests.index', [
+            'rideRequests' => $rideRequests,
+            'vehicles' => $vehicles,
+            'statusLabels' => $statusLabels,
+            'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
+        ]);
     }
 
     public function create()
@@ -119,6 +131,14 @@ class RideRequestController extends Controller
         $validated['company_id'] = $companyId;
         $ride = RideRequest::on($conn)->create($validated);
 
+        if (! empty($companyId)) {
+            try {
+                app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $ride);
+            } catch (\Throwable) {
+                // Rit is opgeslagen; notificaties zijn best-effort
+            }
+        }
+
         return redirect()->route('admin.taxi.ride_requests.show', $ride)->with('success', 'Rit is aangemaakt.');
     }
 
@@ -138,11 +158,41 @@ class RideRequestController extends Controller
         $rideCompanyId = $this->resolveCompanyIdForChauffeurList($ride_request, $conn);
         $drivers = $this->buildChauffeurQuery($rideCompanyId)->get();
 
+        $notificationLogCount = 0;
+        if (TaxiNotificationLogSchema::tableExists($conn)) {
+            $notificationLogCount = RideRequestNotificationLog::on($conn)
+                ->where('ride_request_id', $ride_request->id)
+                ->count();
+        }
+
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
             'statusLabels' => $statusLabels,
             'vehicles' => $vehicles,
             'drivers' => $drivers,
+            'notificationLogCount' => $notificationLogCount,
+            'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
+        ]);
+    }
+
+    public function notificationLog(RideRequest $ride_request)
+    {
+        $this->authorizeOrPermission('rides.view');
+        $this->ensureCanAccessRide($ride_request);
+
+        $conn = $this->moduleConnection();
+        $tableExists = TaxiNotificationLogSchema::tableExists($conn);
+        $logs = $tableExists
+            ? RideRequestNotificationLog::on($conn)
+                ->where('ride_request_id', $ride_request->id)
+                ->orderByDesc('created_at')
+                ->get()
+            : collect();
+
+        return view('taxi::admin.ride_requests.notification_log', [
+            'ride' => $ride_request,
+            'logs' => $logs,
+            'tableMissing' => ! $tableExists,
         ]);
     }
 

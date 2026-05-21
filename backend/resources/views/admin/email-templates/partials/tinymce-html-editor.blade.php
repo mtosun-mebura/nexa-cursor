@@ -13,6 +13,12 @@
     .dark .tox .tox-edit-area__iframe {
         background: #1f2937 !important;
     }
+    /* Tweede toolbar-regel (link, tabel, code) visueel gescheiden */
+    .tox .tox-toolbar-overlord > .tox-toolbar:not(:first-child) {
+        border-top: 1px solid rgba(128, 128, 128, 0.25);
+        padding-top: 4px;
+        margin-top: 2px;
+    }
 </style>
 @endpush
 
@@ -55,7 +61,10 @@ document.addEventListener('DOMContentLoaded', function() {
             height: 840,
             menubar: false,
             plugins: 'lists link code charmap table',
-            toolbar: 'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link | charmap | table | tablecellbackcolor | code',
+            toolbar: [
+                'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent',
+                'link | charmap | table | tablecellbackcolor | code',
+            ],
             block_formats: 'Paragraaf=p; Kop 1=h1; Kop 2=h2; Kop 3=h3',
             content_style: isDark ? contentStyleDark : contentStyleLight,
             skin: isDark ? 'oxide-dark' : 'oxide',

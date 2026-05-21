@@ -233,18 +233,18 @@
                             Rollen
                         </td>
                         <td class="text-foreground font-normal">
-                            @foreach($user->roles as $role)
-                                @if($role->name === 'super-admin')
+                            @foreach($user->webRoleNames() as $roleName)
+                                @if($roleName === 'super-admin')
                                     @if(auth()->user()->hasRole('super-admin'))
-                                        <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
+                                        <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                     @else
                                         <span class="kt-badge kt-badge-sm kt-badge-secondary me-1">Verborgen</span>
                                     @endif
                                 @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                 @endif
                             @endforeach
-                            @if($user->roles->isEmpty())
+                            @if($user->webRoleNames() === [])
                                 <span class="text-secondary-foreground text-sm">Geen rollen</span>
                             @endif
                         </td>

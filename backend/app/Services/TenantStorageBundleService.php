@@ -69,9 +69,19 @@ final class TenantStorageBundleService
     public function collectPrivateAppPathsForExport(Company $company): array
     {
         $paths = $this->websiteBundle->collectEncryptedWebsiteMediaAppPathsForCompany($company);
-        sort($paths);
+        $paths = array_merge($paths, $this->collectPrivateInvoicePdfPaths((int) $company->id));
 
-        return $paths;
+        $unique = [];
+        foreach ($paths as $p) {
+            $n = str_replace('\\', '/', trim((string) $p, '/'));
+            if ($n !== '' && ! str_contains($n, '..')) {
+                $unique[$n] = true;
+            }
+        }
+        $keys = array_keys($unique);
+        sort($keys);
+
+        return $keys;
     }
 
     /**
@@ -119,7 +129,8 @@ final class TenantStorageBundleService
             'general_settings' => $settingsPayload,
             'storage_paths' => $allPaths,
             'private_storage_paths' => $privateAppPaths,
-            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (o.a. versleutelde website_media). Import zet beide terug. /file/-URL’s in de DB worden bij export als normale publieke paden meegenomen.',
+            'payment_storage_note' => 'Factuur-PDF’s staan op de local disk (storage/app/private/invoices/{company_id}/) als private_files/private/invoices/… in de ZIP. Betalingsproviders en transacties zitten in de database en gaan via tenant-sync (payment_providers, invoice_settings, invoices, payments, payment_reminders, ride_payments).',
+            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (o.a. versleutelde website_media, factuur-PDF’s). Import zet beide terug. /file/-URL’s in de DB worden bij export als normale publieke paden meegenomen.',
         ];
 
         $safeSlug = Str::slug($company->name) ?: 'company';
@@ -155,8 +166,8 @@ final class TenantStorageBundleService
                 if ($rel === '' || str_contains($rel, '..')) {
                     continue;
                 }
-                $abs = storage_path('app/'.$rel);
-                if (is_file($abs) && is_readable($abs)) {
+                $abs = $this->absolutePrivateStoragePath($rel);
+                if ($abs !== null) {
                     $this->zipAddFileOrFromString($zip, $abs, 'private_files/'.$rel);
                 }
             }
@@ -359,13 +370,118 @@ final class TenantStorageBundleService
     /**
      * @return list<string>
      */
+    /**
+     * Factuur-PDF’s op de Laravel-local disk (storage/app/private), niet op public.
+     * Manifest/export-paden: {@see privateStorageZipRelative}.
+     *
+     * @return list<string>
+     */
+    private function collectPrivateInvoicePdfPaths(int $companyId): array
+    {
+        $paths = [];
+        $dbRels = [];
+
+        if (Schema::hasTable('invoices') && Schema::hasColumn('invoices', 'company_id') && Schema::hasColumn('invoices', 'pdf_path')) {
+            $rows = DB::table('invoices')
+                ->where('company_id', $companyId)
+                ->whereNotNull('pdf_path')
+                ->pluck('pdf_path');
+            foreach ($rows as $v) {
+                if (! is_string($v)) {
+                    continue;
+                }
+                $rel = str_replace('\\', '/', trim($v, '/'));
+                if ($rel !== '' && ! str_contains($rel, '..') && str_starts_with($rel, 'invoices/')) {
+                    $dbRels[$rel] = true;
+                }
+            }
+        }
+
+        foreach (array_keys($dbRels) as $dbRel) {
+            if ($this->absolutePrivateStoragePath($this->privateStorageZipRelative($dbRel)) !== null) {
+                $paths[] = $this->privateStorageZipRelative($dbRel);
+            }
+        }
+
+        $scanDirs = [
+            storage_path('app/private/invoices/'.$companyId),
+            storage_path('app/invoices/'.$companyId),
+        ];
+        foreach ($scanDirs as $dir) {
+            if (! is_dir($dir)) {
+                continue;
+            }
+            try {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::LEAVES_ONLY
+                );
+                foreach ($iterator as $file) {
+                    if (! $file->isFile()) {
+                        continue;
+                    }
+                    $name = $file->getFilename();
+                    $dbRel = 'invoices/'.$companyId.'/'.$name;
+                    $zipRel = $this->privateStorageZipRelative($dbRel);
+                    if ($this->absolutePrivateStoragePath($zipRel) !== null) {
+                        $paths[$zipRel] = true;
+                    }
+                }
+            } catch (\Throwable) {
+                // permissies
+            }
+        }
+
+        return array_keys($paths);
+    }
+
+    /**
+     * ZIP/import-pad onder storage/app (local disk = app/private/…).
+     */
+    private function privateStorageZipRelative(string $dbRelativePath): string
+    {
+        $dbRelativePath = str_replace('\\', '/', trim($dbRelativePath, '/'));
+        if ($dbRelativePath === '' || str_contains($dbRelativePath, '..')) {
+            return $dbRelativePath;
+        }
+        if (is_file(storage_path('app/private/'.$dbRelativePath))) {
+            return 'private/'.$dbRelativePath;
+        }
+
+        return $dbRelativePath;
+    }
+
+    private function absolutePrivateStoragePath(string $zipRelativePath): ?string
+    {
+        $zipRelativePath = str_replace('\\', '/', trim($zipRelativePath, '/'));
+        if ($zipRelativePath === '' || str_contains($zipRelativePath, '..')) {
+            return null;
+        }
+
+        $candidates = [storage_path('app/'.$zipRelativePath)];
+        if (str_starts_with($zipRelativePath, 'private/')) {
+            $without = substr($zipRelativePath, strlen('private/'));
+            $candidates[] = storage_path('app/private/'.$without);
+        } elseif (str_starts_with($zipRelativePath, 'invoices/')) {
+            $candidates[] = storage_path('app/private/'.$zipRelativePath);
+        }
+
+        foreach ($candidates as $abs) {
+            if (is_file($abs) && is_readable($abs)) {
+                return $abs;
+            }
+        }
+
+        return null;
+    }
+
     private function collectPathsFromCompanyTables(int $companyId): array
     {
         $paths = [];
         $specs = [
             ['table' => 'users', 'column' => 'cv_path'],
             ['table' => 'notifications', 'column' => 'file_path'],
-            ['table' => 'invoices', 'column' => 'pdf_path'],
+            ['table' => 'invoice_settings', 'column' => 'logo_path'],
         ];
 
         foreach ($specs as $spec) {
@@ -376,9 +492,14 @@ final class TenantStorageBundleService
             }
             $rows = DB::table($table)->where('company_id', $companyId)->whereNotNull($column)->pluck($column);
             foreach ($rows as $v) {
-                if (is_string($v) && trim($v) !== '') {
-                    $paths[] = $v;
+                if (! is_string($v) || trim($v) === '') {
+                    continue;
                 }
+                $rel = $this->websiteBundle->normalizeStorageRelativePath($v);
+                if ($rel === '' || str_contains($rel, '..') || str_starts_with($rel, 'invoices/')) {
+                    continue;
+                }
+                $paths[] = $rel;
             }
         }
 

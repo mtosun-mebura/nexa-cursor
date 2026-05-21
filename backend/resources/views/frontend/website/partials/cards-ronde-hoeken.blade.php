@@ -141,7 +141,7 @@
   }
 </style>
 <section class="cards-ronde-hoeken-section py-12 md:py-16 bg-white dark:bg-gray-900" aria-label="Cards" data-cards-ronde-hoeken-reveal>
-    <div class="container-custom flex flex-col gap-5 lg:gap-7.5 items-center">
+    <div class="website-section-inner flex flex-col gap-5 lg:gap-7.5 items-center">
         @foreach($rows as $row)
             @if($row['type'] === 'normal')
         <div class="flex flex-row flex-wrap gap-5 lg:gap-7.5 items-stretch justify-center w-full">

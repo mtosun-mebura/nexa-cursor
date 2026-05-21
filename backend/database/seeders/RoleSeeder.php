@@ -94,12 +94,14 @@ class RoleSeeder extends Seeder
         $companyAdmin = Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
         $staff = Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'web']);
         $candidate = Role::firstOrCreate(['name' => 'candidate', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
 
         // Create roles for api guard (if they don't exist)
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'candidate', 'guard_name' => 'api']);
+        Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'api']);
 
         // Create permissions
         $permissions = [

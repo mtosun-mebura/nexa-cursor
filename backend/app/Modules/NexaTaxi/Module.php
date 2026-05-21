@@ -67,6 +67,14 @@ class Module extends BaseModule
                 'permission' => 'rides.view',
                 'order' => 20,
             ],
+            [
+                'key' => 'dispatch_settings',
+                'title' => 'Chauffeur dispatch',
+                'route' => 'admin.taxi.dispatch_settings.edit',
+                'icon' => 'ki-filled ki-phone',
+                'permission' => 'rides.view',
+                'order' => 25,
+            ],
         ];
     }
 

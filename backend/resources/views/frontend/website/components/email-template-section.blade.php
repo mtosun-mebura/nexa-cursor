@@ -37,8 +37,8 @@
             transform: translate(0);
         }
     </style>
-    <div class="{{ $embeddedInTextBlock ? 'w-full' : 'container-custom' }}">
-        <div class="{{ $embeddedInTextBlock ? 'w-full' : 'max-w-3xl mx-auto' }}">
+    <div class="{{ $embeddedInTextBlock ? 'w-full' : 'website-section-inner' }}">
+        <div class="{{ $embeddedInTextBlock ? 'w-full' : 'w-full max-w-3xl mx-auto' }}">
             @if($sectionTitle)
             <h2 class="info-req-animate-left text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">{{ $sectionTitle }}</h2>
             @endif

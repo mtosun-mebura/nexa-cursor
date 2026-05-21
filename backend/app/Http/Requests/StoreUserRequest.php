@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Validation\Rule;
+
 /**
  * FormRequest voor het aanmaken van gebruikers
  * Met uniforme validatie en security checks
@@ -66,10 +68,15 @@ class StoreUserRequest extends BaseFormRequest
                 'nullable',
                 'exists:companies,id',
             ],
-            'role' => [
+            'roles' => [
                 'required',
+                'array',
+                'min:1',
+            ],
+            'roles.*' => [
                 'string',
-                'exists:roles,name',
+                'distinct',
+                Rule::exists('roles', 'name')->where('guard_name', 'web'),
             ],
             'wizard_back_url' => [
                 'nullable',
@@ -93,6 +100,19 @@ class StoreUserRequest extends BaseFormRequest
         ];
     }
 
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $roles = $this->input('roles', []);
+            if (! is_array($roles)) {
+                return;
+            }
+            if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
+                $validator->errors()->add('roles', 'Je mag geen super-admin rol toewijzen.');
+            }
+        });
+    }
+
     public function messages(): array
     {
         return [
@@ -113,8 +133,9 @@ class StoreUserRequest extends BaseFormRequest
             'phone.regex' => 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).',
             'date_of_birth.before' => 'Geboortedatum moet in het verleden liggen.',
             'company_id.exists' => 'Het geselecteerde bedrijf bestaat niet.',
-            'role.required' => 'Rol is verplicht.',
-            'role.exists' => 'De geselecteerde rol bestaat niet.',
+            'roles.required' => 'Selecteer minimaal één rol.',
+            'roles.min' => 'Selecteer minimaal één rol.',
+            'roles.*.exists' => 'Een geselecteerde rol bestaat niet.',
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GeneralSetting;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 
 class EnvService
@@ -124,6 +125,51 @@ class EnvService
         }
 
         return $this->mailOverlayCache = $merged;
+    }
+
+    /**
+     * Pas mailconfiguratie uit admin (#mail) toe op de runtime (SMTP-auth + From).
+     */
+    public function applyMailConfigToRuntime(): void
+    {
+        $mailer = $this->get('MAIL_MAILER', 'log');
+        $encryption = $this->get('MAIL_ENCRYPTION', 'tls');
+        $fromAddress = $this->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@example.com'));
+        $fromName = $this->get('MAIL_FROM_NAME', config('mail.from.name', config('app.name', 'NEXA')));
+
+        Config::set('mail.default', $mailer);
+        Config::set('mail.from.address', $fromAddress);
+        Config::set('mail.from.name', $fromName);
+
+        if ($mailer === 'smtp') {
+            Config::set('mail.mailers.smtp.host', $this->get('MAIL_HOST', ''));
+            Config::set('mail.mailers.smtp.port', $this->get('MAIL_PORT', '587'));
+            Config::set('mail.mailers.smtp.username', $this->get('MAIL_USERNAME', ''));
+            Config::set('mail.mailers.smtp.password', $this->get('MAIL_PASSWORD', ''));
+            Config::set('mail.mailers.smtp.encryption', $encryption === 'null' ? null : $encryption);
+        }
+
+        app()->forgetInstance('mail.manager');
+    }
+
+    /**
+     * @return array{from_address: string, from_name: string, smtp_username: string}
+     */
+    public function resolveMailFromHeaders(): array
+    {
+        $configuredFrom = $this->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@example.com'));
+        $smtpUsername = trim((string) $this->get('MAIL_USERNAME', ''));
+
+        // Envelope/From moet overeenkomen met SMTP-gebruiker als de server dat vereist
+        $fromAddress = ($smtpUsername !== '' && $smtpUsername !== $configuredFrom)
+            ? $smtpUsername
+            : $configuredFrom;
+
+        return [
+            'from_address' => $fromAddress,
+            'from_name' => $this->get('MAIL_FROM_NAME', config('mail.from.name', config('app.name', 'NEXA'))),
+            'smtp_username' => $smtpUsername,
+        ];
     }
 
     /**

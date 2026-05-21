@@ -5,8 +5,8 @@
     $logoSizePx = isset($logoSizePx)
         ? max(10, min(100, (int) $logoSizePx))
         : (int) ($branding['logo_size_px'] ?? app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx());
-    $logoImgStyle = 'height: '.$logoSizePx.'px';
-    $logoImgClass = trim('w-auto max-w-[350px] object-contain '.($logoImgClassExtra ?? ''));
+    $logoImgStyle = '--logo-h-max: '.$logoSizePx.'px; height: clamp(1.5rem, 4.5vw + 0.625rem, var(--logo-h-max)); width: auto; max-width: min(72vw, 20rem, calc(var(--logo-h-max) * 8));';
+    $logoImgClass = trim('fe-brand-logo-img w-auto object-contain '.($logoImgClassExtra ?? ''));
 @endphp
 <a href="{{ $logoHref }}" class="flex items-center {{ $logoLinkClass ?? '' }}" aria-label="{{ $logoAlt }}">
     @if(!empty($branding['logo_url']))

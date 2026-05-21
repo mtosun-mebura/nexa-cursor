@@ -162,10 +162,11 @@
                     </div>
                     <div class="mb-3">
                         <label for="html_content" class="kt-form-label mb-2">HTML Inhoud</label>
-                        <textarea class="kt-input @error('html_content') border-destructive @enderror" 
-                                  id="html_content" 
-                                  name="html_content" 
-                                  rows="10" 
+                        <textarea class="kt-input @error('html_content') border-destructive @enderror"
+                                  id="html_content"
+                                  name="html_content"
+                                  rows="10"
+                                  data-skip-validation-wrapper
                                   required>{{ old('html_content', $defaultHtmlTemplate ?? '') }}</textarea>
                         @error('html_content')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>

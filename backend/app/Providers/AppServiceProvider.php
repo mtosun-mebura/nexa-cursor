@@ -9,11 +9,15 @@ use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
+use App\Support\Tenancy\CentralDomains;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -48,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registerModuleDatabaseConnections();
         $this->registerWebsitePageRouteBinding();
         $this->loadGoogleMapsApiKeyFromRootEnv();
+        $this->forceLocalDevRootUrlFromRequest();
 
         View::composer('frontend.layouts.website', function ($view) {
             $data = $view->getData();
@@ -81,6 +86,16 @@ class AppServiceProvider extends ServiceProvider
         // Geen globale default guard naar 'api' forceren: admin-login gebruikt expliciet web (AdminAuthController).
         // auth()->user() moet dezelfde sessie-user zijn als web, anders falen Spatie can()/hasRole() en krijg je 403.
         // Zet desnoods AUTH_GUARD=api in .env voor API-first apps (Sanctum-routes gebruiken meestal auth:sanctum).
+
+        RateLimiter::for('taxi-driver-login', function ($request) {
+            return Limit::perMinute(10)->by($request->ip().'|'.(string) $request->input('email'));
+        });
+
+        RateLimiter::for('taxi-driver-poll', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(120)->by('taxi-poll|'.$key);
+        });
 
         // Register SMS notification channel
         Notification::extend('sms', function ($app) {
@@ -190,5 +205,34 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
         }
+    }
+
+    /**
+     * LAN/mobiel dev: APP_URL is vaak localhost, maar de browser opent 192.168.x.x.
+     * Zonder dit wijzen redirects en gegenereerde URL's naar localhost → geen sessie op de telefoon.
+     */
+    private function forceLocalDevRootUrlFromRequest(): void
+    {
+        if ($this->app->runningInConsole() || app()->isProduction()) {
+            return;
+        }
+
+        $request = request();
+        if ($request === null) {
+            return;
+        }
+
+        $host = $request->getHost();
+        if (! CentralDomains::isLocalDevEntryHost($host)) {
+            return;
+        }
+
+        $root = $request->getScheme().'://'.$host;
+        $port = $request->getPort();
+        if ($port && ! in_array($port, [80, 443], true)) {
+            $root .= ':'.$port;
+        }
+
+        URL::forceRootUrl($root);
     }
 }

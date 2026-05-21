@@ -221,6 +221,9 @@
                                             </span>
                                         </a>
                                     </th>
+                                    <th class="min-w-[160px]">
+                                        <span class="kt-table-col-label">Bedrijf (tenant)</span>
+                                    </th>
                                     <th class="min-w-[150px]">
                                         <a href="{{ request()->fullUrlWithQuery(['sort' => 'provider_type', 'order' => ($currentSort == 'provider_type' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
                                            class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
@@ -263,6 +266,16 @@
                                                     </span>
                                                 @endif
                                             </div>
+                                        </td>
+                                        <td>
+                                            @if($provider->company)
+                                                <span class="text-sm font-medium text-mono">{{ $provider->company->name }}</span>
+                                                <span class="text-xs text-secondary-foreground block">ID {{ $provider->company_id }}</span>
+                                            @elseif($provider->company_id)
+                                                <span class="text-xs text-secondary-foreground">ID {{ $provider->company_id }}</span>
+                                            @else
+                                                <span class="text-xs text-destructive">Niet gekoppeld</span>
+                                            @endif
                                         </td>
                                         <td>
                                             <span class="kt-badge kt-badge-sm kt-badge-info">

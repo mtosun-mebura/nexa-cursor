@@ -278,7 +278,112 @@
     }
   }
 
-  /* Footer: exact 50/50 links (tekst + links) / rechts (kaart), kaart vult rechterhelft */
+  /* Website builder: sectie-inhoud volle breedte op mobiel, container-padding vanaf md */
+  .website-section-inner {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 768px) {
+    .website-section-inner {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  }
+  .website-section-inner--flush {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  @media (min-width: 768px) {
+    .website-section-inner--flush {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .website-block-featured-services .featured-services-cards {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+      gap: 0.75rem !important;
+    }
+    .website-block-featured-services .featured-service-item {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: none !important;
+    }
+    .website-block-featured-services .featured-service-card {
+      width: 100% !important;
+      box-sizing: border-box;
+    }
+    .google-reviews-section .grw-layout {
+      max-width: 100%;
+    }
+    .google-reviews-section .grw-summary {
+      width: 100%;
+      min-height: 0;
+    }
+    .google-reviews-section .grw-slider-wrapper .grw-header--carousel-only {
+      display: none;
+    }
+    .google-reviews-section .grw-layout {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+    .footer-grid-with-map .footer-map-reveal {
+      min-height: 220px;
+    }
+    .footer-grid-with-map #footer-google-map {
+      min-height: 200px !important;
+    }
+    .stats-animate-section .stats-inner-row {
+      max-width: 100%;
+    }
+    .stats-animate-section .stats-animate-item {
+      min-width: 0;
+      flex: 1 1 calc(50% - 1rem);
+    }
+    .cards-ronde-hoeken-section .cards-ronde-hoeken-card-wrap {
+      width: 100% !important;
+      flex: 1 1 100% !important;
+      max-width: 100% !important;
+    }
+    .text-block-section__inner {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      width: 100% !important;
+    }
+    .nexataxi-pricing [data-nexataxi-card-wrapper] {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: 1 1 100% !important;
+    }
+  }
+  @media (min-width: 768px) {
+    .text-block-section__inner {
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+  }
+
+  /* Footer: kaart altijd zichtbaar; desktop 50/50 met links */
+  .footer-map-reveal {
+    min-height: 200px;
+  }
+  #footer-google-map {
+    width: 100% !important;
+    min-height: 200px;
+    min-width: 0;
+  }
   @media (min-width: 768px) {
     .footer-grid-with-map {
       grid-template-columns: 1fr 1fr;

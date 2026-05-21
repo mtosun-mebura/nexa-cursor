@@ -27,6 +27,7 @@ final class TenantCompanyDataPushService
      * @return array{
      *     company_row: string,
      *     tables_with_company_id: list<string>,
+     *     payment_company_scoped_tables: list<string>,
      *     excluded_tables: list<string>,
      *     driver: string
      * }
@@ -35,10 +36,21 @@ final class TenantCompanyDataPushService
     {
         $connection = (string) config('database.default');
         $driver = Schema::connection($connection)->getConnection()->getDriverName();
+        $tables = $this->discoverCompanyScopedTables($connection);
+        $paymentConfigured = config('tenant_sync.payment_company_scoped_tables', []);
+        $paymentTables = [];
+        if (is_array($paymentConfigured)) {
+            foreach ($paymentConfigured as $t) {
+                if (is_string($t) && in_array($t, $tables, true)) {
+                    $paymentTables[] = $t;
+                }
+            }
+        }
 
         return [
             'company_row' => 'companies (één rij per tenant; op doel hergebruikt op slug of nieuw id)',
-            'tables_with_company_id' => $this->discoverCompanyScopedTables($connection),
+            'tables_with_company_id' => $tables,
+            'payment_company_scoped_tables' => $paymentTables,
             'excluded_tables' => array_values(config('tenant_sync.excluded_tables', [])),
             'driver' => $driver,
         ];
@@ -214,6 +226,29 @@ final class TenantCompanyDataPushService
             $q->where('host', $payload['host']);
         } elseif ($table === 'company_module' && isset($payload['module_id'])) {
             $q->where('module_id', $payload['module_id']);
+        } elseif ($table === 'payment_providers' && isset($payload['provider_type'])) {
+            $q->where('provider_type', $payload['provider_type']);
+        } elseif ($table === 'invoice_settings') {
+            if (array_key_exists('location_id', $payload)) {
+                if ($payload['location_id'] === null) {
+                    $q->whereNull('location_id');
+                } else {
+                    $q->where('location_id', $payload['location_id']);
+                }
+            }
+        } elseif ($table === 'invoices') {
+            if (! empty($payload['module']) && isset($payload['module_reference_id'])) {
+                $q->where('module', $payload['module'])
+                    ->where('module_reference_id', $payload['module_reference_id']);
+            } elseif (isset($payload['invoice_number'])) {
+                $q->where('invoice_number', $payload['invoice_number']);
+            } else {
+                return;
+            }
+        } elseif ($table === 'ride_payments' && ! empty($payload['mollie_payment_id'])) {
+            $q->where('mollie_payment_id', $payload['mollie_payment_id']);
+        } elseif ($table === 'payments' && ! empty($payload['payment_provider_id'])) {
+            $q->where('payment_provider_id', $payload['payment_provider_id']);
         } else {
             return;
         }

@@ -303,9 +303,9 @@
                                             </div>
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            @if($user->roles->count() > 0)
-                                                @foreach($user->roles as $role)
-                                                    <span class="kt-badge kt-badge-info">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
+                                            @if(count($user->webRoleNames()) > 0)
+                                                @foreach($user->webRoleNames() as $roleName)
+                                                    <span class="kt-badge kt-badge-info me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                                 @endforeach
                                             @else
                                                 <span class="text-sm text-muted-foreground">Geen rol</span>

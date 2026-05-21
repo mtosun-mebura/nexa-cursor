@@ -32,6 +32,35 @@ final class CentralDomains
     {
         $normalized = strtolower(trim(explode(':', $host, 2)[0]));
 
-        return in_array($normalized, self::all(), true);
+        if (in_array($normalized, self::all(), true)) {
+            return true;
+        }
+
+        // Lokaal/staging: LAN-IP (bijv. 192.168.x.x) voor mobiele preview met ?_tenant_host=…
+        if (! app()->isProduction() && self::isLocalDevEntryHost($normalized)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * localhost, loopback en private IP-ranges —zelfde gedrag als APP_URL op localhost voor dev-preview.
+     */
+    public static function isLocalDevEntryHost(string $host): bool
+    {
+        if ($host === 'localhost') {
+            return true;
+        }
+
+        if (! filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
+            return false;
+        }
+
+        return filter_var(
+            $host,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) === false;
     }
 }

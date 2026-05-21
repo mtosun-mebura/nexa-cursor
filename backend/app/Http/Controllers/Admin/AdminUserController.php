@@ -11,6 +11,7 @@ use App\Models\JobTitle;
 use App\Models\User;
 use App\Support\ModuleSchemaAvailability;
 use App\Services\EnvService;
+use App\Services\UserRoleAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
@@ -210,9 +211,9 @@ class AdminUserController extends Controller
         $companyId = $userData['company_id'] ?? null;
         $willBeFirstUserForCompany = $companyId !== null
             && User::where('company_id', $companyId)->count() === 0;
-        $roleName = $willBeFirstUserForCompany
-            ? 'company-admin'
-            : $request->validated()['role'];
+        $roleNames = $willBeFirstUserForCompany
+            ? ['company-admin']
+            : $request->validated()['roles'];
 
         // Save or update job title if function is provided
         if (! empty($userData['function'])) {
@@ -223,7 +224,7 @@ class AdminUserController extends Controller
 
         $user = User::create($userData);
 
-        $user->assignRole($roleName);
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, $roleNames);
 
         $wizardBack = $request->validated()['wizard_back_url'] ?? null;
         if (is_string($wizardBack) && $wizardBack !== '') {
@@ -336,7 +337,8 @@ class AdminUserController extends Controller
         }
 
         $user->update($userData);
-        $user->syncRoles([$validated['role']]);
+        $user->refresh();
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, $validated['roles']);
 
         return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol bijgewerkt.');
     }
@@ -364,10 +366,20 @@ class AdminUserController extends Controller
     public function assignRole(Request $request, User $user)
     {
         $request->validate([
-            'roles' => 'required|array',
+            'roles' => 'required|array|min:1',
+            'roles.*' => ['string', 'distinct', \Illuminate\Validation\Rule::exists('roles', 'name')->where('guard_name', 'web')],
         ]);
 
-        $user->syncRoles($request->roles);
+        if (! $this->canAccessResource($user)) {
+            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+        }
+
+        $roles = $request->input('roles', []);
+        if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
+            return back()->withErrors(['roles' => 'Je mag geen super-admin rol toewijzen.']);
+        }
+
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, $roles);
 
         return back()->with('success', 'Rollen succesvol toegewezen.');
     }

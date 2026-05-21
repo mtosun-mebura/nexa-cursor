@@ -177,6 +177,7 @@
                                   id="html_content" 
                                   name="html_content" 
                                   rows="10" 
+                                  data-skip-validation-wrapper
                                   required>{{ old('html_content', $emailTemplate->html_content) }}</textarea>
                         @error('html_content')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -209,6 +210,14 @@
                         <p class="text-xs text-muted-foreground mt-3">
                             <strong>Tip:</strong> Gebruik deze variabelen in je template met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }}{{ (isset($isInfoRequestType) && $isInfoRequestType) ? 'VOORNAAM' : 'USER_NAME' }}{{ '}' }}{{ '}' }}</code>
                         </p>
+                        @if($emailTemplate->type === 'invoice')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-2 text-foreground font-medium">Factuur: <code>{{ '{' }}{{ '{' }} INVOICE_AMOUNTS_HTML {{ '}' }}{{ '}' }}</code></p>
+                            <p class="mb-2">Deze tag staat <strong>niet</strong> in de database. Bij versturen wordt ze vervangen door een HTML-tabel met bedragen (excl. BTW, BTW, totaal) op basis van de rit en het BTW-tarief uit <a href="{{ route('admin.invoices.settings') }}" class="text-primary underline">factuurinstellingen</a>.</p>
+                            <p class="mb-2">Wil je zelf de opmaak bepalen? Gebruik de knop <strong>&lt;/&gt; Bewerk code</strong> en vervang de tag door eigen HTML met bijvoorbeeld:</p>
+                            <p class="font-mono text-[11px] leading-relaxed mb-0">{{ '{' }}{{ '{' }} INVOICE_AMOUNT_EXCL {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} INVOICE_TAX_LABEL {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} INVOICE_TAX_AMOUNT {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} INVOICE_TOTAL {{ '}' }}{{ '}' }}</p>
+                        </div>
+                        @endif
                         @if(isset($isInfoRequestType) && $isInfoRequestType)
                         <p class="text-xs text-muted-foreground mt-1">
                             <strong>Dynamische velden:</strong> Gebruik <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }} DYNAMIC_FORM_FIELDS {{ '}' }}{{ '}' }}</code> in een tabel om alle formuliervelden (inclusief nieuw toegevoegde) automatisch te tonen.

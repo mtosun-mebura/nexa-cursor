@@ -77,6 +77,32 @@ Route::get('/file/{path}', function ($path) {
     ]);
 })->where('path', '.*');
 
+// Browsers vragen vaak /favicon.ico aan (vóór <link rel="icon">). Geen leeg bestand in public/ gebruiken.
+Route::get('/favicon.ico', function () {
+    $meta = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta();
+    $path = parse_url($meta['url'], PHP_URL_PATH);
+    if (is_string($path) && str_starts_with($path, '/file/')) {
+        $storagePath = str_replace('--', '/', ltrim(substr($path, strlen('/file/')), '/'));
+        $file = storage_path('app/public/'.$storagePath);
+        if (is_file($file)) {
+            return response(file_get_contents($file), 200, [
+                'Content-Type' => $meta['type'],
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        }
+    }
+
+    $fallback = public_path('images/nexa-x-logo.png');
+    if (is_file($fallback)) {
+        return response(file_get_contents($fallback), 200, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    abort(404);
+});
+
 // BLOB photo serving route (authenticated users only)
 Route::get('/user-photo/{id}', function ($id) {
     // Check if user is authenticated
@@ -601,6 +627,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::get('invoices/matches-for-company', [AdminInvoiceController::class, 'getMatchesForCompany'])->name('invoices.matches-for-company');
         Route::resource('invoices', AdminInvoiceController::class);
         Route::post('invoices/{invoice}/send-reminder', [AdminInvoiceController::class, 'sendReminder'])->name('invoices.send-reminder');
+        Route::get('invoices/{invoice}/pdf', [AdminInvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
         Route::get('invoices/{invoice}/payment-links', [AdminInvoiceController::class, 'paymentLinks'])->name('invoices.payment-links');
 
         // Job Configurations (Super Admin only)
@@ -910,6 +937,8 @@ Route::prefix('nexa-taxi/booking')->group(function () {
     Route::get('address-search', [NexaTaxiBookingController::class, 'addressSearch'])->name('nexataxi.booking.address-search');
     Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
     Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');
+    Route::get('betaling/terug', [\App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController::class, 'returnPage'])
+        ->name('nexataxi.booking.payment.return');
 });
 
 // Website-builder: custom/module pagina's op slug (moet na vaste paden staan)

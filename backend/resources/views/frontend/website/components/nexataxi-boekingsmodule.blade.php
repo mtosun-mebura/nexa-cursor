@@ -21,9 +21,9 @@
     ];
     $moduleAlign = $sectionStyle['align'] ?? 'center';
     $moduleAlignClass = $moduleAlign === 'left' ? 'justify-start' : ($moduleAlign === 'right' ? 'justify-end' : 'justify-center');
-    $moduleOuterStyleParts = [];
+    $moduleOuterStyleParts = ['width: 100%'];
     if (! empty($sectionStyle['container_max_width'])) {
-        $moduleOuterStyleParts[] = 'max-width: '.$sectionStyle['container_max_width'];
+        $moduleOuterStyleParts[] = '--booking-module-max-width: '.$sectionStyle['container_max_width'];
     }
     if (! empty($sectionStyle['container_min_height'])) {
         $moduleOuterStyleParts[] = 'min-height: '.$sectionStyle['container_min_height'];
@@ -34,28 +34,39 @@
         'border-radius: ' . (int) ($sectionStyle['border_radius'] ?? 12) . 'px;',
     ];
     $moduleShellStyle = implode(' ', $shellStyleParts);
-    $envService = app(\App\Services\EnvService::class);
-    $whatsappClickToChatEnabled = (string) $envService->get('WHATSAPP_CLICK_TO_CHAT_ENABLED', '0') === '1';
-    $whatsappClickToChatNumber = trim((string) $envService->get('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''));
+    $bookingTenantCompanyId = null;
+    if (app()->bound('resolved_tenant_id')) {
+        $rtid = app('resolved_tenant_id');
+        if (is_numeric($rtid) && (int) $rtid > 0) {
+            $bookingTenantCompanyId = (int) $rtid;
+        }
+    }
+    $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+    $bookingNotifications = app(\App\Modules\NexaTaxi\Services\TaxiBookingNotificationService::class);
+    $whatsappClickToChatNumber = $dispatchSettings->bookingWhatsappNumber($bookingTenantCompanyId);
+    $whatsappServerAutoSend = $bookingNotifications->whatsappAutoSendEnabled($bookingTenantCompanyId);
+    $whatsappClientClickToChat = $bookingNotifications->whatsappClientClickToChatEnabled($bookingTenantCompanyId);
     $bookingConfig['address_search_url'] = url()->route('nexataxi.booking.address-search');
+    $bookingConfig['payment'] = $dispatchSettings->paymentOptionsForTenant($bookingTenantCompanyId);
     $tabFontPxVal = (int) ($sectionStyle['tab_font_size_px'] ?? 14);
     $titleFontPxVal = (int) ($sectionStyle['title_font_size_px'] ?? 36);
     $titleFontPxVal = max(16, min(72, $titleFontPxVal));
     $stepHeadingFontPxVal = (int) ($sectionStyle['step_heading_font_size_px'] ?? 30);
     $stepHeadingFontPxVal = max(16, min(48, $stepHeadingFontPxVal));
-    $stepHeadingStyle = 'font-size: '.$stepHeadingFontPxVal.'px; color: '.e($sectionStyle['primary_color'] ?? $bookingDefaultAccent).';';
+    $stepHeadingStyle = 'color: '.e($sectionStyle['primary_color'] ?? $bookingDefaultAccent).';';
     $routeMapZoomVal = max(1, min(21, (int) ($sectionStyle['route_map_zoom'] ?? 14)));
     $routeMapImgScale = 0.68 + ($routeMapZoomVal - 1) * (0.64 / 20);
     $routeMapImgScale = round(max(0.65, min(1.35, $routeMapImgScale)), 4);
 @endphp
 
-<section class="container-custom py-8 md:py-12 booking-module-scroll-reveal" data-nexataxi-booking-module data-booking-module-scroll-reveal style="--booking-tab-font-size: {{ $tabFontPxVal }}px; --booking-route-map-img-scale: {{ $routeMapImgScale }};">
-    <div class="flex {{ $moduleAlignClass }}">
-    <div class="w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
+<section class="booking-module-scroll-reveal w-full py-6 md:py-12" data-nexataxi-booking-module data-booking-module-scroll-reveal style="--booking-tab-font-size: {{ $tabFontPxVal }}px; --booking-route-map-img-scale: {{ $routeMapImgScale }}; --booking-title-size-max: {{ $titleFontPxVal }}px; --booking-step-heading-size-max: {{ $stepHeadingFontPxVal }}px;">
+    <div class="booking-module-layout website-section-inner website-section-inner--flush w-full max-w-full">
+    <div class="flex {{ $moduleAlignClass }} w-full">
+    <div class="booking-module-outer w-full" @if($moduleOuterStyle !== '') style="{{ $moduleOuterStyle }}" @endif>
     <div class="booking-module-card booking-module-reveal-item rounded-xl border p-0 shadow-sm bg-neutral-primary text-heading"
         style="{{ $moduleShellStyle }}">
-        <div class="px-6 py-5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}33;">
-            <h2 class="font-bold leading-tight" style="font-size: {{ $titleFontPxVal }}px; color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
+        <div class="px-4 py-4 sm:px-6 sm:py-5 border-b bg-neutral-secondary-soft" style="border-color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }}33;">
+            <h2 class="booking-module-title font-bold leading-tight" style="color: {{ e($sectionStyle['primary_color'] ?? $bookingDefaultAccent) }};">{{ e($bookingConfig['title'] ?? 'Boek eenvoudig je taxirit') }}</h2>
             @if(!empty($bookingConfig['subtitle']))
             <p class="mt-2 text-body">{{ e($bookingConfig['subtitle']) }}</p>
             @endif
@@ -122,7 +133,7 @@
             <div class="space-y-8">
                 <div class="booking-step-panels-shell w-full" data-booking-step-panels-shell>
                 <div class="hidden" id="booking-panel-baggage" role="tabpanel" aria-labelledby="booking-tab-baggage" data-step-panel="baggage">
-                    <h3 class="font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['baggage'] ?? 'Bagage') }}</h3>
+                    <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['baggage'] ?? 'Bagage') }}</h3>
                     <div class="booking-baggage-layout">
                         <div class="space-y-4">
                             <p class="text-sm text-body">Kies je bagage en geef per type het aantal door.</p>
@@ -173,7 +184,7 @@
 
                 <div class="hidden" id="booking-panel-offers" role="tabpanel" aria-labelledby="booking-tab-offers" data-step-panel="offers">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-semibold" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['offers'] ?? 'Aanbiedingen') }}</h3>
+                        <h3 class="booking-module-step-heading font-semibold" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['offers'] ?? 'Aanbiedingen') }}</h3>
                         <div class="text-sm text-slate-600 dark:text-slate-300">Passagiers: <span data-summary-passengers>1</span></div>
                     </div>
                     <div class="space-y-4" data-offers-list></div>
@@ -181,7 +192,7 @@
                 </div>
 
                 <div class="hidden" id="booking-panel-trip" role="tabpanel" aria-labelledby="booking-tab-trip" data-step-panel="trip">
-                    <h3 class="font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['trip'] ?? 'Reisgegevens') }}</h3>
+                    <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['trip'] ?? 'Reisgegevens') }}</h3>
                     <div class="booking-trip-layout">
                         <div class="booking-trip-left space-y-5">
                             <label class="block text-base font-semibold text-heading">Waar wil je heen?</label>
@@ -254,7 +265,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    <div class="booking-trip-route-map relative w-full shrink-0 overflow-hidden border-t border-slate-200/90 dark:border-slate-600/35 bg-slate-200/50 dark:bg-slate-800/50" style="min-height: 200px; height: clamp(200px, 28vh, 360px); max-height: min(40vh, 22rem);" data-trip-route-map-wrap>
+                                    <div class="booking-trip-route-map booking-route-map-viewport relative w-full shrink-0 overflow-hidden border-t border-slate-200/90 dark:border-slate-600/35 bg-slate-200/50 dark:bg-slate-800/50" data-trip-route-map-wrap>
                                         <div class="absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-slate-200/85 dark:bg-slate-800/85 p-4 text-center" data-trip-route-map-loading aria-hidden="true">
                                             <span class="booking-route-map-spinner" aria-hidden="true"></span>
                                             <span class="text-xs sm:text-sm font-medium booking-route-details-loading-text">Kaart laden…</span>
@@ -325,7 +336,7 @@
                 </div>
 
                 <div class="hidden" id="booking-panel-contact" role="tabpanel" aria-labelledby="booking-tab-contact" data-step-panel="contact">
-                    <h3 class="font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['contact'] ?? 'Contactgegevens') }}</h3>
+                    <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['contact'] ?? 'Contactgegevens') }}</h3>
                     <div class="flex flex-col gap-4">
                         <div>
                             <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-first_name">Voornaam <span class="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
@@ -353,7 +364,7 @@
 
                 <div class="hidden w-full" id="booking-panel-confirm" role="tabpanel" aria-labelledby="booking-tab-confirm" data-step-panel="confirm">
                     <div class="booking-confirm-root w-full max-w-none mx-0">
-                        <h3 class="font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
+                        <h3 class="booking-module-step-heading font-semibold mb-4" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['confirm'] ?? 'Bevestiging') }}</h3>
 
                         <div class="booking-confirm-wireframe rounded-2xl border bg-stone-100/90 dark:bg-slate-950/40 shadow-[0_2px_12px_rgba(15,23,42,0.06)] overflow-hidden w-full">
                             {{-- 50/50: links route, kaart, opmerking; rechts overige details --}}
@@ -364,7 +375,7 @@
                                         <div class="booking-confirm-route-stack" data-summary-route-stacked></div>
                                     </div>
                                     <div class="booking-confirm-surface booking-confirm-map-surface rounded-xl border bg-neutral-primary p-0 min-w-0 overflow-hidden">
-                                        <div class="booking-confirm-map-host relative w-full">
+                                        <div class="booking-confirm-map-host booking-route-map-viewport relative w-full">
                                         <div class="booking-summary-route-map booking-confirm-summary-route-map overflow-hidden bg-slate-200/50 dark:bg-slate-800/50" data-summary-route-map-wrap>
                                             <div class="absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 bg-slate-200/85 dark:bg-slate-800/85 p-4 text-center" data-summary-route-map-loading aria-hidden="true">
                                                 <span class="booking-route-map-spinner" aria-hidden="true"></span>
@@ -425,6 +436,35 @@
                                 </div>
                             </div>
 
+                            @php
+                                $payBooking = !empty($bookingConfig['payment']['booking']);
+                                $payDriver = !empty($bookingConfig['payment']['driver']);
+                                $payChoiceVisible = $payBooking && $payDriver;
+                            @endphp
+                            @if($payBooking || $payDriver)
+                            <div class="booking-confirm-surface mx-5 md:mx-8 mb-4 rounded-xl border bg-neutral-primary p-4 shadow-sm" data-booking-payment-block>
+                                <div class="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 mb-3">Betaalwijze</div>
+                                @if($payChoiceVisible)
+                                <div class="space-y-2 text-sm" data-booking-payment-choice>
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input type="radio" name="booking_payment_method" value="booking" class="mt-1" data-booking-payment-radio checked>
+                                        <span><strong>Direct online betalen</strong><br><span class="text-slate-500 dark:text-slate-400">Na bevestiging ga je naar Mollie (iDEAL, kaart, …).</span></span>
+                                    </label>
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input type="radio" name="booking_payment_method" value="driver" class="mt-1" data-booking-payment-radio>
+                                        <span><strong>Betalen in de taxi</strong><br><span class="text-slate-500 dark:text-slate-400">De chauffeur ontvangt een QR-code na de rit.</span></span>
+                                    </label>
+                                </div>
+                                @elseif($payBooking)
+                                <p class="text-sm text-body">Je betaalt direct online na het bevestigen van je boeking.</p>
+                                <input type="hidden" data-booking-payment-fixed value="booking">
+                                @else
+                                <p class="text-sm text-body">Je betaalt in de taxi via de chauffeur-app (QR-code).</p>
+                                <input type="hidden" data-booking-payment-fixed value="driver">
+                                @endif
+                            </div>
+                            @endif
+
                             <div class="booking-confirm-total-strip flex flex-row items-center justify-between gap-4 border-t border-slate-200/90 dark:border-slate-600/40 px-5 py-3 md:px-8 md:py-4 bg-white/80 dark:bg-slate-900/50">
                                 <span class="text-sm font-bold uppercase tracking-wide text-heading">Totaalbedrag</span>
                                 <span class="text-lg md:text-xl font-bold tabular-nums text-heading" data-summary-total>—</span>
@@ -443,6 +483,7 @@
             </div>
             <p class="mt-3 text-sm font-medium text-green-700 dark:text-green-300 hidden" data-booking-success></p>
         </div>
+    </div>
     </div>
     </div>
     </div>
@@ -492,6 +533,34 @@
 </section>
 
 <style>
+/* Mobiel: volle breedte; desktop: optionele max-breedte uit admin */
+.booking-module-layout {
+    width: 100%;
+    max-width: 100%;
+}
+.booking-module-outer {
+    width: 100%;
+    max-width: 100%;
+}
+@media (min-width: 768px) {
+    .booking-module-outer {
+        max-width: var(--booking-module-max-width, 100%);
+    }
+}
+@media (max-width: 767px) {
+    .booking-module-scroll-reveal .booking-module-card {
+        border-radius: 0 !important;
+        border-left-width: 0;
+        border-right-width: 0;
+    }
+}
+.booking-module-title {
+    font-size: clamp(1.125rem, 4vw + 0.5rem, var(--booking-title-size-max, 2.25rem));
+}
+.booking-module-step-heading {
+    font-size: clamp(1rem, 2.5vw + 0.5rem, var(--booking-step-heading-size-max, 1.875rem));
+}
+
 /* Scroll-reveal: infade bij in beeld */
 .booking-module-scroll-reveal .booking-module-reveal-item {
     opacity: 0;
@@ -535,18 +604,21 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
 [data-nexataxi-booking-module] .booking-confirm-route-stack {
     width: 100%;
 }
+/* Zelfde viewport voor rit-stap en bevestiging → identieke static-map crop/zoom (object-cover) */
+[data-nexataxi-booking-module] .booking-route-map-viewport,
 [data-nexataxi-booking-module] .booking-confirm-map-host {
     position: relative;
+    width: 100%;
     min-height: 280px;
     height: clamp(280px, 38vh, 420px);
     max-height: min(48vh, 28rem);
+    overflow: hidden;
 }
 [data-nexataxi-booking-module] .booking-confirm-map-host .booking-summary-route-map {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    min-height: 280px;
 }
 /* Geen grijze naad onderaan: slate-placeholder onder geschaalde kaart leek een losse lijn; host erft bg van kaart-surface */
 [data-nexataxi-booking-module] .booking-confirm-map-surface .booking-confirm-summary-route-map {
@@ -695,6 +767,12 @@ html.dark [data-nexataxi-booking-module] .booking-offer-card[aria-pressed="false
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
+[data-nexataxi-booking-module] .booking-module-card {
+    scroll-margin-top: 5.5rem;
+}
+[data-nexataxi-booking-module] .booking-step-panels-shell {
+    overflow-anchor: none;
+}
 [data-nexataxi-booking-module] .booking-trip-layout {
     display: grid;
     grid-template-columns: 1fr;
@@ -1174,7 +1252,7 @@ body.booking-modal-open {
     var mapsApiKey = @json($mapsApiKey);
     var activeTabColor = @json($sectionStyle['active_tab_color'] ?? $bookingDefaultAccent);
     var bookingPrimaryHex = @json($sectionStyle['primary_color'] ?? $bookingDefaultAccent);
-    var whatsappClickToChatEnabled = @json($whatsappClickToChatEnabled);
+    var whatsappClickToChatEnabled = @json($whatsappClientClickToChat);
     var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
     var whatsappDraftWindow = null;
     var maxStopovers = parseInt(config.logic && config.logic.max_stopovers != null ? config.logic.max_stopovers : 3, 10);
@@ -1532,10 +1610,29 @@ body.booking-modal-open {
         return stepOrder[Math.max(0, state.step - 1)] || 'trip';
     }
 
-    function setStepByKey(stepKey) {
+    function getBookingScrollOffset() {
+        var offset = 12;
+        var headers = document.querySelectorAll('header.sticky, header.fixed, .preview-bar.sticky');
+        headers.forEach(function(header) {
+            if (!header || typeof header.getBoundingClientRect !== 'function') return;
+            var h = header.getBoundingClientRect().height;
+            if (h > 0) offset += Math.ceil(h);
+        });
+        return offset;
+    }
+
+    function scrollConfiguratorIntoView() {
+        var anchor = root.querySelector('.booking-module-card') || root;
+        if (!anchor || typeof anchor.getBoundingClientRect !== 'function') return;
+        var top = window.scrollY + anchor.getBoundingClientRect().top - getBookingScrollOffset();
+        if (top < 0) top = 0;
+        window.scrollTo({ top: top, behavior: 'smooth' });
+    }
+
+    function setStepByKey(stepKey, options) {
         var idx = stepOrder.indexOf(stepKey);
         if (idx === -1) return;
-        setStep(idx + 1);
+        setStep(idx + 1, options);
     }
 
     function getNextStepKey(currentStepKey) {
@@ -1636,7 +1733,8 @@ body.booking-modal-open {
         banner.setAttribute('aria-busy', 'false');
     }
 
-    function setStep(nextStep) {
+    function setStep(nextStep, options) {
+        options = options || {};
         state.step = Math.max(1, Math.min(stepOrder.length, nextStep));
         if (typeof root._hideAllBookingSuggestionPanels === 'function') {
             root._hideAllBookingSuggestionPanels();
@@ -1699,6 +1797,11 @@ body.booking-modal-open {
                 syncRouteIconAlignment();
                 refreshPickupDatetimeMin();
                 syncPickupDatetimeFutureValidation();
+            });
+        }
+        if (!options.skipScroll) {
+            window.requestAnimationFrame(function() {
+                scrollConfiguratorIntoView();
             });
         }
     }
@@ -2037,17 +2140,27 @@ body.booking-modal-open {
         });
     }
 
+    function offersForDisplayMode() {
+        var mode = state.offer_display_mode === 'person_range' ? 'person_range' : 'vehicle';
+        return (state.offers || []).filter(function(offer) {
+            var id = String(offer && offer.id ? offer.id : '');
+            var isPersonRangeCard = id.indexOf('person_range_') === 0;
+            return mode === 'person_range' ? isPersonRangeCard : !isPersonRangeCard;
+        });
+    }
+
     function renderOffers() {
         var list = root.querySelector('[data-offers-list]');
         var empty = root.querySelector('[data-offers-empty]');
         if (!list) return;
         list.innerHTML = '';
-        if (!state.offers.length) {
+        var visibleOffers = offersForDisplayMode();
+        if (!visibleOffers.length) {
             if (empty) empty.classList.remove('hidden');
             return;
         }
         if (empty) empty.classList.add('hidden');
-        state.offers.forEach(function(offer) {
+        visibleOffers.forEach(function(offer) {
             var active = state.selected_offer_id === offer.id;
             var card = document.createElement('div');
             card.className = 'booking-offer-card rounded-xl border-2 border-solid p-5 md:p-6 flex flex-col md:flex-row gap-4 items-center justify-between transition-all duration-200 bg-neutral-primary cursor-pointer ' + (active ? 'border-[#0cea36] shadow-lg ring-2 ring-[#0cea36]/50' : 'border-slate-300/60 dark:border-slate-600 shadow-xs');
@@ -2530,8 +2643,9 @@ body.booking-modal-open {
             state.offers = Array.isArray(data.offers) ? data.offers : [];
             state.offer_display_mode = data.offer_display_mode || state.offer_display_mode || 'vehicle';
             state.person_range = data.person_range || (state.passengers <= 4 ? '1-4' : '5-8');
-            if (!state.offers.some(function(offer) { return offer.id === state.selected_offer_id; })) {
-                state.selected_offer_id = state.offers[0] ? state.offers[0].id : null;
+            var visible = offersForDisplayMode();
+            if (!visible.some(function(offer) { return offer.id === state.selected_offer_id; })) {
+                state.selected_offer_id = visible[0] ? visible[0].id : null;
             }
             renderOffers();
             updateSummary();
@@ -2877,8 +2991,21 @@ body.booking-modal-open {
         document.removeEventListener('keydown', confirmModalEscapeHandler);
     }
 
+    function getSelectedPaymentMethod() {
+        var paymentCfg = config.payment || {};
+        if (!paymentCfg.booking && !paymentCfg.driver) return null;
+        if (paymentCfg.booking && !paymentCfg.driver) return 'booking';
+        if (paymentCfg.driver && !paymentCfg.booking) return 'driver';
+        var checked = root.querySelector('[data-booking-payment-radio]:checked');
+        if (checked && checked.value) return checked.value;
+        var fixed = root.querySelector('[data-booking-payment-fixed]');
+        if (fixed && fixed.value) return fixed.value;
+        return 'booking';
+    }
+
     function submitBooking(sendToWhatsapp) {
         clearError();
+        var paymentMethod = getSelectedPaymentMethod();
         var payload = {
             page_id: pageId,
             section_key: sectionKey,
@@ -2906,6 +3033,9 @@ body.booking-modal-open {
             baggage: state.baggage || {},
             special_baggage: state.special_baggage || {}
         };
+        if (paymentMethod) {
+            payload.payment_method = paymentMethod;
+        }
 
         fetch(submitUrl, {
             method: 'POST',
@@ -2921,6 +3051,10 @@ body.booking-modal-open {
             return response.json();
         })
         .then(function(data) {
+            if (data && data.checkout_url) {
+                window.location.href = data.checkout_url;
+                return;
+            }
             if (sendToWhatsapp) {
                 openWhatsappWithSummary(data && data.ride_request_id ? data.ride_request_id : null);
             }
@@ -3638,7 +3772,7 @@ body.booking-modal-open {
         try {
             sessionStorage.removeItem('nexataxi_booking_confirm_dev_v1');
         } catch (e) {}
-        setStep(1);
+        setStep(1, { skipScroll: true });
         updateBaggageStepAvailability();
         syncStateFromFields();
         refreshPickupDatetimeMin();

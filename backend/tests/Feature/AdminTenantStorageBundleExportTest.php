@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Services\TenantCompanyDataPushService;
+use App\Services\TenantStorageBundleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -65,6 +68,80 @@ class AdminTenantStorageBundleExportTest extends TestCase
             $marker = $zip->getFromName('files/website/test-export-marker.txt');
             $this->assertIsString($marker);
             $this->assertSame('marker', $marker);
+            $zip->close();
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    #[Test]
+    public function tenant_sync_scope_includes_payment_company_scoped_tables(): void
+    {
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $payment = $scope['payment_company_scoped_tables'] ?? [];
+        $this->assertIsArray($payment);
+        foreach (['payment_providers', 'invoice_settings', 'invoices', 'payments', 'payment_reminders', 'ride_payments'] as $table) {
+            if (Schema::hasTable($table) && Schema::hasColumn($table, 'company_id')) {
+                $this->assertContains($table, $payment, "Expected {$table} in payment_company_scoped_tables");
+                $this->assertContains($table, $scope['tables_with_company_id'] ?? []);
+            }
+        }
+    }
+
+    #[Test]
+    public function tenant_storage_export_includes_private_invoice_pdfs(): void
+    {
+        if (! Schema::hasTable('invoices') || ! Schema::hasColumn('invoices', 'pdf_path')) {
+            $this->markTestSkipped('invoices.pdf_path required');
+        }
+
+        $company = Company::query()->create(['name' => 'Invoice PDF Co']);
+        $pdfDbRel = 'invoices/'.$company->id.'/TEST-2026-0001.pdf';
+        $pdfZipRel = 'private/'.$pdfDbRel;
+        Storage::disk('local')->put($pdfDbRel, '%PDF-1.4 test');
+
+        DB::table('invoices')->insert([
+            'invoice_number' => 'TEST-2026-0001',
+            'company_id' => $company->id,
+            'amount' => 10,
+            'tax_amount' => 0,
+            'total_amount' => 10,
+            'currency' => 'EUR',
+            'status' => 'sent',
+            'invoice_date' => now()->toDateString(),
+            'due_date' => now()->addDays(14)->toDateString(),
+            'pdf_path' => $pdfDbRel,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $privatePaths = app(TenantStorageBundleService::class)->collectPrivateAppPathsForExport($company);
+        $this->assertContains($pdfZipRel, $privatePaths);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(
+            route('admin.settings.tenant-storage-bundle.export', ['company_id' => $company->id])
+        );
+        $response->assertOk();
+        $binary = $response->streamedContent();
+        $this->assertIsString($binary);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'nexa_tse_inv_');
+        $this->assertNotFalse($tmp);
+        try {
+            file_put_contents($tmp, $binary);
+            $zip = new ZipArchive;
+            $this->assertTrue($zip->open($tmp) === true);
+            $manifestJson = $zip->getFromName('manifest.json');
+            $this->assertIsString($manifestJson);
+            $manifest = json_decode($manifestJson, true);
+            $this->assertIsArray($manifest);
+            $this->assertContains($pdfZipRel, $manifest['private_storage_paths'] ?? [], 'PDF path missing from manifest private_storage_paths');
+            $entry = 'private_files/'.$pdfZipRel;
+            $this->assertNotFalse($zip->locateName($entry), 'ZIP entry missing; private paths in manifest: '.json_encode($manifest['private_storage_paths'] ?? []));
+            $this->assertSame('%PDF-1.4 test', $zip->getFromName($entry));
             $zip->close();
         } finally {
             @unlink($tmp);

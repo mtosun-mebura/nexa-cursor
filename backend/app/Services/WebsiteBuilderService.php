@@ -450,6 +450,47 @@ class WebsiteBuilderService
     }
 
     /**
+     * Publieke favicon-URL + MIME-type voor &lt;link rel="icon"&gt; en /favicon.ico.
+     * Gebruikt /file/ (geen admin-auth), zodat browsers het icoon in de tab kunnen laden.
+     *
+     * @return array{url: string, type: string}
+     */
+    public function publicFaviconMeta(?int $forCompanyId = null): array
+    {
+        $default = [
+            'url' => asset('images/nexa-x-logo.png'),
+            'type' => 'image/png',
+        ];
+
+        $path = $forCompanyId !== null
+            ? GeneralSetting::get('favicon', null, $forCompanyId)
+            : GeneralSetting::get('favicon');
+
+        if ((! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path))
+            && $forCompanyId === null
+            && ! app()->runningInConsole()
+            && request()
+        ) {
+            $st = session('selected_tenant');
+            if ($st !== null && $st !== '' && is_numeric($st)) {
+                $path = GeneralSetting::get('favicon', null, (int) $st);
+            }
+        }
+
+        if (! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path)) {
+            return $default;
+        }
+
+        $mtime = Storage::disk('public')->lastModified($path);
+        $mime = Storage::disk('public')->mimeType($path) ?: 'image/png';
+
+        return [
+            'url' => $this->publicFileUrl(ltrim($path, '/')).'?v='.$mtime,
+            'type' => $mime,
+        ];
+    }
+
+    /**
      * Zet een opgeslagen storage-URL (relatief of volledig) om naar een werkende weergave-URL via /file/.
      * Gebruik overal waar img src of background-image uit de database komt (bv. /storage/vehicles/..., http://.../storage/...).
      */

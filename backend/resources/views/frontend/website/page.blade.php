@@ -22,7 +22,7 @@
         @include('frontend.website.partials.modern-home')
     @endif
 @else
-<div class="container-custom py-10 md:py-16">
+<div class="website-section-inner py-10 md:py-16">
     <article class="w-full max-w-7xl mx-auto">
         <h1 class="kt-page-title text-gray-900 dark:text-white mb-6" style="font-family: var(--theme-font-heading);">{{ $page->title }}</h1>
         @php $blocks = $page->getContentBlocks(); @endphp

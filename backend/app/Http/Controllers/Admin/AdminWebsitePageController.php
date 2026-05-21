@@ -261,6 +261,10 @@ class AdminWebsitePageController extends Controller
             && ($website_page->module_name === null || $website_page->module_name === '');
 
         $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, $website_page);
+        $collapseSectionsByDefault = (bool) preg_match(
+            '/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i',
+            (string) $request->userAgent()
+        );
 
         return view('admin.website-pages.edit', [
             'page' => $website_page,
@@ -278,6 +282,7 @@ class AdminWebsitePageController extends Controller
             'websiteTenantContext' => $websiteTenantContext,
             'isCentralMarketingWelcome' => $isCentralMarketingWelcome,
             'websiteDevPreviewUrl' => $websiteDevPreviewUrl,
+            'collapseSectionsByDefault' => $collapseSectionsByDefault,
         ]);
     }
 

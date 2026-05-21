@@ -29,8 +29,8 @@
     };
 @endphp
 <section class="{{ $sectionClass }} stats-animate-section" data-stats-section @if($sectionStyle !== '') style="{{ $sectionStyle }}" @endif>
-    <div class="container-custom elementor-section-boxed">
-        <div class="flex flex-col md:flex-row flex-wrap gap-8 w-full max-w-4xl mx-auto md:justify-evenly md:items-stretch">
+    <div class="website-section-inner elementor-section-boxed">
+        <div class="stats-inner-row flex flex-col sm:flex-row flex-wrap gap-6 sm:gap-8 w-full max-w-4xl mx-auto md:justify-evenly md:items-stretch">
             @foreach($items as $i => $stat)
                 @if($visibility[$sectionKey . '_' . $i] ?? $visibility['stats_'.$i] ?? true)
                 @php

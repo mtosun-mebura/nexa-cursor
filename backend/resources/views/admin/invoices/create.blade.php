@@ -74,6 +74,7 @@
                                 @enderror
                             </td>
                         </tr>
+                        @if($skillmatchingAvailable ?? false)
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
                                 Match (optioneel)
@@ -95,6 +96,7 @@
                                 @enderror
                             </td>
                         </tr>
+                        @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
                                 Factuurdatum *

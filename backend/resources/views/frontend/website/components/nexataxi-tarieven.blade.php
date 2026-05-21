@@ -1,4 +1,5 @@
-<section class="container-custom pt-12 md:pt-16" aria-labelledby="nexataxi-tarieven-heading">
+<section class="w-full pt-12 md:pt-16" aria-labelledby="nexataxi-tarieven-heading">
+    <div class="website-section-inner">
     @php
         $taxiVehiclesCompanyId = isset($websitePageCompanyId) && $websitePageCompanyId !== null && $websitePageCompanyId !== '' ? (int) $websitePageCompanyId : null;
         if ($taxiVehiclesCompanyId === null && app()->bound('resolved_tenant_id')) {
@@ -89,7 +90,7 @@
                             $isMaxWidth = $cardSize === 'max';
                             $isTotalWidth = $cardSize === 'total_width';
                             $exactWidthPx = $cardWidthPx[$cardSize] ?? 600;
-                            $wrapperClass = $isMaxWidth ? 'basis-full w-full' : 'shrink-0';
+                            $wrapperClass = ($isMaxWidth ? 'basis-full w-full' : 'shrink-0') . ' nexataxi-pricing-card-wrap';
                             $wrapperStyle = $isMaxWidth
                                 ? 'width:100%;max-width:100%;'
                                 : ($isTotalWidth
@@ -359,4 +360,5 @@
     @else
         <p class="text-muted-foreground">Er zijn nog geen tarieven ingesteld. Configureer ze in het adminpanel onder Nexa Taxi → Tarieven.</p>
     @endif
+    </div>
 </section>

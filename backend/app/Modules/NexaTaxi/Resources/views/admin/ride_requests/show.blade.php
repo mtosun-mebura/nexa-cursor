@@ -52,6 +52,16 @@
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center gap-5 pb-7.5">
         <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
+        @can('rides.view')
+            @if($notificationLogTableExists ?? false)
+            <a href="{{ route('admin.taxi.ride_requests.notification_log', $ride) }}" class="kt-btn kt-btn-outline">
+                Notificatielog
+                @if(($notificationLogCount ?? 0) > 0)
+                    ({{ $notificationLogCount }})
+                @endif
+            </a>
+            @endif
+        @endcan
         @can('rides.update')
         <a href="{{ route('admin.taxi.ride_requests.edit', $ride) }}" class="kt-btn kt-btn-outline">Bewerken</a>
         @endcan

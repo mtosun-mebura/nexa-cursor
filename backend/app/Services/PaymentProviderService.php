@@ -2,22 +2,226 @@
 
 namespace App\Services;
 
+use App\Models\GeneralSetting;
 use App\Models\PaymentProvider;
+use App\Support\Tenancy\CentralDomains;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 class PaymentProviderService
 {
-    public function getActiveProviders()
+    public function resolveCompanyId(?int $companyId = null): ?int
     {
-        return PaymentProvider::where('is_active', true)->get();
+        if ($companyId !== null && $companyId > 0) {
+            return $companyId;
+        }
+
+        $scoped = GeneralSetting::resolveScopeCompanyId();
+        if ($scoped !== null && $scoped > 0) {
+            return $scoped;
+        }
+
+        $userCompanyId = auth()->user()?->company_id;
+
+        return $userCompanyId ? (int) $userCompanyId : null;
     }
 
-    public function getProviderByType($type)
+    public function getMollieForCompany(?int $companyId = null, bool $activeOnly = true): ?PaymentProvider
     {
-        return PaymentProvider::where('provider_type', $type)
-            ->where('is_active', true)
-            ->first();
+        $cid = $this->resolveCompanyId($companyId);
+        if ($cid === null) {
+            return null;
+        }
+
+        $query = PaymentProvider::query()
+            ->where('company_id', $cid)
+            ->where('provider_type', 'mollie');
+
+        if ($activeOnly) {
+            $query->where('is_active', true);
+        }
+
+        $provider = $query->first();
+        if ($provider !== null) {
+            return $provider;
+        }
+
+        if (! $activeOnly || ! $this->allowMollieTestProviders()) {
+            return null;
+        }
+
+        return PaymentProvider::query()
+            ->where('company_id', $cid)
+            ->where('provider_type', 'mollie')
+            ->orderByDesc('updated_at')
+            ->get()
+            ->first(fn (PaymentProvider $candidate) => $this->isMollieTestProvider($candidate)
+                && $this->getDecryptedApiKey($candidate) !== null);
+    }
+
+    public function allowMollieTestProviders(): bool
+    {
+        return (bool) config('taxi-dispatch.allow_mollie_test_providers', false);
+    }
+
+    public function isMollieTestProvider(PaymentProvider $provider): bool
+    {
+        if ($provider->provider_type !== 'mollie') {
+            return false;
+        }
+
+        if ((bool) $provider->getConfigValue('test_mode')) {
+            return true;
+        }
+
+        $apiKey = $this->getDecryptedApiKey($provider);
+
+        return is_string($apiKey) && str_starts_with($apiKey, 'test_');
+    }
+
+    public function getDecryptedApiKey(PaymentProvider $provider): ?string
+    {
+        $encrypted = $provider->getConfigValue('api_key');
+        if (! is_string($encrypted) || trim($encrypted) === '') {
+            return null;
+        }
+
+        try {
+            $key = Crypt::decryptString($encrypted);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $key = trim($key);
+
+        return $key !== '' ? $key : null;
+    }
+
+    public function mollieApiKeyForCompany(?int $companyId = null): ?string
+    {
+        $provider = $this->getMollieForCompany($companyId);
+        if (! $provider) {
+            return null;
+        }
+
+        return $this->getDecryptedApiKey($provider);
+    }
+
+    /**
+     * Webhook-URL voor weergave in admin (mag localhost zijn).
+     */
+    public function mollieWebhookUrlForCompany(?int $companyId = null): ?string
+    {
+        return $this->resolveMollieWebhookUrlRaw($companyId);
+    }
+
+    /**
+     * Webhook-URL die naar de Mollie API gaat. Null als Mollie de URL niet kan bereiken
+     * (localhost / LAN-IP). Betalingen werken dan via redirect + polling in de chauffeur-app.
+     */
+    public function mollieWebhookUrlForPayment(?int $companyId = null): ?string
+    {
+        $override = trim((string) config('taxi-dispatch.mollie_webhook_url', ''));
+        if ($override !== '') {
+            return $override;
+        }
+
+        $url = $this->resolveMollieWebhookUrlRaw($companyId);
+        if ($url === null || ! $this->isMollieReachableWebhookUrl($url)) {
+            Log::info('Mollie webhook overgeslagen: URL niet bereikbaar vanaf internet.', [
+                'url' => $url,
+                'hint' => 'Voor automatische webhook-updates: zet TAXI_MOLLIE_WEBHOOK_URL op een publieke tunnel (ngrok).',
+            ]);
+
+            return null;
+        }
+
+        return $url;
+    }
+
+    protected function resolveMollieWebhookUrlRaw(?int $companyId): ?string
+    {
+        $provider = $this->getMollieForCompany($companyId, false)
+            ?? $this->getMollieForCompany($companyId, true);
+
+        if (! $provider) {
+            return URL::to('/api/taxi/webhooks/mollie');
+        }
+
+        $configured = trim((string) $provider->getConfigValue('webhook_url'));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return URL::to('/api/taxi/webhooks/mollie');
+    }
+
+    public function isMollieReachableWebhookUrl(string $url): bool
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if ($host === '' || in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+            return false;
+        }
+
+        return ! CentralDomains::isLocalDevEntryHost($host);
+    }
+
+    public function isMollieConfiguredForCompany(?int $companyId = null): bool
+    {
+        return $this->mollieApiKeyForCompany($companyId) !== null;
+    }
+
+    /**
+     * @return array{configured: bool, provider: ?PaymentProvider, api_key_preview: ?string, webhook_url: ?string, test_mode: bool}
+     */
+    public function mollieSummaryForCompany(?int $companyId = null): array
+    {
+        $provider = $this->getMollieForCompany($companyId, false);
+        $apiKey = $provider ? $this->getDecryptedApiKey($provider) : null;
+
+        return [
+            'configured' => $apiKey !== null && $provider !== null,
+            'provider' => $provider,
+            'api_key_preview' => $apiKey ? $this->maskApiKey($apiKey) : null,
+            'webhook_url' => $provider
+                ? ($provider->getConfigValue('webhook_url') ?: URL::to('/api/taxi/webhooks/mollie'))
+                : null,
+            'test_mode' => (bool) $provider?->getConfigValue('test_mode'),
+            'is_active' => (bool) $provider?->is_active,
+        ];
+    }
+
+    public function maskApiKey(string $apiKey): string
+    {
+        $apiKey = trim($apiKey);
+        if (strlen($apiKey) <= 12) {
+            return str_repeat('•', max(8, strlen($apiKey)));
+        }
+
+        return substr($apiKey, 0, 8).str_repeat('•', 8).substr($apiKey, -4);
+    }
+
+    public function getActiveProviders(?int $companyId = null)
+    {
+        $cid = $this->resolveCompanyId($companyId);
+        $query = PaymentProvider::where('is_active', true);
+        if ($cid !== null) {
+            $query->where('company_id', $cid);
+        }
+
+        return $query->get();
+    }
+
+    public function getProviderByType(string $type, ?int $companyId = null)
+    {
+        $cid = $this->resolveCompanyId($companyId);
+        $query = PaymentProvider::where('provider_type', $type)->where('is_active', true);
+        if ($cid !== null) {
+            $query->where('company_id', $cid);
+        }
+
+        return $query->first();
     }
 
     public function testConnection(PaymentProvider $provider)

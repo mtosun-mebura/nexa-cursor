@@ -89,6 +89,7 @@
                 map = new google.maps.Map(mapEl, mapOptions);
             }
             mapEl.setAttribute('data-footer-map-initialized', '1');
+            window._footerGoogleMap = map;
             function addMarkerSafe(m, pos) {
                 if (useAdvanced && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
                     try {
@@ -135,6 +136,16 @@
                 var ro = new ResizeObserver(function() { setTimeout(triggerResize, 50); });
                 ro.observe(mapEl.parentElement);
             }
+        };
+        window.resizeFooterMap = function() {
+            var map = window._footerGoogleMap;
+            if (map && typeof google !== 'undefined' && google.maps && google.maps.event) {
+                google.maps.event.trigger(map, 'resize');
+                var center = map.getCenter && map.getCenter();
+                if (center) map.setCenter(center);
+                return;
+            }
+            if (typeof window.initFooterMap === 'function') window.initFooterMap();
         };
     })();
     </script>
@@ -743,7 +754,7 @@
                         <div class="w-full min-w-0 flex flex-col">
                             <div class="footer-map-reveal w-full min-w-0 flex-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
                                 @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-full block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 100%; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
+                                <div id="footer-google-map" class="w-full h-full min-h-[200px] block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 200px; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
                                 @else
                                 <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
                                     Stel de Google Maps API-sleutel in via <strong>Admin → Instellingen → Maps</strong> om de kaart te tonen.
@@ -1306,15 +1317,21 @@
             var sections = document.querySelectorAll('[data-scroll-reveal]');
             if (!sections.length) return;
             var opts = { rootMargin: '0px 0px 22% 0px', threshold: 0.04 };
+            function onSectionInView(el) {
+                el.classList.add('is-in-view');
+                if (el.classList.contains('site-footer-reveal') && typeof window.resizeFooterMap === 'function') {
+                    setTimeout(window.resizeFooterMap, 80);
+                    setTimeout(window.resizeFooterMap, 350);
+                    setTimeout(window.resizeFooterMap, 900);
+                }
+            }
             if (typeof window.nexaObserveWhenVisible === 'function') {
-                window.nexaObserveWhenVisible(sections, function(el) {
-                    el.classList.add('is-in-view');
-                }, opts);
+                window.nexaObserveWhenVisible(sections, onSectionInView, opts);
                 return;
             }
             var observer = new IntersectionObserver(function(entries) {
                 entries.forEach(function(entry) {
-                    if (entry.isIntersecting) entry.target.classList.add('is-in-view');
+                    if (entry.isIntersecting) onSectionInView(entry.target);
                 });
             }, opts);
             sections.forEach(function(el) { observer.observe(el); });
@@ -1324,6 +1341,11 @@
         } else {
             initScrollRevealSections();
         }
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (typeof window.resizeFooterMap === 'function') window.resizeFooterMap();
+            }, 600);
+        });
     })();
     </script>
 </body>

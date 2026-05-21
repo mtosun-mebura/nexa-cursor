@@ -5,6 +5,11 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Services\RideDispatchService;
+use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
+use Illuminate\Support\Facades\Log;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\ModuleDatabaseService;
 use App\Services\NexaTaxiBookingPricingService;
@@ -45,9 +50,14 @@ class NexaTaxiBookingController extends Controller
         );
         $quotes = $this->pricing->buildQuotes($resolved['config'], $data, $resolved['tenant_company_id']);
 
+        $companyId = $resolved['tenant_company_id'] ?? null;
+        $paymentOptions = app(TaxiDispatchSettingsService::class)
+            ->paymentOptionsForTenant(is_numeric($companyId) ? (int) $companyId : null);
+
         return response()->json([
             'success' => true,
             'data' => $quotes,
+            'payment' => $paymentOptions,
         ]);
     }
 
@@ -87,6 +97,10 @@ class NexaTaxiBookingController extends Controller
             'baggage.*' => 'nullable|integer|min:0|max:20',
             'special_baggage' => 'nullable|array',
             'special_baggage.*' => 'nullable|integer|min:0|max:20',
+            'stopovers' => 'nullable|array',
+            'stopovers.*' => 'nullable|string|max:500',
+            'return_at' => 'nullable|date',
+            'payment_method' => 'nullable|string|in:booking,driver',
         ]);
 
         $resolved = $this->resolveSectionConfig(
@@ -125,6 +139,33 @@ class NexaTaxiBookingController extends Controller
 
         $resolvedVehicle = $vehicleId ? Vehicle::on($conn)->find($vehicleId) : null;
         $companyId = $resolvedVehicle?->company_id ? (int) $resolvedVehicle->company_id : null;
+        if (($companyId === null || $companyId <= 0) && ! empty($resolved['tenant_company_id'])) {
+            $companyId = (int) $resolved['tenant_company_id'];
+        }
+
+        $paymentService = app(TaxiRidePaymentService::class);
+        try {
+            $paymentMethod = $paymentService->validatePaymentMethodChoice(
+                isset($data['payment_method']) ? (string) $data['payment_method'] : null,
+                $companyId
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        $payAtBooking = $paymentMethod === RideRequest::PAYMENT_METHOD_BOOKING;
+        $initialStatus = $payAtBooking
+            ? RideRequest::STATUS_PENDING_PAYMENT
+            : RideRequest::STATUS_PENDING_DISPATCH;
+        $paymentStatus = $payAtBooking
+            ? RideRequest::PAYMENT_STATUS_PENDING
+            : ($paymentMethod === RideRequest::PAYMENT_METHOD_DRIVER
+                ? RideRequest::PAYMENT_STATUS_NOT_REQUIRED
+                : null);
         $payload = [
             'step_data' => [
                 'distance_meters' => $data['distance_meters'],
@@ -141,7 +182,9 @@ class NexaTaxiBookingController extends Controller
             'company_id' => $companyId,
             'vehicle_id' => $vehicleId,
             'driver_id' => null,
-            'status' => RideRequest::STATUS_QUOTED,
+            'status' => $initialStatus,
+            'payment_method' => $paymentMethod,
+            'payment_status' => $paymentStatus,
             'pickup_address' => $data['pickup_address'],
             'dropoff_address' => $data['dropoff_address'],
             'pickup_lat' => $data['pickup_lat'] ?? null,
@@ -162,10 +205,66 @@ class NexaTaxiBookingController extends Controller
             'selected_offer_payload' => $selected,
         ]);
 
+        if ($companyId && $companyId > 0 && ! $payAtBooking) {
+            try {
+                app(RideDispatchService::class)->startDispatch($conn, $ride, $companyId);
+            } catch (\Throwable $e) {
+                Log::warning('Boeking opgeslagen, chauffeur-dispatch mislukt.', [
+                    'ride_request_id' => $ride->id,
+                    'company_id' => $companyId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $checkoutUrl = null;
+        if ($payAtBooking) {
+            try {
+                $price = (float) ($selected['price'] ?? 0);
+                if ($price < 0.01) {
+                    throw new \RuntimeException('Ongeldig bedrag voor betaling.');
+                }
+                $paymentResult = $paymentService->createBookingPayment($conn, $ride, $price);
+                $checkoutUrl = $paymentResult['checkout_url'];
+            } catch (\Throwable $e) {
+                Log::warning('Boeking opgeslagen, Mollie-betaling mislukt.', [
+                    'ride_request_id' => $ride->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'De betaling kon niet worden gestart. Probeer het opnieuw of kies betalen in de taxi.',
+                ], 422);
+            }
+        }
+
+        if ($companyId && $companyId > 0 && ! $payAtBooking) {
+            try {
+                app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $ride, [
+                'stopovers' => array_values(array_filter(array_map(
+                    fn ($s) => is_string($s) ? trim($s) : '',
+                    $data['stopovers'] ?? []
+                ))),
+                'return_at' => $data['return_at'] ?? null,
+                'section_config' => $sectionConfig,
+            ]);
+            } catch (\Throwable $e) {
+                Log::warning('Boeking opgeslagen, notificaties mislukt.', [
+                    'ride_request_id' => $ride->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'message' => $sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.',
+            'message' => $payAtBooking
+                ? 'Je wordt doorgestuurd naar de betaling.'
+                : ($sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.'),
             'ride_request_id' => $ride->id,
+            'payment_required' => $payAtBooking,
+            'checkout_url' => $checkoutUrl,
         ]);
     }
 

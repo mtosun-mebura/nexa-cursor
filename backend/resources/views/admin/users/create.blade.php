@@ -180,25 +180,14 @@
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
-                                Rol *
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
+                                Rollen *
                             </td>
-                            <td class="min-w-48 w-full">
-                                <select class="kt-input @error('role') border-destructive @enderror" 
-                                        name="role" 
-                                        required>
-                                    <option value="">-- Selecteer rol --</option>
-                                    @foreach($roles as $role)
-                                        @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
-                                            <option value="{{ $role->name }}" {{ old('role', $defaultRoleForForm ?? '') == $role->name ? 'selected' : '' }}>
-                                                {{ ucfirst(str_replace('-', ' ', $role->name)) }}
-                                            </option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                                @error('role')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                            <td class="min-w-48 w-full pt-4">
+                                @include('admin.users.partials.role-checkboxes', [
+                                    'roles' => $roles,
+                                    'selectedRoles' => old('roles', $defaultRoleForForm ? [$defaultRoleForForm] : []),
+                                ])
                             </td>
                         </tr>
                         @if(auth()->user()->hasRole('super-admin'))

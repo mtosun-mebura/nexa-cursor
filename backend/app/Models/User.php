@@ -158,6 +158,36 @@ class User extends Authenticatable
     }
 
     /**
+     * Alle web-rollen van deze gebruiker (team-onafhankelijk; voor admin-formulieren).
+     *
+     * @return list<string>
+     */
+    public function webRoleNames(): array
+    {
+        $pivot = config('permission.table_names.model_has_roles');
+        $rolesTable = config('permission.table_names.roles');
+        $morphKey = config('permission.column_names.model_morph_key') ?: 'model_id';
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+
+        $morphTypes = array_values(array_unique(array_filter([
+            $this->getMorphClass(),
+            static::class,
+        ])));
+
+        return DB::table($pivot)
+            ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivot}.{$rolePivotKey}")
+            ->where("{$pivot}.{$morphKey}", $this->getKey())
+            ->whereIn("{$pivot}.model_type", $morphTypes)
+            ->where("{$rolesTable}.guard_name", 'web')
+            ->orderBy("{$rolesTable}.name")
+            ->pluck("{$rolesTable}.name")
+            ->map(fn ($name) => (string) $name)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Mag bedrijven/tenants aanmaken (wizard of formulier).
      */
     public function canCreateCompanies(): bool

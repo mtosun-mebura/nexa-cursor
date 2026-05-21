@@ -78,6 +78,7 @@ class AdminEmailTemplateController extends Controller
             'application_received' => 'skillmatching',
             'application_status' => 'skillmatching',
             'rejection' => 'skillmatching',
+            'invoice' => 'taxi',
         ];
     }
 
@@ -100,6 +101,7 @@ class AdminEmailTemplateController extends Controller
             'application_status' => 'Sollicitatie Status',
             'rejection' => 'Afwijzing',
             'custom' => 'Aangepast',
+            'invoice' => 'Factuur',
         ];
     }
 
@@ -251,6 +253,19 @@ class AdminEmailTemplateController extends Controller
             'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
             'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
             'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
         
         // Default HTML template
@@ -466,6 +481,19 @@ class AdminEmailTemplateController extends Controller
             'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
             'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
             'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
 
         $tenantId = $this->getTenantId();
@@ -516,6 +544,19 @@ class AdminEmailTemplateController extends Controller
             'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
             'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
             'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
 
         $tenantId = $this->getTenantId();

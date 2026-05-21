@@ -116,23 +116,182 @@ function resolveRowHref(tr) {
     return null;
 }
 
-function extractInlineActionButtons(actionsTd) {
-    const fragment = document.createDocumentFragment();
-    const clone = actionsTd.cloneNode(true);
+const MENU_ACTION_ICON_BY_TITLE = {
+    bekijken: 'ki-eye',
+    bewerken: 'ki-pencil',
+    verwijderen: 'ki-trash',
+    dupliceren: 'ki-copy',
+    archiveren: 'ki-archive',
+    activeren: 'ki-check-circle',
+    deactiveren: 'ki-cross-circle',
+    downloaden: 'ki-file-down',
+    preview: 'ki-eye',
+    voorbeeld: 'ki-eye',
+};
 
-    clone.querySelectorAll('a.kt-btn, button.kt-btn').forEach((btn) => {
-        if (btn.classList.contains('kt-btn-icon') || btn.classList.contains('kt-menu-toggle')) {
+function stopCardNavigation(el) {
+    el.addEventListener('click', (e) => e.stopPropagation());
+    el.addEventListener('keydown', (e) => e.stopPropagation());
+}
+
+function getMenuActionLabel(linkEl) {
+    const fromTitle = linkEl.querySelector('.kt-menu-title')?.textContent?.trim();
+    if (fromTitle) {
+        return fromTitle;
+    }
+    return (
+        linkEl.getAttribute('aria-label') ||
+        linkEl.getAttribute('title') ||
+        linkEl.textContent.trim()
+    );
+}
+
+function getMenuActionIconClass(linkEl, label) {
+    const iconEl = linkEl.querySelector('.kt-menu-icon i[class*="ki-"]');
+    if (iconEl) {
+        const classes = Array.from(iconEl.classList).filter((c) => c.startsWith('ki-'));
+        if (classes.length > 0) {
+            return classes.join(' ');
+        }
+    }
+    const key = label.toLowerCase();
+    const ki = MENU_ACTION_ICON_BY_TITLE[key] || 'ki-more-2';
+    return `ki-filled ${ki}`;
+}
+
+function createIconActionButton({ href, label, iconClass, isDanger, isSubmit, formHtml }) {
+    if (formHtml) {
+        const wrap = document.createElement('div');
+        wrap.className = 'admin-card-action-form';
+        wrap.innerHTML = formHtml;
+        const form = wrap.querySelector('form');
+        const btn = wrap.querySelector('button[type="submit"]');
+        if (btn) {
+            btn.className =
+                'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
+            btn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
+            btn.setAttribute('title', label);
+            btn.setAttribute('aria-label', label);
+        }
+        stopCardNavigation(wrap);
+        return wrap;
+    }
+
+    const btn = document.createElement('a');
+    btn.className =
+        'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
+    btn.href = href || '#';
+    btn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
+    btn.setAttribute('title', label);
+    btn.setAttribute('aria-label', label);
+    if (isSubmit) {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    }
+    stopCardNavigation(btn);
+    return btn;
+}
+
+function buildIconButtonFromMenuLink(linkEl) {
+    const label = getMenuActionLabel(linkEl);
+    if (!label) {
+        return null;
+    }
+
+    const isDanger =
+        linkEl.classList.contains('text-danger') ||
+        label.toLowerCase() === 'verwijderen' ||
+        label.toLowerCase() === 'delete';
+    const iconClass = getMenuActionIconClass(linkEl, label);
+
+    const parentForm = linkEl.closest('form');
+    if (parentForm && linkEl.tagName === 'BUTTON') {
+        const formClone = parentForm.cloneNode(true);
+        const submitBtn = formClone.querySelector('button[type="submit"], button.kt-menu-link');
+        if (!submitBtn) {
+            return null;
+        }
+        submitBtn.className =
+            'kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost' + (isDanger ? ' text-danger' : '');
+        submitBtn.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
+        submitBtn.setAttribute('title', label);
+        submitBtn.setAttribute('aria-label', label);
+        const wrap = document.createElement('div');
+        wrap.className = 'admin-card-action-form';
+        wrap.appendChild(formClone);
+        stopCardNavigation(wrap);
+        return wrap;
+    }
+
+    if (linkEl.tagName === 'A') {
+        return createIconActionButton({
+            href: linkEl.getAttribute('href'),
+            label,
+            iconClass,
+            isDanger,
+        });
+    }
+
+    return null;
+}
+
+/** Zet kt-menu dropdown-acties om naar klikbare icoonknoppen (mobiele kaarten). */
+function buildCardActionIcons(actionsTd) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'admin-list-card__action-icons';
+
+    actionsTd.querySelectorAll('.kt-menu-dropdown .kt-menu-item, .website-pages-actions-dropdown .kt-menu-item').forEach((item) => {
+        if (item.classList.contains('kt-menu-separator')) {
             return;
         }
-        const wrapper = btn.closest('a') || btn;
-        if (wrapper.tagName === 'A' || wrapper.tagName === 'BUTTON') {
-            const node = wrapper.cloneNode(true);
-            node.addEventListener('click', (e) => e.stopPropagation());
-            fragment.appendChild(node);
+
+        const form = item.querySelector(':scope > form');
+        if (form) {
+            const submitBtn = form.querySelector('button[type="submit"], button.kt-menu-link');
+            if (submitBtn) {
+                const iconBtn = buildIconButtonFromMenuLink(submitBtn);
+                if (iconBtn) {
+                    toolbar.appendChild(iconBtn);
+                }
+            }
+            return;
+        }
+
+        const link = item.querySelector('a.kt-menu-link, button.kt-menu-link');
+        if (link) {
+            const iconBtn = buildIconButtonFromMenuLink(link);
+            if (iconBtn) {
+                toolbar.appendChild(iconBtn);
+            }
         }
     });
 
-    return fragment;
+    // Losse knoppen buiten dropdown (zonder kt-menu)
+    actionsTd.querySelectorAll(':scope > a.kt-btn, :scope > button.kt-btn, :scope > form').forEach((el) => {
+        if (el.closest('.kt-menu')) {
+            return;
+        }
+        if (el.tagName === 'FORM') {
+            const submitBtn = el.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                const iconBtn = buildIconButtonFromMenuLink(submitBtn);
+                if (iconBtn) {
+                    toolbar.appendChild(iconBtn);
+                }
+            }
+            return;
+        }
+        if (el.classList.contains('kt-menu-toggle')) {
+            return;
+        }
+        const clone = el.cloneNode(true);
+        stopCardNavigation(clone);
+        toolbar.appendChild(clone);
+    });
+
+    return toolbar.childNodes.length > 0 ? toolbar : null;
 }
 
 function buildListCard(tr, labels, table) {
@@ -225,29 +384,12 @@ function buildListCard(tr, labels, table) {
         actions.className = 'admin-list-card__actions';
         actions.addEventListener('click', (e) => e.stopPropagation());
 
-        const inlineBtns = extractInlineActionButtons(actionsTd);
-        if (inlineBtns.childNodes.length > 0) {
-            actions.appendChild(inlineBtns);
-        }
-
-        const menuClone = actionsTd.querySelector('.kt-menu');
-        if (menuClone) {
-            const menuWrap = document.createElement('div');
-            menuWrap.className = 'kt-menu flex justify-center';
-            menuWrap.innerHTML = menuClone.outerHTML;
-            actions.appendChild(menuWrap);
-        } else {
-            const links = actionsTd.querySelectorAll('a.kt-btn:not(.kt-btn-icon)');
-            links.forEach((link) => {
-                const a = link.cloneNode(true);
-                a.addEventListener('click', (e) => e.stopPropagation());
-                actions.appendChild(a);
-            });
-        }
-
-        if (actions.childNodes.length > 0) {
+        const iconToolbar = buildCardActionIcons(actionsTd);
+        if (iconToolbar) {
+            actions.appendChild(iconToolbar);
             card.appendChild(actions);
         }
+
     }
 
     if (href) {
@@ -257,9 +399,9 @@ function buildListCard(tr, labels, table) {
         card.addEventListener('click', (e) => {
             if (
                 e.target.closest('.admin-list-card__actions') ||
+                e.target.closest('.admin-card-action-form') ||
                 e.target.closest('a') ||
-                e.target.closest('button') ||
-                e.target.closest('.kt-menu')
+                e.target.closest('button')
             ) {
                 return;
             }
@@ -344,10 +486,6 @@ function enhanceListTables() {
 
         scrollWrap.classList.add('admin-desktop-table-wrap');
         scrollWrap.parentNode.insertBefore(list, scrollWrap);
-
-        if (typeof window.KTMenu !== 'undefined' && window.KTMenu.createInstances) {
-            window.KTMenu.createInstances();
-        }
     });
 }
 

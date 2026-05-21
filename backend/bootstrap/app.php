@@ -23,6 +23,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'tenant.host' => \App\Http\Middleware\ResolveTenantFromHost::class,
             'tenant.domain.user' => \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,
+            'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
+            'auth.query.token' => \App\Http\Middleware\AppendBearerTokenFromQuery::class,
+        ]);
+
+        $middleware->api(prepend: [
+            \App\Http\Middleware\AppendBearerTokenFromQuery::class,
         ]);
 
         $middleware->web(prepend: [

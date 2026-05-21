@@ -190,15 +190,29 @@
     background: color-mix(in oklab, var(--muted) 35%, transparent);
 }
 
-.admin-list-card__actions .kt-menu {
-    margin-left: auto;
+.admin-list-card__action-icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
 }
 
-.admin-list-card__actions > .kt-btn,
-.admin-list-card__actions > a.kt-btn {
-    flex: 1 1 auto;
+.admin-list-card__action-icons .kt-btn.kt-btn-icon {
+    flex: 0 0 auto;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
     justify-content: center;
-    min-width: calc(50% - 0.25rem);
+}
+
+.admin-card-action-form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.admin-card-action-form form {
+    margin: 0;
+    display: inline-flex;
 }
 
 @media (max-width: 1023px) {
@@ -333,4 +347,11 @@
     #content .flex.gap-2.flex-wrap.justify-end {
         justify-content: stretch !important;
     }
+}
+
+/* Bedragen: euro-teken en bedrag op één regel */
+#content .admin-currency-cell,
+#content td.admin-currency-cell {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }

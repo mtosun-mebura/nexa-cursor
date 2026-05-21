@@ -8,9 +8,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Invoice extends Model
 {
+    public const MODULE_TAXI = 'taxi';
+
     protected $fillable = [
         'invoice_number',
         'company_id',
+        'module',
+        'module_reference_id',
+        'customer_name',
+        'customer_email',
         'job_match_id',
         'amount',
         'tax_amount',

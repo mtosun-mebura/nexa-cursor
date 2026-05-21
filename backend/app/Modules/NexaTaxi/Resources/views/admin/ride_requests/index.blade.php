@@ -98,7 +98,7 @@
                         <td>{{ Str::limit($r->pickup_address, 20) }} → {{ Str::limit($r->dropoff_address, 20) }}</td>
                         <td>{{ $r->vehicle?->name ?? '—' }}</td>
                         <td>{{ $r->status_label }}</td>
-                        <td>{{ $r->quoted_price !== null ? '€ '.number_format($r->quoted_price, 2, ',', '.') : '—' }}</td>
+                        <td class="whitespace-nowrap tabular-nums admin-currency-cell">@if($r->quoted_price !== null)€&nbsp;{{ number_format((float) $r->quoted_price, 2, ',', '.') }}@else—@endif</td>
                         <td class="text-right w-[60px]" data-no-row-link>
                             @if($canViewRide || $canUpdateRide)
                                 <div class="kt-menu inline-flex justify-end" data-kt-menu="true">
@@ -121,6 +121,21 @@
                                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                                                     </span>
                                                     <span class="kt-menu-title">Details</span>
+                                                </a>
+                                            </div>
+                                            @endif
+                                            @if($canViewRide && ($notificationLogTableExists ?? false))
+                                            <div class="kt-menu-item">
+                                                <a class="kt-menu-link" href="{{ route('admin.taxi.ride_requests.notification_log', $r) }}">
+                                                    <span class="kt-menu-icon">
+                                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>
+                                                    </span>
+                                                    <span class="kt-menu-title">
+                                                        Notificatielog
+                                                        @if(($r->notification_logs_count ?? 0) > 0)
+                                                            <span class="text-muted-foreground">({{ $r->notification_logs_count }})</span>
+                                                        @endif
+                                                    </span>
                                                 </a>
                                             </div>
                                             @endif

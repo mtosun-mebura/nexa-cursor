@@ -179,6 +179,11 @@ class EmailTemplateService
      * Supports {VAR}, {{VAR}}, { VAR } and {{ VAR }} (with spaces) for email client compatibility.
      * Removes one level of surrounding single curly braces so output is not wrapped in { value }.
      */
+    public function parseTemplateVariables(string $template, array $variables): string
+    {
+        return $this->parseTemplate($template, $variables);
+    }
+
     private function parseTemplate(string $template, array $variables): string
     {
         $result = $template;

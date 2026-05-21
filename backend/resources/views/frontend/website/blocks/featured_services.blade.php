@@ -62,22 +62,21 @@
     $itemDescFontPx = in_array($itemDescFontPx, $allowedSectionFsPx, true) ? $itemDescFontPx : 14;
 @endphp
 <section class="website-block website-block-featured-services py-12 md:py-16 scroll-reveal-section" data-scroll-reveal>
-    <div class="container-custom">
-        <div class="max-w-4xl mx-auto text-center mb-10 md:mb-14 scroll-reveal-item" style="transition: opacity {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94), transform {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 0ms;">
+    <div class="website-section-inner">
+        <div class="w-full max-w-4xl mx-auto text-center mb-8 md:mb-14 px-0 scroll-reveal-item" style="transition: opacity {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94), transform {{ $revealDuration }} cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 0ms; --fs-title-max: {{ $titleFontPx }}px; --fs-subtitle-max: {{ $subtitleFontPx }}px;">
             @if($title !== '')
-                <h2 class="font-bold text-gray-900 dark:text-white mb-3 leading-tight" style="font-family: var(--theme-font-heading, inherit); font-size: {{ $titleFontPx }}px;">{!! e($title) !!}</h2>
+                <h2 class="featured-services-title font-bold text-gray-900 dark:text-white mb-3 leading-tight" style="font-family: var(--theme-font-heading, inherit);">{!! e($title) !!}</h2>
             @endif
             @if($subtitle !== '')
-                <p class="text-gray-600 dark:text-gray-300 leading-relaxed" style="font-size: {{ $subtitleFontPx }}px;">{!! e($subtitle) !!}</p>
+                <p class="featured-services-subtitle text-gray-600 dark:text-gray-300 leading-relaxed">{!! e($subtitle) !!}</p>
             @endif
         </div>
         @if(count($items) > 0)
-            <div class="flex {{ $alignClass }} w-full">
-                <div
-                    class="featured-services-cards flex flex-wrap justify-center gap-6 lg:gap-8 w-full max-w-full px-4 lg:px-6"
-                    data-blocks-per-row="{{ $blocksPerRow }}"
-                    @if($blocksRowWidthPct < 100) style="max-width: {{ $blocksRowWidthPct }}%;" @endif
-                >
+            <div
+                class="featured-services-cards flex flex-col md:flex-row md:flex-wrap {{ $alignClass }} gap-3 md:gap-6 lg:gap-8 w-full max-w-full box-border px-3 md:px-0"
+                data-blocks-per-row="{{ $blocksPerRow }}"
+                @if($blocksRowWidthPct < 100) style="--featured-services-row-max: {{ $blocksRowWidthPct }}%;" @endif
+            >
                 @foreach($items as $index => $item)
                     @php
                         $itemTitle = $decode($item['title'] ?? '');
@@ -102,10 +101,10 @@
                             </div>
                             <div class="min-w-0 flex-1">
                                 @if($itemTitle !== '')
-                                    <h3 class="font-semibold text-gray-900 dark:text-white mb-2 break-words [overflow-wrap:anywhere] leading-snug" style="font-size: {{ $itemTitleFontPx }}px;">{!! e($itemTitle) !!}</h3>
+                                    <h3 class="featured-service-item-title font-semibold text-gray-900 dark:text-white mb-2 break-words [overflow-wrap:anywhere] leading-snug" style="--fs-item-title-max: {{ $itemTitleFontPx }}px;">{!! e($itemTitle) !!}</h3>
                                 @endif
                                 @if($itemDesc !== '')
-                                    <p class="text-gray-600 dark:text-gray-300 leading-relaxed break-words [overflow-wrap:anywhere]" style="font-size: {{ $itemDescFontPx }}px;">{!! nl2br(e($itemDesc)) !!}</p>
+                                    <p class="featured-service-item-desc text-gray-600 dark:text-gray-300 leading-relaxed break-words [overflow-wrap:anywhere]" style="--fs-item-desc-max: {{ $itemDescFontPx }}px;">{!! nl2br(e($itemDesc)) !!}</p>
                                 @endif
                             </div>
                             </div>
@@ -113,7 +112,6 @@
                         </div>
                     </div>
                 @endforeach
-                </div>
             </div>
         @endif
     </div>
@@ -121,35 +119,78 @@
 
 @push('styles')
 <style>
-    /* Kaarten per rij: flex + justify-center zodat een onvolledige laatste rij gecentreerd is (o.a. 3+2 bij 3 kolommen) */
+    .website-block-featured-services .featured-services-title {
+        font-size: clamp(1.125rem, 4vw + 0.5rem, var(--fs-title-max, 1.5rem));
+    }
+    .website-block-featured-services .featured-services-subtitle {
+        font-size: clamp(0.9375rem, 2.5vw + 0.4rem, var(--fs-subtitle-max, 1.125rem));
+    }
+    .website-block-featured-services .featured-service-item-title {
+        font-size: clamp(0.9375rem, 2vw + 0.35rem, var(--fs-item-title-max, 1.125rem));
+    }
+    .website-block-featured-services .featured-service-item-desc {
+        font-size: clamp(0.8125rem, 1.5vw + 0.3rem, var(--fs-item-desc-max, 0.875rem));
+    }
+    /* Mobiel: elke kaart volle breedte met lichte zij-padding via .featured-services-cards */
+    @media (max-width: 767px) {
+        .website-block-featured-services .featured-services-cards {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            gap: 0.75rem !important;
+        }
+        .website-block-featured-services .featured-services-cards > .featured-service-item {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: none !important;
+        }
+        .website-block-featured-services .featured-service-card {
+            width: 100% !important;
+            box-sizing: border-box;
+        }
+    }
+    /* Kaarten per rij: flex-wrap; desktop meerdere kolommen */
     .website-block-featured-services .featured-services-cards > .featured-service-item {
         width: 100%;
         min-width: 0;
+        box-sizing: border-box;
     }
-    /* 2 kolommen vanaf sm; gap-6 tot lg, daarna gap-8 */
+    @media (min-width: 768px) {
+        .website-block-featured-services .featured-services-cards[style*="--featured-services-row-max"] {
+            max-width: var(--featured-services-row-max);
+        }
+    }
+    /* 2 kolommen vanaf sm */
     @media (min-width: 640px) and (max-width: 1023px) {
         .website-block-featured-services .featured-services-cards[data-blocks-per-row="2"] > .featured-service-item {
             flex: 0 1 calc((100% - 1.5rem) / 2);
             max-width: calc((100% - 1.5rem) / 2);
         }
     }
+    /* 3 per rij: op tablet 2 kolommen (bredere kaarten), op groot scherm 3 */
+    @media (min-width: 768px) and (max-width: 1279px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
+            flex: 0 1 calc((100% - 1.5rem) / 2);
+            max-width: calc((100% - 1.5rem) / 2);
+        }
+    }
+    @media (min-width: 1280px) {
+        .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
+            flex: 1 1 calc((100% - 4rem) / 3);
+            max-width: calc((100% - 4rem) / 3);
+            min-width: min(100%, 22rem);
+        }
+    }
+    /* 2 per rij: bredere kaarten op desktop */
     @media (min-width: 1024px) {
         .website-block-featured-services .featured-services-cards[data-blocks-per-row="2"] > .featured-service-item {
-            flex: 0 1 calc((100% - 2rem) / 2);
+            flex: 1 1 calc((100% - 2rem) / 2);
             max-width: calc((100% - 2rem) / 2);
-        }
-    }
-    /* 3 kolommen vanaf md */
-    @media (min-width: 768px) and (max-width: 1023px) {
-        .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
-            flex: 0 1 calc((100% - 3rem) / 3);
-            max-width: calc((100% - 3rem) / 3);
-        }
-    }
-    @media (min-width: 1024px) {
-        .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
-            flex: 0 1 calc((100% - 4rem) / 3);
-            max-width: calc((100% - 4rem) / 3);
+            min-width: min(100%, 28rem);
         }
     }
     /* 4: 2 kolommen md, 4 kolommen lg */

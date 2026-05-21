@@ -11,6 +11,7 @@ use App\Services\GoogleReviewsService;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantWebsiteBundleService;
+use App\Services\WebsiteBuilderService;
 use App\Support\DutchPhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -935,7 +936,7 @@ class AdminSettingsController extends Controller
         $tenantScopedSettingsActive = $settingsCompanyId !== null;
 
         $logo = GeneralSetting::get('logo');
-        $favicon = GeneralSetting::get('favicon');
+        $favicon = GeneralSetting::get('favicon', null, $settingsCompanyId);
         $logoSize = GeneralSetting::get('logo_size', '26');
         $siteName = GeneralSetting::get('site_name', config('app.name'));
         $siteDescription = GeneralSetting::get('site_description', '');
@@ -947,6 +948,7 @@ class AdminSettingsController extends Controller
         $infoRequestSuccessImage = GeneralSetting::get('info_request_success_image');
         $infoRequestSuccessIcon = GeneralSetting::get('info_request_success_icon', 'ki-filled ki-check-circle');
         $infoRequestSuccessSize = GeneralSetting::get('info_request_success_icon_size', '80');
+        $adminFooterBrand = GeneralSetting::get('admin_footer_brand', 'Nexa Skillmatching');
 
         if ($infoRequestSuccessImage && ! Storage::disk('public')->exists($infoRequestSuccessImage)) {
             \Log::warning('Success image file not found in storage', ['path' => $infoRequestSuccessImage]);
@@ -980,7 +982,10 @@ class AdminSettingsController extends Controller
             $favicon = null;
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'settingsCompanyId', 'tenantScopedSettingsActive'));
+        $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta($settingsCompanyId);
+        $faviconDisplayUrl = $faviconMeta['url'];
+
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'settingsCompanyId', 'tenantScopedSettingsActive'));
     }
 
     /**
@@ -1006,6 +1011,7 @@ class AdminSettingsController extends Controller
             'info_request_success_texts_enabled' => 'nullable|in:0,1',
             'info_request_success_icon' => 'nullable|string|max:100',
             'info_request_success_icon_size' => 'nullable|integer|min:32|max:200',
+            'admin_footer_brand' => 'nullable|string|max:255',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
@@ -1036,6 +1042,9 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set('site_description', $request->input('site_description', ''), $companyId);
             }
             GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0', $companyId);
+            if ($request->has('admin_footer_brand')) {
+                GeneralSetting::set('admin_footer_brand', $request->input('admin_footer_brand', ''), $companyId);
+            }
             if ($request->has('info_request_success_title')) {
                 GeneralSetting::set('info_request_success_title', $request->input('info_request_success_title', ''), $companyId);
             }
@@ -1345,10 +1354,12 @@ class AdminSettingsController extends Controller
 
             \Log::info('Favicon uploaded successfully', ['path' => $faviconPath]);
 
+            $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta($companyId);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Favicon succesvol geüpload.',
-                'favicon_url' => route('admin.settings.favicon').'?t='.time(),
+                'favicon_url' => $faviconMeta['url'],
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading favicon', ['error' => $e->getMessage()]);
@@ -1597,8 +1608,6 @@ class AdminSettingsController extends Controller
      */
     public function getFavicon()
     {
-        $this->ensureSuperAdmin();
-
         $faviconPath = GeneralSetting::get('favicon');
 
         if (! $faviconPath || ! Storage::disk('public')->exists($faviconPath)) {

@@ -79,7 +79,7 @@
     @if(!empty($sectionData['overlay']))
     <div class="absolute inset-0 z-[2] bg-black/10 dark:bg-black/20" aria-hidden="true"></div>
     @endif
-    <div class="container-custom relative z-10">
+    <div class="website-section-inner relative z-10">
         @php
             $heroRevealDur = '0.7s';
             $heroRevealEase = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
@@ -161,7 +161,7 @@
     @if($base === 'why_nexa' && $v(''))
 <!-- Waarom Nexa -->
 <section class="modern-home-waarom py-16 md:py-20 bg-white dark:bg-gray-900">
-    <div class="container-custom">
+    <div class="website-section-inner">
         <div class="max-w-5xl mx-auto text-center">
             @if($v('_title'))
             <h2 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
@@ -192,7 +192,7 @@
 @endphp
 <!-- Wat Wij Bieden -->
 <section class="modern-home-features py-16 md:py-20 bg-white dark:bg-gray-900 scroll-reveal-section" data-scroll-reveal>
-    <div class="container-custom">
+    <div class="website-section-inner">
         <div class="max-w-5xl mx-auto">
             @if($visibility[$sectionKey . '_section_title'] ?? $visibility['features_section_title'] ?? true)
             <div class="scroll-reveal-item text-center mb-8" style="transition: opacity {{ $featuresRevealDuration }} {{ $featuresEasing }}, transform {{ $featuresRevealDuration }} {{ $featuresEasing }}; transition-delay: {{ $featuresTitleDelayMs }}ms;">
@@ -292,7 +292,7 @@
             return 'transition: opacity ' . $ctaRevealDurBtn . ' ' . $ctaRevealEase . ', transform ' . $ctaRevealDurBtn . ' ' . $ctaRevealEase . '; transition-delay: ' . (int) $delayMs . 'ms;';
         };
     @endphp
-    <div class="container-custom relative z-10 text-center {{ $ctaBgUrl !== '' ? 'text-white' : '' }}">
+    <div class="website-section-inner relative z-10 text-center {{ $ctaBgUrl !== '' ? 'text-white' : '' }}">
         @if($v('_title'))
         <h2 class="scroll-reveal-item cta-reveal-rise text-3xl md:text-4xl font-bold {{ $ctaBgUrl !== '' ? 'text-white' : 'text-gray-900 dark:text-white' }} mb-4" style="{{ $ctaRevealStyleRiseTitle(0) }}">{{ $sectionData['title'] ?? 'Klaar om je carrière te starten?' }}</h2>
         @endif

@@ -45,7 +45,7 @@
             <div class="flex flex-col items-center gap-2">
                 <span class="text-sm font-medium text-muted-foreground">Huidige favicon</span>
                 @if($favicon && Storage::disk('public')->exists($favicon))
-                    <img alt="Favicon" class="w-12 h-12 object-contain" src="{{ route('admin.settings.favicon') }}?t={{ time() }}" id="favicon-preview-top" />
+                    <img alt="Favicon" class="w-12 h-12 object-contain" src="{{ $faviconDisplayUrl ?? route('admin.settings.favicon') }}" id="favicon-preview-top" />
                 @else
                     <span class="text-sm text-muted-foreground italic py-2" id="favicon-preview-placeholder">Geen favicon geüpload</span>
                     <img alt="Favicon" class="w-12 h-12 object-contain hidden" src="" id="favicon-preview-top" />
@@ -190,7 +190,7 @@
                             <div class="max-w-96 w-full flex flex-col gap-3">
                                 @if($favicon && Storage::disk('public')->exists($favicon))
                                     <img alt="Favicon Preview" class="w-16 h-16 object-contain self-start"
-                                         src="{{ route('admin.settings.favicon') }}"
+                                         src="{{ $faviconDisplayUrl ?? route('admin.settings.favicon') }}"
                                          id="favicon-preview"/>
                                 @else
                                     <img alt="Favicon Preview" class="w-16 h-16 object-contain self-start hidden"
@@ -233,6 +233,13 @@
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                     <tbody>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Admin footertekst</td>
+                        <td class="min-w-48 w-full align-top">
+                            <input type="text" name="admin_footer_brand" id="admin_footer_brand" class="kt-input w-full max-w-xl" value="{{ old('admin_footer_brand', $adminFooterBrand ?? 'Nexa Skillmatching') }}" maxlength="255" placeholder="Nexa Skillmatching">
+                            <p class="text-xs text-muted-foreground mt-1">Tekst rechts van het jaartal in de footer van het admin-panel (bijv. <span class="font-mono">{{ date('Y') }}© Nexa Skillmatching</span>). Het jaar wordt automatisch bijgewerkt.</p>
+                        </td>
+                    </tr>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">AI-assistent tonen</td>
                         <td class="min-w-48 w-full align-top">

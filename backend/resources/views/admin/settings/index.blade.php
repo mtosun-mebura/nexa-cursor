@@ -726,6 +726,9 @@
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <div class="px-5 pb-3 text-xs text-muted-foreground">
+                    Server-brede WhatsApp Business API (token en Phone Number ID). Per bedrijf: ontvangernummer, aan/uit en chauffeur-e-mails instellen onder <strong>Taxi → Chauffeur dispatch</strong>.
+                </div>
                 <form method="POST" action="{{ route('admin.settings.whatsapp.update') }}" data-validate="true">
                     @csrf
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
@@ -849,7 +852,7 @@
                                            name="WHATSAPP_CLICK_TO_CHAT_ENABLED"
                                            value="1"
                                            {{ old('WHATSAPP_CLICK_TO_CHAT_ENABLED', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
-                                    <span class="text-sm text-secondary-foreground">Boekingsknop opent ook WhatsApp-bericht</span>
+                                    <span class="text-sm text-secondary-foreground">Fallback: boekingsknop opent WhatsApp (alleen zonder Business API)</span>
                                 </label>
                             </td>
                         </tr>
@@ -865,7 +868,7 @@
                                            placeholder="0612345678 of +31612345678"
                                            autocomplete="tel">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Zelfde controle als het widgetnummer; wordt opgeslagen als +31… voor <code class="text-xs">wa.me</code>.</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Ontvangernummer voor boekingsmeldingen. Met Business API-token wordt het bericht automatisch verstuurd; anders opent de boekingsknop <code class="text-xs">wa.me</code> als fallback.</div>
                                 @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -964,6 +967,11 @@
                             <span class="text-destructive">Geen tabellen gevonden (controleer database).</span>
                         @endforelse
                     </div>
+                    @php $paymentSyncTables = $tenantSyncScope['payment_company_scoped_tables'] ?? []; @endphp
+                    @if ($paymentSyncTables !== [])
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Betaling &amp; facturatie</span> (altijd mee bij sync als tabel bestaat):</p>
+                        <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $paymentSyncTables) }}</p>
+                    @endif
                     <p class="mt-2 mb-0"><span class="text-foreground font-medium">Expliciet uitgesloten</span> (config <code class="font-mono">tenant_sync.excluded_tables</code>):</p>
                     <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
                 </div>
@@ -1040,7 +1048,7 @@
                 <div class="border-t border-border pt-6 mt-2">
                     <h4 class="text-sm font-medium text-foreground mb-2">ZIP-export / -import (volledige tenant)</h4>
                     <p class="text-xs text-muted-foreground mb-4">
-                        Eén bundle per bedrijf: <strong class="text-foreground">bestanden</strong> (o.a. website-media uit pagina’s en uit tenant-instellingen, logo-pad, CV’s, factuur-PDF’s),
+                        Eén bundle per bedrijf: <strong class="text-foreground">bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code class="font-mono text-[11px]">private_files/invoices/…</code>),
                         <strong class="text-foreground">website_pages</strong> in het manifest, en <strong class="text-foreground">tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys).
                         Bestandsnaam begint met <code class="font-mono text-[11px]">tenant-export-</code>. Manifest: <code class="font-mono text-[11px]">bundle_type</code> <code class="font-mono text-[11px]">tenant_media</code>, <code class="font-mono text-[11px]">bundle_version</code> 2.
                         Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.
@@ -1062,9 +1070,9 @@
                             <p class="text-xs text-muted-foreground m-0">
                                 Download of importeer één ZIP met <code class="font-mono text-[11px]">manifest.json</code>.
                                 Publieke bestanden staan onder <code class="font-mono text-[11px]">files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/public</code> met dezelfde mappenstructuur).
-                                Versleutelde website-carouselbestanden staan onder <code class="font-mono text-[11px]">private_files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/…</code>).
+                                Versleutelde website-carouselbestanden en <strong class="text-foreground">factuur-PDF’s</strong> staan onder <code class="font-mono text-[11px]">private_files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/…</code>, facturen o.a. <code class="font-mono text-[11px]">private_files/private/invoices/{company_id}/</code>).
                                 Import overschrijft <code class="font-mono text-[11px]">website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug.
-                                Voor alleen databaserijen naar een andere database: gebruik hierboven <strong class="text-foreground">Volledige tenant-sync</strong> (die neemt o.a. <code class="font-mono text-[11px]">general_settings</code> per tenant automatisch mee als die tabel <code class="font-mono text-[11px]">company_id</code> heeft).
+                                Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong class="text-foreground">Volledige tenant-sync</strong> — alle tabellen met <code class="font-mono text-[11px]">company_id</code>, inclusief <code class="font-mono text-[11px]">payment_providers</code>, <code class="font-mono text-[11px]">invoice_settings</code>, <code class="font-mono text-[11px]">invoices</code>, <code class="font-mono text-[11px]">payments</code>, <code class="font-mono text-[11px]">payment_reminders</code>, <code class="font-mono text-[11px]">ride_payments</code>.
                             </p>
                             <div class="flex flex-wrap items-center gap-2">
                                 <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">

@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
+use App\Models\Company;
+use App\Models\GeneralSetting;
 use App\Models\PaymentProvider;
 use App\Services\PaymentProviderService;
 use Illuminate\Http\Request;
@@ -11,6 +14,8 @@ use Illuminate\Support\Facades\Validator;
 
 class AdminPaymentProviderController extends Controller
 {
+    use TenantFilter;
+
     protected $paymentProviderService;
 
     public function __construct(PaymentProviderService $paymentProviderService)
@@ -24,7 +29,8 @@ class AdminPaymentProviderController extends Controller
             abort(403, 'Je hebt geen rechten om betalingsproviders te bekijken.');
         }
         
-        $query = PaymentProvider::query();
+        $query = PaymentProvider::query()->with('company');
+        $this->applyTenantFilter($query);
         
         // Zoeken
         if ($request->filled('search')) {
@@ -132,7 +138,14 @@ class AdminPaymentProviderController extends Controller
             'adyen' => 'Adyen'
         ];
 
-        return view('admin.payment-providers.create', compact('providerTypes'));
+        $tenantCompany = $this->resolveTenantCompany();
+
+        return view('admin.payment-providers.create', [
+            'providerTypes' => $providerTypes,
+            'defaultTaxiWebhookUrl' => url('/api/taxi/webhooks/mollie'),
+            'scopedTenantCompany' => $tenantCompany,
+            'storedTenantCompany' => null,
+        ]);
     }
 
     public function store(Request $request)
@@ -152,10 +165,18 @@ class AdminPaymentProviderController extends Controller
             'test_mode' => 'boolean'
         ]);
 
-        // Controleer of er al een provider van dit type bestaat
-        $existingProvider = PaymentProvider::where('provider_type', $request->provider_type)->first();
+        $companyId = $this->requireTenantCompanyId();
+        if ($companyId === null) {
+            return back()->withErrors([
+                'provider_type' => 'Selecteer eerst een bedrijf (tenant) om een betalingsprovider aan te maken.',
+            ])->withInput();
+        }
+
+        $existingProvider = PaymentProvider::where('provider_type', $request->provider_type)
+            ->where('company_id', $companyId)
+            ->first();
         if ($existingProvider) {
-            return back()->withErrors(['provider_type' => 'Er bestaat al een provider van het type ' . ucfirst($request->provider_type)])->withInput();
+            return back()->withErrors(['provider_type' => 'Er bestaat al een provider van het type ' . ucfirst($request->provider_type) . ' voor dit bedrijf.'])->withInput();
         }
 
         if ($validator->fails()) {
@@ -168,9 +189,11 @@ class AdminPaymentProviderController extends Controller
             'webhook_url' => $request->webhook_url,
             'description' => $request->description,
             'test_mode' => $request->has('test_mode')
+                || str_starts_with(trim((string) $request->api_key), 'test_'),
         ];
 
         PaymentProvider::create([
+            'company_id' => $companyId,
             'name' => $request->name,
             'provider_type' => $request->provider_type,
             'is_active' => $request->has('is_active'),
@@ -186,14 +209,28 @@ class AdminPaymentProviderController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-payment-providers')) {
             abort(403, 'Je hebt geen rechten om betalingsproviders te bekijken.');
         }
+
+        if (! $this->canAccessResource($paymentProvider)) {
+            abort(403);
+        }
         
-        return view('admin.payment-providers.show', compact('paymentProvider'));
+        $paymentProvider->loadMissing('company');
+
+        return view('admin.payment-providers.show', [
+            'paymentProvider' => $paymentProvider,
+            'scopedTenantCompany' => $this->resolveTenantCompany(),
+            'storedTenantCompany' => $paymentProvider->company,
+        ]);
     }
 
     public function edit(PaymentProvider $paymentProvider)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
             abort(403, 'Je hebt geen rechten om betalingsproviders te bewerken.');
+        }
+
+        if (! $this->canAccessResource($paymentProvider)) {
+            abort(403);
         }
         
         $providerTypes = [
@@ -221,13 +258,26 @@ class AdminPaymentProviderController extends Controller
             }
         }
 
-        return view('admin.payment-providers.edit', compact('paymentProvider', 'providerTypes', 'decryptedConfig'));
+        $paymentProvider->loadMissing('company');
+
+        return view('admin.payment-providers.edit', [
+            'paymentProvider' => $paymentProvider,
+            'providerTypes' => $providerTypes,
+            'decryptedConfig' => $decryptedConfig,
+            'defaultTaxiWebhookUrl' => url('/api/taxi/webhooks/mollie'),
+            'scopedTenantCompany' => $this->resolveTenantCompany(),
+            'storedTenantCompany' => $paymentProvider->company,
+        ]);
     }
 
     public function update(Request $request, PaymentProvider $paymentProvider)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
             abort(403, 'Je hebt geen rechten om betalingsproviders te bewerken.');
+        }
+
+        if (! $this->canAccessResource($paymentProvider)) {
+            abort(403);
         }
         
         $validator = Validator::make($request->all(), [
@@ -241,12 +291,23 @@ class AdminPaymentProviderController extends Controller
             'test_mode' => 'boolean'
         ]);
 
-        // Controleer of er al een andere provider van dit type bestaat
+        $companyId = (int) $paymentProvider->company_id;
+        if ($companyId <= 0) {
+            $resolved = $this->requireTenantCompanyId();
+            if ($resolved === null) {
+                return back()
+                    ->withErrors(['provider_type' => 'Selecteer eerst een bedrijf (tenant) in de zijbalk.'])
+                    ->withInput();
+            }
+            $companyId = $resolved;
+        }
+
         $existingProvider = PaymentProvider::where('provider_type', $request->provider_type)
+            ->where('company_id', $companyId)
             ->where('id', '!=', $paymentProvider->id)
             ->first();
         if ($existingProvider) {
-            return back()->withErrors(['provider_type' => 'Er bestaat al een provider van het type ' . ucfirst($request->provider_type)])->withInput();
+            return back()->withErrors(['provider_type' => 'Er bestaat al een provider van het type ' . ucfirst($request->provider_type) . ' voor dit bedrijf.'])->withInput();
         }
 
         if ($validator->fails()) {
@@ -258,9 +319,11 @@ class AdminPaymentProviderController extends Controller
         $config['api_secret'] = $request->api_secret ? Crypt::encryptString($request->api_secret) : null;
         $config['webhook_url'] = $request->webhook_url;
         $config['description'] = $request->description;
-        $config['test_mode'] = $request->has('test_mode');
+        $config['test_mode'] = $request->has('test_mode')
+            || str_starts_with(trim((string) $request->api_key), 'test_');
 
         $paymentProvider->update([
+            'company_id' => $companyId,
             'name' => $request->name,
             'provider_type' => $request->provider_type,
             'is_active' => $request->has('is_active'),
@@ -276,6 +339,10 @@ class AdminPaymentProviderController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-payment-providers')) {
             abort(403, 'Je hebt geen rechten om betalingsproviders te verwijderen.');
         }
+
+        if (! $this->canAccessResource($paymentProvider)) {
+            abort(403);
+        }
         
         $paymentProvider->delete();
 
@@ -285,6 +352,13 @@ class AdminPaymentProviderController extends Controller
 
     public function toggleStatus(PaymentProvider $paymentProvider)
     {
+        if (! $this->canAccessResource($paymentProvider)) {
+            if (request()->ajax() || request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Geen toegang tot deze provider.'], 403);
+            }
+            abort(403);
+        }
+
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
             if (request()->ajax() || request()->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om de status van betalingsproviders te wijzigen.'], 403);
@@ -312,6 +386,10 @@ class AdminPaymentProviderController extends Controller
 
     public function testConnection(PaymentProvider $paymentProvider)
     {
+        if (! $this->canAccessResource($paymentProvider)) {
+            return response()->json(['success' => false, 'message' => 'Geen toegang tot deze provider.'], 403);
+        }
+
         try {
             $result = $this->paymentProviderService->testConnection($paymentProvider);
             
@@ -322,5 +400,32 @@ class AdminPaymentProviderController extends Controller
                 'message' => 'Fout bij testen van verbinding: ' . $e->getMessage()
             ]);
         }
+    }
+
+    protected function requireTenantCompanyId(): ?int
+    {
+        $tenantId = $this->getTenantId();
+        if ($tenantId) {
+            return (int) $tenantId;
+        }
+
+        $scoped = GeneralSetting::resolveScopeCompanyId();
+        if ($scoped !== null && $scoped > 0) {
+            return $scoped;
+        }
+
+        $userCompanyId = auth()->user()?->company_id;
+
+        return $userCompanyId ? (int) $userCompanyId : null;
+    }
+
+    protected function resolveTenantCompany(): ?Company
+    {
+        $companyId = $this->requireTenantCompanyId();
+        if ($companyId === null) {
+            return null;
+        }
+
+        return Company::find($companyId);
     }
 }

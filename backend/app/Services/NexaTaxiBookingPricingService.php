@@ -232,9 +232,6 @@ class NexaTaxiBookingPricingService
         $vehicleMap = $this->getActiveVehiclesById($range, $tenantCompanyId);
         $allVehicleMap = $this->getAllActiveVehiclesById($tenantCompanyId);
         $offers = is_array($sectionConfig['offers'] ?? null) ? $sectionConfig['offers'] : [];
-        if (empty($offers)) {
-            $offers = $this->buildDefaultOffersFromVehicles(array_values($vehicleMap));
-        }
         $offerDisplayMode = (string) ($sectionConfig['logic']['offer_display_mode'] ?? 'vehicle');
         if (! in_array($offerDisplayMode, ['vehicle', 'person_range'], true)) {
             $offerDisplayMode = 'vehicle';
@@ -243,7 +240,6 @@ class NexaTaxiBookingPricingService
 
         $resultOffers = [];
         if ($offerDisplayMode === 'person_range') {
-            $matchingOffers = array_values(array_filter($offers, fn (array $offer) => $this->offerMatchesPersonRange($offer, $range)));
             $personRangeVehicle = null;
             if (! empty($vehicleMap)) {
                 $personRangeVehicle = collect($vehicleMap)->sortBy('name')->first();
@@ -281,58 +277,10 @@ class NexaTaxiBookingPricingService
                 'currency' => 'EUR',
                 'person_range' => $range,
             ];
-
-            foreach ($matchingOffers as $idx => $offer) {
-                $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
-                if ($tenantCompanyId !== null && $tenantCompanyId > 0 && $vehicleId !== null && ! isset($allVehicleMap[$vehicleId])) {
-                    continue;
-                }
-                $vehicleForRate = $vehicleId !== null && isset($vehicleMap[$vehicleId]) ? $vehicleMap[$vehicleId] : null;
-                $vehicleForDisplay = $vehicleId !== null && isset($allVehicleMap[$vehicleId]) ? $allVehicleMap[$vehicleId] : $vehicleForRate;
-
-                $rate = $this->resolveRateForVehicle($vehicleForRate, $defaultRates);
-                $offerBaseFare = $this->calculateFareFromRate(
-                    $distanceMeters,
-                    $durationSeconds,
-                    $rate,
-                    $returnTrip,
-                    (float) ($sectionConfig['logic']['return_price_multiplier'] ?? 2.0),
-                    $pickupAt,
-                    $waitingMinutes,
-                    $useEveningNightTariff
-                );
-                $multiplier = max(0.1, (float) ($offer['price_multiplier'] ?? 1.0));
-                $surcharge = max(0, (float) ($offer['fixed_surcharge'] ?? 0));
-                $total = round(($offerBaseFare * $multiplier) + $surcharge + $extraTotal, 2);
-                $oldMultiplier = max(1.0, (float) ($offer['old_price_multiplier'] ?? 1.0));
-                $oldTotal = round($total * $oldMultiplier, 2);
-                $id = trim((string) ($offer['id'] ?? ('person_offer_'.($idx + 1))));
-                $rawTitle = isset($offer['title']) ? trim((string) $offer['title']) : '';
-                $rawBadge = isset($offer['badge']) ? trim((string) $offer['badge']) : '';
-                $features = [];
-                if (isset($offer['features']) && is_array($offer['features'])) {
-                    $features = array_values(array_filter(array_map(static fn ($feature) => trim((string) $feature), $offer['features']), static fn ($feature) => $feature !== ''));
-                }
-                if (empty($features)) {
-                    $features = $this->resolveVehicleFeatures($vehicleForDisplay);
-                }
-
-                $resultOffers[] = [
-                    'id' => $id !== '' ? $id : ('person_offer_'.($idx + 1)),
-                    'title' => $rawTitle !== '' ? $rawTitle : ($vehicleForDisplay?->name ?? ('Aanbieding '.($idx + 1))),
-                    'badge' => $rawBadge,
-                    'button_text' => $offer['button_text'] ?? ($sectionConfig['texts']['offer_button_text'] ?? 'Selecteer'),
-                    'features' => $features,
-                    'vehicle_id' => $vehicleForDisplay?->id,
-                    'vehicle_name' => $vehicleForDisplay?->name,
-                    'image_url' => $this->resolveVehicleImageUrlForOffer($vehicleForDisplay),
-                    'price' => $total,
-                    'old_price' => $oldTotal > $total ? $oldTotal : null,
-                    'currency' => 'EUR',
-                    'person_range' => $range,
-                ];
-            }
         } else {
+            if (empty($offers)) {
+                $offers = $this->buildDefaultOffersFromVehicles(array_values($vehicleMap));
+            }
             foreach ($offers as $idx => $offer) {
                 if (! $this->offerMatchesPersonRange($offer, $range)) {
                     continue;

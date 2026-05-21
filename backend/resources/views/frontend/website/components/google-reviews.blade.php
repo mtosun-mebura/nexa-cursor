@@ -14,7 +14,7 @@
     $sectionBackground = trim((string) ($data['section_background'] ?? ''));
     $carouselId = 'google-reviews-carousel-' . bin2hex(random_bytes(4));
     $componentId = 'grw-' . bin2hex(random_bytes(3));
-    $visibleCards = 3;
+    $visibleCardsDesktop = 3;
 @endphp
 @if(count($reviews) > 0)
 <style>
@@ -25,6 +25,12 @@
 #{{ $componentId }} .grw-btn-next { pointer-events: auto; }
 #{{ $componentId }} .grw-review-card { flex-shrink: 0; }
 #{{ $componentId }} .grw-card { height: 220px; min-height: 220px; max-height: 220px; display: flex; flex-direction: column; overflow: hidden; }
+@media (max-width: 767px) {
+    #{{ $componentId }} .grw-card { height: auto; min-height: 11rem; max-height: none; }
+    #{{ $componentId }} .grw-slider { flex-direction: column; align-items: stretch; }
+    #{{ $componentId }} .grw-btn-prev,
+    #{{ $componentId }} .grw-btn-next { align-self: center; }
+}
 #{{ $componentId }} .grw-card .grw-text { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 #{{ $componentId }} .grw-card .grw-text-short { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
 #{{ $componentId }} .grw-card .grw-read-more { margin-top: auto; flex-shrink: 0; }
@@ -91,11 +97,11 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
 #{{ $componentId }}.grw-in-view .grw-dots { opacity: 1; transform: translateZ(0); }
 </style>
 <section class="google-reviews-section py-12 md:py-16 @if($sectionBackground === '') bg-gray-100 dark:bg-gray-800 @endif" @if($sectionBackground !== '') style="background-color: {{ e($sectionBackground) }};" @endif aria-labelledby="{{ $carouselId }}-heading" id="{{ $componentId }}">
-    <div class="container-custom">
-        {{-- Nexa Taxi layout: twee kolommen – links samenvatting, rechts carousel met meerdere kaarten --}}
-        <div class="grw-layout flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-8 max-w-6xl mx-auto">
-            {{-- Links: vaste hoogte, dark-mode proof --}}
-            <div class="grw-summary grw-header grw-header-inner flex-shrink-0 lg:w-[280px] xl:w-[320px] min-h-[260px] flex flex-col rounded-xl p-5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm dark:shadow-lg text-left">
+    <div class="website-section-inner">
+        {{-- Mobiel: onder elkaar; desktop: samenvatting links, carousel rechts --}}
+        <div class="grw-layout flex flex-col lg:flex-row lg:items-stretch gap-6 lg:gap-8 w-full px-3 sm:px-4 lg:px-0 lg:max-w-6xl lg:mx-auto">
+            {{-- Samenvatting (bedrijfsnaam, score, CTA) --}}
+            <div class="grw-summary grw-header grw-header-inner w-full flex-shrink-0 lg:w-[280px] xl:w-[320px] lg:min-h-[260px] flex flex-col rounded-xl p-5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm dark:shadow-lg text-left">
                 @if($placeName !== '')
                     <h2 id="{{ $carouselId }}-heading" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-2">{{ $placeName }}</h2>
                 @else
@@ -126,8 +132,8 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
             </div>
 
             {{-- Rechts: kop boven carousel + carousel met 3 kaarten --}}
-            <div class="grw-slider-wrapper flex-1 min-w-0 flex flex-col">
-                <div class="grw-header mb-4 text-center">
+            <div class="grw-slider-wrapper flex-1 min-w-0 w-full flex flex-col">
+                <div class="grw-header grw-header--carousel-only mb-4 text-center">
                     <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">{{ $carouselHeading }}</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1">
                         <span>powered by Google</span>
@@ -149,7 +155,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
                                 $initial = $author !== 'Anoniem' ? mb_substr(trim($author), 0, 1) : '?';
                                 $rating = max(0, min(5, (int) ($review['rating'] ?? 0)));
                                 $time = !empty($review['time']) && is_string($review['time']) ? $review['time'] : '';
-                                $cardWidthPct = 100 / max(1, $visibleCards);
+                                $cardWidthPct = 100 / max(1, $visibleCardsDesktop);
                             @endphp
                             <article class="grw-review-card flex-none px-2 box-border" role="listitem" data-grw-index="{{ $index }}">
                                 <div class="grw-card h-full rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 p-4 flex flex-col shadow-sm dark:shadow-md">
@@ -194,7 +200,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
                 </div>
                 @if(count($reviews) > 3)
                     <div class="grw-dots flex justify-center gap-2 mt-4" role="tablist" aria-label="Review navigatie">
-                        @php $totalSlides = max(1, count($reviews) - $visibleCards + 1); @endphp
+                        @php $totalSlides = max(1, count($reviews) - $visibleCardsDesktop + 1); @endphp
                         @for($i = 0; $i < $totalSlides; $i++)
                             <button type="button" class="grw-dot w-2.5 h-2.5 rounded-full border-0 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary {{ $i === 0 ? 'grw-dot-active' : '' }}" role="tab" aria-selected="{{ $i === 0 ? 'true' : 'false' }}" aria-label="Slide {{ $i + 1 }}" data-grw-slide="{{ $i }}"></button>
                         @endfor
@@ -232,7 +238,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
     (function() {
         var componentId = @json($componentId);
         function initGrwCarousel() {
-        var visibleCards = @json($visibleCards);
+        var visibleCardsDesktop = @json($visibleCardsDesktop);
         var wrap = document.getElementById(componentId);
         if (!wrap) return;
         var viewport = wrap.querySelector('.grw-slider-viewport');
@@ -243,6 +249,14 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
         var dots = wrap.querySelectorAll('.grw-dot');
         var total = cards.length;
         if (total <= 1 || !track || !viewport) return;
+
+        function getVisibleCards() {
+            var w = window.innerWidth || document.documentElement.clientWidth || 1024;
+            if (w < 640) return 1;
+            if (w < 1024) return 2;
+            return visibleCardsDesktop;
+        }
+        var visibleCards = getVisibleCards();
 
         var maxSlide = Math.max(0, total - visibleCards);
         var current = 0;
@@ -306,6 +320,7 @@ html.dark #{{ $componentId }} .grw-dot:not(.grw-dot-active):hover { background-c
         viewport.addEventListener('focusin', stopAutoPlay);
         viewport.addEventListener('focusout', startAutoPlay);
         window.addEventListener('resize', function() {
+            visibleCards = getVisibleCards();
             setSizes();
             maxSlide = Math.max(0, total - visibleCards);
             current = Math.min(current, maxSlide);

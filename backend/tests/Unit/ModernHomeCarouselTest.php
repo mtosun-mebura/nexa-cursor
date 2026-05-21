@@ -45,7 +45,9 @@ class ModernHomeCarouselTest extends TestCase
         $this->assertStringContainsString('tekst</span>', $html);
         $this->assertStringContainsString('carousel-caption-pos-center', $html);
         $this->assertStringContainsString('carousel-anim-zoom', $html);
-        $this->assertStringContainsString('font-size: 32px', $html);
+        $this->assertStringContainsString('--caption-size-max: 32px', $html);
+        $this->assertStringContainsString('font-size: clamp(', $html);
+        $this->assertStringContainsString('aspect-ratio:', $html);
         $this->assertStringContainsString('data-carousel-animation="zoom"', $html);
         $this->assertStringContainsString('carousel-caption-text-block', $html);
         $this->assertStringContainsString('background-color: rgba(30, 58, 95, 0.5)', $html);
