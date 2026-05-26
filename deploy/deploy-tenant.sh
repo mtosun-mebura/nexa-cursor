@@ -58,6 +58,16 @@ _user_allowed_for_deploy() {
   return 1
 }
 
+_compose_bin_label() {
+  if docker compose version >/dev/null 2>&1; then
+    echo "docker compose (v2 plugin)"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    docker-compose --version 2>/dev/null | head -1 || echo "docker-compose"
+  else
+    echo "geen compose CLI"
+  fi
+}
+
 _compose() {
   if docker compose version >/dev/null 2>&1; then
     docker compose -f "$COMPOSE_FILE" "$@"
@@ -65,8 +75,28 @@ _compose() {
     docker-compose -f "$COMPOSE_FILE" "$@"
   else
     echo "ERROR: Geen 'docker compose' (plugin) of docker-compose in PATH." >&2
+    echo "Proxmox/Lightsail: sudo apt-get install -y docker-compose  # of docker-compose-plugin" >&2
     exit 1
   fi
+}
+
+# Proxmox-test en AWS-prod gebruiken docker-compose.prod.yml; oude compose v1 kent geen `include:`.
+_preflight_compose_file() {
+  local compose_path="$TENANT_DIR/$COMPOSE_FILE"
+  if [[ ! -f "$compose_path" ]]; then
+    echo "ERROR: Compose-bestand ontbreekt: $compose_path" >&2
+    exit 1
+  fi
+  echo "==> Docker Compose CLI: $(_compose_bin_label)"
+  echo "==> Compose-bestand: $compose_path"
+  if grep -qE '^[[:space:]]*include:' "$compose_path" 2>/dev/null; then
+    echo "ERROR: $COMPOSE_FILE gebruikt 'include:' — niet ondersteund op deze server (alleen docker compose v2)." >&2
+    echo "Oplossing: pull/reset naar release/test met inline db in docker-compose.prod.yml (geen include-blok)." >&2
+    exit 1
+  fi
+  echo "==> Valideren compose-config..."
+  _compose config >/dev/null
+  echo "==> Compose-config OK"
 }
 
 # Zonder socket-rechten faalt alles stil of met Python-stacktraces — vroeg en duidelijk stoppen.
@@ -295,6 +325,7 @@ fi
 echo "==> Docker Compose pull/build/up"
 cd "$TENANT_DIR"
 _ensure_compose_env_mount
+_preflight_compose_file
 _compose pull || true
 _docker_safe_prune
 _compose build --pull

@@ -1,4 +1,5 @@
-# Gedeelde PostgreSQL-service (include vanuit docker-compose.yml en docker-compose.prod.yml).
+# Gedeelde PostgreSQL-service (include vanuit docker-compose.yml).
+# Productie gebruikt docker-compose.prod.yml met inline db-service (geen include, v1-compat).
 # Credentials: DB_USERNAME, DB_PASSWORD, DB_DATABASE in repo-root .env
 services:
   db:
