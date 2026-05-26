@@ -1,5 +1,6 @@
-# TEST (Proxmox Ubuntu): deploy bij push naar release/test.
-# PROD (AWS Lightsail): alleen via git-tag — zie deploy-prod.yml + create-prod-tag.yml
+# TEST (Proxmox Ubuntu): deploy bij push naar release/test (self-hosted runner).
+# Gebruikt docker-compose v1 op de VM is OK — docker-compose.prod.yml heeft geen `include:`.
+# PROD (AWS Lightsail): alleen via git-tag — deploy-prod.yml + create-prod-tag.yml
 
 name: Deploy TEST (Proxmox)
 
