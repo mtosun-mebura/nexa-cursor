@@ -210,6 +210,12 @@
                         <p class="text-xs text-muted-foreground mt-3">
                             <strong>Tip:</strong> Gebruik deze variabelen in je template met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }}{{ (isset($isInfoRequestType) && $isInfoRequestType) ? 'VOORNAAM' : 'USER_NAME' }}{{ '}' }}{{ '}' }}</code>
                         </p>
+                        @if($emailTemplate->type === 'taxi_ride_accepted')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-2 text-foreground font-medium">Taxi rit geaccepteerd (klant)</p>
+                            <p class="mb-0">Gebruik o.a. {{ '{' }}{{ '{' }} CUSTOMER_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} DRIVER_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} PICKUP_AT {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} PICKUP_ADDRESS {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} DROPOFF_ADDRESS {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_PHONE {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }}. Ingeschakeld via <strong>Chauffeur dispatch → Klantmelding bij acceptatie</strong>.</p>
+                        </div>
+                        @endif
                         @if($emailTemplate->type === 'invoice')
                         <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
                             <p class="mb-2 text-foreground font-medium">Factuur: <code>{{ '{' }}{{ '{' }} INVOICE_AMOUNTS_HTML {{ '}' }}{{ '}' }}</code></p>

@@ -148,6 +148,15 @@
             background: #2563eb;
             color: #fff;
         }
+        #btn-send-invoice:disabled,
+        #btn-send-invoice.is-disabled,
+        #btn-complete-ride:disabled,
+        #btn-complete-ride.is-disabled {
+            background: #64748b;
+            color: #e2e8f0;
+            cursor: not-allowed;
+            opacity: 0.9;
+        }
         #invoice-panel .invoice-field-input {
             width: 100%;
             font-size: 1rem;
@@ -213,6 +222,10 @@
             pointer-events: auto;
             opacity: 1;
             visibility: visible;
+        }
+        .driver-dialog.driver-dialog--instant,
+        .driver-dialog.driver-dialog--instant .driver-dialog__panel {
+            transition: none !important;
         }
         .driver-dialog__backdrop {
             position: absolute;
@@ -777,6 +790,6 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? asset('assets/media/app/nexa-chauffeur-icon-192.png')),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=39" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=41" defer></script>
 </body>
 </html>

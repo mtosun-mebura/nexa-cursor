@@ -6,8 +6,8 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Invoice;
-use App\Models\Payment;
 use App\Models\User;
+use App\Services\AdminPaymentOverviewService;
 use App\Modules\Skillmatching\Models\Interview;
 use App\Modules\Skillmatching\Models\JobMatch;
 use App\Modules\Skillmatching\Models\Vacancy;
@@ -22,8 +22,10 @@ class AdminDashboardController extends Controller
 
     protected $envService;
 
-    public function __construct(EnvService $envService)
-    {
+    public function __construct(
+        EnvService $envService,
+        protected AdminPaymentOverviewService $paymentOverview,
+    ) {
         $this->envService = $envService;
     }
 
@@ -37,7 +39,7 @@ class AdminDashboardController extends Controller
             $tenantId = null; // Reset voor super admin zonder tenant
             $stats = $this->buildSuperAdminStats();
 
-            $financials = $this->buildFinancialStats(Payment::query());
+            $financials = $this->paymentOverview->dashboardFinancials(null);
             $recent_users = User::with('company')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
@@ -76,7 +78,7 @@ class AdminDashboardController extends Controller
                     'pending_matches' => 0,
                     'completed_interviews' => 0,
                 ];
-                $financials = $this->buildFinancialStats(Payment::query());
+                $financials = $this->paymentOverview->dashboardFinancials(null);
                 $recent_users = User::with('company')
                     ->orderBy('created_at', 'desc')
                     ->limit(5)
@@ -115,7 +117,7 @@ class AdminDashboardController extends Controller
                     'completed_interviews' => 0,
                 ];
 
-                $financials = $this->buildFinancialStats(Payment::where('company_id', $tenantId));
+                $financials = $this->paymentOverview->dashboardFinancials($tenantId);
                 $recent_users = User::where('company_id', $tenantId)
                     ->with('company')
                     ->orderBy('created_at', 'desc')
@@ -162,6 +164,8 @@ class AdminDashboardController extends Controller
 
         $recent_payments = $financials['recent_payments'];
         $revenue_trend = $financials['revenue_trend'];
+        $tenantPaymentRows = $financials['tenant_rows'] ?? null;
+        $paymentStats = $financials['payment_stats'] ?? null;
 
         // Als een tenant geselecteerd is, toon de company profile opzet
         $selectedCompany = null;
@@ -213,7 +217,9 @@ class AdminDashboardController extends Controller
             'googleMapsZoom',
             'googleMapsCenterLat',
             'googleMapsCenterLng',
-            'googleMapsType'
+            'googleMapsType',
+            'tenantPaymentRows',
+            'paymentStats'
         ));
     }
 
@@ -385,51 +391,4 @@ class AdminDashboardController extends Controller
         ];
     }
 
-    /**
-     * Bouw financiële statistieken op voor de dashboard-weergave.
-     */
-    protected function buildFinancialStats($query): array
-    {
-        $paidQuery = (clone $query)->where('status', 'paid');
-        $pendingQuery = (clone $query)->where('status', 'pending');
-        $startDate = now()->startOfMonth()->subMonths(5);
-
-        $revenueTrend = (clone $paidQuery)
-            ->where(function ($q) {
-                $q->whereNotNull('paid_at')->orWhereNotNull('created_at');
-            })
-            ->where(function ($q) use ($startDate) {
-                $q->whereDate('paid_at', '>=', $startDate)
-                    ->orWhere(function ($nested) use ($startDate) {
-                        $nested->whereNull('paid_at')->whereDate('created_at', '>=', $startDate);
-                    });
-            })
-            ->get(['amount', 'paid_at', 'created_at'])
-            ->groupBy(function ($payment) {
-                return optional($payment->paid_at ?? $payment->created_at)->format('Y-m');
-            })
-            ->sortKeys()
-            ->map(function ($items, $month) {
-                return [
-                    'month' => $month,
-                    'label' => \Carbon\Carbon::createFromFormat('Y-m', $month)->translatedFormat('M'),
-                    'total' => $items->sum('amount'),
-                ];
-            })
-            ->values();
-
-        return [
-            'total_revenue' => (clone $paidQuery)->sum('amount'),
-            'pending_revenue' => (clone $pendingQuery)->sum('amount'),
-            'paid_payments' => (clone $paidQuery)->count(),
-            'pending_payments' => (clone $pendingQuery)->count(),
-            'average_ticket' => round((clone $paidQuery)->avg('amount'), 2),
-            'revenue_trend' => $revenueTrend,
-            'recent_payments' => (clone $query)
-                ->with('company')
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get(),
-        ];
-    }
 }

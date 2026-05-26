@@ -51,7 +51,7 @@
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center gap-5 pb-7.5">
-        <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
+        <a href="{{ $rideBackUrl ?? route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
         @can('rides.view')
             @if($notificationLogTableExists ?? false)
             <a href="{{ route('admin.taxi.ride_requests.notification_log', $ride) }}" class="kt-btn kt-btn-outline">
@@ -64,11 +64,28 @@
         @endcan
         @can('rides.update')
         <a href="{{ route('admin.taxi.ride_requests.edit', $ride) }}" class="kt-btn kt-btn-outline">Bewerken</a>
+        @if(($dispatchTablesExist ?? false) && $ride->canRedispatchToDrivers())
+        <form
+            action="{{ route('admin.taxi.ride_requests.reoffer_dispatch', $ride) }}"
+            method="POST"
+            class="inline"
+            onsubmit="return confirm('Rit opnieuw aanbieden aan chauffeurs?\n\nDe huidige toewijzing (voertuig/chauffeur) wordt gewist en online chauffeurs ontvangen een nieuw aanbod.');"
+        >
+            @csrf
+            <button type="submit" class="kt-btn kt-btn-outline">Opnieuw aanbieden</button>
+        </form>
+        @endif
         @endcan
     </div>
 
     @if(session('success'))
         <div class="kt-alert kt-alert-success mb-5"><i class="ki-filled ki-check-circle me-2"></i> {{ session('success') }}</div>
+    @endif
+    @if(session('warning'))
+        <div class="kt-alert kt-alert-warning mb-5"><i class="ki-filled ki-information-2 me-2"></i> {{ session('warning') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="kt-alert kt-alert-danger mb-5"><i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}</div>
     @endif
 
     <div class="grid grid-cols-1 gap-5">

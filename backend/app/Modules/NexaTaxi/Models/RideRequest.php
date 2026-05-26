@@ -89,6 +89,14 @@ class RideRequest extends Model
         ];
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function validStatusValues(): array
+    {
+        return array_keys(self::statusLabels());
+    }
+
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(RidePayment::class, 'ride_request_id')->orderByDesc('id');
@@ -123,6 +131,23 @@ class RideRequest extends Model
     public function getStatusLabelAttribute(): string
     {
         return self::statusLabels()[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Mag de rit opnieuw naar chauffeurs (dispatch) worden gestuurd?
+     */
+    public function canRedispatchToDrivers(): bool
+    {
+        if (in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED], true)) {
+            return false;
+        }
+
+        if ($this->status === self::STATUS_PENDING_PAYMENT
+            && $this->payment_status !== self::PAYMENT_STATUS_PAID) {
+            return false;
+        }
+
+        return (int) ($this->company_id ?? 0) > 0;
     }
 
     /** Rit duur in minuten (afgerond). */

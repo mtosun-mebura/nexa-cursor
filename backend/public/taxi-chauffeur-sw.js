@@ -1,5 +1,5 @@
 /* PWA service worker: cache + telefoonmeldingen voor nieuwe ritten. */
-const CACHE = 'nexa-taxi-chauffeur-v6';
+const CACHE = 'nexa-taxi-chauffeur-v7';
 const DEFAULT_ICON = '/assets/media/app/nexa-chauffeur-icon-192.png';
 const CHAUFFEUR_URL = '/taxi/chauffeur';
 

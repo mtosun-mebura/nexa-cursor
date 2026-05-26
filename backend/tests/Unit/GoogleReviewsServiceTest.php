@@ -6,8 +6,10 @@ use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Models\WebsitePage;
 use App\Services\GoogleReviewsService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -118,6 +120,34 @@ class GoogleReviewsServiceTest extends TestCase
         $this->assertSame('Onze klanten', GeneralSetting::get('google_reviews_section_title', '', $cid));
 
         GeneralSetting::set('google_reviews_section_title', '', $cid);
+    }
+
+    #[Test]
+    public function get_reviews_returns_empty_when_places_api_unreachable(): void
+    {
+        if (! Schema::hasTable('general_settings')) {
+            $this->markTestSkipped('general_settings table required');
+        }
+        $cid = (int) DB::table('companies')->orderBy('id')->value('id');
+        if ($cid < 1) {
+            $this->markTestSkipped('company required');
+        }
+
+        GeneralSetting::set('google_reviews_place_id', 'ChIJ71_DnQAUuEcR6FcDgn8_Jww', $cid);
+        config(['maps.api_key' => 'test-api-key']);
+
+        Http::fake(function () {
+            throw new ConnectionException('Could not resolve host: places.googleapis.com');
+        });
+
+        $result = app(GoogleReviewsService::class)->getReviews($cid);
+
+        $this->assertSame('', $result['place_name']);
+        $this->assertSame([], $result['reviews']);
+        $this->assertSame('ChIJ71_DnQAUuEcR6FcDgn8_Jww', $result['place_id']);
+
+        GeneralSetting::set('google_reviews_place_id', '', $cid);
+        config(['maps.api_key' => null]);
     }
 
     #[Test]

@@ -1,12 +1,15 @@
-name: Deploy SaaS (self-hosted)
+# TEST (Proxmox Ubuntu): deploy bij push naar release/test.
+# PROD (AWS Lightsail): alleen via git-tag — zie deploy-prod.yml + create-prod-tag.yml
+
+name: Deploy TEST (Proxmox)
 
 on:
   push:
     branches:
-      - nexa-saas
+      - release/test
   workflow_dispatch:
 
-# Geen actions/checkout: de app staat in TENANT_DIR (git pull in deploy-tenant.sh).
+# Geen actions/checkout: de app staat in TENANT_DIR (git reset in deploy-tenant.sh).
 # Checkout onder /home/mtosun/actions-runner/_work faalt vaak als de runner-service
 # niet als mtosun draait ("Access to the path /home is denied").
 jobs:
@@ -15,6 +18,7 @@ jobs:
     timeout-minutes: 90
     env:
       TENANT_DIR: /home/nexasuite.nl/apps/saas/current
+      GIT_BRANCH: release/test
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
       DEBUG_DEPLOY: ${{ vars.DEBUG_DEPLOY }}
@@ -71,7 +75,8 @@ jobs:
           fi
 
           run_deploy() {
-            env DEPLOY_USER="$TARGET" EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" \
+            env DEPLOY_USER="$TARGET" GIT_BRANCH="${GIT_BRANCH:-release/test}" \
+              EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" \
               TENANT_DIR="$TENANT_DIR" bash "$SCRIPT"
           }
 

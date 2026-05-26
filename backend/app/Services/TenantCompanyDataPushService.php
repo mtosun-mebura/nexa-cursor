@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -86,6 +88,22 @@ final class TenantCompanyDataPushService
 
             $idMaps = [];
             $remoteCompanyId = $this->resolveOrCreateRemoteCompany($targetConn, $company, $messages);
+            $sameDatabase = $this->connectionsPointToSameDatabase($sourceConn, $targetConn);
+            if ($sameDatabase) {
+                $messages[] = 'Bron en doel zijn dezelfde database: gebruikers worden bijgewerkt (company_id), niet dubbel ingevoegd.';
+            }
+
+            $userStats = $this->summarizeTenantUsersOnSource($sourceConn, $sourceCompanyId);
+            $messages[] = sprintf(
+                'Gebruikers op bron voor tenant %d: %d met users.company_id, %d via rollen/chauffeurs, %d rol-koppelingen naar ontbrekende users.',
+                $sourceCompanyId,
+                $userStats['direct'],
+                $userStats['discovered'],
+                $userStats['orphan_role_user_ids']
+            );
+            if ($userStats['discovered'] === 0 && $userStats['orphan_role_user_ids'] > 0) {
+                $messages[] = 'Let op: er zijn model_has_roles voor dit bedrijf, maar de bijbehorende users-rijen ontbreken op de bron-database.';
+            }
 
             foreach ($orderedTables as $table) {
                 if ($table === 'companies') {
@@ -93,7 +111,26 @@ final class TenantCompanyDataPushService
                 }
                 $this->assertTableHasColumn($sourceConn, $table, 'company_id');
 
-                $rows = DB::connection($sourceConn)->table($table)->where('company_id', $sourceCompanyId)->get();
+                if ($table === 'users') {
+                    $userSync = $sameDatabase
+                        ? $this->syncUsersInPlaceOnConnection($sourceConn, $sourceCompanyId, $remoteCompanyId, $idMaps)
+                        : $this->syncUsersToTargetConnection(
+                            $sourceConn,
+                            $targetConn,
+                            $sourceCompanyId,
+                            $remoteCompanyId,
+                            $idMaps
+                        );
+                    $inserted += (int) ($userSync['inserted'] ?? 0) + (int) ($userSync['updated'] ?? 0);
+                    $skipped += (int) ($userSync['skipped'] ?? 0);
+                    if (($userSync['message'] ?? '') !== '') {
+                        $messages[] = $userSync['message'];
+                    }
+
+                    continue;
+                }
+
+                $rows = $this->collectSourceRowsForCompanyTable($sourceConn, $table, $sourceCompanyId);
                 foreach ($rows as $rowObj) {
                     $row = (array) $rowObj;
                     $oldId = isset($row['id']) ? (int) $row['id'] : null;
@@ -106,29 +143,39 @@ final class TenantCompanyDataPushService
                         continue;
                     }
 
-                    try {
-                        $hasId = Schema::connection($sourceConn)->hasColumn($table, 'id');
-                        if ($hasId) {
-                            unset($payload['id']);
-                            $newId = DB::connection($targetConn)->table($table)->insertGetId($payload);
-                            if ($oldId !== null) {
-                                $idMaps[$table][$oldId] = (int) $newId;
-                            }
-                        } else {
-                            DB::connection($targetConn)->table($table)->insert($payload);
-                        }
+                    $outcome = $this->insertRowOnTarget(
+                        $sourceConn,
+                        $targetConn,
+                        $table,
+                        $payload,
+                        $oldId,
+                        $remoteCompanyId,
+                        $idMaps
+                    );
+                    if ($outcome === 'inserted') {
                         $inserted++;
-                    } catch (UniqueConstraintViolationException) {
+                    } else {
                         $skipped++;
-                        $this->tryLearnIdFromUniqueHit($targetConn, $table, $payload, $oldId, $idMaps);
-                    } catch (Throwable $e) {
-                        if ($this->isDuplicateKeyException($e)) {
-                            $skipped++;
-                            $this->tryLearnIdFromUniqueHit($targetConn, $table, $payload, $oldId, $idMaps);
-                        } else {
-                            throw $e;
-                        }
                     }
+                }
+            }
+
+            $postSync = config('tenant_sync.post_sync_tables', []);
+            if (is_array($postSync)) {
+                foreach ($postSync as $postTable) {
+                    if (! is_string($postTable) || $postTable === '') {
+                        continue;
+                    }
+                    $postResult = $this->pushPostSyncTable(
+                        $sourceConn,
+                        $targetConn,
+                        $postTable,
+                        $sourceCompanyId,
+                        $remoteCompanyId,
+                        $idMaps
+                    );
+                    $inserted += $postResult['inserted'];
+                    $skipped += $postResult['skipped'];
                 }
             }
 
@@ -222,6 +269,31 @@ final class TenantCompanyDataPushService
         }
         if ($table === 'users' && isset($payload['email'])) {
             $q->where('email', $payload['email']);
+        } elseif ($table === 'roles' && isset($payload['name'], $payload['guard_name'])) {
+            $q->where('name', $payload['name'])->where('guard_name', $payload['guard_name']);
+        } elseif ($table === 'email_templates') {
+            if (! empty($payload['type'])) {
+                $q->where('type', $payload['type']);
+            } elseif (isset($payload['name'])) {
+                $q->where('name', $payload['name']);
+            } else {
+                return;
+            }
+        } elseif ($table === 'general_settings' && isset($payload['key'])) {
+            $q->where('key', $payload['key']);
+        } elseif ($table === 'website_pages' && isset($payload['slug'])) {
+            $q->where('slug', $payload['slug']);
+            if (array_key_exists('frontend_theme_id', $payload)) {
+                if ($payload['frontend_theme_id'] === null) {
+                    $q->whereNull('frontend_theme_id');
+                } else {
+                    $q->where('frontend_theme_id', $payload['frontend_theme_id']);
+                }
+            }
+        } elseif ($table === 'vacancies' && isset($payload['slug'])) {
+            $q->where('slug', $payload['slug']);
+        } elseif ($table === 'notifications' && isset($payload['title'])) {
+            $q->where('title', $payload['title']);
         } elseif ($table === 'company_domains' && isset($payload['host'])) {
             $q->where('host', $payload['host']);
         } elseif ($table === 'company_module' && isset($payload['module_id'])) {
@@ -496,5 +568,599 @@ final class TenantCompanyDataPushService
         if (! Schema::connection($connection)->hasColumn($table, $column)) {
             throw new RuntimeException("Tabel {$table} mist kolom {$column} op bron.");
         }
+    }
+
+    /**
+     * @return Collection<int, object>
+     */
+    private function collectSourceRowsForCompanyTable(string $sourceConn, string $table, int $sourceCompanyId): Collection
+    {
+        if ($table === 'users') {
+            return $this->collectUsersRowsForCompany($sourceConn, $sourceCompanyId);
+        }
+
+        return DB::connection($sourceConn)->table($table)->where('company_id', $sourceCompanyId)->get();
+    }
+
+    /**
+     * Gebruikers met company_id, via tenant-rollen (model_has_roles) of als chauffeur op ritten.
+     *
+     * @return Collection<int, object>
+     */
+    private function collectUsersRowsForCompany(string $sourceConn, int $sourceCompanyId): Collection
+    {
+        if (! Schema::connection($sourceConn)->hasTable('users')) {
+            return collect();
+        }
+
+        $userIds = $this->discoverTenantUserIds($sourceConn, $sourceCompanyId);
+        if ($userIds === []) {
+            return collect();
+        }
+
+        return DB::connection($sourceConn)->table('users')->whereIn('id', $userIds)->orderBy('id')->get();
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function discoverTenantUserIds(string $sourceConn, int $sourceCompanyId): array
+    {
+        $userIds = [];
+
+        if (! Schema::connection($sourceConn)->hasTable('users')) {
+            return [];
+        }
+
+        foreach (DB::connection($sourceConn)->table('users')->where('company_id', $sourceCompanyId)->pluck('id') as $id) {
+            $userIds[(int) $id] = true;
+        }
+
+        if (Schema::connection($sourceConn)->hasTable('model_has_roles')) {
+            $morphKey = config('permission.column_names.model_morph_key', 'model_id');
+            $types = $this->userModelTypes();
+
+            foreach (DB::connection($sourceConn)->table('model_has_roles')
+                ->where('company_id', $sourceCompanyId)
+                ->whereIn('model_type', $types)
+                ->pluck($morphKey) as $id) {
+                if ($id !== null) {
+                    $userIds[(int) $id] = true;
+                }
+            }
+
+            if (Schema::connection($sourceConn)->hasTable('roles')
+                && Schema::connection($sourceConn)->hasColumn('roles', 'company_id')) {
+                $tenantRoleIds = DB::connection($sourceConn)->table('roles')
+                    ->where('company_id', $sourceCompanyId)
+                    ->pluck('id');
+                if ($tenantRoleIds->isNotEmpty()) {
+                    foreach (DB::connection($sourceConn)->table('model_has_roles')
+                        ->whereIn('role_id', $tenantRoleIds)
+                        ->whereIn('model_type', $types)
+                        ->pluck($morphKey) as $id) {
+                        if ($id !== null) {
+                            $userIds[(int) $id] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (Schema::connection($sourceConn)->hasTable('ride_requests')) {
+            foreach (DB::connection($sourceConn)->table('ride_requests')
+                ->where('company_id', $sourceCompanyId)
+                ->whereNotNull('driver_id')
+                ->distinct()
+                ->pluck('driver_id') as $id) {
+                $userIds[(int) $id] = true;
+            }
+        }
+
+        if (Schema::connection($sourceConn)->hasTable('driver_availability')) {
+            foreach (DB::connection($sourceConn)->table('driver_availability')
+                ->where('company_id', $sourceCompanyId)
+                ->pluck('driver_id') as $id) {
+                $userIds[(int) $id] = true;
+            }
+        }
+
+        return array_values(array_map('intval', array_keys($userIds)));
+    }
+
+    /**
+     * @return array{direct: int, discovered: int, orphan_role_user_ids: int}
+     */
+    private function summarizeTenantUsersOnSource(string $sourceConn, int $sourceCompanyId): array
+    {
+        $direct = (int) DB::connection($sourceConn)->table('users')->where('company_id', $sourceCompanyId)->count();
+        $ids = $this->discoverTenantUserIds($sourceConn, $sourceCompanyId);
+        $discovered = count($ids);
+        $existing = $discovered > 0
+            ? (int) DB::connection($sourceConn)->table('users')->whereIn('id', $ids)->count()
+            : 0;
+        $orphanRoleRefs = 0;
+        if (Schema::connection($sourceConn)->hasTable('model_has_roles')) {
+            $morphKey = config('permission.column_names.model_morph_key', 'model_id');
+            $orphanRoleRefs = (int) DB::connection($sourceConn)->table('model_has_roles')
+                ->where('company_id', $sourceCompanyId)
+                ->whereIn('model_type', $this->userModelTypes())
+                ->whereNotIn($morphKey, DB::connection($sourceConn)->table('users')->select('id'))
+                ->count();
+        }
+
+        return [
+            'direct' => $direct,
+            'discovered' => $existing,
+            'orphan_role_user_ids' => $orphanRoleRefs,
+        ];
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{updated: int, skipped: int, message: string}
+     */
+    private function syncUsersInPlaceOnConnection(
+        string $connection,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        $rows = $this->collectUsersRowsForCompany($connection, $sourceCompanyId);
+        $updated = 0;
+        $skipped = 0;
+
+        foreach ($rows as $row) {
+            $userId = (int) $row->id;
+            $idMaps['users'][$userId] = $userId;
+            $currentCompanyId = $row->company_id ?? null;
+            if ($currentCompanyId !== null && (int) $currentCompanyId === $remoteCompanyId) {
+                $skipped++;
+
+                continue;
+            }
+            DB::connection($connection)->table('users')
+                ->where('id', $userId)
+                ->update(['company_id' => $remoteCompanyId]);
+            $updated++;
+        }
+
+        $message = sprintf(
+            'Gebruikers (zelfde database): %d gevonden, %d company_id bijgewerkt, %d al correct.',
+            $rows->count(),
+            $updated,
+            $skipped
+        );
+
+        return [
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'inserted' => 0,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, skipped: int, updated: int, message: string}
+     */
+    private function syncUsersToTargetConnection(
+        string $sourceConn,
+        string $targetConn,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        $rows = $this->collectUsersRowsForCompany($sourceConn, $sourceCompanyId);
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+
+        foreach ($rows as $row) {
+            $row = (array) $row;
+            $oldId = (int) $row['id'];
+            $payload = $this->stripUnsupportedColumns('users', $row);
+            unset($payload['id']);
+            $payload['company_id'] = $remoteCompanyId;
+
+            $existingId = $this->findExistingRowIdOnTarget($targetConn, 'users', $payload);
+            if ($existingId !== null) {
+                $idMaps['users'][$oldId] = $existingId;
+                $existing = DB::connection($targetConn)->table('users')->where('id', $existingId)->first();
+                $existingCompanyId = $existing->company_id ?? null;
+                if ($existingCompanyId === null || (int) $existingCompanyId === $remoteCompanyId) {
+                    DB::connection($targetConn)->table('users')
+                        ->where('id', $existingId)
+                        ->update(['company_id' => $remoteCompanyId, 'updated_at' => now()]);
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+
+                continue;
+            }
+
+            try {
+                $newId = (int) DB::connection($targetConn)->table('users')->insertGetId($payload);
+                $idMaps['users'][$oldId] = $newId;
+                $inserted++;
+            } catch (UniqueConstraintViolationException) {
+                if ($this->reconcileExistingUserForTenant($targetConn, $payload, $oldId, $remoteCompanyId, $idMaps)) {
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+            } catch (Throwable $e) {
+                if ($this->isDuplicateKeyException($e)) {
+                    if ($this->reconcileExistingUserForTenant($targetConn, $payload, $oldId, $remoteCompanyId, $idMaps)) {
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                } else {
+                    throw $e;
+                }
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'skipped' => $skipped,
+            'updated' => $updated,
+            'message' => sprintf(
+                'Gebruikers (naar doel-database): %d gevonden, %d nieuw, %d gekoppeld/bijgewerkt, %d overgeslagen.',
+                $rows->count(),
+                $inserted,
+                $updated,
+                $skipped
+            ),
+        ];
+    }
+
+    /**
+     * Bestaat er al een rij op doel met dezelfde natuurlijke sleutel? (voorkomt dubbele inserts)
+     */
+    private function findExistingRowIdOnTarget(string $targetConn, string $table, array $payload): ?int
+    {
+        if (! Schema::connection($targetConn)->hasTable($table)) {
+            return null;
+        }
+
+        if ($table === 'email_templates') {
+            return $this->findExistingEmailTemplateId($targetConn, $payload);
+        }
+
+        if ($table === 'model_has_roles') {
+            return $this->findExistingModelHasRolesRow($targetConn, $payload) ? -1 : null;
+        }
+
+        $configured = config("tenant_sync.existing_row_keys.{$table}");
+        if (! is_array($configured) || $configured === []) {
+            return null;
+        }
+
+        if (! Schema::connection($targetConn)->hasColumn($table, 'id')) {
+            return null;
+        }
+
+        $q = DB::connection($targetConn)->table($table);
+        foreach ($configured as $column) {
+            if (! is_string($column) || $column === '' || ! Schema::connection($targetConn)->hasColumn($table, $column)) {
+                continue;
+            }
+            if (! array_key_exists($column, $payload)) {
+                return null;
+            }
+            if ($payload[$column] === null) {
+                $q->whereNull($column);
+            } else {
+                $q->where($column, $payload[$column]);
+            }
+        }
+
+        $found = $q->value('id');
+
+        return $found !== null ? (int) $found : null;
+    }
+
+    private function findExistingEmailTemplateId(string $targetConn, array $payload): ?int
+    {
+        if (! isset($payload['company_id'])) {
+            return null;
+        }
+
+        $q = DB::connection($targetConn)->table('email_templates')->where('company_id', $payload['company_id']);
+        if (! empty($payload['type'])) {
+            $q->where('type', $payload['type']);
+        } elseif (isset($payload['name']) && $payload['name'] !== '') {
+            $q->where('name', $payload['name']);
+        } else {
+            return null;
+        }
+
+        $found = $q->value('id');
+
+        return $found !== null ? (int) $found : null;
+    }
+
+    private function findExistingModelHasRolesRow(string $targetConn, array $payload): bool
+    {
+        if (! Schema::connection($targetConn)->hasTable('model_has_roles')) {
+            return false;
+        }
+
+        $roleKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $morphKey = config('permission.column_names.model_morph_key', 'model_id');
+        if (! isset($payload[$roleKey], $payload[$morphKey], $payload['model_type'], $payload['company_id'])) {
+            return false;
+        }
+
+        return DB::connection($targetConn)->table('model_has_roles')
+            ->where('company_id', $payload['company_id'])
+            ->where($roleKey, $payload[$roleKey])
+            ->where($morphKey, $payload[$morphKey])
+            ->where('model_type', $payload['model_type'])
+            ->exists();
+    }
+
+    private function connectionsPointToSameDatabase(string $sourceConn, string $targetConn): bool
+    {
+        $normalize = static function (array $cfg): array {
+            $host = strtolower((string) ($cfg['host'] ?? ''));
+            if (in_array($host, ['db', '127.0.0.1', 'localhost', '::1'], true)) {
+                $host = 'local-postgres';
+            }
+
+            return [
+                'host' => $host,
+                'port' => (string) ($cfg['port'] ?? '5432'),
+                'database' => (string) ($cfg['database'] ?? ''),
+                'username' => (string) ($cfg['username'] ?? ''),
+            ];
+        };
+
+        $source = $normalize((array) config("database.connections.{$sourceConn}", []));
+        $target = $normalize((array) config("database.connections.{$targetConn}", []));
+
+        return $source === $target;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function userModelTypes(): array
+    {
+        return array_values(array_unique(array_filter([
+            (new User)->getMorphClass(),
+            User::class,
+            'App\\Models\\User',
+        ])));
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return 'inserted'|'skipped'
+     */
+    private function insertRowOnTarget(
+        string $sourceConn,
+        string $targetConn,
+        string $table,
+        array $payload,
+        ?int $oldId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): string {
+        $existingId = $this->findExistingRowIdOnTarget($targetConn, $table, $payload);
+        if ($existingId !== null) {
+            if ($existingId > 0 && $oldId !== null && Schema::connection($targetConn)->hasColumn($table, 'id')) {
+                $idMaps[$table][$oldId] = $existingId;
+            }
+
+            return 'skipped';
+        }
+
+        try {
+            $hasId = Schema::connection($sourceConn)->hasColumn($table, 'id');
+            if ($hasId) {
+                unset($payload['id']);
+                $newId = DB::connection($targetConn)->table($table)->insertGetId($payload);
+                if ($oldId !== null) {
+                    $idMaps[$table][$oldId] = (int) $newId;
+                }
+            } else {
+                DB::connection($targetConn)->table($table)->insert($payload);
+            }
+
+            return 'inserted';
+        } catch (UniqueConstraintViolationException $e) {
+            return $this->handleDuplicateRowOnTarget(
+                $targetConn,
+                $table,
+                $payload,
+                $oldId,
+                $remoteCompanyId,
+                $idMaps,
+                $e
+            );
+        } catch (Throwable $e) {
+            if ($this->isDuplicateKeyException($e)) {
+                return $this->handleDuplicateRowOnTarget(
+                    $targetConn,
+                    $table,
+                    $payload,
+                    $oldId,
+                    $remoteCompanyId,
+                    $idMaps,
+                    $e
+                );
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return 'inserted'|'skipped'
+     */
+    private function handleDuplicateRowOnTarget(
+        string $targetConn,
+        string $table,
+        array $payload,
+        ?int $oldId,
+        int $remoteCompanyId,
+        array &$idMaps,
+        Throwable $e
+    ): string {
+        if ($table === 'users' && isset($payload['email']) && $this->reconcileExistingUserForTenant(
+            $targetConn,
+            $payload,
+            $oldId,
+            $remoteCompanyId,
+            $idMaps
+        )) {
+            return 'inserted';
+        }
+
+        $this->tryLearnIdFromUniqueHit($targetConn, $table, $payload, $oldId, $idMaps);
+
+        return 'skipped';
+    }
+
+    /**
+     * Bestaande gebruiker op doel koppelen aan tenant (zelfde e-mail, nog geen ander bedrijf).
+     *
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function reconcileExistingUserForTenant(
+        string $targetConn,
+        array $payload,
+        ?int $oldId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): bool {
+        if ($oldId === null || ! isset($payload['email'])) {
+            return false;
+        }
+
+        $existing = DB::connection($targetConn)->table('users')->where('email', $payload['email'])->first();
+        if ($existing === null) {
+            return false;
+        }
+
+        $existingCompanyId = $existing->company_id ?? null;
+        if ($existingCompanyId !== null && (int) $existingCompanyId !== $remoteCompanyId) {
+            return false;
+        }
+
+        $update = ['company_id' => $remoteCompanyId, 'updated_at' => now()];
+        $allowed = array_flip(Schema::connection($targetConn)->getColumnListing('users'));
+        $update = array_intersect_key($update, $allowed);
+        if ($update !== []) {
+            DB::connection($targetConn)->table('users')->where('id', (int) $existing->id)->update($update);
+        }
+
+        $idMaps['users'][$oldId] = (int) $existing->id;
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, skipped: int}
+     */
+    private function pushPostSyncTable(
+        string $sourceConn,
+        string $targetConn,
+        string $table,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        if ($table !== 'role_has_permissions') {
+            return ['inserted' => 0, 'skipped' => 0];
+        }
+
+        if (! Schema::connection($sourceConn)->hasTable('role_has_permissions')
+            || ! Schema::connection($sourceConn)->hasTable('roles')
+            || ! Schema::connection($sourceConn)->hasTable('permissions')) {
+            return ['inserted' => 0, 'skipped' => 0];
+        }
+
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $permissionPivotKey = config('permission.column_names.permission_pivot_key') ?: 'permission_id';
+
+        $sourceRoleIds = DB::connection($sourceConn)->table('roles')
+            ->where('company_id', $sourceCompanyId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($sourceRoleIds === []) {
+            return ['inserted' => 0, 'skipped' => 0];
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        $rows = DB::connection($sourceConn)->table('role_has_permissions')
+            ->whereIn($rolePivotKey, $sourceRoleIds)
+            ->get();
+
+        foreach ($rows as $rowObj) {
+            $row = (array) $rowObj;
+            $oldRoleId = isset($row[$rolePivotKey]) ? (int) $row[$rolePivotKey] : 0;
+            $oldPermissionId = isset($row[$permissionPivotKey]) ? (int) $row[$permissionPivotKey] : 0;
+            if ($oldRoleId === 0 || $oldPermissionId === 0) {
+                $skipped++;
+
+                continue;
+            }
+            if (! isset($idMaps['roles'][$oldRoleId])) {
+                $skipped++;
+
+                continue;
+            }
+            $remotePermissionId = $this->resolveRemotePermissionId($sourceConn, $targetConn, $oldPermissionId);
+            if ($remotePermissionId === null) {
+                $skipped++;
+
+                continue;
+            }
+
+            $payload = [
+                $rolePivotKey => $idMaps['roles'][$oldRoleId],
+                $permissionPivotKey => $remotePermissionId,
+            ];
+
+            try {
+                DB::connection($targetConn)->table('role_has_permissions')->insert($payload);
+                $inserted++;
+            } catch (UniqueConstraintViolationException) {
+                $skipped++;
+            } catch (Throwable $e) {
+                if ($this->isDuplicateKeyException($e)) {
+                    $skipped++;
+                } else {
+                    throw $e;
+                }
+            }
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped];
+    }
+
+    private function resolveRemotePermissionId(string $sourceConn, string $targetConn, int $sourcePermissionId): ?int
+    {
+        $source = DB::connection($sourceConn)->table('permissions')->where('id', $sourcePermissionId)->first();
+        if ($source === null) {
+            return null;
+        }
+
+        $found = DB::connection($targetConn)->table('permissions')
+            ->where('name', $source->name)
+            ->where('guard_name', $source->guard_name)
+            ->value('id');
+
+        return $found !== null ? (int) $found : null;
     }
 }

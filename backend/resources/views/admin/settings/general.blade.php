@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('content')
 <div class="kt-container-fixed">
     <div class="kt-container-fixed mt-5">
@@ -55,6 +57,7 @@
 
         <form action="{{ route('admin.settings.general.update') }}" method="POST" enctype="multipart/form-data" id="general-settings-form">
             @csrf
+        <div id="general-settings-collapsible-root">
         @php
             $hasLogo = $logo && Storage::disk('public')->exists($logo);
             $hasLogoDark = !empty($logoDark) && Storage::disk('public')->exists($logoDark);
@@ -62,10 +65,9 @@
             $logoLightUrl = $hasLogo ? route('admin.settings.logo') : null;
             $logoDarkUrl = ($hasLogo && $useLightDark && $hasLogoDark) ? route('admin.settings.logo-dark') : $logoLightUrl;
         @endphp
-        <div class="kt-card mb-8">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Logo & Favicon</h3>
-            </div>
+        <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Logo & Favicon'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                     <tbody>
@@ -224,12 +226,12 @@
                     </tbody>
                 </table>
             </div>
+            </div>
         </div>
         <!-- Algemene opties. Applicatienaam, omschrijving en Mijn-omgeving-knop staan per module onder Modules Beheer > [module] > Configureren. -->
-        <div class="kt-card mb-8">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Algemene opties</h3>
-            </div>
+        <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Algemene opties'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                     <tbody>
@@ -259,13 +261,13 @@
                     </tbody>
                 </table>
             </div>
+            </div>
         </div>
 
         <!-- Formulier succesbericht (informatieaanvraag / contactformulier op de website) -->
-        <div class="kt-card mb-8">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Formulier succesbericht</h3>
-            </div>
+        <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Formulier succesbericht'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                     <tbody>
@@ -388,8 +390,10 @@
                     </tbody>
                 </table>
             </div>
+            </div>
         </div>
 
+        </div>
         </form>
     </div>
 </div>

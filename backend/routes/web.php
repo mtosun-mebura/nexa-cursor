@@ -77,6 +77,9 @@ Route::get('/file/{path}', function ($path) {
     ]);
 })->where('path', '.*');
 
+Route::get('/email-logo/{company}', App\Http\Controllers\EmailCompanyLogoController::class)
+    ->name('email.company-logo');
+
 // Browsers vragen vaak /favicon.ico aan (vóór <link rel="icon">). Geen leeg bestand in public/ gebruiken.
 Route::get('/favicon.ico', function () {
     $meta = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta();

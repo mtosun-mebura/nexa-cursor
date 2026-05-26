@@ -62,9 +62,9 @@
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Offerteprijs (€)</td>
                     <td class="min-w-48 w-full">
-                        <div class="relative">
-                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
-                            <input type="number" name="quoted_price" class="kt-input w-full pl-6 @error('quoted_price') border-destructive @enderror" value="{{ old('quoted_price', $ride->quoted_price) }}" step="0.01" min="0" readonly>
+                        <div class="flex items-center gap-2 w-full max-w-md">
+                            <span class="shrink-0 text-sm font-medium text-foreground" aria-hidden="true">€</span>
+                            <input type="number" name="quoted_price" class="kt-input w-full min-w-0 @error('quoted_price') border-destructive @enderror" value="{{ old('quoted_price', $ride->quoted_price) }}" step="0.01" min="0" readonly>
                         </div>
                         @error('quoted_price')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>

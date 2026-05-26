@@ -1,0 +1,55 @@
+# PROD-only: maakt tag vX.Y.Z op main HEAD. Triggert deploy-prod.yml (AWS Lightsail).
+# Test gebruikt branch release/test (Proxmox), geen tags.
+#
+# Flow: feature → release/test (test deploy) → PR → main → Create PROD tag → prod deploy
+
+name: Create PROD tag (main only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Nieuwe tag op main, bijv. v1.2.0 (semver, uniek)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate tag name
+        id: meta
+        run: |
+          set -euo pipefail
+          ref="${{ github.event.inputs.version }}"
+          ref="${ref#"${ref%%[![:space:]]*}"}"
+          ref="${ref%"${ref##*[![:space:]]}"}"
+          if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0" >&2
+            exit 1
+          fi
+          if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1; then
+            echo "ERROR: Tag ${ref} bestaat al" >&2
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Tag wordt gezet op main HEAD: $(git rev-parse --short HEAD)"
+
+      - name: Create and push annotated tag
+        run: |
+          set -euo pipefail
+          ref="${{ steps.meta.outputs.ref }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$ref" -m "Release $ref (main @ $(git rev-parse --short HEAD))"
+          git push origin "$ref"
+          echo "Tag $ref gepusht — Deploy PROD start automatisch."

@@ -1,37 +1,42 @@
 # Development Docker Compose - voor lokale development
 # Gebruik: docker compose up -d
 # Host: http://localhost:8085 (container-intern blijft :8000)
+# Database: PostgreSQL in container `db` (DB_HOST=db in .env)
+
+include:
+  - path: ./docker-compose.postgres.yml
 
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: nexa_backend  # Verschillende naam dan productie
+    container_name: nexa_backend
     ports:
       - "8085:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8085
-      # DB_* komt uit de gemounte ./.env — niet hier overschrijven.
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
 
-      # N8N - Externe service
       N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
       N8N_PORT: ${N8N_PORT:-5678}
       N8N_EMAIL: ${N8N_EMAIL:-m.tosun@mebura.nl}
-      N8N_PASSWORD: ${N8N_PASSWORD:-Memmo@N8N!}  # Default voor lokale dev
-      
-      # APP_KEY wordt automatisch gegenereerd door entrypoint
+      N8N_PASSWORD: ${N8N_PASSWORD:-Memmo@N8N!}
+
       APP_KEY: ${APP_KEY:-}
     volumes:
-      # Mount hele backend voor development (hot reload)
       - ./backend:/var/www/html
-      # Mount .env uit root - overschrijft backend/.env (prioriteit via volgorde)
-      # Zo gebruiken zowel Docker Compose als Laravel hetzelfde .env bestand
       - ./.env:/var/www/html/.env
+    # Fallback DNS: voorkomt cURL error 6 (Could not resolve host) in sommige Docker-netwerken
+    dns:
+      - 127.0.0.11
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
-    # Geen network_mode: "host" - gebruik normale bridge network
-    # Database connectie werkt via externe hostname
-
-

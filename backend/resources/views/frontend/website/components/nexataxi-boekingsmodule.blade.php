@@ -1269,6 +1269,7 @@ body.booking-modal-open {
     var skipBaggageStep = !!(config.logic && config.logic.skip_baggage_step);
     var state = {
         step: 1,
+        maxStep: 1,
         has_baggage: !skipBaggageStep,
         passengers: parseInt(config.logic && config.logic.default_passengers ? config.logic.default_passengers : 1, 10),
         minPassengers: parseInt(config.logic && config.logic.min_passengers ? config.logic.min_passengers : 1, 10),
@@ -1610,6 +1611,43 @@ body.booking-modal-open {
         return stepOrder[Math.max(0, state.step - 1)] || 'trip';
     }
 
+    function getStepIndexForKey(stepKey) {
+        var idx = stepOrder.indexOf(stepKey);
+        return idx < 0 ? 0 : idx + 1;
+    }
+
+    function isStepReachable(stepKey) {
+        var stepIndex = getStepIndexForKey(stepKey);
+        if (stepIndex < 1) {
+            return false;
+        }
+        if (stepKey === 'baggage' && !state.has_baggage) {
+            return false;
+        }
+
+        return stepIndex <= state.maxStep;
+    }
+
+    function updateBookingStepSelectOptions() {
+        var stepSelect = root.querySelector('[data-booking-step-select]');
+        if (!stepSelect) {
+            return;
+        }
+        var currentStepKey = getCurrentStepKey();
+        Array.prototype.forEach.call(stepSelect.options, function(opt) {
+            var key = opt.value || '';
+            if (key === 'baggage' && !state.has_baggage) {
+                opt.hidden = true;
+                opt.disabled = true;
+
+                return;
+            }
+            opt.hidden = false;
+            opt.disabled = !isStepReachable(key);
+        });
+        stepSelect.value = currentStepKey;
+    }
+
     function getBookingScrollOffset() {
         var offset = 12;
         var headers = document.querySelectorAll('header.sticky, header.fixed, .preview-bar.sticky');
@@ -1662,11 +1700,7 @@ body.booking-modal-open {
         if (baggageTab) {
             baggageTab.classList.toggle('hidden', !state.has_baggage);
         }
-        var baggageOption = root.querySelector('[data-booking-step-select] option[value="baggage"]');
-        if (baggageOption) {
-            baggageOption.hidden = !state.has_baggage;
-            baggageOption.disabled = !state.has_baggage;
-        }
+        updateBookingStepSelectOptions();
         if (!state.has_baggage && getCurrentStepKey() === 'baggage') {
             setStepByKey('offers');
         }
@@ -1746,7 +1780,7 @@ body.booking-modal-open {
         root.querySelectorAll('.booking-step-tab').forEach(function(tab) {
             var tabStepIndex = parseInt(tab.getAttribute('data-step-index'), 10);
             var active = tabStepIndex === state.step;
-            var reachable = state.step >= tabStepIndex;
+            var reachable = tabStepIndex <= state.maxStep;
             tab.classList.toggle('font-semibold', active);
             tab.classList.toggle('text-heading', active);
             tab.classList.toggle('text-fg-brand', active);
@@ -1771,8 +1805,7 @@ body.booking-modal-open {
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
             tab.setAttribute('aria-disabled', reachable ? 'false' : 'true');
         });
-        var stepSelect = root.querySelector('[data-booking-step-select]');
-        if (stepSelect) stepSelect.value = currentStepKey;
+        updateBookingStepSelectOptions();
         var nextBtn = root.querySelector('[data-booking-next]');
         if (nextBtn) {
             nextBtn.textContent = currentStepKey === 'confirm'
@@ -3546,9 +3579,17 @@ body.booking-modal-open {
             if (selectedStepKey === 'baggage' && !state.has_baggage) {
                 selectedStepKey = 'offers';
             }
+            if (!isStepReachable(selectedStepKey)) {
+                e.target.value = getCurrentStepKey();
+                return;
+            }
             if (stepOrder.indexOf(selectedStepKey) >= 0) {
                 clearError();
                 setStepByKey(selectedStepKey);
+                var currentStepKey = getCurrentStepKey();
+                if (currentStepKey === 'offers' || currentStepKey === 'confirm') {
+                    requestQuotes();
+                }
                 updateSummary();
             }
             return;
@@ -3653,8 +3694,8 @@ body.booking-modal-open {
         if (tabBtn) {
             e.preventDefault();
             var tabStepIndex = parseInt(tabBtn.getAttribute('data-step-index'), 10);
-            if (state.step >= tabStepIndex) {
-                var targetStepKey = tabBtn.getAttribute('data-step-key') || '';
+            var targetStepKey = tabBtn.getAttribute('data-step-key') || '';
+            if (isStepReachable(targetStepKey)) {
                 if (targetStepKey === 'baggage' && !state.has_baggage) {
                     targetStepKey = 'offers';
                 }
@@ -3719,6 +3760,10 @@ body.booking-modal-open {
             var currentStepKey = getCurrentStepKey();
             var nextStepKey = getNextStepKey(currentStepKey);
             if (nextStepKey) {
+                var nextIndex = getStepIndexForKey(nextStepKey);
+                if (nextIndex > 0) {
+                    state.maxStep = Math.max(state.maxStep, nextIndex);
+                }
                 setStepByKey(nextStepKey);
                 if (nextStepKey === 'offers' || nextStepKey === 'confirm') {
                     requestQuotes();

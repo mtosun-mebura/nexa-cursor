@@ -15,9 +15,9 @@
             </div>
         </div>
         <div class="flex items-center gap-2.5">
-            <a href="{{ route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
+            <a href="{{ $invoiceBackUrl ?? route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left text-base me-2"></i>
-                Terug naar Overzicht
+                Terug
             </a>
             <button type="button" class="kt-btn kt-btn-primary" onclick="window.print()">
                 <i class="ki-filled ki-printer text-base me-2"></i>

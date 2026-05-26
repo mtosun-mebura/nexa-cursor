@@ -132,18 +132,29 @@ class EmailTemplateService
      */
     public function sendTestEmail(EmailTemplate $template, string $toEmail, string $toName, array $variables = [], ?string $fromEmail = null, ?string $fromName = null): void
     {
+        $logoCompanyId = $template->company_id
+            ?? (function_exists('auth') && auth()->check() ? auth()->user()->company_id : null);
+        $logoCompanyId = $logoCompanyId ? (int) $logoCompanyId : null;
+        $defaultCompanyName = $template->company?->name ?? 'Ons bedrijf';
+
         $defaults = [
             'USER_NAME' => $toName ?: $toEmail,
             'USER_EMAIL' => $toEmail,
             'USER_FIRST_NAME' => $variables['VOORNAAM'] ?? '',
             'USER_LAST_NAME' => $variables['ACHTERNAAM'] ?? '',
-            'COMPANY_NAME' => $template->company?->name ?? 'Ons bedrijf',
+            'COMPANY_NAME' => $defaultCompanyName,
             'NOTIFICATION_TITLE' => $template->subject,
             'NOTIFICATION_MESSAGE' => $variables['OMSCHRIJVING'] ?? '',
             'ACTION_URL' => '',
             'EMAIL_AANVRAAG' => $variables['EMAIL_AANVRAAG'] ?? $toEmail,
             'DATUM_AANVRAAG' => $variables['DATUM_AANVRAAG'] ?? now()->format('d-m-Y H:i'),
         ];
+        if (! array_key_exists('COMPANY_LOGO', $variables)) {
+            $defaults = array_merge(
+                $defaults,
+                app(CompanyEmailLogoService::class)->templateVariable($logoCompanyId, $defaultCompanyName)
+            );
+        }
         $merged = array_merge($defaults, $variables);
 
         $subject = $this->parseTemplate($template->subject ?? '', $merged);
@@ -160,13 +171,32 @@ class EmailTemplateService
             ? $this->parseTemplate($template->text_content, $merged)
             : strip_tags($htmlContent);
 
-        Mail::send([], [], function ($message) use ($toEmail, $toName, $subject, $htmlContent, $textContent, $fromEmail, $fromName) {
+        $logoService = app(CompanyEmailLogoService::class);
+
+        Mail::send([], [], function ($message) use (
+            $toEmail,
+            $toName,
+            $subject,
+            $htmlContent,
+            $textContent,
+            $fromEmail,
+            $fromName,
+            $logoCompanyId,
+            $defaultCompanyName,
+            $logoService
+        ) {
             if ($fromEmail) {
                 $message->from($fromEmail, $fromName ?: $fromEmail);
             }
             $message->to($toEmail, $toName)->subject($subject);
             if ($htmlContent) {
-                $message->html($htmlContent);
+                $htmlBody = $logoService->embedInHtml(
+                    $htmlContent,
+                    $message,
+                    $logoCompanyId,
+                    $defaultCompanyName
+                );
+                $message->html($htmlBody);
             }
             if ($textContent) {
                 $message->text($textContent);

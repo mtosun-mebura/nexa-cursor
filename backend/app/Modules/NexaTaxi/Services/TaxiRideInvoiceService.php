@@ -8,6 +8,7 @@ use App\Models\EmailTemplate;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
 use App\Services\InvoicePdfService;
@@ -20,7 +21,8 @@ class TaxiRideInvoiceService
     public function __construct(
         protected InvoicePdfService $pdf,
         protected EmailTemplateService $emailTemplates,
-        protected EnvService $env
+        protected EnvService $env,
+        protected CompanyEmailLogoService $companyLogos
     ) {}
 
     public function ensureInvoiceForPaidRide(string $conn, RideRequest $ride, bool $generatePdf = false): ?Invoice
@@ -86,6 +88,8 @@ class TaxiRideInvoiceService
             $invoice = $this->ensureInvoiceForPaidRide($ride->getConnectionName(), $ride->fresh(), false);
         }
 
+        $isPaid = $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID;
+
         return [
             'has_invoice' => $invoice !== null,
             'invoice_id' => $invoice?->id,
@@ -94,7 +98,7 @@ class TaxiRideInvoiceService
             'customer_name' => $invoice?->customer_name ?? $ride->customer_name,
             'total_amount' => $invoice ? (float) $invoice->total_amount : null,
             'invoice_sent' => $invoice?->status === 'sent',
-            'can_send' => $invoice !== null && $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
+            'can_send' => $isPaid && ($invoice === null || $invoice->status !== 'sent'),
         ];
     }
 
@@ -273,21 +277,16 @@ class TaxiRideInvoiceService
 
         $company = Company::find($companyId);
         $details = is_array($invoice->company_details) ? $invoice->company_details : [];
-        $logoDataUri = $company && $company->logo_blob && $company->logo_mime_type
-            ? 'data:'.($company->logo_mime_type).';base64,'.($company->logo_blob)
-            : '';
+        $companyName = $details['name'] ?? ($company->name ?? '');
 
         $variables = array_merge([
             'CUSTOMER_NAME' => $invoice->customer_name ?? 'klant',
             'CUSTOMER_EMAIL' => $invoice->customer_email ?? '',
             'INVOICE_NUMBER' => $invoice->invoice_number,
             'INVOICE_DATE' => $invoice->invoice_date?->format('d-m-Y') ?? '',
-            'COMPANY_NAME' => $details['name'] ?? ($company->name ?? ''),
+            'COMPANY_NAME' => $companyName,
             'COMPANY_ADDRESS' => trim(($details['address'] ?? '')."\n".($details['postal_code'] ?? '').' '.($details['city'] ?? '')),
-            'COMPANY_LOGO' => $logoDataUri
-                ? '<img src="'.$logoDataUri.'" alt="Logo" style="max-height:56px;max-width:180px;">'
-                : '<strong>'.e($details['name'] ?? ($company->name ?? '')).'</strong>',
-        ], $this->invoiceAmountTemplateVariables($invoice));
+        ], $this->companyLogos->templateVariable($companyId, $companyName), $this->invoiceAmountTemplateVariables($invoice));
 
         if ($template) {
             $subject = $this->emailTemplates->parseTemplateVariables($template->subject, $variables);
@@ -323,7 +322,9 @@ class TaxiRideInvoiceService
                 $pdfBytes,
                 $from,
                 $companyReplyTo,
-                $details
+                $details,
+                $companyId,
+                $companyName
             ) {
                 $message->to($toEmail, $toName)
                     ->subject($subject)
@@ -344,7 +345,13 @@ class TaxiRideInvoiceService
                 }
 
                 if ($htmlContent) {
-                    $message->html($htmlContent);
+                    $htmlBody = $this->companyLogos->embedInHtml(
+                        $htmlContent,
+                        $message,
+                        $companyId,
+                        $companyName
+                    );
+                    $message->html($htmlBody);
                 }
                 if ($textContent) {
                     $message->text($textContent);

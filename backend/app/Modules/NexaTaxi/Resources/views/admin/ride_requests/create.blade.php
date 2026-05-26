@@ -21,11 +21,12 @@
             <div class="grid gap-5 max-w-2xl">
                 <div>
                     <label class="kt-form-label">Status *</label>
-                    <select name="status" class="kt-input w-full" required>
+                    <select name="status" class="kt-input w-full @error('status') border-destructive @enderror" required>
                         @foreach($statusLabels as $value => $label)
                             <option value="{{ $value }}" {{ old('status', 'draft') === $value ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
+                    @error('status')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                 </div>
                 <div>
                     <label class="kt-form-label">Ophaaladres *</label>
@@ -45,7 +46,11 @@
                 </div>
                 <div>
                     <label class="kt-form-label">Offerteprijs (€)</label>
-                    <input type="number" name="quoted_price" class="kt-input w-full" value="{{ old('quoted_price') }}" step="0.01" min="0">
+                    <div class="flex items-center gap-2 w-full max-w-md">
+                        <span class="shrink-0 text-sm font-medium text-foreground" aria-hidden="true">€</span>
+                        <input type="number" name="quoted_price" class="kt-input w-full min-w-0 @error('quoted_price') border-destructive @enderror" value="{{ old('quoted_price') }}" step="0.01" min="0">
+                    </div>
+                    @error('quoted_price')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                 </div>
                 <div>
                     <label class="kt-form-label">Klantnaam *</label>

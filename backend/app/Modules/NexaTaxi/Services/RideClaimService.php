@@ -69,9 +69,19 @@ class RideClaimService
                 'company_id' => $ride->company_id ?: $offer->company_id,
             ]);
 
+            $freshRide = $ride->fresh();
+            $freshOffer = $offer->fresh();
+
+            app()->terminating(function () use ($conn, $freshRide, $driver) {
+                if ($freshRide) {
+                    app(TaxiCustomerRideAcceptedNotificationService::class)
+                        ->notifyAfterRideAssigned($conn, $freshRide, $driver);
+                }
+            });
+
             return [
-                'ride' => $ride->fresh(),
-                'offer' => $offer->fresh(),
+                'ride' => $freshRide,
+                'offer' => $freshOffer,
             ];
         });
     }

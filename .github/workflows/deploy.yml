@@ -13,9 +13,6 @@ jobs:
       DEPLOY_DIR: /var/www/nexa
       COMPOSE_FILE: docker-compose.prod.yml
       BACKEND_DIR: /var/www/nexa/backend
-      # Ubuntu/staging-deploy: DB-naam voor docker compose (overschrijft niet het .env-bestand, maar de container-env die Laravel ziet)
-      DB_DATABASE: nexa-staging
-
     steps:
       - name: Cleanup disk space
         run: |
@@ -24,8 +21,10 @@ jobs:
           
           # Clean Docker resources
           echo "🗑️  Cleaning Docker..."
-          docker system prune -af --volumes || true
+          # Geen --volumes: PostgreSQL-data staat in named volume nexa_postgres_data
           docker builder prune -af || true
+          docker image prune -f || true
+          docker container prune -f || true
           
           # Clean APT cache
           echo "🗑️  Cleaning APT cache..."
@@ -198,12 +197,24 @@ jobs:
           
           $dc -f "$COMPOSE_FILE" build --no-cache
           $dc -f "$COMPOSE_FILE" up -d --force-recreate
+          echo "⏳ Wachten tot PostgreSQL (db) gezond is..."
+          tries=0
+          until $dc -f "$COMPOSE_FILE" exec -T db pg_isready -U "$(grep -E '^DB_USERNAME=' .env | cut -d= -f2- | tr -d '\r' || echo nexa)" -d "$(grep -E '^DB_DATABASE=' .env | cut -d= -f2- | tr -d '\r' || echo nexa)" >/dev/null 2>&1; do
+            tries=$((tries+1))
+            if [ "$tries" -ge 30 ]; then
+              echo "❌ PostgreSQL niet bereikbaar"
+              $dc -f "$COMPOSE_FILE" logs --tail=80 db || true
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "✅ PostgreSQL OK"
           echo "⏳ Wachten tot backend luistert..."
           tries=0
-          until curl -fs http://127.0.0.1:8000 -I >/dev/null 2>&1; do
+          until curl -fs http://127.0.0.1:8085 -I >/dev/null 2>&1; do
             tries=$((tries+1))
             if [ "$tries" -ge 20 ]; then
-              echo "❌ Backend luistert niet op :8000 na $tries pogingen"
+              echo "❌ Backend luistert niet op :8085 na $tries pogingen"
               echo "📄 Laatste 200 regels van container logs:"
               $dc -f "$COMPOSE_FILE" logs --tail=200 backend || true
               exit 1
@@ -211,7 +222,7 @@ jobs:
             echo "⏳ Poging $tries/20 - wachten 3s..."
             sleep 3
           done
-          echo "✅ Backend OK op :8000"
+          echo "✅ Backend OK op :8085"
           
           # Verify Vite assets are accessible in container
           echo "🔍 Verifiëren Vite assets in container..."

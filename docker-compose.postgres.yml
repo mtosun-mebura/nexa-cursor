@@ -1,0 +1,26 @@
+# Gedeelde PostgreSQL-service (include vanuit docker-compose.yml en docker-compose.prod.yml).
+# Credentials: DB_USERNAME, DB_PASSWORD, DB_DATABASE in repo-root .env
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-nexa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Zet DB_PASSWORD in .env (repo-root)}
+      POSTGRES_DB: ${DB_DATABASE:-nexa}
+    volumes:
+      - nexa_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${DB_USERNAME:-nexa}" -d "${DB_DATABASE:-nexa}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+volumes:
+  nexa_postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-nexa}_postgres_data

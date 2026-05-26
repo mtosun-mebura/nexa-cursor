@@ -25,6 +25,35 @@
 
 ---
 
+## PostgreSQL in Docker (Compose)
+
+| Bestand | Rol |
+|---------|-----|
+| `docker-compose.postgres.yml` | Service `db` (PostgreSQL 16), volume `nexa_postgres_data` |
+| `docker-compose.yml` | Lokaal: `db` + `backend` |
+| `docker-compose.prod.yml` | Staging/productie: `db` + `backend` |
+
+In **repo-root `.env`** (gemount in de backend-container):
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=db
+DB_PORT=5432
+DB_DATABASE=nexa
+DB_USERNAME=nexa
+DB_PASSWORD=<sterk wachtwoord>
+```
+
+`POSTGRES_*` in de database-container komt uit dezelfde `DB_*`-variabelen. Compose start `db` vóór `backend` (`depends_on` + healthcheck).
+
+**Lokaal:** `docker compose up -d` — app op http://localhost:8085, Postgres op `127.0.0.1:5432` (alleen host, niet publiek).
+
+**Deploy:** `.github/workflows/deploy.yml` en `deploy/deploy-tenant.sh` wachten op `pg_isready` vóór migraties. Gebruik **geen** `docker system prune --volumes` op servers met data in `nexa_postgres_data`.
+
+Migratie van een **externe** Postgres: dump/restore naar de nieuwe container (eenmalig), daarna `DB_HOST=db` in `.env`.
+
+---
+
 ## Eén database / één schema
 
 In **`backend/.env`**:

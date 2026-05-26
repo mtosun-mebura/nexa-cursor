@@ -11,6 +11,7 @@ use App\Models\JobMatch;
 use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Services\InvoicePdfService;
 use App\Services\InvoiceReminderService;
+use App\Support\AdminReturnUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
@@ -192,7 +193,7 @@ class AdminInvoiceController extends Controller
             ->with('success', 'Factuur aangemaakt');
     }
 
-    public function show(Invoice $invoice)
+    public function show(Request $request, Invoice $invoice)
     {
         if (!auth()->user()->hasRole('super-admin')) {
             abort(403);
@@ -207,8 +208,18 @@ class AdminInvoiceController extends Controller
         $settings = InvoiceSetting::getSettings();
         $defaultReminderEmail = app(InvoiceReminderService::class)->defaultRecipientEmail($invoice);
         $paymentTermsDays = InvoiceSetting::paymentTermsDaysForInvoice($invoice);
+        $invoiceBackUrl = AdminReturnUrl::fromRequest(
+            $request->query('return'),
+            route('admin.invoices.index')
+        );
 
-        return view('admin.invoices.show', compact('invoice', 'settings', 'defaultReminderEmail', 'paymentTermsDays'));
+        return view('admin.invoices.show', compact(
+            'invoice',
+            'settings',
+            'defaultReminderEmail',
+            'paymentTermsDays',
+            'invoiceBackUrl'
+        ));
     }
 
     public function edit(Invoice $invoice)

@@ -1522,10 +1522,77 @@
         }
     }
 
-    function setSendInvoiceButtonVisible(visible) {
+    function isRidePaymentPaid(ride) {
+        const payment = ride && ride.payment ? ride.payment : {};
+        return payment.status === 'paid';
+    }
+
+    function canCompleteActiveRide(ride) {
+        if (!ride) {
+            return false;
+        }
+        const payment = ride.payment || {};
+        if (typeof payment.can_complete === 'boolean') {
+            return payment.can_complete;
+        }
+        if (payment.requires_payment_before_complete) {
+            return isRidePaymentPaid(ride);
+        }
+        return true;
+    }
+
+    function syncCompleteRideButton(ride) {
+        const btn = $('#btn-complete-ride');
+        if (!btn) {
+            return;
+        }
+        const show = ride && isDriverAcceptedRide(ride);
+        btn.hidden = !show;
+        if (!show) {
+            btn.disabled = true;
+            btn.classList.remove('is-disabled');
+            btn.removeAttribute('aria-disabled');
+            btn.title = '';
+            return;
+        }
+        const canComplete = canCompleteActiveRide(ride);
+        btn.disabled = !canComplete;
+        btn.classList.toggle('is-disabled', !canComplete);
+        if (canComplete) {
+            btn.removeAttribute('aria-disabled');
+            btn.title = '';
+        } else {
+            btn.setAttribute('aria-disabled', 'true');
+            btn.title = 'Rond eerst de betaling af voordat je de rit afrondt';
+        }
+    }
+
+    function syncSendInvoiceButton(ride) {
         const btn = $('#btn-send-invoice');
-        if (btn) {
-            btn.hidden = !visible;
+        if (!btn) {
+            return;
+        }
+        if (!ride || !isDriverAcceptedRide(ride) || !driverPaymentEnabled) {
+            btn.hidden = true;
+            btn.disabled = true;
+            btn.classList.remove('is-disabled');
+            btn.removeAttribute('aria-disabled');
+            return;
+        }
+        const invoice = ride.invoice || {};
+        const isPaid = isRidePaymentPaid(ride);
+        const canSend = isPaid && invoice.can_send !== false;
+        btn.hidden = false;
+        btn.disabled = !canSend;
+        btn.classList.toggle('is-disabled', !canSend);
+        if (canSend) {
+            btn.removeAttribute('aria-disabled');
+            btn.title = '';
+        } else {
+            btn.setAttribute('aria-disabled', 'true');
+            btn.title = invoice.invoice_sent
+                ? 'Factuur is al verstuurd'
+                : 'Markeer de rit eerst als betaald';
         }
     }
 
@@ -1577,8 +1644,8 @@
         const errEl = $('#payment-ride-error');
         if (!ride || !isDriverAcceptedRide(ride)) {
             setPayRideButtonVisible(false);
-            setSendInvoiceButtonVisible(false);
-            setCompleteRideButtonVisible(false);
+            syncSendInvoiceButton(null);
+            syncCompleteRideButton(null);
             if (errEl) {
                 errEl.hidden = true;
                 errEl.textContent = '';
@@ -1591,11 +1658,9 @@
             driverPaymentEnabled &&
             (payment.requires_payment_before_complete || isPaid);
         const paymentError = isPaid ? '' : resolvePaymentError(ride, openPayment);
-        const canComplete = payment.can_complete !== false;
-        const invoice = ride.invoice || {};
-        const showInvoiceButton = isPaid && invoice.can_send;
         setPayRideButtonVisible(showPayButton);
-        setSendInvoiceButtonVisible(showInvoiceButton);
+        syncSendInvoiceButton(ride);
+        syncCompleteRideButton(ride);
         const payBtn = $('#btn-pay-ride');
         if (payBtn) {
             payBtn.disabled = isPaid;
@@ -1615,11 +1680,6 @@
                 errEl.hidden = true;
                 errEl.textContent = '';
             }
-        }
-        const completeBtn = $('#btn-complete-ride');
-        if (completeBtn) {
-            completeBtn.hidden = !canComplete;
-            completeBtn.disabled = !canComplete;
         }
     }
 
@@ -1771,52 +1831,57 @@
         }
     }
 
-    let cashConfirmResolver = null;
+    let pendingCashConfirmAmount = null;
+    let cashConfirmSubmitting = false;
 
-    function closeCashConfirmDialog(confirmed) {
+    function closeCashConfirmDialog() {
         const dialog = $('#cash-confirm-dialog');
         const okBtn = $('#cash-confirm-ok');
+        pendingCashConfirmAmount = null;
         if (dialog) {
+            dialog.classList.add('driver-dialog--instant');
             dialog.classList.remove('is-open');
             dialog.hidden = true;
             dialog.setAttribute('aria-hidden', 'true');
+            requestAnimationFrame(function () {
+                dialog.classList.remove('driver-dialog--instant');
+            });
         }
         if (okBtn) {
             clearButtonLoading(okBtn);
+            okBtn.disabled = false;
         }
         document.body.classList.remove('driver-dialog-open');
-        if (cashConfirmResolver) {
-            cashConfirmResolver(!!confirmed);
-            cashConfirmResolver = null;
-        }
     }
 
     function showCashConfirmDialog(amount) {
         const dialog = $('#cash-confirm-dialog');
         const amountEl = $('#cash-confirm-amount');
         if (!dialog) {
-            return Promise.resolve(
-                window.confirm(
-                    'Bevestig: klant heeft ' +
-                        formatEuro(amount) +
-                        ' contant betaald? Dit bedrag wordt vastgelegd.'
-                )
-            );
+            return window.confirm(
+                'Bevestig: klant heeft ' +
+                    formatEuro(amount) +
+                    ' contant betaald? Dit bedrag wordt vastgelegd.'
+            )
+                ? executeRideCashPayment(amount)
+                : undefined;
         }
+        pendingCashConfirmAmount = amount;
         if (amountEl) {
             amountEl.textContent = formatEuro(amount);
+        }
+        const okBtn = $('#cash-confirm-ok');
+        if (okBtn) {
+            clearButtonLoading(okBtn);
+            okBtn.disabled = false;
         }
         dialog.hidden = false;
         dialog.setAttribute('aria-hidden', 'false');
         dialog.classList.add('is-open');
         document.body.classList.add('driver-dialog-open');
-        return new Promise(function (resolve) {
-            cashConfirmResolver = resolve;
-            const okBtn = $('#cash-confirm-ok');
-            if (okBtn) {
-                okBtn.focus();
-            }
-        });
+        if (okBtn) {
+            okBtn.focus();
+        }
     }
 
     function initCashConfirmDialog() {
@@ -1830,45 +1895,49 @@
 
         if (okBtn) {
             okBtn.addEventListener('click', function () {
-                closeCashConfirmDialog(true);
+                if (cashConfirmSubmitting) {
+                    return;
+                }
+                const amount = pendingCashConfirmAmount;
+                if (amount === null) {
+                    closeCashConfirmDialog();
+                    return;
+                }
+                closeCashConfirmDialog();
+                void executeRideCashPayment(amount);
             });
         }
         if (cancelBtn) {
             cancelBtn.addEventListener('click', function () {
-                closeCashConfirmDialog(false);
+                closeCashConfirmDialog();
             });
         }
         if (backdrop) {
             backdrop.addEventListener('click', function () {
-                closeCashConfirmDialog(false);
+                closeCashConfirmDialog();
             });
         }
         document.addEventListener('keydown', function (ev) {
             if (ev.key !== 'Escape' || !dialog.classList.contains('is-open')) {
                 return;
             }
-            closeCashConfirmDialog(false);
+            closeCashConfirmDialog();
         });
     }
 
-    async function markRideCashPaid() {
+    async function executeRideCashPayment(amount) {
         const rideId = resolveActiveRideId();
         if (!rideId) {
             return;
         }
-        const amount = parsePaymentAmountInput();
-        if (amount === null) {
-            alert('Vul een geldig bedrag in.');
+        if (cashConfirmSubmitting) {
             return;
         }
-        const confirmed = await showCashConfirmDialog(amount);
-        if (!confirmed) {
-            return;
-        }
+        cashConfirmSubmitting = true;
         const cashBtn = $('#btn-cash-paid');
-        const okBtn = $('#cash-confirm-ok');
-        setButtonLoading(cashBtn, true);
-        setButtonLoading(okBtn, true, 'Bevestigen…');
+        if (cashBtn) {
+            cashBtn.disabled = true;
+        }
         try {
             const res = await api('/dispatch/rides/' + rideId + '/payment/cash', {
                 method: 'POST',
@@ -1886,8 +1955,37 @@
             alert(e.message || 'Contante betaling kon niet worden geregistreerd.');
             syncPaymentPanelUi({ qrVisible: false });
         } finally {
-            clearButtonLoading(cashBtn);
+            cashConfirmSubmitting = false;
+            if (cashBtn) {
+                cashBtn.disabled = false;
+            }
         }
+    }
+
+    function markRideCashPaid() {
+        const rideId = resolveActiveRideId();
+        if (!rideId) {
+            return;
+        }
+        const amount = parsePaymentAmountInput();
+        if (amount === null) {
+            alert('Vul een geldig bedrag in.');
+            return;
+        }
+        const dialog = $('#cash-confirm-dialog');
+        if (!dialog) {
+            if (
+                window.confirm(
+                    'Bevestig: klant heeft ' +
+                        formatEuro(amount) +
+                        ' contant betaald? Dit bedrag wordt vastgelegd.'
+                )
+            ) {
+                void executeRideCashPayment(amount);
+            }
+            return;
+        }
+        showCashConfirmDialog(amount);
     }
 
     function closeInvoicePanel() {
@@ -1934,6 +2032,13 @@
             return;
         }
         const sendInvoiceBtn = $('#btn-send-invoice');
+        if (sendInvoiceBtn && (sendInvoiceBtn.disabled || sendInvoiceBtn.hidden)) {
+            return;
+        }
+        if (currentActiveRide && !isRidePaymentPaid(currentActiveRide)) {
+            alert('Markeer de rit eerst als betaald voordat je een factuur verstuurt.');
+            return;
+        }
         setButtonLoading(sendInvoiceBtn, true);
         try {
             const res = await api('/dispatch/rides/' + rideId + '/invoice');
@@ -2101,7 +2206,6 @@
         currentActiveRide = ride;
         setOfferUiVisible(false);
         setActiveRideUiVisible(true);
-        setCompleteRideButtonVisible(isDriverAcceptedRide(ride));
         if (empty) empty.hidden = true;
         showNewRideAlert(false);
         if (el) {
@@ -2473,6 +2577,21 @@
             return;
         }
         const btn = $('#btn-complete-ride');
+        if (
+            btn &&
+            (btn.disabled || btn.classList.contains('is-disabled'))
+        ) {
+            alert(
+                (currentActiveRide && !canCompleteActiveRide(currentActiveRide)
+                    ? btn.title
+                    : '') || 'Rond eerst de betaling af voordat je de rit afrondt.'
+            );
+            return;
+        }
+        if (currentActiveRide && !canCompleteActiveRide(currentActiveRide)) {
+            alert('Rond eerst de betaling af voordat je de rit afrondt.');
+            return;
+        }
         setButtonLoading(btn, true);
         try {
             await api('/dispatch/rides/' + rideId + '/complete', { method: 'POST' });
@@ -2621,6 +2740,13 @@
             }
             if (ev.target.closest('#btn-complete-ride')) {
                 ev.preventDefault();
+                const completeBtn = $('#btn-complete-ride');
+                if (
+                    completeBtn &&
+                    (completeBtn.disabled || completeBtn.classList.contains('is-disabled'))
+                ) {
+                    return;
+                }
                 completeActiveRide();
                 return;
             }
@@ -2657,7 +2783,10 @@
             }
             if (ev.target.closest('#btn-send-invoice')) {
                 ev.preventDefault();
-                openSendInvoiceFlow();
+                const sendInvoiceBtn = $('#btn-send-invoice');
+                if (sendInvoiceBtn && !sendInvoiceBtn.disabled && !sendInvoiceBtn.hidden) {
+                    openSendInvoiceFlow();
+                }
                 return;
             }
             if (ev.target.closest('#btn-invoice-close')) {

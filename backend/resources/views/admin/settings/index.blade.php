@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('title', 'Configuraties')
 
 @push('scripts')
@@ -54,14 +56,11 @@
 
     @include('admin.settings.partials.tenant-scope-notice')
 
-    <div class="grid gap-5 lg:gap-7.5">
+    <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
         <!-- Mail Server Instellingen -->
-        <div class="kt-card min-w-full" id="mail">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
@@ -231,15 +230,13 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
 
         <!-- Google SEO Instellingen -->
-        <div class="kt-card min-w-full" id="seo">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-abstract-26 me-2"></i> Google SEO Account Gegevens
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-abstract-26 me-2"></i> Google SEO Account Gegevens'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.seo.update') }}" data-validate="true">
                     @csrf
@@ -353,15 +350,13 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
 
         <!-- Google Maps Instellingen -->
-        <div class="kt-card min-w-full" id="maps">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-geolocation me-2"></i> Google Maps Configuratie
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="maps">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-geolocation me-2"></i> Google Maps Configuratie'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.maps.update') }}" data-validate="true">
                     @csrf
@@ -481,21 +476,19 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
 
         <!-- Google Reviews (zelfde Maps API-sleutel; Places API moet ingeschakeld zijn) -->
-        <div class="kt-card min-w-full" id="google-reviews">
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="google-reviews">
             <style>
             #google-reviews input[type="number"]::-webkit-outer-spin-button,
             #google-reviews input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
             #google-reviews input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
             #google-reviews .grw-cache-hours-input { width: 4.5rem; min-width: 4.5rem; padding-right: 0.5rem !important; }
             </style>
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-star me-2"></i> Google Reviews
-                </h3>
-            </div>
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-star me-2"></i> Google Reviews'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.google-reviews.update') }}" data-validate="true" id="google-reviews-form">
                     @csrf
@@ -716,15 +709,13 @@
                 })();
                 </script>
             </div>
+            </div>
         </div>
 
         <!-- WhatsApp Business Instellingen -->
-        <div class="kt-card min-w-full" id="whatsapp">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business Configuratie
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="whatsapp">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business Configuratie'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <div class="px-5 pb-3 text-xs text-muted-foreground">
                     Server-brede WhatsApp Business API (token en Phone Number ID). Per bedrijf: ontvangernummer, aan/uit en chauffeur-e-mails instellen onder <strong>Taxi → Chauffeur dispatch</strong>.
@@ -939,20 +930,18 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
 
-        <div class="kt-card min-w-full" id="tenant-sync">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="tenant-sync">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-content px-6 pb-4 space-y-6">
                 <p class="text-sm text-secondary-foreground">
                     Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>:
                     de rij in <code class="text-xs">companies</code> plus alle rijen op tabellen met <code class="text-xs">company_id</code> voor dat bedrijf.
                     Bestaande rijen op doel worden niet overschreven; bron-<code class="text-xs">id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk).
-                    Rollen/rechten (Spatie) worden niet meegekopieerd. Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.
+                    Gebruikers, tenant-rollen (<code class="text-xs">roles</code> + <code class="text-xs">model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code class="text-xs">permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.
                 </p>
 
                 <div class="rounded-md border border-border bg-muted/30 px-3 py-3 text-xs text-secondary-foreground">
@@ -1035,8 +1024,9 @@
                             <div class="text-xs text-destructive">{{ $message }}</div>
                         @enderror
                         <div id="tenant-sync-ajax-error-confirm_full_sync" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary"
+                        <div class="flex flex-wrap items-start gap-3">
+                            <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
+                                    style="padding-top: 2px;"
                                     @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
                                 <i class="ki-filled ki-cloud-add me-2"></i> Start tenant-sync
                             </button>
@@ -1095,6 +1085,7 @@
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
 

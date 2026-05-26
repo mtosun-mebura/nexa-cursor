@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Nexa SaaS deploy (CyberPanel / nginx / Docker / Laravel).
 # Standaard app-map: /home/nexasuite.nl/apps/saas/current
-# CI: .github/workflows/deploy-saas.yml roept dit script aan na checkout.
+# CI test:  deploy-saas.yml → branch release/test (Proxmox, self-hosted runner).
+# CI prod:  deploy-prod.yml → git-tag v* op main (AWS Lightsail, SSH).
 #
 # Artisan / Composer: draai in de backend-container, niet met `php artisan` op de host in
 # TENANT_DIR/backend — daar staat geen vendor/ (die zit in de image onder /var/www/html).
@@ -36,7 +37,9 @@ fi
 # --- Config per tenant ---
 TENANT_DIR="${TENANT_DIR:-/home/nexasuite.nl/apps/saas/current}"
 GIT_REMOTE="${GIT_REMOTE:-origin}"
-GIT_BRANCH="${GIT_BRANCH:-nexa-saas}"
+GIT_BRANCH="${GIT_BRANCH:-release/test}"
+# Optioneel: exacte tag of commit voor productie (bijv. v1.2.3). Leeg = branch-deploy (test/CI).
+GIT_REF="${GIT_REF:-}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 DEPLOY_USER="${DEPLOY_USER:-mtosun}"
 LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
@@ -145,7 +148,11 @@ if mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
 fi
 
 echo "==> Deploy gestart $(date -Iseconds)"
-echo "    user=$(id -un) host=$(hostname) TENANT_DIR=$TENANT_DIR branch=${GIT_BRANCH}"
+if [[ -n "$GIT_REF" ]]; then
+  echo "    user=$(id -un) host=$(hostname) TENANT_DIR=$TENANT_DIR ref=${GIT_REF}"
+else
+  echo "    user=$(id -un) host=$(hostname) TENANT_DIR=$TENANT_DIR branch=${GIT_BRANCH}"
+fi
 echo "    log=${DEPLOY_LOG:-<geen logbestand>}"
 
 _require_docker_socket
@@ -251,9 +258,20 @@ _fix_git_dir_ownership() {
 
 _fix_git_dir_ownership
 
-echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
-_git fetch "$GIT_REMOTE"
-_git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
+if [[ -n "$GIT_REF" ]]; then
+  echo "==> Git fetch (tags) + checkout ${GIT_REF}"
+  _git fetch "$GIT_REMOTE" --tags --force
+  if ! _git rev-parse --verify "${GIT_REF}^{commit}" >/dev/null 2>&1; then
+    echo "ERROR: Git-ref niet gevonden na fetch: ${GIT_REF}" >&2
+    echo "TIP: push de tag naar ${GIT_REMOTE} (git push origin ${GIT_REF})" >&2
+    exit 1
+  fi
+  _git checkout --force "$GIT_REF"
+else
+  echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
+  _git fetch "$GIT_REMOTE"
+  _git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
+fi
 
 echo "==> Frontend build (Vite in backend/)"
 if [[ -f "$BACKEND_DIR/package.json" ]]; then
@@ -282,8 +300,33 @@ _docker_safe_prune
 _compose build --pull
 _compose up -d
 
+_wait_for_postgres() {
+  local user dbname tries=0
+  user="${DB_USERNAME:-nexa}"
+  dbname="${DB_DATABASE:-nexa}"
+  if [[ -f "$TENANT_DIR/.env" ]]; then
+    user="$(grep -E '^DB_USERNAME=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
+    dbname="$(grep -E '^DB_DATABASE=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
+    user="${user:-nexa}"
+    dbname="${dbname:-nexa}"
+  fi
+  echo "==> Wachten tot PostgreSQL (db) gezond is (user=${user}, db=${dbname})"
+  until _compose exec -T db pg_isready -U "$user" -d "$dbname" >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [[ "$tries" -ge 30 ]]; then
+      echo "ERROR: PostgreSQL container reageert niet op pg_isready." >&2
+      _compose logs --tail=60 db || true
+      exit 1
+    fi
+    sleep 2
+  done
+  echo "==> PostgreSQL OK"
+}
+
+_wait_for_postgres
+
 echo "==> Wachten tot Laravel service beschikbaar is"
-sleep 5
+sleep 3
 
 echo "==> Laravel migrations + basis seed + cache"
 _compose exec -T "$LARAVEL_SERVICE" php artisan migrate --force

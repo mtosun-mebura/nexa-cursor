@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('title', 'Chauffeur dispatch')
 
 @section('content')
@@ -28,11 +30,11 @@
         @csrf
         @method('PUT')
 
-        <div class="kt-card-header">
-            <h3 class="kt-card-title">Acceptatietimer</h3>
-        </div>
-
-        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+        <div id="dispatch-settings-collapsible-root">
+        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-accept-timer">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Acceptatietimer'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Acceptatietijd (minuten)</td>
@@ -58,13 +60,14 @@
                     </td>
                 </tr>
             </table>
+            </div>
+            </div>
         </div>
 
-        <div class="kt-card-header border-t border-border">
-            <h3 class="kt-card-title">Boekingsmeldingen</h3>
-        </div>
-
-        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-booking-notifications">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Boekingsmeldingen'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp bij boeking</td>
@@ -143,13 +146,120 @@
                     </td>
                 </tr>
             </table>
+            </div>
+            </div>
         </div>
 
-        <div class="kt-card-header border-t border-border">
-            <h3 class="kt-card-title">Betalingen (Mollie)</h3>
+        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-customer-accept">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Klantmelding bij acceptatie'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Meldingen aan klant</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="hidden" name="customer_accept_enabled" value="0">
+                            <input type="checkbox" class="kt-checkbox" name="customer_accept_enabled" value="1"
+                                   id="customer_accept_enabled"
+                                   {{ old('customer_accept_enabled', $customerAcceptEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
+                            <span class="text-sm text-secondary-foreground">Stuur melding wanneer een chauffeur de rit accepteert</span>
+                        </label>
+                        <p class="text-xs text-muted-foreground mt-2 mb-2">
+                            Pas de e-mail aan die de klant ontvangt wanneer een chauffeur de rit accepteert (onderwerp, HTML, logo en variabelen).
+                        </p>
+                        <a href="{{ $customerAcceptEmailEditUrl }}" class="kt-btn kt-btn-sm kt-btn-outline">E-mailtekst aanpassen</a>
+                        @if($canEditEmailTemplatesModule ?? false)
+                            <span class="text-xs text-muted-foreground ms-2">of via
+                                <a href="{{ $emailTemplateIndexUrl }}" class="text-primary underline">E-mail templates</a></span>
+                        @endif
+                    </td>
+                </tr>
+                <tr class="customer-accept-channel-row">
+                    <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar klant</td>
+                    <td class="min-w-48 w-full">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="hidden" name="customer_accept_email_enabled" value="0">
+                            <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_email_enabled" value="1"
+                                   {{ old('customer_accept_email_enabled', $customerAcceptEmailEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
+                            <span class="text-sm text-secondary-foreground">Verstuur e-mail (vereist klant-e-mail op de rit)</span>
+                        </label>
+                    </td>
+                </tr>
+                <tr class="customer-accept-channel-row">
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp naar klant</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="hidden" name="customer_accept_whatsapp_enabled" value="0">
+                            <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_whatsapp_enabled" value="1"
+                                   {{ old('customer_accept_whatsapp_enabled', $customerAcceptWhatsappEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
+                            <span class="text-sm text-secondary-foreground">Verstuur WhatsApp (vereist klanttelefoon)</span>
+                        </label>
+                        @if(! $whatsappApiConfigured)
+                            <p class="text-xs text-destructive mt-1">WhatsApp Business API is niet geconfigureerd op de server.</p>
+                        @endif
+                        <p class="text-xs text-muted-foreground mt-2 mb-1">Meta-template (aanbevolen voor proactieve berichten; leeg = vrij tekstbericht, werkt alleen binnen 24u-venster):</p>
+                        <input type="text" name="customer_accept_whatsapp_template" class="kt-input w-full max-w-md"
+                               value="{{ old('customer_accept_whatsapp_template', $customerAcceptWhatsappTemplate) }}"
+                               placeholder="bijv. ride_accepted_nl">
+                        <input type="text" name="customer_accept_whatsapp_template_lang" class="kt-input w-32 mt-2"
+                               value="{{ old('customer_accept_whatsapp_template_lang', $customerAcceptWhatsappTemplateLang) }}"
+                               placeholder="nl">
+                    </td>
+                </tr>
+                <tr class="customer-accept-channel-row">
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">SMS naar klant</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <label class="inline-flex items-center gap-2 mb-2">
+                            <input type="hidden" name="customer_accept_sms_enabled" value="0">
+                            <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_sms_enabled" value="1"
+                                   {{ old('customer_accept_sms_enabled', $customerAcceptSmsEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
+                            <span class="text-sm text-secondary-foreground">Verstuur SMS (vereist klanttelefoon)</span>
+                        </label>
+                        <label for="customer_accept_sms_provider" class="text-xs text-muted-foreground block mb-1">SMS-provider</label>
+                        <select name="customer_accept_sms_provider" id="customer_accept_sms_provider" class="kt-select w-full max-w-md">
+                            @foreach ($smsProviderOptions as $provider)
+                                <option value="{{ $provider }}" {{ old('customer_accept_sms_provider', $customerAcceptSmsProvider) === $provider ? 'selected' : '' }}>
+                                    {{ \App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::smsProviderLabel($provider) }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @if(! $vonageConfigured)
+                            <p class="text-xs text-muted-foreground mt-1">
+                                Vonage: zet <code class="text-xs">VONAGE_API_KEY</code>, <code class="text-xs">VONAGE_API_SECRET</code> en <code class="text-xs">VONAGE_FROM_NUMBER</code> in .env.
+                                Demo logt alleen (gratis, voor test).
+                            </p>
+                        @endif
+                    </td>
+                </tr>
+                <tr class="customer-accept-channel-row">
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Tekst WhatsApp / SMS</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <textarea name="customer_accept_plain_message" id="customer-accept-plain-message" rows="10"
+                                  class="kt-input w-full font-mono text-xs resize-y"
+                                  style="min-height: 15rem !important; height: auto !important; box-sizing: border-box; field-sizing: content;"
+                                  placeholder="Plat tekstbericht met @{{CUSTOMER_NAME}}, @{{DRIVER_NAME}}, …">{{ old('customer_accept_plain_message', $customerAcceptPlainMessage) }}</textarea>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Placeholders:
+                            <code class="text-xs">@{{CUSTOMER_NAME}}</code>,
+                            <code class="text-xs">@{{DRIVER_NAME}}</code>,
+                            <code class="text-xs">@{{PICKUP_AT}}</code>,
+                            <code class="text-xs">@{{PICKUP_ADDRESS}}</code>,
+                            <code class="text-xs">@{{DROPOFF_ADDRESS}}</code>,
+                            <code class="text-xs">@{{COMPANY_NAME}}</code>,
+                            <code class="text-xs">@{{COMPANY_PHONE}}</code>.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            </div>
+            </div>
         </div>
 
-        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-payments">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Betalingen (Mollie)'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Mollie (betalingsprovider)</td>
@@ -227,6 +337,9 @@
                     </td>
                 </tr>
             </table>
+            </div>
+            </div>
+        </div>
         </div>
 
         <div class="kt-card-footer flex gap-2.5">
@@ -236,3 +349,22 @@
     </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var master = document.getElementById('customer_accept_enabled');
+    var channels = document.querySelectorAll('.customer-accept-channel');
+    function syncCustomerAcceptChannels() {
+        var on = master && master.checked;
+        channels.forEach(function (el) {
+            el.disabled = !on;
+        });
+    }
+    if (master) {
+        master.addEventListener('change', syncCustomerAcceptChannels);
+        syncCustomerAcceptChannels();
+    }
+});
+</script>
+@endpush

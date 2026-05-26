@@ -23,9 +23,15 @@ Route::bind('ride_request', fn ($value) => RideRequest::on($taxiConn())->findOrF
 
 Route::get('dispatch-instellingen', [DispatchSettingsController::class, 'edit'])->name('dispatch_settings.edit');
 Route::put('dispatch-instellingen', [DispatchSettingsController::class, 'update'])->name('dispatch_settings.update');
+Route::get('dispatch-instellingen/klant-e-mail', [DispatchSettingsController::class, 'editCustomerAcceptEmail'])
+    ->name('dispatch_settings.customer_accept_email.edit');
+Route::put('dispatch-instellingen/klant-e-mail', [DispatchSettingsController::class, 'updateCustomerAcceptEmail'])
+    ->name('dispatch_settings.customer_accept_email.update');
 Route::get('tarieven', [TarievenController::class, 'edit'])->name('tarieven.edit');
 Route::put('tarieven', [TarievenController::class, 'update'])->name('tarieven.update');
 Route::post('ride_requests/{ride_request}/assign', [RideRequestController::class, 'assign'])->name('ride_requests.assign');
+Route::post('ride_requests/{ride_request}/reoffer-dispatch', [RideRequestController::class, 'reofferDispatch'])
+    ->name('ride_requests.reoffer_dispatch');
 Route::get('ride_requests/{ride_request}/notificatielog', [RideRequestController::class, 'notificationLog'])
     ->name('ride_requests.notification_log');
 Route::resource('ride_requests', RideRequestController::class);

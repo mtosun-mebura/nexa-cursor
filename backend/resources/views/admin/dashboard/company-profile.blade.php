@@ -4,7 +4,7 @@
         ? $company->vacancies()->where('status', 'active')->count()
         : 0;
     $totalUsers = \App\Models\User::where('company_id', $company->id)->count();
-    $totalRevenue = \App\Models\Payment::where('company_id', $company->id)->where('status', 'paid')->sum('amount');
+    $totalRevenue = (float) ($financials['total_revenue'] ?? 0);
     $companyRank = \App\Models\Company::where('created_at', '<=', $company->created_at)->count();
     $locationsCount = $company->locations()->count();
     $activeVacancies = $skillmatchingOnDefault

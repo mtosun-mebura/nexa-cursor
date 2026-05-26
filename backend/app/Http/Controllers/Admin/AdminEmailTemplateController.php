@@ -79,6 +79,7 @@ class AdminEmailTemplateController extends Controller
             'application_status' => 'skillmatching',
             'rejection' => 'skillmatching',
             'invoice' => 'taxi',
+            'taxi_ride_accepted' => 'taxi',
         ];
     }
 
@@ -102,6 +103,7 @@ class AdminEmailTemplateController extends Controller
             'rejection' => 'Afwijzing',
             'custom' => 'Aangepast',
             'invoice' => 'Factuur',
+            'taxi_ride_accepted' => 'Taxi: rit geaccepteerd (klant)',
         ];
     }
 
@@ -506,6 +508,19 @@ class AdminEmailTemplateController extends Controller
         $previewHtml = $emailTemplate->html_content ?? '';
         if ($isInfoRequestType && $previewHtml !== '') {
             $previewHtml = str_replace('{{ DYNAMIC_FORM_FIELDS }}', $emailTemplate->renderDynamicFormFieldsHtml(), $previewHtml);
+        }
+        if ($previewHtml !== '' && str_contains($previewHtml, 'COMPANY_LOGO')) {
+            $previewCompanyId = $emailTemplate->company_id ?? $tenantId;
+            $previewCompanyName = $emailTemplate->company?->name
+                ?? ($previewCompanyId ? Company::find($previewCompanyId)?->name : null)
+                ?? 'Ons bedrijf';
+            $logoHtml = app(\App\Services\CompanyEmailLogoService::class)->previewImgHtml(
+                $previewCompanyId ? (int) $previewCompanyId : null,
+                $previewCompanyName
+            );
+            foreach (['{{ COMPANY_LOGO }}', '{{COMPANY_LOGO}}', '{ COMPANY_LOGO }', '{COMPANY_LOGO}'] as $placeholder) {
+                $previewHtml = str_replace($placeholder, $logoHtml, $previewHtml);
+            }
         }
         return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables', 'users', 'formFields', 'previewHtml'));
     }

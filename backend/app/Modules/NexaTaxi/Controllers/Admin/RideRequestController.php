@@ -3,12 +3,17 @@
 namespace App\Modules\NexaTaxi\Controllers\Admin;
 
 use App\Http\Controllers\Admin\Traits\TenantFilter;
+use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
+use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
+use App\Modules\NexaTaxi\Services\TaxiCustomerRideAcceptedNotificationService;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
@@ -98,27 +103,10 @@ class RideRequestController extends Controller
         $this->authorizeOrPermission('rides.create');
 
         $conn = $this->moduleConnection();
-        $validated = $request->validate([
-            'vehicle_id' => ['nullable', Rule::exists($conn.'.vehicles', 'id')],
-            'driver_id' => ['nullable', Rule::exists('users', 'id')],
-            'status' => 'required|in:draft,quoted,accepted,assigned,completed,cancelled',
-            'pickup_address' => 'required|string|max:500',
-            'dropoff_address' => 'required|string|max:500',
-            'pickup_lat' => 'nullable|numeric',
-            'pickup_lng' => 'nullable|numeric',
-            'dropoff_lat' => 'nullable|numeric',
-            'dropoff_lng' => 'nullable|numeric',
-            'distance_meters' => 'nullable|integer|min:0',
-            'duration_seconds' => 'nullable|integer|min:0',
-            'passengers' => 'required|integer|min:1|max:99',
-            'pickup_at' => 'required|date',
-            'quoted_price' => 'nullable|numeric|min:0',
-            'customer_name' => 'required|string|max:255',
-            'customer_email' => 'nullable|email|max:255',
-            'customer_phone' => 'nullable|string|max:50',
-            'customer_note' => 'nullable|string|max:2000',
-            'quote_expires_at' => 'nullable|date',
-        ]);
+        $validated = $request->validate(
+            $this->rideRequestFormRules($conn),
+            $this->rideRequestFormMessages()
+        );
         $companyId = auth()->user()->hasRole('super-admin') && session('selected_tenant')
             ? session('selected_tenant')
             : auth()->user()->company_id;
@@ -142,7 +130,7 @@ class RideRequestController extends Controller
         return redirect()->route('admin.taxi.ride_requests.show', $ride)->with('success', 'Rit is aangemaakt.');
     }
 
-    public function show(RideRequest $ride_request)
+    public function show(Request $request, RideRequest $ride_request)
     {
         $this->authorizeOrPermission('rides.view');
         $this->ensureCanAccessRide($ride_request);
@@ -165,6 +153,11 @@ class RideRequestController extends Controller
                 ->count();
         }
 
+        $rideBackUrl = AdminReturnUrl::fromRequest(
+            $request->query('return'),
+            route('admin.taxi.ride_requests.index')
+        );
+
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
             'statusLabels' => $statusLabels,
@@ -172,6 +165,8 @@ class RideRequestController extends Controller
             'drivers' => $drivers,
             'notificationLogCount' => $notificationLogCount,
             'notificationLogTableExists' => TaxiNotificationLogSchema::tableExists($conn),
+            'dispatchTablesExist' => TaxiDispatchSchema::tablesExist($conn),
+            'rideBackUrl' => $rideBackUrl,
         ]);
     }
 
@@ -220,27 +215,10 @@ class RideRequestController extends Controller
         $this->ensureCanAccessRide($ride_request);
 
         $conn = $this->moduleConnection();
-        $validated = $request->validate([
-            'vehicle_id' => ['nullable', Rule::exists($conn.'.vehicles', 'id')],
-            'driver_id' => ['nullable', Rule::exists('users', 'id')],
-            'status' => 'required|in:draft,quoted,accepted,assigned,completed,cancelled',
-            'pickup_address' => 'required|string|max:500',
-            'dropoff_address' => 'required|string|max:500',
-            'pickup_lat' => 'nullable|numeric',
-            'pickup_lng' => 'nullable|numeric',
-            'dropoff_lat' => 'nullable|numeric',
-            'dropoff_lng' => 'nullable|numeric',
-            'distance_meters' => 'nullable|integer|min:0',
-            'duration_seconds' => 'nullable|integer|min:0',
-            'passengers' => 'required|integer|min:1|max:99',
-            'pickup_at' => 'required|date',
-            'quoted_price' => 'nullable|numeric|min:0',
-            'customer_name' => 'required|string|max:255',
-            'customer_email' => 'nullable|email|max:255',
-            'customer_phone' => 'nullable|string|max:50',
-            'customer_note' => 'nullable|string|max:2000',
-            'quote_expires_at' => 'nullable|date',
-        ]);
+        $validated = $request->validate(
+            $this->rideRequestFormRules($conn),
+            $this->rideRequestFormMessages()
+        );
         $ride_request->update($validated);
 
         return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', 'Rit is bijgewerkt.');
@@ -277,19 +255,101 @@ class RideRequestController extends Controller
                 }),
             ],
         ]);
+        $previousDriverId = (int) ($ride_request->driver_id ?? 0);
+        $newDriverId = (int) ($request->input('driver_id') ?: 0);
+
         $ride_request->update([
             'vehicle_id' => $request->input('vehicle_id') ?: null,
-            'driver_id' => $request->input('driver_id') ?: null,
+            'driver_id' => $newDriverId ?: null,
             'status' => $ride_request->status === RideRequest::STATUS_QUOTED || $ride_request->status === RideRequest::STATUS_ACCEPTED
                 ? RideRequest::STATUS_ASSIGNED
                 : $ride_request->status,
         ]);
+
+        if ($newDriverId > 0 && $newDriverId !== $previousDriverId) {
+            $driver = User::query()->find($newDriverId);
+            $freshRide = $ride_request->fresh();
+            if ($driver && $freshRide) {
+                app()->terminating(function () use ($conn, $freshRide, $driver) {
+                    app(TaxiCustomerRideAcceptedNotificationService::class)
+                        ->notifyAfterRideAssigned($conn, $freshRide, $driver);
+                });
+            }
+        }
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Toewijzing opgeslagen.']);
         }
 
         return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', 'Voertuig en chauffeur toegewezen.');
+    }
+
+    public function reofferDispatch(RideRequest $ride_request)
+    {
+        $this->authorizeOrPermission('rides.update');
+        $this->ensureCanAccessRide($ride_request);
+
+        $conn = $this->moduleConnection();
+
+        if (! TaxiDispatchSchema::tablesExist($conn)) {
+            return redirect()
+                ->route('admin.taxi.ride_requests.show', $ride_request)
+                ->with('error', 'Chauffeur-dispatch is niet beschikbaar (migraties ontbreken).');
+        }
+
+        if (! $ride_request->canRedispatchToDrivers()) {
+            return redirect()
+                ->route('admin.taxi.ride_requests.show', $ride_request)
+                ->with('error', 'Deze rit kan nu niet opnieuw worden aangeboden (voltooid, geannuleerd of wacht nog op betaling).');
+        }
+
+        $companyId = (int) ($this->resolveRideCompanyId($ride_request, $conn) ?? 0);
+        if ($companyId <= 0) {
+            return redirect()
+                ->route('admin.taxi.ride_requests.show', $ride_request)
+                ->with('error', 'Geen bedrijf gekoppeld aan deze rit; dispatch kan niet starten.');
+        }
+
+        $rideId = (int) $ride_request->id;
+
+        DB::connection($conn)->transaction(function () use ($conn, $rideId, $companyId) {
+            $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
+            if (! $ride) {
+                return;
+            }
+
+            $now = now();
+
+            RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->update([
+                    'status' => RideDispatchOffer::STATUS_EXPIRED,
+                    'responded_at' => $now,
+                ]);
+
+            $ride->update([
+                'driver_id' => null,
+                'vehicle_id' => null,
+                'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            ]);
+
+            app(RideDispatchService::class)->startDispatch($conn, $ride->fresh(), $companyId);
+        });
+
+        $activeOffers = RideDispatchOffer::on($conn)
+            ->where('ride_request_id', $rideId)
+            ->where('status', RideDispatchOffer::STATUS_PENDING)
+            ->where('expires_at', '>', now())
+            ->count();
+
+        $message = $activeOffers > 0
+            ? 'Rit is opnieuw aangeboden aan '.$activeOffers.' chauffeur(s). Toewijzing is gewist.'
+            : 'Rit staat klaar voor dispatch, maar er zijn geen online chauffeurs gevonden. Laat chauffeurs in de app op online gaan.';
+
+        return redirect()
+            ->route('admin.taxi.ride_requests.show', $ride_request)
+            ->with($activeOffers > 0 ? 'success' : 'warning', $message);
     }
 
     private function authorizeOrPermission(string $ability): void
@@ -414,6 +474,45 @@ class RideRequestController extends Controller
             })
             ->orderBy('first_name')
             ->orderBy('last_name');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rideRequestFormRules(string $conn): array
+    {
+        return [
+            'vehicle_id' => ['nullable', Rule::exists($conn.'.vehicles', 'id')],
+            'driver_id' => ['nullable', Rule::exists('users', 'id')],
+            'status' => ['required', Rule::in(RideRequest::validStatusValues())],
+            'pickup_address' => 'required|string|max:500',
+            'dropoff_address' => 'required|string|max:500',
+            'pickup_lat' => 'nullable|numeric',
+            'pickup_lng' => 'nullable|numeric',
+            'dropoff_lat' => 'nullable|numeric',
+            'dropoff_lng' => 'nullable|numeric',
+            'distance_meters' => 'nullable|integer|min:0',
+            'duration_seconds' => 'nullable|integer|min:0',
+            'passengers' => 'required|integer|min:1|max:99',
+            'pickup_at' => 'required|date',
+            'quoted_price' => 'nullable|numeric|min:0',
+            'customer_name' => 'required|string|max:255',
+            'customer_email' => 'nullable|email|max:255',
+            'customer_phone' => 'nullable|string|max:50',
+            'customer_note' => 'nullable|string|max:2000',
+            'quote_expires_at' => 'nullable|date',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function rideRequestFormMessages(): array
+    {
+        return [
+            'status.required' => 'Kies een status voor de rit.',
+            'status.in' => 'De gekozen status is ongeldig. Kies een van de beschikbare statussen in de lijst.',
+        ];
     }
 
     private function applyChauffeurRoleAndCompanyToUserSubquery($query, int $companyId): void

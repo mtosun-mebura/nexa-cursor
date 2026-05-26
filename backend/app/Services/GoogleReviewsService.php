@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Haalt Google Place-reviews op via Places API (New) en cached ze.
@@ -102,35 +104,15 @@ class GoogleReviewsService
     public function getReviews(?int $forCompanyId = null): array
     {
         $settings = $this->reviewSettings($forCompanyId);
-        $placeId = $settings['place_id'];
-        $businessName = $settings['business_name'];
-
-        $resolvedPlaceId = '';
-        if ($placeId !== '' && self::looksLikePlaceId($placeId)) {
-            $resolvedPlaceId = self::normalizePlaceId($placeId);
-        } elseif ($businessName !== '') {
-            $resolvedPlaceId = $this->resolvePlaceIdFromBusinessName($businessName);
-        }
-
+        $resolvedPlaceId = $this->resolvePlaceIdForSettings($settings);
         if ($resolvedPlaceId === '') {
-            return [
-                'place_name' => '',
-                'rating' => 0.0,
-                'user_rating_count' => 0,
-                'place_id' => '',
-                'reviews' => [],
-                'write_review_url' => '',
-                'section_title' => trim((string) ($settings['section_title'] ?? '')),
-                'section_background' => trim((string) ($settings['section_background'] ?? '')),
-            ];
+            return $this->emptyReviewsResult($settings);
         }
 
-        $cacheHours = $settings['cache_hours'];
-        $cacheKey = 'google_reviews_'.md5($placeId.'|'.$businessName.'|'.($forCompanyId ?? 'global'));
-
-        $result = Cache::remember($cacheKey, $cacheHours * 3600, function () use ($resolvedPlaceId) {
-            return $this->fetchPlaceAndReviews($resolvedPlaceId);
-        });
+        $result = $this->rememberPlaceAndReviews($settings, $resolvedPlaceId, $forCompanyId);
+        if ($result === null) {
+            return $this->emptyReviewsResult($settings, $resolvedPlaceId);
+        }
 
         $minStars = $settings['min_stars'];
         $result['reviews'] = array_values(array_filter($result['reviews'], function ($r) use ($minStars) {
@@ -156,35 +138,16 @@ class GoogleReviewsService
     public function getPlaceAndReviewsUnfiltered(?int $forCompanyId = null): array
     {
         $settings = $this->reviewSettings($forCompanyId);
-        $placeId = $settings['place_id'];
-        $businessName = $settings['business_name'];
-
-        $resolvedPlaceId = '';
-        if ($placeId !== '' && self::looksLikePlaceId($placeId)) {
-            $resolvedPlaceId = self::normalizePlaceId($placeId);
-        } elseif ($businessName !== '') {
-            $resolvedPlaceId = $this->resolvePlaceIdFromBusinessName($businessName);
-        }
-
+        $resolvedPlaceId = $this->resolvePlaceIdForSettings($settings);
         if ($resolvedPlaceId === '') {
-            return [
-                'place_name' => '',
-                'rating' => 0.0,
-                'user_rating_count' => 0,
-                'place_id' => '',
-                'reviews' => [],
-                'write_review_url' => '',
-                'section_title' => trim((string) ($settings['section_title'] ?? '')),
-                'section_background' => trim((string) ($settings['section_background'] ?? '')),
-            ];
+            return $this->emptyReviewsResult($settings);
         }
 
-        $cacheHours = $settings['cache_hours'];
-        $cacheKey = 'google_reviews_'.md5($placeId.'|'.$businessName.'|'.($forCompanyId ?? 'global'));
+        $result = $this->rememberPlaceAndReviews($settings, $resolvedPlaceId, $forCompanyId);
+        if ($result === null) {
+            return $this->emptyReviewsResult($settings, $resolvedPlaceId);
+        }
 
-        $result = Cache::remember($cacheKey, $cacheHours * 3600, function () use ($resolvedPlaceId) {
-            return $this->fetchPlaceAndReviews($resolvedPlaceId);
-        });
         $result['section_title'] = trim((string) ($settings['section_title'] ?? ''));
         $result['section_background'] = trim((string) ($settings['section_background'] ?? ''));
 
@@ -277,10 +240,11 @@ class GoogleReviewsService
             return '';
         }
 
-        $response = Http::withHeaders([
-            'X-Goog-Api-Key' => $apiKey,
-            'X-Goog-FieldMask' => 'places.id',
-        ])->post(self::PLACES_SEARCH_TEXT_URL, [
+        $response = $this->placesHttpClient()
+            ->withHeaders([
+                'X-Goog-Api-Key' => $apiKey,
+                'X-Goog-FieldMask' => 'places.id',
+            ])->post(self::PLACES_SEARCH_TEXT_URL, [
             'textQuery' => $businessName,
             'languageCode' => 'nl',
             'regionCode' => 'NL',
@@ -328,10 +292,11 @@ class GoogleReviewsService
         }
 
         $url = sprintf(self::PLACES_API_URL, $placeId);
-        $response = Http::withHeaders([
-            'X-Goog-Api-Key' => $apiKey,
-            'X-Goog-FieldMask' => 'displayName,rating,userRatingCount,reviews',
-        ])->get($url, [
+        $response = $this->placesHttpClient()
+            ->withHeaders([
+                'X-Goog-Api-Key' => $apiKey,
+                'X-Goog-FieldMask' => 'displayName,rating,userRatingCount,reviews',
+            ])->get($url, [
             'languageCode' => 'nl',
         ]);
 
@@ -412,5 +377,85 @@ class GoogleReviewsService
         }
 
         return '';
+    }
+
+    /**
+     * @param  array{place_id: string, business_name: string, cache_hours: int, count: int, min_stars: int, section_title: string, section_background: string}  $settings
+     */
+    protected function resolvePlaceIdForSettings(array $settings): string
+    {
+        $placeId = $settings['place_id'];
+        $businessName = $settings['business_name'];
+
+        if ($placeId !== '' && self::looksLikePlaceId($placeId)) {
+            return self::normalizePlaceId($placeId);
+        }
+        if ($businessName === '') {
+            return '';
+        }
+
+        try {
+            return $this->resolvePlaceIdFromBusinessName($businessName);
+        } catch (Throwable $e) {
+            $this->logPlacesRequestFailure('Text Search', $e, ['business_name' => $businessName]);
+
+            return '';
+        }
+    }
+
+    /**
+     * @param  array{place_id: string, business_name: string, cache_hours: int, count: int, min_stars: int, section_title: string, section_background: string}  $settings
+     * @return array{place_name: string, rating: float, user_rating_count: int, place_id: string, reviews: array, write_review_url: string}|null
+     */
+    protected function rememberPlaceAndReviews(array $settings, string $resolvedPlaceId, ?int $forCompanyId): ?array
+    {
+        $cacheKey = 'google_reviews_'.md5($settings['place_id'].'|'.$settings['business_name'].'|'.($forCompanyId ?? 'global'));
+
+        try {
+            return Cache::remember($cacheKey, $settings['cache_hours'] * 3600, function () use ($resolvedPlaceId) {
+                return $this->fetchPlaceAndReviews($resolvedPlaceId);
+            });
+        } catch (Throwable $e) {
+            $this->logPlacesRequestFailure('Places details', $e, ['place_id' => $resolvedPlaceId]);
+
+            return null;
+        }
+    }
+
+    protected function placesHttpClient(): \Illuminate\Http\Client\PendingRequest
+    {
+        return Http::timeout(15)->connectTimeout(10);
+    }
+
+    /**
+     * @param  array{place_id?: string, business_name?: string, cache_hours?: int, count?: int, min_stars?: int, section_title?: string, section_background?: string}  $settings
+     * @return array{place_name: string, rating: float, user_rating_count: int, place_id: string, reviews: array, write_review_url: string, section_title: string, section_background: string}
+     */
+    protected function emptyReviewsResult(array $settings, string $placeId = ''): array
+    {
+        $placeId = self::normalizePlaceId($placeId);
+
+        return [
+            'place_name' => '',
+            'rating' => 0.0,
+            'user_rating_count' => 0,
+            'place_id' => $placeId,
+            'reviews' => [],
+            'write_review_url' => $placeId !== '' ? sprintf(self::WRITE_REVIEW_URL, $placeId) : '',
+            'section_title' => trim((string) ($settings['section_title'] ?? '')),
+            'section_background' => trim((string) ($settings['section_background'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    protected function logPlacesRequestFailure(string $operation, Throwable $e, array $context = []): void
+    {
+        $level = $e instanceof ConnectionException ? 'warning' : 'error';
+        Log::log($level, 'Google Reviews: '.$operation.' mislukt.', array_merge($context, [
+            'error' => $e->getMessage(),
+            'exception' => $e::class,
+        ]));
     }
 }
