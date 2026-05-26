@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Nieuwe tag op main, bijv. v1.2.0 (semver, uniek)'
+        description: 'Tag op main, bijv. v1.2.0 (V1.2.0 wordt automatisch kleine v)'
         required: true
         type: string
 
@@ -33,8 +33,12 @@ jobs:
           ref="${{ github.event.inputs.version }}"
           ref="${ref#"${ref%%[![:space:]]*}"}"
           ref="${ref%"${ref##*[![:space:]]}"}"
+          # V1.0.0 → v1.0.0 (Git-tags zijn hoofdlettergevoelig; deploy verwacht kleine v)
+          if [[ "$ref" =~ ^[Vv][0-9] ]]; then
+            ref="v${ref:1}"
+          fi
           if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-            echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0" >&2
+            echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0 (niet 1.2.0 zonder v)" >&2
             exit 1
           fi
           if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1; then
