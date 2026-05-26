@@ -9,6 +9,9 @@
 #   Variables: APP_DIR  (= pad naar git-repo op Lightsail, bijv. /home/ubuntu/nexasuite)
 #
 # Environment "production" (Settings → Environments) voor goedkeuring/branch protection.
+#
+# AWS (eenmalig): Docker Compose v2 — bash deploy/install-docker-compose-v2.sh
+# Daarna werkt `docker compose` (spatie); deploy vereist v2 op prod (REQUIRE_COMPOSE_V2=1).
 
 name: Deploy PROD
 
@@ -87,6 +90,7 @@ jobs:
             export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER
             export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
             export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
+            export REQUIRE_COMPOSE_V2=1
 
             echo "=== PROD deploy ==="
             echo "Host: $(hostname)"
@@ -114,6 +118,7 @@ jobs:
                 COMPOSE_FILE="$COMPOSE_FILE" \
                 LARAVEL_SERVICE="$LARAVEL_SERVICE" \
                 DEPLOY_USER="$DEPLOY_USER" \
+                REQUIRE_COMPOSE_V2=1 \
                 bash "$SCRIPT"
             else
               bash "$SCRIPT"

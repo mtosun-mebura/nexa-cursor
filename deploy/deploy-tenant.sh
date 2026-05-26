@@ -71,13 +71,21 @@ _compose_bin_label() {
 _compose() {
   if docker compose version >/dev/null 2>&1; then
     docker compose -f "$COMPOSE_FILE" "$@"
-  elif command -v docker-compose >/dev/null 2>&1; then
-    docker-compose -f "$COMPOSE_FILE" "$@"
-  else
-    echo "ERROR: Geen 'docker compose' (plugin) of docker-compose in PATH." >&2
-    echo "Proxmox/Lightsail: sudo apt-get install -y docker-compose  # of docker-compose-plugin" >&2
+    return
+  fi
+  if [[ "${REQUIRE_COMPOSE_V2:-}" == "1" || "${REQUIRE_COMPOSE_V2:-}" == "true" ]]; then
+    echo "ERROR: PROD vereist 'docker compose' v2 (plugin), maar alleen v1 of geen compose gevonden." >&2
+    echo "Op AWS Lightsail (eenmalig): bash $TENANT_DIR/deploy/install-docker-compose-v2.sh" >&2
     exit 1
   fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose -f "$COMPOSE_FILE" "$@"
+    return
+  fi
+  echo "ERROR: Geen 'docker compose' (v2) of docker-compose (v1) in PATH." >&2
+  echo "AWS prod: bash deploy/install-docker-compose-v2.sh" >&2
+  echo "Proxmox test: sudo apt-get install -y docker-compose  # v1 is voldoende" >&2
+  exit 1
 }
 
 # Proxmox-test en AWS-prod gebruiken docker-compose.prod.yml; oude compose v1 kent geen `include:`.
