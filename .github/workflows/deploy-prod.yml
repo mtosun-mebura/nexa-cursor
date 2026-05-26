@@ -48,12 +48,15 @@ jobs:
           fi
           ref="${ref#"${ref%%[![:space:]]*}"}"
           ref="${ref%"${ref##*[![:space:]]}"}"
+          if [[ "$ref" =~ ^[Vv][0-9] ]]; then
+            ref="v${ref:1}"
+          fi
           if [ -z "$ref" ]; then
             echo "ERROR: Geen tag/ref opgegeven" >&2
             exit 1
           fi
-          if [[ ! "$ref" =~ ^v[0-9] ]]; then
-            echo "ERROR: Tag moet beginnen met v + versie (bijv. v1.0.3), got: $ref" >&2
+          if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "ERROR: Tag moet semver vX.Y.Z zijn (bijv. v1.0.3), got: $ref" >&2
             exit 1
           fi
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
