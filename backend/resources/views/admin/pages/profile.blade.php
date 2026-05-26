@@ -1,0 +1,2994 @@
+@extends('admin.layouts.app')
+
+@section('title', 'Mijn Profiel - NEXA Skillmatching')
+
+@section('content')
+
+<style>
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
+    }
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
+    }
+    /* Hide scrollbar in Google Maps InfoWindow */
+    .gm-style-iw-c {
+        overflow: hidden !important;
+    }
+    .gm-style-iw-d {
+        overflow: hidden !important;
+        max-height: none !important;
+    }
+    /* Remove close button container */
+    .gm-style-iw-chr {
+        display: none !important;
+    }
+</style>
+
+<!-- Hero Section with Photo -->
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            <!-- Profile Photo Container -->
+            <div class="relative" style="width: 300px; height: 300px;">
+                <div class="relative bg-gray-100 dark:bg-gray-800 rounded-full w-full h-full flex items-center justify-center overflow-hidden border-4 border-gray-300 dark:border-gray-600 shadow-lg"
+                     id="photo-container"
+                     style="display: flex; visibility: visible;"
+                     ondrop="handleDrop(event)"
+                     ondragover="handleDragOver(event)"
+                     ondragenter="handleDragEnter(event)"
+                     ondragleave="handleDragLeave(event)">
+
+                    <!-- Profile Image or Placeholder -->
+                    @if($user->photo_blob)
+                        <img id="profile-image"
+                             src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"
+                             alt="Profile Photo"
+                             class="absolute inset-0 w-full h-full object-contain cursor-move"
+                             draggable="false"
+                             style="transform: scale(1) translate(0px, 0px);">
+                    @else
+                        <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 p-8">
+                            <img src="{{ asset(config('nexa.default_user_avatar')) }}"
+                                 alt=""
+                                 class="max-w-full max-h-full w-auto h-auto object-contain select-none"
+                                 draggable="false">
+                        </div>
+                    @endif
+
+                    <!-- Drag Overlay -->
+                    <div id="drag-overlay" class="absolute inset-0 bg-blue-500 bg-opacity-50 rounded-full flex items-center justify-center text-white font-semibold hidden">
+                        <div class="text-center">
+                            <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            <div class="text-sm">Sleep foto hier</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Button Container -->
+                <div class="absolute -bottom-2 left-0 right-0 flex justify-between px-2">
+                    <!-- Reset Button -->
+                    <button onclick="resetPhotoTransform()"
+                            class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
+                            title="Reset foto">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+
+                    <!-- Upload Button -->
+                    <button onclick="document.getElementById('photo-upload').click()"
+                            class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors z-10 shadow-lg"
+                            title="Foto aanpassen">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <input type="file" id="photo-upload" class="hidden" accept="image/*,.svg" onchange="uploadPhoto(this)">
+
+            <!-- Photo editor instructions -->
+            <div class="text-sm text-muted-foreground mb-2">
+                <div class="flex flex-col items-center space-y-1">
+                    <span>Sleep om te verplaatsen</span>
+                    <span>+/- = zoom in/uit</span>
+                </div>
+            </div>
+
+            <!-- Name -->
+            <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
+                {{ $user->first_name }} {{ $user->last_name }}
+            </div>
+            <!-- Function and Role -->
+            <div class="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+                @if($user->function)
+                    <span class="flex items-center gap-1">
+                        <i class="ki-filled ki-briefcase text-base"></i>
+                        {{ $user->function }}
+                    </span>
+                @endif
+                @if($user->roles->isNotEmpty())
+                    @if($user->function)
+                        <span class="text-muted-foreground">•</span>
+                    @endif
+                    <span class="flex items-center gap-1">
+                        <i class="ki-filled ki-profile-user text-base"></i>
+                        {{ $user->roles->first()->name }}
+                    </span>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Profiel Card -->
+<div class="kt-card mb-5 lg:mb-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                Profiel
+            </h3>
+            <button type="button" id="edit-profile-btn" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" onclick="toggleEditMode()">
+                <i class="ki-filled ki-pencil"></i>
+            </button>
+        </div>
+        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">
+                        Voornaam
+                    </td>
+                    <td class="min-w-48 w-full text-foreground font-normal">
+                        <span id="view-first_name">{{ $user->first_name }}</span>
+                        <input type="text" name="first_name" id="edit-first_name" class="kt-input hidden max-w-md" value="{{ $user->first_name }}" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Achternaam
+                    </td>
+                    <td class="text-foreground font-normal">
+                        <span id="view-last_name">{{ $user->last_name }}</span>
+                        <input type="text" name="last_name" id="edit-last_name" class="kt-input hidden max-w-md" value="{{ $user->last_name }}" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        E-mail
+                    </td>
+                    <td class="text-foreground font-normal">
+                        <span id="view-email">{{ $user->email }}</span>
+                        <input type="email" name="email" id="edit-email" class="kt-input hidden max-w-md" value="{{ $user->email }}" required>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Telefoon
+                    </td>
+                    <td class="text-foreground font-normal">
+                        <span id="view-phone">{{ $user->phone ?? '-' }}</span>
+                        <input type="tel" name="phone" id="edit-phone" class="kt-input hidden max-w-md" value="{{ $user->phone }}">
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Locatie
+                    </td>
+                    <td class="text-foreground font-normal">
+                        <span id="view-location">
+                            @if($user->location)
+                                @php
+                                    $displayLocation = '-';
+                                    if (strpos($user->location, 'Bedrijf: ') === 0) {
+                                        // It's the main company
+                                        $companyName = str_replace('Bedrijf: ', '', $user->location);
+                                        $city = $user->company && $user->company->mainLocation ? $user->company->mainLocation->city : ($user->company ? $user->company->city : '');
+                                        $displayLocation = $companyName . ($city ? ', ' . $city : '');
+                                    } elseif (strpos($user->location, 'Vestiging: ') === 0) {
+                                        // It's a branch location
+                                        $locationName = str_replace('Vestiging: ', '', $user->location);
+                                        $branch = $user->company ? $user->company->locations->where('name', $locationName)->first() : null;
+                                        $city = $branch ? $branch->city : '';
+                                        $displayLocation = $locationName . ($city ? ', ' . $city : '');
+                                    } else {
+                                        // Fallback to original location if format doesn't match
+                                        $displayLocation = $user->location;
+                                    }
+                                @endphp
+                                {{ $displayLocation }}
+                            @else
+                                -
+                            @endif
+                        </span>
+                        @if($user->company)
+                        <select name="location" id="edit-location" class="kt-input hidden max-w-md">
+                            <option value="">-- Selecteer locatie --</option>
+                            @php
+                                $mainLocationName = $user->company->name;
+                                if ($user->company->is_main || $user->company->mainLocation) {
+                                    $mainLocationName .= ' (Hoofdkantoor)';
+                                }
+                            @endphp
+                            <option value="Bedrijf: {{ $user->company->name }}" {{ $user->location === 'Bedrijf: ' . $user->company->name ? 'selected' : '' }}>
+                                Bedrijf: {{ $mainLocationName }}
+                            </option>
+                            @foreach($user->company->locations as $location)
+                                @if($location->is_active)
+                                <option value="Vestiging: {{ $location->name }}" {{ $user->location === 'Vestiging: ' . $location->name ? 'selected' : '' }}>
+                                    Vestiging: {{ $location->name }}
+                                </option>
+                                @endif
+                            @endforeach
+                        </select>
+                        @else
+                        <input type="text" name="location" id="edit-location" class="kt-input hidden max-w-md" value="{{ $user->location }}">
+                        @endif
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
+                        Geboortedatum
+                    </td>
+                    <td class="text-foreground font-normal">
+                        <span id="view-date_of_birth">{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '-' }}</span>
+                        <div class="kt-input hidden max-w-md" id="edit-date_of_birth-wrapper">
+                            <i class="ki-outline ki-calendar"></i>
+                            <input class="grow" 
+                                   name="date_of_birth" 
+                                   id="edit-date_of_birth" 
+                                   data-kt-date-picker="true" 
+                                   data-kt-date-picker-input-mode="true" 
+                                   data-kt-date-picker-position-to-input="left"
+                                   data-kt-date-picker-format="dd-mm-yyyy"
+                                   placeholder="Selecteer datum" 
+                                   readonly 
+                                   type="text"
+                                   value="{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '' }}"/>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div id="edit-profile-actions" class="kt-card-footer hidden flex items-center justify-end gap-2.5">
+            <button type="button" onclick="cancelEdit()" class="kt-btn kt-btn-outline">
+                Annuleren
+            </button>
+            <button type="button" onclick="saveProfile()" class="kt-btn kt-btn-primary">
+                Opslaan
+            </button>
+        </div>
+    </div>
+
+    @if($user->company)
+    <!-- Bedrijfsgegevens -->
+    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5">
+        <!-- Bedrijfsinformatie -->
+        <div class="kt-card xl:w-auto xl:min-w-[400px] xl:max-w-[500px]">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Bedrijfsinformatie
+                </h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">
+                            Bedrijfsnaam
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal">
+                            <div class="flex items-start gap-2">
+                                <x-heroicon-o-building-office-2 class="w-5 h-5 font-bold text-gray-700 dark:text-white flex-shrink-0 {{ ($user->company->is_main || $user->company->mainLocation) ? '' : 'hidden' }}" />
+                                <span>{{ $user->company->name }}</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            KVK Nummer
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $user->company->kvk_number ?? '-' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Branche
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $user->company->industry ?? '-' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Bedrijfstype
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($user->company->is_intermediary)
+                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij / Recruiter</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Beschrijving
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $user->company->description ?? '-' }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Contact Informatie -->
+        <div class="kt-card flex-1">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Contact Informatie
+                </h3>
+            </div>
+            <div class="kt-card-content flex-1">
+                <div class="flex flex-wrap items-start gap-5">
+                    <div class="rounded-xl w-full md:w-80 min-h-52 flex-shrink-0" id="company_contact_map">
+                    </div>
+                    <div class="flex flex-col gap-2.5 flex-1 min-w-0">
+                        @if($user->company->email)
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-sms text-lg text-muted-foreground"></i>
+                            </span>
+                            <a class="link text-sm font-medium" href="mailto:{{ $user->company->email }}">
+                                {{ $user->company->email }}
+                            </a>
+                        </div>
+                        @endif
+                        @if($user->company->phone)
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-whatsapp text-lg text-muted-foreground"></i>
+                            </span>
+                            <span class="text-sm text-mono">
+                                {{ $user->company->phone }}
+                            </span>
+                        </div>
+                        @endif
+                        @if($user->company->website)
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-dribbble text-lg text-muted-foreground"></i>
+                            </span>
+                            <a class="link text-sm font-medium" href="{{ $user->company->website }}" target="_blank">
+                                {{ $user->company->website }}
+                            </a>
+                        </div>
+                        @endif
+                        @php
+                            $addressParts = [];
+                            if ($user->company->mainLocation) {
+                                if ($user->company->mainLocation->street && $user->company->mainLocation->house_number) {
+                                    $addressParts[] = $user->company->mainLocation->street . ' ' . $user->company->mainLocation->house_number . ($user->company->mainLocation->house_number_extension ? '-' . $user->company->mainLocation->house_number_extension : '');
+                                }
+                                if ($user->company->mainLocation->postal_code && $user->company->mainLocation->city) {
+                                    $addressParts[] = $user->company->mainLocation->postal_code . ' ' . $user->company->mainLocation->city;
+                                }
+                                if ($user->company->mainLocation->country) {
+                                    $addressParts[] = $user->company->mainLocation->country;
+                                }
+                            } elseif ($user->company->street || $user->company->city) {
+                                if ($user->company->street && $user->company->house_number) {
+                                    $addressParts[] = $user->company->street . ' ' . $user->company->house_number . ($user->company->house_number_extension ? '-' . $user->company->house_number_extension : '');
+                                }
+                                if ($user->company->postal_code && $user->company->city) {
+                                    $addressParts[] = $user->company->postal_code . ' ' . $user->company->city;
+                                }
+                                if ($user->company->country) {
+                                    $addressParts[] = $user->company->country;
+                                }
+                            }
+                        @endphp
+                        @if(!empty($addressParts))
+                        <div class="flex items-start gap-2.5">
+                            <span class="mt-0.5">
+                                <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
+                            </span>
+                            <div class="flex flex-col gap-0.5">
+                                @foreach($addressParts as $part)
+                                <span class="text-sm text-mono">
+                                    {{ $part }}
+                                </span>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+<!-- Add Skill Modal -->
+<div id="skill-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
+    <button onclick="hideAddSkillModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+    <h3 class="text-lg font-semibold mb-4">Vaardigheid Toevoegen</h3>
+    <form id="skill-form">
+      @csrf
+      <input type="hidden" id="skill-type" name="type">
+      <div class="mb-4">
+        <label class="text-sm font-medium text-muted dark:text-muted-dark">Naam</label>
+        <input type="text" name="name" class="input mt-1" placeholder="Vaardigheid naam" required>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="hideAddSkillModal()" class="btn btn-outline flex-1 flex items-center justify-center">Annuleren</button>
+        <button type="submit" class="btn btn-primary flex-1 flex items-center justify-center">Toevoegen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Experience Modal -->
+<div id="experience-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50 overflow-hidden">
+  <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-[95vw] mx-4 relative max-h-[90vh] overflow-y-auto">
+    <button onclick="hideAddExperienceModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+    <h3 class="text-lg font-semibold mb-4" id="experience-modal-title">Werkervaring Toevoegen</h3>
+    <form id="experience-form">
+      @csrf
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm font-medium text-muted dark:text-muted-dark">Functietitel</label>
+          <input type="text" name="title" class="input mt-1" placeholder="Bijv. Senior Developer" required>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-muted dark:text-muted-dark">Bedrijf</label>
+          <input type="text" name="company" class="input mt-1" placeholder="Bedrijfsnaam" required>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="start_date" 
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="dd-MM-yyyy"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"
+                       required/>
+            </div>
+            <!--end::Input with Calendar-->
+          </div>
+          <div>
+            <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="end_date" 
+                       id="end-date"
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="dd-MM-yyyy"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"/>
+            </div>
+            <!--end::Input with Calendar-->
+          </div>
+        </div>
+        <div>
+          <label class="flex items-center">
+            <input type="checkbox" name="current" id="current-job" class="mr-2" onchange="toggleEndDate()">
+            <span class="text-sm">Huidige functie</span>
+          </label>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-muted dark:text-muted-dark">Beschrijving</label>
+          <textarea name="description" class="input mt-1" rows="6" placeholder="Beschrijf je taken en verantwoordelijkheden..."></textarea>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-6 justify-end">
+        <button type="button" onclick="hideAddExperienceModal()" class="btn btn-outline">Annuleren</button>
+        <button type="submit" class="btn btn-primary min-w-[120px]">Toevoegen</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
+    <button onclick="hideConfirmationModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+    <div class="text-center">
+      <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-red-100 dark:bg-red-900 mb-4">
+        <svg class="h-10 w-10 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2" id="confirmation-title">Bevestiging</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-6" id="confirmation-message">Weet je zeker dat je dit wilt verwijderen?</p>
+      <div class="flex gap-3 justify-center">
+        <button onclick="hideConfirmationModal()" class="px-4 py-2 font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors flex-1 flex items-center justify-center">
+          Annuleren
+        </button>
+        <button onclick="confirmDelete()" class="px-4 py-2 font-medium text-white !bg-red-600 hover:!bg-red-700 rounded-md transition-colors flex-1 flex items-center justify-center" style="background-color: #dc2626 !important;">
+          Verwijderen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div id="message-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
+    <button onclick="hideMessageModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+    <div class="text-center">
+      <div id="message-icon" class="mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4">
+        <!-- Icon will be set dynamically -->
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2" id="message-title">Bericht</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-6" id="message-text">Bericht tekst</p>
+      <div class="flex justify-center">
+        <button onclick="hideMessageModal()" class="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Birth Date Picker Modal -->
+<div id="birth-date-picker-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+  <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Geboortedatum selecteren</h3>
+      <button onclick="hideBirthDatePicker()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <!-- Month -->
+      <div>
+        <label class="text-sm font-medium text-muted dark:text-muted-dark mb-2 block">Maand</label>
+        <select id="month-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none cursor-pointer" onchange="updateDays()">
+          <option value="">Maand</option>
+          <option value="1">Januari</option>
+          <option value="2">Februari</option>
+          <option value="3">Maart</option>
+          <option value="4">April</option>
+          <option value="5">Mei</option>
+          <option value="6">Juni</option>
+          <option value="7">Juli</option>
+          <option value="8">Augustus</option>
+          <option value="9">September</option>
+          <option value="10">Oktober</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+
+      <!-- Day -->
+      <div>
+        <label class="text-sm font-medium text-muted dark:text-muted-dark mb-2 block">Dag</label>
+        <select id="day-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none cursor-pointer">
+          <option value="">Dag</option>
+        </select>
+      </div>
+
+      <!-- Year -->
+      <div>
+        <label class="text-sm font-medium text-muted dark:text-muted-dark mb-2 block">Jaar</label>
+        <select id="year-select" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none cursor-pointer" onchange="updateDays()">
+          <option value="">Jaar</option>
+        </select>
+      </div>
+    </div>
+
+            <div class="flex gap-2 justify-end">
+              <button onclick="hideBirthDatePicker()" class="btn btn-outline">Annuleren</button>
+              <button onclick="selectBirthDate()" class="btn btn-primary">Opslaan</button>
+            </div>
+  </div>
+</div>
+
+<script>
+// Profile edit mode
+let isEditMode = false;
+let originalData = {};
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    const editBtn = document.getElementById('edit-profile-btn');
+    const editActions = document.getElementById('edit-profile-actions');
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    
+    if (isEditMode) {
+        // Save original data
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            // Special handling for date_of_birth wrapper
+            if (field === 'date_of_birth' && !editEl) {
+                editEl = document.getElementById('edit-date_of_birth');
+            }
+            if (viewEl && editEl) {
+                originalData[field] = editEl.value || editEl.textContent || '';
+            }
+        });
+        
+        // Show edit inputs, hide view spans
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            let editWrapper = null;
+            
+            // Special handling for date_of_birth
+            if (field === 'date_of_birth') {
+                editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                if (!editEl && editWrapper) {
+                    editEl = editWrapper.querySelector('input');
+                }
+            }
+            
+            if (viewEl && (editEl || editWrapper)) {
+                viewEl.classList.add('hidden');
+                if (editWrapper) {
+                    editWrapper.classList.remove('hidden');
+                } else if (editEl) {
+                    editEl.classList.remove('hidden');
+                }
+            }
+        });
+        
+        editActions.classList.remove('hidden');
+        editBtn.innerHTML = '<i class="ki-filled ki-cross"></i>';
+        
+        // Initialize datepicker if needed
+        if (typeof KTDatePicker !== 'undefined') {
+            const dateInput = document.getElementById('edit-date_of_birth');
+            if (dateInput) {
+                // Remove existing datepicker instance if any
+                if (dateInput._flatpickr) {
+                    dateInput._flatpickr.destroy();
+                    delete dateInput._flatpickr;
+                }
+                
+                // Format the existing value to dd-mm-yyyy if it exists
+                if (dateInput.value) {
+                    try {
+                        // Try to parse and reformat the date
+                        const dateParts = dateInput.value.split('-');
+                        if (dateParts.length === 3) {
+                            // If it's in YYYY-MM-DD format, convert to DD-MM-YYYY
+                            if (dateParts[0].length === 4) {
+                                dateInput.value = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Date formatting error:', e);
+                    }
+                }
+                
+                // Initialize the datepicker - use setTimeout to ensure DOM is ready
+                setTimeout(() => {
+                    try {
+                        // Re-initialize KTDatePicker for this element
+                        KTDatePicker.init(dateInput);
+                    } catch (e) {
+                        console.warn('Datepicker initialization error:', e);
+                    }
+                }, 50);
+            }
+        }
+    } else {
+        // Cancel edit - restore original values
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            
+            // Special handling for date_of_birth
+            if (field === 'date_of_birth') {
+                const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                if (editWrapper) {
+                    editEl = editWrapper.querySelector('input');
+                }
+            }
+            
+            if (viewEl && editEl && originalData[field] !== undefined) {
+                editEl.value = originalData[field];
+                viewEl.textContent = originalData[field] || '-';
+            }
+        });
+        
+        // Show view spans, hide edit inputs
+        fields.forEach(field => {
+            const viewEl = document.getElementById('view-' + field);
+            let editEl = document.getElementById('edit-' + field);
+            let editWrapper = null;
+            
+            // Special handling for date_of_birth
+            if (field === 'date_of_birth') {
+                editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                if (editWrapper) {
+                    editEl = editWrapper.querySelector('input');
+                }
+            }
+            
+            if (viewEl && (editEl || editWrapper)) {
+                viewEl.classList.remove('hidden');
+                if (editWrapper) {
+                    editWrapper.classList.add('hidden');
+                } else if (editEl) {
+                    editEl.classList.add('hidden');
+                }
+            }
+        });
+        
+        editActions.classList.add('hidden');
+        editBtn.innerHTML = '<i class="ki-filled ki-pencil"></i>';
+    }
+}
+
+function cancelEdit() {
+    isEditMode = false;
+    
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const editBtn = document.getElementById('edit-profile-btn');
+    const editActions = document.getElementById('edit-profile-actions');
+    
+    // Restore original values
+    fields.forEach(field => {
+        const viewEl = document.getElementById('view-' + field);
+        let editEl = document.getElementById('edit-' + field);
+        
+        // Special handling for date_of_birth
+        if (field === 'date_of_birth') {
+            const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+            if (editWrapper) {
+                editEl = editWrapper.querySelector('input');
+            }
+        }
+        
+        if (viewEl && editEl && originalData[field] !== undefined) {
+            editEl.value = originalData[field];
+            // For location dropdown, format the display value
+            if (field === 'location' && editEl.tagName === 'SELECT') {
+                const selectedValue = originalData[field];
+                if (selectedValue) {
+                    // Parse the location value to extract name and city
+                    if (selectedValue.startsWith('Bedrijf: ')) {
+                        const companyName = selectedValue.replace('Bedrijf: ', '');
+                        // Try to get city from company data
+                        @if($user->company)
+                        const companyCity = @json($user->company->mainLocation ? $user->company->mainLocation->city : ($user->company->city ?? ''));
+                        viewEl.textContent = companyName + (companyCity ? ', ' + companyCity : '');
+                        @else
+                        viewEl.textContent = companyName;
+                        @endif
+                    } else if (selectedValue.startsWith('Vestiging: ')) {
+                        const locationName = selectedValue.replace('Vestiging: ', '');
+                        // Try to get city from location data
+                        @if($user->company)
+                        const locations = @json($user->company->locations->mapWithKeys(function($loc) { return [$loc->name => $loc->city]; })->toArray());
+                        const locationCity = locations[locationName] || '';
+                        viewEl.textContent = locationName + (locationCity ? ', ' + locationCity : '');
+                        @else
+                        viewEl.textContent = locationName;
+                        @endif
+                    } else {
+                        // Fallback: find the option that matches the original value
+                        for (let i = 0; i < editEl.options.length; i++) {
+                            if (editEl.options[i].value === originalData[field]) {
+                                const optionText = editEl.options[i].text;
+                                // Remove "Bedrijf: " or "Vestiging: " prefix if present
+                                viewEl.textContent = optionText.replace(/^(Bedrijf|Vestiging):\s*/, '');
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    viewEl.textContent = '-';
+                }
+            } else {
+                // Format date for display if needed
+                let displayValue = originalData[field] || '-';
+                if (field === 'date_of_birth' && displayValue !== '-') {
+                    const parts = displayValue.split('-');
+                    if (parts.length === 3) {
+                        displayValue = parts[0] + '-' + parts[1] + '-' + parts[2];
+                    }
+                }
+                viewEl.textContent = displayValue;
+            }
+        }
+    });
+    
+    // Show view spans, hide edit inputs
+    fields.forEach(field => {
+        const viewEl = document.getElementById('view-' + field);
+        let editEl = document.getElementById('edit-' + field);
+        let editWrapper = null;
+        
+        // Special handling for date_of_birth
+        if (field === 'date_of_birth') {
+            editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+            if (editWrapper) {
+                editEl = editWrapper.querySelector('input');
+            }
+        }
+        
+        if (viewEl && (editEl || editWrapper)) {
+            viewEl.classList.remove('hidden');
+            if (editWrapper) {
+                editWrapper.classList.add('hidden');
+            } else if (editEl) {
+                editEl.classList.add('hidden');
+            }
+        }
+    });
+    
+    // Hide edit actions and reset edit button
+    if (editActions) {
+        editActions.classList.add('hidden');
+    }
+    if (editBtn) {
+        editBtn.innerHTML = '<i class="ki-filled ki-pencil"></i>';
+    }
+}
+
+async function saveProfile() {
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const formData = new FormData();
+    formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+    
+    fields.forEach(field => {
+        let editEl = document.getElementById('edit-' + field);
+        
+        // Special handling for date_of_birth
+        if (field === 'date_of_birth') {
+            const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+            if (editWrapper) {
+                editEl = editWrapper.querySelector('input');
+            }
+        }
+        
+        if (editEl) {
+            let value = editEl.value || '';
+            
+            // Datepicker already returns in dd-MM-yyyy format which backend can parse
+            formData.append(field, value);
+        }
+    });
+    
+    try {
+        const response = await fetch('{{ route("admin.profile.update") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update view with new values
+            fields.forEach(field => {
+                const viewEl = document.getElementById('view-' + field);
+                let editEl = document.getElementById('edit-' + field);
+                
+                // Special handling for date_of_birth
+                if (field === 'date_of_birth') {
+                    const editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                    if (editWrapper) {
+                        editEl = editWrapper.querySelector('input');
+                    }
+                }
+                
+                if (viewEl && editEl) {
+                    let value = editEl.value || '-';
+                    // Format date for display
+                    if (field === 'date_of_birth' && value !== '-') {
+                        // Value is in dd-MM-yyyy format from datepicker, convert to dd-mm-yyyy for display
+                        const parts = value.split('-');
+                        if (parts.length === 3) {
+                            value = parts[0] + '-' + parts[1] + '-' + parts[2];
+                        }
+                    }
+                    // For location dropdown, format the display value
+                    if (field === 'location' && editEl.tagName === 'SELECT') {
+                        const selectedOption = editEl.options[editEl.selectedIndex];
+                        const selectedValue = editEl.value;
+                        if (selectedValue) {
+                            // Parse the location value to extract name and city
+                            if (selectedValue.startsWith('Bedrijf: ')) {
+                                const companyName = selectedValue.replace('Bedrijf: ', '');
+                                // Try to get city from company data
+                                @if($user->company)
+                                const companyCity = @json($user->company->mainLocation ? $user->company->mainLocation->city : ($user->company->city ?? ''));
+                                value = companyName + (companyCity ? ', ' + companyCity : '');
+                                @else
+                                value = companyName;
+                                @endif
+                            } else if (selectedValue.startsWith('Vestiging: ')) {
+                                const locationName = selectedValue.replace('Vestiging: ', '');
+                                // Try to get city from location data
+                                @if($user->company)
+                                const locations = @json($user->company->locations->mapWithKeys(function($loc) { return [$loc->name => $loc->city]; })->toArray());
+                                const locationCity = locations[locationName] || '';
+                                value = locationName + (locationCity ? ', ' + locationCity : '');
+                                @else
+                                value = locationName;
+                                @endif
+                            } else {
+                                value = selectedOption ? selectedOption.text : '-';
+                            }
+                        } else {
+                            value = '-';
+                        }
+                    }
+                    viewEl.textContent = value;
+                    originalData[field] = editEl.value;
+                }
+            });
+            
+            // Update name in hero section
+            const firstName = document.getElementById('edit-first_name').value;
+            const lastName = document.getElementById('edit-last_name').value;
+            const nameElement = document.querySelector('.hero-bg .text-mono');
+            if (nameElement) {
+                nameElement.textContent = `${firstName} ${lastName}`;
+            }
+            
+            // Exit edit mode - ensure we're in view mode
+            isEditMode = false;
+            
+            // Force toggle to view mode
+            const editBtn = document.getElementById('edit-profile-btn');
+            const editActions = document.getElementById('edit-profile-actions');
+            
+            // Show view spans, hide edit inputs
+            fields.forEach(field => {
+                const viewEl = document.getElementById('view-' + field);
+                let editEl = document.getElementById('edit-' + field);
+                let editWrapper = null;
+                
+                // Special handling for date_of_birth
+                if (field === 'date_of_birth') {
+                    editWrapper = document.getElementById('edit-date_of_birth-wrapper');
+                    if (editWrapper) {
+                        editEl = editWrapper.querySelector('input');
+                    }
+                }
+                
+                if (viewEl && (editEl || editWrapper)) {
+                    viewEl.classList.remove('hidden');
+                    if (editWrapper) {
+                        editWrapper.classList.add('hidden');
+                    } else if (editEl) {
+                        editEl.classList.add('hidden');
+                    }
+                }
+            });
+            
+            // Hide edit actions and reset edit button
+            if (editActions) {
+                editActions.classList.add('hidden');
+            }
+            if (editBtn) {
+                editBtn.innerHTML = '<i class="ki-filled ki-pencil"></i>';
+            }
+            
+            showMessageModal('success', 'Succesvol!', data.message || 'Profiel succesvol bijgewerkt!');
+        } else {
+            let errorMessage = 'Er is een fout opgetreden';
+            if (data.errors) {
+                const errorList = Object.values(data.errors).flat();
+                errorMessage = errorList.join(', ');
+            } else if (data.message) {
+                errorMessage = data.message;
+            }
+            showMessageModal('error', 'Fout!', errorMessage);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van het profiel.');
+    }
+}
+
+// Interactive photo editor variables
+let isDragging = false;
+let isResizing = false;
+let startX, startY, startWidth, startHeight, startLeft, startTop;
+let currentImage = null;
+let currentScale = 1;
+let currentTranslateX = 0;
+let currentTranslateY = 0;
+
+// Initialize photo editor when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  initializePhotoEditor();
+  setupRealTimeValidation();
+  
+  // Prevent default drag behavior on the entire page
+  document.addEventListener('dragover', function(e) {
+    e.preventDefault();
+  });
+  
+  document.addEventListener('drop', function(e) {
+    e.preventDefault();
+  });
+
+  // Add keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    if (!currentImage) return;
+
+
+    // Zoom in with + key
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      currentScale = Math.min(3, currentScale + 0.1);
+      updateImageTransform();
+      savePhotoTransform();
+    }
+
+    // Zoom out with - key
+    if (e.key === '-') {
+      e.preventDefault();
+      currentScale = Math.max(0.1, currentScale - 0.1);
+      updateImageTransform();
+      savePhotoTransform();
+    }
+  });
+
+  // Add scroll zoom functionality
+  // Use { passive: false } to allow preventDefault() when needed
+  document.addEventListener('wheel', function(e) {
+    // Check if we're over the photo container
+    const container = document.getElementById('photo-container');
+    if (!container || !currentImage) return;
+
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+
+    // Only zoom if mouse is over the container and shift is pressed
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom && e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Simple scroll zoom
+      if (e.deltaY < 0) {
+        // Scrolling up - zoom in
+        currentScale = Math.min(3, currentScale + 0.1);
+      } else if (e.deltaY > 0) {
+        // Scrolling down - zoom out
+        currentScale = Math.max(0.1, currentScale - 0.1);
+      }
+
+      updateImageTransform();
+      savePhotoTransform(); // Save the transform
+
+      console.log('Scroll zoom:', {
+        deltaY: e.deltaY,
+        newScale: currentScale,
+        mouseOverContainer: true
+      });
+    }
+  }, { passive: false });
+});
+
+function initializePhotoEditor() {
+  const container = document.getElementById('photo-container');
+  const image = document.getElementById('profile-image');
+
+  console.log('Initializing photo editor...');
+  console.log('Container found:', !!container);
+  console.log('Image found:', !!image);
+
+
+  if (container) {
+    // Always show the container
+    container.style.display = 'flex';
+    container.style.visibility = 'visible';
+    container.style.width = '300px';
+    container.style.height = '300px';
+    container.style.borderRadius = '50%';
+  }
+
+  if (image) {
+    currentImage = image;
+    setupImageInteractions();
+
+    // Load saved transform or use default
+    loadPhotoTransform();
+  }
+
+  // Add container-specific scroll zoom
+  if (container) {
+    container.addEventListener('wheel', function(e) {
+      if (!currentImage || !e.shiftKey) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Simple scroll zoom
+      if (e.deltaY < 0) {
+        // Scrolling up - zoom in
+        currentScale = Math.min(3, currentScale + 0.1);
+      } else if (e.deltaY > 0) {
+        // Scrolling down - zoom out
+        currentScale = Math.max(0.1, currentScale - 0.1);
+      }
+
+      updateImageTransform();
+      savePhotoTransform();
+
+      console.log('Container scroll zoom:', {
+        deltaY: e.deltaY,
+        newScale: currentScale
+      });
+    });
+  }
+
+}
+
+function setupImageInteractions() {
+  if (!currentImage) {
+    console.log('No current image found for setup');
+    return;
+  }
+
+  console.log('Setting up image interactions for:', currentImage);
+
+  // Remove existing event listeners to prevent duplicates
+  currentImage.removeEventListener('mousedown', startDrag);
+  currentImage.removeEventListener('touchstart', startDrag);
+
+  // Make image draggable and resizable
+  currentImage.addEventListener('mousedown', startDrag);
+  currentImage.addEventListener('touchstart', startDrag);
+
+  // Add resize handles
+  addResizeHandles();
+
+  console.log('Image interactions setup complete');
+}
+
+function updateImageTransform() {
+  if (!currentImage) return;
+
+  currentImage.style.transform = `scale(${currentScale}) translate(${currentTranslateX}px, ${currentTranslateY}px)`;
+}
+
+function resetPhotoTransform() {
+  currentScale = 1;
+  currentTranslateX = 0;
+  currentTranslateY = 0;
+  updateImageTransform();
+  savePhotoTransform();
+  console.log('Photo transform reset');
+}
+
+// DOM update functions for skills and experiences
+function addSkillToDOM(skill) {
+  // Find the correct skill container based on type
+  const allSkillContainers = document.querySelectorAll('.flex.flex-wrap.gap-2');
+  const container = skill.type === 'technical' ? allSkillContainers[0] : allSkillContainers[1];
+
+  if (container) {
+    const skillElement = document.createElement('span');
+    skillElement.className = 'pill flex items-center gap-1';
+    skillElement.innerHTML = `
+      ${skill.name}
+      <button onclick="removeSkill(${skill.id})" class="ml-1 text-red-500 hover:text-red-700">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    `;
+
+    // Insert before the "Toevoegen" button
+    const addButton = container.querySelector('button[onclick*="showAddSkillModal"]');
+    if (addButton) {
+      container.insertBefore(skillElement, addButton);
+    } else {
+      container.appendChild(skillElement);
+    }
+
+    console.log(`Added ${skill.type} skill: ${skill.name}`);
+  } else {
+    console.error('Could not find skill container for type:', skill.type);
+  }
+}
+
+function removeSkillFromDOM(skillId) {
+  const skillElement = document.querySelector(`button[onclick="removeSkill(${skillId})"]`)?.closest('span');
+  if (skillElement) {
+    console.log(`Removing skill with ID: ${skillId}`);
+    skillElement.remove();
+  } else {
+    console.error(`Could not find skill element with ID: ${skillId}`);
+  }
+}
+
+function addExperienceToDOM(experience) {
+  // Find the experiences container - look for the card that contains "Werkervaring"
+  const allCards = document.querySelectorAll('.card');
+  let container = null;
+
+  for (let card of allCards) {
+    const heading = card.querySelector('h3');
+    if (heading && heading.textContent.includes('Werkervaring')) {
+      container = card.querySelector('.space-y-4');
+      break;
+    }
+  }
+
+  if (container) {
+    const experienceElement = document.createElement('div');
+    experienceElement.className = 'border-l-2 ' + (experience.current ? 'border-brand-500' : 'border-border dark:border-border-dark') + ' pl-4 relative';
+    // Format dates properly
+    const startDate = new Date(experience.start_date).getFullYear();
+    const endDate = experience.current ? 'Heden' : (experience.end_date ? new Date(experience.end_date).getFullYear() : 'Onbekend');
+
+    experienceElement.innerHTML = `
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <h4 class="font-medium">${experience.title}</h4>
+          <p class="text-sm text-muted dark:text-muted-dark">${experience.company} · ${startDate} - ${endDate}</p>
+          ${experience.description ? `<p class="text-sm mt-1">${experience.description}</p>` : ''}
+        </div>
+        <div class="flex gap-2 ml-2">
+          <button onclick="editExperience(${experience.id})" class="text-blue-500 hover:text-blue-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+          </button>
+          <button onclick="removeExperience(${experience.id})" class="text-red-500 hover:text-red-700">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+    // Insert at the beginning to show newest first
+    container.insertBefore(experienceElement, container.firstChild);
+  }
+}
+
+function removeExperienceFromDOM(experienceId) {
+  const experienceElement = document.querySelector(`button[onclick="removeExperience(${experienceId})"]`)?.closest('div[class*="border-l-2"]');
+  if (experienceElement) {
+    experienceElement.remove();
+  }
+}
+
+function updateExperienceInDOM(experience) {
+  // Find the existing experience element
+  const experienceElement = document.querySelector(`button[onclick="editExperience(${experience.id})"]`)?.closest('div[class*="border-l-2"]');
+
+  if (experienceElement) {
+    // Update the content
+    const titleElement = experienceElement.querySelector('h4');
+    const companyElement = experienceElement.querySelector('p');
+
+    if (titleElement) {
+      titleElement.textContent = experience.title;
+    }
+
+    if (companyElement) {
+      const startDate = new Date(experience.start_date).getFullYear();
+      const endDate = experience.current ? 'Heden' : (experience.end_date ? new Date(experience.end_date).getFullYear() : 'Onbekend');
+      companyElement.textContent = `${experience.company} · ${startDate} - ${endDate}`;
+    }
+
+    // Update description if it exists
+    let descriptionElement = experienceElement.querySelector('.text-sm.mt-1');
+    if (experience.description) {
+      if (descriptionElement) {
+        descriptionElement.textContent = experience.description;
+      } else {
+        // Add description if it doesn't exist
+        const descriptionDiv = document.createElement('p');
+        descriptionDiv.className = 'text-sm mt-1';
+        descriptionDiv.textContent = experience.description;
+        experienceElement.querySelector('.flex-1').appendChild(descriptionDiv);
+      }
+    } else if (descriptionElement) {
+      descriptionElement.remove();
+    }
+
+    console.log('Updated experience in DOM:', experience.title);
+  }
+}
+
+// Confirmation modal functions
+let pendingDeleteAction = null;
+
+function showConfirmationModal(title, message, deleteAction) {
+  document.getElementById('confirmation-title').textContent = title;
+  document.getElementById('confirmation-message').textContent = message;
+  document.getElementById('confirmation-modal').classList.remove('hidden');
+  document.getElementById('confirmation-modal').classList.add('flex');
+  pendingDeleteAction = deleteAction;
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleConfirmationModalEsc);
+}
+
+function hideConfirmationModal() {
+  document.getElementById('confirmation-modal').classList.add('hidden');
+  document.getElementById('confirmation-modal').classList.remove('flex');
+  pendingDeleteAction = null;
+
+  // Remove ESC key listener
+  document.removeEventListener('keydown', handleConfirmationModalEsc);
+}
+
+function handleConfirmationModalEsc(e) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    hideConfirmationModal();
+  }
+}
+
+function confirmDelete() {
+  if (pendingDeleteAction) {
+    pendingDeleteAction();
+  }
+  hideConfirmationModal();
+}
+
+// Message modal functions
+function showMessageModal(type, title, message) {
+  const modal = document.getElementById('message-modal');
+  const icon = document.getElementById('message-icon');
+  const titleElement = document.getElementById('message-title');
+  const messageElement = document.getElementById('message-text');
+
+  // Set title and message
+  titleElement.textContent = title;
+  messageElement.textContent = message;
+
+  // Set icon and colors based on type
+  if (type === 'success') {
+    icon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4 bg-green-100 dark:bg-green-900';
+    icon.innerHTML = `
+      <svg class="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+      </svg>
+    `;
+  } else if (type === 'error') {
+    icon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4 bg-red-100 dark:bg-red-900';
+    icon.innerHTML = `
+      <svg class="h-8 w-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    `;
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleMessageModalEsc);
+}
+
+function hideMessageModal() {
+  const modal = document.getElementById('message-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+
+  // Remove ESC key listener
+  document.removeEventListener('keydown', handleMessageModalEsc);
+}
+
+function handleMessageModalEsc(e) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    hideMessageModal();
+  }
+}
+
+// CV Upload Functions
+function handleCVDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'copy';
+}
+
+function handleCVDragEnter(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'copy';
+  const uploadArea = document.getElementById('cv-upload-area');
+  uploadArea.classList.remove('border-gray-300', 'dark:border-gray-600');
+  uploadArea.classList.add('border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
+  document.getElementById('cv-drag-overlay').classList.remove('hidden');
+}
+
+function handleCVDragLeave(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const uploadArea = document.getElementById('cv-upload-area');
+  uploadArea.classList.remove('border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
+  uploadArea.classList.add('border-gray-300', 'dark:border-gray-600');
+  document.getElementById('cv-drag-overlay').classList.add('hidden');
+}
+
+async function handleCVDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'copy';
+  
+  const uploadArea = document.getElementById('cv-upload-area');
+  uploadArea.classList.remove('border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
+  uploadArea.classList.add('border-gray-300', 'dark:border-gray-600');
+  document.getElementById('cv-drag-overlay').classList.add('hidden');
+
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    // Upload all files
+    for (let i = 0; i < files.length; i++) {
+      await uploadCVFile(files[i]);
+    }
+  }
+}
+
+async function uploadCV(input) {
+  const files = input.files;
+  if (!files || files.length === 0) return;
+
+  // Upload files one by one
+  for (let i = 0; i < files.length; i++) {
+    await uploadCVFile(files[i]);
+  }
+  
+  // Reset input
+  input.value = '';
+}
+
+async function uploadCVFile(file) {
+  // Client-side validation
+  const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  if (!allowedTypes.includes(file.type)) {
+    showMessageModal('error', 'Fout!', 'Alleen PDF, DOC en DOCX bestanden zijn toegestaan.');
+    return;
+  }
+
+  if (file.size > 10 * 1024 * 1024) { // 10MB
+    showMessageModal('error', 'Fout!', 'Het CV bestand mag maximaal 10MB groot zijn.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('cv', file);
+
+  try {
+    const response = await fetch('{{ route("admin.profile.cv") }}', {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      addCVToDisplay(data.filename, data.url, data.cv_id);
+    } else {
+      showMessageModal('error', 'Fout!', data.message);
+    }
+  } catch (error) {
+    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het uploaden van het CV.');
+  }
+}
+
+function addCVToDisplay(originalFilename, url, cvId) {
+  const cvFilesList = document.getElementById('cv-files-list');
+  
+  const cvFileItem = document.createElement('div');
+  cvFileItem.className = 'cv-file-item flex items-center justify-start space-x-2';
+  cvFileItem.setAttribute('data-cv-id', cvId);
+  cvFileItem.innerHTML = `
+    <a href="${url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium flex items-center space-x-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+      </svg>
+      <span>${originalFilename}</span>
+    </a>
+    <button onclick="removeCV(${cvId})" class="text-red-500 hover:text-red-700 ml-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+      </svg>
+    </button>
+  `;
+
+  cvFilesList.appendChild(cvFileItem);
+}
+
+function removeCV(cvId) {
+  showCVRemoveModal(cvId);
+}
+
+let currentCVId = null;
+
+function showCVRemoveModal(cvId) {
+  currentCVId = cvId;
+  const modal = document.getElementById('cv-remove-modal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  document.body.style.overflow = 'hidden';
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleCVRemoveModalEsc);
+}
+
+function hideCVRemoveModal() {
+  const modal = document.getElementById('cv-remove-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  document.body.style.overflow = '';
+
+  // Remove ESC key listener
+  document.removeEventListener('keydown', handleCVRemoveModalEsc);
+}
+
+function handleCVRemoveModalEsc(e) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    hideCVRemoveModal();
+  }
+}
+
+async function confirmCVRemove() {
+  if (!currentCVId) return;
+  
+  try {
+    const response = await fetch('{{ route("admin.profile.cv.remove") }}', {
+      method: 'DELETE',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ cv_id: currentCVId })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      // Remove the CV file item from the list
+      const cvFileItem = document.querySelector(`[data-cv-id="${currentCVId}"]`);
+      if (cvFileItem) {
+        cvFileItem.remove();
+      }
+      
+      hideCVRemoveModal();
+      showMessageModal('success', 'Succesvol!', 'CV succesvol verwijderd!');
+    } else {
+      showMessageModal('error', 'Fout!', data.message);
+    }
+  } catch (error) {
+    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van het CV.');
+  }
+}
+
+function resetCVDisplay() {
+  const uploadArea = document.getElementById('cv-upload-area');
+  
+  // Remove any existing CV display elements
+  const existingCVDisplay = uploadArea.querySelector('.cv-display');
+  if (existingCVDisplay) {
+    existingCVDisplay.remove();
+  }
+  
+  // Remove any link sections outside the upload area
+  const cvSection = uploadArea.closest('.mt-6');
+  const linkSection = cvSection.querySelector('.cv-link-section');
+  if (linkSection) {
+    linkSection.remove();
+  }
+  
+  uploadArea.innerHTML = `
+    <div id="cv-upload-content">
+      <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+      </svg>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <span class="font-medium">Klik om CV te uploaden</span> of sleep bestand hierheen
+      </p>
+      <p class="text-xs text-gray-500 dark:text-gray-500">
+        PDF, DOC, DOCX (max. 10MB)
+      </p>
+    </div>
+  `;
+}
+
+// Field error highlighting function
+function highlightFieldError(fieldName) {
+  // Remove any existing error highlighting
+  clearFieldErrors();
+
+  // Find the field
+  const field = document.querySelector(`input[name="${fieldName}"], textarea[name="${fieldName}"]`);
+  if (field) {
+    // Add error styling
+    field.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+    field.classList.remove('border-gray-300', 'dark:border-gray-600');
+
+    // Focus on the field
+    setTimeout(() => {
+      field.focus();
+      field.select();
+    }, 100);
+
+    // Remove error styling after 5 seconds
+    setTimeout(() => {
+      clearFieldErrors();
+    }, 5000);
+  }
+}
+
+function clearFieldErrors() {
+  // Remove error styling from all form fields
+  const fields = document.querySelectorAll('input, textarea');
+  fields.forEach(field => {
+    field.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+    field.classList.add('border-gray-300', 'dark:border-gray-600');
+  });
+}
+
+// Birth Date Picker functions
+function showBirthDatePicker() {
+  const modal = document.getElementById('birth-date-picker-modal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleBirthDatePickerEsc);
+
+  // Populate year dropdown (1900 to current year)
+  const yearSelect = document.getElementById('year-select');
+  const currentYear = new Date().getFullYear();
+
+  yearSelect.innerHTML = '<option value="">Jaar</option>';
+  for (let year = currentYear; year >= 1900; year--) {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    yearSelect.appendChild(option);
+  }
+
+  // Check if there's an existing date and populate the fields
+  const existingDate = document.getElementById('birth-date-input').value;
+  if (existingDate) {
+    const parts = existingDate.split('-');
+    if (parts.length === 3) {
+      // Set month first, then year, then update days
+      document.getElementById('month-select').value = parts[1];
+      document.getElementById('year-select').value = parts[2];
+      updateDays(); // This will populate the days
+      // Set the day value after a small delay to ensure the options are populated
+      setTimeout(() => {
+        document.getElementById('day-select').value = parts[0];
+      }, 10);
+    }
+  }
+}
+
+function hideBirthDatePicker() {
+  const modal = document.getElementById('birth-date-picker-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+
+  // Remove ESC key listener
+  document.removeEventListener('keydown', handleBirthDatePickerEsc);
+}
+
+function handleBirthDatePickerEsc(e) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    hideBirthDatePicker();
+  }
+}
+
+function updateDays() {
+  const monthSelect = document.getElementById('month-select');
+  const yearSelect = document.getElementById('year-select');
+  const daySelect = document.getElementById('day-select');
+
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+
+  // Store the currently selected day value
+  const currentDay = daySelect.value;
+
+  // Clear days dropdown
+  daySelect.innerHTML = '<option value="">Dag</option>';
+
+  if (month && year) {
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const option = document.createElement('option');
+      option.value = day.toString().padStart(2, '0');
+      option.textContent = day;
+      daySelect.appendChild(option);
+    }
+
+    // Restore the selected day if it's still valid for the new month/year
+    if (currentDay && parseInt(currentDay) <= daysInMonth) {
+      daySelect.value = currentDay;
+    }
+  }
+}
+
+function selectBirthDate() {
+  const month = document.getElementById('month-select').value;
+  const day = document.getElementById('day-select').value;
+  const year = document.getElementById('year-select').value;
+
+  console.log('Birth date selection:', { month, day, year });
+
+  if (month && day && year) {
+    // Ensure day and month are zero-padded
+    const paddedDay = day.padStart(2, '0');
+    const paddedMonth = month.padStart(2, '0');
+    const formattedDate = `${paddedDay}-${paddedMonth}-${year}`;
+
+    console.log('Selected date:', formattedDate);
+    document.getElementById('birth-date-input').value = formattedDate;
+    hideBirthDatePicker();
+  } else {
+    showMessageModal('error', 'Validatie fout!', 'Selecteer een volledige datum (maand, dag en jaar)');
+  }
+}
+
+// Real-time validation for required fields
+function setupRealTimeValidation() {
+  const requiredFields = ['first_name', 'last_name', 'email', 'location'];
+
+  requiredFields.forEach(fieldName => {
+    const input = document.querySelector(`input[name="${fieldName}"]`);
+    if (input) {
+      // Validate on blur (when user leaves the field)
+      input.addEventListener('blur', function() {
+        validateField(this);
+      });
+
+      // Clear error styling on input (when user starts typing)
+      input.addEventListener('input', function() {
+        if (this.classList.contains('border-red-500')) {
+          this.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+          this.classList.add('border-gray-300', 'dark:border-gray-600');
+        }
+      });
+    }
+  });
+}
+
+function validateField(input) {
+  const value = input.value.trim();
+  const fieldName = input.name;
+
+  // Clear existing error styling
+  input.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+  input.classList.add('border-gray-300', 'dark:border-gray-600');
+
+  // Check if field is empty
+  if (!value) {
+    input.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+    input.classList.remove('border-gray-300', 'dark:border-gray-600');
+    return false;
+  }
+
+  // Additional email validation
+  if (fieldName === 'email') {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      input.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+      input.classList.remove('border-gray-300', 'dark:border-gray-600');
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Profile completeness calculation and update
+function calculateProfileCompleteness() {
+  let completedFields = 0;
+  let totalFields = 11; // 8 basic fields + 2 skill categories + 1 experience category
+
+  // Check basic profile fields
+  const basicFields = [
+    document.querySelector('input[name="first_name"]')?.value,
+    document.querySelector('input[name="last_name"]')?.value,
+    document.querySelector('input[name="email"]')?.value,
+    document.querySelector('input[name="phone"]')?.value,
+    document.querySelector('input[name="location"]')?.value,
+    document.querySelector('textarea[name="bio"]')?.value,
+    document.querySelector('input[name="date_of_birth"]')?.value,
+    document.getElementById('profile-image')?.src // Photo exists
+  ];
+
+  basicFields.forEach(field => {
+    if (field && field.trim() !== '') {
+      completedFields++;
+    }
+  });
+
+  // Check skills (2 categories) - find skill containers by their position
+  const allSkillContainers = document.querySelectorAll('.flex.flex-wrap.gap-2');
+  const technicalSkills = allSkillContainers[0] ? allSkillContainers[0].querySelectorAll('.pill:not([onclick*="showAddSkillModal"])').length : 0;
+  const softSkills = allSkillContainers[1] ? allSkillContainers[1].querySelectorAll('.pill:not([onclick*="showAddSkillModal"])').length : 0;
+
+  if (technicalSkills > 0) completedFields++;
+  if (softSkills > 0) completedFields++;
+
+  // Check work experience - find the experiences container more reliably
+  const experienceSection = Array.from(document.querySelectorAll('.card')).find(card => {
+    const heading = card.querySelector('h3');
+    return heading && heading.textContent.includes('Werkervaring');
+  });
+
+  const experiences = experienceSection ? experienceSection.querySelectorAll('.space-y-4 > div[class*="border-l-2"]').length : 0;
+  if (experiences > 0) completedFields++;
+
+  console.log('Profile completeness calculation:', {
+    basicFields: completedFields,
+    technicalSkills,
+    softSkills,
+    experiences,
+    totalCompleted: completedFields,
+    percentage: Math.round((completedFields / totalFields) * 100)
+  });
+
+  return Math.round((completedFields / totalFields) * 100);
+}
+
+function updateProfileCompleteness() {
+  const percentage = calculateProfileCompleteness();
+
+  // Find the percentage text element (the span with font-medium class in the profile completeness section)
+  const percentageElement = document.querySelector('.space-y-2 .font-medium');
+  const progressBar = document.querySelector('.bg-brand-500');
+
+  if (percentageElement) {
+    percentageElement.textContent = percentage + '%';
+  }
+
+  if (progressBar) {
+    progressBar.style.width = percentage + '%';
+  }
+
+  // Update the pill in header
+  const pillElement = document.querySelector('.pill');
+  if (pillElement) {
+    pillElement.textContent = percentage + '% compleet';
+  }
+
+  console.log('Profile completeness updated to:', percentage + '%');
+}
+
+function savePhotoTransform() {
+  // Save transform to localStorage
+  const transformData = {
+    scale: currentScale,
+    translateX: currentTranslateX,
+    translateY: currentTranslateY
+  };
+  localStorage.setItem('photoTransform', JSON.stringify(transformData));
+}
+
+function loadPhotoTransform() {
+  // Load transform from localStorage
+  const savedTransform = localStorage.getItem('photoTransform');
+  if (savedTransform) {
+    try {
+      const transformData = JSON.parse(savedTransform);
+      currentScale = transformData.scale || 1;
+      currentTranslateX = transformData.translateX || 0;
+      currentTranslateY = transformData.translateY || 0;
+      updateImageTransform();
+    } catch (e) {
+      console.log('Could not load saved transform:', e);
+    }
+  }
+}
+
+function addResizeHandles() {
+  if (!currentImage) return;
+
+  // Remove existing handles
+  const existingHandles = document.querySelectorAll('.resize-handle');
+  existingHandles.forEach(handle => handle.remove());
+
+  // Add resize handles
+  const handles = ['nw', 'ne', 'sw', 'se'];
+  handles.forEach(direction => {
+    const handle = document.createElement('div');
+    handle.className = `resize-handle resize-${direction}`;
+    handle.style.cssText = `
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: #3b82f6;
+      border: 3px solid white;
+      border-radius: 50%;
+      cursor: ${direction === 'nw' || direction === 'se' ? 'nw-resize' : 'ne-resize'};
+      z-index: 20;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    `;
+
+    // Position handles
+    switch(direction) {
+      case 'nw': handle.style.top = '-10px'; handle.style.left = '-10px'; break;
+      case 'ne': handle.style.top = '-10px'; handle.style.right = '-10px'; break;
+      case 'sw': handle.style.bottom = '-10px'; handle.style.left = '-10px'; break;
+      case 'se': handle.style.bottom = '-10px'; handle.style.right = '-10px'; break;
+    }
+
+    handle.addEventListener('mousedown', (e) => startResize(e, direction));
+    handle.addEventListener('touchstart', (e) => startResize(e, direction));
+
+    currentImage.parentElement.appendChild(handle);
+  });
+}
+
+function startDrag(e) {
+  if (e.target.classList.contains('resize-handle')) return;
+
+  isDragging = true;
+  const containerRect = currentImage.parentElement.getBoundingClientRect();
+
+  startX = (e.clientX || e.touches[0].clientX) - containerRect.left;
+  startY = (e.clientY || e.touches[0].clientY) - containerRect.top;
+
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', stopDrag);
+  document.addEventListener('touchmove', drag);
+  document.addEventListener('touchend', stopDrag);
+
+  e.preventDefault();
+}
+
+function drag(e) {
+  if (!isDragging) return;
+
+  const containerRect = currentImage.parentElement.getBoundingClientRect();
+  const mouseX = (e.clientX || e.touches[0].clientX) - containerRect.left;
+  const mouseY = (e.clientY || e.touches[0].clientY) - containerRect.top;
+
+  // Calculate translation relative to center
+  const deltaX = (mouseX - startX) / currentScale;
+  const deltaY = (mouseY - startY) / currentScale;
+
+  // Update translation
+  currentTranslateX += deltaX;
+  currentTranslateY += deltaY;
+
+  // Constrain to container bounds (accounting for scale)
+  const maxTranslate = 100; // Increased for larger container
+  currentTranslateX = Math.max(-maxTranslate, Math.min(maxTranslate, currentTranslateX));
+  currentTranslateY = Math.max(-maxTranslate, Math.min(maxTranslate, currentTranslateY));
+
+  updateImageTransform();
+  savePhotoTransform(); // Save the transform
+
+  startX = mouseX;
+  startY = mouseY;
+}
+
+function stopDrag() {
+  isDragging = false;
+  document.removeEventListener('mousemove', drag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('touchmove', drag);
+  document.removeEventListener('touchend', stopDrag);
+}
+
+function startResize(e, direction) {
+  isResizing = true;
+  const containerRect = currentImage.parentElement.getBoundingClientRect();
+
+  startX = e.clientX || e.touches[0].clientX;
+  startY = e.clientY || e.touches[0].clientY;
+
+  document.addEventListener('mousemove', (e) => resize(e, direction));
+  document.addEventListener('mouseup', stopResize);
+  document.addEventListener('touchmove', (e) => resize(e, direction));
+  document.addEventListener('touchend', stopResize);
+
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function resize(e, direction) {
+  if (!isResizing) return;
+
+  const containerRect = currentImage.parentElement.getBoundingClientRect();
+  const centerX = containerRect.left + containerRect.width / 2;
+  const centerY = containerRect.top + containerRect.height / 2;
+
+  const mouseX = e.clientX || e.touches[0].clientX;
+  const mouseY = e.clientY || e.touches[0].clientY;
+
+  // Calculate distance from center
+  const distanceX = Math.abs(mouseX - centerX);
+  const distanceY = Math.abs(mouseY - centerY);
+  const maxDistance = Math.max(distanceX, distanceY);
+
+  // Calculate new scale based on distance from center
+  const baseDistance = 200; // Base distance for scale 1 (half of 400px)
+  const newScale = Math.max(0.1, Math.min(3, maxDistance / baseDistance));
+
+  currentScale = newScale;
+  updateImageTransform();
+  savePhotoTransform(); // Save the transform
+}
+
+function stopResize() {
+  isResizing = false;
+  document.removeEventListener('mousemove', resize);
+  document.removeEventListener('mouseup', stopResize);
+  document.removeEventListener('touchmove', resize);
+  document.removeEventListener('touchend', stopResize);
+}
+
+// Drag and drop functionality
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+}
+
+function handleDragEnter(e) {
+  e.preventDefault();
+  document.getElementById('drag-overlay').classList.remove('hidden');
+}
+
+function handleDragLeave(e) {
+  e.preventDefault();
+  document.getElementById('drag-overlay').classList.add('hidden');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drag-overlay').classList.add('hidden');
+
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    const file = files[0];
+    if (file.type.startsWith('image/')) {
+      // Create a temporary file input and trigger upload
+      const tempInput = document.createElement('input');
+      tempInput.type = 'file';
+      tempInput.files = files;
+      uploadPhoto(tempInput);
+    }
+  }
+}
+
+// Update profile display function
+function updateProfileDisplay(formData) {
+  const firstName = formData.get('first_name');
+  const lastName = formData.get('last_name');
+  
+  // Update the name in the hero section
+  const nameElement = document.querySelector('.hero-bg .text-mono');
+  if (nameElement) {
+    nameElement.textContent = `${firstName} ${lastName}`;
+  }
+}
+
+// Photo upload
+async function uploadPhoto(input) {
+  if (!input.files[0]) return;
+
+  const file = input.files[0];
+
+  // Client-side validation
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+  if (!allowedTypes.includes(file.type)) {
+    showMessageModal('error', 'Fout!', 'Alleen JPEG, PNG, JPG, GIF, WEBP en SVG bestanden zijn toegestaan.');
+    input.value = '';
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) { // 5MB
+    showMessageModal('error', 'Fout!', 'De foto mag maximaal 5MB groot zijn.');
+    input.value = '';
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  try {
+    console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
+    console.log('FormData contents:', Array.from(formData.entries()));
+
+    const response = await fetch('{{ route("admin.profile.photo") }}', {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'Accept': 'application/json'
+        // Don't set Content-Type, let browser set it for FormData
+      },
+      body: formData
+    });
+
+    console.log('Response status:', response.status);
+    const data = await response.json();
+    console.log('Response data:', data);
+
+    if (data.success) {
+      // Update photo display immediately
+      updatePhotoDisplay(data.photo_url);
+      // Update profile completeness
+      updateProfileCompleteness();
+      showMessageModal('success', 'Succesvol!', data.message);
+
+      // Force reinitialize the photo editor
+      setTimeout(() => {
+        initializePhotoEditor();
+      }, 100);
+    } else {
+      console.error('Upload error:', data);
+      showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+    }
+  } catch (error) {
+    console.error('Upload error:', error);
+    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het uploaden van de foto: ' + error.message);
+  }
+}
+
+// Update photo display function
+function updatePhotoDisplay(photoUrl) {
+  console.log('Updating photo display with URL:', photoUrl);
+
+  const photoContainer = document.getElementById('photo-container');
+  if (photoContainer) {
+    // Remove existing image and handles
+    const existingImage = photoContainer.querySelector('#profile-image');
+    const existingHandles = photoContainer.querySelectorAll('.resize-handle');
+
+    if (existingImage) {
+      existingImage.remove();
+    }
+    existingHandles.forEach(handle => handle.remove());
+
+    // Create new image element
+    const newImage = document.createElement('img');
+    newImage.id = 'profile-image';
+    // Add timestamp to break cache
+    const separator = photoUrl.includes('?') ? '&' : '?';
+    newImage.src = photoUrl + separator + 't=' + Date.now();
+    newImage.alt = 'Profile Photo';
+    newImage.className = 'absolute inset-0 w-full h-full object-contain cursor-move';
+    newImage.draggable = false;
+    
+    // Add error handling for image load
+    newImage.onerror = function() {
+      console.error('Failed to load image:', photoUrl);
+      // Remove the failed image and show default avatar
+      newImage.remove();
+      showDefaultAvatar();
+    };
+    
+    newImage.onload = function() {
+      console.log('Image loaded successfully:', photoUrl);
+    };
+
+    // Insert the new image
+    photoContainer.insertBefore(newImage, photoContainer.firstChild);
+
+    // Update current image reference
+    currentImage = newImage;
+
+    // Reset transform values for new image
+    currentScale = 1;
+    currentTranslateX = 0;
+    currentTranslateY = 0;
+
+    // Setup interactions for the new image
+    setupImageInteractions();
+
+    // Load saved transform for new image
+    loadPhotoTransform();
+
+    console.log('Photo display updated successfully');
+  } else {
+    console.error('Photo container not found');
+  }
+}
+
+// Show default avatar when image fails to load
+function showDefaultAvatar() {
+  const photoContainer = document.getElementById('photo-container');
+  if (photoContainer) {
+    // Remove any existing image
+    const existingImage = photoContainer.querySelector('#profile-image');
+    if (existingImage) {
+      existingImage.remove();
+    }
+    
+    // Show default avatar (the fallback div should already be there)
+    console.log('Showing default avatar');
+  }
+}
+
+// Skill modals
+function showAddSkillModal(type) {
+  document.getElementById('skill-type').value = type;
+  document.getElementById('skill-modal').classList.remove('hidden');
+  document.getElementById('skill-modal').classList.add('flex');
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleSkillModalEsc);
+
+  // Focus on the skill name input with multiple attempts
+  const focusInput = () => {
+    const skillNameInput = document.querySelector('#skill-modal input[name="name"]');
+    if (skillNameInput) {
+      skillNameInput.focus();
+      skillNameInput.select();
+      console.log('Focus set on skill name input');
+    } else {
+      console.log('Skill name input not found');
+    }
+  };
+
+  // Try multiple times to ensure focus works
+  setTimeout(focusInput, 100);
+  setTimeout(focusInput, 300);
+  setTimeout(focusInput, 500);
+}
+
+function handleSkillModalEsc(e) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    hideAddSkillModal();
+  }
+}
+
+function hideAddSkillModal() {
+  document.getElementById('skill-modal').classList.add('hidden');
+  document.getElementById('skill-modal').classList.remove('flex');
+  document.getElementById('skill-form').reset();
+
+  // Remove ESC key listener
+  document.removeEventListener('keydown', handleSkillModalEsc);
+}
+
+document.getElementById('skill-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(this);
+
+  try {
+    const response = await fetch('{{ route("admin.profile.skills.add") }}', {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'Accept': 'application/json'
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      // Add skill to DOM without reload
+      addSkillToDOM(data.skill);
+      hideAddSkillModal();
+      // Update profile completeness
+      updateProfileCompleteness();
+    } else {
+      showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het toevoegen van de vaardigheid.');
+  }
+});
+
+async function removeSkill(skillId) {
+  showConfirmationModal(
+    'Vaardigheid verwijderen',
+    'Weet je zeker dat je deze vaardigheid wilt verwijderen?',
+    async () => {
+      try {
+        const response = await fetch(`{{ route('admin.profile.skills.remove', ':skillId') }}`.replace(':skillId', skillId), {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Remove skill response:', data);
+
+        if (data.success) {
+          // Remove skill from DOM without reload
+          removeSkillFromDOM(skillId);
+          // Update profile completeness
+          updateProfileCompleteness();
+        } else {
+          showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+        }
+      } catch (error) {
+        console.error('Error removing skill:', error);
+        showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van de vaardigheid: ' + error.message);
+      }
+    }
+  );
+}
+
+// Experience modals
+let editingExperienceId = null;
+
+function showAddExperienceModal() {
+  editingExperienceId = null;
+  document.getElementById('experience-modal-title').textContent = 'Werkervaring Toevoegen';
+
+  // Reset button text to "Toevoegen" when adding new experience
+  const submitButton = document.querySelector('#experience-modal button[type="submit"]');
+  if (submitButton) {
+    submitButton.textContent = 'Toevoegen';
+    submitButton.classList.remove('min-w-[120px]');
+    submitButton.classList.remove('flex-1');
+  }
+
+  // Ensure end date field is visible for new experiences
+  const endDateInput = document.getElementById('end-date');
+  const endDateContainer = endDateInput.closest('div');
+  endDateContainer.style.display = 'block';
+  endDateInput.disabled = false;
+
+  // Prevent body scroll
+  document.body.style.overflow = 'hidden';
+
+  document.getElementById('experience-modal').classList.remove('hidden');
+  document.getElementById('experience-modal').classList.add('flex');
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleExperienceModalEsc);
+
+  // Focus on the job title input with multiple attempts
+  const focusInput = () => {
+    const jobTitleInput = document.querySelector('#experience-modal input[name="title"]');
+    if (jobTitleInput) {
+      jobTitleInput.focus();
+      jobTitleInput.select();
+      console.log('Focus set on job title input');
+    } else {
+      console.log('Job title input not found');
+    }
+  };
+
+  // Try multiple times to ensure focus works
+  setTimeout(focusInput, 100);
+  setTimeout(focusInput, 300);
+  setTimeout(focusInput, 500);
+}
+
+function editExperience(experienceId) {
+  editingExperienceId = experienceId;
+  document.getElementById('experience-modal-title').textContent = 'Werkervaring Bewerken';
+
+  // Change button text to "Opslaan" when editing
+  const submitButton = document.querySelector('#experience-modal button[type="submit"]');
+  if (submitButton) {
+    submitButton.textContent = 'Opslaan';
+    submitButton.classList.add('min-w-[120px]');
+    submitButton.classList.remove('flex-1');
+  }
+
+  // Prevent body scroll
+  document.body.style.overflow = 'hidden';
+
+  document.getElementById('experience-modal').classList.remove('hidden');
+  document.getElementById('experience-modal').classList.add('flex');
+
+  // Add ESC key listener
+  document.addEventListener('keydown', handleExperienceModalEsc);
+
+  // Load experience data into form
+  loadExperienceData(experienceId);
+}
+
+function handleExperienceModalEsc(e) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    hideAddExperienceModal();
+  }
+}
+
+function hideAddExperienceModal() {
+  // Restore body scroll
+  document.body.style.overflow = '';
+
+  document.getElementById('experience-modal').classList.add('hidden');
+  document.getElementById('experience-modal').classList.remove('flex');
+  document.getElementById('experience-form').reset();
+  editingExperienceId = null;
+
+  // Remove ESC key listener
+  document.removeEventListener('keydown', handleExperienceModalEsc);
+}
+
+async function loadExperienceData(experienceId) {
+  try {
+    // Fetch fresh data from the server
+    const response = await fetch(`{{ route('admin.profile.experiences.show', ':id') }}`.replace(':id', experienceId), {
+      method: 'GET',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'Accept': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        const experience = data.experience;
+
+        // Fill all form fields
+        document.querySelector('#experience-modal input[name="title"]').value = experience.title || '';
+        document.querySelector('#experience-modal input[name="company"]').value = experience.company || '';
+        document.querySelector('#experience-modal input[name="start_date"]').value = experience.start_date || '';
+        document.querySelector('#experience-modal input[name="end_date"]').value = experience.end_date || '';
+        document.querySelector('#experience-modal textarea[name="description"]').value = experience.description || '';
+
+        // Handle current job checkbox
+        const currentCheckbox = document.getElementById('current-job');
+        if (experience.current) {
+          currentCheckbox.checked = true;
+          toggleEndDate(); // Hide end date field when current job is checked
+        } else {
+          currentCheckbox.checked = false;
+          toggleEndDate(); // Show end date field when current job is NOT checked
+        }
+
+        console.log('Loaded experience data:', experience);
+      }
+    } else {
+      console.error('Failed to load experience data');
+    }
+  } catch (error) {
+    console.error('Error loading experience data:', error);
+    // Fallback: try to extract from DOM
+    const experienceElement = document.querySelector(`button[onclick="editExperience(${experienceId})"]`)?.closest('div[class*="border-l-2"]');
+
+    if (experienceElement) {
+      const titleElement = experienceElement.querySelector('h4');
+      if (titleElement) {
+        document.querySelector('#experience-modal input[name="title"]').value = titleElement.textContent;
+      }
+    }
+  }
+}
+
+function toggleEndDate() {
+  const endDateInput = document.getElementById('end-date');
+  const currentJobCheckbox = document.getElementById('current-job');
+  const endDateContainer = endDateInput.closest('div');
+
+  if (currentJobCheckbox.checked) {
+    // Hide the end date field completely when "Huidige functie" is checked
+    endDateContainer.style.display = 'none';
+    endDateInput.value = '';
+    endDateInput.disabled = true;
+  } else {
+    // Show the end date field when "Huidige functie" is NOT checked
+    endDateContainer.style.display = 'block';
+    endDateInput.disabled = false;
+  }
+}
+
+document.getElementById('experience-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  // Get form element and create FormData from it
+  const form = document.getElementById('experience-form');
+  const formData = new FormData(form);
+
+  // Ensure current checkbox is properly handled
+  const currentCheckbox = document.getElementById('current-job');
+  if (currentCheckbox && currentCheckbox.checked) {
+    formData.set('current', '1');
+  } else {
+    formData.set('current', '0');
+  }
+
+  // Debug: Log all form inputs
+  console.log('All form inputs:');
+  const inputs = form.querySelectorAll('input, textarea, select');
+  inputs.forEach(input => {
+    console.log(`${input.name}: "${input.value}"`);
+  });
+
+  // Special debug for birth date
+  const birthDateInput = document.getElementById('birth-date-input');
+  if (birthDateInput) {
+    console.log('Birth date input value:', birthDateInput.value);
+  }
+
+  // Debug: Log FormData
+  console.log('FormData contents:');
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: "${value}"`);
+  }
+
+  try {
+    let url, method;
+
+    if (editingExperienceId) {
+      // Editing existing experience
+      url = `{{ route('admin.profile.experiences.update', ':id') }}`.replace(':id', editingExperienceId);
+      method = 'PUT';
+    } else {
+      // Adding new experience
+      url = '{{ route("admin.profile.experiences.add") }}';
+      method = 'POST';
+    }
+
+    // Try JSON approach first
+    const jsonData = {
+      title: formData.get('title'),
+      company: formData.get('company'),
+      start_date: formData.get('start_date'),
+      end_date: formData.get('end_date'),
+      description: formData.get('description'),
+      current: formData.get('current'),
+      _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    };
+
+    console.log('JSON data being sent:', jsonData);
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(jsonData)
+    });
+
+    // Debug: Log response
+    console.log('Response status:', response.status);
+    const responseText = await response.text();
+    console.log('Response text:', responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse JSON response:', e);
+      showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwerken van de response.');
+      return;
+    }
+
+    if (data.success) {
+      if (editingExperienceId) {
+        // Update existing experience in DOM
+        updateExperienceInDOM(data.experience);
+      } else {
+        // Add new experience to DOM
+        addExperienceToDOM(data.experience);
+      }
+      hideAddExperienceModal();
+      // Update profile completeness
+      updateProfileCompleteness();
+    } else {
+      // Handle validation errors more gracefully
+      let errorMessage = 'Er is een fout opgetreden';
+      let fieldWithError = null;
+
+      if (data.errors) {
+        // Format validation errors with field names
+        const errorMessages = [];
+        if (data.errors.first_name) {
+          errorMessages.push('Voornaam: ' + data.errors.first_name[0]);
+          fieldWithError = 'first_name';
+        }
+        if (data.errors.last_name) {
+          errorMessages.push('Achternaam: ' + data.errors.last_name[0]);
+          fieldWithError = 'last_name';
+        }
+        if (data.errors.email) {
+          errorMessages.push('E-mailadres: ' + data.errors.email[0]);
+          fieldWithError = 'email';
+        }
+        if (data.errors.phone) {
+          errorMessages.push('Telefoonnummer: ' + data.errors.phone[0]);
+          fieldWithError = 'phone';
+        }
+        if (data.errors.location) {
+          errorMessages.push('Locatie: ' + data.errors.location[0]);
+          fieldWithError = 'location';
+        }
+        if (data.errors.bio) {
+          errorMessages.push('Bio: ' + data.errors.bio[0]);
+          fieldWithError = 'bio';
+        }
+        if (data.errors.date_of_birth) {
+          errorMessages.push('Geboortedatum: ' + data.errors.date_of_birth[0]);
+          fieldWithError = 'date_of_birth';
+        }
+
+        // Fallback to original errors if no specific mapping
+        if (errorMessages.length === 0) {
+          const errorList = Object.values(data.errors).flat();
+          errorMessages.push(...errorList);
+        }
+
+        errorMessage = errorMessages.join(', ');
+      } else if (data.message) {
+        errorMessage = data.message;
+      }
+
+      showMessageModal('error', 'Validatie fout!', errorMessage);
+
+      // Highlight the field with error and focus on it
+      if (fieldWithError) {
+        highlightFieldError(fieldWithError);
+      }
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van de werkervaring.');
+  }
+});
+
+async function removeExperience(experienceId) {
+  showConfirmationModal(
+    'Werkervaring verwijderen',
+    'Weet je zeker dat je deze werkervaring wilt verwijderen?',
+    async () => {
+      try {
+        const response = await fetch(`{{ route('admin.profile.experiences.remove', ':experienceId') }}`.replace(':experienceId', experienceId), {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Remove experience from DOM without reload
+          removeExperienceFromDOM(experienceId);
+          // Update profile completeness
+          updateProfileCompleteness();
+        } else {
+          showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van de werkervaring.');
+      }
+    }
+  );
+}
+</script>
+
+<!-- CV Remove Confirmation Modal -->
+<div id="cv-remove-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative border border-gray-200 dark:border-gray-700 shadow-xl">
+        <button onclick="hideCVRemoveModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+
+        <div class="text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 mb-4">
+                <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+            </div>
+
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                CV verwijderen
+            </h3>
+
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Weet je zeker dat je het CV wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+            </p>
+
+            <div class="flex space-x-3">
+                <button onclick="hideCVRemoveModal()" class="flex-1 px-4 py-2 font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors">
+                    Annuleren
+                </button>
+                <button onclick="confirmCVRemove()" class="flex-1 px-4 py-2 font-medium text-white !bg-red-600 hover:!bg-red-700 rounded-md transition-colors" style="background-color: #dc2626 !important;">
+                    Verwijderen
+                </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@endsection
+
+@if($user->company)
+<!-- Google Maps Initialization -->
+@if(!empty($googleMapsApiKey))
+@push('scripts')
+<script>
+// Store reference to initGoogleMap function
+let initGoogleMapFunction = null;
+
+// Define callback function globally before loading the script
+window.initGoogleMapsCallback = function() {
+    // Wait for DOM to be ready and function to be defined
+    function tryInit() {
+        if (typeof initGoogleMapFunction === 'function') {
+            initGoogleMapFunction();
+        } else {
+            setTimeout(tryInit, 50);
+        }
+    }
+    tryInit();
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const mapElement = document.getElementById('company_contact_map');
+    if (!mapElement) return;
+
+    @php
+        // Get address for geocoding and popup display
+        $streetAddress = '';
+        $postalCity = '';
+        $country = '';
+        $lat = null;
+        $lng = null;
+        $defaultZoom = $googleMapsZoom;
+        $fullAddress = '';
+        
+        if ($user->company->mainLocation) {
+            $streetAddress = trim(($user->company->mainLocation->street ?? '') . ' ' . ($user->company->mainLocation->house_number ?? '') . ($user->company->mainLocation->house_number_extension ? '-' . $user->company->mainLocation->house_number_extension : ''));
+            $postalCity = trim(($user->company->mainLocation->postal_code ?? '') . ' ' . ($user->company->mainLocation->city ?? ''));
+            $country = $user->company->mainLocation->country ?: '';
+            $lat = $user->company->mainLocation->latitude;
+            $lng = $user->company->mainLocation->longitude;
+            
+            // Build full address for geocoding
+            $addressParts = array_filter([
+                $streetAddress,
+                $postalCity,
+                $country
+            ]);
+            $fullAddress = implode(', ', $addressParts);
+        } elseif ($user->company->street || $user->company->city) {
+            $streetAddress = trim(($user->company->street ?? '') . ' ' . ($user->company->house_number ?? '') . ($user->company->house_number_extension ? '-' . $user->company->house_number_extension : ''));
+            $postalCity = trim(($user->company->postal_code ?? '') . ' ' . ($user->company->city ?? ''));
+            $country = $user->company->country ?: '';
+            $lat = $user->company->latitude;
+            $lng = $user->company->longitude;
+            
+            // Build full address for geocoding
+            $addressParts = array_filter([
+                $streetAddress,
+                $postalCity,
+                $country
+            ]);
+            $fullAddress = implode(', ', $addressParts);
+        }
+        
+        // Store original coordinates before any fallback
+        $originalLat = $lat;
+        $originalLng = $lng;
+        
+        // Check if we have valid stored coordinates (not fallback)
+        // Coordinates must be numeric, not null, not empty, and not zero (0,0 is invalid for Netherlands)
+        $hasCoordinates = false;
+        if ($originalLat !== null && $originalLng !== null) {
+            $originalLat = is_numeric($originalLat) ? (float)$originalLat : null;
+            $originalLng = is_numeric($originalLng) ? (float)$originalLng : null;
+            $hasCoordinates = $originalLat !== null && $originalLng !== null && 
+                             $originalLat != 0 && $originalLng != 0 &&
+                             abs($originalLat) <= 90 && abs($originalLng) <= 180;
+        }
+        
+        // Use original coordinates if we have them
+        if ($hasCoordinates) {
+            $lat = $originalLat;
+            $lng = $originalLng;
+        } elseif (empty($fullAddress) && empty($streetAddress) && empty($postalCity)) {
+            // Only use default center if we have no coordinates AND no address to geocode
+            $lat = $googleMapsCenterLat;
+            $lng = $googleMapsCenterLng;
+        } else {
+            // If we have an address but no coordinates, keep lat/lng as null for geocoding
+            $lat = null;
+            $lng = null;
+        }
+    @endphp
+
+    function initGoogleMap() {
+        if (typeof google === 'undefined' || typeof google.maps === 'undefined' || typeof google.maps.Map === 'undefined') {
+            console.error('Google Maps API not loaded');
+            return;
+        }
+
+        const hasCoordinates = {{ $hasCoordinates ? 'true' : 'false' }};
+        const mapLat = {{ $hasCoordinates && $lat ? $lat : 'null' }};
+        const mapLng = {{ $hasCoordinates && $lng ? $lng : 'null' }};
+        const mapZoom = hasCoordinates ? 16 : {{ $defaultZoom }};
+        const defaultCenterLat = {{ $googleMapsCenterLat }};
+        const defaultCenterLng = {{ $googleMapsCenterLng }};
+
+        @if($fullAddress || $streetAddress || $postalCity)
+        const streetAddress = @json($streetAddress);
+        const postalCity = @json($postalCity);
+        const country = @json($country);
+        const companyName = @json($user->company->name);
+        const fullAddress = @json($fullAddress);
+        const addressText = fullAddress || (streetAddress + (postalCity ? ', ' + postalCity : '') + (country ? ', ' + country : ''));
+        
+        // Determine initial map center
+        let initialCenter;
+        let initialZoom = mapZoom;
+        if (hasCoordinates) {
+            initialCenter = { lat: parseFloat(mapLat), lng: parseFloat(mapLng) };
+        } else if (addressText && addressText.trim() !== '') {
+            // If we have an address but no coordinates, we'll geocode it
+            // Use a wider zoom to show Netherlands while geocoding
+            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
+            initialZoom = 7; // Wider zoom to show Netherlands
+        } else {
+            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
+        }
+
+        const googleMap = new google.maps.Map(mapElement, {
+            center: initialCenter,
+            zoom: initialZoom,
+            mapTypeId: '{{ $googleMapsType }}',
+            mapTypeControl: false,
+            mapId: 'COMPANY_MAP'
+        });
+        
+        @if($hasCoordinates)
+        // Use stored coordinates
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+            position: { lat: parseFloat(mapLat), lng: parseFloat(mapLng) },
+            map: googleMap,
+            title: addressText
+        });
+        
+        // Center map on marker
+        googleMap.setCenter({ lat: parseFloat(mapLat), lng: parseFloat(mapLng) });
+        googleMap.setZoom(16);
+
+        // Create HTML for InfoWindow with company name and address
+        let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
+        if (companyName) {
+            addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
+        }
+        if (streetAddress) {
+            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
+        }
+        if (postalCity) {
+            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
+        }
+        if (country) {
+            addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
+        }
+        addressHtml += '</div>';
+        
+        const infoWindow = new google.maps.InfoWindow({
+            content: addressHtml,
+            maxWidth: 300
+        });
+        
+        infoWindow.open(googleMap, marker);
+        @else
+        // Geocode address immediately if no coordinates
+        if (addressText && addressText.trim() !== '') {
+            const geocoder = new google.maps.Geocoder();
+            // Execute geocoding immediately - this is async but will update the map as soon as results arrive
+            geocoder.geocode({ address: addressText }, function(results, status) {
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
+                    const lat = location.lat();
+                    const lng = location.lng();
+                    
+                    // Create marker at geocoded location
+                    const marker = new google.maps.marker.AdvancedMarkerElement({
+                        position: { lat: lat, lng: lng },
+                        map: googleMap,
+                        title: addressText
+                    });
+
+                    // Create HTML for InfoWindow with company name and address
+                    let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
+                    if (companyName) {
+                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
+                    }
+                    if (streetAddress) {
+                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
+                    }
+                    if (postalCity) {
+                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
+                    }
+                    if (country) {
+                        addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
+                    }
+                    addressHtml += '</div>';
+                    
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: addressHtml,
+                        maxWidth: 300
+                    });
+                    
+                    // Open InfoWindow immediately
+                    infoWindow.open(googleMap, marker);
+                    
+                    // Center and zoom to the geocoded location AFTER marker and infowindow are created
+                    googleMap.setCenter({ lat: lat, lng: lng });
+                    googleMap.setZoom(16);
+                } else {
+                    console.error('Geocoding failed for address:', addressText, 'Status:', status);
+                }
+            });
+        } else {
+            console.warn('No address text available for geocoding');
+        }
+        @endif
+        @endif
+    }
+    
+    // Store function reference globally
+    initGoogleMapFunction = initGoogleMap;
+    
+    // Fallback: also check if Google Maps is already loaded
+    if (typeof google !== 'undefined' && typeof google.maps !== 'undefined' && typeof google.maps.Map !== 'undefined') {
+        setTimeout(function() {
+            if (typeof initGoogleMapFunction === 'function') {
+                initGoogleMapFunction();
+            }
+        }, 100);
+    }
+});
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}&libraries=places,geocoding,marker&callback=initGoogleMapsCallback&loading=async"></script>
+@endif
+@endpush
+@endif

@@ -1,0 +1,23 @@
+---
+description: Na opslaan in admin terug naar dezelfde scrollpositie; standaard voor alle pagina's
+alwaysApply: true
+---
+
+# Admin: scrollpositie na opslaan
+
+Na het opslaan van een formulier in de admin moet de gebruiker **terug op dezelfde scrollpositie** komen. Dit gedrag geldt **voor alle admin-pagina's**.
+
+## Waar het zit
+
+- **Layout**: `backend/resources/views/admin/layouts/app.blade.php`
+  - Bij `session('success')` krijgt `<body>` het attribuut `data-admin-just-saved="1"`.
+  - Script "Scrollpositie na opslaan": bij **submit** van een POST-formulier wordt `window.scrollY` in `sessionStorage` gezet onder de key `admin-scroll-after-save`. Bij **paginaload** wordt, als er een success-melding is (body-attr of URL-param `saved`, `updated`, `created`), de opgeslagen positie hersteld.
+
+## Bij nieuwe admin-formulieren
+
+- **Niets extra’s doen** voor scroll: het layout-script regelt het voor alle POST-formulieren.
+- Redirect na opslaan met `->with('success', '...')` en eventueel `?saved=1` (of `updated`/`created`) in de URL; dan wordt de scroll automatisch hersteld.
+
+## Niet doen
+
+- Geen pagina-specifieke scroll-opslag of -herstel meer toevoegen (geen eigen `sessionStorage`-key voor scroll). Het layout-script is de enige bron.

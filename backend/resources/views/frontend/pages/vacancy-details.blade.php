@@ -22,15 +22,37 @@
           </ol>
       </nav>
 
-      <!-- Back to Vacatures Button -->
+      <!-- Back-button: herkomst (dashboard / matches / favorieten / vacatures) -->
       <div class="mb-6">
+          @if(request('from') === 'dashboard')
+          <a href="{{ route('dashboard') }}" class="inline-flex items-center text-sm text-muted dark:text-muted-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
+              Terug naar dashboard
+          </a>
+          @elseif(request('from') === 'matches')
+          <a href="{{ route('matches', request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort'])) }}" class="inline-flex items-center text-sm text-muted dark:text-muted-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
+              Terug naar matches
+          </a>
+          @elseif(request('from') === 'favorites')
+          <a href="{{ route('favorites.index') }}" class="inline-flex items-center text-sm text-muted dark:text-muted-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
+              Terug naar favorieten
+          </a>
+          @else
           <a href="{{ route('jobs.index', request()->only(['q', 'location', 'distance', 'category', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'remote_work', 'travel_expenses', 'skills', 'sort'])) }}" class="inline-flex items-center text-sm text-muted dark:text-muted-dark hover:text-primary dark:hover:text-primary-dark transition-colors">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
               </svg>
               Terug naar vacatures
           </a>
-          
+          @endif
       </div>
 
     <!-- Vacancy Header -->
@@ -81,7 +103,7 @@
                     @endif
                     
                     @if($vacancy->remote_work)
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-900">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
                             Remote
                         </span>
                     @endif
@@ -95,6 +117,7 @@
             </div>
             
             <div class="flex flex-col gap-3 lg:min-w-[200px]">
+                @auth
                 <button onclick="startApplication()" class="btn btn-primary w-full">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
@@ -103,11 +126,19 @@
                 </button>
                 
                 <button onclick="saveVacancy()" class="btn btn-outline w-full">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
                     </svg>
                     Opslaan
                 </button>
+                @else
+                <a href="{{ route('login') }}" class="btn btn-primary w-full">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    Log in om te solliciteren
+                </a>
+                @endauth
             </div>
         </div>
     </div>
@@ -208,7 +239,10 @@
               <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Gerelateerde Vacatures</h2>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   @foreach($relatedVacancies as $related)
-                      <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div class="related-vacancy-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                           data-href="{{ route('frontend.vacancy-details', ['companySlug' => $related->company->slug, 'vacancyId' => $related->id]) }}"
+                           role="link"
+                           tabindex="0">
                           <h3 class="font-semibold text-gray-900 dark:text-white mb-2">{{ $related->title }}</h3>
                           
                           @if($related->company->is_intermediary)
@@ -224,7 +258,7 @@
                               @endif
                           </div>
                           
-                          <a href="{{ route('frontend.vacancy-details', ['company' => $related->company->slug, 'vacancy' => $related->id]) }}" 
+                          <a href="{{ route('frontend.vacancy-details', ['companySlug' => $related->company->slug, 'vacancyId' => $related->id]) }}" 
                              class="text-primary dark:text-primary-dark hover:underline text-sm font-medium">
                               Bekijk vacature →
                           </a>
@@ -235,12 +269,32 @@
       @endif
 
 <script>
+(function() {
+    document.querySelectorAll('.related-vacancy-card[data-href]').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('a[href]')) {
+                e.preventDefault();
+                window.location.href = this.getAttribute('data-href');
+            }
+        });
+        card.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                window.location.href = this.getAttribute('data-href');
+            }
+        });
+    });
+})();
 function startApplication() {
     // Hier zou de AI chatbot flow gestart worden
     alert('AI Sollicitatie Assistant wordt gestart...\n\nDeze functie wordt binnenkort geïmplementeerd.');
 }
 
 async function saveVacancy() {
+    @guest
+    window.location.href = '{{ route("login") }}';
+    return;
+    @else
     console.log('Starting saveVacancy function');
     
     try {
@@ -270,8 +324,16 @@ async function saveVacancy() {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Error response:', errorText);
-            throw new Error(`HTTP error! status: ${response.status}`);
+            console.error('Response status:', response.status);
+            console.error('Error response (raw):', errorText.substring(0, 500));
+            let serverMessage = '';
+            try {
+                const errData = JSON.parse(errorText);
+                if (errData && errData.message) serverMessage = '\n\n' + errData.message;
+            } catch (_) {
+                if (errorText.trim().length > 0) serverMessage = '\n\n(Server gaf geen JSON terug. Zie console voor details.)';
+            }
+            throw new Error('HTTP ' + response.status + serverMessage);
         }
 
         const data = await response.json();
@@ -282,16 +344,16 @@ async function saveVacancy() {
             const button = document.querySelector('button[onclick="saveVacancy()"]');
             if (data.isFavorited) {
                 button.innerHTML = `
-                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 mr-2 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
                     </svg>
                     Opgeslagen
                 `;
-                button.classList.remove('btn-outline');
-                button.classList.add('btn-primary');
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-outline');
             } else {
                 button.innerHTML = `
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
                     </svg>
                     Opslaan
@@ -299,20 +361,20 @@ async function saveVacancy() {
                 button.classList.remove('btn-primary');
                 button.classList.add('btn-outline');
             }
-            
-            // Show success message
-            showFavoriteModal(data.message);
         } else {
             alert('Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
         }
     } catch (error) {
         console.error('Error details:', error);
         console.error('Error message:', error.message);
-        alert('Er is een fout opgetreden bij het opslaan van de vacature. Controleer de console voor meer details.');
+        const msg = 'Er is een fout opgetreden bij het opslaan van de vacature.' + (error.message ? '\n\n' + error.message : '');
+        alert(msg);
     }
+    @endauth
 }
 
-// Check favorite status on page load
+// Check favorite status on page load (only if user is logged in)
+@auth
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         const response = await fetch('{{ route("favorites.check", $vacancy) }}');
@@ -320,19 +382,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         if (data.success && data.isFavorited) {
             const button = document.querySelector('button[onclick="saveVacancy()"]');
-            button.innerHTML = `
-                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                </svg>
-                Opgeslagen
-            `;
-            button.classList.remove('btn-outline');
-            button.classList.add('btn-primary');
+            if (button) {
+                button.innerHTML = `
+                    <svg class="w-5 h-5 mr-2 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                    </svg>
+                    Opgeslagen
+                `;
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-outline');
+            }
         }
     } catch (error) {
         console.error('Error checking favorite status:', error);
     }
 });
+@endauth
 </script>
 
 <!-- Favorite Success Modal -->
@@ -355,7 +420,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 </button>
             </div>
             <p id="favorite-message" class="text-gray-600 dark:text-gray-300 mb-6"></p>
-            <button onclick="hideFavoriteModal()" class="btn btn-primary w-full">Sluiten</button>
+            <button onclick="hideFavoriteModal()" class="btn btn-primary w-full flex items-center justify-center">Sluiten</button>
         </div>
     </div>
 </div>

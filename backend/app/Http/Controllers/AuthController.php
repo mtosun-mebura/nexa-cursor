@@ -67,6 +67,16 @@ class AuthController extends Controller
         }
 
         $user = User::where('email', $request->email)->firstOrFail();
+        
+        // Check if email is verified
+        if (!$user->email_verified_at) {
+            Auth::logout();
+            return response()->json([
+                'message' => 'Je e-mailadres is nog niet geverifieerd. Controleer je inbox voor de verificatielink of vraag een nieuwe aan via de beheerder.',
+                'error' => 'email_not_verified'
+            ], 403);
+        }
+        
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

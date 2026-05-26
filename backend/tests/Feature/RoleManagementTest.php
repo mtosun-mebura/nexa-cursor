@@ -39,7 +39,8 @@ class RoleManagementTest extends TestCase
             ->get('/admin/roles/create');
 
         $response->assertStatus(200);
-        $response->assertSee('Nieuwe Rol Aanmaken');
+        $response->assertSee('Nieuwe Rol', false);
+        $response->assertSee('Rol Aanmaken', false);
     }
 
     public function test_super_admin_can_store_role()

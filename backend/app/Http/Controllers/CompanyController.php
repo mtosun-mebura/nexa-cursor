@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -11,9 +12,11 @@ class CompanyController extends Controller
 {
     public function index(Request $request)
     {
-        $companies = Company::withCount(['users', 'vacancies'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $query = Company::withCount('users');
+        if (ModuleSchemaAvailability::vacanciesTableExists()) {
+            $query->withCount('vacancies');
+        }
+        $companies = $query->orderBy('created_at', 'desc')->paginate(15);
 
         return response()->json($companies);
     }

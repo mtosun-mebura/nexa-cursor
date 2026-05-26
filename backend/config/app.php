@@ -123,4 +123,11 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Thema's bronmap (binnen app, buiten public – niet via web bereikbaar)
+    |--------------------------------------------------------------------------
+    */
+    'themas_source_path' => env('THEMAS_SOURCE_PATH', base_path('themas')),
+
 ];

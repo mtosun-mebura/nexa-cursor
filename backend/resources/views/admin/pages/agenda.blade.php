@@ -3,1824 +3,1555 @@
 @section('title', 'Agenda - NEXA Skillmatching')
 
 @section('content')
-<!-- FullCalendar CSS -->
-<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
 <style>
-  .fc {
-    font-family: inherit;
-  }
-
-  /* Clean toolbar styling */
-  .fc-toolbar {
-    margin-bottom: 1.5rem;
-    padding: 1rem 0;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .fc-toolbar-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #374151;
-  }
-
-  .dark .fc-toolbar-title {
-    color: #f9fafb;
-  }
-
-  /* Clean button styling */
-  .fc-button {
-    background: #3b82f6;
-    border: 1px solid #3b82f6;
-    color: white;
-    border-radius: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    margin: 0 0.125rem;
-    transition: all 0.2s ease;
-  }
-
-  .fc-button:hover {
-    background: #2563eb;
-    border-color: #2563eb;
-  }
-
-  .fc-button:focus {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    outline: none;
-  }
-
-  .fc-button-primary:not(:disabled):active,
-  .fc-button-primary:not(:disabled).fc-button-active {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
-  }
-
-  /* Clean event styling with proper height and no margins */
-  .fc-event {
-    border-radius: 0.375rem;
-    border: 1px solid #ffffff !important;
-    padding: 0.3rem 0.5rem 0.2rem 0.6rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin: 0 !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-    min-height: 3.5rem !important;
-    max-height: 3.5rem !important;
+  /* Calendar container styles */
+  .agenda-container {
     display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Header styles */
+  .agenda-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    overflow: hidden !important;
-    position: relative;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    background: #3b82f6 !important;
-    color: white !important;
-  }
-
-  .fc-event:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-  }
-
-  .fc-event-title {
-    font-weight: 600;
-    line-height: 1.2;
-    font-size: 0.8rem;
-    color: white !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-    word-wrap: normal;
-    hyphens: none;
-  }
-
-  .fc-daygrid-event {
-    margin: 0 !important;
-    min-height: 1.5rem;
-    top: 0 !important;
-  }
-
-  .fc-timegrid-event {
-    margin: 0 !important;
-    min-height: 3.5rem !important;
-    max-height: 3.5rem !important;
-    top: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-  }
-
-  /* Clean event colors */
-  .fc-event {
-    background: #3b82f6 !important;
-    color: white !important;
-    border: 1px solid #ffffff !important;
-  }
-
-  .fc-event.fc-event-interview {
-    background: #3b82f6 !important;
-    color: white !important;
-    border: 1px solid #ffffff !important;
-  }
-  
-  .fc-event.fc-event-meeting {
-    background: #10b981 !important;
-    color: white !important;
-    border: 1px solid #ffffff !important;
-  }
-  
-  .fc-event.fc-event-call {
-    background: #f59e0b !important;
-    color: white !important;
-    border: 1px solid #ffffff !important;
-  }
-  
-  .fc-event.fc-event-assessment {
-    background: #ef4444 !important;
-    color: white !important;
-    border: 1px solid #ffffff !important;
-  }
-
-  /* Clean day numbers */
-  .fc-daygrid-day-number {
-    color: #374151;
-    font-weight: 500;
-    font-size: 0.875rem;
-    padding: 0.5rem;
-  }
-
-  /* Clean headers */
-  .fc-col-header-cell {
-    background: #f8fafc;
-    color: #374151;
-    font-weight: 600;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.875rem;
+    padding: 1.5rem 0;
     border-bottom: 1px solid #e5e7eb;
   }
 
-  /* Clean time slots with proper height for events */
-  .fc-timegrid-slot {
-    height: 4rem !important;
-    border-bottom: 1px solid #f1f5f9;
-    min-height: 4rem !important;
+  .dark .agenda-header {
+    border-bottom-color: #4b5563;
   }
 
-  .fc-timegrid-slot-label {
-    font-size: 0.8rem;
-    color: #6b7280;
-    font-weight: 500;
-    padding: 0.5rem;
+  .agenda-title-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .fc-timegrid-axis {
-    background: #f8fafc;
-    border-right: 1px solid #e5e7eb;
+  #user-filter {
+    font-size: 0.875rem;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    min-height: 38px;
+    height: 38px;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    background: white;
+    color: #374151;
+    line-height: 1.5;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 12px;
+    cursor: pointer;
   }
 
-  /* Clean scrollgrid */
-  .fc-scrollgrid {
+  .dark #user-filter {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #f9fafb;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f9fafb' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 12px;
+  }
+
+  #user-filter:hover {
+    border-color: #9ca3af;
+  }
+
+  .dark #user-filter:hover {
+    border-color: #6b7280;
+  }
+
+  .agenda-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #111827;
+    min-width: 250px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .dark .agenda-title {
+    color: #f9fafb;
+    font-weight: 700;
+  }
+
+  .agenda-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  /* View buttons container - fixed width to prevent shifting */
+  .view-buttons-container {
+    display: flex;
+    gap: 0.5rem;
+    min-width: 200px;
+    justify-content: center;
+  }
+
+  /* Calendar views */
+  .calendar-view {
+    display: none;
+  }
+
+  .calendar-view.active {
+    display: block;
+  }
+
+  /* Month view */
+  .month-view {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e5e7eb;
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     overflow: hidden;
   }
 
-  .fc-scrollgrid-sync-table {
-    border-radius: 0.5rem;
+  .dark .month-view {
+    background: #374151;
+    border-color: #4b5563;
   }
 
-  /* Clean day cells */
-  .fc-daygrid-day {
-    border-right: 1px solid #f1f5f9;
-    border-bottom: 1px solid #f1f5f9;
-    padding: 0 !important;
-    min-height: 2rem;
-  }
-
-  .fc-daygrid-day:hover {
-    background-color: #f8fafc;
-  }
-
-  /* Clean table rows with proper height */
-  .fc-timegrid tr {
-    padding: 0 !important;
-    height: 4rem !important;
-    min-height: 4rem !important;
-  }
-
-  .fc-timegrid td {
-    padding: 0 !important;
-    vertical-align: top;
-    height: 4rem !important;
-    min-height: 4rem !important;
-  }
-
-  .fc-daygrid tr {
-    padding: 0 !important;
-  }
-
-  .fc-daygrid td {
-    padding: 0 !important;
-    vertical-align: top;
-  }
-
-  /* Clean business hours */
-  .fc-timegrid-slot.fc-timegrid-slot-minor {
-    background-color: #ffffff;
-  }
-
-  .fc-timegrid-slot.fc-timegrid-slot-major {
-    background-color: #f9fafb;
+  .month-day-header {
+    background: #f9fafb;
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
     border-bottom: 1px solid #e5e7eb;
   }
 
-  /* Comprehensive Dark Mode Styles */
-  [data-theme="dark"] .fc-toolbar {
+  .dark .month-day-header {
+    background: #374151;
+    color: #d1d5db;
+    border-bottom-color: #4b5563;
+  }
+
+  .month-day-cell {
+    background: white;
+    min-height: 10rem;
+    padding: 0.5rem;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .dark .month-day-cell {
     background: #1f2937;
-    border-bottom-color: #4b5563;
-  }
-
-  [data-theme="dark"] .fc-toolbar-title {
     color: #f9fafb;
   }
 
-  [data-theme="dark"] .fc-button {
-    background: #4b5563;
+  .month-day-cell:hover {
+    background: #f9fafb;
+  }
+
+  .dark .month-day-cell:hover {
+    background: #374151;
+  }
+
+  .month-day-cell.has-events {
+    cursor: pointer;
+  }
+
+  .month-day-number {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+  }
+
+  .dark .month-day-number {
+    color: #d1d5db;
+  }
+
+  .month-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .month-event {
+    background: #3b82f6;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .month-event:hover {
+    background: #2563eb;
+  }
+
+  /* Week view */
+  .week-view {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    gap: 1px;
+    background: #e5e7eb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: visible;
+    position: relative;
+  }
+
+  .dark .week-view {
+    background: #374151;
     border-color: #4b5563;
-    color: #f9fafb;
   }
 
-  [data-theme="dark"] .fc-button:hover {
-    background: #6b7280;
-    border-color: #6b7280;
+  .week-time-column {
+    background: #f9fafb;
+    border-right: 1px solid #e5e7eb;
   }
 
-  [data-theme="dark"] .fc-button:focus {
-    box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.3);
-  }
-
-  [data-theme="dark"] .fc-button-primary:not(:disabled):active,
-  [data-theme="dark"] .fc-button-primary:not(:disabled).fc-button-active {
-    background: #374151;
-    border-color: #374151;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-number {
-    color: #d1d5db;
-  }
-
-  [data-theme="dark"] .fc-col-header-cell {
-    background: #374151;
-    color: #d1d5db;
-    border-bottom-color: #4b5563;
-  }
-
-  [data-theme="dark"] .fc-timegrid-axis {
+  .dark .week-time-column {
     background: #374151;
     border-right-color: #4b5563;
   }
 
-  [data-theme="dark"] .fc-timegrid-slot-label {
+  .week-time-slot {
+    height: 4rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.75rem;
+    color: #6b7280;
+    display: flex;
+    align-items: flex-start;
+    background: #f9fafb;
+  }
+
+  .dark .week-time-slot {
+    border-bottom-color: #4b5563;
+    color: #9ca3af;
+    background: #374151;
+  }
+
+  .week-day-column {
+    background: white;
+  }
+
+  .dark .week-day-column {
+    background: #1f2937;
+  }
+
+  .week-day-header {
+    background: #f9fafb;
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .dark .week-day-header {
+    background: #374151;
+    color: #d1d5db;
+    border-bottom-color: #4b5563;
+  }
+
+  .week-hour-slot {
+    height: 4rem;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+    padding: 0.25rem;
+    background: white;
+  }
+
+  .dark .week-hour-slot {
+    border-bottom-color: #4b5563;
+    background: #1f2937;
+  }
+
+  .week-event {
+    position: absolute;
+    background: #3b82f6;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .week-event:hover {
+    background: #2563eb;
+    z-index: 2;
+  }
+
+  .week-event-time {
+    font-size: 0.65rem;
+    opacity: 0.9;
+  }
+
+  .week-event-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .week-day-events-container {
+    position: relative;
+    height: 100%;
+  }
+
+  /* Day view */
+  .day-view {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 1px;
+    background: #e5e7eb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .dark .day-view {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .day-time-column {
+    background: #f9fafb;
+    border-right: 1px solid #e5e7eb;
+  }
+
+  .dark .day-time-column {
+    background: #374151;
+    border-right-color: #4b5563;
+  }
+
+  .day-time-slot {
+    height: 4rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.75rem;
+    color: #6b7280;
+    display: flex;
+    align-items: flex-start;
+    background: #f9fafb;
+  }
+
+  .dark .day-time-slot {
+    border-bottom-color: #4b5563;
+    color: #9ca3af;
+    background: #374151;
+  }
+
+  .day-content-column {
+    background: white;
+  }
+
+  .dark .day-content-column {
+    background: #1f2937;
+  }
+
+  .day-header {
+    background: #f9fafb;
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .dark .day-header {
+    background: #374151;
+    color: #d1d5db;
+    border-bottom-color: #4b5563;
+  }
+
+  .day-hour-slot {
+    height: 4rem;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+    padding: 0.25rem;
+    background: white;
+  }
+
+  .dark .day-hour-slot {
+    border-bottom-color: #4b5563;
+    background: #1f2937;
+  }
+
+  .day-event {
+    position: absolute;
+    background: #3b82f6;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    width: calc(100% - 0.5rem);
+    left: 0.25rem;
+    top: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .day-event:hover {
+    background: #2563eb;
+  }
+
+  .day-event-time {
+    font-size: 0.75rem;
+    opacity: 0.9;
+  }
+
+  .day-event-title {
+    font-weight: 600;
+  }
+
+  /* Modal styles */
+  .kt-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kt-modal.open {
+    display: flex !important;
+  }
+
+  .kt-modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+    z-index: 99999 !important;
+  }
+
+  .kt-modal.open .kt-modal-dialog {
+    display: block !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 100000 !important;
+    background: white !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    max-width: 56rem !important;
+    width: 90% !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+
+  .dark .kt-modal.open .kt-modal-dialog {
+    background: #1f2937 !important;
+    border: 1px solid #4b5563 !important;
+  }
+
+
+  .kt-modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .dark .kt-modal-header {
+    border-bottom-color: #4b5563;
+  }
+
+  .kt-modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .dark .kt-modal-title {
+    color: #f9fafb;
+  }
+
+  .kt-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    transition: all 0.2s;
+  }
+
+  .kt-modal-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .dark .kt-modal-close {
+    color: #d1d5db;
+  }
+
+  .dark .kt-modal-close:hover {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .kt-modal-body {
+    padding: 1.5rem;
+  }
+
+  .dark .kt-modal-body {
+    color: #f9fafb;
+  }
+
+  .modal-event-item {
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .dark .modal-event-item {
+    border-bottom-color: #4b5563;
+  }
+
+  .modal-event-item:last-child {
+    border-bottom: none;
+  }
+
+  .modal-event-avatar {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .modal-event-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .modal-event-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .modal-event-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #111827;
+  }
+
+  .dark .modal-event-name {
+    color: #f9fafb;
+  }
+
+  .modal-event-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+
+  .dark .modal-event-details {
+    color: #d1d5db;
+  }
+
+  .modal-event-detail {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .modal-event-detail i {
+    width: 1rem;
     color: #9ca3af;
   }
 
-  [data-theme="dark"] .fc-scrollgrid {
-    border-color: #4b5563;
-    background: #1f2937;
+  .modal-event-notes {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: #f9fafb;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    color: #374151;
+    display: flex;
+    gap: 0.5rem;
   }
 
-  [data-theme="dark"] .fc-daygrid-day {
-    border-right-color: #4b5563;
-    border-bottom-color: #4b5563;
-    background: #1f2937;
+  .dark .modal-event-notes {
+    background: #374151;
+    color: #d1d5db;
   }
 
-  [data-theme="dark"] .fc-daygrid-day:hover {
-    background-color: #374151;
+  .modal-event-notes-icon {
+    flex-shrink: 0;
+    color: #9ca3af;
   }
 
-  [data-theme="dark"] .fc-timegrid-slot.fc-timegrid-slot-minor {
-    background-color: #1f2937;
+  .modal-event-notes-text {
+    flex: 1;
+    word-break: break-words;
   }
 
-  [data-theme="dark"] .fc-timegrid-slot.fc-timegrid-slot-major {
-    background-color: #111827;
-    border-bottom-color: #4b5563;
+  .modal-event-link {
+    margin-top: 0.5rem;
   }
 
-  [data-theme="dark"] .fc-event {
-    color: white;
-    border: 1px solid #ffffff !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  .modal-event-link a {
+    color: #3b82f6;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
   }
 
-  [data-theme="dark"] .fc-event:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  .modal-event-link a:hover {
+    text-decoration: underline;
   }
 
-  [data-theme="dark"] .fc-event-title {
-    color: white !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  /* Other month day styles */
+  .month-day-cell.other-month {
+    background: #f9fafb;
+    color: #9ca3af;
   }
 
-  [data-theme="dark"] .fc-daygrid-event-harness {
-    border-color: #ffffff !important;
+  .dark .month-day-cell.other-month {
+    background: #111827;
+    color: #6b7280;
   }
 
-  [data-theme="dark"] .modern-calendar {
-    background: #1f2937;
-    border-color: #4b5563;
+  .month-day-cell.today {
+    background: #eff6ff;
   }
 
-  [data-theme="dark"] .card {
-    background: #1f2937;
-    border-color: #4b5563;
+  .dark .month-day-cell.today {
+    background: #1e3a8a;
   }
 
-  [data-theme="dark"] .text-muted {
-    color: #9ca3af !important;
+  .month-day-cell.today .month-day-number {
+    color: #3b82f6;
+    font-weight: 700;
   }
 
-  [data-theme="dark"] .text-muted-dark {
-    color: #9ca3af !important;
+  .dark .month-day-cell.today .month-day-number {
+    color: #60a5fa;
   }
 
-  [data-theme="dark"] .bg-gradient-to-br {
-    background: linear-gradient(to bottom right, #374151, #1f2937) !important;
-  }
-
-  [data-theme="dark"] .from-gray-50 {
-    background: #374151 !important;
-  }
-
-  [data-theme="dark"] .to-gray-100 {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .from-gray-800 {
-    background: #111827 !important;
-  }
-
-  [data-theme="dark"] .to-gray-900 {
-    background: #0f172a !important;
-  }
-
-  [data-theme="dark"] .border-gray-200 {
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .border-gray-700 {
-    border-color: #374151 !important;
-  }
-
-  [data-theme="dark"] .text-gray-800 {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .text-gray-200 {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .text-gray-700 {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] .text-gray-300 {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] .text-gray-600 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] .text-gray-400 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] .bg-white {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .bg-gray-800 {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .text-gray-400 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] .hover\:text-gray-600:hover {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] .dark\:text-gray-500 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] .dark\:hover\:text-gray-300:hover {
-    color: #d1d5db !important;
-  }
-
-  /* Dark mode modal styles */
-  [data-theme="dark"] #appointment-modal {
-    background-color: rgba(0, 0, 0, 0.8);
-  }
-
-  [data-theme="dark"] #appointment-modal .bg-white {
-    background: #1f2937 !important;
-    color: #f9fafb;
-  }
-
-  [data-theme="dark"] #appointment-modal .dark\:bg-gray-800 {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-400 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .hover\:text-gray-600:hover {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .dark\:text-gray-500 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .dark\:hover\:text-gray-300:hover {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-600 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-700 {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-300 {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .bg-gray-50 {
-    background: #374151 !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .dark\:bg-gray-800 {
-    background: #374151 !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-600 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .dark\:text-gray-400 {
-    color: #9ca3af !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-green-600 {
-    color: #10b981 !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-800 {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] #appointment-modal .text-gray-200 {
-    color: #f9fafb !important;
-  }
-
-
-  /* Dark mode button styles */
-  [data-theme="dark"] .btn {
-    background: #4b5563;
-    border-color: #4b5563;
-    color: #f9fafb;
-  }
-
-  [data-theme="dark"] .btn:hover {
-    background: #6b7280;
-    border-color: #6b7280;
-  }
-
-  [data-theme="dark"] .btn-primary {
-    background: #3b82f6;
-    border-color: #3b82f6;
-  }
-
-  [data-theme="dark"] .btn-primary:hover {
-    background: #2563eb;
-    border-color: #2563eb;
-  }
-
-  [data-theme="dark"] .btn-outline {
-    background: transparent;
-    border-color: #4b5563;
-    color: #f9fafb;
-  }
-
-  [data-theme="dark"] .btn-outline:hover {
-    background: #4b5563;
-    border-color: #4b5563;
-  }
-
-  /* Dark mode card styles */
-  [data-theme="dark"] .card {
-    background: #1f2937;
-    border-color: #4b5563;
-    color: #f9fafb;
-  }
-
-  /* Dark mode text styles */
-  [data-theme="dark"] h1, 
-  [data-theme="dark"] h2, 
-  [data-theme="dark"] h3, 
-  [data-theme="dark"] h4, 
-  [data-theme="dark"] h5, 
-  [data-theme="dark"] h6 {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] p {
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] .text-sm {
-    color: #9ca3af !important;
-  }
-
-  /* Dark mode section styles */
-  [data-theme="dark"] section {
-    color: #f9fafb;
-  }
-
-  [data-theme="dark"] .text-2xl {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .font-semibold {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .leading-tight {
-    color: #f9fafb !important;
-  }
-
-  /* Dark mode link styles for better readability */
-  [data-theme="dark"] a {
-    color: #60a5fa !important; /* Light blue for links */
-  }
-
-  [data-theme="dark"] a:hover {
-    color: #93c5fd !important; /* Lighter blue on hover */
-  }
-
-  [data-theme="dark"] a:visited {
-    color: #a78bfa !important; /* Light purple for visited links */
-  }
-
-  [data-theme="dark"] a:active {
-    color: #fbbf24 !important; /* Light yellow for active links */
-  }
-
-  /* Specific calendar link styles */
-  [data-theme="dark"] .fc-daygrid-day-number {
-    color: #60a5fa !important; /* Light blue for day numbers */
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-number:hover {
-    color: #93c5fd !important; /* Lighter blue on hover */
-  }
-
-  [data-theme="dark"] .fc-col-header-cell a {
-    color: #60a5fa !important; /* Light blue for header links */
-  }
-
-  [data-theme="dark"] .fc-col-header-cell a:hover {
-    color: #93c5fd !important; /* Lighter blue on hover */
-  }
-
-  /* Button links in dark mode */
-  [data-theme="dark"] .btn {
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .btn:hover {
-    color: #ffffff !important;
-  }
-
-  /* Text links in content */
-  [data-theme="dark"] .text-blue-600 {
-    color: #60a5fa !important;
-  }
-
-  [data-theme="dark"] .text-blue-500 {
-    color: #60a5fa !important;
-  }
-
-  [data-theme="dark"] .text-blue-400 {
-    color: #93c5fd !important;
-  }
-
-  /* Underlined links */
-  [data-theme="dark"] a[style*="text-decoration: underline"] {
-    color: #60a5fa !important;
-    text-decoration: underline !important;
-  }
-
-  [data-theme="dark"] a[style*="text-decoration: underline"]:hover {
-    color: #93c5fd !important;
-  }
-
-  /* Additional dark mode styles for calendar elements */
-  [data-theme="dark"] .fc-scrollgrid {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-scrollgrid-sync-table {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .fc-scrollgrid-section {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-scrollgrid-section-header {
-    background: #374151 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-scrollgrid-section-body {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-scrollgrid-section-footer {
-    background: #374151 !important;
-    border-color: #4b5563 !important;
-  }
-
-  /* Dark mode for all-day slot */
-  [data-theme="dark"] .fc-timegrid-slot-label {
-    background: #1f2937 !important;
-    color: #9ca3af !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-timegrid-axis {
-    background: #374151 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-timegrid-axis-cushion {
-    background: #374151 !important;
-    color: #9ca3af !important;
-  }
-
-  /* Dark mode for day grid */
-  [data-theme="dark"] .fc-daygrid-body {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-frame {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-bg {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-events {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-top {
-    background: #1f2937 !important;
-  }
-
-  /* Dark mode for time grid */
-  [data-theme="dark"] .fc-timegrid-body {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .fc-timegrid-slot {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-timegrid-slot-minor {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-timegrid-slot-major {
-    background: #111827 !important;
-    border-color: #4b5563 !important;
-  }
-
-  /* Dark mode for table elements */
-  [data-theme="dark"] .fc table {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc table td {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc table th {
-    background: #374151 !important;
-    border-color: #4b5563 !important;
-    color: #d1d5db !important;
-  }
-
-  /* Dark mode for scrollbars */
-  [data-theme="dark"] .fc-scroller::-webkit-scrollbar {
-    background: #1f2937 !important;
-  }
-
-  [data-theme="dark"] .fc-scroller::-webkit-scrollbar-thumb {
-    background: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-scroller::-webkit-scrollbar-track {
-    background: #1f2937 !important;
-  }
-
-  /* Dark mode for more elements */
-  [data-theme="dark"] .fc-list {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-list-day-cushion {
-    background: #374151 !important;
-    color: #d1d5db !important;
-  }
-
-  [data-theme="dark"] .fc-list-event {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-  }
-
-  [data-theme="dark"] .fc-list-event:hover {
-    background: #374151 !important;
-  }
-
-  /* Dark mode for popover */
-  [data-theme="dark"] .fc-popover {
-    background: #1f2937 !important;
-    border-color: #4b5563 !important;
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .fc-popover-header {
-    background: #374151 !important;
-    border-color: #4b5563 !important;
-    color: #f9fafb !important;
-  }
-
-  [data-theme="dark"] .fc-popover-body {
-    background: #1f2937 !important;
-    color: #f9fafb !important;
-  }
-
-  /* Dark mode for more day elements */
-  [data-theme="dark"] .fc-daygrid-day-number {
-    color: #60a5fa !important;
-    background: transparent !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day-number:hover {
-    color: #93c5fd !important;
-  }
-
-  /* Dark mode for today highlighting */
-  [data-theme="dark"] .fc-daygrid-day.fc-day-today {
-    background: #374151 !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-    color: #fbbf24 !important;
-    font-weight: 600 !important;
-  }
-
-  /* Dark mode for other states */
-  [data-theme="dark"] .fc-daygrid-day.fc-day-past {
-    background: #111827 !important;
-  }
-
-  [data-theme="dark"] .fc-daygrid-day.fc-day-future {
-    background: #1f2937 !important;
-  }
-
-  /* Dark mode for event containers */
-  [data-theme="dark"] .fc-event-container {
-    background: transparent !important;
-  }
-
-  [data-theme="dark"] .fc-event-container:hover {
-    background: rgba(75, 85, 99, 0.1) !important;
-  }
-
-  /* FullCalendar specific overrides for proper height */
-  .fc-timegrid-slot-minor {
-    height: 4rem !important;
-    min-height: 4rem !important;
-  }
-
-  .fc-timegrid-slot-major {
-    height: 4rem !important;
-    min-height: 4rem !important;
-  }
-
-  .fc-timegrid-slot-segment {
-    height: 4rem !important;
-    min-height: 4rem !important;
-  }
-
-  /* Ensure events fit properly in time slots */
-  .fc-timegrid-event-harness {
-    height: 4rem !important;
-    min-height: 4rem !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-  }
-  
-  .fc-timegrid-event-harness-inset {
-    height: 4rem !important;
-    min-height: 4rem !important;
-    margin: 4px 0 0 4px !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-  }
-
-  /* Remove all margins from event containers */
-  .fc-event-harness {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
-  .fc-event-harness-inset {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  
-  /* Day grid event harness with side margins, border and rounded corners */
-  .fc-daygrid-event-harness {
-    margin-left: 4px !important;
-    margin-right: 4px !important;
-    margin-bottom: 2px !important;
-    border: 1px solid #000000 !important;
-    border-radius: 0.375rem !important;
-    width: calc(100% - 8px) !important;
-  }
-  
-  /* Dark mode border for day grid event harness */
-  .dark .fc-daygrid-event-harness {
-    border: 1px solid #ffffff !important;
-    border-radius: 0.375rem !important;
-    width: calc(100% - 8px) !important;
-  }
-
-  .dark .fc-button {
-    background: #4b5563;
-    border-color: #4b5563;
-  }
-
-  .dark .fc-button:hover {
-    background: #6b7280;
-    border-color: #6b7280;
-  }
-
-  /* Clean calendar container */
-  .modern-calendar {
-    background: white;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    border: 1px solid #e5e7eb;
-  }
-
-  .dark .modern-calendar {
-    background: #1f2937;
-    border-color: #4b5563;
-  }
-
-  /* Clean responsive design */
-  @media (max-width: 1024px) {
-    .fc-toolbar {
-      flex-direction: column;
-      gap: 1rem;
-      padding: 1rem 0;
-    }
-
-    .fc-toolbar-chunk {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .fc-button {
-      padding: 0.5rem 1rem;
-      font-size: 0.875rem;
-      margin: 0.25rem;
-    }
-
-    .fc-toolbar-title {
-      font-size: 1.25rem;
-      text-align: center;
-    }
-
-    .fc-event {
-      font-size: 0.75rem;
-      padding: 0.25rem 0.5rem;
-      min-height: 2.5rem !important;
-      max-height: 2.5rem !important;
-    }
-
-    .fc-event-title {
-      font-size: 0.75rem;
-    }
-
-    .fc-timegrid-slot {
-      height: 3rem !important;
-      min-height: 3rem !important;
-    }
-
-    .fc-timegrid tr {
-      height: 3rem !important;
-      min-height: 3rem !important;
-    }
-
-    .fc-timegrid td {
-      height: 3rem !important;
-      min-height: 3rem !important;
-    }
-
-    .modern-calendar {
-      padding: 1rem;
-    }
-  }
-
+  /* Responsive */
   @media (max-width: 768px) {
-    .fc-toolbar {
+    .agenda-header {
       flex-direction: column;
-      gap: 0.75rem;
-      padding: 0.75rem 0;
+      align-items: flex-start;
+      gap: 1rem;
     }
 
-    .fc-toolbar-chunk {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
+    .agenda-actions {
+      width: 100%;
+      justify-content: space-between;
     }
 
-    .fc-button {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.8rem;
-      margin: 0.2rem;
+    .view-buttons-container {
+      min-width: auto;
+      flex: 1;
     }
 
-    .fc-toolbar-title {
-      font-size: 1.1rem;
-      text-align: center;
+    .month-day-cell {
+      min-height: 5rem;
     }
 
-    .fc-event {
-      font-size: 0.7rem;
-      padding: 0.2rem 0.4rem;
-      min-height: 2rem !important;
-      max-height: 2rem !important;
+    .week-view,
+    .day-view {
+      grid-template-columns: 60px repeat(7, 1fr);
     }
 
-    .fc-event-title {
-      font-size: 0.7rem;
+    .week-view {
+      grid-template-columns: 60px repeat(7, 1fr);
     }
 
-    .fc-timegrid-slot {
-      height: 2.5rem !important;
-      min-height: 2.5rem !important;
-    }
-
-    .fc-timegrid tr {
-      height: 2.5rem !important;
-      min-height: 2.5rem !important;
-    }
-
-    .fc-timegrid td {
-      height: 2.5rem !important;
-      min-height: 2.5rem !important;
-    }
-
-    .fc-timegrid-slot-label {
-      font-size: 0.7rem;
-      padding: 0.25rem;
-    }
-
-    .fc-col-header-cell {
-      font-size: 0.8rem;
-      padding: 0.5rem 0.25rem;
-    }
-
-    .modern-calendar {
-      padding: 0.5rem;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .fc-toolbar {
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 0.5rem 0;
-    }
-
-    .fc-toolbar-chunk {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .fc-button {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.75rem;
-      margin: 0.1rem;
-    }
-
-    .fc-toolbar-title {
-      font-size: 1rem;
-      text-align: center;
-    }
-
-    .fc-event {
-      font-size: 0.65rem;
-      padding: 0.15rem 0.3rem;
-      min-height: 1.8rem !important;
-      max-height: 1.8rem !important;
-    }
-
-    .fc-event-title {
-      font-size: 0.65rem;
-    }
-
-    .fc-timegrid-slot {
-      height: 2rem !important;
-      min-height: 2rem !important;
-    }
-
-    .fc-timegrid tr {
-      height: 2rem !important;
-      min-height: 2rem !important;
-    }
-
-    .fc-timegrid td {
-      height: 2rem !important;
-      min-height: 2rem !important;
-    }
-
-    .fc-timegrid-slot-label {
-      font-size: 0.65rem;
-      padding: 0.2rem;
-    }
-
-    .fc-col-header-cell {
-      font-size: 0.75rem;
-      padding: 0.4rem 0.2rem;
-    }
-
-    .fc-daygrid-day-number {
-      font-size: 0.8rem;
-      padding: 0.3rem;
-    }
-
-    .modern-calendar {
-      padding: 0.25rem;
+    .day-view {
+      grid-template-columns: 60px 1fr;
     }
   }
 </style>
 
-@section('content')
-<section class="flex flex-wrap items-center justify-between gap-3">
-  <div>
-    <h1 class="text-2xl font-semibold leading-tight">Agenda</h1>
-    <p class="text-sm text-muted dark:text-muted-dark">Bekijk al je afspraken en interviews in een overzichtelijke kalender.</p>
-  </div>
-</section>
+<div class="kt-container-fixed">
+    <div class="agenda-container">
+        <!-- Header -->
+        <div class="agenda-header">
+            <div class="agenda-title-container">
+                <div class="agenda-title" id="agenda-title">Agenda</div>
+                @if(auth()->user()->hasRole('super-admin') && isset($users) && $users->count() > 0)
+                <div class="mt-2">
+                    <select id="user-filter" class="kt-select kt-select-sm" style="min-width: 200px;" data-kt-select="true">
+                        <option value="">Alle gebruikers</option>
+                        @foreach($users as $user)
+                            <option value="{{ $user->id }}">{{ $user->first_name }} {{ $user->last_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+            </div>
+            <div class="agenda-actions">
+                <div class="view-buttons-container">
+                    <button class="kt-btn kt-btn-outline view-btn" data-view="month" id="btn-month">
+                        Maand
+                    </button>
+                    <button class="kt-btn kt-btn-outline view-btn" data-view="week" id="btn-week">
+                        Week
+                    </button>
+                    <button class="kt-btn kt-btn-outline view-btn" data-view="day" id="btn-day">
+                        Dag
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button class="kt-btn kt-btn-outline" id="btn-prev">
+                        <i class="ki-filled ki-arrow-left"></i>
+                    </button>
+                    <button class="kt-btn kt-btn-outline" id="btn-today">
+                        Vandaag
+                    </button>
+                    <button class="kt-btn kt-btn-outline" id="btn-next">
+                        <i class="ki-filled ki-arrow-right"></i>
+                    </button>
+                </div>
+                @if(Route::has('admin.skillmatching.interviews.create'))
+                <a href="{{ route('admin.skillmatching.interviews.create') }}" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-plus me-2"></i>
+                    Nieuwe interview
+                </a>
+                @endif
+            </div>
+        </div>
 
-<!-- FullCalendar CSS -->
-<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+        <!-- Calendar Views -->
+        <div id="month-view" class="calendar-view active">
+            <div class="month-view" id="month-calendar"></div>
+        </div>
 
-<!-- FullCalendar Container -->
-<div class="card p-8">
-  <div id="calendar" class="modern-calendar"></div>
+        <div id="week-view" class="calendar-view">
+            <div class="week-view" id="week-calendar"></div>
+        </div>
 
+        <div id="day-view" class="calendar-view">
+            <div class="day-view" id="day-calendar"></div>
+        </div>
+    </div>
 </div>
 
-<!-- FullCalendar JavaScript -->
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, initializing calendar...');
-
-  const calendarEl = document.getElementById('calendar');
-  console.log('Calendar element:', calendarEl);
-
-  if (!calendarEl) {
-    console.error('Calendar element not found!');
-    return;
-  }
-
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    // Locale settings
-    locale: 'nl',
-    firstDay: 1, // Start week on Monday
-
-    // Initial view - responsive
-    initialView: window.innerWidth < 768 ? 'dayGridMonth' : 'timeGridWeek',
-
-    // Header toolbar - responsive
-    headerToolbar: {
-      left: window.innerWidth < 480 ? 'prev,next' : 'prev,next today',
-      center: 'title',
-      right: window.innerWidth < 480 ? 'dayGridMonth,timeGridWeek' : 'dayGridMonth,timeGridWeek,timeGridDay'
-    },
-
-    // Button text
-    buttonText: {
-      today: 'Vandaag',
-      month: 'Maand',
-      week: 'Week',
-      day: 'Dag'
-    },
-
-    // Time grid settings
-    slotMinTime: '08:00:00',
-    slotMaxTime: '20:00:00',
-    slotDuration: '01:00:00',
-    slotLabelInterval: '01:00:00',
-
-    // Event settings
-    events: function(info, successCallback, failureCallback) {
-      console.log('Fetching events for:', info.start, 'to', info.end);
-
-      // Fallback events if API fails
-      const fallbackEvents = [
-        {
-          id: 1,
-          title: 'Interview met Jan de Vries',
-          start: new Date().toISOString(),
-          end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          color: '#3b82f6',
-          extendedProps: {
-            candidate_name: 'Jan de Vries',
-            location: 'Kantoor Amsterdam',
-            type: 'interview',
-            status: 'scheduled'
-          }
-        },
-        {
-          id: 2,
-          title: 'Uren inleveren',
-          start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          end: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          color: '#10b981',
-          extendedProps: {
-            candidate_name: 'Sarah van Dijk',
-            location: 'Online',
-            type: 'meeting',
-            status: 'scheduled'
-          }
-        }
-      ];
-
-      // Try to fetch events from Laravel backend
-      fetch('{{ route("agenda.events") }}', {
-        method: 'GET',
-        headers: {
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-          'Accept': 'application/json',
-        }
-      })
-      .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Events received:', data);
-        if (Array.isArray(data) && data.length > 0) {
-          successCallback(data);
-        } else {
-          console.log('No events from API, using fallback');
-          successCallback(fallbackEvents);
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching events:', error);
-        console.log('Using fallback events');
-        successCallback(fallbackEvents);
-      });
-    },
-
-    // Event click handler
-    eventClick: function(info) {
-      console.log('Event clicked:', info.event);
-      showAppointmentDetails(info.event);
-    },
-
-    // Date click handler (for creating new events)
-    dateClick: function(info) {
-      console.log('Date clicked:', info.dateStr);
-    },
-
-    // Event display settings
-    eventDisplay: 'block',
-    eventTimeFormat: {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    },
-
-    // Height settings
-    height: 'auto',
-
-    // Responsive settings
-    aspectRatio: 1.8,
-
-    // Event colors
-    eventColor: '#3b82f6',
-
-    // Business hours
-    businessHours: {
-      daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
-      startTime: '09:00',
-      endTime: '17:00'
-    },
-
-    // Weekends
-    weekends: true,
-
-    // All day slot
-    allDaySlot: true,
-
-    // Event overlap
-    eventOverlap: false,
-
-    // Event constraint
-    eventConstraint: {
-      start: '08:00',
-      end: '20:00'
-    }
-  });
-
-  console.log('Calendar created, rendering...');
-  calendar.render();
-  console.log('Calendar rendered successfully');
-
-  // Test if calendar is working
-  setTimeout(() => {
-    const calendarContainer = document.querySelector('.fc');
-    if (calendarContainer) {
-      console.log('✅ Calendar container found and rendered');
-    } else {
-      console.error('❌ Calendar container not found');
-    }
-  }, 1000);
-
-  // Global calendar reference
-  window.calendar = calendar;
-});
-
-// Appointment details modal
-function showAppointmentDetails(event) {
-  const appointment = {
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    extendedProps: event.extendedProps
-  };
-
-  const content = `
-    <div class="mb-4">
-      <h3 class="text-lg font-semibold mb-2">${appointment.title}</h3>
-      <div class="space-y-2 text-sm text-muted dark:text-muted-dark">
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          ${appointment.start.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - ${appointment.end.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})}
+<!-- Day Events Modal -->
+<div class="kt-modal" id="day-modal">
+    <div class="kt-modal-backdrop" onclick="closeDayModal()"></div>
+    <div class="kt-modal-dialog">
+        <div class="kt-modal-header">
+            <h3 class="kt-modal-title" id="modal-day-title">Afspraken</h3>
+            <button class="kt-modal-close" onclick="closeDayModal()" type="button">
+                <i class="ki-filled ki-cross"></i>
+            </button>
         </div>
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          ${appointment.extendedProps.location || 'Locatie niet opgegeven'}
+        <div class="kt-modal-body">
+            <div id="modal-day-events"></div>
         </div>
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-          </svg>
-          ${appointment.extendedProps.candidate_name || 'Kandidaat niet opgegeven'}
-        </div>
-      </div>
     </div>
-    <div class="flex space-x-3">
-      <button onclick="viewAppointmentDetails('${appointment.id}')" class="btn btn-primary flex-1">Details</button>
-    </div>
-  `;
-
-  document.getElementById('appointment-content').innerHTML = content;
-  document.getElementById('appointment-modal').classList.remove('hidden');
-  document.getElementById('appointment-modal').classList.add('flex');
-}
-
-function hideAppointmentModal() {
-  document.getElementById('appointment-modal').classList.add('hidden');
-  document.getElementById('appointment-modal').classList.remove('flex');
-}
-
-</script>
-
-<!-- Appointment Detail Modal -->
-<div id="appointment-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
-    <button onclick="hideAppointmentModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-      </svg>
-    </button>
-
-    <div id="appointment-content">
-      <!-- Content will be loaded here -->
-    </div>
-  </div>
 </div>
 
-<!-- FullCalendar JavaScript -->
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 <script>
+// Global variables
+let currentDate = new Date();
+let currentView = 'month';
+let events = [];
+
+// Month names in Dutch
+const monthNames = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+const dayNamesShort = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+
+// Interview base URL (Skillmatching module; empty when module inactive)
+const interviewBaseUrl = @json(Route::has('admin.skillmatching.interviews.index') ? rtrim(route('admin.skillmatching.interviews.index'), '/') . '/' : '');
+
+// Initialize
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('DOM loaded, initializing calendar...');
-
-  const calendarEl = document.getElementById('calendar');
-  console.log('Calendar element:', calendarEl);
-
-  if (!calendarEl) {
-    console.error('Calendar element not found!');
-    return;
-  }
-
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    // Locale settings
-    locale: 'nl',
-    firstDay: 1, // Start week on Monday
-
-    // Initial view - responsive
-    initialView: window.innerWidth < 768 ? 'dayGridMonth' : 'timeGridWeek',
-
-    // Header toolbar - responsive
-    headerToolbar: {
-      left: window.innerWidth < 480 ? 'prev,next' : 'prev,next today',
-      center: 'title',
-      right: window.innerWidth < 480 ? 'dayGridMonth,timeGridWeek' : 'dayGridMonth,timeGridWeek,timeGridDay'
-    },
-
-    // Button text
-    buttonText: {
-      today: 'Vandaag',
-      month: 'Maand',
-      week: 'Week',
-      day: 'Dag'
-    },
-
-    // Time grid settings
-    slotMinTime: '08:00:00',
-    slotMaxTime: '20:00:00',
-    slotDuration: '01:00:00',
-    slotLabelInterval: '01:00:00',
-
-    // Event settings
-    events: function(info, successCallback, failureCallback) {
-      console.log('Fetching events for:', info.start, 'to', info.end);
-
-      // Fallback events if API fails
-      const fallbackEvents = [
-        {
-          id: 1,
-          title: 'Interview met Jan de Vries',
-          start: new Date().toISOString(),
-          end: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          color: '#3b82f6',
-          extendedProps: {
-            candidate_name: 'Jan de Vries',
-            location: 'Kantoor Amsterdam',
-            type: 'interview',
-            status: 'scheduled'
-          }
-        },
-        {
-          id: 2,
-          title: 'Uren inleveren',
-          start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          end: new Date(Date.now() + 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
-          color: '#10b981',
-          extendedProps: {
-            candidate_name: 'Sarah van Dijk',
-            location: 'Online',
-            type: 'meeting',
-            status: 'scheduled'
-          }
-        }
-      ];
-
-      // Try to fetch events from Laravel backend
-      fetch('{{ route("agenda.events") }}', {
-        method: 'GET',
-        headers: {
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-          'Accept': 'application/json',
-        }
-      })
-      .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('Events received:', data);
-        if (Array.isArray(data) && data.length > 0) {
-          successCallback(data);
-        } else {
-          console.log('No events from API, using fallback');
-          successCallback(fallbackEvents);
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching events:', error);
-        console.log('Using fallback events');
-        successCallback(fallbackEvents);
-      });
-    },
-
-    // Event click handler
-    eventClick: function(info) {
-      console.log('Event clicked:', info.event);
-      showAppointmentDetails(info.event);
-    },
-
-    // Date click handler (for creating new events)
-    dateClick: function(info) {
-      console.log('Date clicked:', info.dateStr);
-    },
-
-    // Event display settings
-    eventDisplay: 'block',
-    eventTimeFormat: {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    },
-
-    // Height settings
-    height: 'auto',
-
-    // Responsive settings
-    aspectRatio: 1.8,
-
-    // Event colors
-    eventColor: '#3b82f6',
-
-    // Business hours
-    businessHours: {
-      daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
-      startTime: '09:00',
-      endTime: '17:00'
-    },
-
-    // Weekends
-    weekends: true,
-
-    // All day slot
-    allDaySlot: true,
-
-    // Event overlap
-    eventOverlap: false,
-
-    // Event constraint
-    eventConstraint: {
-      start: '08:00',
-      end: '20:00'
+    loadEvents();
+    setupEventListeners();
+    renderCurrentView();
+    
+    // Initialize kt-select for user filter if it exists
+    const userFilter = document.getElementById('user-filter');
+    if (userFilter && typeof KTComponents !== 'undefined' && KTComponents.Select) {
+        // Wait a bit for DOM to be fully ready
+        setTimeout(function() {
+            try {
+                new KTComponents.Select(userFilter);
+                console.log('KT-select initialized for user filter');
+            } catch (e) {
+                console.warn('Could not initialize kt-select for user filter:', e);
+            }
+        }, 300);
     }
-  });
-
-  console.log('Calendar created, rendering...');
-  calendar.render();
-  console.log('Calendar rendered successfully');
-
-  // Test if calendar is working
-  setTimeout(() => {
-    const calendarContainer = document.querySelector('.fc');
-    if (calendarContainer) {
-      console.log('✅ Calendar container found and rendered');
-    } else {
-      console.error('❌ Calendar container not found');
-    }
-  }, 1000);
-
-  // Global calendar reference
-  window.calendar = calendar;
 });
 
-// Appointment details modal
-function showAppointmentDetails(event) {
-  const appointment = {
-    id: event.id,
-    title: event.title,
-    start: event.start,
-    end: event.end,
-    extendedProps: event.extendedProps
-  };
+// Setup event listeners
+function setupEventListeners() {
+    // View buttons
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            switchView(this.dataset.view);
+        });
+    });
 
-  const content = `
-    <div class="mb-4">
-      <h3 class="text-lg font-semibold mb-2">${appointment.title}</h3>
-      <div class="space-y-2 text-sm text-muted dark:text-muted-dark">
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          ${appointment.start.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - ${appointment.end.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})}
-        </div>
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          ${appointment.extendedProps.location || 'Locatie niet opgegeven'}
-        </div>
-        <div class="flex items-center">
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-          </svg>
-          ${appointment.extendedProps.candidate_name || 'Kandidaat niet opgegeven'}
-        </div>
-      </div>
-    </div>
-    <div class="flex space-x-3">
-      <button onclick="viewAppointmentDetails('${appointment.id}')" class="btn btn-primary flex-1">Details</button>
-    </div>
-  `;
+    // Navigation buttons
+    document.getElementById('btn-prev').addEventListener('click', function() {
+        navigate(-1);
+    });
 
-  document.getElementById('appointment-content').innerHTML = content;
-  document.getElementById('appointment-modal').classList.remove('hidden');
-  document.getElementById('appointment-modal').classList.add('flex');
+    document.getElementById('btn-next').addEventListener('click', function() {
+        navigate(1);
+    });
+
+    document.getElementById('btn-today').addEventListener('click', function() {
+        goToToday();
+    });
+
+    // User filter (for super-admin)
+    const userFilter = document.getElementById('user-filter');
+    if (userFilter) {
+        // Function to handle user filter change
+        function handleUserFilterChange() {
+            const selectedValue = userFilter.value;
+            console.log('User filter changed to:', selectedValue);
+            // Immediately reload events when user selection changes
+            loadEvents();
+        }
+        
+        // Listen to native change event
+        userFilter.addEventListener('change', handleUserFilterChange);
+        
+        // Also listen to kt-select change events (if kt-select is used)
+        // Listen for clicks on kt-select dropdown items
+        document.addEventListener('click', function(e) {
+            const clickedItem = e.target.closest('[data-kt-select-option]');
+            if (clickedItem) {
+                const wrapper = clickedItem.closest('.kt-select-wrapper');
+                if (wrapper) {
+                    const select = wrapper.querySelector('select#user-filter');
+                    if (select === userFilter) {
+                        // Wait a bit for kt-select to update the native select
+                        setTimeout(function() {
+                            console.log('KT-select option clicked, user filter value:', userFilter.value);
+                            handleUserFilterChange();
+                        }, 150);
+                    }
+                }
+            }
+        });
+        
+        // Also use MutationObserver to watch for value changes
+        const observer = new MutationObserver(function(mutations) {
+            let shouldReload = false;
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes') {
+                    // Check if value attribute changed
+                    if (mutation.attributeName === 'value' || mutation.attributeName === 'data-kt-select-value') {
+                        shouldReload = true;
+                    }
+                }
+                // Also check for child list changes (options)
+                if (mutation.type === 'childList') {
+                    shouldReload = true;
+                }
+            });
+            if (shouldReload) {
+                setTimeout(function() {
+                    console.log('User filter value changed via mutation:', userFilter.value);
+                    handleUserFilterChange();
+                }, 100);
+            }
+        });
+        
+        // Observe the select element and its wrapper
+        observer.observe(userFilter, {
+            attributes: true,
+            attributeFilter: ['value', 'data-kt-select-value'],
+            childList: true,
+            subtree: true
+        });
+        
+        // Also observe the kt-select wrapper if it exists
+        const ktSelectWrapper = userFilter.closest('.kt-select-wrapper');
+        if (ktSelectWrapper) {
+            observer.observe(ktSelectWrapper, {
+                attributes: true,
+                childList: true,
+                subtree: true
+            });
+        }
+    }
+
+    // Modal backdrop click
+    document.querySelector('.kt-modal-backdrop').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDayModal();
+        }
+    });
+
+    // ESC key to close modal
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDayModal();
+        }
+    });
 }
 
-function hideAppointmentModal() {
-  document.getElementById('appointment-modal').classList.add('hidden');
-  document.getElementById('appointment-modal').classList.remove('flex');
-}
-
-</script>
-
-<!-- Responsive JavaScript for real-time updates -->
-<script>
-// Responsive handler for real-time updates
-function handleResponsiveUpdate() {
-  const width = window.innerWidth;
-  const calendar = window.calendar;
-  
-  if (!calendar) return;
-  
-  // Update aspect ratio based on screen size
-  let newAspectRatio = 1.8;
-  if (width < 768) {
-    newAspectRatio = 1.2;
-  }
-  
-  // Update calendar options
-  calendar.setOption('aspectRatio', newAspectRatio);
-  
-  // Update dayMaxEvents based on screen size
-  let dayMaxEvents = 3;
-  if (width < 768) {
-    dayMaxEvents = 2;
-  }
-  calendar.setOption('dayMaxEvents', dayMaxEvents);
-  
-  // Update eventMaxStack based on screen size
-  let eventMaxStack = 2;
-  if (width < 480) {
-    eventMaxStack = 1;
-  }
-  calendar.setOption('eventMaxStack', eventMaxStack);
-  
-  // Update header toolbar based on screen size
-  let headerToolbar = {
-    left: 'prev,next today',
-    center: 'title',
-    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-  };
-  
-  if (width < 480) {
-    headerToolbar = {
-      left: 'prev,next',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek'
-    };
-  }
-  
-  calendar.setOption('headerToolbar', headerToolbar);
-  
-  // Force calendar to re-render with new settings
-  calendar.render();
-  
-  console.log('Responsive update applied:', {
-    width,
-    aspectRatio: newAspectRatio,
-    dayMaxEvents,
-    eventMaxStack
-  });
-}
-
-// Add resize event listener
-window.addEventListener('resize', function() {
-  // Debounce resize events to avoid excessive updates
-  clearTimeout(window.resizeTimeout);
-  window.resizeTimeout = setTimeout(handleResponsiveUpdate, 150);
-});
-
-// Initial responsive setup after calendar is loaded
-setTimeout(handleResponsiveUpdate, 2000);
-</script>
-
-<!-- LocalStorage for view persistence -->
-<script>
-// LocalStorage functions for view persistence
-window.getInitialView = function() {
-  const savedView = localStorage.getItem('agenda-view');
-  if (savedView) {
-    console.log('✅ Restored saved view:', savedView);
-    return savedView;
-  }
-  // Default responsive view
-  const defaultView = window.innerWidth < 768 ? 'dayGridMonth' : 'timeGridWeek';
-  console.log('📱 Using default view:', defaultView);
-  return defaultView;
-};
-
-window.saveView = function(view) {
-  localStorage.setItem('agenda-view', view);
-  console.log('💾 View saved to localStorage:', view);
-};
-
-// Override initialView after calendar is created
-setTimeout(function() {
-  if (window.calendar) {
-    const savedView = localStorage.getItem('agenda-view');
-    if (savedView && savedView !== window.calendar.view.type) {
-      console.log('🔄 Changing to saved view:', savedView);
-      window.calendar.changeView(savedView);
+// Load events from API
+function loadEvents() {
+    const start = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0);
+    
+    // Get selected user ID if filter exists
+    const userFilter = document.getElementById('user-filter');
+    let userId = null;
+    
+    if (userFilter) {
+        // Try to get value from native select first
+        userId = userFilter.value;
+        
+        // If kt-select is used, also check the kt-select display value
+        if (!userId || userId === '') {
+            const ktSelectWrapper = userFilter.closest('.kt-select-wrapper');
+            if (ktSelectWrapper) {
+                const ktSelectDisplay = ktSelectWrapper.querySelector('.kt-select-display');
+                if (ktSelectDisplay) {
+                    // Try to find the selected option by text
+                    const displayText = ktSelectDisplay.textContent ? ktSelectDisplay.textContent.trim() : '';
+                    if (displayText && displayText !== 'Alle gebruikers') {
+                        // Find option by text
+                        const options = userFilter.options;
+                        for (let i = 0; i < options.length; i++) {
+                            if (options[i].textContent && options[i].textContent.trim() === displayText) {
+                                userId = options[i].value;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
-    // Add event listener for view changes
-    const originalChangeView = window.calendar.changeView.bind(window.calendar);
-    window.calendar.changeView = function(viewType) {
-      originalChangeView(viewType);
-      window.saveView(viewType);
-    };
-  }
-}, 1000);
-
-// Appointment action functions
-function viewAppointmentDetails(appointmentId) {
-  console.log('Viewing details for appointment:', appointmentId);
-  
-  // Close the current modal
-  hideAppointmentModal();
-  
-  // Show detailed modal with more information
-  showDetailsModal(appointmentId);
-}
-
-
-// Show details modal with more information
-function showDetailsModal(appointmentId) {
-  const detailsContent = `
-    <div class="mb-4">
-      <h3 class="text-lg font-semibold mb-4">Afspraak Details</h3>
-      <div class="space-y-4">
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Afspraak Details</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Datum:</span>
-              <span>${new Date(appointment.start).toLocaleDateString('nl-NL', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Tijd:</span>
-              <span>${new Date(appointment.start).toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})} - ${new Date(appointment.end).toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit'})}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Status:</span>
-              <span class="text-green-600">${appointment.extendedProps.status || 'Gepland'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Bedrijfsinformatie</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Bedrijf:</span>
-              <span>${appointment.extendedProps.company_name || 'Onbekend bedrijf'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Adres:</span>
-              <span>${appointment.extendedProps.company_address || 'Adres niet beschikbaar'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Contactpersoon:</span>
-              <span>${appointment.extendedProps.interviewer_name || 'Onbekend'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Telefoon:</span>
-              <span>${appointment.extendedProps.company_phone || 'Niet beschikbaar'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Afspraak Contact</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Jouw contactpersoon:</span>
-              <span>${appointment.extendedProps.interviewer_name || 'Onbekend'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Email:</span>
-              <span>${appointment.extendedProps.interviewer_email || 'Niet beschikbaar'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Functie:</span>
-              <span>${appointment.extendedProps.vacancy_title || 'Onbekende functie'}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-gray-400">Locatie:</span>
-              <span>${appointment.extendedProps.location || 'Locatie niet opgegeven'}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 class="font-medium mb-2">Notities</h4>
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            ${appointment.extendedProps.notes || 'Geen notities beschikbaar.'}
-          </p>
-        </div>
-      </div>
-    </div>
-    <div class="flex space-x-3">
-      <button onclick="hideDetailsModal()" class="btn btn-primary flex-1">Sluiten</button>
-    </div>
-  `;
-  
-  document.getElementById('appointment-content').innerHTML = detailsContent;
-  document.getElementById('appointment-modal').classList.remove('hidden');
-  document.getElementById('appointment-modal').classList.add('flex');
-}
-
-// Hide details modal
-function hideDetailsModal() {
-  document.getElementById('appointment-modal').classList.add('hidden');
-  document.getElementById('appointment-modal').classList.remove('flex');
-}
-
-// Add ESC key functionality to close modal
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape') {
-    const modal = document.getElementById('appointment-modal');
-    if (modal && !modal.classList.contains('hidden')) {
-      hideAppointmentModal();
+    console.log('Loading events with user_id:', userId);
+    
+    let url = `{{ route("admin.agenda.events") }}?start=${start.toISOString()}&end=${end.toISOString()}`;
+    if (userId) {
+        url += `&user_id=${userId}`;
     }
-  }
-});
+
+    console.log('Fetching events from:', url);
+
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json',
+        }
+    })
+    .then(response => {
+        console.log('Events response status:', response.status);
+        if (!response.ok) {
+            throw new Error('HTTP error! status: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Ensure data is an array
+        if (Array.isArray(data)) {
+            console.log('Events loaded:', data.length, 'events');
+            events = data;
+        } else {
+            console.warn('Events data is not an array:', data);
+            events = [];
+        }
+        renderCurrentView();
+    })
+    .catch(error => {
+        console.error('Error loading events:', error);
+        events = [];
+        renderCurrentView();
+    });
+}
+
+// Switch view
+window.switchView = function(view) {
+    currentView = view;
+    
+    // Update active button
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        if (btn.dataset.view === view) {
+            btn.classList.add('kt-btn-active');
+        } else {
+            btn.classList.remove('kt-btn-active');
+        }
+    });
+
+    // Update active view
+    document.querySelectorAll('.calendar-view').forEach(viewEl => {
+        viewEl.classList.remove('active');
+    });
+    document.getElementById(`${view}-view`).classList.add('active');
+
+    renderCurrentView();
+};
+
+// Navigate
+function navigate(direction) {
+    if (currentView === 'month') {
+        currentDate.setMonth(currentDate.getMonth() + direction);
+    } else if (currentView === 'week') {
+        currentDate.setDate(currentDate.getDate() + (direction * 7));
+    } else if (currentView === 'day') {
+        currentDate.setDate(currentDate.getDate() + direction);
+    }
+    renderCurrentView();
+}
+
+// Go to today
+function goToToday() {
+    currentDate = new Date();
+    renderCurrentView();
+}
+
+// Render current view
+function renderCurrentView() {
+    if (currentView === 'month') {
+        renderMonthView();
+    } else if (currentView === 'week') {
+        renderWeekView();
+    } else if (currentView === 'day') {
+        renderDayView();
+    }
+    updateTitle();
+}
+
+// Update title
+function updateTitle() {
+    const titleEl = document.getElementById('agenda-title');
+    if (currentView === 'month') {
+        titleEl.textContent = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (currentView === 'week') {
+        const weekStart = getWeekStart(currentDate);
+        const weekNumber = getWeekNumber(weekStart);
+        titleEl.textContent = `Week ${weekNumber}, ${monthNames[weekStart.getMonth()]} ${weekStart.getFullYear()}`;
+    } else if (currentView === 'day') {
+        titleEl.textContent = `Vandaag, ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+}
+
+// Get week start (Monday)
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    return new Date(d.setDate(diff));
+}
+
+// Get week number
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// Render month view
+function renderMonthView() {
+    const container = document.getElementById('month-calendar');
+    container.innerHTML = '';
+
+    // Day headers
+    dayNamesShort.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'month-day-header';
+        header.textContent = day;
+        container.appendChild(header);
+    });
+
+    // Get first day of month and days in month
+    const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
+
+    // Previous month days
+    const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 0);
+    const daysInPrevMonth = prevMonth.getDate();
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        const cell = createMonthDayCell(day, currentDate.getMonth() - 1, currentDate.getFullYear(), true);
+        container.appendChild(cell);
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+        const cell = createMonthDayCell(day, currentDate.getMonth(), currentDate.getFullYear(), false);
+        container.appendChild(cell);
+    }
+
+    // Next month days
+    const remainingCells = 42 - (startingDayOfWeek + daysInMonth);
+    for (let day = 1; day <= remainingCells; day++) {
+        const cell = createMonthDayCell(day, currentDate.getMonth() + 1, currentDate.getFullYear(), true);
+        container.appendChild(cell);
+    }
+}
+
+// Create month day cell
+function createMonthDayCell(day, month, year, isOtherMonth) {
+    const cell = document.createElement('div');
+    cell.className = 'month-day-cell';
+    if (isOtherMonth) {
+        cell.classList.add('other-month');
+    }
+
+    const date = new Date(year, month, day);
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+        cell.classList.add('today');
+    }
+
+    const dayNumber = document.createElement('div');
+    dayNumber.className = 'month-day-number';
+    dayNumber.textContent = day;
+    cell.appendChild(dayNumber);
+
+    // Get events for this day
+    const dayEvents = getEventsForDay(year, month, day);
+    if (dayEvents.length > 0) {
+        cell.classList.add('has-events');
+        
+        // Add click handler to the cell
+        cell.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openDayModal(year, month, day);
+        });
+
+        const eventsContainer = document.createElement('div');
+        eventsContainer.className = 'month-day-events';
+        dayEvents.forEach(event => {
+            const eventEl = document.createElement('div');
+            eventEl.className = 'month-event';
+            eventEl.textContent = `${formatTime(event.start)} - ${formatTime(event.end)} ${event.title}`;
+            // Also add click handler directly to event element
+            eventEl.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openDayModal(year, month, day);
+            });
+            eventsContainer.appendChild(eventEl);
+        });
+        cell.appendChild(eventsContainer);
+    }
+
+    return cell;
+}
+
+// Render week view
+function renderWeekView() {
+    const container = document.getElementById('week-calendar');
+    container.innerHTML = '';
+
+    const weekStart = getWeekStart(currentDate);
+    const startHour = 7;
+    const endHour = 18;
+    
+    // Row 1: Empty corner cell + 7 day headers
+    const cornerCell = document.createElement('div');
+    cornerCell.className = 'week-time-slot';
+    cornerCell.style.borderBottom = '1px solid var(--border, #e5e7eb)';
+    container.appendChild(cornerCell);
+
+    // Day headers
+    for (let i = 0; i < 7; i++) {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + i);
+        const header = document.createElement('div');
+        header.className = 'week-day-header';
+        header.innerHTML = `<div>${dayNamesShort[i]}</div><div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">${day.getDate()}</div>`;
+        container.appendChild(header);
+    }
+
+    // Create a wrapper for each day column with events container
+    // Store references to day containers for event positioning
+    const dayContainers = [];
+
+    // Time slots (7:00 to 18:00) - each row has time + 7 day cells
+    for (let hour = startHour; hour <= endHour; hour++) {
+        // Time label (first column)
+        const timeSlot = document.createElement('div');
+        timeSlot.className = 'week-time-slot';
+        timeSlot.textContent = `${String(hour).padStart(2, '0')}:00`;
+        container.appendChild(timeSlot);
+
+        // Day columns (7 cells per row)
+        for (let i = 0; i < 7; i++) {
+            const hourSlot = document.createElement('div');
+            hourSlot.className = 'week-hour-slot';
+            hourSlot.dataset.dayIndex = i;
+            hourSlot.dataset.hour = hour;
+            container.appendChild(hourSlot);
+        }
+    }
+
+    // Use requestAnimationFrame to ensure DOM is rendered before positioning
+    requestAnimationFrame(() => {
+        positionWeekEvents(container, weekStart, startHour, endHour);
+    });
+}
+
+function positionWeekEvents(container, weekStart, startHour, endHour) {
+    // Get all hour slots and measure the actual height
+    const hourSlots = container.querySelectorAll('.week-hour-slot');
+    if (hourSlots.length === 0) return;
+    
+    const firstHourSlot = hourSlots[0];
+    const hourHeight = firstHourSlot.offsetHeight;
+    
+    // Get header height from the first week-day-header
+    const headerEl = container.querySelector('.week-day-header');
+    const headerHeight = headerEl ? headerEl.offsetHeight : 48;
+
+    // Process events for each day
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        const day = new Date(weekStart);
+        day.setDate(weekStart.getDate() + dayIndex);
+        const dayEvents = getEventsForDay(day.getFullYear(), day.getMonth(), day.getDate());
+        
+        if (dayEvents.length === 0) continue;
+        
+        // Sort events by start time
+        dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+        
+        // Calculate overlapping groups for side-by-side display
+        const columns = [];
+        dayEvents.forEach(event => {
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            
+            let placed = false;
+            for (let col = 0; col < columns.length; col++) {
+                const lastEventInCol = columns[col][columns[col].length - 1];
+                const lastEnd = new Date(lastEventInCol.end);
+                if (eventStart >= lastEnd) {
+                    columns[col].push(event);
+                    event._column = col;
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                event._column = columns.length;
+                columns.push([event]);
+            }
+        });
+        
+        const totalColumns = columns.length;
+        
+        // Get the first hour slot for this day to calculate position
+        const firstDaySlot = container.querySelector(`.week-hour-slot[data-day-index="${dayIndex}"][data-hour="${startHour}"]`);
+        if (!firstDaySlot) continue;
+        
+        const containerRect = container.getBoundingClientRect();
+        const slotRect = firstDaySlot.getBoundingClientRect();
+        const slotLeft = slotRect.left - containerRect.left;
+        const slotWidth = slotRect.width;
+        const slotTop = slotRect.top - containerRect.top;
+        
+        // Position each event
+        dayEvents.forEach(event => {
+            const eventStart = new Date(event.start);
+            const eventEnd = new Date(event.end);
+            const startHourDecimal = eventStart.getHours() + eventStart.getMinutes() / 60;
+            const endHourDecimal = eventEnd.getHours() + eventEnd.getMinutes() / 60;
+            
+            // Skip events outside our time range
+            if (endHourDecimal <= startHour || startHourDecimal >= endHour + 1) return;
+            
+            // Clamp to visible range
+            const visibleStart = Math.max(startHourDecimal, startHour);
+            const visibleEnd = Math.min(endHourDecimal, endHour + 1);
+            
+            const topOffset = (visibleStart - startHour) * hourHeight;
+            const height = (visibleEnd - visibleStart) * hourHeight;
+            
+            // Calculate horizontal position within the day column
+            const colWidth = 100 / totalColumns;
+            const leftPercent = event._column * colWidth;
+            const widthPercent = colWidth - 4; // Small gap
+            
+            const eventEl = document.createElement('div');
+            eventEl.className = 'week-event';
+            eventEl.style.position = 'absolute';
+            eventEl.style.top = `${slotTop + topOffset + 2}px`;
+            eventEl.style.height = `${height - 4}px`;
+            eventEl.style.left = `${slotLeft + (leftPercent / 100 * slotWidth) + 2}px`;
+            eventEl.style.width = `${(widthPercent / 100 * slotWidth)}px`;
+            eventEl.innerHTML = `
+                <div class="week-event-time">${formatTime(event.start)} - ${formatTime(event.end)}</div>
+                <div class="week-event-title">${event.title}</div>
+            `;
+            eventEl.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openDayModal(day.getFullYear(), day.getMonth(), day.getDate());
+            });
+            
+            container.appendChild(eventEl);
+        });
+    }
+}
+
+// Render day view
+function renderDayView() {
+    const container = document.getElementById('day-calendar');
+    container.innerHTML = '';
+
+    // Row 1: Empty corner cell + Day header
+    const cornerCell = document.createElement('div');
+    cornerCell.className = 'day-time-slot';
+    cornerCell.style.borderBottom = '1px solid var(--border, #e5e7eb)';
+    container.appendChild(cornerCell);
+
+    // Day header
+    const dayHeader = document.createElement('div');
+    dayHeader.className = 'day-header';
+    dayHeader.textContent = `${dayNames[currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1]}, ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]}`;
+    container.appendChild(dayHeader);
+
+    // Time slots (7:00 to 18:00) - each row has time + day cell
+    for (let hour = 7; hour <= 18; hour++) {
+        // Time label (first column)
+        const timeSlot = document.createElement('div');
+        timeSlot.className = 'day-time-slot';
+        timeSlot.textContent = `${String(hour).padStart(2, '0')}:00`;
+        container.appendChild(timeSlot);
+
+        // Hour slot (second column)
+        const hourSlot = document.createElement('div');
+        hourSlot.className = 'day-hour-slot';
+        
+        const hourEvents = getEventsForHour(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), hour);
+        hourEvents.forEach(event => {
+            const eventEl = document.createElement('div');
+            eventEl.className = 'day-event';
+            eventEl.innerHTML = `
+                <div class="day-event-time">${formatTime(event.start)} - ${formatTime(event.end)}</div>
+                <div class="day-event-title">${event.title}</div>
+            `;
+            eventEl.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openDayModal(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+            });
+            hourSlot.appendChild(eventEl);
+        });
+        
+        container.appendChild(hourSlot);
+    }
+}
+
+// Get events for a specific day
+function getEventsForDay(year, month, day) {
+    return events.filter(event => {
+        const eventDate = new Date(event.start);
+        return eventDate.getFullYear() === year &&
+               eventDate.getMonth() === month &&
+               eventDate.getDate() === day;
+    });
+}
+
+// Get events for a specific hour
+function getEventsForHour(year, month, day, hour) {
+    return events.filter(event => {
+        const eventDate = new Date(event.start);
+        return eventDate.getFullYear() === year &&
+               eventDate.getMonth() === month &&
+               eventDate.getDate() === day &&
+               eventDate.getHours() === hour;
+    });
+}
+
+// Format time
+function formatTime(dateString) {
+    const date = new Date(dateString);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+// Open day modal
+window.openDayModal = function(year, month, day) {
+    const dayEvents = getEventsForDay(year, month, day);
+    if (dayEvents.length === 0) return;
+
+    const date = new Date(year, month, day);
+    const titleEl = document.getElementById('modal-day-title');
+    titleEl.textContent = `${dayNames[date.getDay() === 0 ? 6 : date.getDay() - 1]}, ${day} ${monthNames[month]} ${year}`;
+
+    const eventsContainer = document.getElementById('modal-day-events');
+    eventsContainer.innerHTML = '';
+
+    dayEvents.forEach(event => {
+        const eventItem = document.createElement('div');
+        eventItem.className = 'modal-event-item';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'modal-event-avatar';
+        if (event.extendedProps.user_photo_token) {
+            avatar.innerHTML = `<img src="/secure-photo/${event.extendedProps.user_photo_token}" alt="" onerror="this.parentElement.innerHTML='${getInitials(event.extendedProps.candidate_name)}'">`;
+        } else {
+            avatar.textContent = getInitials(event.extendedProps.candidate_name);
+        }
+        
+        const content = document.createElement('div');
+        content.className = 'modal-event-content';
+        
+        const name = document.createElement('div');
+        name.className = 'modal-event-name';
+        name.textContent = event.extendedProps.candidate_name || 'Onbekend';
+        
+        const details = document.createElement('div');
+        details.className = 'modal-event-details';
+        
+        const timeDetail = document.createElement('div');
+        timeDetail.className = 'modal-event-detail';
+        timeDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clip-rule="evenodd" /></svg><span>${formatTime(event.start)} - ${formatTime(event.end)}</span>`;
+        
+        const locationDetail = document.createElement('div');
+        locationDetail.className = 'modal-event-detail';
+        locationDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.location || 'Locatie niet opgegeven'}</span>`;
+        
+        const vacancyDetail = document.createElement('div');
+        vacancyDetail.className = 'modal-event-detail';
+        vacancyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 5.25a3 3 0 0 1 3-3h3a3 3 0 0 1 3 3v.205c.933.085 1.857.197 2.774.334 1.454.218 2.476 1.483 2.476 2.917v3.033c0 1.211-.734 2.352-1.936 2.752A24.726 24.726 0 0 1 12 15.75c-2.73 0-5.357-.442-7.814-1.259-1.202-.4-1.936-1.541-1.936-2.752V8.706c0-1.434 1.022-2.7 2.476-2.917A48.814 48.814 0 0 1 7.5 5.455V5.25Zm7.5 0v.09a49.488 49.488 0 0 0-6 0v-.09a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5Zm-3 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" /><path d="M3 18.4v-2.796a4.3 4.3 0 0 0 .713.31A26.226 26.226 0 0 0 12 17.25c2.892 0 5.68-.468 8.287-1.335.252-.084.49-.189.713-.311V18.4c0 1.452-1.047 2.728-2.523 2.923-2.12.282-4.282.427-6.477.427a49.19 49.19 0 0 1-6.477-.427C4.047 21.128 3 19.852 3 18.4Z" /></svg><span>${event.extendedProps.vacancy_title || 'Onbekende functie'}</span>`;
+        
+        const companyDetail = document.createElement('div');
+        companyDetail.className = 'modal-event-detail';
+        companyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M3 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5H15v-18a.75.75 0 0 0 0-1.5H3ZM6.75 19.5v-2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75ZM6 6.75A.75.75 0 0 1 6.75 6h.75a.75.75 0 0 1 0 1.5h-.75A.75.75 0 0 1 6 6.75ZM6.75 9a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM6 12.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 6a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75Zm-.75 3.75A.75.75 0 0 1 10.5 9h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 12a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM16.5 6.75v15h5.25a.75.75 0 0 0 0-1.5H21v-12a.75.75 0 0 0 0-1.5h-4.5Zm1.5 4.5a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 2.25a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75v-.008a.75.75 0 0 0-.75-.75h-.008ZM18 17.25a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.company_name || 'Onbekend bedrijf'}</span>`;
+        
+        if (event.extendedProps.interviewer_name) {
+            const interviewerDetail = document.createElement('div');
+            interviewerDetail.className = 'modal-event-detail';
+            interviewerDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.interviewer_name}</span>`;
+            details.appendChild(interviewerDetail);
+        }
+        
+        details.appendChild(timeDetail);
+        details.appendChild(locationDetail);
+        details.appendChild(vacancyDetail);
+        details.appendChild(companyDetail);
+        
+        content.appendChild(name);
+        content.appendChild(details);
+        
+        if (event.extendedProps.notes) {
+            const notes = document.createElement('div');
+            notes.className = 'modal-event-notes';
+            notes.innerHTML = `
+                <div class="modal-event-notes-icon">
+                    <i class="ki-filled ki-note-edit"></i>
+                </div>
+                <div class="modal-event-notes-text">${event.extendedProps.notes}</div>
+            `;
+            content.appendChild(notes);
+        }
+        
+        if (interviewBaseUrl) {
+            const link = document.createElement('div');
+            link.className = 'modal-event-link';
+            link.innerHTML = `<a href="${interviewBaseUrl}${event.id}">Bekijk details</a>`;
+            content.appendChild(link);
+        }
+        
+        eventItem.appendChild(avatar);
+        eventItem.appendChild(content);
+        eventsContainer.appendChild(eventItem);
+    });
+
+    const modal = document.getElementById('day-modal');
+    if (modal) {
+        modal.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        console.log('Modal opened for date:', year, month, day);
+    } else {
+        console.error('Modal element not found!');
+    }
+};
+
+// Close day modal
+window.closeDayModal = function() {
+    const modal = document.getElementById('day-modal');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+};
+
+// Get initials
+function getInitials(name) {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+}
+
+// Go to day view
+window.goToDayView = function(year, month, day) {
+    currentDate = new Date(year, month, day);
+    switchView('day');
+};
 </script>
 @endsection

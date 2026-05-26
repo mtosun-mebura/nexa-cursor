@@ -5,7 +5,7 @@
 @section('content')
 <section class="flex flex-wrap items-center justify-between gap-3">
   <div>
-    <h1 class="text-2xl font-semibold leading-tight">Instellingen</h1>
+    <h1 class="kt-page-title text-gray-900 dark:text-white">Instellingen</h1>
     <p class="text-sm text-muted dark:text-muted-dark">Beheer je account instellingen en voorkeuren.</p>
   </div>
 </section>
@@ -210,8 +210,8 @@
         <div>
           <label class="text-sm font-medium text-muted dark:text-muted-dark">Minimaal salaris / bruto uurtarief</label>
           <div class="relative mt-1">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium z-10 pointer-events-none" style="line-height: 1; padding-top: 14px; padding-left: 10px;">€</span>
-            <input type="number" name="min_salary" class="input pl-8 pr-3" placeholder="4000" min="0" step="1" value="{{ Auth::user()->min_salary }}" style="padding-left: 1.4rem !important;">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium z-10 pointer-events-none flex items-center">€</span>
+            <input type="number" name="min_salary" class="input pl-8 pr-3" placeholder="4000" min="0" step="1" value="{{ Auth::user()->min_salary }}">
           </div>
         </div>
 

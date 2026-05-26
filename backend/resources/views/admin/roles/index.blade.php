@@ -3,1014 +3,560 @@
 @section('title', 'Rollen Beheer')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #2196f3;
-        --primary-light: #64b5f6;
-        --primary-dark: #1976d2;
-        --secondary-color: #e3f2fd;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --light-bg: #fafafa;
-        --dark-text: #212121;
-        --medium-text: #757575;
-        --border-color: #e0e0e0;
-        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
-        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
 
-    .stats-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 20px;
-        margin-bottom: 32px;
-    }
-
-    .stat-card {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 10px;
-        box-shadow: var(--shadow-light);
-        text-align: center;
-        transition: var(--transition);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-    }
-
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-medium);
-    }
-
-    .stat-card.blue::before {
-        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-    }
-
-    .stat-card.green::before {
-        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
-    }
-
-    .stat-card.orange::before {
-        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-    }
-
-    .stat-card.purple::before {
-        background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
-    }
-
-    .stat-card.red::before {
-        background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
-    }
-
-    .stat-card.teal::before {
-        background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
-    }
-
-    .stat-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-    }
-
-    .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        color: white;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-    }
-
-    .stat-card.blue .stat-icon {
-        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
-    }
-
-    .stat-card.green .stat-icon {
-        background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
-    }
-
-    .stat-card.orange .stat-icon {
-        background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-    }
-
-    .stat-card.purple .stat-icon {
-        background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
-    }
-
-    .stat-card.red .stat-icon {
-        background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
-    }
-
-    .stat-card.teal .stat-icon {
-        background: linear-gradient(135deg, #00BCD4 0%, #0097A7 100%);
-    }
-
-    .stat-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-
-    .stat-label {
-        font-size: 12px;
-        color: var(--medium-text);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-    }
-
-    .stat-change {
-        font-size: 0.8rem;
-        color: var(--success-color);
-        font-weight: 500;
-    }
-
-    /* Material Design Components */
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
-        border: none;
-        margin-bottom: 24px;
-        transition: var(--transition);
-    }
-
-    .material-card:hover {
-        box-shadow: var(--shadow-medium);
-    }
-
-    .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        border-radius: var(--border-radius) var(--border-radius) 0 0;
-        padding: 10px 24px;
-        border: none;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .material-card .card-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-        transform: translateX(-100%);
-        transition: var(--transition);
-    }
-
-    .material-card .card-header:hover::before {
-        transform: translateX(100%);
-    }
-
-    .material-card .card-body {
-        padding: 0px;
-    }
-
-    /* Filters Section */
-    .filters-section {
-        background: var(--light-bg);
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .filter-group {
-        margin-bottom: 0;
-    }
-
-    .filter-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .filter-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background-color: white;
-        font-size: 12px;
-        color: var(--dark-text);
-        transition: var(--transition);
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 16px;
-        padding-right: 40px;
-    }
-
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-    }
-
-    .filter-select option {
-        padding: 8px;
-        background-color: white;
-        color: var(--dark-text);
-    }
-
-    .filter-select option:checked {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    /* Custom 16.66%-kolom voor 6 kolommen */
-    .col-md-2 {
-        flex: 0 0 16.666667%;
-        max-width: 16.666667%;
-    }
-
-    .material-btn {
-        border-radius: var(--border-radius);
-        text-transform: uppercase;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        padding: 6px 12px;
-        border: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 12px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-    }
-
-    .material-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-
-    .material-btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-
-    .material-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-    }
-
-    .material-btn-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #F57C00 100%);
-        color: white;
-    }
-
-    .material-btn-danger {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #D32F2F 100%);
-        color: white;
-    }
-
-    .material-table {
-        width: 100%;
-        border-collapse: collapse;
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--shadow-light);
-        background: white;
-    }
-
-    .material-table thead th {
-        background: var(--light-bg);
-        border: none;
-        font-weight: 600;
-        color: var(--dark-text);
-        padding: 12px 16px;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: var(--transition);
-        position: relative;
-        text-align: left;
-    }
-
-    .material-table thead th:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-    }
-
-    .material-table tbody td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-        transition: var(--transition);
-    }
-
-    .material-table tbody tr {
-        transition: var(--transition);
-        background-color: white;
-    }
-
-    .material-table tbody tr:hover {
-        background-color: var(--secondary-color) !important;
-        transition: background-color 0.3s ease;
-    }
-
-    .material-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .material-badge-info {
-        background: linear-gradient(135deg, var(--info-color) 0%, #0097A7 100%);
-        color: white;
-    }
-
-    .material-badge-success {
-        background: linear-gradient(135deg, var(--success-color) 0%, #388E3C 100%);
-        color: white;
-    }
-
-    .material-badge-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #F57C00 100%);
-        color: white;
-    }
-
-    .material-badge-danger {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #D32F2F 100%);
-        color: white;
-    }
-
-    .material-badge-secondary {
-        background: linear-gradient(135deg, var(--secondary-color) 0%, #616161 100%);
-        color: white;
-    }
-
-    .action-buttons {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        align-items: center;
-        min-height: 40px;
-    }
-
-    .action-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-        text-decoration: none;
-        font-size: 14px;
-    }
-
-    .action-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-
-    .action-btn:hover::before {
-        width: 100px;
-        height: 100px;
-    }
-
-    .action-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-
-    .action-btn-info {
-        background: linear-gradient(135deg, var(--info-color) 0%, #42a5f5 100%);
-        color: white;
-    }
-
-    .action-btn-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #ffb74d 100%);
-        color: white;
-    }
-
-    .action-btn-danger {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #ef5350 100%);
-        color: white;
-    }
-
-    .action-btn-success {
-        background: linear-gradient(135deg, var(--success-color) 0%, #66bb6a 100%);
-        color: white;
-    }
-
-    .role-info {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .role-name {
-        font-weight: 600;
-        color: var(--dark-color);
-        margin-bottom: 4px;
-        font-size: 16px;
-    }
-
-    .role-description {
-        font-size: 12px;
-        color: var(--secondary-color);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    /* Pagination Styling */
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin-top: 24px;
-    }
-
-    .page-link {
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        padding: 6px 12px;
-        color: var(--dark-color);
-        text-decoration: none;
-        transition: var(--transition);
-        background: white;
-    }
-
-    .page-link:hover {
-        background: var(--secondary-color);
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-        text-decoration: none;
-    }
-
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-        border-color: var(--primary-color);
-        color: white;
-    }
-
-    .page-item.disabled .page-link {
-        background: var(--light-color);
-        color: var(--secondary-color);
-        border-color: var(--border-color);
-    }
-
-    .material-alert {
-        border-radius: 8px;
-        border: none;
-        padding: 16px 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .material-alert-success {
-        background: linear-gradient(135deg, #E8F5E8 0%, #C8E6C9 100%);
-        color: #2E7D32;
-        border-left: 4px solid #4CAF50;
-    }
-
-    .material-alert-danger {
-        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
-        color: #C62828;
-        border-left: 4px solid #F44336;
-    }
-
-    .material-icon {
-        font-size: 1.2rem;
-        margin-right: 8px;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #757575;
-    }
-
-    .empty-state i {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        opacity: 0.5;
-    }
-
-    .empty-state p {
-        font-size: 1.1rem;
-        margin: 0;
-    }
-
-    .results-info-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .results-info {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .results-text {
-        font-size: 0.875rem;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-    }
-
-    .results-text i {
-        color: var(--primary-color);
-        font-size: 0.875rem;
-    }
-
-    .pagination-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-    }
-
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin: 0;
-        padding: 0;
-        background: none;
-        border-radius: 0;
-        box-shadow: none;
-    }
-
-    .page-item {
-        list-style: none;
-    }
-
-    .page-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        background: white;
-        color: var(--dark-text);
-        text-decoration: none;
-        transition: var(--transition);
-        font-weight: 500;
-    }
-
-    .page-link:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-        border-color: var(--primary-color);
-    }
-
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        border-color: var(--primary-color);
-    }
-
-    .page-item.disabled .page-link {
-        background: var(--light-bg);
-        color: var(--medium-text);
-        cursor: not-allowed;
-        opacity: 0.5;
-    }
-
-    .page-item.disabled .page-link:hover {
-        transform: none;
-        box-shadow: var(--shadow-light);
-        border-color: var(--border-color);
-    }
-</style>
-
-<!-- Status Statistieken -->
-<div class="stats-cards">
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #2196f3 0%, #64b5f6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['total_roles'] }}</div>
-        <div class="stat-label">Totaal Rollen</div>
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Rollen Beheer
+        </h1>
+        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-roles'))
+        <a href="{{ route('admin.roles.create') }}" class="kt-btn kt-btn-primary">
+            <i class="ki-filled ki-plus me-2"></i>
+            Nieuwe Rol
+        </a>
+        @endif
     </div>
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #81c784 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['system_roles'] }}</div>
-        <div class="stat-label">Systeem Rollen</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['custom_roles'] }}</div>
-        <div class="stat-label">Aangepaste Rollen</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number" style="background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $stats['total_users_with_roles'] }}</div>
-        <div class="stat-label">Gebruikers met Rollen</div>
-    </div>
-</div>
 
-<!-- Top Rollen per Gebruik -->
-@if($stats['roles_by_usage']->count() > 0)
-<div class="material-card">
-    <div class="card-header">
-        <h5 class="mb-0">
-            <i class="fas fa-chart-bar me-2"></i> Top Rollen per gebruik
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            @foreach($stats['roles_by_usage'] as $role)
-                @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
-                <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="d-flex align-items-center p-3" style="background: var(--light-bg); border-radius: var(--border-radius); box-shadow: var(--shadow-light);">
-                        <div class="flex-shrink-0">
-                            <div class="stat-icon" style="width: 40px; height: 40px; font-size: 16px;">
-                                <i class="fas fa-user-shield"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1" style="font-size: 14px;">{{ ucfirst($role->name) }}</h6>
-                            <small class="text-muted" style="font-size: 11px;">{{ $role->users_count }} gebruikers</small>
-                        </div>
-                    </div>
-                </div>
-                @endif
-            @endforeach
+    <!-- Success Alert -->
+    @if(session('success'))
+        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
+            {{ session('success') }}
         </div>
-    </div>
-</div>
-@endif
+    @endif
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="material-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-user-shield material-icon"></i>
-                        Rollen Beheer
-                    </h5>
-                    <a href="{{ route('admin.roles.create') }}" class="material-btn material-btn-primary">
-                        <i class="fas fa-plus me-1"></i>
-                        Nieuwe Rol
-                    </a>
+    @if(session('error'))
+        <div class="kt-alert kt-alert-danger mb-5" id="error-alert" role="alert">
+            <i class="ki-filled ki-cross-circle me-2"></i>
+            {{ session('error') }}
+        </div>
+    @endif
+
+    <!-- Statistics Cards -->
+    <div class="kt-card mb-5">
+        <div class="kt-card-content">
+            <div class="flex lg:px-10 py-1.5 gap-2">
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_roles'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Totaal Rollen
+                    </span>
                 </div>
-                <div class="card-body">
-                    @if(session('success'))
-                        <div class="material-alert material-alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle material-icon"></i>
-                            {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-
-                    @if(session('error'))
-                        <div class="material-alert material-alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-circle material-icon"></i>
-                            {{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
-
-                    <!-- Filters -->
-                    <div class="filters-section">
-                        <form method="GET" action="{{ route('admin.roles.index') }}" id="filters-form">
-                            <div class="row">
-                                @if(auth()->user()->hasRole('super-admin'))
-                                    <!-- Super-admin: 5 kolommen over gehele breedte -->
-                                    <div class="col-md-2">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Type</label>
-                                            <select name="type" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle types</option>
-                                                <option value="system" {{ request('type') == 'system' ? 'selected' : '' }}>Systeem</option>
-                                                <option value="custom" {{ request('type') == 'custom' ? 'selected' : '' }}>Aangepast</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Gebruikers</label>
-                                            <select name="users" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle rollen</option>
-                                                <option value="with_users" {{ request('users') == 'with_users' ? 'selected' : '' }}>Met gebruikers</option>
-                                                <option value="without_users" {{ request('users') == 'without_users' ? 'selected' : '' }}>Zonder gebruikers</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Permissies</label>
-                                            <select name="permissions" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle rollen</option>
-                                                <option value="with_permissions" {{ request('permissions') == 'with_permissions' ? 'selected' : '' }}>Met permissies</option>
-                                                <option value="without_permissions" {{ request('permissions') == 'without_permissions' ? 'selected' : '' }}>Zonder permissies</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Items per pagina</label>
-                                            <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                                <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
-                                                <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                                <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                                <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                                <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="filter-group">
-                                            <label class="filter-label">&nbsp;</label>
-                                            <a href="{{ route('admin.roles.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: var(--border-radius);">
-                                                <i class="fas fa-times"></i>
-                                                Filter wissen
-                                            </a>
-                                        </div>
-                                    </div>
-                                @else
-                                    <!-- Non-super-admin: 4 kolommen over gehele breedte -->
-                                    <div class="col-md-3">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Type</label>
-                                            <select name="type" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle types</option>
-                                                <option value="system" {{ request('type') == 'system' ? 'selected' : '' }}>Systeem</option>
-                                                <option value="custom" {{ request('type') == 'custom' ? 'selected' : '' }}>Aangepast</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Gebruikers</label>
-                                            <select name="users" class="filter-select" onchange="this.form.submit()">
-                                                <option value="">Alle rollen</option>
-                                                <option value="with_users" {{ request('users') == 'with_users' ? 'selected' : '' }}>Met gebruikers</option>
-                                                <option value="without_users" {{ request('users') == 'without_users' ? 'selected' : '' }}>Zonder gebruikers</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="filter-group">
-                                            <label class="filter-label">Items per pagina</label>
-                                            <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                                <option value="5" {{ request('per_page', 15) == 5 ? 'selected' : '' }}>5</option>
-                                                <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                                <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                                <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                                <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="filter-group">
-                                            <label class="filter-label">&nbsp;</label>
-                                            <a href="{{ route('admin.roles.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border-radius: var(--border-radius);">
-                                                <i class="fas fa-times"></i>
-                                                Filter wissen
-                                            </a>
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-                        </form>
-                    </div>
-
-                    @if($roles->count() > 0)
-                        <div class="table-responsive">
-                            <table class="material-table">
-                                <thead>
-                                    <tr>
-                                        <th class="sortable {{ request('sort') == 'id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="id">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'order' => request('sort') == 'id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                ID
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="name">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'order' => request('sort') == 'name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Rol & Details
-                                            </a>
-                                        </th>
-                                        <th>Rechten</th>
-                                        <th class="sortable {{ request('sort') == 'users_count' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="users_count">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'users_count', 'order' => request('sort') == 'users_count' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Gebruikers
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'guard_name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="guard_name">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'guard_name', 'order' => request('sort') == 'guard_name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Type
-                                            </a>
-                                        </th>
-                                        <th>Acties</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($roles as $role)
-                                        @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
-                                        <tr>
-                                            <td>{{ $role->id }}</td>
-                                            <td>
-                                                <div class="role-info">
-                                                    <div class="role-name">{{ ucfirst($role->name) }}</div>
-                                                    @if($role->description)
-                                                        <div class="role-description">
-                                                            <i class="fas fa-info-circle"></i>{{ $role->description }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span class="material-badge material-badge-info">{{ $role->permissions->count() }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="material-badge material-badge-secondary">{{ $role->users->count() }}</span>
-                                            </td>
-                                            <td>
-                                                @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                                    <span class="material-badge material-badge-warning">Systeem</span>
-                                                @else
-                                                    <span class="material-badge material-badge-success">Aangepast</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <div class="action-buttons">
-                                                    <a href="{{ route('admin.roles.show', $role) }}"
-                                                       class="action-btn action-btn-info"
-                                                       title="Bekijken">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <a href="{{ route('admin.roles.edit', $role) }}"
-                                                       class="action-btn action-btn-warning"
-                                                       title="Bewerken">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    @if(!in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                                        <form action="{{ route('admin.roles.destroy', $role) }}"
-                                                              method="POST"
-                                                              style="display: inline;"
-                                                              onsubmit="return confirm('Weet je zeker dat je deze rol wilt verwijderen?')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit"
-                                                                    class="action-btn action-btn-danger"
-                                                                    title="Verwijderen">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
-                                                        </form>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @endif
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Results Info -->
-                        <div class="results-info-wrapper">
-                            <div class="results-info">
-                                <span class="results-text">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    Toon {{ $roles->firstItem() ?? 0 }} tot {{ $roles->lastItem() ?? 0 }} van {{ $roles->total() }} resultaten
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Pagination -->
-                        @if($roles->hasPages())
-                            <div class="pagination-wrapper">
-                                <nav aria-label="Paginering">
-                                    <ul class="pagination">
-                                        {{-- Previous Page Link --}}
-                                        @if ($roles->onFirstPage())
-                                            <li class="page-item disabled">
-                                                <span class="page-link">
-                                                    <i class="fas fa-chevron-left"></i>
-                                                </span>
-                                            </li>
-                                        @else
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $roles->previousPageUrl() }}">
-                                                    <i class="fas fa-chevron-left"></i>
-                                                </a>
-                                            </li>
-                                        @endif
-
-                                        {{-- Pagination Elements --}}
-                                        @foreach ($roles->getUrlRange(1, $roles->lastPage()) as $page => $url)
-                                            @if ($page == $roles->currentPage())
-                                                <li class="page-item active">
-                                                    <span class="page-link">{{ $page }}</span>
-                                                </li>
-                                            @else
-                                                <li class="page-item">
-                                                    <a class="page-link" href="{{ $url }}">{{ $page }}</a>
-                                                </li>
-                                            @endif
-                                        @endforeach
-
-                                        {{-- Next Page Link --}}
-                                        @if ($roles->hasMorePages())
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $roles->nextPageUrl() }}">
-                                                    <i class="fas fa-chevron-right"></i>
-                                                </a>
-                                            </li>
-                                        @else
-                                            <li class="page-item disabled">
-                                                <span class="page-link">
-                                                    <i class="fas fa-chevron-right"></i>
-                                                </span>
-                                            </li>
-                                        @endif
-                                    </ul>
-                                </nav>
-                            </div>
-                        @endif
-                    @else
-                        <div class="empty-state">
-                            <i class="fas fa-inbox"></i>
-                            <p>Geen rollen gevonden</p>
-                        </div>
-                    @endif
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['system_roles'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Systeem Rollen
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['custom_roles'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Aangepaste Rollen
+                    </span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_users_with_roles'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Gebruikers met Rollen
+                    </span>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="kt-card kt-card-grid min-w-full">
+            <div class="kt-card-header py-5 flex-wrap gap-2">
+                <h3 class="kt-card-title text-sm pb-3 w-full">
+                    Toon 1 tot {{ $roles->count() }} van {{ $roles->count() }} rollen
+                </h3>
+                <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
+                    <!-- Search -->
+                    <div class="flex">
+                        <form method="GET" action="{{ route('admin.roles.index') }}" class="flex gap-2" id="search-form">
+                            @if(request('type'))
+                                <input type="hidden" name="type" value="{{ request('type') }}">
+                            @endif
+                            @if(request('users'))
+                                <input type="hidden" name="users" value="{{ request('users') }}">
+                            @endif
+                            @if(request('status'))
+                                <input type="hidden" name="status" value="{{ request('status') }}">
+                            @endif
+                            @if(request('permissions'))
+                                <input type="hidden" name="permissions" value="{{ request('permissions') }}">
+                            @endif
+                            @if(request('sort'))
+                                <input type="hidden" name="sort" value="{{ request('sort') }}">
+                            @endif
+                            @if(request('direction'))
+                                <input type="hidden" name="direction" value="{{ request('direction') }}">
+                            @endif
+                            @if(request('status'))
+                                <input type="hidden" name="status" value="{{ request('status') }}">
+                            @endif
+                            <label class="kt-input w-64" style="position: relative !important;">
+                                <i class="ki-filled ki-magnifier"></i>
+                                <input placeholder="Zoek rollen..." 
+                                       type="text" 
+                                       name="search" 
+                                       value="{{ request('search') }}"
+                                       id="search-input"
+                                       data-kt-datatable-search="#roles_table"/>
+                            </label>
+                        </form>
+                    </div>
+                    <!-- Filters -->
+                    <div class="flex flex-wrap gap-2.5 items-center">
+                        <form method="GET" action="{{ route('admin.roles.index') }}" id="filters-form" class="flex gap-2.5">
+                            @if(request('search'))
+                                <input type="hidden" name="search" value="{{ request('search') }}">
+                            @endif
+                            
+                            <select class="kt-select w-36" 
+                                    name="type" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Type"
+                                    id="type-filter">
+                                <option value="">Alle types</option>
+                                <option value="system" {{ request('type') == 'system' ? 'selected' : '' }}>Systeem</option>
+                                <option value="custom" {{ request('type') == 'custom' ? 'selected' : '' }}>Aangepast</option>
+                            </select>
+                            
+                            <select class="kt-select w-36" 
+                                    name="users" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Gebruikers"
+                                    id="users-filter">
+                                <option value="">Alle rollen</option>
+                                <option value="with_users" {{ request('users') == 'with_users' ? 'selected' : '' }}>Met gebruikers</option>
+                                <option value="without_users" {{ request('users') == 'without_users' ? 'selected' : '' }}>Zonder gebruikers</option>
+                            </select>
+                            
+                            <select class="kt-select w-36" 
+                                    name="status" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Status"
+                                    id="status-filter">
+                                <option value="">Alle statussen</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                            </select>
+                            
+                            <select class="kt-select w-36" 
+                                    name="sort" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Sortering"
+                                    id="sort-filter">
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
+                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
+                                <option value="users_count" {{ request('sort') == 'users_count' ? 'selected' : '' }}>Aantal gebruikers</option>
+                                <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>Status</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
+                            </select>
+                        </form>
+                        @if(request('type') || request('users') || (request('status') && request('status') != '') || (request('sort') && request('sort') != 'name') || request('direction') || request('search'))
+                        <a href="{{ route('admin.roles.index') }}" 
+                           class="kt-btn kt-btn-outline kt-btn-icon" 
+                           title="Filters resetten"
+                           id="reset-filter-btn"
+                           style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
+                            <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
+                        </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kt-card-content">
+                @if($roles->count() > 0)
+                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="roles_table">
+                        <div class="kt-scrollable-x-auto">
+                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                            <thead>
+                                <tr>
+                                    <th class="min-w-[200px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Rol</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    if ($currentSort == 'name') {
+                                                        $nextDirection = ($currentDirection == 'asc') ? 'desc' : 'asc';
+                                                    } else {
+                                                        $nextDirection = 'asc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Type</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Rechten</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Gebruikers</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    if ($currentSort == 'users_count') {
+                                                        $nextDirection = ($currentDirection == 'desc') ? 'asc' : 'desc';
+                                                    } else {
+                                                        $nextDirection = 'desc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'users_count', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    if ($currentSort == 'is_active') {
+                                                        $nextDirection = ($currentDirection == 'desc') ? 'asc' : 'desc';
+                                                    } else {
+                                                        $nextDirection = 'desc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'is_active', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Aangemaakt</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    if ($currentSort == 'created_at') {
+                                                        $nextDirection = ($currentDirection == 'desc') ? 'asc' : 'desc';
+                                                    } else {
+                                                        $nextDirection = 'desc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="w-[60px] text-center">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($roles as $role)
+                                    @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
+                                    <tr class="role-row cursor-pointer" data-role-id="{{ $role->id }}" onclick="window.location.href='{{ route('admin.roles.show', $role) }}'">
+                                        <td>
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
+                                                    <i class="ki-filled ki-profile-circle text-lg text-foreground"></i>
+                                                </div>
+                                                <div class="flex flex-col">
+                                                    <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.roles.show', $role) }}" data-role-id="{{ $role->id }}" onclick="event.stopPropagation();">
+                                                        {{ ucfirst(str_replace('-', ' ', $role->name)) }}
+                                                    </a>
+                                                    @if($role->description)
+                                                        <span class="text-xs text-muted-foreground font-normal mt-0.5">
+                                                            {{ Str::limit($role->description, 50) }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <span class="kt-badge kt-badge-sm kt-badge-info">{{ $role->permissions->count() }}</span>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $role->users_count ?? $role->users->count() }}</span>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            @php
+                                                $isActive = $role->is_active ?? true;
+                                            @endphp
+                                            @if($isActive)
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <span class="text-sm">{{ $role->created_at->format('d-m-Y') }}</span>
+                                        </td>
+                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                            <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                                <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                        <i class="ki-filled ki-dots-vertical text-lg"></i>
+                                                    </button>
+                                                    <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-roles'))
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.roles.show', $role) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-eye"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bekijken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endif
+                                                        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles'))
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.roles.edit', $role) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-pencil"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bewerken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endif
+                                                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('view-roles')) || (auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles')))
+                                                        <div class="kt-menu-separator"></div>
+                                                        @endif
+                                                        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles'))
+                                                        @if(!in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.roles.toggle-status', $role) }}" method="POST" class="inline" onsubmit="return confirm('Weet je zeker dat je de status van deze rol wilt wijzigen?')">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-arrows-circle"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">
+                                                                        @php
+                                                                            $isActive = $role->is_active ?? true;
+                                                                        @endphp
+                                                                        {{ $isActive ? 'Deactiveren' : 'Activeren' }}
+                                                                    </span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endif
+                                                        @endif
+                                                        @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles')) && !in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                        <div class="kt-menu-separator"></div>
+                                                        @endif
+                                                        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-roles'))
+                                                        @if(!in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.roles.destroy', $role) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;"
+                                                                  onsubmit="return confirm('Weet je zeker dat je deze rol wilt verwijderen?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="kt-menu-link w-full text-left text-danger">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-trash"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endif
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @endif
+                                @endforeach
+                            </tbody>
+                        </table>
+                        </div>
+                    
+                    <!-- Pagination -->
+                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
+                        <div class="flex items-center gap-2 order-2 md:order-1">
+                            Toon
+                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            </select>
+                            per pagina
+                        </div>
+                        <div class="flex items-center gap-4 order-1 md:order-2">
+                            <span data-kt-datatable-info="true">
+                            </span>
+                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center py-16">
+                        <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
+                        <h4 class="text-lg font-semibold text-mono mb-2">Geen rollen gevonden</h4>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
 </div>
+
+@push('styles')
+<style>
+    /* Table row hover styling (same as users) */
+    .role-row {
+        cursor: pointer !important;
+    }
+    .role-row:hover {
+        background-color: var(--muted) !important;
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+        .role-row:hover {
+            background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
+        }
+    }
+    
+    /* Table column sorting */
+    .kt-table-col {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    .kt-table-col-sort {
+        margin-left: auto !important;
+    }
+    
+    /* Reset button visibility */
+    a[title="Filters resetten"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        min-width: 34px !important;
+        height: 34px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: 1px solid var(--input) !important;
+        background-color: var(--background) !important;
+        color: var(--secondary-foreground) !important;
+    }
+    a[title="Filters resetten"]:hover {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
+    a[title="Filters resetten"] i {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Volledige tekst weergeven in dropdown opties */
+    #filters-form .kt-select-option-text {
+        overflow: visible !important;
+        white-space: normal !important;
+        text-overflow: clip !important;
+    }
+    
+    /* Zorg dat dropdown opties breed genoeg zijn */
+    #filters-form .kt-select-options {
+        min-width: max-content !important;
+    }
+    
+    #filters-form .kt-select-option {
+        white-space: normal !important;
+    }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Replace "of" with "van" in pagination info
+        function replaceOfWithVan() {
+            const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+            if (infoSpan && infoSpan.textContent.includes(' of ')) {
+                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
+            }
+        }
+        
+        // Initial replace
+        replaceOfWithVan();
+        
+        // Watch for changes in pagination info
+        const observer = new MutationObserver(replaceOfWithVan);
+        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        if (infoSpan) {
+            observer.observe(infoSpan, { childList: true, subtree: true });
+        }
+        
+        // Auto-submit filters on change
+        const filterSelects = document.querySelectorAll('#filters-form select');
+        filterSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                document.getElementById('filters-form').submit();
+            });
+        });
+        
+        // Search form submit on Enter
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('search-form').submit();
+                }
+            });
+        }
+        
+        // Make table rows clickable (except actions column)
+        document.querySelectorAll('tbody tr.role-row').forEach(function(row) {
+            row.addEventListener('click', function(e) {
+                // Don't navigate if clicking on actions column or menu
+                if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+                    return;
+                }
+                
+                // Get role ID from the name link
+                const nameLink = this.querySelector('td:first-child a[data-role-id]');
+                if (nameLink) {
+                    const roleId = nameLink.getAttribute('data-role-id');
+                    if (roleId) {
+                        window.location.href = '/admin/roles/' + roleId;
+                    }
+                }
+            });
+        });
+    });
+</script>
+@endpush
+
 @endsection

@@ -1,109 +1,181 @@
+<!--
+Product: Metronic is a toolkit of UI components built with Tailwind CSS for developing scalable web applications quickly and efficiently
+Version: v9.3.5
+Author: Keenthemes
+-->
 <!DOCTYPE html>
-<html lang="nl">
+<html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - Skillmatching Platform</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <base href="{{ url('/') }}">
+    <title>Admin Login - NEXA Skillmatching</title>
+    <meta charset="utf-8"/>
+    <meta content="follow, index" name="robots"/>
+    <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
+    <meta content="Admin login page for NEXA Skillmatching Platform" name="description"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
+    <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
+    <link href="{{ asset('assets/css/styles.css') }}" rel="stylesheet"/>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="antialiased flex h-full text-base text-foreground bg-background">
+    <!-- Theme Mode -->
+    <script>
+        const defaultThemeMode = 'light';
+        let themeMode;
+
+        if (document.documentElement) {
+            if (localStorage.getItem('kt-theme')) {
+                themeMode = localStorage.getItem('kt-theme');
+            } else if (document.documentElement.hasAttribute('data-kt-theme-mode')) {
+                themeMode = document.documentElement.getAttribute('data-kt-theme-mode');
+            } else {
+                themeMode = defaultThemeMode;
+            }
+
+            if (themeMode === 'system') {
+                themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            document.documentElement.classList.add(themeMode);
+        }
+    </script>
+    <!-- End of Theme Mode -->
+    
+    <!-- Page -->
     <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .branded-bg {
+            background-image: url('{{ asset('assets/media/images/2600x1600/1.png') }}');
         }
-        .login-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            width: 100%;
-            max-width: 400px;
+        .dark .branded-bg {
+            background-image: url('{{ asset('assets/media/images/2600x1600/1-dark.png') }}');
         }
-        .login-header {
-            text-align: center;
-            margin-bottom: 2rem;
+        
+        /* Login form input fields 100% width */
+        #sign_in_form .kt-input {
+            width: 100% !important;
         }
-        .login-header h1 {
-            color: #333;
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
+        
+        #sign_in_form .kt-input input {
+            width: 100% !important;
         }
-        .login-header p {
-            color: #666;
-            margin: 0;
+        
+        /* Autofill achtergrond licht grijs */
+        #sign_in_form input:-webkit-autofill,
+        #sign_in_form input:-webkit-autofill:hover,
+        #sign_in_form input:-webkit-autofill:focus,
+        #sign_in_form input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #f3f4f6 inset !important;
+            -webkit-text-fill-color: #1f2937 !important;
+            background-color: #f3f4f6 !important;
         }
-        .form-floating {
-            margin-bottom: 1rem;
-        }
-        .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 0.75rem;
-            font-weight: 600;
-            width: 100%;
-            margin-top: 1rem;
-        }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-        .alert {
-            border-radius: 10px;
-            margin-bottom: 1rem;
+        
+        .dark #sign_in_form input:-webkit-autofill,
+        .dark #sign_in_form input:-webkit-autofill:hover,
+        .dark #sign_in_form input:-webkit-autofill:focus,
+        .dark #sign_in_form input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #374151 inset !important;
+            -webkit-text-fill-color: #f9fafb !important;
+            background-color: #374151 !important;
         }
     </style>
-</head>
-<body>
-    <div class="login-card">
-        <div class="login-header">
-            <h1><i class="fas fa-shield-alt"></i> Admin Panel</h1>
-            <p>Skillmatching AI Vacatureplatform</p>
-        </div>
+    
+    <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
+        <div class="kt-card max-w-[370px] w-full">
+            <form action="{{ route('admin.login.post') }}" class="kt-card-content flex flex-col gap-5 p-10" id="sign_in_form" method="POST">
+                @csrf
+                @php $intendedValue = old('intended', request()->query('intended') ?? session('url.intended')); @endphp
+                @if($intendedValue)
+                    <input type="hidden" name="intended" value="{{ $intendedValue }}">
+                @endif
+                
+                <div class="text-center mb-2.5">
+                    <div class="mb-4">
+                        <img
+                            src="{{ asset('images/nexa-logo.png') }}"
+                            alt="NEXA"
+                            class="h-10 w-auto mx-auto object-contain"
+                        />
+                        <div class="mt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            Administratie paneel
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium text-mono leading-none mb-2.5">
+                        Inloggen
+                    </h3>
+                </div>
 
-        @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
+                @error('email')
+                    <div class="kt-alert kt-alert-danger flex items-center gap-2.5 p-4 rounded-lg border border-red-500 bg-red-50 dark:bg-red-900/20">
+                        <i class="ki-filled ki-information-5 text-xl text-red-600 dark:text-red-400"></i>
+                        <div class="text-sm font-medium text-red-800 dark:text-red-200">{{ $message }}</div>
+                    </div>
+                @enderror
 
-        @if(session('error'))
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle"></i> {{ session('error') }}
-            </div>
-        @endif
+                <div class="flex flex-col gap-1">
+                    <label class="kt-form-label font-normal text-mono">
+                        E-mail
+                    </label>
+                    <input class="kt-input @error('email') border-danger @enderror" 
+                           placeholder="email@email.com" 
+                           type="email" 
+                           name="email"
+                           value="{{ old('email') }}" 
+                           required
+                           autofocus/>
+                </div>
 
-        <form method="POST" action="{{ route('admin.login.post') }}">
-            @csrf
-            
-            <div class="form-floating">
-                <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" value="{{ old('email') }}" required>
-                <label for="email"><i class="fas fa-envelope"></i> E-mailadres</label>
-            </div>
+                <div class="flex flex-col gap-1">
+                    <label class="kt-form-label font-normal text-mono">
+                        Wachtwoord
+                    </label>
+                    <div class="kt-input" data-kt-toggle-password="true">
+                        <input name="password" 
+                               placeholder="Voer wachtwoord in" 
+                               type="password" 
+                               value=""
+                               required/>
+                        <button class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon bg-transparent! -me-1.5" 
+                                data-kt-toggle-password-trigger="true" 
+                                type="button">
+                            <span class="kt-toggle-password-active:hidden">
+                                <i class="ki-filled ki-eye text-muted-foreground"></i>
+                            </span>
+                            <span class="hidden kt-toggle-password-active:block">
+                                <i class="ki-filled ki-eye-slash text-muted-foreground"></i>
+                            </span>
+                        </button>
+                    </div>
+                    @error('password')
+                        <div class="text-sm text-danger mt-1">{{ $message }}</div>
+                    @enderror
+                    <a class="text-sm link text-primary mt-1" href="{{ route('admin.password.request') }}">
+                        Wachtwoord vergeten?
+                    </a>
+                </div>
 
-            <div class="form-floating">
-                <input type="password" class="form-control" id="password" name="password" placeholder="Wachtwoord" required>
-                <label for="password"><i class="fas fa-lock"></i> Wachtwoord</label>
-            </div>
+                <label class="kt-label">
+                    <input class="kt-checkbox kt-checkbox-sm" 
+                           name="remember" 
+                           type="checkbox" 
+                           value="1"/>
+                    <span class="kt-checkbox-label">
+                        Onthoud mij
+                    </span>
+                </label>
 
-            <button type="submit" class="btn btn-primary btn-login">
-                <i class="fas fa-sign-in-alt"></i> Inloggen
-            </button>
-        </form>
-
-        <div class="text-center mt-3">
-            <small class="text-muted">
-                <i class="fas fa-info-circle"></i> Alleen Super Admin toegang
-            </small>
+                <button type="submit" class="kt-btn kt-btn-primary flex justify-center grow">
+                    Inloggen
+                </button>
+            </form>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- End of Page -->
+    
+    <!-- Scripts -->
+    <script src="{{ asset('assets/js/core.bundle.js') }}"></script>
+    <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}"></script>
+    <script src="{{ asset('assets/vendors/apexcharts/apexcharts.min.js') }}"></script>
+    <!-- End of Scripts -->
 </body>
 </html>

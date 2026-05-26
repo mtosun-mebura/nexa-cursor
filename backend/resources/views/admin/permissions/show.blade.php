@@ -1,570 +1,349 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Recht Details - ' . $permission->name)
+@section('title', 'Permissie Details - ' . ucfirst(str_replace('-', ' ', $permission->name)))
+
+@push('styles')
+<style>
+    /* Danger button styles */
+    .kt-btn-danger {
+        background-color: #ef4444 !important;
+        color: white !important;
+    }
+    .kt-btn-danger:hover {
+        background-color: #dc2626 !important;
+    }
+    .dark .kt-btn-danger {
+        background-color: #dc2626 !important;
+    }
+    .dark .kt-btn-danger:hover {
+        background-color: #b91c1c !important;
+    }
+</style>
+@endpush
 
 @section('content')
+
 <style>
-    :root {
-        --primary-color: #2196F3;
-        --primary-dark: #1976D2;
-        --primary-light: #BBDEFB;
-        --accent-color: #FF4081;
-        --success-color: #4CAF50;
-        --warning-color: #FF9800;
-        --danger-color: #F44336;
-        --info-color: #00BCD4;
-        --secondary-color: #757575;
-        --light-bg: #f5f5f5;
-        --border-color: #e0e0e0;
-        --text-primary: #212121;
-        --text-secondary: #757575;
-        --shadow: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s ease;
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
     }
-
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        margin-bottom: 24px;
-        overflow: hidden;
-        transition: var(--transition);
-    }
-
-    .material-card:hover {
-        box-shadow: var(--shadow-hover);
-    }
-
-    .card-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-        color: white;
-        padding: 20px 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .card-header h5 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .material-header-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .material-btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: var(--border-radius);
-        font-weight: 500;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: var(--transition);
-        cursor: pointer;
-        font-size: 14px;
-        height: 44px;
-        min-height: 44px;
-    }
-
-    .material-btn-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-btn-warning:hover {
-        background: #f57c00;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--text-primary);
-    }
-
-    .material-btn-secondary:hover {
-        background: #e0e0e0;
-        color: var(--text-primary);
-        transform: translateY(-2px);
-    }
-
-    .card-body {
-        padding: 24px;
-    }
-
-    .permission-header {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        border-radius: var(--border-radius);
-        padding: 24px;
-        margin-bottom: 24px;
-        border-left: 4px solid var(--primary-color);
-    }
-
-    .permission-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 12px;
-        line-height: 1.2;
-    }
-
-    .permission-meta {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-    }
-
-    .meta-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--text-secondary);
-        font-size: 14px;
-    }
-
-    .meta-item i {
-        color: var(--primary-color);
-        width: 16px;
-    }
-
-    .permission-status {
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-
-    .permission-status:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .status-active {
-        background: linear-gradient(135deg, #f1f8e9 0%, #81c784 100%);
-        color: #388e3c;
-        border: 2px solid #81c784;
-    }
-
-    .status-inactive {
-        background: linear-gradient(135deg, #ffcdd2 0%, #e57373 100%);
-        color: #d32f2f;
-        border: 2px solid #e57373;
-    }
-
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 24px;
-        margin-bottom: 24px;
-    }
-
-    .info-section {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 20px;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-    }
-
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--primary-color);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .info-table tr {
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .info-table tr:last-child {
-        border-bottom: none;
-    }
-
-    .info-table td {
-        padding: 12px 0;
-        vertical-align: top;
-    }
-
-    .info-table td:first-child {
-        font-weight: 600;
-        color: var(--text-primary);
-        width: 140px;
-        min-width: 140px;
-    }
-
-    .info-table td:last-child {
-        color: var(--text-secondary);
-    }
-
-    .material-badge {
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
-    }
-
-    .material-badge-primary {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    .material-badge-secondary {
-        background: var(--secondary-color);
-        color: white;
-    }
-
-    .material-badge-success {
-        background: var(--success-color);
-        color: white;
-    }
-
-    .material-badge-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-badge-danger {
-        background: var(--danger-color);
-        color: white;
-    }
-
-    .material-badge-info {
-        background: var(--info-color);
-        color: white;
-    }
-
-    .material-text-muted {
-        color: var(--text-secondary);
-        font-style: italic;
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 16px;
-        margin-bottom: 24px;
-    }
-
-    .stat-card {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 20px;
-        text-align: center;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-        transition: var(--transition);
-    }
-
-    .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-hover);
-    }
-
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 8px;
-    }
-
-    .stat-label {
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .material-table {
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-    }
-
-    .material-table thead th {
-        background: var(--light-bg);
-        border: none;
-        font-weight: 600;
-        color: var(--text-primary);
-        padding: 16px 12px;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-        letter-spacing: 0.5px;
-    }
-
-    .material-table tbody td {
-        padding: 16px 12px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-    }
-
-    .material-table tbody tr:hover {
-        background: var(--light-bg);
-    }
-
-    .material-alert {
-        border-radius: var(--border-radius);
-        border: none;
-        padding: 16px 20px;
-        margin-bottom: 20px;
-        box-shadow: var(--shadow);
-    }
-
-    .material-alert-warning {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        color: #e65100;
-        border-left: 4px solid var(--warning-color);
-    }
-
-    code {
-        background: var(--light-bg);
-        color: var(--text-primary);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
     }
 </style>
 
-<div class="container-fluid">
-    <div class="material-card">
-        <div class="card-header">
-            <h5>
-                <i class="fas fa-key"></i>
-                Recht Details: {{ $permission->name }}
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.permissions.edit', $permission) }}" class="material-btn material-btn-warning me-2">
-                    <i class="fas fa-edit"></i> Bewerken
-                </a>
-                <a href="{{ route('admin.permissions.index') }}" class="material-btn material-btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <!-- Container -->
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            <div class="rounded-full border-3 border-primary size-[100px] shrink-0 bg-primary/10 flex items-center justify-center">
+                <i class="ki-filled ki-key text-4xl text-primary"></i>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="text-lg leading-5 font-semibold text-mono">
+                    {{ ucfirst(str_replace('-', ' ', $permission->name)) }}
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-shield-user text-muted-foreground text-sm"></i>
+                    <span class="text-secondary-foreground font-medium">
+                        {{ $permission->roles->count() }} rollen
+                    </span>
+                </div>
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-people text-muted-foreground text-sm"></i>
+                    <span class="text-secondary-foreground font-medium">
+                        {{ $permission->users->count() }} gebruikers
+                    </span>
+                </div>
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-calendar text-muted-foreground text-sm"></i>
+                    <span class="text-secondary-foreground font-medium">
+                        {{ $permission->created_at->format('d-m-Y') }}
+                    </span>
+                </div>
             </div>
         </div>
-        <div class="card-body">
-            <!-- Permission Header Section -->
-            <div class="permission-header">
-                <h1 class="permission-title">{{ ucfirst(str_replace('-', ' ', $permission->name)) }}</h1>
-                <div class="permission-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-key"></i>
-                        <span>{{ $permission->name }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-folder"></i>
-                        <span>{{ $permission->group ?? 'Geen groep' }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>{{ $permission->guard_name }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>Aangemaakt: {{ $permission->created_at->format('d-m-Y') }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-clock"></i>
-                        <span>Bijgewerkt: {{ $permission->updated_at->format('d-m-Y') }}</span>
-                    </div>
-                </div>
-                <div class="permission-status status-active">
-                    <i class="fas fa-circle"></i>
-                    Actief
-                </div>
-            </div>
+    </div>
+    <!-- End of Container -->
+</div>
 
-            <!-- Statistics Cards -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value">{{ $permission->roles->count() }}</div>
-                    <div class="stat-label">Rollen</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">{{ $permission->users->count() }}</div>
-                    <div class="stat-label">Gebruikers</div>
-                </div>
-            </div>
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10">
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+        <div class="flex items-center gap-2.5">
+            @php
+                $hasRoles = $permission->roles->count() > 0;
+            @endphp
+            @if($hasRoles)
+                <label class="kt-label flex items-center">
+                    <input type="checkbox" 
+                           class="kt-switch kt-switch-sm" 
+                           checked 
+                           disabled/>
+                    <span class="ms-2">Actief</span>
+                </label>
+            @else
+                <label class="kt-label flex items-center">
+                    <input type="checkbox" 
+                           class="kt-switch kt-switch-sm" 
+                           disabled/>
+                    <span class="ms-2">Actief</span>
+                </label>
+            @endif
+            <span class="text-orange-500">|</span>
+            @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-permissions'))
+                <a href="{{ route('admin.permissions.edit', $permission) }}" class="kt-btn kt-btn-warning">
+                    <i class="ki-filled ki-pencil me-2"></i>
+                    Bewerken
+                </a>
+            @endif
+            @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-permissions'))
+                @if(!$hasRoles)
+                    <form action="{{ route('admin.permissions.destroy', $permission) }}" 
+                          method="POST" 
+                          class="inline"
+                          onsubmit="return confirm('Weet je zeker dat je deze permissie wilt verwijderen?')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="kt-btn kt-btn-danger">
+                            <i class="ki-filled ki-trash me-2"></i>
+                            Verwijderen
+                        </button>
+                    </form>
+                @endif
+            @endif
+        </div>
+    </div>
 
-            <div class="info-grid">
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-info-circle"></i>
-                        Basis Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>ID</td>
-                            <td>{{ $permission->id }}</td>
-                        </tr>
-                        <tr>
-                            <td>Naam</td>
-                            <td><code>{{ $permission->name }}</code></td>
-                        </tr>
-                        <tr>
-                            <td>Groep</td>
-                            <td>
-                                @if($permission->group)
-                                    <span class="material-badge material-badge-primary">{{ $permission->group }}</span>
-                                @else
-                                    <span class="material-text-muted">Geen groep</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Guard</td>
-                            <td>{{ $permission->guard_name }}</td>
-                        </tr>
-                        <tr>
-                            <td>Beschrijving</td>
-                            <td>{{ $permission->description ?? 'Geen beschrijving' }}</td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-cog"></i>
-                        Systeem Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Aangemaakt op</td>
-                            <td>{{ $permission->created_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                        <tr>
-                            <td>Laatst bijgewerkt</td>
-                            <td>{{ $permission->updated_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                    </table>
-                </div>
+    <div class="grid gap-5 lg:gap-7.5">
+        <!-- Basic Information -->
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Basis Informatie</h3>
             </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Permissie Naam</td>
+                        <td class="min-w-48 w-full">
+                            <span class="text-foreground font-medium">{{ ucfirst(str_replace('-', ' ', $permission->name)) }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Naam (technisch)</td>
+                        <td class="min-w-48 w-full">
+                            <code class="text-sm text-foreground">{{ $permission->name }}</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Groep</td>
+                        <td class="min-w-48 w-full">
+                            @if($permission->group)
+                                <span class="kt-badge kt-badge-primary">{{ $permission->group }}</span>
+                            @else
+                                <span class="text-muted-foreground">Geen groep</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Guard</td>
+                        <td class="min-w-48 w-full">
+                            <span class="text-foreground">{{ $permission->guard_name }}</span>
+                        </td>
+                    </tr>
+                    @if($permission->description)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">Beschrijving</td>
+                        <td>
+                            <span class="text-foreground">{{ $permission->description }}</span>
+                        </td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Status</td>
+                        <td class="min-w-48 w-full">
+                            @if($hasRoles)
+                                <span class="kt-badge kt-badge-sm kt-badge-success">Toegewezen aan rollen</span>
+                            @else
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">Niet toegewezen</span>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Aantal Rollen</td>
+                        <td class="min-w-48 w-full">
+                            <span class="kt-badge kt-badge-info">{{ $permission->roles->count() }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Aantal Gebruikers</td>
+                        <td class="min-w-48 w-full">
+                            <span class="kt-badge kt-badge-secondary">{{ $permission->users->count() }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Aangemaakt</td>
+                        <td class="min-w-48 w-full">
+                            <span class="text-foreground">{{ $permission->created_at->format('d-m-Y H:i') }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">Laatst bijgewerkt</td>
+                        <td class="min-w-48 w-full">
+                            <span class="text-foreground">{{ $permission->updated_at->format('d-m-Y H:i') }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
 
-            <!-- Roles with this Permission -->
-            <div class="info-section">
-                <h6 class="section-title">
-                    <i class="fas fa-user-shield"></i>
-                    Rollen met dit Recht ({{ $permission->roles->count() }})
-                </h6>
-                
+        <!-- Roles with this Permission -->
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Rollen met deze Permissie ({{ $permission->roles->count() }})</h3>
+            </div>
+            <div class="kt-card-content">
                 @if($permission->roles->count() > 0)
-                    <div class="table-responsive">
-                        <table class="table material-table">
+                    <div class="kt-scrollable-x-auto">
+                        <table class="kt-table kt-table-border align-middle">
                             <thead>
                                 <tr>
-                                    <th>Rol Naam</th>
-                                    <th>Beschrijving</th>
-                                    <th>Type</th>
-                                    <th>Aantal Gebruikers</th>
+                                    <th class="min-w-[200px]">Rol</th>
+                                    <th class="min-w-[200px]">Beschrijving</th>
+                                    <th class="min-w-[150px]">Type</th>
+                                    <th class="min-w-[100px]">Aantal Gebruikers</th>
+                                    <th class="min-w-[100px]">Acties</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($permission->roles as $role)
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <i class="fas fa-user-shield me-2 text-primary"></i>
-                                                <strong>{{ $role->name }}</strong>
-                                            </div>
-                                        </td>
-                                        <td>{{ $role->description ?? 'Geen beschrijving' }}</td>
-                                        <td>
-                                            @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                                <span class="material-badge material-badge-warning">Systeem</span>
-                                            @else
-                                                <span class="material-badge material-badge-success">Aangepast</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <span class="material-badge material-badge-secondary">{{ $role->users->count() }}</span>
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td>
+                                        <div class="flex items-center gap-2.5">
+                                            <i class="ki-filled ki-shield-user text-primary"></i>
+                                            <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.roles.show', $role) }}">
+                                                {{ ucfirst(str_replace('-', ' ', $role->name)) }}
+                                            </a>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="text-sm text-secondary-foreground">{{ $role->description ?? '-' }}</span>
+                                    </td>
+                                    <td>
+                                        @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
+                                            <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
+                                        @else
+                                            <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $role->users->count() }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
+                                            <i class="ki-filled ki-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
                 @else
-                    <div class="material-alert material-alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Dit recht is niet toegewezen aan rollen.
+                    <div class="p-5">
+                        <p class="text-muted-foreground">Deze permissie is niet toegewezen aan rollen.</p>
                     </div>
                 @endif
             </div>
-
-            <!-- Users with this Permission -->
-            @if($permission->users->count() > 0)
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-users"></i>
-                        Gebruikers met dit Recht ({{ $permission->users->count() }})
-                    </h6>
-                    
-                    <div class="table-responsive">
-                        <table class="table material-table">
-                            <thead>
-                                <tr>
-                                    <th>Naam</th>
-                                    <th>E-mail</th>
-                                    <th>Bedrijf</th>
-                                    <th>Rollen</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($permission->users as $user)
-                                    <tr>
-                                        <td>{{ $user->first_name }} {{ $user->last_name }}</td>
-                                        <td>{{ $user->email }}</td>
-                                        <td>{{ $user->company->name ?? 'Geen bedrijf' }}</td>
-                                        <td>
-                                            <div class="d-flex flex-wrap gap-1">
-                                                @foreach($user->roles as $role)
-                                                    <span class="material-badge material-badge-info">{{ $role->name }}</span>
-                                                @endforeach
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @endif
         </div>
+
+        <!-- Users with this Permission -->
+        @if($permission->users->count() > 0)
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">Gebruikers met deze Permissie ({{ $permission->users->count() }})</h3>
+            </div>
+            <div class="kt-card-content">
+                <div class="kt-scrollable-x-auto">
+                    <table class="kt-table kt-table-border align-middle">
+                        <thead>
+                            <tr>
+                                <th class="min-w-[200px]">Gebruiker</th>
+                                <th class="min-w-[200px]">Email</th>
+                                <th class="min-w-[150px]">Bedrijf</th>
+                                <th class="min-w-[150px]">Rollen</th>
+                                <th class="min-w-[100px]">Acties</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($permission->users as $user)
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-2.5">
+                                        @if($user->photo_blob)
+                                            <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}"/>
+                                        @else
+                                            <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
+                                                <span class="text-xs font-semibold text-secondary-foreground">
+                                                    {{ strtoupper(substr($user->first_name ?? 'U', 0, 1) . substr($user->last_name ?? '', 0, 1)) }}
+                                                </span>
+                                            </div>
+                                        @endif
+                                        <div class="flex flex-col">
+                                            <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.users.show', $user) }}">
+                                                {{ $user->first_name }} {{ $user->last_name }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a class="text-sm text-secondary-foreground hover:text-primary" href="mailto:{{ $user->email }}">
+                                        {{ $user->email }}
+                                    </a>
+                                </td>
+                                <td>
+                                    @if($user->company)
+                                        <span class="kt-badge kt-badge-sm kt-badge-info">{{ $user->company->name }}</span>
+                                    @else
+                                        <span class="text-sm text-muted-foreground">Geen bedrijf</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <div class="flex flex-wrap gap-1">
+                                        @foreach($user->roles as $role)
+                                            <span class="kt-badge kt-badge-sm kt-badge-info">{{ $role->name }}</span>
+                                        @endforeach
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
+                                            <i class="ki-filled ki-eye"></i>
+                                        </a>
+                                        @can('edit-users')
+                                        <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bewerken">
+                                            <i class="ki-filled ki-pencil"></i>
+                                        </a>
+                                        @endcan
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
 </div>
+
 @endsection

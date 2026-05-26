@@ -1,0 +1,59 @@
+FROM php:8.3-cli
+
+# Clean and update package lists
+RUN apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get update
+
+# Fix any broken packages first
+RUN apt-get install -y --fix-broken || true
+
+# Install base dependencies and clean cache immediately
+RUN apt-get install -y --no-install-recommends \
+        git \
+        unzip \
+        libpq-dev \
+        libzip-dev \
+        libonig-dev \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libpng-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Update again and install libicu-dev separately
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libicu-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_pgsql intl zip gd
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+ENV COMPOSER_ALLOW_SUPERUSER=1
+WORKDIR /var/www/html
+
+# 1) Alleen composer files -> install ZONDER scripts
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
+
+# 2) Dan pas alle code
+COPY . .
+
+# 3) Nu artisan bestaat: optimaliseer autoload (scripts mogen nu desnoods draaien)
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Runtime dirs
+RUN mkdir -p storage/framework/{cache,views,sessions} \
+ && mkdir -p bootstrap/cache \
+ && chown -R www-data:www-data storage bootstrap/cache
+
+EXPOSE 8000
+ENTRYPOINT ["entrypoint.sh"]

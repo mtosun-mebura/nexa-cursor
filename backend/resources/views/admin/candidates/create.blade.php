@@ -3,7 +3,21 @@
 @section('title', 'Nieuwe Kandidaat')
 
 @section('content')
-<div class="container-fluid">
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
+        <div class="flex flex-col justify-center gap-2">
+            <h1 class="text-xl font-medium leading-none text-mono mb-3">
+                {{ $title ?? "Pagina" }}
+            </h1>
+        </div>
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.' . str_replace(['admin.', '.create', '.edit', '.show'], ['', '.index', '.index', '.index'], request()->route()->getName())) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+    </div>
+
     <!-- Header Section -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -13,19 +27,19 @@
             <p class="text-muted">Voeg een nieuwe kandidaat toe aan het systeem</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('admin.candidates.index') }}" class="material-btn material-btn-secondary">
+            <a href="{{ route('admin.candidates.index') }}" class="kt-btn kt-btn-outline">
                 <i class="fas fa-arrow-left me-2"></i> Terug naar Overzicht
             </a>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-12">
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="w-full">
             <div class="card">
-                <div class="card-header">
+                <div class="kt-card-header">
                     <h5 class="mb-0">Kandidaat Informatie</h5>
                 </div>
-                <div class="card-body">
+                <div class="kt-card-content grid gap-5">
                     @if ($errors->any())
                         <div class="alert alert-danger">
                             <ul class="mb-0">
@@ -36,12 +50,12 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.candidates.store') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('admin.candidates.store') }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
                         @csrf
                         
                         <!-- Persoonlijke Informatie -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Persoonlijke Informatie</h6>
                                 <hr class="section-divider">
                             </div>
@@ -67,13 +81,31 @@
                             <div class="col-md-6 mb-3">
                                 <label for="phone" class="form-label">Telefoonnummer</label>
                                 <input type="tel" class="form-control" id="phone" name="phone" 
-                                       value="{{ old('phone') }}">
+                                       value="{{ old('phone') }}"
+                                       style="width: 15ch;">
                             </div>
                             
                             <div class="col-md-6 mb-3">
                                 <label for="date_of_birth" class="form-label">Geboortedatum</label>
-                                <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" 
-                                       value="{{ old('date_of_birth') }}">
+                                <!--begin::Input with Calendar-->
+                                <div class="kt-input w-64 @error('date_of_birth') border-destructive @enderror">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="date_of_birth" 
+                                           id="date_of_birth"
+                                           value="{{ old('date_of_birth') }}"
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="dd-MM-yyyy"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"/>
+                                </div>
+                                @error('date_of_birth')
+                                    <div class="form-help text-danger">{{ $message }}</div>
+                                @enderror
+                                <!--end::Input with Calendar-->
                             </div>
                             
                             <div class="col-md-6 mb-3">
@@ -85,7 +117,7 @@
 
                         <!-- Adres Informatie -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Adres Informatie</h6>
                                 <hr class="section-divider">
                             </div>
@@ -104,13 +136,15 @@
                             <div class="col-md-6 mb-3">
                                 <label for="postal_code" class="form-label">Postcode</label>
                                 <input type="text" class="form-control" id="postal_code" name="postal_code" 
-                                       value="{{ old('postal_code') }}">
+                                       value="{{ old('postal_code') }}"
+                                       style="text-transform: uppercase; width: 12ch;"
+                                       maxlength="8">
                             </div>
                         </div>
 
                         <!-- Professionele Informatie -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Professionele Informatie</h6>
                                 <hr class="section-divider">
                             </div>
@@ -166,7 +200,7 @@
 
                         <!-- Voorkeuren -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Voorkeuren</h6>
                                 <hr class="section-divider">
                             </div>
@@ -216,7 +250,7 @@
 
                         <!-- Vaardigheden en Talen -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Vaardigheden en Talen</h6>
                                 <hr class="section-divider">
                             </div>
@@ -252,7 +286,7 @@
 
                         <!-- Bijlagen -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Bijlagen</h6>
                                 <hr class="section-divider">
                             </div>
@@ -273,7 +307,7 @@
 
                         <!-- Online Profielen -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Online Profielen</h6>
                                 <hr class="section-divider">
                             </div>
@@ -293,7 +327,7 @@
 
                         <!-- Toestemmingen -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Toestemmingen</h6>
                                 <hr class="section-divider">
                             </div>
@@ -321,7 +355,7 @@
 
                         <!-- Notities -->
                         <div class="row mb-4">
-                            <div class="col-12">
+                            <div class="w-full">
                                 <h6 class="section-title">Notities</h6>
                                 <hr class="section-divider">
                             </div>
@@ -329,18 +363,18 @@
                             <div class="col-12 mb-3">
                                 <label for="notes" class="form-label">Interne Notities</label>
                                 <textarea class="form-control" id="notes" name="notes" 
-                                          rows="3" placeholder="Interne notities over de kandidaat...">{{ old('notes') }}</textarea>
+                                          rows="4" placeholder="Interne notities over de kandidaat...">{{ old('notes') }}</textarea>
                             </div>
                         </div>
 
                         <!-- Form Actions -->
-                        <div class="row">
-                            <div class="col-12">
+                        <div class="grid gap-5 lg:gap-7.5">
+                            <div class="w-full">
                                 <div class="d-flex justify-content-end gap-2">
-                                    <a href="{{ route('admin.candidates.index') }}" class="material-btn material-btn-secondary">
+                                    <a href="{{ route('admin.candidates.index') }}" class="kt-btn kt-btn-outline">
                                         <i class="fas fa-times me-2"></i> Annuleren
                                     </a>
-                                    <button type="submit" class="material-btn material-btn-primary">
+                                    <button type="submit" class="kt-btn kt-btn-primary">
                                         <i class="fas fa-save me-2"></i> Kandidaat Opslaan
                                     </button>
                                 </div>
@@ -348,178 +382,10 @@
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
     </div>
 </div>
 
-<style>
-:root {
-    --primary-color: #28a745;
-    --primary-light: #34ce57;
-    --primary-dark: #1e7e34;
-    --primary-hover: #2fb344;
-    --success-color: #4caf50;
-    --warning-color: #ff9800;
-    --danger-color: #f44336;
-    --info-color: #2196f3;
-    --secondary-color: #757575;
-    --light-bg: #f5f5f5;
-    --border-color: #e0e0e0;
-    --text-primary: #212121;
-    --text-secondary: #757575;
-    --shadow: 0 2px 4px rgba(0,0,0,0.1);
-    --shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
-    --border-radius: 8px;
-    --transition: all 0.3s ease;
-    --spacing: 1rem;
-}
 
-.card {
-    border: none;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: var(--spacing);
-    transition: var(--transition);
-}
-
-.card:hover {
-    box-shadow: var(--shadow-hover);
-}
-
-.card-header {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    color: white;
-    border-bottom: 1px solid var(--border-color);
-    padding: 1rem 1.5rem;
-    border-radius: var(--border-radius) var(--border-radius) 0 0;
-}
-
-.card-body {
-    padding: 1.5rem;
-}
-
-.section-title {
-    color: var(--primary-color);
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-.section-divider {
-    border-color: var(--primary-color);
-    opacity: 0.3;
-    margin: 0.5rem 0 1rem 0;
-}
-
-.form-label {
-    font-weight: 500;
-    color: var(--text-color);
-    margin-bottom: 0.5rem;
-}
-
-.form-control, .form-select {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 0.75rem;
-    transition: all 0.3s ease;
-}
-
-.form-control:focus, .form-select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
-}
-
-.form-text {
-    font-size: 0.875rem;
-    color: var(--text-color);
-    opacity: 0.7;
-}
-
-.form-check-input:checked {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
-}
-
-.form-check-label {
-    color: var(--text-color);
-    font-weight: 500;
-}
-
-.skills-container, .languages-container {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: 1rem;
-    background: var(--background-color);
-}
-
-.skill-input-group, .language-input-group {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.skill-input, .language-input {
-    flex: 1;
-}
-
-.skills-list, .languages-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.skill-tag, .language-tag {
-    background: var(--primary-color);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.skill-tag .remove-skill, .language-tag .remove-language {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    padding: 0;
-    font-size: 1rem;
-    line-height: 1;
-}
-
-.skill-tag .remove-skill:hover, .language-tag .remove-language:hover {
-    opacity: 0.8;
-}
-
-.alert {
-    border: none;
-    border-radius: var(--border-radius);
-    padding: 1rem 1.5rem;
-}
-
-.alert-danger {
-    background: #f8d7da;
-    color: #721c24;
-    border-left: 4px solid #dc3545;
-}
-
-@media (max-width: 768px) {
-    .card-body {
-        padding: 1rem;
-    }
-    
-    .d-flex.justify-content-end {
-        justify-content: center !important;
-    }
-    
-    .d-flex.gap-2 {
-        flex-direction: column;
-        gap: 0.5rem !important;
-    }
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -611,4 +477,8 @@ document.addEventListener('DOMContentLoaded', function() {
     oldLanguages.forEach(language => addLanguage(language));
 });
 </script>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

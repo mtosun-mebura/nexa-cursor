@@ -1,430 +1,425 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Notificatie Details - ' . $notification->title)
+@section('title', 'Notificatie Details - #' . $notification->id)
 
 @section('content')
+
 <style>
-    :root {
-        --primary-color: #ff6b6b;
-        --primary-light: #ee5a24;
-        --primary-dark: #e74c3c;
-        --primary-hover: #ff5252;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --secondary-color: #757575;
-        --light-bg: #f5f5f5;
-        --border-color: #e0e0e0;
-        --text-primary: #212121;
-        --text-secondary: #757575;
-        --shadow: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s ease;
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
     }
-
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        margin-bottom: 24px;
-        overflow: hidden;
-        transition: var(--transition);
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
     }
-
-    .material-card:hover {
-        box-shadow: var(--shadow-hover);
+    /* Notities en feedback tekst links uitlijnen en witte ruimte verwijderen */
+    .kt-card-content .kt-input {
+        text-align: left !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
-
-    .card-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-        color: white;
-        padding: 20px 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .card-header h5 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .material-header-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .material-btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: var(--border-radius);
-        font-weight: 500;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: var(--transition);
-        cursor: pointer;
-        font-size: 14px;
-        height: 44px;
-        min-height: 44px;
-    }
-
-    .material-btn-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-btn-warning:hover {
-        background: #f57c00;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--text-primary);
-    }
-
-    .material-btn-secondary:hover {
-        background: #e0e0e0;
-        color: var(--text-primary);
-        transform: translateY(-2px);
-    }
-
-    .card-body {
-        padding: 24px;
-    }
-
-    .notification-header {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        border-radius: var(--border-radius);
-        padding: 24px;
-        margin-bottom: 24px;
-        border-left: 4px solid var(--primary-color);
-    }
-
-    .notification-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 12px;
-        line-height: 1.2;
-    }
-
-    .notification-meta {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-    }
-
-    .meta-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--text-secondary);
-        font-size: 14px;
-    }
-
-    .meta-item i {
-        color: var(--primary-color);
-        width: 16px;
-    }
-
-    .notification-status {
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-        transition: all 0.3s ease;
-        position: relative;
-    }
-
-    .notification-status:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-
-    .status-read {
-        background: linear-gradient(135deg, #f1f8e9 0%, #81c784 100%);
-        color: #388e3c;
-        border: 2px solid #81c784;
-    }
-
-    .status-unread {
-        background: #ff6f00;
-        color: white;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    }
-
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 24px;
-        margin-bottom: 24px;
-    }
-
-    .info-section {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 20px;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-    }
-
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--primary-color);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .info-table tr {
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .info-table tr:last-child {
-        border-bottom: none;
-    }
-
-    .info-table td {
-        padding: 12px 0;
-        vertical-align: top;
-    }
-
-    .info-table td:first-child {
-        font-weight: 600;
-        color: var(--text-primary);
-        width: 140px;
-        min-width: 140px;
-    }
-
-    .info-table td:last-child {
-        color: var(--text-secondary);
-    }
-
-    .material-badge {
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
-    }
-
-    .material-badge-primary {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    .material-badge-secondary {
-        background: var(--secondary-color);
-        color: white;
-    }
-
-    .material-badge-success {
-        background: var(--success-color);
-        color: white;
-    }
-
-    .material-badge-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-badge-danger {
-        background: var(--danger-color);
-        color: white;
-    }
-
-    .material-badge-info {
-        background: var(--info-color);
-        color: white;
-    }
-
-    .material-text-muted {
-        color: var(--text-secondary);
-        font-style: italic;
-    }
-
-    .notification-content {
-        background: var(--light-bg);
-        border-radius: var(--border-radius);
-        padding: 20px;
-        margin-top: 16px;
-        border-left: 4px solid var(--primary-color);
+    .kt-card-content .kt-input:empty {
+        display: none;
     }
 </style>
 
-<div class="container-fluid">
-    <div class="material-card">
-        <div class="card-header">
-            <h5>
-                <i class="fas fa-bell"></i>
-                Notificatie Details: {{ $notification->title }}
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.notifications.edit', $notification) }}" class="material-btn material-btn-warning me-2">
-                    <i class="fas fa-edit"></i> Bewerken
-                </a>
-                <a href="{{ route('admin.notifications.index') }}" class="material-btn material-btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            @php
+                $borderColor = 'border-primary';
+                $bgColor = 'bg-primary/10';
+                $textColor = 'text-primary';
+                // Determine color based on notification type or priority
+                if ($notification->type === 'interview') {
+                    $borderColor = 'border-blue-500';
+                    $bgColor = 'bg-blue-500/10';
+                    $textColor = 'text-blue-500';
+                } elseif ($notification->priority === 'urgent') {
+                    $borderColor = 'border-red-500';
+                    $bgColor = 'bg-red-500/10';
+                    $textColor = 'text-red-500';
+                } elseif ($notification->priority === 'high') {
+                    $borderColor = 'border-orange-500';
+                    $bgColor = 'bg-orange-500/10';
+                    $textColor = 'text-orange-500';
+                }
+            @endphp
+            <div class="rounded-full border-3 {{ $borderColor }} size-[100px] shrink-0 flex items-center justify-center {{ $bgColor }} {{ $textColor }} text-2xl font-semibold">
+                <i class="ki-filled ki-notification text-4xl"></i>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
+                    Notificatie voor {{ trim(($notification->user->first_name ?? '') . ' ' . ($notification->user->last_name ?? '')) ?: 'Onbekend' }}
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
+                <div class="flex gap-1.25 items-center">
+                    <i class="ki-filled ki-calendar-tick text-base"></i>
+                    <span class="text-secondary-foreground">
+                        {{ $notification->created_at->format('d-m-Y H:i') }}
+                    </span>
+                </div>
+                <div class="flex gap-1.25 items-center">
+                    @php
+                        $statusLabel = $notification->read_at ? 'Gelezen' : 'Ongelezen';
+                    @endphp
+                    <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->read_at ? 'success' : 'warning' }}">
+                        {{ $statusLabel }}
+                    </span>
+                </div>
+                @if($notification->priority)
+                <div class="flex gap-1.25 items-center">
+                    <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->priority == 'urgent' ? 'danger' : ($notification->priority == 'high' ? 'warning' : ($notification->priority == 'low' ? 'secondary' : 'info')) }}">
+                        {{ ucfirst($notification->priority) }} prioriteit
+                    </span>
+                </div>
+                @endif
+                @php
+                    // Check if this is an interview notification with a response
+                    $data = $notification->data ? json_decode($notification->data, true) : null;
+                    $hasResponse = false;
+                    $responseType = null;
+                    if ($data && is_array($data) && isset($data['response'])) {
+                        $hasResponse = true;
+                        $responseType = $data['response'];
+                    }
+                @endphp
+                @if($notification->type === 'interview' && $hasResponse)
+                <div class="flex gap-1.25 items-center">
+                    @if($responseType === 'accept')
+                        <i class="ki-filled ki-check-circle text-green-500 text-lg" title="Geaccepteerd"></i>
+                    @elseif($responseType === 'decline')
+                        <i class="ki-filled ki-cross-circle text-red-500 text-lg" title="Afgewezen"></i>
+                    @endif
+                </div>
+                @endif
             </div>
         </div>
-        <div class="card-body">
-            <!-- Notification Header Section -->
-            <div class="notification-header">
-                <h1 class="notification-title">{{ $notification->title }}</h1>
-                <div class="notification-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-user"></i>
-                        <span>{{ $notification->user->first_name }} {{ $notification->user->last_name }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-building"></i>
-                        <span>{{ $notification->user->company->name ?? 'Geen bedrijf' }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-tag"></i>
-                        <span>{{ ucfirst($notification->type) }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>Aangemaakt: {{ $notification->created_at->format('d-m-Y') }}</span>
-                    </div>
-                    <div class="meta-item">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>{{ ucfirst($notification->priority) }} prioriteit</span>
-                    </div>
-                </div>
-                <div class="status-{{ $notification->read_at ? 'read' : 'unread' }} {{ !$notification->read_at ? 'material-badge material-badge-warning' : '' }}">
-                    {{ $notification->read_at ? 'Gelezen' : 'ONGELEZEN' }}
-                </div>
-            </div>
+    </div>
+</div>
 
-            <div class="info-grid">
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-user"></i>
-                        Gebruiker Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Naam</td>
-                            <td>{{ $notification->user->first_name }} {{ $notification->user->last_name }}</td>
-                        </tr>
-                        <tr>
-                            <td>E-mail</td>
-                            <td>{{ $notification->user->email }}</td>
-                        </tr>
-                        <tr>
-                            <td>Bedrijf</td>
-                            <td>{{ $notification->user->company->name ?? 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Telefoon</td>
-                            <td>{{ $notification->user->phone ?? 'N/A' }}</td>
-                        </tr>
-                    </table>
-                </div>
+<div class="kt-container-fixed">
+    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10">
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+        <div class="flex items-center gap-2.5">
+            @php
+                // Check if this is a change notification
+                $notificationData = $notification->data ? json_decode($notification->data, true) : [];
+                $isChangeNotification = ($notification->title === 'Interview gewijzigd') || 
+                                       (isset($notificationData['is_change_notification']) && $notificationData['is_change_notification']);
                 
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-bell"></i>
-                        Notificatie Details
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Titel</td>
-                            <td>{{ $notification->title }}</td>
-                        </tr>
-                        <tr>
-                            <td>Type</td>
-                            <td>{{ ucfirst($notification->type) }}</td>
-                        </tr>
-                        <tr>
-                            <td>Prioriteit</td>
-                            <td>
-                                <span class="material-badge material-badge-{{ $notification->priority == 'urgent' ? 'danger' : ($notification->priority == 'high' ? 'warning' : ($notification->priority == 'low' ? 'secondary' : 'info')) }}">
-                                    {{ ucfirst($notification->priority) }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Status</td>
-                            <td>
-                                <span class="material-badge material-badge-{{ $notification->read_at ? 'success' : 'warning' }}">
-                                    {{ $notification->read_at ? 'Gelezen' : 'Ongelezen' }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Gelezen op</td>
-                            <td>{{ $notification->read_at ? $notification->read_at->format('d-m-Y H:i') : 'Nog niet gelezen' }}</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
+                // Check if there's a scheduled interview
+                $hasScheduledInterview = false;
+                if (isset($notificationData['interview_id']) && $notificationData['interview_id']) {
+                    $interview = \App\Models\Interview::find($notificationData['interview_id']);
+                    if ($interview && $interview->status === 'scheduled') {
+                        $hasScheduledInterview = true;
+                    }
+                }
+                
+                // Hide edit button if it's a change notification or if there's a scheduled interview
+                $showEditButton = !$isChangeNotification && !$hasScheduledInterview;
+            @endphp
+            @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-notifications')) && $showEditButton)
+            <a href="{{ route('admin.notifications.edit', $notification) }}" class="kt-btn kt-btn-primary">
+                <i class="ki-filled ki-notepad-edit me-2"></i>
+                Bewerken
+            </a>
+            @endif
+        </div>
+    </div>
 
-            <div class="info-grid">
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-cog"></i>
-                        Systeem Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>ID</td>
-                            <td>{{ $notification->id }}</td>
-                        </tr>
-                        <tr>
-                            <td>Aangemaakt op</td>
-                            <td>{{ $notification->created_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                        <tr>
-                            <td>Laatst bijgewerkt</td>
-                            <td>{{ $notification->updated_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                    </table>
-                </div>
-                
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-envelope"></i>
-                        Inhoud
-                    </h6>
-                    <div class="notification-content">
-                        {{ $notification->message }}
+    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 items-stretch">
+        <!-- Notificatie Informatie -->
+        <div class="kt-card flex-1">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Notificatie Informatie
+                </h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                            Ontvanger
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal">
+                            @if($notification->user)
+                                {{ trim($notification->user->first_name . ' ' . $notification->user->last_name) }}
+                            @else
+                                Onbekend
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            E-mail
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($notification->user)
+                                {{ $notification->user->email }}
+                            @else
+                                Onbekend
+                            @endif
+                        </td>
+                    </tr>
+                    @if($notification->user && $notification->user->hasRole('candidate'))
+                    @php
+                        $candidate = \App\Models\Candidate::where('email', $notification->user->email)->first();
+                        $match = null;
+                        if ($candidate && $notification->company_id) {
+                            $match = \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($notification) {
+                                $vq->where('company_id', $notification->company_id);
+                            })->where('candidate_id', $candidate->id)->orderBy('created_at', 'desc')->first();
+                        }
+                    @endphp
+                    @if($match && $match->vacancy)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Vacature
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $match->vacancy->title }}
+                        </td>
+                    </tr>
+                    @endif
+                    @endif
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Bedrijf
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($notification->user && $notification->user->company)
+                                {{ $notification->user->company->name }}
+                            @elseif($notification->company_id)
+                                @php
+                                    $company = \App\Models\Company::find($notification->company_id);
+                                @endphp
+                                {{ $company ? $company->name : 'Onbekend' }}
+                            @else
+                                Onbekend
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Afzender
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @if($sender)
+                                {{ trim($sender->first_name . ' ' . $sender->last_name) }}
+                            @else
+                                Systeem
+                            @endif
+                        </td>
+                    </tr>
+                    @if($sender)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Afzender E-mail
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $sender->email }}
+                        </td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Categorie
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $categoryLabels = [
+                                    'info' => 'Informatie',
+                                    'warning' => 'Waarschuwing',
+                                    'success' => 'Succes',
+                                    'error' => 'Fout',
+                                    'reminder' => 'Herinnering',
+                                    'update' => 'Update',
+                                ];
+                                echo $categoryLabels[$notification->category ?? ''] ?? ucfirst($notification->category ?? 'Onbekend');
+                            @endphp
+                        </td>
+                    </tr>
+                    @if($notification->scheduled_at)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Geplande Datum & Tijd
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $notification->scheduled_at->format('d-m-Y H:i') }}
+                        </td>
+                    </tr>
+                    @endif
+                    @if($notification->location)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Locatie
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $notification->location }}
+                        </td>
+                    </tr>
+                    @endif
+                    @if($notification->priority)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Prioriteit
+                        </td>
+                        <td class="text-foreground font-normal">
+                            <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->priority == 'urgent' ? 'danger' : ($notification->priority == 'high' ? 'warning' : ($notification->priority == 'low' ? 'secondary' : 'info')) }}">
+                                {{ ucfirst($notification->priority) }}
+                            </span>
+                        </td>
+                    </tr>
+                    @endif
+                    <tr>
+                        <td class="text-secondary-foreground font-normal align-top">
+                            Aangemaakt op
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $notification->created_at->format('d-m-Y H:i') }}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bericht & Bestand -->
+        <div class="kt-card flex-1">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Bericht & Bestand
+                </h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal border-b border-border">
+                            Titel
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal border-b border-border">
+                            {{ $notification->title }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal border-b border-border">
+                            Type
+                        </td>
+                        <td class="text-foreground font-normal border-b border-border">
+                            @php
+                                $typeLabels = [
+                                    'match' => 'Match',
+                                    'interview' => 'Sollicitatie',
+                                    'system' => 'Systeem',
+                                    'email' => 'E-mail',
+                                    'reminder' => 'Herinnering',
+                                    'file' => 'Bestand',
+                                ];
+                                echo $typeLabels[$notification->type ?? ''] ?? ucfirst($notification->type ?? 'Onbekend');
+                            @endphp
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal border-b border-border">
+                            Status
+                        </td>
+                        <td class="text-foreground font-normal border-b border-border">
+                            <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->read_at ? 'success' : 'warning' }}">
+                                {{ $notification->read_at ? 'Gelezen' : 'Ongelezen' }}
+                            </span>
+                        </td>
+                    </tr>
+                    @if($notification->read_at)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal border-b border-border">
+                            Gelezen op
+                        </td>
+                        <td class="text-foreground font-normal border-b border-border">
+                            {{ $notification->read_at->format('d-m-Y H:i') }}
+                        </td>
+                    </tr>
+                    @endif
+                    @if($notification->message)
+                    <tr>
+                        <td class="text-secondary-foreground font-normal border-b border-border">
+                            Bericht
+                        </td>
+                        <td class="text-foreground font-normal border-b border-border break-words">
+                            @php
+                                $messageText = trim($notification->message);
+                                $formattedMessage = $messageText;
+
+                                // Parse message to format "Datum:" and "Bericht:" on separate lines
+                                if (strpos($messageText, 'Datum:') !== false || strpos($messageText, 'Bericht:') !== false) {
+                                    $parts = [];
+
+                                    // Extract message if present
+                                    if (preg_match('/Bericht:\s*(.+?)(?:\s*$|(?=\s*(?:Datum:|Locatie:|Afspraakdetails:)))/s', $messageText, $berichtMatches)) {
+                                        $berichtText = trim($berichtMatches[1]);
+                                        // Remove any trailing "Datum:" or "Locatie:" that might be in the message
+                                        $berichtText = preg_replace('/\s*(?:Datum:|Locatie:).*$/s', '', $berichtText);
+                                        $berichtText = trim($berichtText);
+                                        if ($berichtText) {
+                                            $parts[] =  'Bericht: ' . $berichtText;
+                                        }
+                                    }
+
+                                    // Extract location if present (Afspraakdetails)
+                                    if (preg_match('/Afspraakdetails:\s*(.+?)(?:\s*$)/s', $messageText, $locationMatches)) {
+                                        $parts[] = 'Afspraakdetails: ' . trim($locationMatches[1]);
+                                    }
+
+                                    // If we found structured parts, use them; otherwise use original message
+                                    if (!empty($parts)) {
+                                        // Get the part before "Datum:" if it exists (like "Name Heeft je interview uitnodiging geaccepteerd.")
+                                        $beforeDatum = '';
+                                        if (preg_match('/^(.+?)(?=\s*Datum:)/', $messageText, $beforeMatches)) {
+                                            $beforeDatum = trim($beforeMatches[1]);
+                                        }
+
+                                        $formattedMessage = '';
+                                        if ($beforeDatum) {
+                                            $formattedMessage = $beforeDatum;
+                                        }
+                                        if (!empty($parts)) {
+                                            // Add line break before bericht text if there's content before it
+                                            if (!empty($formattedMessage)) {
+                                                $formattedMessage .= '<br><br>';
+                                            }
+                                            $formattedMessage .= implode('<br>', $parts);
+                                        }
+                                    }
+                                }
+                            @endphp
+                            {!! $formattedMessage !!}
+                        </td>
+                    </tr>
+                    @endif
+                </table>
+            </div>
+            <div class="kt-card-content">
+                @if($notification->file_path)
+                <div>
+                    <h4 class="text-sm font-semibold text-secondary-foreground mb-2">Bestand</h4>
+                    <div>
+                        <a href="{{ \Storage::url($notification->file_path) }}" target="_blank" class="kt-btn kt-btn-outline">
+                            <i class="ki-filled ki-file me-2"></i>
+                            {{ $notification->file_name ?? 'Download bestand' }}
+                        </a>
+                        @if($notification->file_size)
+                        <span class="text-xs text-muted-foreground ml-2">
+                            ({{ number_format($notification->file_size / 1024, 2) }} KB)
+                        </span>
+                        @endif
                     </div>
                 </div>
+                @endif
             </div>
         </div>
     </div>

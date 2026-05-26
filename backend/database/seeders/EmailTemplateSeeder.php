@@ -101,7 +101,7 @@ Het Nexa Team',
         <h1 style="color: #4caf50;">Nieuwe Match Gevonden!</h1>
         <p>Beste {{ $user_name }},</p>
         <p>Geweldig nieuws! We hebben een nieuwe match gevonden die perfect bij je profiel past.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background: #a3a3a3; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3>{{ $vacancy_title }}</h3>
             <p><strong>Bedrijf:</strong> {{ $company_name }}</p>
             <p><strong>Locatie:</strong> {{ $vacancy_location }}</p>
@@ -147,7 +147,7 @@ Het Nexa Team',
         <h1 style="color: #4caf50;">Interview Uitnodiging</h1>
         <p>Beste {{ $candidate_name }},</p>
         <p>Gefeliciteerd! Je bent uitgenodigd voor een interview voor de functie <strong>{{ $vacancy_title }}</strong> bij {{ $company_name }}.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background: #a3a3a3; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3>Interview Details:</h3>
             <p><strong>Datum:</strong> {{ $interview_date }}</p>
             <p><strong>Tijd:</strong> {{ $interview_time }}</p>
@@ -182,6 +182,53 @@ Met vriendelijke groet,
                 'company_id' => $company->id
             ],
             [
+                'name' => 'Kandidaat afwijzing - ' . $company->name,
+                'subject' => 'Reactie op je sollicitatie voor {{VACANCY_TITLE}}',
+                'type' => 'rejection',
+                'description' => 'E-mail die wordt verzonden wanneer een kandidaat wordt afgewezen',
+                'html_content' => '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Reactie op sollicitatie</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #333;">Reactie op je sollicitatie</h1>
+        <p>Beste {CANDIDATE_FIRST_NAME},</p>
+        <p>Bedankt voor je interesse in de functie <strong>{VACANCY_TITLE}</strong> bij {COMPANY_NAME}.</p>
+        <p>We hebben je sollicitatie zorgvuldig bekeken. Helaas moeten we je mededelen dat we op dit moment niet verder kunnen gaan met jouw sollicitatie voor deze functie.</p>
+        <div style="background: #a3a3a3; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Reden:</h3>
+            <p>{REJECTION_REASON}</p>
+        </div>
+        <p>Dit betekent niet dat je niet geschikt bent voor andere functies. We raden je aan om onze andere vacatures te bekijken.</p>
+        <p>We wensen je veel succes met je verdere carrière.</p>
+        <p>Met vriendelijke groet,<br>{COMPANY_NAME}</p>
+    </div>
+</body>
+</html>',
+                'text_content' => 'Reactie op je sollicitatie
+
+Beste {CANDIDATE_FIRST_NAME},
+
+Bedankt voor je interesse in de functie {VACANCY_TITLE} bij {COMPANY_NAME}.
+
+We hebben je sollicitatie zorgvuldig bekeken. Helaas moeten we je mededelen dat we op dit moment niet verder kunnen gaan met jouw sollicitatie voor deze functie.
+
+Reden:
+{REJECTION_REASON}
+
+Dit betekent niet dat je niet geschikt bent voor andere functies. We raden je aan om onze andere vacatures te bekijken.
+
+We wensen je veel succes met je verdere carrière.
+
+Met vriendelijke groet,
+{COMPANY_NAME}',
+                'is_active' => true,
+                'company_id' => $company->id
+            ],
+            [
                 'name' => 'Sollicitatie ontvangen - ' . $company->name,
                 'subject' => 'Nieuwe sollicitatie ontvangen - {{ $vacancy_title }}',
                 'type' => 'application_received',
@@ -198,7 +245,7 @@ Met vriendelijke groet,
         <p>Beste {{ $candidate_name }},</p>
         <p>Bedankt voor je sollicitatie op de functie <strong>{{ $vacancy_title }}</strong> bij {{ $company_name }}.</p>
         <p>We hebben je sollicitatie ontvangen en zullen deze zo spoedig mogelijk beoordelen. Je ontvangt binnen 5 werkdagen een reactie van ons.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background: #a3a3a3; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3>Sollicitatie Details:</h3>
             <p><strong>Functie:</strong> {{ $vacancy_title }}</p>
             <p><strong>Bedrijf:</strong> {{ $company_name }}</p>
@@ -326,7 +373,7 @@ Het Nexa Team',
         <h1 style="color: #4caf50;">Nieuwe Vacature Gepubliceerd</h1>
         <p>Beste {{ $user_name }},</p>
         <p>Er is een nieuwe vacature gepubliceerd die mogelijk interessant voor je is!</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background: #a3a3a3; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3>{{ $vacancy_title }}</h3>
             <p><strong>Bedrijf:</strong> {{ $company_name }}</p>
             <p><strong>Locatie:</strong> {{ $vacancy_location }}</p>
@@ -374,7 +421,7 @@ Het Nexa Team',
         <h1 style="color: #4caf50;">Interview Bevestigd</h1>
         <p>Beste {{ $candidate_name }},</p>
         <p>Je interview voor de functie <strong>{{ $vacancy_title }}</strong> bij {{ $company_name }} is bevestigd.</p>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background: #a3a3a3; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3>Interview Details:</h3>
             <p><strong>Datum:</strong> {{ $interview_date }}</p>
             <p><strong>Tijd:</strong> {{ $interview_time }}</p>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\Vacancy;
 use App\Models\Category;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 
 class MatchController extends Controller
@@ -14,6 +15,16 @@ class MatchController extends Controller
      */
     public function index(Request $request)
     {
+        if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+            $vacancies = collect();
+            $categories = collect();
+
+            return view()->first(
+                ['skillmatching::frontend.pages.matches', 'frontend.pages.matches'],
+                compact('vacancies', 'categories')
+            );
+        }
+
         // Haal alle actieve vacatures op (Open en In behandeling)
         $query = Vacancy::with(['company', 'category'])
             ->whereIn('status', ['Open', 'In behandeling'])
@@ -57,7 +68,10 @@ class MatchController extends Controller
         // Categorieën voor filters
         $categories = Category::orderBy('name')->get();
         
-        return view('frontend.pages.matches', compact('vacancies', 'categories'));
+        return view()->first(
+            ['skillmatching::frontend.pages.matches', 'frontend.pages.matches'],
+            compact('vacancies', 'categories')
+        );
     }
     
     /**
@@ -65,6 +79,12 @@ class MatchController extends Controller
      */
     public function demo()
     {
+        if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+            $vacancies = collect();
+
+            return view('frontend.pages.vacature-matching', compact('vacancies'));
+        }
+
         // Haal alle actieve vacatures op voor de demo (Open en In behandeling)
         $vacancies = Vacancy::with(['company', 'category'])
             ->whereIn('status', ['Open', 'In behandeling'])

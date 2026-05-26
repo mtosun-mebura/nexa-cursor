@@ -5,7 +5,7 @@
 @section('content')
 <section class="flex flex-wrap items-center justify-between gap-3">
   <div>
-    <h1 class="text-2xl font-semibold leading-tight">Mijn Profiel</h1>
+    <h1 class="kt-page-title text-gray-900 dark:text-white">Mijn Profiel</h1>
     <p class="text-sm text-muted dark:text-muted-dark">Beheer je persoonlijke informatie en vaardigheden.</p>
   </div>
   <div class="flex items-center gap-2">
@@ -18,12 +18,12 @@
   <!-- Profile Overview -->
   <div class="lg:col-span-1">
     <div class="card p-6 text-center">
-      <!-- Profile Photo Container with Upload Button -->
-      <div class="relative mx-auto mb-4" style="width: 300px; height: 300px;">
+      <!-- Profile Photo Container with Upload Button – vaste grootte cirkel, alleen de afbeelding zoomt -->
+      <div class="relative mx-auto mb-4 flex-shrink-0" style="width: 300px; height: 300px; max-width: 300px; max-height: 300px;">
         <!-- Photo Container -->
         <div class="relative bg-gray-100 dark:bg-gray-800 rounded-full w-full h-full flex items-center justify-center overflow-hidden border-4 border-gray-300 dark:border-gray-600 shadow-lg"
              id="photo-container"
-             style="display: flex; visibility: visible;"
+             style="display: flex; visibility: visible; width: 100%; height: 100%; box-sizing: border-box;"
              ondrop="handleDrop(event)"
              ondragover="handleDragOver(event)"
              ondragenter="handleDragEnter(event)"
@@ -34,16 +34,16 @@
             <img id="profile-image"
                  src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"
                  alt="Profile Photo"
-                 class="absolute inset-0 w-full h-full object-cover cursor-move"
+                 class="absolute inset-0 w-full h-full object-contain cursor-move"
                  draggable="false"
                  style="transform: scale(1) translate(0px, 0px);">
           @else
-            <!-- Default Avatar Icon -->
-            <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-              <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-        </svg>
-      </div>
+            <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 p-8">
+              <img src="{{ asset(config('nexa.default_user_avatar')) }}"
+                   alt=""
+                   class="max-w-full max-h-full w-auto h-auto object-contain select-none"
+                   draggable="false">
+            </div>
           @endif
 
           <!-- Drag Overlay -->
@@ -57,37 +57,43 @@
           </div>
         </div>
 
-        <!-- Button Container -->
-        <div class="absolute -bottom-2 left-0 right-0 flex justify-between px-2">
-          <!-- Reset Button -->
-          <button onclick="resetPhotoTransform()"
+        <!-- Button Container: Reset, Zoom uit, Upload, Zoom in -->
+        <div class="absolute -bottom-2 left-0 right-0 flex justify-center gap-1 px-1">
+          <button type="button" onclick="resetPhotoTransform()"
                   class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
                   title="Reset foto">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
           </button>
-
-          <!-- Upload Button -->
-          <button onclick="document.getElementById('photo-upload').click()"
-                  class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors z-10 shadow-lg"
-                  title="Foto aanpassen">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button type="button" onclick="photoZoomOut()"
+                  class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
+                  title="Zoom uit">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+          </button>
+          <input type="file" id="profile-photo-upload" class="sr-only" accept="image/*,.svg" onchange="uploadPhoto(this)" aria-label="Foto kiezen">
+          <button type="button"
+                  class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors z-10 shadow-lg cursor-pointer"
+                  title="Foto aanpassen"
+                  onclick="document.getElementById('profile-photo-upload').click()">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
             </svg>
           </button>
+          <button type="button" onclick="photoZoomIn()"
+                  class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
+                  title="Zoom in">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          </button>
         </div>
       </div>
-      <input type="file" id="photo-upload" class="hidden" accept="image/*,.svg" onchange="uploadPhoto(this)">
 
       <!-- Photo editor instructions -->
       <div class="text-sm text-muted dark:text-muted-dark mb-4">
         <div class="flex flex-col items-center space-y-1">
-          <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-4 flex-wrap justify-center gap-x-4 gap-y-1">
             <span>Sleep om te verplaatsen</span>
-          </div>
-          <div class="flex items-center space-x-4">
-            <span>+/- = zoom in/uit</span>
+            <span>Pinch of knoppen voor zoom</span>
           </div>
         </div>
       </div>
@@ -154,7 +160,7 @@
 
                 <div>
                     <label class="text-sm font-medium text-muted dark:text-muted-dark">Bio</label>
-                    <textarea name="bio" class="input mt-1" rows="3" placeholder="Vertel iets over jezelf...">{{ $user->bio ?? '' }}</textarea>
+                    <textarea name="bio" class="input mt-1" rows="4" placeholder="Vertel iets over jezelf...">{{ $user->bio ?? '' }}</textarea>
                 </div>
 
         <button type="submit" class="btn btn-primary">Opslaan</button>
@@ -210,11 +216,39 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
-                                <input type="date" name="start_date" class="input mt-1" required>
+                                <!--begin::Input with Calendar-->
+                                <div class="kt-input w-64 mt-1">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="start_date" 
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="dd-MM-yyyy"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"
+                                           required/>
+                                </div>
+                                <!--end::Input with Calendar-->
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
-                                <input type="date" name="end_date" class="input mt-1" id="end-date">
+                                <!--begin::Input with Calendar-->
+                                <div class="kt-input w-64 mt-1">
+                                    <i class="ki-outline ki-calendar"></i>
+                                    <input class="grow" 
+                                           name="end_date" 
+                                           id="end-date"
+                                           data-kt-date-picker="true" 
+                                           data-kt-date-picker-input-mode="true" 
+                                           data-kt-date-picker-position-to-input="left"
+                                           data-kt-date-picker-format="dd-MM-yyyy"
+                                           placeholder="Selecteer datum" 
+                                           readonly 
+                                           type="text"/>
+                                </div>
+                                <!--end::Input with Calendar-->
                             </div>
                         </div>
                         <div>
@@ -424,11 +458,39 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="text-sm font-medium text-muted dark:text-muted-dark">Startdatum</label>
-            <input type="date" name="start_date" class="input mt-1" required>
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="start_date" 
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="yyyy-MM-dd"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"
+                       required/>
+            </div>
+            <!--end::Input with Calendar-->
           </div>
           <div>
             <label class="text-sm font-medium text-muted dark:text-muted-dark">Einddatum</label>
-            <input type="date" name="end_date" class="input mt-1" id="end-date">
+            <!--begin::Input with Calendar-->
+            <div class="kt-input w-64 mt-1">
+                <i class="ki-outline ki-calendar"></i>
+                <input class="grow" 
+                       name="end_date" 
+                       id="end-date"
+                       data-kt-date-picker="true" 
+                       data-kt-date-picker-input-mode="true" 
+                       data-kt-date-picker-position-to-input="left"
+                       data-kt-date-picker-format="yyyy-MM-dd"
+                       placeholder="Selecteer datum" 
+                       readonly 
+                       type="text"/>
+            </div>
+            <!--end::Input with Calendar-->
           </div>
         </div>
         <div>
@@ -481,7 +543,7 @@
 <!-- Success/Error Modal -->
 <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
   <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 relative">
-    <button onclick="hideMessageModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+    <button onclick="hideProfileMessageModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
       </svg>
@@ -493,7 +555,7 @@
       <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2" id="message-title">Bericht</h3>
       <p class="text-sm text-gray-500 dark:text-gray-400 mb-6" id="message-text">Bericht tekst</p>
       <div class="flex justify-center">
-        <button onclick="hideMessageModal()" class="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors">
+        <button onclick="hideProfileMessageModal()" class="px-6 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors">
           OK
         </button>
       </div>
@@ -567,6 +629,10 @@ let currentImage = null;
 let currentScale = 1;
 let currentTranslateX = 0;
 let currentTranslateY = 0;
+// Pinch-to-zoom (mobile)
+let pinchStartDistance = 0;
+let pinchStartScale = 1;
+let isPinching = false;
 
 // Initialize photo editor when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -598,13 +664,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Zoom out with - key
     if (e.key === '-') {
       e.preventDefault();
-      currentScale = Math.max(0.1, currentScale - 0.1);
+      currentScale = Math.max(0.35, currentScale - 0.1);
       updateImageTransform();
       savePhotoTransform();
     }
   });
 
   // Add scroll zoom functionality
+  // Use { passive: false } to allow preventDefault() when needed
   document.addEventListener('wheel', function(e) {
     // Check if we're over the photo container
     const container = document.getElementById('photo-container');
@@ -625,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function() {
         currentScale = Math.min(3, currentScale + 0.1);
       } else if (e.deltaY > 0) {
         // Scrolling down - zoom out
-        currentScale = Math.max(0.1, currentScale - 0.1);
+        currentScale = Math.max(0.35, currentScale - 0.1);
       }
 
       updateImageTransform();
@@ -637,7 +704,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mouseOverContainer: true
       });
     }
-  });
+  }, { passive: false });
 });
 
 function initializePhotoEditor() {
@@ -650,12 +717,16 @@ function initializePhotoEditor() {
 
 
   if (container) {
-    // Always show the container
+    // Vaste grootte cirkel (300px) – alleen de afbeelding binnen zoomt/verschuift
     container.style.display = 'flex';
     container.style.visibility = 'visible';
     container.style.width = '300px';
     container.style.height = '300px';
+    container.style.maxWidth = '300px';
+    container.style.maxHeight = '300px';
     container.style.borderRadius = '50%';
+    container.style.overflow = 'hidden';
+    container.style.flexShrink = '0';
   }
 
   if (image) {
@@ -666,7 +737,7 @@ function initializePhotoEditor() {
     loadPhotoTransform();
   }
 
-  // Add container-specific scroll zoom
+  // Add container-specific scroll zoom (desktop)
   if (container) {
     container.addEventListener('wheel', function(e) {
       if (!currentImage || !e.shiftKey) return;
@@ -674,25 +745,45 @@ function initializePhotoEditor() {
       e.preventDefault();
       e.stopPropagation();
 
-      // Simple scroll zoom
       if (e.deltaY < 0) {
-        // Scrolling up - zoom in
         currentScale = Math.min(3, currentScale + 0.1);
       } else if (e.deltaY > 0) {
-        // Scrolling down - zoom out
-        currentScale = Math.max(0.1, currentScale - 0.1);
+        currentScale = Math.max(0.35, currentScale - 0.1);
       }
 
       updateImageTransform();
       savePhotoTransform();
+    }, { passive: false });
 
-      console.log('Container scroll zoom:', {
-        deltaY: e.deltaY,
-        newScale: currentScale
-      });
-    });
+    // Pinch-to-zoom (mobile)
+    container.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 2 && currentImage) {
+        isPinching = true;
+        pinchStartDistance = getTouchDistance(e.touches[0], e.touches[1]);
+        pinchStartScale = currentScale;
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', function(e) {
+      if (e.touches.length === 2 && isPinching && currentImage) {
+        e.preventDefault();
+        const newDistance = getTouchDistance(e.touches[0], e.touches[1]);
+        const scaleFactor = newDistance / pinchStartDistance;
+        currentScale = Math.max(0.35, Math.min(3, pinchStartScale * scaleFactor));
+        updateImageTransform();
+        savePhotoTransform();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', function(e) {
+      if (e.touches.length < 2) isPinching = false;
+    }, { passive: true });
   }
 
+}
+
+function getTouchDistance(touch1, touch2) {
+  return Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
 }
 
 function setupImageInteractions() {
@@ -730,6 +821,20 @@ function resetPhotoTransform() {
   updateImageTransform();
   savePhotoTransform();
   console.log('Photo transform reset');
+}
+
+function photoZoomIn() {
+  if (!currentImage) return;
+  currentScale = Math.min(3, currentScale + 0.15);
+  updateImageTransform();
+  savePhotoTransform();
+}
+
+function photoZoomOut() {
+  if (!currentImage) return;
+  currentScale = Math.max(0.35, currentScale - 0.15);
+  updateImageTransform();
+  savePhotoTransform();
 }
 
 // DOM update functions for skills and experiences
@@ -903,52 +1008,61 @@ function confirmDelete() {
 }
 
 // Message modal functions
-function showMessageModal(type, title, message) {
+function showProfileMessageModal(type, title, message) {
   const modal = document.getElementById('message-modal');
+  if (!modal) {
+    console.error('Message modal not found');
+    return;
+  }
+  
   const icon = document.getElementById('message-icon');
   const titleElement = document.getElementById('message-title');
   const messageElement = document.getElementById('message-text');
 
   // Set title and message
-  titleElement.textContent = title;
-  messageElement.textContent = message;
+  if (titleElement) titleElement.textContent = title;
+  if (messageElement) messageElement.textContent = message;
 
   // Set icon and colors based on type
-  if (type === 'success') {
-    icon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4 bg-green-100 dark:bg-green-900';
-    icon.innerHTML = `
-      <svg class="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-      </svg>
-    `;
-  } else if (type === 'error') {
-    icon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4 bg-red-100 dark:bg-red-900';
-    icon.innerHTML = `
-      <svg class="h-8 w-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-      </svg>
-    `;
+  if (icon) {
+    if (type === 'success') {
+      icon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4 bg-green-100 dark:bg-green-900';
+      icon.innerHTML = `
+        <svg class="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      `;
+    } else if (type === 'error') {
+      icon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-4 bg-red-100 dark:bg-red-900';
+      icon.innerHTML = `
+        <svg class="h-8 w-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      `;
+    }
   }
 
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 
   // Add ESC key listener
-  document.addEventListener('keydown', handleMessageModalEsc);
+  document.addEventListener('keydown', handleProfileMessageModalEsc);
 }
 
-function hideMessageModal() {
+function hideProfileMessageModal() {
   const modal = document.getElementById('message-modal');
+  if (!modal) return;
+  
   modal.classList.add('hidden');
   modal.classList.remove('flex');
 
   // Remove ESC key listener
-  document.removeEventListener('keydown', handleMessageModalEsc);
+  document.removeEventListener('keydown', handleProfileMessageModalEsc);
 }
 
-function handleMessageModalEsc(e) {
+function handleProfileMessageModalEsc(e) {
   if (e.key === 'Escape' || e.key === 'Enter') {
-    hideMessageModal();
+    hideProfileMessageModal();
   }
 }
 
@@ -1014,12 +1128,12 @@ async function uploadCVFile(file) {
   // Client-side validation
   const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
   if (!allowedTypes.includes(file.type)) {
-    showMessageModal('error', 'Fout!', 'Alleen PDF, DOC en DOCX bestanden zijn toegestaan.');
+    showProfileMessageModal('error', 'Fout!', 'Alleen PDF, DOC en DOCX bestanden zijn toegestaan.');
     return;
   }
 
   if (file.size > 10 * 1024 * 1024) { // 10MB
-    showMessageModal('error', 'Fout!', 'Het CV bestand mag maximaal 10MB groot zijn.');
+    showProfileMessageModal('error', 'Fout!', 'Het CV bestand mag maximaal 10MB groot zijn.');
     return;
   }
 
@@ -1040,10 +1154,10 @@ async function uploadCVFile(file) {
     if (data.success) {
       addCVToDisplay(data.filename, data.url, data.cv_id);
     } else {
-      showMessageModal('error', 'Fout!', data.message);
+      showProfileMessageModal('error', 'Fout!', data.message);
     }
   } catch (error) {
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het uploaden van het CV.');
+    showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het uploaden van het CV.');
   }
 }
 
@@ -1128,10 +1242,10 @@ async function confirmCVRemove() {
       hideCVRemoveModal();
       showMessageModal('success', 'Succesvol!', 'CV succesvol verwijderd!');
     } else {
-      showMessageModal('error', 'Fout!', data.message);
+      showProfileMessageModal('error', 'Fout!', data.message);
     }
   } catch (error) {
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van het CV.');
+    showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van het CV.');
   }
 }
 
@@ -1301,7 +1415,7 @@ function selectBirthDate() {
     document.getElementById('birth-date-input').value = formattedDate;
     hideBirthDatePicker();
   } else {
-    showMessageModal('error', 'Validatie fout!', 'Selecteer een volledige datum (maand, dag en jaar)');
+    showProfileMessageModal('error', 'Validatie fout!', 'Selecteer een volledige datum (maand, dag en jaar)');
   }
 }
 
@@ -1440,6 +1554,9 @@ function savePhotoTransform() {
     translateY: currentTranslateY
   };
   localStorage.setItem('photoTransform', JSON.stringify(transformData));
+  
+  // Update header photos with new transform
+  updateHeaderPhotos();
 }
 
 function loadPhotoTransform() {
@@ -1499,6 +1616,8 @@ function addResizeHandles() {
 
 function startDrag(e) {
   if (e.target.classList.contains('resize-handle')) return;
+  if (e.touches && e.touches.length >= 2) return;
+  if (isPinching) return;
 
   isDragging = true;
   const containerRect = currentImage.parentElement.getBoundingClientRect();
@@ -1508,7 +1627,7 @@ function startDrag(e) {
 
   document.addEventListener('mousemove', drag);
   document.addEventListener('mouseup', stopDrag);
-  document.addEventListener('touchmove', drag);
+  document.addEventListener('touchmove', drag, { passive: false });
   document.addEventListener('touchend', stopDrag);
 
   e.preventDefault();
@@ -1516,26 +1635,26 @@ function startDrag(e) {
 
 function drag(e) {
   if (!isDragging) return;
+  if (e.touches && e.touches.length >= 2) return;
+
+  if (e.touches) e.preventDefault();
 
   const containerRect = currentImage.parentElement.getBoundingClientRect();
   const mouseX = (e.clientX || e.touches[0].clientX) - containerRect.left;
   const mouseY = (e.clientY || e.touches[0].clientY) - containerRect.top;
 
-  // Calculate translation relative to center
   const deltaX = (mouseX - startX) / currentScale;
   const deltaY = (mouseY - startY) / currentScale;
 
-  // Update translation
   currentTranslateX += deltaX;
   currentTranslateY += deltaY;
 
-  // Constrain to container bounds (accounting for scale)
-  const maxTranslate = 100; // Increased for larger container
+  const maxTranslate = 100;
   currentTranslateX = Math.max(-maxTranslate, Math.min(maxTranslate, currentTranslateX));
   currentTranslateY = Math.max(-maxTranslate, Math.min(maxTranslate, currentTranslateY));
 
   updateImageTransform();
-  savePhotoTransform(); // Save the transform
+  savePhotoTransform();
 
   startX = mouseX;
   startY = mouseY;
@@ -1581,8 +1700,8 @@ function resize(e, direction) {
   const maxDistance = Math.max(distanceX, distanceY);
 
   // Calculate new scale based on distance from center
-  const baseDistance = 200; // Base distance for scale 1 (half of 400px)
-  const newScale = Math.max(0.1, Math.min(3, maxDistance / baseDistance));
+  const baseDistance = 150; // Base distance for scale 1 (half of 300px)
+  const newScale = Math.max(0.35, Math.min(3, maxDistance / baseDistance));
 
   currentScale = newScale;
   updateImageTransform();
@@ -1675,7 +1794,7 @@ document.getElementById('profile-form').addEventListener('submit', async functio
   }
 
   if (hasErrors) {
-    showMessageModal('error', 'Validatie fout!', errorMessages.join(', '));
+    showProfileMessageModal('error', 'Validatie fout!', errorMessages.join(', '));
 
     // Focus on the first error field
     const firstErrorField = document.querySelector('.border-red-500');
@@ -1705,7 +1824,7 @@ document.getElementById('profile-form').addEventListener('submit', async functio
       updateProfileDisplay(formData);
       // Update profile completeness
       updateProfileCompleteness();
-      showMessageModal('success', 'Succesvol!', data.message);
+      showProfileMessageModal('success', 'Succesvol!', data.message);
     } else {
       // Handle validation errors with field highlighting
       let errorMessage = 'Er is een fout opgetreden';
@@ -1752,7 +1871,7 @@ document.getElementById('profile-form').addEventListener('submit', async functio
         errorMessage = data.message;
       }
 
-      showMessageModal('error', 'Validatie fout!', errorMessage);
+      showProfileMessageModal('error', 'Validatie fout!', errorMessage);
 
       // Highlight the field with error and focus on it
       if (fieldWithError) {
@@ -1761,7 +1880,7 @@ document.getElementById('profile-form').addEventListener('submit', async functio
     }
   } catch (error) {
     console.error('Error:', error);
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van het profiel.');
+    showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van het profiel.');
   }
 });
 
@@ -1784,53 +1903,100 @@ function updateProfileDisplay(formData) {
   }
 }
 
+// Resize large images client-side (max 1200px, JPEG 0.85) so mobile photos can be used
+function resizeImageIfNeeded(file) {
+  if (file.type === 'image/svg+xml') return Promise.resolve(file);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = function() {
+      const maxDim = 1200;
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (w <= maxDim && h <= maxDim && file.size <= 1024 * 1024) {
+        URL.revokeObjectURL(img.src);
+        resolve(file);
+        return;
+      }
+      const scale = Math.min(maxDim / w, maxDim / h, 1);
+      const cw = Math.round(w * scale), ch = Math.round(h * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(img.src);
+      canvas.toBlob(function(blob) {
+        if (blob) resolve(blob);
+        else reject(new Error('Resize mislukt'));
+      }, 'image/jpeg', 0.85);
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(img.src);
+      reject(new Error('Afbeelding laden mislukt'));
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 // Photo upload
 async function uploadPhoto(input) {
   if (!input.files[0]) return;
 
   const file = input.files[0];
 
-  // Client-side validation
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
   if (!allowedTypes.includes(file.type)) {
-    showMessageModal('error', 'Fout!', 'Alleen JPEG, PNG, JPG, GIF, WEBP en SVG bestanden zijn toegestaan.');
+    showProfileMessageModal('error', 'Fout!', 'Alleen JPEG, PNG, JPG, GIF, WEBP en SVG bestanden zijn toegestaan.');
     input.value = '';
     return;
   }
 
-  if (file.size > 5 * 1024 * 1024) { // 5MB
-    showMessageModal('error', 'Fout!', 'De foto mag maximaal 5MB groot zijn.');
+  const maxUploadMB = 15;
+  if (file.size > maxUploadMB * 1024 * 1024) {
+    showProfileMessageModal('error', 'Fout!', 'De foto mag maximaal ' + maxUploadMB + 'MB groot zijn. Verklein de afbeelding en probeer opnieuw.');
     input.value = '';
     return;
   }
-
-  const formData = new FormData();
-  formData.append('photo', file);
 
   try {
-    console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
-    console.log('FormData contents:', Array.from(formData.entries()));
+    const dataToUpload = await resizeImageIfNeeded(file);
+    const formData = new FormData();
+    formData.append('photo', dataToUpload, file.name);
+
+    const csrfEl = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfEl) {
+      showProfileMessageModal('error', 'Fout!', 'Beveiligingstoken ontbreekt. Vernieuw de pagina.');
+      input.value = '';
+      return;
+    }
 
     const response = await fetch('{{ route("profile.photo") }}', {
       method: 'POST',
       headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'X-CSRF-TOKEN': csrfEl.getAttribute('content'),
         'Accept': 'application/json'
-        // Don't set Content-Type, let browser set it for FormData
       },
       body: formData
     });
 
     console.log('Response status:', response.status);
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      showProfileMessageModal('error', 'Fout!', 'Server gaf een onverwachte reactie. Probeer het opnieuw.');
+      input.value = '';
+      return;
+    }
     const data = await response.json();
     console.log('Response data:', data);
 
     if (data.success) {
+      input.value = '';
       // Update photo display immediately
       updatePhotoDisplay(data.photo_url);
+      // Update header photos
+      updateHeaderPhotos();
       // Update profile completeness
       updateProfileCompleteness();
-      showMessageModal('success', 'Succesvol!', data.message);
+      showProfileMessageModal('success', 'Succesvol!', data.message);
 
       // Force reinitialize the photo editor
       setTimeout(() => {
@@ -1838,11 +2004,11 @@ async function uploadPhoto(input) {
       }, 100);
     } else {
       console.error('Upload error:', data);
-      showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+      showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
     }
   } catch (error) {
     console.error('Upload error:', error);
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het uploaden van de foto: ' + error.message);
+    showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het uploaden van de foto: ' + error.message);
   }
 }
 
@@ -1868,7 +2034,7 @@ function updatePhotoDisplay(photoUrl) {
     const separator = photoUrl.includes('?') ? '&' : '?';
     newImage.src = photoUrl + separator + 't=' + Date.now();
     newImage.alt = 'Profile Photo';
-    newImage.className = 'absolute inset-0 w-full h-full object-cover cursor-move';
+    newImage.className = 'absolute inset-0 w-full h-full object-contain cursor-move';
     newImage.draggable = false;
     
     // Add error handling for image load
@@ -1881,6 +2047,22 @@ function updatePhotoDisplay(photoUrl) {
     
     newImage.onload = function() {
       console.log('Image loaded successfully:', photoUrl);
+      // Calculate initial scale to fit entire image in container
+      const containerSize = 300; // Container is 300x300 (vaste cirkel)
+      const imgWidth = this.naturalWidth;
+      const imgHeight = this.naturalHeight;
+      
+      // Calculate scale to fit entire image (use contain logic)
+      const scaleX = containerSize / imgWidth;
+      const scaleY = containerSize / imgHeight;
+      const initialScale = Math.min(scaleX, scaleY);
+      
+      // Set initial scale to show entire image
+      currentScale = initialScale;
+      currentTranslateX = 0;
+      currentTranslateY = 0;
+      updateImageTransform();
+      savePhotoTransform();
     };
 
     // Insert the new image
@@ -1889,7 +2071,7 @@ function updatePhotoDisplay(photoUrl) {
     // Update current image reference
     currentImage = newImage;
 
-    // Reset transform values for new image
+    // Reset transform values for new image (will be overridden by onload if image loads)
     currentScale = 1;
     currentTranslateX = 0;
     currentTranslateY = 0;
@@ -1897,8 +2079,8 @@ function updatePhotoDisplay(photoUrl) {
     // Setup interactions for the new image
     setupImageInteractions();
 
-    // Load saved transform for new image
-    loadPhotoTransform();
+    // Don't load saved transform for newly uploaded image - show entire image first
+    // loadPhotoTransform();
 
     console.log('Photo display updated successfully');
   } else {
@@ -1918,6 +2100,135 @@ function showDefaultAvatar() {
     
     // Show default avatar (the fallback div should already be there)
     console.log('Showing default avatar');
+  }
+}
+
+// Update header photos after profile photo upload
+function updateHeaderPhotos() {
+  const userId = {{ auth()->id() }};
+  const photoUrl = '{{ route("secure.photo", ["token" => auth()->user()->getPhotoToken()]) }}';
+  const timestamp = Date.now();
+  const newPhotoUrl = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 't=' + timestamp;
+  
+  // Load transform values from localStorage
+  const savedTransform = localStorage.getItem('photoTransform');
+  let transformData = { scale: 1, translateX: 0, translateY: 0 };
+  if (savedTransform) {
+    try {
+      transformData = JSON.parse(savedTransform);
+    } catch (e) {
+      console.log('Could not load transform for header photos:', e);
+    }
+  }
+  
+  // Calculate scale ratio: profile photo is 300px, header photos are 36px (size-9)
+  // So we need to scale down the translate values proportionally
+  const profileSize = 300;
+  const headerSize = 36;
+  const sizeRatio = headerSize / profileSize;
+  
+  // Apply transform to header photos
+  const scale = transformData.scale || 1;
+  const translateX = (transformData.translateX || 0) * sizeRatio;
+  const translateY = (transformData.translateY || 0) * sizeRatio;
+  const transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+  
+  // Update all header user photos - find by src pattern (route is secure-photo)
+  // Belangrijk: skip #profile-image (de grote editor op de pagina), anders wordt #photo-container op 36px gezet
+  const allImages = document.querySelectorAll('img');
+  allImages.forEach(img => {
+    if (img.id === 'profile-image' || img.closest('#photo-container')) return;
+    const src = img.src || img.getAttribute('src') || '';
+    const isUserPhoto = src.includes('secure-photo/') || src.includes('user-photo/' + userId) || src.includes('user.photo');
+    if (isUserPhoto) {
+      // Find parent container that should have the border
+      let parent = img.parentElement;
+      if (parent) {
+        // Ensure parent container has overflow hidden, fixed size, border, and rounded
+        parent.style.overflow = 'hidden';
+        parent.style.width = '36px';
+        parent.style.height = '36px';
+        parent.style.borderRadius = '50%';
+        parent.style.border = '2px solid rgb(34, 197, 94)'; // border-green-500
+        parent.classList.add('rounded-full');
+        // Remove border classes from img if present
+        img.classList.remove('border-2', 'border-green-500', 'rounded-full', 'size-9', 'shrink-0');
+      }
+      img.src = newPhotoUrl;
+      // Apply transform only to the image, not affecting container size
+      img.style.transform = transform;
+      img.style.objectFit = 'cover';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      console.log('Updated header photo with transform:', img, transform);
+    }
+  });
+  
+  // Also specifically target header dropdown photos
+  const headerDropdownPhotos = document.querySelectorAll('header img, .kt-dropdown-menu img');
+  headerDropdownPhotos.forEach(img => {
+    const src = img.src || img.getAttribute('src') || '';
+    if (src.includes('secure-photo/') || src.includes('user-photo') || src.includes('user.photo')) {
+      // Find parent container
+      let parent = img.parentElement;
+      if (parent) {
+        // Ensure parent container has overflow hidden, fixed size, border, and rounded
+        parent.style.overflow = 'hidden';
+        parent.style.width = '36px';
+        parent.style.height = '36px';
+        parent.style.borderRadius = '50%';
+        parent.style.border = '2px solid rgb(34, 197, 94)'; // border-green-500
+        parent.classList.add('rounded-full');
+        // Remove border classes from img if present
+        img.classList.remove('border-2', 'border-green-500', 'rounded-full', 'size-9', 'shrink-0');
+      }
+      img.src = newPhotoUrl;
+      // Apply transform only to the image, not affecting container size
+      img.style.transform = transform;
+      img.style.objectFit = 'cover';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      console.log('Updated dropdown photo with transform:', img, transform);
+    }
+  });
+  
+  // Header/dropdown avatars that still show default avatar (first upload) – update to new photo
+  document.querySelectorAll('header .user-dropdown-container img, .kt-dropdown-menu img').forEach(img => {
+    const src = img.src || img.getAttribute('src') || '';
+    if (src.includes('avatars/') || src.includes('300-2')) {
+      img.src = newPhotoUrl;
+      img.style.transform = transform;
+      img.style.objectFit = 'cover';
+      img.style.width = '100%';
+      img.style.height = '100%';
+    }
+  });
+
+  // Update chat drawer avatar if it exists
+  const chatAvatar = document.getElementById('chat_user_avatar');
+  if (chatAvatar) {
+    const src = chatAvatar.src || chatAvatar.getAttribute('src') || '';
+    if (src.includes('secure-photo/') || src.includes('user-photo') || src.includes('user.photo') || src.includes('avatars/')) {
+      chatAvatar.src = newPhotoUrl;
+      // Chat avatar might be different size, adjust if needed
+      const chatSize = 30; // Based on size-[30px] class
+      const chatSizeRatio = chatSize / profileSize;
+      const chatTransform = `scale(${scale}) translate(${(transformData.translateX || 0) * chatSizeRatio}px, ${(transformData.translateY || 0) * chatSizeRatio}px)`;
+      // Ensure parent container has overflow hidden and fixed size
+      let chatParent = chatAvatar.parentElement;
+      if (chatParent) {
+        chatParent.style.overflow = 'hidden';
+        chatParent.style.width = '30px';
+        chatParent.style.height = '30px';
+        chatParent.style.borderRadius = '50%';
+      }
+      // Apply transform only to the image, not affecting container size
+      chatAvatar.style.transform = chatTransform;
+      chatAvatar.style.objectFit = 'cover';
+      chatAvatar.style.width = '100%';
+      chatAvatar.style.height = '100%';
+      console.log('Updated chat avatar with transform:', chatAvatar, chatTransform);
+    }
   }
 }
 
@@ -1987,11 +2298,11 @@ document.getElementById('skill-form').addEventListener('submit', async function(
       // Update profile completeness
       updateProfileCompleteness();
     } else {
-      showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+      showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
     }
   } catch (error) {
     console.error('Error:', error);
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het toevoegen van de vaardigheid.');
+    showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het toevoegen van de vaardigheid.');
   }
 });
 
@@ -2022,11 +2333,11 @@ async function removeSkill(skillId) {
           // Update profile completeness
           updateProfileCompleteness();
         } else {
-          showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+          showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
         }
       } catch (error) {
         console.error('Error removing skill:', error);
-        showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van de vaardigheid: ' + error.message);
+        showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van de vaardigheid: ' + error.message);
       }
     }
   );
@@ -2274,7 +2585,7 @@ document.getElementById('experience-form').addEventListener('submit', async func
       data = JSON.parse(responseText);
     } catch (e) {
       console.error('Failed to parse JSON response:', e);
-      showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwerken van de response.');
+      showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwerken van de response.');
       return;
     }
 
@@ -2337,7 +2648,7 @@ document.getElementById('experience-form').addEventListener('submit', async func
         errorMessage = data.message;
       }
 
-      showMessageModal('error', 'Validatie fout!', errorMessage);
+      showProfileMessageModal('error', 'Validatie fout!', errorMessage);
 
       // Highlight the field with error and focus on it
       if (fieldWithError) {
@@ -2346,7 +2657,7 @@ document.getElementById('experience-form').addEventListener('submit', async func
     }
   } catch (error) {
     console.error('Error:', error);
-    showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van de werkervaring.');
+    showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het opslaan van de werkervaring.');
   }
 });
 
@@ -2372,11 +2683,11 @@ async function removeExperience(experienceId) {
           // Update profile completeness
           updateProfileCompleteness();
         } else {
-          showMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
+          showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden: ' + (data.message || 'Onbekende fout'));
         }
       } catch (error) {
         console.error('Error:', error);
-        showMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van de werkervaring.');
+        showProfileMessageModal('error', 'Fout!', 'Er is een fout opgetreden bij het verwijderen van de werkervaring.');
       }
     }
   );

@@ -1,91 +1,42 @@
-version: "3.9"
+# Development Docker Compose - voor lokale development
+# Gebruik: docker compose up -d
+# Host: http://localhost:8085 (container-intern blijft :8000)
+# Database: PostgreSQL in container `db` (DB_HOST=db in .env)
+
+include:
+  - path: ./docker-compose.postgres.yml
 
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: nexa_db
-    environment:
-      POSTGRES_USER: nexa
-      POSTGRES_PASSWORD: nexa
-      POSTGRES_DB: nexa
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: nexa_ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-
-  n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
-    container_name: nexa_n8n
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_HOST=n8n.local
-      - N8N_PORT=5678
-      - GENERIC_TIMEZONE=Europe/Amsterdam
-    volumes:
-      - n8n_data:/home/node/.n8n
-    depends_on:
-      - db
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: nexa_backend
     ports:
-      - "8000:8000"
+      - "8085:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_URL: http://localhost:8000
+      APP_URL: http://localhost:8085
       DB_CONNECTION: pgsql
       DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: nexa
-      DB_USERNAME: nexa
-      DB_PASSWORD: nexa
+      DB_PORT: "5432"
+
+      N8N_URL: ${N8N_URL:-https://n8n.tosun.nl}
+      N8N_PORT: ${N8N_PORT:-5678}
+      N8N_EMAIL: ${N8N_EMAIL:-m.tosun@mebura.nl}
+      N8N_PASSWORD: ${N8N_PASSWORD:-Memmo@N8N!}
+
+      APP_KEY: ${APP_KEY:-}
     volumes:
       - ./backend:/var/www/html
-    depends_on:
-      - db
+      - ./.env:/var/www/html/.env
+    # Fallback DNS: voorkomt cURL error 6 (Could not resolve host) in sommige Docker-netwerken
+    dns:
+      - 127.0.0.11
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: nexa_frontend
-    ports:
-      - "3000:8000"
-    environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:3000
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: nexa
-      DB_USERNAME: nexa
-      DB_PASSWORD: nexa
-    volumes:
-      - ./backend:/var/www/html
-    depends_on:
-      - db
-    restart: unless-stopped
-
-volumes:
-  db_data:
-  n8n_data:
-  ollama_data:
-
-

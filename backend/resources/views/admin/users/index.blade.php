@@ -3,950 +3,923 @@
 @section('title', 'Gebruikers Beheer')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #2196f3;
-        --primary-light: #64b5f6;
-        --primary-dark: #1976d2;
-        --secondary-color: #e3f2fd;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --light-bg: #fafafa;
-        --dark-text: #212121;
-        --medium-text: #757575;
-        --border-color: #e0e0e0;
-        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
-        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
-        border: none;
-        margin-bottom: 24px;
-        transition: var(--transition);
-        overflow: hidden;
-    }
-    
-    .material-card:hover {
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        border-radius: 0;
-        padding: 10px 24px;
-        border: none;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .material-card .card-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-        transform: translateX(-100%);
-        transition: var(--transition);
-    }
-    
-    .material-card .card-header:hover::before {
-        transform: translateX(100%);
-    }
-    
-    .material-card .card-body {
-        padding: 0px;
-    }
-    
-    .material-btn {
-        border-radius: var(--border-radius);
-        text-transform: uppercase;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        padding: 6px 12px;
-        border: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 12px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-    }
-    
-    .material-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .material-btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-    
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .material-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-    }
-    
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--dark-text);
-        border: 1px solid var(--border-color);
-    }
-    
-    .material-btn-secondary:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-table {
-        width: 100%;
-        border-collapse: collapse;
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--shadow-light);
-        background: white;
-        table-layout: fixed;
-    }
-    
-    .material-table thead th {
-        background: var(--light-bg);
-        border: none;
-        font-weight: 600;
-        color: var(--dark-text);
-        padding: 12px 16px;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: var(--transition);
-        position: relative;
-        text-align: left;
-    }
-    
-    .material-table thead th:nth-child(1) { width: 20%; }  /* Naam */
-    .material-table thead th:nth-child(2) { width: 20%; }  /* E-mail */
-    .material-table thead th:nth-child(3) { width: 12%; }  /* Telefoon */
-    .material-table thead th:nth-child(4) { width: 15%; }  /* Bedrijf */
-    .material-table thead th:nth-child(5) { width: 12%; }  /* Rollen */
-    .material-table thead th:nth-child(6) { width: 8%; }   /* Status */
-    .material-table thead th:nth-child(7) { width: 10%; }  /* Gemaakt op */
-    .material-table thead th:nth-child(8) { width: 8%; }   /* Acties */
-    
-    .material-table thead th:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-    }
-    
-    .material-table thead th.sortable {
-        cursor: pointer;
-        position: relative;
-    }
-    
-    .material-table thead th.sortable::after {
-        content: '↕';
-        margin-left: 8px;
-        opacity: 0.5;
-        transition: var(--transition);
-    }
-    
-    .material-table thead th.sort-asc::after {
-        content: '↑';
-        opacity: 1;
-        color: var(--primary-color);
-    }
-    
-    .material-table thead th.sort-desc::after {
-        content: '↓';
-        opacity: 1;
-        color: var(--primary-color);
-    }
-    
-    .material-table thead th.sortable:hover::after {
-        opacity: 1;
-        color: var(--primary-color);
-    }
-    
-    .material-table tbody td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-        transition: var(--transition);
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    .material-table tbody td:nth-child(1) { width: 20%; }  /* Naam */
-    .material-table tbody td:nth-child(2) { width: 20%; }  /* E-mail */
-    .material-table tbody td:nth-child(3) { width: 12%; }  /* Telefoon */
-    .material-table tbody td:nth-child(4) { width: 15%; }  /* Bedrijf */
-    .material-table tbody td:nth-child(5) { width: 12%; }  /* Rollen */
-    .material-table tbody td:nth-child(6) { width: 8%; }   /* Status */
-    .material-table tbody td:nth-child(7) { width: 10%; }  /* Gemaakt op */
-    .material-table tbody td:nth-child(8) { width: 8%; }   /* Acties */
-    
-    .material-table tbody tr {
-        transition: var(--transition);
-        background-color: white;
-    }
-    
-    .material-table tbody tr:hover {
-        background-color: var(--secondary-color) !important;
-        transition: background-color 0.3s ease;
-    }
-    
-    .material-badge {
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-block;
-        transition: var(--transition);
-    }
-    
-    .material-badge-success {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-        color: #2e7d32;
-        box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
-    }
-    
-    .material-badge-warning {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        color: #f57c00;
-        box-shadow: 0 2px 4px rgba(255, 152, 0, 0.2);
-    }
-    
-    .material-badge-info {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        color: #1565c0;
-        box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
-    }
-    
-    .material-badge-primary {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        color: #1565c0;
-        box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
-    }
-    
-    .material-badge-secondary {
-        background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-        color: #757575;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    .action-buttons {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        min-height: 40px;
-    }
-    
-    .action-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        text-decoration: none;
-        font-size: 14px;
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .action-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .action-btn:hover::before {
-        width: 100px;
-        height: 100px;
-    }
-    
-    .action-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .action-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .action-btn-info {
-        background: linear-gradient(135deg, #2196f3 0%, #42a5f5 100%);
-        color: white;
-    }
-    
-    .action-btn-warning {
-        background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
-        color: white;
-    }
-    
-    .action-btn-danger {
-        background: linear-gradient(135deg, #f44336 0%, #ef5350 100%);
-        color: white;
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #6c757d;
-    }
-    
-    .empty-state i {
-        font-size: 4rem;
-        margin-bottom: 20px;
-        opacity: 0.5;
-    }
-    
-    /* Statistics Cards */
-    .stats-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 20px;
-        margin-bottom: 32px;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 10px;
-        box-shadow: var(--shadow-light);
-        text-align: center;
-        transition: var(--transition);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .stat-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .stat-label {
-        font-size: 0.8rem;
-        color: var(--medium-text);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 4px;
-    }
-    
-    /* Filters Section */
-    .filters-section {
-        background: var(--light-bg);
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .filter-group {
-        margin-bottom: 0;
-    }
-    
-    .filter-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .filter-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background-color: white;
-        font-size: 12px;
-        color: var(--dark-text);
-        transition: var(--transition);
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 16px;
-        padding-right: 40px;
-    }
-    
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-    }
-    
-    .filter-select option {
-        padding: 8px;
-        background-color: white;
-        color: var(--dark-text);
-    }
-    
-    .filter-select option:checked {
-        background: var(--primary-color);
-        color: white;
-    }
-    
-    /* Results Info */
-    .results-info-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .results-info {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .results-text {
-        font-size: 0.875rem;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-    }
-    
-    .results-text i {
-        color: var(--primary-color);
-        font-size: 0.875rem;
-    }
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Gebruikers Beheer
+        </h1>
+        @can('create-users')
+        <a href="{{ route('admin.users.create') }}" class="kt-btn kt-btn-primary">
+            <i class="ki-filled ki-plus me-2"></i>
+            Nieuwe Gebruiker
+        </a>
+        @endcan
+    </div>
 
-    /* Pagination */
-    .pagination-wrapper {
-        padding: 16px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-    }
-    
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-    }
-    
-    .page-item {
-        margin: 0;
-    }
-    
-    .page-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background: white;
-        color: var(--dark-text);
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.85rem;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .page-link:hover {
-        background: var(--secondary-color);
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        border-color: var(--primary-color);
-        color: white;
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .page-item.disabled .page-link {
-        background: #f5f5f5;
-        color: #ccc;
-        cursor: not-allowed;
-        border-color: #e0e0e0;
-    }
-    
-    .page-item.disabled .page-link:hover {
-        transform: none;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .user-info {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .user-name {
-        font-weight: 600;
-        color: #495057;
-    }
-    
-    .user-middle-name {
-        font-size: 0.85rem;
-        color: #6c757d;
-        margin-top: 4px;
-    }
-    
-    .user-email {
-        color: #2196f3;
-        text-decoration: none;
-    }
-    
-    .user-email:hover {
-        color: #1976d2;
-        text-decoration: underline;
-    }
-    
-    .user-phone {
-        color: #2196f3;
-        text-decoration: none;
-    }
-    
-    .user-phone:hover {
-        color: #1976d2;
-        text-decoration: underline;
-    }
-    
-    .user-company {
-        background: #e3f2fd;
-        color: #1976d2;
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-    }
-    
-    .user-roles {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    
-    .date-info {
-        font-size: 0.85rem;
-        color: #6c757d;
-    }
-    
-    .auto-dismiss {
-        animation: slideDown 0.3s ease-out;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .auto-dismiss.fade-out {
-        animation: slideUp 0.3s ease-in forwards;
-    }
-    
-    @keyframes slideUp {
-        from {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        to {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-    }
-</style>
-
-<div class="container-fluid">
     <!-- Success Alert -->
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show auto-dismiss" role="alert" id="success-alert">
-            <i class="fas fa-check-circle me-2"></i>
+        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
-    
-    <div class="row">
-        <div class="col-12">
-            <!-- Status Statistieken -->
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $users->where('is_active', true)->count() }}</div>
-                    <div class="stat-label">Actief</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #f44336 0%, #ef5350 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $users->where('is_active', false)->count() }}</div>
-                    <div class="stat-label">Inactief</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $users->total() }}</div>
-                    <div class="stat-label">Totaal</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $users->groupBy('role')->count() }}</div>
-                    <div class="stat-label">Rollen</div>
-                </div>
-            </div>
-            <div class="material-card">
-                <!-- Header -->
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-users me-2"></i> Gebruikers Beheer
-                    </h5>
-                    <div class="d-flex gap-2">
-                        <a href="{{ route('admin.users.create') }}" class="material-btn material-btn-primary">
-                            <i class="fas fa-plus me-2"></i> Nieuwe Gebruiker
-                        </a>
-                    </div>
-                </div>
-                
-                <!-- Filters -->
-                <div class="filters-section">
-                    <form method="GET" action="{{ route('admin.users.index') }}" id="filters-form">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="filter-group">
-                                    <label class="filter-label">Status</label>
-                                    <select name="status" class="filter-select" onchange="this.form.submit()">
-                                        <option value="">Alle statussen</option>
-                                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                        <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="filter-group">
-                                    <label class="filter-label">Rol</label>
-                                    <select name="role" class="filter-select" onchange="this.form.submit()">
-                                        <option value="">Alle rollen</option>
-                                        <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
-                                        <option value="user" {{ request('role') == 'user' ? 'selected' : '' }}>Gebruiker</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="filter-group">
-                                    <label class="filter-label">Sorteren</label>
-                                    <select name="sort" class="filter-select" onchange="this.form.submit()">
-                                        <option value="first_name" {{ request('sort') == 'first_name' ? 'selected' : '' }}>Naam</option>
-                                        <option value="email" {{ request('sort') == 'email' ? 'selected' : '' }}>E-mail</option>
-                                        <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Aangemaakt</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="filter-group">
-                                    <label class="filter-label">Items per pagina</label>
-                                    <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                        <option value="5" {{ request('per_page', 5) == 5 ? 'selected' : '' }}>5</option>
-                                        <option value="15" {{ request('per_page', 5) == 15 ? 'selected' : '' }}>15</option>
-                                        <option value="25" {{ request('per_page', 5) == 25 ? 'selected' : '' }}>25</option>
-                                        <option value="50" {{ request('per_page', 5) == 50 ? 'selected' : '' }}>50</option>
-                                        <option value="100" {{ request('per_page', 5) == 100 ? 'selected' : '' }}>100</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-1">
-                                <div class="filter-group">
-                                    <label class="filter-label">&nbsp;</label>
-                                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
-                                        <i class="fas fa-times"></i>
-                                        Filter wissen
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                
-                <div class="card-body">
 
-                    <div class="table-responsive" style="width: 100%;">
-                        <table class="material-table" style="width: 100%;">
-                            <thead>
-                                <tr>
-                                    <th class="sortable {{ request('sort') == 'first_name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="first_name">
-                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'first_name', 'order' => request('sort') == 'first_name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                            Naam
-                                        </a>
-                                    </th>
-                                    <th class="sortable {{ request('sort') == 'email' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="email">
-                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'email', 'order' => request('sort') == 'email' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                            E-mail
-                                        </a>
-                                    </th>
-                                    <th class="sortable {{ request('sort') == 'phone' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="phone">
-                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'phone', 'order' => request('sort') == 'phone' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                            Telefoon
-                                        </a>
-                                    </th>
-                                    <th class="sortable {{ request('sort') == 'company_id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="company_id">
-                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'company_id', 'order' => request('sort') == 'company_id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                            Bedrijf
-                                        </a>
-                                    </th>
-                                    <th>Rollen</th>
-                                    <th class="sortable {{ request('sort') == 'status' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="status">
-                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => request('sort') == 'status' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                            Status
-                                        </a>
-                                    </th>
-                                    <th class="sortable {{ request('sort') == 'created_at' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="created_at">
-                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'order' => request('sort') == 'created_at' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                            Gemaakt op
-                                        </a>
-                                    </th>
-                                    <th>Acties</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($users as $user)
-                                    <tr>
-                                        <td>
-                                            <div class="user-info">
-                                                <div class="user-name">{{ $user->first_name }} {{ $user->last_name }}</div>
-                                                @if($user->middle_name)
-                                                    <div class="user-middle-name">{{ $user->middle_name }}</div>
-                                                @endif
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <a href="mailto:{{ $user->email }}" class="user-email">{{ $user->email }}</a>
-                                        </td>
-                                        <td>
-                                            @if($user->phone)
-                                                <a href="tel:{{ $user->phone }}" class="user-phone">{{ $user->phone }}</a>
-                                            @else
-                                                <span class="text-muted">Geen telefoon</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($user->company)
-                                                <span class="user-company">{{ $user->company->name }}</span>
-                                            @else
-                                                <span class="material-badge material-badge-secondary">Geen bedrijf</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <div class="user-roles">
-                                                @foreach($user->roles as $role)
-                                                    @if($role->name === 'super-admin')
-                                                        @if(auth()->user()->hasRole('super-admin'))
-                                                            <span class="material-badge material-badge-info">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
-                                                        @else
-                                                            <span class="material-badge material-badge-secondary">Verborgen</span>
-                                                        @endif
-                                                    @else
-                                                        <span class="material-badge material-badge-info">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
-                                                    @endif
-                                                @endforeach
-                                            </div>
-                                        </td>
-                                        <td>
-                                            @if($user->email_verified_at)
-                                                <span class="material-badge material-badge-success">Geverifieerd</span>
-                                            @else
-                                                <span class="material-badge material-badge-warning">Niet geverifieerd</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <div class="date-info">{{ $user->created_at->format('d-m-Y H:i') }}</div>
-                                        </td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <a href="{{ route('admin.users.show', $user) }}" class="action-btn action-btn-info" title="Bekijken">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
-                                                <a href="{{ route('admin.users.edit', $user) }}" class="action-btn action-btn-warning" title="Bewerken">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <form action="{{ route('admin.users.destroy', $user) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je deze gebruiker wilt verwijderen?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="action-btn action-btn-danger" title="Verwijderen">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8">
-                                            <div class="empty-state">
-                                                <i class="fas fa-users"></i>
-                                                <h5>Nog geen gebruikers</h5>
-                                                <p>Er zijn nog geen gebruikers aangemaakt.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Results Info -->
-                    <div class="results-info-wrapper">
-                        <div class="results-info">
-                            <span class="results-text">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Toon {{ $users->firstItem() ?? 0 }} tot {{ $users->lastItem() ?? 0 }} van {{ $users->total() }} resultaten
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Pagination -->
-                    @if($users->hasPages())
-                        <div class="pagination-wrapper">
-                            <nav aria-label="Paginering">
-                                <ul class="pagination">
-                                    {{-- Previous Page Link --}}
-                                    @if ($users->onFirstPage())
-                                        <li class="page-item disabled">
-                                            <span class="page-link">
-                                                <i class="fas fa-chevron-left"></i>
-                                            </span>
-                                        </li>
-                                    @else
-                                        <li class="page-item">
-                                            <a class="page-link" href="{{ $users->previousPageUrl() }}">
-                                                <i class="fas fa-chevron-left"></i>
-                                            </a>
-                                        </li>
-                                    @endif
-
-                                    {{-- Pagination Elements --}}
-                                    @foreach ($users->getUrlRange(1, $users->lastPage()) as $page => $url)
-                                        @if ($page == $users->currentPage())
-                                            <li class="page-item active">
-                                                <span class="page-link">{{ $page }}</span>
-                                            </li>
-                                        @else
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $url }}">{{ $page }}</a>
-                                            </li>
-                                        @endif
-                                    @endforeach
-
-                                    {{-- Next Page Link --}}
-                                    @if ($users->hasMorePages())
-                                        <li class="page-item">
-                                            <a class="page-link" href="{{ $users->nextPageUrl() }}">
-                                                <i class="fas fa-chevron-right"></i>
-                                            </a>
-                                        </li>
-                                    @else
-                                        <li class="page-item disabled">
-                                            <span class="page-link">
-                                                <i class="fas fa-chevron-right"></i>
-                                            </span>
-                                        </li>
-                                    @endif
-                                </ul>
-                            </nav>
-                        </div>
-                    @endif
+    <!-- Statistics Cards -->
+    <div class="kt-card mb-5">
+        <div class="kt-card-content">
+            <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_companies'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Bedrijven
+                    </span>
+                </div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['active_companies'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Actief
+                    </span>
+                </div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_users'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Gebruikers
+                    </span>
+                </div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['total_vacancies'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Vacatures
+                    </span>
+                </div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $stats['intermediaries'] ?? 0 }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Tussenpartijen / Recruiters
+                    </span>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="kt-card kt-card-grid min-w-full">
+            <div class="kt-card-header py-5 flex-wrap gap-2">
+                <h3 class="kt-card-title text-sm pb-3 w-full">
+                    Toon 1 tot {{ $users->count() }} van {{ $users->count() }} gebruikers
+                </h3>
+                <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-center sm:justify-end items-center w-full">
+                    <!-- Search -->
+                    <div class="flex w-full sm:w-auto justify-center sm:justify-start">
+                        <form method="GET" action="{{ route('admin.users.index') }}" class="flex gap-2" id="search-form">
+                            @if(request('status'))
+                                <input type="hidden" name="status" value="{{ request('status') }}">
+                            @endif
+                            @if(request('role'))
+                                <input type="hidden" name="role" value="{{ request('role') }}">
+                            @endif
+                            @if(request('company'))
+                                <input type="hidden" name="company" value="{{ request('company') }}">
+                            @endif
+                            @if(request('sort'))
+                                <input type="hidden" name="sort" value="{{ request('sort') }}">
+                            @endif
+                            @if(request('direction'))
+                                <input type="hidden" name="direction" value="{{ request('direction') }}">
+                            @endif
+                            @if(request('per_page'))
+                                <input type="hidden" name="per_page" value="{{ request('per_page') }}">
+                            @endif
+                            <label class="kt-input w-full sm:w-64" style="position: relative !important;">
+                                <i class="ki-filled ki-magnifier"></i>
+                                <input placeholder="Zoek gebruikers..." 
+                                       type="text" 
+                                       name="search" 
+                                       value="{{ request('search') }}"
+                                       id="search-input"
+                                       data-kt-datatable-search="#users_table"/>
+                            </label>
+                        </form>
+                    </div>
+                    <!-- Filters -->
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 items-stretch sm:items-center w-full sm:w-auto">
+                        <form method="GET" action="{{ route('admin.users.index') }}" id="filters-form" class="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
+                            @if(request('search'))
+                                <input type="hidden" name="search" value="{{ request('search') }}">
+                            @endif
+                            
+                            <select class="kt-select w-full sm:w-36" 
+                                    name="status" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Status"
+                                    id="status-filter">
+                                <option value="">Alle statussen</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                            </select>
+                            
+                            @if($roles->count() > 0)
+                            <select class="kt-select w-full sm:w-36" 
+                                    name="role" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Rol"
+                                    id="role-filter">
+                                <option value="">Alle rollen</option>
+                                @foreach($roles as $role)
+                                    <option value="{{ $role }}" {{ request('role') == $role ? 'selected' : '' }}>
+                                        {{ ucfirst(str_replace('-', ' ', $role)) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @endif
+                            
+                            @if($companies->count() > 0)
+                            <select class="kt-select w-full sm:w-36" 
+                                    name="company" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Bedrijf"
+                                    id="company-filter">
+                                <option value="">Alle bedrijven</option>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}" {{ request('company') == $company->id ? 'selected' : '' }}>
+                                        {{ $company->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @endif
+                            
+                            <select class="kt-select w-full sm:w-36" 
+                                    name="sort" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Sortering"
+                                    id="sort-filter">
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
+                                <option value="first_name" {{ request('sort') == 'first_name' ? 'selected' : '' }}>Voornaam</option>
+                                <option value="last_name" {{ request('sort') == 'last_name' ? 'selected' : '' }}>Achternaam</option>
+                                <option value="email" {{ request('sort') == 'email' ? 'selected' : '' }}>E-mail</option>
+                            </select>
+                        </form>
+                        @if(request('status') || request('role') || request('company') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
+                        <a href="{{ route('admin.users.index') }}" 
+                           class="kt-btn kt-btn-outline kt-btn-icon" 
+                           title="Filters resetten"
+                           id="reset-filter-btn"
+                           style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
+                            <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
+                        </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kt-card-content">
+                @if($users->count() > 0)
+                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="users_table">
+                        <div class="kt-scrollable-x-auto">
+                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                            <thead>
+                                <tr>
+                                    <th class="min-w-[250px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Gebruiker</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    // Default voor tekst is 'asc' (alfabetisch)
+                                                    if ($currentSort == 'first_name') {
+                                                        // Als direction 'asc' is, toggle naar 'desc'
+                                                        // Als direction 'desc' is of null, gebruik 'asc' (default)
+                                                        $nextDirection = ($currentDirection == 'asc') ? 'desc' : 'asc';
+                                                    } else {
+                                                        $nextDirection = 'asc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'first_name', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Rol</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Bedrijf</span>
+                                            <span class="kt-table-col-sort"></span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    // Default voor datums is 'desc'
+                                                    if ($currentSort == 'email_verified_at') {
+                                                        $nextDirection = ($currentDirection == 'desc') ? 'asc' : 'desc';
+                                                    } else {
+                                                        $nextDirection = 'desc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'email_verified_at', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <span class="kt-table-col">
+                                            <span class="kt-table-col-label">Aangemaakt</span>
+                                            <span class="kt-table-col-sort">
+                                                @php
+                                                    $currentSort = request('sort');
+                                                    $currentDirection = request('direction');
+                                                    // Default voor datums is 'desc' (nieuwste eerst)
+                                                    // Als we op created_at sorteren
+                                                    if ($currentSort == 'created_at') {
+                                                        // Als direction 'desc' is, toggle naar 'asc'
+                                                        // Als direction 'asc' is of null, gebruik 'desc' (default)
+                                                        $nextDirection = ($currentDirection == 'desc') ? 'asc' : 'desc';
+                                                    } else {
+                                                        // Als we op een andere kolom sorteren, start met 'desc' (default voor datums)
+                                                        $nextDirection = 'desc';
+                                                    }
+                                                @endphp
+                                                <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => $nextDirection]) }}" 
+                                                   class="kt-table-col-sort-btn"></a>
+                                            </span>
+                                        </span>
+                                    </th>
+                                    <th class="w-[60px] text-center">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($users as $user)
+                                    <tr class="user-row" data-user-id="{{ $user->id }}">
+                                        <td>
+                                            <div class="flex items-center gap-2.5">
+                                                @if($user->photo_blob)
+                                                    <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}"/>
+                                                @else
+                                                    <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
+                                                        <span class="text-xs font-semibold text-secondary-foreground">
+                                                            {{ strtoupper(substr($user->first_name ?? 'U', 0, 1) . substr($user->last_name ?? '', 0, 1)) }}
+                                                        </span>
+                                                    </div>
+                                                @endif
+                                                <div class="flex flex-col">
+                                                    <a class="text-sm font-medium text-mono hover:text-primary mb-px" href="{{ route('admin.users.show', $user) }}" data-user-id="{{ $user->id }}">
+                                                        {{ $user->first_name }} {{ $user->last_name }}
+                                                    </a>
+                                                    <a class="text-sm text-secondary-foreground font-normal hover:text-primary" href="mailto:{{ $user->email }}">
+                                                        {{ $user->email }}
+                                                    </a>
+                                                    @if($user->function)
+                                                        <span class="text-xs text-muted-foreground font-normal mt-0.5">
+                                                            {{ $user->function }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            @if(count($user->webRoleNames()) > 0)
+                                                @foreach($user->webRoleNames() as $roleName)
+                                                    <span class="kt-badge kt-badge-info me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
+                                                @endforeach
+                                            @else
+                                                <span class="text-sm text-muted-foreground">Geen rol</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            @if($user->company)
+                                                <span class="text-sm">{{ $user->company->name }}</span>
+                                            @else
+                                                <span class="text-sm text-muted-foreground">Geen bedrijf</span>
+                                            @endif
+                                        </td>
+                                        <td class="user-status-cell">
+                                            @php
+                                                $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
+                                            @endphp
+                                            @if($isActive)
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-foreground font-normal">
+                                            <span class="text-sm">{{ $user->created_at->format('d-m-Y') }}</span>
+                                        </td>
+                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                            <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                                <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                        <i class="ki-filled ki-dots-vertical text-lg"></i>
+                                                    </button>
+                                                    <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                        @can('view-users')
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.users.show', $user) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-eye"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bekijken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endcan
+                                                        @can('edit-users')
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.users.edit', $user) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-pencil"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bewerken</span>
+                                                            </a>
+                                                        </div>
+                                                        @endcan
+                                                        @if(auth()->user()->can('view-users') || auth()->user()->can('edit-users'))
+                                                        <div class="kt-menu-separator"></div>
+                                                        @endif
+                                                        @can('edit-users')
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.users.toggle-status', $user) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;"
+                                                                  class="toggle-status-form"
+                                                                  data-user-id="{{ $user->id }}">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        @php
+                                                                            $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
+                                                                        @endphp
+                                                                        <i class="ki-filled toggle-status-icon {{ $isActive ? 'ki-pause' : 'ki-play' }}"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title toggle-status-text">{{ $isActive ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endcan
+                                                        @can('delete-users')
+                                                        <div class="kt-menu-separator"></div>
+                                                        @endcan
+                                                        @can('delete-users')
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.users.destroy', $user) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;"
+                                                                  onsubmit="return confirm('Weet je zeker dat je deze gebruiker wilt verwijderen?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="kt-menu-link w-full text-left text-danger">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-trash"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endcan
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        </div>
+                    
+                    <!-- Pagination -->
+                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
+                        <div class="flex items-center gap-2 order-2 md:order-1">
+                            Toon
+                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            </select>
+                            per pagina
+                        </div>
+                        <div class="flex items-center gap-4 order-1 md:order-2">
+                            <span data-kt-datatable-info="true">
+                            </span>
+                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center py-16">
+                        <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
+                        <h4 class="text-lg font-semibold text-mono mb-2">Geen gebruikers gevonden</h4>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
 </div>
+
+@push('scripts')
 <script>
-    // Auto-dismiss success alert after 5 seconds
     document.addEventListener('DOMContentLoaded', function() {
+        // Replace "of" with "van" in pagination info
+        function replaceOfWithVan() {
+            const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+            if (infoSpan && infoSpan.textContent.includes(' of ')) {
+                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
+            }
+        }
+        
+        // Initial replacement
+        replaceOfWithVan();
+        
+        // Watch for changes in the info span
+        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        if (infoSpan) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList' || mutation.type === 'characterData') {
+                        replaceOfWithVan();
+                    }
+                });
+            });
+            
+            observer.observe(infoSpan, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
+        }
+        
+        // Filter form submission (server-side filters)
+        const filterForm = document.getElementById('filters-form');
+        const statusFilter = document.getElementById('status-filter');
+        const roleFilter = document.getElementById('role-filter');
+        const companyFilter = document.getElementById('company-filter');
+        const sortFilter = document.getElementById('sort-filter');
+        
+        if (statusFilter && filterForm) {
+            statusFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (roleFilter && filterForm) {
+            roleFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (companyFilter && filterForm) {
+            companyFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        if (sortFilter && filterForm) {
+            sortFilter.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        }
+        
+        // Auto-dismiss success alert after 3 seconds
         const successAlert = document.getElementById('success-alert');
         if (successAlert) {
             setTimeout(function() {
-                successAlert.classList.add('fade-out');
+                successAlert.style.transition = 'opacity 0.3s ease-out';
+                successAlert.style.opacity = '0';
                 setTimeout(function() {
                     successAlert.remove();
-                }, 300); // Match the CSS animation duration
-            }, 5000); // 5 seconds
+                }, 300); // Wait for fade-out animation
+            }, 3000); // 3 seconds
+        }
+        
+        // Handle toggle status form submission via AJAX - using event delegation with capture
+        document.addEventListener('submit', function(e) {
+            // Check if this is a toggle-status form
+            let form = e.target;
+            while (form && form.tagName !== 'FORM') {
+                form = form.parentElement;
+            }
+            
+            if (!form || !form.classList.contains('toggle-status-form')) {
+                return;
+            }
+            
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
+            const formData = new FormData(form);
+            const url = form.action;
+            const button = form.querySelector('button[type="submit"]');
+            const userId = form.getAttribute('data-user-id');
+            
+            if (!userId) {
+                console.error('Toggle status: No user ID found');
+                return false;
+            }
+            
+            if (!button) {
+                console.error('Toggle status: No button found');
+                return false;
+            }
+            
+            const titleElement = button.querySelector('.kt-menu-title');
+            const originalButtonText = titleElement ? titleElement.textContent.trim() : '';
+            
+            // Disable button
+            button.disabled = true;
+            if (titleElement) {
+                titleElement.textContent = 'Bezig...';
+            }
+            
+            // Make AJAX request
+            fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Server error');
+                    }).catch(err => {
+                        // If JSON parsing fails, try to get text response
+                        return response.text().then(text => {
+                            throw new Error('Network error: ' + response.status + ' - ' + text);
+                        });
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.is_active !== undefined) {
+                    // Find user row
+                    const userRow = document.querySelector(`tr.user-row[data-user-id="${userId}"]`);
+                    
+                    if (!userRow) {
+                        console.error('Toggle status: User row not found for ID:', userId);
+                        // Reload page as fallback
+                        window.location.reload();
+                        return;
+                    }
+                    
+                    // Update status badge
+                    const statusCell = userRow.querySelector('.user-status-cell');
+                    if (statusCell) {
+                        statusCell.innerHTML = data.is_active 
+                            ? '<span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>'
+                            : '<span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>';
+                    }
+                    
+                    // Update all toggle buttons for this user
+                    document.querySelectorAll(`.toggle-status-form[data-user-id="${userId}"]`).forEach(function(f) {
+                        const btn = f.querySelector('button[type="submit"]');
+                        if (!btn) return;
+                        
+                        const icon = btn.querySelector('.toggle-status-icon');
+                        const text = btn.querySelector('.toggle-status-text');
+                        
+                        if (icon) {
+                            icon.className = 'ki-filled toggle-status-icon ' + (data.is_active ? 'ki-pause' : 'ki-play');
+                        }
+                        
+                        if (text) {
+                            text.textContent = data.is_active ? 'Deactiveren' : 'Activeren';
+                        }
+                    });
+                    
+                    // Re-enable button
+                    button.disabled = false;
+                    if (titleElement) {
+                        titleElement.textContent = originalButtonText;
+                    }
+                    
+                    // Close dropdown
+                    setTimeout(() => {
+                        const menu = form.closest('.kt-menu');
+                        if (menu) {
+                            const toggle = menu.querySelector('.kt-menu-toggle');
+                            if (toggle && (toggle.getAttribute('aria-expanded') === 'true' || toggle.classList.contains('active'))) {
+                                toggle.click();
+                            }
+                        }
+                    }, 150);
+                } else {
+                    throw new Error(data.message || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('Toggle status error:', error);
+                alert('Fout: ' + error.message);
+                button.disabled = false;
+                if (titleElement) {
+                    titleElement.textContent = originalButtonText;
+                }
+            });
+            
+            return false;
+        }, true);
+        
+        // Make table rows clickable (except actions column) - robust event delegation
+        // Use container-level delegation to survive datatable updates
+        function setupUserRowClicks() {
+            const usersTable = document.getElementById('users_table');
+            if (!usersTable) {
+                return;
+            }
+            
+            // Remove existing handler if it exists
+            if (usersTable._rowClickHandler) {
+                usersTable.removeEventListener('click', usersTable._rowClickHandler, true);
+            }
+            
+            // Create robust click handler
+            usersTable._rowClickHandler = function(e) {
+                const row = e.target.closest('tr.user-row');
+                if (!row) {
+                    return;
+                }
+                
+                // Don't navigate if clicking on actions column or menu
+                const clickedElement = e.target;
+                const actionsTd = row.querySelector('td:last-child');
+                const isInActionsColumn = actionsTd && (actionsTd.contains(clickedElement) || clickedElement === actionsTd);
+                const isInMenu = clickedElement.closest('.kt-menu') || clickedElement.closest('[data-kt-menu]');
+                const isButton = clickedElement.tagName === 'BUTTON' || clickedElement.closest('button');
+                const isLink = clickedElement.tagName === 'A' || clickedElement.closest('a');
+                
+                if (isInActionsColumn || isInMenu || isButton || isLink) {
+                    return;
+                }
+                
+                // Get user ID - try multiple methods
+                let userId = null;
+                
+                // Method 1: Try data attribute on row
+                userId = row.getAttribute('data-user-id');
+                
+                // Method 2: Try name link with data attribute
+                if (!userId || userId === 'null' || userId === '') {
+                    const nameLink = row.querySelector('td:first-child a[data-user-id]');
+                    if (nameLink) {
+                        userId = nameLink.getAttribute('data-user-id');
+                    }
+                }
+                
+                // Method 3: Try to extract from any link in the row
+                if (!userId || userId === 'null' || userId === '') {
+                    const viewLink = row.querySelector('a[href*="/admin/users/"]');
+                    if (viewLink) {
+                        const href = viewLink.getAttribute('href');
+                        const match = href.match(/\/admin\/users\/(\d+)/);
+                        if (match && match[1]) {
+                            userId = match[1];
+                        }
+                    }
+                }
+                
+                if (userId && userId !== 'null' && userId !== '' && userId !== null && userId !== undefined) {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                    window.location.href = '/admin/users/' + userId;
+                }
+            };
+            
+            // Add event listener with capture phase on container
+            usersTable.addEventListener('click', usersTable._rowClickHandler, true);
+        }
+        
+        // Initialize immediately
+        setupUserRowClicks();
+        
+        // Re-initialize after delays in case datatable initializes later
+        setTimeout(setupUserRowClicks, 100);
+        setTimeout(setupUserRowClicks, 500);
+        setTimeout(setupUserRowClicks, 1000);
+        
+        // Watch for table changes
+        const usersTable = document.getElementById('users_table');
+        if (usersTable) {
+            const observer = new MutationObserver(function() {
+                setupUserRowClicks();
+            });
+            observer.observe(usersTable, { childList: true, subtree: true });
         }
     });
 </script>
+@endpush
+
+@push('styles')
+<style>
+    /* Table column sorting */
+    .kt-table-col {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+    .kt-table-col-sort {
+        margin-left: auto !important;
+    }
+    
+    /* Reset button visibility */
+    a[title="Filters resetten"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        min-width: 34px !important;
+        height: 34px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: 1px solid var(--input) !important;
+        background-color: var(--background) !important;
+        color: var(--secondary-foreground) !important;
+    }
+    a[title="Filters resetten"]:hover {
+        background-color: var(--accent) !important;
+        color: var(--accent-foreground) !important;
+    }
+    a[title="Filters resetten"] i {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Table row hover styling (same as demo) */
+    .user-row {
+        cursor: pointer !important;
+    }
+    .user-row:hover {
+        background-color: var(--muted) !important;
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+        .user-row:hover {
+            background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
+        }
+    }
+</style>
+@endpush
+
+@push('scripts')
+<script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
+<script>
+    (function() {
+        'use strict';
+        
+        let openDropdown = null;
+        let closingTimeout = null;
+        
+        function closeAllDropdowns(exceptElement) {
+            // Clear any pending close operations
+            if (closingTimeout) {
+                clearTimeout(closingTimeout);
+                closingTimeout = null;
+            }
+            
+            // Vind alle kt-select displays
+            const displays = document.querySelectorAll('.kt-select-display');
+            
+            displays.forEach(function(display) {
+                if (display === exceptElement) return;
+                
+                // Check of deze dropdown open is
+                if (display.getAttribute('aria-expanded') === 'true') {
+                    // Probeer eerst via KTUI API
+                    const select = display.parentElement?.querySelector('select.kt-select[data-kt-select="true"]');
+                    if (select && typeof window.KTSelect !== 'undefined') {
+                        try {
+                            const instance = window.KTSelect.getInstance(select);
+                            if (instance && instance.hide && typeof instance.hide === 'function') {
+                                instance.hide();
+                            }
+                        } catch (e) {
+                            // Fallback naar DOM manipulatie
+                        }
+                    }
+                    
+                    // Fallback: direct DOM manipulatie
+                    display.setAttribute('aria-expanded', 'false');
+                    
+                    // Zoek en sluit alle dropdown menu's
+                    const parent = display.closest('.kt-select-wrapper, [data-kt-select-wrapper]') || display.parentElement;
+                    if (parent) {
+                        const dropdowns = parent.querySelectorAll('.kt-menu-dropdown, .kt-select-dropdown, [data-kt-select-dropdown], [data-kt-menu-dropdown]');
+                        dropdowns.forEach(function(dropdown) {
+                            dropdown.style.display = 'none';
+                            dropdown.style.visibility = 'hidden';
+                            dropdown.style.opacity = '0';
+                            dropdown.classList.remove('show', 'active', 'kt-menu-show');
+                        });
+                    }
+                }
+            });
+        }
+        
+        function initSelectExclusive() {
+            // Luister alleen naar nieuwe dropdown menu's die verschijnen (meer betrouwbaar)
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    // Check voor nieuwe dropdown menu's die verschijnen (dropdown is daadwerkelijk open)
+                    if (mutation.addedNodes.length > 0) {
+                        mutation.addedNodes.forEach(function(node) {
+                            if (node.nodeType === 1) {
+                                const isDropdown = node.classList && (
+                                    node.classList.contains('kt-menu-dropdown') ||
+                                    node.classList.contains('kt-select-dropdown') ||
+                                    node.hasAttribute('data-kt-select-dropdown')
+                                );
+                                
+                                // Check of dropdown daadwerkelijk zichtbaar is
+                                if (isDropdown) {
+                                    // Wacht even om te zien of dropdown zichtbaar wordt
+                                    setTimeout(function() {
+                                        const computedStyle = window.getComputedStyle(node);
+                                        const isVisible = computedStyle.display !== 'none' && 
+                                                         computedStyle.visibility !== 'hidden' && 
+                                                         computedStyle.opacity !== '0';
+                                        
+                                        if (isVisible) {
+                                            // Een nieuwe dropdown is daadwerkelijk verschenen, sluit alle andere
+                                            const allDisplays = document.querySelectorAll('.kt-select-display[aria-expanded="true"]');
+                                            allDisplays.forEach(function(display) {
+                                                // Vind de bijbehorende dropdown
+                                                const parent = display.closest('.kt-select-wrapper, [data-kt-select-wrapper]') || display.parentElement;
+                                                const relatedDropdown = parent && parent.querySelector('.kt-menu-dropdown, .kt-select-dropdown, [data-kt-select-dropdown]');
+                                                
+                                                // Als dit niet de dropdown is die net verscheen, sluit hem
+                                                if (relatedDropdown !== node) {
+                                                    closeAllDropdowns(display);
+                                                } else {
+                                                    openDropdown = display;
+                                                }
+                                            });
+                                        }
+                                    }, 50);
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+            
+            // Luister naar clicks buiten dropdowns om ze te sluiten
+            document.addEventListener('click', function(e) {
+                const clickedSelect = e.target.closest('select.kt-select[data-kt-select="true"]');
+                const clickedDisplay = e.target.closest('.kt-select-display');
+                const clickedDropdown = e.target.closest('.kt-menu-dropdown, .kt-select-dropdown, [data-kt-select-dropdown]');
+                const clickedOption = e.target.closest('.kt-menu-item, [data-kt-select-option]');
+                
+                // Als de click binnen een dropdown is, doe niets
+                if (clickedSelect || clickedDisplay || clickedDropdown || clickedOption) {
+                    return;
+                }
+                
+                // Click was buiten alle dropdowns, sluit ze allemaal
+                closeAllDropdowns(null);
+                openDropdown = null;
+            }, true);
+        }
+        
+        // Initialiseer
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(initSelectExclusive, 200);
+            });
+        } else {
+            setTimeout(initSelectExclusive, 200);
+        }
+    })();
+</script>
+@endpush
+
 @endsection

@@ -1,0 +1,91 @@
+# TEST (Proxmox Ubuntu): deploy bij push naar release/test.
+# PROD (AWS Lightsail): alleen via git-tag — zie deploy-prod.yml + create-prod-tag.yml
+
+name: Deploy TEST (Proxmox)
+
+on:
+  push:
+    branches:
+      - release/test
+  workflow_dispatch:
+
+# Geen actions/checkout: de app staat in TENANT_DIR (git reset in deploy-tenant.sh).
+# Checkout onder /home/mtosun/actions-runner/_work faalt vaak als de runner-service
+# niet als mtosun draait ("Access to the path /home is denied").
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    env:
+      TENANT_DIR: /home/nexasuite.nl/apps/saas/current
+      GIT_BRANCH: release/test
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
+      DEBUG_DEPLOY: ${{ vars.DEBUG_DEPLOY }}
+
+    steps:
+      - name: Preflight (runner / sudo / docker / deploy-script)
+        run: |
+          set -euxo pipefail
+          TARGET="${DEPLOY_USER:-mtosun}"
+          U="$(id -un)"
+          SCRIPT="${TENANT_DIR}/deploy/deploy-tenant.sh"
+
+          echo "=== Preflight ==="
+          echo "Host: $(hostname)"
+          echo "Runner user: $U (groups: $(id -Gn))"
+          echo "Deploy target user: $TARGET"
+          echo "TENANT_DIR: $TENANT_DIR"
+          echo "Deploy-script: $SCRIPT"
+
+          if [[ ! -d "$TENANT_DIR/.git" ]]; then
+            echo "ERROR: Geen git-repo in TENANT_DIR" >&2
+            exit 1
+          fi
+
+          if [[ ! -f "$SCRIPT" ]]; then
+            echo "ERROR: $SCRIPT ontbreekt. Eerst eenmalig repo klonen in TENANT_DIR." >&2
+            exit 1
+          fi
+          echo "deploy-tenant.sh: OK ($(wc -c < "$SCRIPT") bytes)"
+
+          if docker info >/dev/null 2>&1; then
+            echo "Docker (as $U): OK"
+          else
+            echo "Docker (as $U): niet bereikbaar — deploy-user $TARGET moet docker-groep hebben"
+          fi
+
+          if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
+            echo "Sudo: niet nodig"
+          elif sudo -n -u "$TARGET" true; then
+            echo "Sudo naar $TARGET: OK"
+          else
+            echo "Sudo naar $TARGET: MISLUKT — zie deploy/github-runner-sudoers.example"
+          fi
+
+      - name: Deploy
+        run: |
+          set -euxo pipefail
+          TARGET="${DEPLOY_USER:-mtosun}"
+          U="$(id -un)"
+          SCRIPT="${TENANT_DIR}/deploy/deploy-tenant.sh"
+
+          if [[ "${DEBUG_DEPLOY:-}" == "1" || "${DEBUG_DEPLOY:-}" == "true" ]]; then
+            export DEPLOY_DEBUG=1
+          fi
+
+          run_deploy() {
+            env DEPLOY_USER="$TARGET" GIT_BRANCH="${GIT_BRANCH:-release/test}" \
+              EXTRA_DEPLOY_USERS="${EXTRA_DEPLOY_USERS:-}" \
+              TENANT_DIR="$TENANT_DIR" bash "$SCRIPT"
+          }
+
+          if [[ "$U" == "$TARGET" ]] || [[ "$U" == "root" ]]; then
+            run_deploy
+          elif sudo -n -u "$TARGET" true; then
+            echo "==> Runner-user is $U; deploy als $TARGET"
+            sudo -n -u "$TARGET" bash "$SCRIPT"
+          else
+            echo "==> Geen sudo; deploy als $U (EXTRA_DEPLOY_USERS moet $U bevatten)"
+            run_deploy
+          fi

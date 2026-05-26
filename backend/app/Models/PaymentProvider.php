@@ -10,7 +10,11 @@ class PaymentProvider extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'provider_type', 'is_active', 'config'
+        'company_id',
+        'name',
+        'provider_type',
+        'is_active',
+        'config',
     ];
 
     protected $casts = [
@@ -28,6 +32,17 @@ class PaymentProvider extends Model
         $config = $this->config ?? [];
         data_set($config, $key, $value);
         $this->config = $config;
+
         return $this;
+    }
+
+    public function company(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function scopeForCompany($query, int $companyId)
+    {
+        return $query->where('company_id', $companyId);
     }
 }

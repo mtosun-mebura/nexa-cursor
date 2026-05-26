@@ -11,8 +11,8 @@ trait TenantFilter
         // Get the table name from the query
         $tableName = $query->getModel()->getTable();
         
-        // Categories are visible to all companies (no filtering)
-        if ($tableName === 'categories') {
+        // Branches are visible to all companies (no filtering)
+        if ($tableName === 'branches') {
             return $query;
         }
         
@@ -60,10 +60,21 @@ trait TenantFilter
             return true;
         }
         
-        // Categories are accessible to all users
+        // Branches are accessible to all users
         $tableName = $resource->getTable();
-        if ($tableName === 'categories') {
+        if ($tableName === 'branches') {
             return true;
+        }
+        
+        // Voor gebruikers: controleer of de resource een super-admin is
+        // Alleen super-admins kunnen andere super-admins zien
+        if ($tableName === 'users') {
+            // Als de resource een super-admin is, kan alleen een super-admin deze benaderen
+            if ($resource->hasRole('super-admin')) {
+                return false; // Niet-super-admins kunnen geen super-admins benaderen
+            }
+            // Voor niet-super-admin gebruikers: controleer bedrijfsfilter
+            return $resource->company_id === $user->company_id;
         }
         
         // Andere gebruikers kunnen alleen hun eigen bedrijfsresources benaderen

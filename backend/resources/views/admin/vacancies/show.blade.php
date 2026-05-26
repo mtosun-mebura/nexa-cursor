@@ -3,677 +3,451 @@
 @section('title', 'Vacature Details - ' . $vacancy->title)
 
 @section('content')
+
+@php
+    $status = (string)($vacancy->status ?? '');
+@endphp
+
 <style>
-    :root {
-        --primary-color: #9c27b0;
-        --primary-light: #ba68c8;
-        --primary-dark: #7b1fa2;
-        --primary-hover: #ab47bc;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --secondary-color: #757575;
-        --light-bg: #f5f5f5;
-        --border-color: #e0e0e0;
-        --text-primary: #212121;
-        --text-secondary: #757575;
-        --shadow: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-hover: 0 4px 8px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s ease;
+    .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
     }
-
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow);
-        margin-bottom: 24px;
-        overflow: hidden;
-        transition: var(--transition);
+    .dark .hero-bg {
+        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
     }
-
-    .material-card:hover {
-        box-shadow: var(--shadow-hover);
-    }
-
-    .card-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-        color: white;
-        padding: 20px 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .card-header h5 {
-        margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .material-header-actions {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .material-btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: var(--border-radius);
-        font-weight: 500;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: var(--transition);
-        cursor: pointer;
-        font-size: 14px;
-    }
-
-    .material-btn-primary {
-        background: var(--primary-color);
-        color: white;
-    }
-
-    .material-btn-primary:hover {
-        background: var(--primary-hover);
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-warning {
-        background: var(--warning-color);
-        color: white;
-    }
-
-    .material-btn-warning:hover {
-        background: #f57c00;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-secondary {
-        background: var(--secondary-color);
-        color: white;
-    }
-
-    .material-btn-secondary:hover {
-        background: #616161;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-danger {
-        background: var(--danger-color);
-        color: white;
-    }
-
-    .material-btn-danger:hover {
-        background: #d32f2f;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .material-btn-success {
-        background: var(--success-color);
-        color: white;
-    }
-
-    .material-btn-success:hover {
-        background: #388e3c;
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .card-body {
-        padding: 24px;
-    }
-
-    .vacancy-header {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        border-radius: var(--border-radius);
-        padding: 24px;
-        margin-bottom: 24px;
-        border-left: 4px solid var(--primary-color);
-    }
-
-    .vacancy-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 12px;
-        line-height: 1.2;
-    }
-
-    .vacancy-meta {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-    }
-
-    .meta-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--text-secondary);
-        font-size: 14px;
-    }
-
-    .meta-item i {
-        color: var(--primary-color);
-        width: 16px;
-    }
-
-    .status-badge {
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-    }
-
-    .status-badge:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .status-open {
-        background: linear-gradient(135deg, #f1f8e9 0%, #81c784 100%);
-        color: #388e3c;
-        border: 2px solid #81c784;
-    }
-
-    .status-closed {
-        background: linear-gradient(135deg, #ffcdd2 0%, #e57373 100%);
-        color: #d32f2f;
-        border: 2px solid #e57373;
-    }
-
-    .status-processing {
-        background: linear-gradient(135deg, #fff8e1 0%, #ffb74d 100%);
-        color: #f57c00;
-        border: 2px solid #ffb74d;
-    }
-
-    .info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 24px;
-        margin-bottom: 24px;
-    }
-
-    .info-section {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 20px;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-    }
-
-    .section-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--primary-color);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .info-table tr {
-        border-bottom: 1px solid var(--border-color);
-    }
-
-    .info-table tr:last-child {
-        border-bottom: none;
-    }
-
-    .info-table td {
-        padding: 12px 0;
-        vertical-align: top;
-    }
-
-    .info-table td:first-child {
-        font-weight: 600;
-        color: var(--text-primary);
-        width: 140px;
-        min-width: 140px;
-    }
-
-    .info-table td:last-child {
-        color: var(--text-secondary);
-    }
-
-    .content-section {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 24px;
-        box-shadow: var(--shadow);
-        border: 1px solid var(--border-color);
-        margin-bottom: 24px;
-    }
-
-    .content-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .content-body {
-        line-height: 1.6;
-        color: var(--text-secondary);
-        white-space: pre-line;
-    }
-
-    .seo-section {
-        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-        border-radius: var(--border-radius);
-        padding: 20px;
-        margin-top: 24px;
-        border-left: 4px solid var(--info-color);
-    }
-
-    .seo-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1565c0;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .seo-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 16px;
-    }
-
-    .seo-item {
-        background: white;
-        border-radius: 6px;
-        padding: 12px;
-        border: 1px solid #e3f2fd;
-    }
-
-    .seo-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #1565c0;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-    }
-
-    .seo-value {
-        font-size: 14px;
-        color: var(--text-primary);
-        word-break: break-word;
-    }
-
-    .action-buttons {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-top: 24px;
-        padding-top: 24px;
-        border-top: 1px solid var(--border-color);
-    }
-
-    @media (max-width: 768px) {
-        .card-header {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .material-header-actions {
-            justify-content: center;
-        }
-
-        .vacancy-meta {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .info-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .action-buttons {
-            flex-direction: column;
-        }
-
-        .material-btn {
-            justify-content: center;
-        }
-    }
+    .match-score-high { color: #10b981; }
+    .match-score-medium { color: #f59e0b; }
+    .match-score-low { color: #ef4444; }
 </style>
 
-<div class="container-fluid">
-    <div class="material-card">
-        <div class="card-header">
-            <h5>
-                <i class="fas fa-briefcase"></i> Vacature Details
-            </h5>
-            <div class="material-header-actions">
-                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="material-btn material-btn-warning">
-                    <i class="fas fa-edit"></i> Bewerken
-                </a>
-                @if($vacancy->status !== 'Open' && $vacancy->status !== 'In behandeling')
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Open">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="material-btn material-btn-success">
-                            <i class="fas fa-play"></i> Openen
-                        </button>
-                    </form>
-                @elseif($vacancy->status === 'In behandeling')
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Open">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="material-btn material-btn-success">
-                            <i class="fas fa-play"></i> Openen
-                        </button>
-                    </form>
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Gesloten">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="material-btn material-btn-danger">
-                            <i class="fas fa-stop"></i> Sluiten
-                        </button>
-                    </form>
-                @else
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="In behandeling">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="material-btn material-btn-warning">
-                            <i class="fas fa-clock"></i> In behandeling
-                        </button>
-                    </form>
-                    <form action="{{ route('admin.vacancies.update', $vacancy) }}" method="POST" class="d-inline">
-                        @csrf @method('PUT')
-                        <input type="hidden" name="status" value="Gesloten">
-                        <input type="hidden" name="title" value="{{ $vacancy->title }}">
-                        <input type="hidden" name="company_id" value="{{ $vacancy->company_id }}">
-                        <input type="hidden" name="description" value="{{ $vacancy->description }}">
-                        <button type="submit" class="material-btn material-btn-danger">
-                            <i class="fas fa-stop"></i> Sluiten
-                        </button>
-                    </form>
+<div class="bg-center bg-cover bg-no-repeat hero-bg">
+    <!-- Container -->
+    <div class="kt-container-fixed">
+        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            @if($vacancy->company && $vacancy->company->logo_blob)
+                @php
+                    $vc = $vacancy->company;
+                    $companyHeroLogoDarkUrl = ! empty($vc->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $vc)
+                        : route('admin.companies.logo', $vc);
+                @endphp
+                <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
+                    <img class="logo-light rounded-lg w-auto object-contain bg-transparent dark:hidden" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $vc) }}" alt="{{ $vc->name }}">
+                    <img class="logo-dark rounded-lg w-auto object-contain bg-transparent hidden dark:block" style="height: 80px; display: block; padding: 8px;" src="{{ $companyHeroLogoDarkUrl }}" alt="{{ $vc->name }}">
+                </div>
+            @elseif($vacancy->company)
+                <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
+                    {{ strtoupper(substr($vacancy->company->name, 0, 2)) }}
+                </div>
+            @else
+                <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
+                    <i class="ki-filled ki-briefcase text-3xl"></i>
+                </div>
+            @endif
+            <div class="flex items-center gap-1.5">
+                <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
+                    {{ $vacancy->title }}
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
+                @if($vacancy->company)
+                    <div class="flex gap-1.25 items-center">
+                        <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />
+                        <span class="text-secondary-foreground font-medium">{{ $vacancy->company->name }}</span>
+                    </div>
                 @endif
-                <a href="{{ route('admin.vacancies.index') }}" class="material-btn material-btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Terug naar Overzicht
-                </a>
-            </div>
-        </div>
-        
-        <div class="card-body">
-            <!-- Vacature Header -->
-            <div class="vacancy-header">
-                <h1 class="vacancy-title">{{ $vacancy->title }}</h1>
-                <div class="vacancy-meta">
-                    <div class="meta-item">
-                        <i class="fas fa-building"></i>
-                        <span>{{ $vacancy->company->name }}</span>
+                @if($vacancy->branch)
+                    <div class="flex gap-1.25 items-center">
+                        <i class="ki-filled ki-tag text-muted-foreground text-sm"></i>
+                        <span class="text-secondary-foreground font-medium">{{ $vacancy->branch->name }}</span>
                     </div>
-                    @if($vacancy->location)
-                        <div class="meta-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            <span>{{ $vacancy->location }}</span>
-                        </div>
+                @endif
+                <div class="flex gap-1.25 items-center">
+                    @if($status === 'Open')
+                        <span class="kt-badge kt-badge-sm kt-badge-success">Open</span>
+                    @elseif($status === 'Gesloten')
+                        <span class="kt-badge kt-badge-sm kt-badge-danger">Gesloten</span>
+                    @elseif($status === 'In behandeling')
+                        <span class="kt-badge kt-badge-sm kt-badge-warning">In behandeling</span>
+                    @else
+                        <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $status ?: '-' }}</span>
                     @endif
-                    @if($vacancy->employment_type)
-                        <div class="meta-item">
-                            <i class="fas fa-clock"></i>
-                            <span>{{ $vacancy->employment_type }}</span>
-                        </div>
-                    @endif
-                    <div class="meta-item">
-                        <i class="fas fa-calendar"></i>
-                        <span>Gepubliceerd: {{ $vacancy->publication_date ? $vacancy->publication_date->format('d-m-Y') : 'Niet opgegeven' }}</span>
+                </div>
+                @if($vacancy->location)
+                    <div class="flex gap-1.25 items-center">
+                        <i class="ki-filled ki-geolocation text-muted-foreground text-sm"></i>
+                        <span class="text-secondary-foreground font-medium">{{ $vacancy->location }}</span>
                     </div>
-                </div>
-                <div class="status-badge @if($vacancy->status === 'In behandeling') status-processing @elseif($vacancy->status === 'Gesloten') status-closed @else status-{{ strtolower(str_replace(' ', '-', $vacancy->status)) }} @endif">
-                    <i class="fas fa-circle"></i>
-                    {{ $vacancy->status }}
-                </div>
-            </div>
-
-            <!-- Informatie Grid -->
-            <div class="info-grid">
-                <!-- Basis Informatie -->
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-info-circle"></i> Basis Informatie
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>ID</td>
-                            <td>{{ $vacancy->id }}</td>
-                        </tr>
-                        <tr>
-                            <td>Referentie</td>
-                            <td>{{ $vacancy->reference_number ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Bedrijf</td>
-                            <td>{{ $vacancy->company->name }}</td>
-                        </tr>
-                        <tr>
-                            <td>Categorie</td>
-                            <td>{{ $vacancy->category->name ?? 'Geen categorie' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Locatie</td>
-                            <td>{{ $vacancy->location ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Type Werk</td>
-                            <td>{{ $vacancy->employment_type ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Taal</td>
-                            <td>{{ $vacancy->language ?? 'Nederlands' }}</td>
-                        </tr>
-                    </table>
-                </div>
-
-                <!-- Salaris & Details -->
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-euro-sign"></i> Salaris & Details
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Status</td>
-                            <td>
-                                <span class="status-badge @if($vacancy->status === 'In behandeling') status-processing @elseif($vacancy->status === 'Gesloten') status-closed @else status-{{ strtolower(str_replace(' ', '-', $vacancy->status)) }} @endif">
-                                    <i class="fas fa-circle"></i>
-                                    {{ $vacancy->status }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Salaris</td>
-                            <td>{{ $vacancy->salary_range ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Startdatum</td>
-                            <td>{{ $vacancy->start_date ? $vacancy->start_date->format('d-m-Y') : 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Werkuren</td>
-                            <td>{{ $vacancy->working_hours ?? 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Reiskosten</td>
-                            <td>
-                                @if($vacancy->travel_expenses)
-                                    <span class="text-success"><i class="fas fa-check"></i> Vergoed</span>
-                                @else
-                                    <span class="text-secondary"><i class="fas fa-times"></i> Niet vergoed</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Remote Werk</td>
-                            <td>
-                                @if($vacancy->remote_work)
-                                    <span class="text-success"><i class="fas fa-check"></i> Mogelijk</span>
-                                @else
-                                    <span class="text-secondary"><i class="fas fa-times"></i> Niet mogelijk</span>
-                                @endif
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-
-                <!-- Datums -->
-                <div class="info-section">
-                    <h6 class="section-title">
-                        <i class="fas fa-calendar-alt"></i> Datums
-                    </h6>
-                    <table class="info-table">
-                        <tr>
-                            <td>Publicatiedatum</td>
-                            <td>{{ $vacancy->publication_date ? $vacancy->publication_date->format('d-m-Y H:i') : 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Sluitingsdatum</td>
-                            <td>{{ $vacancy->closing_date ? $vacancy->closing_date->format('d-m-Y') : 'Niet opgegeven' }}</td>
-                        </tr>
-                        <tr>
-                            <td>Aangemaakt</td>
-                            <td>{{ $vacancy->created_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                        <tr>
-                            <td>Bijgewerkt</td>
-                            <td>{{ $vacancy->updated_at->format('d-m-Y H:i') }}</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Beschrijving -->
-            @if($vacancy->description)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-align-left"></i> Functieomschrijving
-                    </h6>
-                    <div class="content-body">{{ $vacancy->description }}</div>
-                </div>
-            @endif
-
-            <!-- Vereisten -->
-            @if($vacancy->requirements)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-list-check"></i> Vereisten
-                    </h6>
-                    <div class="content-body">{{ $vacancy->requirements }}</div>
-                </div>
-            @endif
-
-            <!-- Aanbod -->
-            @if($vacancy->offer)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-gift"></i> Wat Wij Bieden
-                    </h6>
-                    <div class="content-body">{{ $vacancy->offer }}</div>
-                </div>
-            @endif
-
-            <!-- Sollicitatie Instructies -->
-            @if($vacancy->application_instructions)
-                <div class="content-section">
-                    <h6 class="content-title">
-                        <i class="fas fa-paper-plane"></i> Sollicitatie Instructies
-                    </h6>
-                    <div class="content-body">{{ $vacancy->application_instructions }}</div>
-                </div>
-            @endif
-
-            <!-- SEO Informatie -->
-            <div class="seo-section">
-                <h6 class="seo-title">
-                    <i class="fas fa-search"></i> SEO Informatie
-                </h6>
-                <div class="seo-grid">
-                    <div class="seo-item">
-                        <div class="seo-label">Meta Titel</div>
-                        <div class="seo-value">{{ $vacancy->meta_title ?? 'Niet ingesteld' }}</div>
-                    </div>
-                    <div class="seo-item">
-                        <div class="seo-label">Meta Beschrijving</div>
-                        <div class="seo-value">{{ Str::limit($vacancy->meta_description ?? 'Niet ingesteld', 100) }}</div>
-                    </div>
-                    <div class="seo-item">
-                        <div class="seo-label">Meta Keywords</div>
-                        <div class="seo-value">{{ Str::limit($vacancy->meta_keywords ?? 'Niet ingesteld', 100) }}</div>
-                    </div>
-                    <div class="seo-item">
-                        <div class="seo-label">URL</div>
-                        <div class="seo-value">{{ $vacancy->url ?? 'Niet beschikbaar' }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actie Knoppen -->
-            <div class="action-buttons">
-                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="material-btn material-btn-warning">
-                    <i class="fas fa-edit"></i> Vacature Bewerken
-                </a>
-                <a href="{{ route('admin.vacancies.index') }}" class="material-btn material-btn-secondary">
-                    <i class="fas fa-list"></i> Terug naar Overzicht
-                </a>
-                <form action="{{ route('admin.vacancies.destroy', $vacancy) }}" method="POST" class="d-inline" onsubmit="return confirm('Weet je zeker dat je deze vacature wilt verwijderen?')">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="material-btn material-btn-danger">
-                        <i class="fas fa-trash"></i> Vacature Verwijderen
-                    </button>
-                </form>
+                @endif
             </div>
         </div>
     </div>
 </div>
+
+<div class="kt-container-fixed">
+    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10 mt-5">
+        <div class="flex items-center gap-2.5">
+            <a href="{{ route('admin.vacancies.index') }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+        <div class="flex items-center gap-2.5">
+            @can('edit-vacancies')
+                <a href="{{ route('admin.vacancies.edit', $vacancy) }}" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-notepad-edit me-2"></i>
+                    Bewerken
+                </a>
+            @endcan
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="kt-container-fixed">
+    <div class="kt-card">
+        <div class="kt-tabs kt-tabs-line justify-between px-5 mb-2.5" data-kt-tabs="true">
+            <div class="flex items-center gap-5">
+                <button class="kt-tab-toggle py-5 active" data-kt-tab-toggle="#vacancy_tab_overview">
+                    <span class="kt-tab-title">Overzicht</span>
+                </button>
+                <button class="kt-tab-toggle py-5" data-kt-tab-toggle="#vacancy_tab_matches">
+                    <span class="kt-tab-title">
+                        Matches
+                        @if($matches->count() > 0)
+                            <span class="kt-badge kt-badge-sm kt-badge-primary ms-2">{{ $matches->count() }}</span>
+                        @endif
+                    </span>
+                </button>
+                <button class="kt-tab-toggle py-5" data-kt-tab-toggle="#vacancy_tab_applications">
+                    <span class="kt-tab-title">
+                        Sollicitaties
+                        @if($applications->count() > 0)
+                            <span class="kt-badge kt-badge-sm kt-badge-info ms-2">{{ $applications->count() }}</span>
+                        @endif
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Content: Overview -->
+        <div class="kt-tab-content active" id="vacancy_tab_overview">
+            <div class="kt-card-content">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5">
+                    <!-- Vacature -->
+                    <div class="kt-card">
+                        <div class="kt-card-header">
+                            <h3 class="kt-card-title">Vacature</h3>
+                        </div>
+                        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                                <tr>
+                                    <td class="min-w-56 text-secondary-foreground font-normal">Titel</td>
+                                    <td class="min-w-48 w-full text-foreground font-normal">{{ $vacancy->title }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Status</td>
+                                    <td class="text-foreground font-normal">
+                                        @if($status === 'Open')
+                                            <span class="kt-badge kt-badge-sm kt-badge-success">Open</span>
+                                        @elseif($status === 'Gesloten')
+                                            <span class="kt-badge kt-badge-sm kt-badge-danger">Gesloten</span>
+                                        @elseif($status === 'In behandeling')
+                                            <span class="kt-badge kt-badge-sm kt-badge-warning">In behandeling</span>
+                                        @else
+                                            <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $status ?: '-' }}</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Bedrijf</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->company?->name ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Branch</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->branch?->name ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Locatie</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->location ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal align-top">Contactpersoon</td>
+                                    <td class="text-foreground font-normal">
+                                        @php
+                                            $contactUser = $vacancy->contactUser;
+                                            $contactName = $contactUser ? trim(($contactUser->first_name ?? '') . ' ' . ($contactUser->middle_name ?? '') . ' ' . ($contactUser->last_name ?? '')) : $vacancy->contact_name;
+                                            $contactEmail = $contactUser ? $contactUser->email : $vacancy->contact_email;
+                                            $contactPhone = $contactUser ? $contactUser->phone : $vacancy->contact_phone;
+                                            $contactPhoto = $contactUser ? $contactUser->photo_blob : $vacancy->contact_photo_blob;
+                                        @endphp
+                                        @if($contactName || $contactEmail || $contactPhone || $contactPhoto)
+                                            <div class="flex items-start gap-3">
+                                                @if($contactPhoto)
+                                                    @if($contactUser)
+                                                        <img src="{{ $contactUser && $contactUser->photo_blob ? route('secure.photo', ['token' => $contactUser->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                                    @else
+                                                        <img src="{{ route('admin.vacancies.contact-photo', $vacancy) }}" alt="Contactpersoon avatar" class="w-12 h-12 rounded-full object-cover border-2 border-input shrink-0 mt-0.5">
+                                                    @endif
+                                                @endif
+                                                <div class="flex flex-col gap-1">
+                                                    @if($contactName)
+                                                        <div class="font-medium">{{ $contactName }}</div>
+                                                    @endif
+                                                    @if($contactEmail)
+                                                        <div>
+                                                            <a href="mailto:{{ $contactEmail }}" class="text-primary hover:underline">{{ $contactEmail }}</a>
+                                                        </div>
+                                                    @endif
+                                                    @if($contactPhone)
+                                                        <div>
+                                                            <a href="tel:{{ $contactPhone }}" class="text-primary hover:underline">{{ $contactPhone }}</a>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Dienstverband</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->employment_type ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Salarisrange</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->salary_range ?? '-' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Datums & opties -->
+                    <div class="kt-card">
+                        <div class="kt-card-header">
+                            <h3 class="kt-card-title">Datums & opties</h3>
+                        </div>
+                        <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                                <tr>
+                                    <td class="min-w-56 text-secondary-foreground font-normal">Publicatie</td>
+                                    <td class="min-w-48 w-full text-foreground font-normal">{{ optional($vacancy->publication_date)->format('d-m-Y') ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Sluiting</td>
+                                    <td class="text-foreground font-normal">{{ optional($vacancy->closing_date)->format('d-m-Y') ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Werkuren</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->working_hours ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Reiskosten</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->travel_expenses ? 'Vergoed' : 'Niet vergoed' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Remote</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->remote_work ? 'Mogelijk' : 'Niet mogelijk' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-secondary-foreground font-normal">Taal</td>
+                                    <td class="text-foreground font-normal">{{ $vacancy->language ?? 'Nederlands' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kt-card mt-5 lg:mt-7.5">
+                    <div class="kt-card-header">
+                        <h3 class="kt-card-title">Beschrijving</h3>
+                    </div>
+                    <div class="kt-card-content">
+                        <div class="prose dark:prose-invert max-w-none text-secondary-foreground">
+                            {!! nl2br(e($vacancy->description)) !!}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5 mt-5 lg:mt-7.5">
+                    <div class="kt-card">
+                        <div class="kt-card-header"><h3 class="kt-card-title">Vereisten</h3></div>
+                        <div class="kt-card-content">
+                            <div class="text-secondary-foreground">{!! nl2br(e($vacancy->requirements ?? '-')) !!}</div>
+                        </div>
+                    </div>
+                    <div class="kt-card">
+                        <div class="kt-card-header"><h3 class="kt-card-title">Aanbod</h3></div>
+                        <div class="kt-card-content">
+                            <div class="text-secondary-foreground">{!! nl2br(e($vacancy->offer ?? '-')) !!}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Matches -->
+        <div class="kt-tab-content hidden" id="vacancy_tab_matches">
+            <div class="kt-card-content">
+                @if($matches->count() > 0)
+                    <div class="grid grid-cols-1 gap-4">
+                        @foreach($matches as $match)
+                            @php
+                                $candidate = $match->candidate;
+                                $score = $match->match_score ?? 0;
+                                $scoreClass = $score >= 70 ? 'match-score-high' : ($score >= 40 ? 'match-score-medium' : 'match-score-low');
+                            @endphp
+                            <div class="kt-card hover:shadow-lg transition-shadow cursor-pointer" onclick="window.location.href='{{ route('admin.vacancies.candidate', ['vacancy' => $vacancy->id, 'candidate' => $candidate->id, 'type' => 'match', 'match_id' => $match->id]) }}'">
+                                <div class="kt-card-content">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex items-center gap-4 flex-1">
+                                            @if($candidate->photo_blob)
+                                                <div class="rounded-full h-12 w-12 shrink-0 overflow-hidden border-2 border-primary">
+                                                    <img class="w-full h-full object-cover" src="{{ route('admin.candidates.photo', $candidate) }}" alt="{{ $candidate->first_name }} {{ $candidate->last_name }}">
+                                                </div>
+                                            @else
+                                                <div class="rounded-full h-12 w-12 shrink-0 flex items-center justify-center bg-primary/10 border-2 border-primary">
+                                                    <span class="text-primary font-semibold text-base">
+                                                        {{ strtoupper(substr($candidate->first_name ?? '?', 0, 1) . substr($candidate->last_name ?? '?', 0, 1)) }}
+                                                    </span>
+                                                </div>
+                                            @endif
+                                            <div class="flex flex-col gap-1 flex-1">
+                                                <div class="font-semibold text-mono text-base">
+                                                    {{ $candidate->first_name }} {{ $candidate->last_name }}
+                                                </div>
+                                                <div class="text-sm text-secondary-foreground">
+                                                    {{ $candidate->email }}
+                                                </div>
+                                                @if($candidate->phone)
+                                                    <div class="text-sm text-muted-foreground">
+                                                        <i class="ki-filled ki-phone text-xs"></i> {{ $candidate->phone }}
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <div class="text-right">
+                                                <div class="text-xs text-muted-foreground mb-1">Match Score</div>
+                                                <div class="text-2xl font-bold {{ $scoreClass }}">
+                                                    {{ number_format($score, 0) }}%
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <i class="ki-filled ki-right text-xl text-muted-foreground"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if($match->status)
+                                        <div class="mt-3 pt-3 border-t border-border">
+                                            <span class="kt-badge kt-badge-sm kt-badge-outline">
+                                                Status: {{ $match->status }}
+                                            </span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-10">
+                        <i class="ki-filled ki-information-2 text-4xl text-muted-foreground mb-4"></i>
+                        <p class="text-muted-foreground">Geen matches gevonden voor deze vacature.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- Tab Content: Applications -->
+        <div class="kt-tab-content hidden" id="vacancy_tab_applications">
+            <div class="kt-card-content">
+                @if($applications->count() > 0)
+                    <div class="grid grid-cols-1 gap-4">
+                        @foreach($applications as $application)
+                            @php
+                                $candidate = $application->candidate;
+                            @endphp
+                            <div class="kt-card hover:shadow-lg transition-shadow cursor-pointer" onclick="window.location.href='{{ route('admin.vacancies.candidate', ['vacancy' => $vacancy->id, 'candidate' => $candidate->id, 'type' => 'application', 'application_id' => $application->id]) }}'">
+                                <div class="kt-card-content">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex items-center gap-4 flex-1">
+                                            @if($candidate->photo_blob)
+                                                <div class="rounded-full h-12 w-12 shrink-0 overflow-hidden border-2 border-info">
+                                                    <img class="w-full h-full object-cover" src="{{ route('admin.candidates.photo', $candidate) }}" alt="{{ $candidate->first_name }} {{ $candidate->last_name }}">
+                                                </div>
+                                            @else
+                                                <div class="rounded-full h-12 w-12 shrink-0 flex items-center justify-center bg-info/10 border-2 border-info">
+                                                    <span class="text-info font-semibold text-base">
+                                                        {{ strtoupper(substr($candidate->first_name ?? '?', 0, 1) . substr($candidate->last_name ?? '?', 0, 1)) }}
+                                                    </span>
+                                                </div>
+                                            @endif
+                                            <div class="flex flex-col gap-1 flex-1">
+                                                <div class="font-semibold text-mono text-base">
+                                                    {{ $candidate->first_name }} {{ $candidate->last_name }}
+                                                </div>
+                                                <div class="text-sm text-secondary-foreground">
+                                                    {{ $candidate->email }}
+                                                </div>
+                                                @if($candidate->phone)
+                                                    <div class="text-sm text-muted-foreground">
+                                                        <i class="ki-filled ki-phone text-xs"></i> {{ $candidate->phone }}
+                                                    </div>
+                                                @endif
+                                                <div class="text-xs text-muted-foreground mt-1">
+                                                    <i class="ki-filled ki-calendar text-xs"></i> 
+                                                    Sollicitatie: {{ $application->created_at->format('d-m-Y H:i') }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="kt-badge kt-badge-sm kt-badge-info">
+                                                Zelf gereageerd
+                                            </span>
+                                            <div>
+                                                <i class="ki-filled ki-right text-xl text-muted-foreground"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if($application->status)
+                                        <div class="mt-3 pt-3 border-t border-border">
+                                            <span class="kt-badge kt-badge-sm kt-badge-outline">
+                                                Status: {{ $application->status }}
+                                            </span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-10">
+                        <i class="ki-filled ki-information-2 text-4xl text-muted-foreground mb-4"></i>
+                        <p class="text-muted-foreground">Geen sollicitaties gevonden voor deze vacature.</p>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if URL has a hash for tab activation
+    const hash = window.location.hash;
+    if (hash) {
+        // Wait a bit for tabs to initialize
+        setTimeout(function() {
+            const tabButton = document.querySelector(`[data-kt-tab-toggle="${hash}"]`);
+            if (tabButton) {
+                tabButton.click();
+            }
+        }, 100);
+    }
+});
+</script>
+@endpush
+
 @endsection

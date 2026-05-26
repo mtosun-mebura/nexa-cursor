@@ -354,12 +354,12 @@
             <nav aria-label="breadcrumb" class="breadcrumb-nav">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item">
-                        <a href="{{ route('vacancies.index') }}">
+                        <a href="{{ route('jobs.index') }}">
                             <i class="fas fa-home me-1"></i>Vacatures
                         </a>
                     </li>
                     <li class="breadcrumb-item">
-                        <a href="{{ route('vacancies.index') }}?category={{ $vacancy->category->slug ?? '' }}">
+                        <a href="{{ route('jobs.index') }}?category={{ $vacancy->category->slug ?? '' }}">
                             {{ $vacancy->category->name ?? 'Alle categorieën' }}
                         </a>
                     </li>

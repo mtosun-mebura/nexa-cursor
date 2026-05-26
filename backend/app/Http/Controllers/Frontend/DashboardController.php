@@ -7,6 +7,7 @@ use App\Models\Vacancy;
 use App\Models\JobMatch;
 use App\Models\Interview;
 use App\Models\User;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -14,14 +15,16 @@ class DashboardController extends Controller
     public function index()
     {
         $user = auth()->user();
-        
+
         // Get recent matches (similar to MatchController but for dashboard)
-        $vacancies = Vacancy::with(['company', 'category'])
-            ->whereIn('status', ['Open', 'In behandeling'])
-            ->active()
-            ->latest()
-            ->limit(6)
-            ->get();
+        $vacancies = ModuleSchemaAvailability::vacanciesTableExists()
+            ? Vacancy::with(['company', 'category'])
+                ->whereIn('status', ['Open', 'In behandeling'])
+                ->active()
+                ->latest()
+                ->limit(6)
+                ->get()
+            : collect();
 
         // Simulate match scores for demo purposes
         $vacancies->each(function ($vacancy) {
@@ -36,6 +39,9 @@ class DashboardController extends Controller
             'profile_complete' => rand(70, 100), // Simulated for demo
         ];
 
-        return view('frontend.pages.dashboard', compact('vacancies', 'stats'));
+        return view()->first(
+            ['skillmatching::frontend.pages.dashboard', 'frontend.pages.dashboard'],
+            compact('vacancies', 'stats')
+        );
     }
 }

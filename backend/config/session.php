@@ -169,7 +169,20 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // Secure cookies: alleen over HTTPS meesturen. Als APP_URL=https maar je opent de site
+    // via http://IP:8000 (Docker/LAN), worden Secure-cookies niet meegestuurd → geen sessie
+    // → CSRF faalt met HTTP 419. Zet dan SESSION_SECURE_COOKIE=false in .env.
+    'secure' => (function () {
+        if (env('APP_ENV') === 'local') {
+            return false;
+        }
+        $explicit = env('SESSION_SECURE_COOKIE');
+        if ($explicit !== null && $explicit !== '') {
+            return filter_var($explicit, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return Str::startsWith((string) env('APP_URL', ''), 'https://');
+    })(),
 
     /*
     |--------------------------------------------------------------------------

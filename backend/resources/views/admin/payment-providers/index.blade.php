@@ -3,982 +3,541 @@
 @section('title', 'Betalingsproviders')
 
 @section('content')
-<style>
-    :root {
-        --primary-color: #00897b;
-        --primary-light: #4db6ac;
-        --primary-dark: #00695c;
-        --secondary-color: #e0f2f1;
-        --success-color: #4caf50;
-        --warning-color: #ff9800;
-        --danger-color: #f44336;
-        --info-color: #2196f3;
-        --light-bg: #fafafa;
-        --dark-text: #212121;
-        --medium-text: #757575;
-        --border-color: #e0e0e0;
-        --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
-        --shadow-medium: 0 4px 8px rgba(0,0,0,0.12);
-        --shadow-heavy: 0 8px 16px rgba(0,0,0,0.15);
-        --border-radius: 8px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
 
-    .material-card {
-        background: white;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-light);
-        border: none;
-        margin-bottom: 24px;
-        transition: var(--transition);
-        overflow: hidden;
-    }
-    
-    .material-card:hover {
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-card .card-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        border-radius: 0;
-        padding: 10px 24px;
-        border: none;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .material-card .card-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
-        transform: translateX(-100%);
-        transition: var(--transition);
-    }
-    
-    .material-card .card-header:hover::before {
-        transform: translateX(100%);
-    }
-    
-    .material-card .card-body {
-        padding: 0px;
-    }
-    
-    .material-btn {
-        border-radius: var(--border-radius);
-        text-transform: uppercase;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        padding: 6px 12px;
-        border: none;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-        cursor: pointer;
-        font-size: 12px;
-    }
-    
-    .material-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .material-btn:hover::before {
-        width: 300px;
-        height: 300px;
-    }
-    
-    .material-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-btn:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-light);
-    }
-    
-    .material-btn-primary {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-    }
-    
-    .material-btn-secondary {
-        background: var(--light-bg);
-        color: var(--dark-text);
-        border: 1px solid var(--border-color);
-    }
-    
-    .material-btn-secondary:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .material-table {
+<style>
+    .kt-table-col {
+        display: flex;
+        align-items: center;
         width: 100%;
-        border-collapse: collapse;
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--shadow-light);
-        background: white;
-        table-layout: fixed;
+        justify-content: space-between;
     }
-    
-    .material-table thead th {
-        background: var(--light-bg);
-        border: none;
-        font-weight: 600;
-        color: var(--dark-text);
-        padding: 12px 16px;
-        text-transform: uppercase;
-        font-size: 12px;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: var(--transition);
-        position: relative;
-        text-align: left;
+    .kt-table-col-label {
+        flex: 1;
     }
-    
-    .material-table thead th:nth-child(1) { width: 80px; min-width: 80px; text-align: center; }   /* ID */
-    .material-table thead th:nth-child(2) { width: 25%; }  /* Naam & Beschrijving */
-    .material-table thead th:nth-child(3) { width: 15%; }  /* Provider Type */
-    .material-table thead th:nth-child(4) { width: 12%; }  /* Status */
-    .material-table thead th:nth-child(5) { width: 12%; }  /* Modus */
-    .material-table thead th:nth-child(6) { width: 12%; }  /* Aangemaakt */
-    .material-table thead th:nth-child(7) { width: 12%; }   /* Acties */
-    
-    .material-table thead th:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
+    .kt-table-col-sort {
+        margin-left: auto;
+        flex-shrink: 0;
+        margin-right: 0;
     }
-    
-    .material-table thead th.sortable {
-        cursor: pointer;
+    .kt-table thead th {
         position: relative;
     }
-    
-    .material-table thead th.sortable::after {
-        content: '↕';
-        margin-left: 8px;
-        opacity: 0.5;
-        transition: var(--transition);
+    .kt-table thead th a.kt-table-col:hover {
+        background-color: var(--muted);
+        border-radius: 4px;
     }
-    
-    .material-table thead th.sort-asc::after {
-        content: '↑';
-        opacity: 1;
-        color: var(--primary-color);
+    .kt-table thead th a.kt-table-col {
+        padding: 0.5rem;
+        margin: -0.5rem;
+        transition: background-color 0.2s;
     }
-    
-    .material-table thead th.sort-desc::after {
-        content: '↓';
-        opacity: 1;
-        color: var(--primary-color);
+    /* Table row hover styling */
+    .payment-provider-row {
+        cursor: pointer !important;
     }
-    
-    .material-table thead th.sortable:hover::after {
-        opacity: 1;
-        color: var(--primary-color);
+    .payment-provider-row:hover {
+        background-color: var(--muted) !important;
     }
-    
-    .material-table tbody td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-        transition: var(--transition);
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    .material-table tbody td:nth-child(1) { width: 80px; min-width: 80px; text-align: center; }   /* ID */
-    .material-table tbody td:nth-child(2) { width: 25%; }  /* Naam & Beschrijving */
-    .material-table tbody td:nth-child(3) { width: 15%; }  /* Provider Type */
-    .material-table tbody td:nth-child(4) { width: 12%; }  /* Status */
-    .material-table tbody td:nth-child(5) { width: 12%; }  /* Modus */
-    .material-table tbody td:nth-child(6) { width: 12%; }  /* Aangemaakt */
-    .material-table tbody td:nth-child(7) { width: 12%; }   /* Acties */
-    
-    .material-table tbody tr {
-        transition: var(--transition);
-        background-color: white;
-    }
-    
-    .material-table tbody tr:hover {
-        background-color: #f3f4f6 !important;
-        transition: background-color 0.3s ease;
-    }
-    
-    .status-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        display: inline-block;
-        min-width: 100px;
-        text-align: center;
-        box-shadow: var(--shadow-light);
-        transition: var(--transition);
-    }
-    
-    .status-badge:hover {
-        transform: scale(1.05);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .status-active {
-        background: linear-gradient(135deg, #e8f5e8 0%, #81c784 100%);
-        color: #388e3c;
-        border: 2px solid #81c784;
-    }
-    
-    .status-inactive {
-        background: linear-gradient(135deg, #ffcdd2 0%, #e57373 100%);
-        color: #d32f2f;
-        border: 2px solid #e57373;
-    }
-    
-    .action-buttons {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        align-items: center;
-        min-height: 40px;
-    }
-    
-    .action-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        box-shadow: var(--shadow-light);
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-        text-decoration: none;
-        font-size: 14px;
-    }
-    
-    .action-btn::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        transition: var(--transition);
-    }
-    
-    .action-btn:hover::before {
-        width: 100px;
-        height: 100px;
-    }
-    
-    .action-btn:hover {
-        transform: scale(1.05);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-    }
-    
-    .action-btn-info {
-        background: linear-gradient(135deg, var(--info-color) 0%, #42a5f5 100%);
-        color: white;
-    }
-    
-    .action-btn-warning {
-        background: linear-gradient(135deg, var(--warning-color) 0%, #ffb74d 100%);
-        color: white;
-    }
-    
-    .action-btn-danger {
-        background: linear-gradient(135deg, var(--danger-color) 0%, #ef5350 100%);
-        color: white;
-    }
-    
-    .action-btn-success {
-        background: linear-gradient(135deg, var(--success-color) 0%, #66bb6a 100%);
-        color: white;
-    }
-    
-    .provider-info {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .provider-name {
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 4px;
-        font-size: 16px;
-    }
-    
-    .provider-description {
-        font-size: 12px;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    .provider-type {
-        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-        color: #00695c;
-        padding: 6px 12px;
-        border-radius: 16px;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .provider-mode {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        color: #f57c00;
-        padding: 6px 12px;
-        border-radius: 16px;
-        font-size: 12px;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .date-info {
-        font-size: 12px;
-        color: var(--medium-text);
-    }
-    
-    .filters-section {
-        background: var(--light-bg);
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .filter-group {
-        margin-bottom: 0;
-    }
-    
-    .filter-label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--dark-text);
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .filter-select {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: var(--border-radius);
-        background-color: white;
-        font-size: 12px;
-        color: var(--dark-text);
-        transition: var(--transition);
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 12px center;
-        background-size: 16px;
-        padding-right: 40px;
-    }
-    
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-    }
-    
-    .filter-select:hover {
-        border-color: var(--primary-light);
-    }
-    
-    .stats-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 20px;
-        margin-bottom: 32px;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: var(--border-radius);
-        padding: 10px;
-        box-shadow: var(--shadow-light);
-        text-align: center;
-        transition: var(--transition);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-medium);
-    }
-    
-    .stat-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .stat-label {
-        font-size: 12px;
-        color: var(--medium-text);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 80px 20px;
-        color: var(--medium-text);
-    }
-    
-    .empty-state i {
-        font-size: 5rem;
-        margin-bottom: 24px;
-        opacity: 0.3;
-        color: var(--primary-color);
-    }
-    
-    .alert {
-        border-radius: var(--border-radius);
-        border: none;
-        padding: 16px 20px;
-        margin-bottom: 24px;
-        box-shadow: var(--shadow-light);
-    }
-    
-    .alert-success {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
-        color: #2e7d32;
-        border-left: 4px solid var(--success-color);
-    }
-    
-    .auto-dismiss {
-        animation: slideDown 0.3s ease-out;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
+    @supports (color: color-mix(in lab, red, red)) {
+        .payment-provider-row:hover {
+            background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important;
         }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .auto-dismiss.fade-out {
-        animation: slideUp 0.3s ease-in forwards;
-    }
-    
-    @keyframes slideUp {
-        from {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        to {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-    }
-    
-    @media (max-width: 768px) {
-        .stats-cards {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        
-        .filter-group {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        
-        .filter-label {
-            min-width: auto;
-        }
-        
-        .filter-select {
-            min-width: auto;
-        }
-        
-        .action-buttons {
-            justify-content: center;
-        }
-        
-        .material-table thead th,
-        .material-table tbody td {
-            padding: 12px 8px;
-            font-size: 12px;
-        }
-    }
-    
-    .results-info-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .results-info {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .results-text {
-        font-size: 0.875rem;
-        color: var(--medium-text);
-        display: flex;
-        align-items: center;
-    }
-    
-    .results-text i {
-        color: var(--primary-color);
-        font-size: 0.875rem;
-    }
-    
-    .pagination-wrapper {
-        padding: 12px 24px;
-        background: var(--light-bg);
-        border-top: 1px solid var(--border-color);
-    }
-    
-    .pagination {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 6px;
-        margin: 0;
-        padding: 0;
-        background: none;
-        border-radius: 0;
-        box-shadow: none;
-    }
-    
-    .page-item {
-        list-style: none;
-    }
-    
-    .page-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        background: white;
-        color: var(--dark-text);
-        text-decoration: none;
-        transition: var(--transition);
-        font-weight: 500;
-    }
-    
-    .page-link:hover {
-        background: var(--secondary-color);
-        color: var(--primary-color);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        text-decoration: none;
-        border-color: var(--primary-color);
-    }
-    
-    .page-item.active .page-link {
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-medium);
-        border-color: var(--primary-color);
-    }
-    
-    .page-item.disabled .page-link {
-        background: var(--light-bg);
-        color: var(--medium-text);
-        cursor: not-allowed;
-        opacity: 0.5;
-    }
-    
-    .page-item.disabled .page-link:hover {
-        transform: none;
-        box-shadow: var(--shadow-light);
-        border-color: var(--border-color);
     }
 </style>
 
-<div class="container-fluid">
+<div class="kt-container-fixed">
+    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Betalingsproviders
+        </h1>
+        @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-payment-providers'))
+        <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-primary">
+            <i class="ki-filled ki-plus me-2"></i>
+            Nieuwe Betalingsprovider
+        </a>
+        @endif
+    </div>
+
     <!-- Success Alert -->
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show auto-dismiss" role="alert" id="success-alert">
-            <i class="fas fa-check-circle me-2"></i>
+        <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
+            <i class="ki-filled ki-check-circle me-2"></i>
             {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
-    
-    <div class="row">
-        <div class="col-12">
-            <!-- Status Statistieken -->
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->where('is_active', true)->count() }}</div>
-                    <div class="stat-label">Actief</div>
+
+    <!-- Statistics Cards -->
+    <div class="kt-card mb-5">
+        <div class="kt-card-content">
+            <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold text-green-600 dark:text-green-400">
+                        {{ $providers->where('is_active', true)->count() }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Actief
+                    </span>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #f44336 0%, #ef5350 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->where('is_active', false)->count() }}</div>
-                    <div class="stat-label">Inactief</div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold text-red-600 dark:text-red-400">
+                        {{ $providers->where('is_active', false)->count() }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Inactief
+                    </span>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->where('config.test_mode', true)->count() }}</div>
-                    <div class="stat-label">Test Modus</div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold text-orange-600 dark:text-orange-400">
+                        {{ $providers->filter(function($provider) { return $provider->getConfigValue('test_mode', false); })->count() }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Test Modus
+                    </span>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" style="background: linear-gradient(135deg, #00897b 0%, #4db6ac 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">{{ $providers->count() }}</div>
-                    <div class="stat-label">Totaal</div>
+                <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
+                        {{ $providers->count() }}
+                    </span>
+                    <span class="text-secondary-foreground text-sm">
+                        Totaal
+                    </span>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="material-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-credit-card me-2"></i> Betalingsproviders Overzicht
-                    </h5>
-                    <div class="d-flex gap-2">
-                        <a href="{{ route('admin.payment-providers.create') }}" class="material-btn material-btn-primary">
-                            <i class="fas fa-plus me-2"></i> Nieuwe Provider
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-
-                    <!-- Filters -->
-                    <div class="filters-section">
-                        <form method="GET" action="{{ route('admin.payment-providers.index') }}" id="filters-form">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Status</label>
-                                        <select name="status" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle statussen</option>
-                                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                            <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Provider Type</label>
-                                        <select name="provider_type" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle types</option>
-                                            <option value="mollie" {{ request('provider_type') == 'mollie' ? 'selected' : '' }}>Mollie</option>
-                                            <option value="stripe" {{ request('provider_type') == 'stripe' ? 'selected' : '' }}>Stripe</option>
-                                            <option value="paypal" {{ request('provider_type') == 'paypal' ? 'selected' : '' }}>PayPal</option>
-                                            <option value="adyen" {{ request('provider_type') == 'adyen' ? 'selected' : '' }}>Adyen</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Modus</label>
-                                        <select name="mode" class="filter-select" onchange="this.form.submit()">
-                                            <option value="">Alle modi</option>
-                                            <option value="test" {{ request('mode') == 'test' ? 'selected' : '' }}>Test</option>
-                                            <option value="live" {{ request('mode') == 'live' ? 'selected' : '' }}>Live</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <div class="filter-group">
-                                        <label class="filter-label">Items per pagina</label>
-                                        <select name="per_page" class="filter-select" onchange="this.form.submit()">
-                                            <option value="5" {{ request('per_page', 5) == 5 ? 'selected' : '' }}>5</option>
-                                            <option value="15" {{ request('per_page', 5) == 15 ? 'selected' : '' }}>15</option>
-                                            <option value="25" {{ request('per_page', 5) == 25 ? 'selected' : '' }}>25</option>
-                                            <option value="50" {{ request('per_page', 5) == 50 ? 'selected' : '' }}>50</option>
-                                            <option value="100" {{ request('per_page', 5) == 100 ? 'selected' : '' }}>100</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-1">
-                                    <div class="filter-group">
-                                        <label class="filter-label">&nbsp;</label>
-                                        <a href="{{ route('admin.payment-providers.index') }}" class="btn btn-outline-secondary w-100" style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">
-                                            <i class="fas fa-times"></i>
-                                            Filter wissen
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+    <div class="grid gap-5 lg:gap-7.5">
+        <div class="kt-card kt-card-grid min-w-full">
+            <div class="kt-card-header py-5 flex-wrap gap-2">
+                <h3 class="kt-card-title text-sm pb-3 w-full">
+                    Toon {{ $providers->firstItem() ?? 0 }} tot {{ $providers->lastItem() ?? 0 }} van {{ $providers->total() }} betalingsproviders
+                </h3>
+                <div class="flex flex-wrap gap-2.5 lg:gap-5 justify-end w-full">
+                    <!-- Search -->
+                    <div class="flex">
+                        <form method="GET" action="{{ route('admin.payment-providers.index') }}" class="flex gap-2" id="search-form">
+                            @if(request('status'))
+                                <input type="hidden" name="status" value="{{ request('status') }}">
+                            @endif
+                            @if(request('provider_type'))
+                                <input type="hidden" name="provider_type" value="{{ request('provider_type') }}">
+                            @endif
+                            @if(request('mode'))
+                                <input type="hidden" name="mode" value="{{ request('mode') }}">
+                            @endif
+                            @if(request('sort'))
+                                <input type="hidden" name="sort" value="{{ request('sort') }}">
+                            @endif
+                            @if(request('order'))
+                                <input type="hidden" name="order" value="{{ request('order') }}">
+                            @endif
+                            @if(request('per_page'))
+                                <input type="hidden" name="per_page" value="{{ request('per_page') }}">
+                            @endif
+                            <label class="kt-input w-64" style="position: relative !important;">
+                                <i class="ki-filled ki-magnifier"></i>
+                                <input placeholder="Zoek betalingsproviders..." 
+                                       type="text" 
+                                       name="search" 
+                                       value="{{ request('search') }}"
+                                       id="search-input"
+                                       autocomplete="off"/>
+                            </label>
                         </form>
                     </div>
-
-                    @if($providers->count() > 0)
-                        <div class="table-responsive">
-                            <table class="material-table">
-                                <thead>
-                                    <tr>
-                                        <th class="sortable {{ request('sort') == 'id' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="id">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'order' => request('sort') == 'id' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                ID
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'name' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="name">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'order' => request('sort') == 'name' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Naam & Beschrijving
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'provider_type' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="provider_type">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'provider_type', 'order' => request('sort') == 'provider_type' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Provider Type
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'status' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="status">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => request('sort') == 'status' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Status
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'mode' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="mode">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'mode', 'order' => request('sort') == 'mode' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Modus
-                                            </a>
-                                        </th>
-                                        <th class="sortable {{ request('sort') == 'created_at' ? (request('order') == 'asc' ? 'sort-asc' : 'sort-desc') : '' }}" data-sort="created_at">
-                                            <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'order' => request('sort') == 'created_at' && request('order') == 'asc' ? 'desc' : 'asc']) }}" style="text-decoration: none; color: inherit;">
-                                                Aangemaakt
-                                            </a>
-                                        </th>
-                                        <th>Acties</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($providers as $provider)
-                                        <tr>
-                                            <td>{{ $provider->id }}</td>
-                                            <td>
-                                                <div class="provider-info">
-                                                    <div class="provider-name">{{ $provider->name }}</div>
-                                                    @if($provider->getConfigValue('description'))
-                                                        <div class="provider-description">
-                                                            <i class="fas fa-info-circle"></i>{{ $provider->getConfigValue('description') }}
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span class="provider-type">{{ ucfirst($provider->provider_type) }}</span>
-                                            </td>
-                                            <td>
-                                                @if($provider->is_active)
-                                                    <span class="status-badge status-active">Actief</span>
-                                                @else
-                                                    <span class="status-badge status-inactive">Inactief</span>
+                    <!-- Filters -->
+                    <div class="flex flex-wrap gap-2.5 items-center">
+                        <form method="GET" action="{{ route('admin.payment-providers.index') }}" id="filters-form" class="flex gap-2.5">
+                            @if(request('search'))
+                                <input type="hidden" name="search" value="{{ request('search') }}">
+                            @endif
+                            <select class="kt-select w-36" 
+                                    name="status" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Status"
+                                    id="status-filter"
+                                    onchange="this.form.submit()">
+                                <option value="">Alle statussen</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                            </select>
+                            
+                            <select class="kt-select w-36" 
+                                    name="provider_type" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Provider Type"
+                                    id="provider-type-filter"
+                                    onchange="this.form.submit()">
+                                <option value="">Alle types</option>
+                                <option value="mollie" {{ request('provider_type') == 'mollie' ? 'selected' : '' }}>Mollie</option>
+                                <option value="stripe" {{ request('provider_type') == 'stripe' ? 'selected' : '' }}>Stripe</option>
+                                <option value="paypal" {{ request('provider_type') == 'paypal' ? 'selected' : '' }}>PayPal</option>
+                                <option value="adyen" {{ request('provider_type') == 'adyen' ? 'selected' : '' }}>Adyen</option>
+                            </select>
+                            
+                            <select class="kt-select w-36" 
+                                    name="mode" 
+                                    data-kt-select="true" 
+                                    data-kt-select-placeholder="Modus"
+                                    id="mode-filter"
+                                    onchange="this.form.submit()">
+                                <option value="">Alle modi</option>
+                                <option value="test" {{ request('mode') == 'test' ? 'selected' : '' }}>Test</option>
+                                <option value="live" {{ request('mode') == 'live' ? 'selected' : '' }}>Live</option>
+                            </select>
+                        </form>
+                        @if(request('status') || request('provider_type') || request('mode') || request('search'))
+                        <a href="{{ route('admin.payment-providers.index') }}" 
+                           class="kt-btn kt-btn-outline kt-btn-icon" 
+                           title="Filters resetten"
+                           id="reset-filter-btn"
+                           style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
+                            <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
+                        </a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            
+            <div class="kt-card-content">
+                @if($providers->count() > 0)
+                    <div class="kt-scrollable-x-auto">
+                        <table class="kt-table table-auto kt-table-border" id="payment_providers_table">
+                            <thead>
+                                <tr>
+                                    @php
+                                        $currentSort = request('sort');
+                                        $currentOrder = request('order', 'desc');
+                                    @endphp
+                                    <th class="min-w-[250px]">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'order' => ($currentSort == 'name' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
+                                           class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
+                                            <span class="kt-table-col-label">Naam & Beschrijving</span>
+                                            <span class="kt-table-col-sort">
+                                                <span class="kt-table-col-sort-btn"></span>
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="min-w-[160px]">
+                                        <span class="kt-table-col-label">Bedrijf (tenant)</span>
+                                    </th>
+                                    <th class="min-w-[150px]">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'provider_type', 'order' => ($currentSort == 'provider_type' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
+                                           class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
+                                            <span class="kt-table-col-label">Provider Type</span>
+                                            <span class="kt-table-col-sort">
+                                                <span class="kt-table-col-sort-btn"></span>
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => ($currentSort == 'status' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
+                                           class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
+                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-sort">
+                                                <span class="kt-table-col-sort-btn"></span>
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="min-w-[120px]">
+                                        <a href="{{ request()->fullUrlWithQuery(['sort' => 'mode', 'order' => ($currentSort == 'mode' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
+                                           class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
+                                            <span class="kt-table-col-label">Modus</span>
+                                            <span class="kt-table-col-sort">
+                                                <span class="kt-table-col-sort-btn"></span>
+                                            </span>
+                                        </a>
+                                    </th>
+                                    <th class="w-[60px] text-center">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($providers as $provider)
+                                    <tr class="payment-provider-row" data-provider-id="{{ $provider->id }}">
+                                        <td>
+                                            <div class="flex flex-col gap-1">
+                                                <span class="text-sm font-medium text-mono">{{ $provider->name }}</span>
+                                                @if($provider->getConfigValue('description'))
+                                                    <span class="text-xs text-secondary-foreground">
+                                                        {{ $provider->getConfigValue('description') }}
+                                                    </span>
                                                 @endif
-                                            </td>
-                                            <td>
-                                                @if($provider->getConfigValue('test_mode'))
-                                                    <span class="provider-mode">Test</span>
-                                                @else
-                                                    <span class="provider-mode">Live</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <div class="date-info">
-                                                    <div>{{ $provider->created_at->format('d-m-Y') }}</div>
-                                                    <small>{{ $provider->created_at->format('H:i') }}</small>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="action-buttons">
-                                                    <a href="{{ route('admin.payment-providers.show', $provider) }}" class="action-btn action-btn-info" title="Bekijken">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    <a href="{{ route('admin.payment-providers.edit', $provider) }}" class="action-btn action-btn-warning" title="Bewerken">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <button type="button" 
-                                                            class="action-btn action-btn-info test-connection-btn" 
-                                                            data-provider-id="{{ $provider->id }}"
-                                                            title="Test Verbinding">
-                                                        <i class="fas fa-plug"></i>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            @if($provider->company)
+                                                <span class="text-sm font-medium text-mono">{{ $provider->company->name }}</span>
+                                                <span class="text-xs text-secondary-foreground block">ID {{ $provider->company_id }}</span>
+                                            @elseif($provider->company_id)
+                                                <span class="text-xs text-secondary-foreground">ID {{ $provider->company_id }}</span>
+                                            @else
+                                                <span class="text-xs text-destructive">Niet gekoppeld</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <span class="kt-badge kt-badge-sm kt-badge-info">
+                                                {{ ucfirst($provider->provider_type) }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if($provider->is_active)
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($provider->getConfigValue('test_mode', false))
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Test</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-primary">Live</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="kt-menu flex justify-center" data-kt-menu="true">
+                                                <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+                                                        <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
-                                                    <form action="{{ route('admin.payment-providers.toggle-status', $provider) }}" 
-                                                          method="POST" 
-                                                          style="display: inline;">
-                                                        @csrf
-                                                        <button type="submit" 
-                                                                class="action-btn {{ $provider->is_active ? 'action-btn-danger' : 'action-btn-success' }}" 
-                                                                title="{{ $provider->is_active ? 'Deactiveren' : 'Activeren' }}">
-                                                            <i class="fas {{ $provider->is_active ? 'fa-pause' : 'fa-play' }}"></i>
-                                                        </button>
-                                                    </form>
-                                                    <form action="{{ route('admin.payment-providers.destroy', $provider) }}" 
-                                                          method="POST" 
-                                                          style="display: inline;"
-                                                          onsubmit="return confirm('Weet je zeker dat je deze betalingsprovider wilt verwijderen?')">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" 
-                                                                class="action-btn action-btn-danger" 
-                                                                title="Verwijderen">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </form>
+                                                    <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.payment-providers.show', $provider) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-eye"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bekijken</span>
+                                                            </a>
+                                                        </div>
+                                                        <div class="kt-menu-item">
+                                                            <a class="kt-menu-link" href="{{ route('admin.payment-providers.edit', $provider) }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <i class="ki-filled ki-notepad-edit"></i>
+                                                                </span>
+                                                                <span class="kt-menu-title">Bewerken</span>
+                                                            </a>
+                                                        </div>
+                                                        <div class="kt-menu-item">
+                                                            <button type="button" 
+                                                                    class="kt-menu-link w-full text-left test-connection-btn" 
+                                                                    data-provider-id="{{ $provider->id }}">
+                                                                <span class="kt-menu-icon">
+                                                                    <x-heroicon-o-bolt class="w-5 h-5" />
+                                                                </span>
+                                                                <span class="kt-menu-title">Test Verbinding</span>
+                                                            </button>
+                                                        </div>
+                                                        <div class="kt-menu-separator"></div>
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.payment-providers.toggle-status', $provider) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        @if($provider->is_active)
+                                                                            <x-heroicon-o-pause class="w-5 h-5" />
+                                                                        @else
+                                                                            <x-heroicon-o-play class="w-5 h-5" />
+                                                                        @endif
+                                                                    </span>
+                                                                    <span class="kt-menu-title">{{ $provider->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        <div class="kt-menu-separator"></div>
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.payment-providers.destroy', $provider) }}" 
+                                                                  method="POST" 
+                                                                  style="display: inline;"
+                                                                  onsubmit="return confirm('Weet je zeker dat je deze betalingsprovider wilt verwijderen?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="kt-menu-link w-full text-left text-danger">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-trash"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <!-- Results Info -->
-                        <div class="results-info-wrapper">
-                            <div class="results-info">
-                                <span class="results-text">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    Toon {{ $providers->firstItem() ?? 0 }} tot {{ $providers->lastItem() ?? 0 }} van {{ $providers->total() }} resultaten
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    @if($providers->hasPages())
+                        <div class="flex items-center justify-between mt-5 pt-5 border-t border-input">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-secondary-foreground">
+                                    Pagina {{ $providers->currentPage() }} van {{ $providers->lastPage() }}
+                                </span>
+                                <span class="text-sm text-secondary-foreground">|</span>
+                                <span class="text-sm text-secondary-foreground">
+                                    Toon
+                                </span>
+                                <form method="GET" action="{{ route('admin.payment-providers.index') }}" class="inline">
+                                    @if(request('search'))
+                                        <input type="hidden" name="search" value="{{ request('search') }}">
+                                    @endif
+                                    @if(request('status'))
+                                        <input type="hidden" name="status" value="{{ request('status') }}">
+                                    @endif
+                                    @if(request('provider_type'))
+                                        <input type="hidden" name="provider_type" value="{{ request('provider_type') }}">
+                                    @endif
+                                    @if(request('mode'))
+                                        <input type="hidden" name="mode" value="{{ request('mode') }}">
+                                    @endif
+                                    @if(request('sort'))
+                                        <input type="hidden" name="sort" value="{{ request('sort') }}">
+                                    @endif
+                                    @if(request('order'))
+                                        <input type="hidden" name="order" value="{{ request('order') }}">
+                                    @endif
+                                    <select class="kt-select w-20" 
+                                            name="per_page" 
+                                            data-kt-select="true"
+                                            onchange="this.form.submit()"
+                                            style="min-width: 80px;">
+                                        <option value="5" {{ request('per_page', 25) == 5 ? 'selected' : '' }}>5</option>
+                                        <option value="15" {{ request('per_page', 25) == 15 ? 'selected' : '' }}>15</option>
+                                        <option value="25" {{ request('per_page', 25) == 25 ? 'selected' : '' }}>25</option>
+                                        <option value="50" {{ request('per_page', 25) == 50 ? 'selected' : '' }}>50</option>
+                                        <option value="100" {{ request('per_page', 25) == 100 ? 'selected' : '' }}>100</option>
+                                    </select>
+                                </form>
+                                <span class="text-sm text-secondary-foreground">
+                                    per pagina
                                 </span>
                             </div>
-                        </div>
+                            <div class="flex items-center gap-1">
+                                @if ($providers->onFirstPage())
+                                    <span class="kt-btn kt-btn-sm kt-btn-icon kt-btn-disabled">
+                                        <i class="ki-filled ki-left"></i>
+                                    </span>
+                                @else
+                                    <a href="{{ $providers->previousPageUrl() }}" class="kt-btn kt-btn-sm kt-btn-icon">
+                                        <i class="ki-filled ki-left"></i>
+                                    </a>
+                                @endif
 
-                        <!-- Pagination -->
-                        @if($providers->hasPages())
-                            <div class="pagination-wrapper">
-                                <nav aria-label="Paginering">
-                                    <ul class="pagination">
-                                        {{-- Previous Page Link --}}
-                                        @if ($providers->onFirstPage())
-                                            <li class="page-item disabled">
-                                                <span class="page-link">
-                                                    <i class="fas fa-chevron-left"></i>
-                                                </span>
-                                            </li>
-                                        @else
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $providers->previousPageUrl() }}">
-                                                    <i class="fas fa-chevron-left"></i>
-                                                </a>
-                                            </li>
-                                        @endif
+                                @foreach ($providers->getUrlRange(1, $providers->lastPage()) as $page => $url)
+                                    @if ($page == $providers->currentPage())
+                                        <span class="kt-btn kt-btn-sm kt-btn-primary">{{ $page }}</span>
+                                    @else
+                                        <a href="{{ $url }}" class="kt-btn kt-btn-sm">{{ $page }}</a>
+                                    @endif
+                                @endforeach
 
-                                        {{-- Pagination Elements --}}
-                                        @foreach ($providers->getUrlRange(1, $providers->lastPage()) as $page => $url)
-                                            @if ($page == $providers->currentPage())
-                                                <li class="page-item active">
-                                                    <span class="page-link">{{ $page }}</span>
-                                                </li>
-                                            @else
-                                                <li class="page-item">
-                                                    <a class="page-link" href="{{ $url }}">{{ $page }}</a>
-                                                </li>
-                                            @endif
-                                        @endforeach
-
-                                        {{-- Next Page Link --}}
-                                        @if ($providers->hasMorePages())
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ $providers->nextPageUrl() }}">
-                                                    <i class="fas fa-chevron-right"></i>
-                                                </a>
-                                            </li>
-                                        @else
-                                            <li class="page-item disabled">
-                                                <span class="page-link">
-                                                    <i class="fas fa-chevron-right"></i>
-                                                </span>
-                                            </li>
-                                        @endif
-                                    </ul>
-                                </nav>
+                                @if ($providers->hasMorePages())
+                                    <a href="{{ $providers->nextPageUrl() }}" class="kt-btn kt-btn-sm kt-btn-icon">
+                                        <i class="ki-filled ki-right"></i>
+                                    </a>
+                                @else
+                                    <span class="kt-btn kt-btn-sm kt-btn-icon kt-btn-disabled">
+                                        <i class="ki-filled ki-right"></i>
+                                    </span>
+                                @endif
                             </div>
-                        @endif
-                    @else
-                        <div class="empty-state">
-                            <i class="fas fa-credit-card"></i>
-                            <h5>Geen betalingsproviders gevonden</h5>
-                            <p class="text-muted">Maak je eerste betalingsprovider aan om te beginnen.</p>
-                            <a href="{{ route('admin.payment-providers.create') }}" class="material-btn material-btn-primary">
-                                <i class="fas fa-plus"></i>
-                                Eerste Provider Aanmaken
-                            </a>
                         </div>
                     @endif
-                </div>
+                @else
+                    <div class="flex flex-col items-center justify-center py-12 text-center">
+                        <i class="ki-filled ki-credit-card text-4xl text-muted-foreground mb-4"></i>
+                        <h5 class="text-lg font-semibold text-mono mb-2">Geen betalingsproviders gevonden</h5>
+                        <p class="text-sm text-secondary-foreground mb-6">Maak je eerste betalingsprovider aan om te beginnen.</p>
+                        <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-primary">
+                            <i class="ki-filled ki-plus me-2"></i>
+                            Eerste Provider Aanmaken
+                        </a>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
 </div>
 
 <!-- Test Connection Modal -->
-<div class="modal fade" id="testConnectionModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-plug me-2"></i>Test Verbinding</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div class="kt-modal" id="testConnectionModal" tabindex="-1">
+    <div class="kt-modal-dialog">
+        <div class="kt-modal-content">
+            <div class="kt-modal-header">
+                <h3 class="kt-modal-title">
+                    <i class="ki-filled ki-plug me-2"></i>Test Verbinding
+                </h3>
+                <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="modal">
+                    <i class="ki-filled ki-cross"></i>
+                </button>
             </div>
-            <div class="modal-body">
+            <div class="kt-modal-body">
                 <div id="testResult"></div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+            <div class="kt-modal-footer">
+                <button type="button" class="kt-btn kt-btn-outline" data-kt-dismiss="modal">Sluiten</button>
             </div>
         </div>
     </div>
 </div>
 
+@push('scripts')
+<script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Test connection functionality
+    // Search with debounce
+    let searchTimeout;
+    const searchInput = document.getElementById('search-input');
+    const searchForm = document.getElementById('search-form');
+    
+    if (searchInput && searchForm) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                searchForm.submit();
+            }, 500); // 500ms debounce
+        });
+        
+        // Submit on Enter
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(searchTimeout);
+                searchForm.submit();
+            }
+        });
+    }
+    
+    // Test connection functionality (works from menu or button)
     document.querySelectorAll('.test-connection-btn').forEach(button => {
         button.addEventListener('click', function() {
             const providerId = this.dataset.providerId;
-            const modal = new bootstrap.Modal(document.getElementById('testConnectionModal'));
+            const modalElement = document.getElementById('testConnectionModal');
             const resultDiv = document.getElementById('testResult');
             
-            resultDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Verbinding testen...</div>';
-            modal.show();
+            resultDiv.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">Verbinding testen...</p></div>';
+            
+            // Close menu if opened from menu
+            const menu = button.closest('.kt-menu');
+            if (menu) {
+                const menuItem = menu.querySelector('.kt-menu-item');
+                if (menuItem) {
+                    menuItem.classList.remove('show');
+                }
+            }
+            
+            // Show modal (using KT modal if available, otherwise basic display)
+            if (modalElement) {
+                modalElement.style.display = 'block';
+                modalElement.classList.add('show');
+            }
             
             fetch(`/admin/payment-providers/${providerId}/test-connection`, {
                 method: 'POST',
@@ -990,29 +549,72 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    resultDiv.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i> ${data.message}</div>`;
+                    resultDiv.innerHTML = `<div class="kt-alert kt-alert-success"><i class="ki-filled ki-check-circle me-2"></i>${data.message}</div>`;
                 } else {
-                    resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> ${data.message}</div>`;
+                    resultDiv.innerHTML = `<div class="kt-alert kt-alert-danger"><i class="ki-filled ki-information me-2"></i>${data.message}</div>`;
                 }
             })
             .catch(error => {
-                resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Fout bij testen van verbinding: ${error.message}</div>`;
+                resultDiv.innerHTML = `<div class="kt-alert kt-alert-danger"><i class="ki-filled ki-information me-2"></i>Fout bij testen van verbinding: ${error.message}</div>`;
             });
         });
     });
-    });
+    
+    // Close modal when clicking outside or on close button
+    const modal = document.getElementById('testConnectionModal');
+    if (modal) {
+        const closeButtons = modal.querySelectorAll('[data-kt-dismiss="modal"]');
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            });
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            }
+        });
+    }
     
     // Auto-dismiss success alert after 5 seconds
-    document.addEventListener('DOMContentLoaded', function() {
-        const successAlert = document.getElementById('success-alert');
-        if (successAlert) {
+    const successAlert = document.getElementById('success-alert');
+    if (successAlert) {
+        setTimeout(function() {
+            successAlert.style.opacity = '0';
+            successAlert.style.transition = 'opacity 0.3s';
             setTimeout(function() {
-                successAlert.classList.add('fade-out');
-                setTimeout(function() {
-                    successAlert.remove();
-                }, 300); // Match the CSS animation duration
-            }, 5000); // 5 seconds
-        }
-    });
+                successAlert.remove();
+            }, 300);
+        }, 5000);
+    }
+    
+    // Make table rows clickable (except actions column) - using event delegation
+    // This works even after filtering/searching because we listen on tbody
+    const tbody = document.querySelector('#payment_providers_table tbody');
+    if (tbody) {
+        tbody.addEventListener('click', function(e) {
+            // Find the closest row
+            const row = e.target.closest('tr.payment-provider-row');
+            if (!row) {
+                return;
+            }
+            
+            // Don't navigate if clicking on actions column or menu
+            if (e.target.closest('td:last-child') || e.target.closest('.kt-menu') || e.target.closest('button') || e.target.closest('a')) {
+                return;
+            }
+            
+            // Get provider ID from the row
+            const providerId = row.getAttribute('data-provider-id');
+            if (providerId) {
+                window.location.href = '/admin/payment-providers/' + providerId;
+            }
+        });
+    }
+});
 </script>
+@endpush
 @endsection

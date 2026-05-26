@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "flag-icons/css/flag-icons.min.css";
+@import "flowbite-typography/dist/typography.min.css";
 
 /* Vertel Tailwind waar klassen voorkomen (Laravel) */
 @source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
@@ -21,9 +22,9 @@
   --color-brand-600: #ea580c;
   --color-brand-700: #c2410c;
 
-  /* UI-kleuren (light) */
+  /* UI-kleuren (light) – wit voor pagina en cards */
   --color-surface: #ffffff;
-  --color-card:    #f8fafc; /* slate-50-ish */
+  --color-card:    #ffffff;
   --color-border:  #e2e8f0; /* slate-200 */
   --color-text:    #0f172a; /* slate-900 */
   --color-muted:   #64748b; /* slate-500 */
@@ -45,6 +46,10 @@
 @custom-variant dark (&:where(.dark, .dark *)); /* maakt 'dark:*' varianten selector-gebaseerd i.p.v. media-query */
 
 @layer components {
+  [x-cloak] {
+    display: none !important;
+  }
+
   .card {
     background-color: rgb(var(--color-card));
     border: 1px solid rgb(var(--color-border));
@@ -196,6 +201,28 @@
     color: #fed7aa;
   }
 
+  /*
+   * Admin tenant-scope notice (settings): use explicit colors.
+   * bg-sky-* / dark:bg-* utilities are not guaranteed in the Vite bundle for this partial,
+   * so without this rule the box stays transparent on the forced black admin canvas.
+   */
+  .tenant-scope-notice {
+    background-color: #0369a1;
+    border: 2px solid #075985;
+    color: #ffffff;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.08),
+      0 0 0 1px rgb(7 89 133 / 0.35);
+  }
+  .dark .tenant-scope-notice {
+    background-color: #1d4ed8 !important;
+    border-color: #93c5fd !important;
+    color: #ffffff !important;
+    box-shadow:
+      0 0 0 1px rgb(147 197 253 / 0.5),
+      0 10px 25px -5px rgb(0 0 0 / 0.45);
+  }
+
   .pill {
     display: inline-flex;
     align-items: center;
@@ -248,6 +275,122 @@
     .container-custom {
       padding-left: 10px;
       padding-right: 10px;
+    }
+  }
+
+  /* Website builder: sectie-inhoud volle breedte op mobiel, container-padding vanaf md */
+  .website-section-inner {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 768px) {
+    .website-section-inner {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  }
+  .website-section-inner--flush {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  @media (min-width: 768px) {
+    .website-section-inner--flush {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .website-block-featured-services .featured-services-cards {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+      gap: 0.75rem !important;
+    }
+    .website-block-featured-services .featured-service-item {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: none !important;
+    }
+    .website-block-featured-services .featured-service-card {
+      width: 100% !important;
+      box-sizing: border-box;
+    }
+    .google-reviews-section .grw-layout {
+      max-width: 100%;
+    }
+    .google-reviews-section .grw-summary {
+      width: 100%;
+      min-height: 0;
+    }
+    .google-reviews-section .grw-slider-wrapper .grw-header--carousel-only {
+      display: none;
+    }
+    .google-reviews-section .grw-layout {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+    .footer-grid-with-map .footer-map-reveal {
+      min-height: 220px;
+    }
+    .footer-grid-with-map #footer-google-map {
+      min-height: 200px !important;
+    }
+    .stats-animate-section .stats-inner-row {
+      max-width: 100%;
+    }
+    .stats-animate-section .stats-animate-item {
+      min-width: 0;
+      flex: 1 1 calc(50% - 1rem);
+    }
+    .cards-ronde-hoeken-section .cards-ronde-hoeken-card-wrap {
+      width: 100% !important;
+      flex: 1 1 100% !important;
+      max-width: 100% !important;
+    }
+    .text-block-section__inner {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      width: 100% !important;
+    }
+    .nexataxi-pricing [data-nexataxi-card-wrapper] {
+      width: 100% !important;
+      max-width: 100% !important;
+      flex: 1 1 100% !important;
+    }
+  }
+  @media (min-width: 768px) {
+    .text-block-section__inner {
+      padding-left: 2.5rem;
+      padding-right: 2.5rem;
+    }
+  }
+
+  /* Footer: kaart altijd zichtbaar; desktop 50/50 met links */
+  .footer-map-reveal {
+    min-height: 200px;
+  }
+  #footer-google-map {
+    width: 100% !important;
+    min-height: 200px;
+    min-width: 0;
+  }
+  @media (min-width: 768px) {
+    .footer-grid-with-map {
+      grid-template-columns: 1fr 1fr;
+    }
+    .footer-grid-with-map #footer-google-map {
+      width: 100% !important;
+      min-width: 0;
     }
   }
 
@@ -317,4 +460,443 @@
   .dark .stat-label {
     color: rgb(var(--color-muted-dark));
   }
+
+  /* Flowbite WYSIWYG – wrapper en content-gebied; typography via flowbite-typography (.format) */
+  .flowbite-wysiwyg-wrapper {
+    border-color: #e5e7eb;
+    background-color: #ffffff;
+  }
+  .flowbite-wysiwyg-toolbar {
+    overflow: visible;
+    position: relative;
+    z-index: 40;
+  }
+  .flowbite-wysiwyg-icon-picker {
+    position: relative;
+    z-index: 50;
+  }
+  .flowbite-wysiwyg-icon-picker__menu {
+    z-index: 60;
+  }
+  .flowbite-wysiwyg-content {
+    position: relative;
+    z-index: 1;
+  }
+  .flowbite-wysiwyg-toolbar .kt-input {
+    max-width: 100%;
+  }
+  /* Toolbar: actieve knop (P/H1/H2/H3 en icoonknoppen) – leesbaar in light + dark */
+  .flowbite-wysiwyg-toolbar .flowbite-wysiwyg-toolbar-btn.is-active {
+    background-color: #e5e7eb !important;
+    color: #111827 !important;
+    box-shadow: inset 0 0 0 1px #9ca3af;
+  }
+  .dark .flowbite-wysiwyg-toolbar .flowbite-wysiwyg-toolbar-btn.is-active {
+    background-color: #4b5563 !important;
+    color: #f3f4f6 !important;
+    box-shadow: inset 0 0 0 1px #9ca3af;
+  }
+  .flowbite-wysiwyg-toolbar .flowbite-wysiwyg-toolbar-btn.is-active svg {
+    color: inherit !important;
+  }
+  .flowbite-wysiwyg-icon-picker > summary {
+    list-style: none;
+  }
+  .flowbite-wysiwyg-icon-picker > summary::-webkit-details-marker {
+    display: none;
+  }
+  .flowbite-wysiwyg-icon-picker[open] .flowbite-wysiwyg-icon-picker__menu {
+    display: block;
+  }
+  .dark .flowbite-wysiwyg-wrapper {
+    border-color: #4b5563;
+    background-color: #1f2937;
+  }
+  .flowbite-wysiwyg-content {
+    background-color: #ffffff;
+  }
+  .dark .flowbite-wysiwyg-content {
+    background-color: #1f2937;
+  }
+  /* Hogere specificiteit dan flowbite .format { font-size: 1rem } zodat editor ≈ text-sm / prose-sm op de site */
+  .flowbite-wysiwyg-content .ProseMirror.format {
+    background-color: transparent;
+    min-height: 2.5em;
+    font-size: 0.875rem;
+    line-height: 1.625;
+  }
+
+  /* Inline Heroicons in WYSIWYG-inhoud (editor + website prose/format) */
+  .wysiwyg-inline-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: -0.15em;
+    margin: 0 0.2em;
+    color: currentColor;
+    line-height: 1;
+    min-width: 1.15em;
+    min-height: 1.15em;
+  }
+  .wysiwyg-inline-icon__svg,
+  .wysiwyg-inline-icon__img,
+  img.wysiwyg-inline-icon {
+    width: 1.15em;
+    height: 1.15em;
+    min-width: 1.15em;
+    min-height: 1.15em;
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: -0.15em;
+    margin: 0 0.2em;
+    object-fit: contain;
+  }
+  .prose .wysiwyg-inline-icon,
+  .format .wysiwyg-inline-icon,
+  .flowbite-wysiwyg-content .wysiwyg-inline-icon {
+    color: inherit;
+  }
+  .flowbite-wysiwyg-content .ProseMirror .wysiwyg-inline-icon,
+  .flowbite-wysiwyg-content .ProseMirror .wysiwyg-inline-icon__svg {
+    color: currentColor;
+  }
+
+  /* Cards ronde hoeken (admin): zelfde basis- en kopgroottes als frontend (.cards-ronde-hoeken-text / --card-fs) */
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format {
+    font-size: var(--card-fs, 0.875rem) !important;
+    line-height: 1.6;
+    font-family: var(--theme-font-body, inherit);
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p,
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format li {
+    font-size: inherit;
+    line-height: 1.6;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p {
+    margin-top: 0.6em;
+    margin-bottom: 0.6em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p:first-child {
+    margin-top: 0;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format p:last-child {
+    margin-bottom: 0;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format ul,
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format ol {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format ol {
+    list-style-type: decimal;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format li {
+    display: list-item;
+    margin-top: 0.25em;
+    margin-bottom: 0.25em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h1 {
+    font-size: 1.35em !important;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 0.5em;
+    margin-bottom: 0.4em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h2 {
+    font-size: 1.2em !important;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 0.5em;
+    margin-bottom: 0.35em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h3 {
+    font-size: 1.1em !important;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-top: 0.45em;
+    margin-bottom: 0.3em;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content .ProseMirror.format h4 {
+    font-size: 1.05em !important;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-top: 0.4em;
+    margin-bottom: 0.25em;
+  }
+
+  /* Cards ronde hoeken (frontend): lettergrootte en lettertype uit admin; H1/H2/H3/H4 schalen mee met --card-fs */
+  .cards-ronde-hoeken-text .prose,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose {
+    font-size: var(--card-fs) !important;
+    font-family: var(--theme-font-body, inherit);
+  }
+  .cards-ronde-hoeken-text .prose p,
+  .cards-ronde-hoeken-text .prose li,
+  .cards-ronde-hoeken-text .prose > * {
+    font-size: inherit;
+  }
+  /* Lege regels 1:1 overnemen: lege paragraaf of alleen <br> krijgt zichtbare ruimte (override prose) */
+  .cards-ronde-hoeken-text .prose p:empty,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose p:empty,
+  .cards-ronde-hoeken-text .prose p.cards-ronde-hoeken-empty-p,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose p.cards-ronde-hoeken-empty-p {
+    min-height: 1.5em !important;
+    height: auto !important;
+    display: block !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    margin: 20px !important;
+    overflow: visible !important;
+  }
+  .cards-ronde-hoeken-text .prose p:has(> br:only-child),
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose p:has(> br:only-child) {
+    min-height: 1.5em !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    margin-top: 0.5em !important;
+    margin-bottom: 0.5em !important;
+  }
+  /* <hr>: ruimte boven en onder binnen een card */
+  .cards-ronde-hoeken-text .prose hr,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose hr {
+    margin-top: 20px !important;
+    margin-bottom: 20px !important;
+  }
+  /* <br> niet verbergen zodat line breaks uit de WYSIWYG zichtbaar blijven */
+  .cards-ronde-hoeken-text .prose h1,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h1 {
+    font-size: 1.35em !important;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 0.5em;
+    margin-bottom: 0.4em;
+  }
+  .cards-ronde-hoeken-text .prose h2,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h2 {
+    font-size: 1.2em !important;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 0.5em;
+    margin-bottom: 0.35em;
+  }
+  .cards-ronde-hoeken-text .prose h3,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h3 {
+    font-size: 1.1em !important;
+    font-weight: 700;
+    line-height: 1.35;
+    margin-top: 0.45em;
+    margin-bottom: 0.3em;
+  }
+  .cards-ronde-hoeken-text .prose h4,
+  .cards-ronde-hoeken-text .cards-ronde-hoeken-prose h4 {
+    font-size: 1.05em !important;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-top: 0.4em;
+    margin-bottom: 0.25em;
+  }
+
+  /* Cards ronde hoeken: WYSIWYG blijft binnen kaart, geen overflow of scheve uitlijning */
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-wrapper {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .cards-ronde-hoeken-item .flowbite-wysiwyg-content {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Tekstblok frontend: zelfde opmaak als editor (flowbite-typography); zorgt dat H1–H4 etc. correct worden weergegeven */
+  .text-block-section .prose.format h1,
+  .text-block-section .format.prose h1 {
+    font-size: 2.25em !important;
+    font-weight: 800;
+    line-height: 1.1111111;
+    margin-top: 0;
+    margin-bottom: 0.8888889em;
+  }
+  .text-block-section .prose.format h2,
+  .text-block-section .format.prose h2 {
+    font-size: 1.5em !important;
+    font-weight: 700;
+    line-height: 1.3333333;
+    margin-top: 0;
+    margin-bottom: 1em;
+  }
+  .text-block-section .prose.format h3,
+  .text-block-section .format.prose h3 {
+    font-size: 1.25em !important;
+    font-weight: 700;
+    line-height: 1.6;
+    margin-top: 0;
+    margin-bottom: 0.6em;
+  }
+  .text-block-section .prose.format h4,
+  .text-block-section .format.prose h4 {
+    font-size: 1.125em !important;
+    font-weight: 600;
+    line-height: 1.6;
+    margin-top: 0;
+    margin-bottom: 0.5em;
+  }
+  @media (min-width: 1024px) {
+    .text-block-section .prose.format h1,
+    .text-block-section .format.prose h1 {
+      font-size: 2.6666667em !important;
+      margin-bottom: 0.8333333em;
+      line-height: 1;
+    }
+    .text-block-section .prose.format h2,
+    .text-block-section .format.prose h2 {
+      font-size: 2em !important;
+      margin-bottom: 0.6666667em;
+    }
+    .text-block-section .prose.format h3,
+    .text-block-section .format.prose h3 {
+      font-size: 1.3333333em !important;
+      margin-bottom: 0.6666667em;
+    }
+    .text-block-section .prose.format h4,
+    .text-block-section .format.prose h4 {
+      font-size: 1.2em !important;
+      margin-bottom: 0.5em;
+    }
+  }
+
+  /*
+   * Home-secties dropdown (website-pagina bewerken): in dark mode moet hover grijs zijn.
+   * Tailwind `dark:hover:*` kan hier verliezen van `hover:bg-gray-100` (cascade / custom dark-variant),
+   * waardoor het lijkt alsof dark mode niet werkt (wit vlak). Vaste selector + !important wint altijd.
+   */
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover,
+  body.dark #home-sections-add-menu button.home-sections-add-type:hover,
+  body.dark #home-sections-add-menu button.home-sections-add-component:hover {
+    background-color: #9ca3af !important; /* gray-400 */
+    color: #0f172a !important;
+  }
+
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover .text-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover .text-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover .text-muted-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover .text-muted-foreground,
+  html.dark #home-sections-add-menu button.home-sections-add-type:hover svg,
+  html.dark #home-sections-add-menu button.home-sections-add-component:hover svg {
+    color: #0f172a !important;
+  }
+
+  /* Home-sections: vaste breedte 400px voor korte tekstvelden (max-width werkt gegarandeerd) */
+  .home-section-input-400 {
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+  }
+
+  /*
+   * Taxi-boekingsmodule: zelfde schakelaar als admin (Metronic .kt-switch / .kt-switch-sm).
+   * Zie backend public/assets/css/styles.css — hier gescoped + theme-variabelen voor de frontend.
+   */
+  [data-nexataxi-booking-module] {
+    --spacing: 0.25rem;
+    --input: rgb(226 232 240);
+    --primary: #f97316;
+    --background: #ffffff;
+    --ring: #f97316;
+    --color-white: #ffffff;
+  }
+  .dark [data-nexataxi-booking-module] {
+    --input: rgb(51 65 85 / 0.9);
+    --primary: #ea580c;
+    --background: #0f172a;
+    --ring: #fb923c;
+  }
+
+  [data-nexataxi-booking-module] .kt-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    cursor: pointer;
+    appearance: none;
+    background-color: var(--input);
+    border: none;
+    border-radius: calc(infinity * 1px);
+  }
+  [data-nexataxi-booking-module] .kt-switch:focus-visible {
+    outline-style: none;
+    --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width, 0px)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow, 0 0 #0000);
+    --tw-ring-color: var(--ring);
+    --tw-ring-offset-width: 2px;
+    --tw-ring-offset-shadow: var(--tw-ring-inset, ) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+    --tw-ring-offset-color: var(--background);
+  }
+  [data-nexataxi-booking-module] .kt-switch:disabled {
+    cursor: not-allowed;
+    opacity: 50%;
+  }
+  [data-nexataxi-booking-module] .kt-switch::before {
+    pointer-events: none;
+    position: absolute;
+    inset-inline-start: calc(var(--spacing) * 0);
+    top: calc(1 / 2 * 100%);
+    display: block;
+    --tw-translate-x: calc(var(--spacing) * 1);
+    --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+    border-radius: calc(infinity * 1px);
+    background-color: var(--color-white);
+    --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(0px + var(--tw-ring-offset-width, 0px)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000), var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+    transition-property: transform, translate, scale, rotate;
+    transition-timing-function: var(--tw-ease, cubic-bezier(0.4, 0, 0.2, 1));
+    transition-duration: var(--tw-duration, 150ms);
+    content: "";
+  }
+  [data-nexataxi-booking-module] .kt-switch:checked,
+  [data-nexataxi-booking-module] .kt-switch[aria-checked="true"] {
+    background-color: var(--primary);
+  }
+  [data-nexataxi-booking-module] .kt-switch {
+    height: calc(var(--spacing) * 5);
+    width: calc(var(--spacing) * 7.5);
+    border-radius: calc(infinity * 1px);
+  }
+  [data-nexataxi-booking-module] .kt-switch::before {
+    width: calc(var(--spacing) * 3);
+    height: calc(var(--spacing) * 3);
+  }
+  [data-nexataxi-booking-module] :is(.kt-switch:checked, .kt-switch[aria-checked="true"])::before {
+    --tw-translate-x: calc(var(--spacing) * 3.5);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  [data-nexataxi-booking-module] .kt-switch-sm {
+    height: calc(var(--spacing) * 4.5);
+    width: calc(var(--spacing) * 6.5);
+    border-radius: calc(infinity * 1px);
+  }
+  [data-nexataxi-booking-module] .kt-switch-sm::before {
+    width: calc(var(--spacing) * 2.5);
+    height: calc(var(--spacing) * 2.5);
+  }
+  [data-nexataxi-booking-module] :is(.kt-switch-sm:checked, .kt-switch-sm[aria-checked="true"])::before {
+    --tw-translate-x: calc(var(--spacing) * 3);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+
+  /* Alle textarea's: extra padding-top (pt-1) voor betere leesbaarheid */
+  textarea {
+    padding-top: 0.25rem;
+  }
+}
+
+/*
+ * Google Maps JavaScript API: tegels zijn <img>-mozaïek. Tailwind-preflight zet
+ * img { max-width: 100%; height: auto; } waardoor tegels verkeerd schalen en de kaart leeg/grijs blijft.
+ */
+.gm-style img {
+  max-width: none !important;
 }
