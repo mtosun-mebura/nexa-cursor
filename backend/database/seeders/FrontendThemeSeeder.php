@@ -18,10 +18,10 @@ class FrontendThemeSeeder extends Seeder
         $themes = [
             [
                 'slug' => 'modern',
-                'name' => 'Modern',
-                'description' => 'Strak en modern design met veel witruimte. Huidige website-layout (Home-pagina).',
+                'name' => 'Metronic',
+                'description' => 'Strak Metronic-design met veel witruimte. Huidige website-layout (Home-pagina).',
                 'preview_path' => 'frontend-themes/modern-home.png',
-                'is_active' => true,
+                'is_active' => false,
                 'settings' => [
                     'primary_color' => '#2563eb',
                     'font_heading' => 'Inter',
@@ -93,6 +93,15 @@ class FrontendThemeSeeder extends Seeder
             ['type' => 'paragraph', 'data' => ['text' => ''], 'width' => 'full'],
             ['type' => 'slider', 'data' => ['items' => [['url' => '', 'caption' => '']]], 'width' => 'full'],
             ['type' => 'paragraph', 'data' => ['text' => ''], 'width' => 'full'],
+            ['type' => 'featured_services', 'data' => [
+                'title' => 'Diensten',
+                'subtitle' => 'Onze diensten in het kort.',
+                'items' => [
+                    ['icon' => 'briefcase', 'title' => 'Business Collaboration', 'description' => 'Morbi sagittis hendrerit nulla ultricies. Cras in diam ipsum, elementum pretium hendrerit ultricies.'],
+                    ['icon' => 'cog-6-tooth', 'title' => 'Engineering & Services', 'description' => 'Proin scelerisque magna at porttitor tristique.'],
+                    ['icon' => 'user-group', 'title' => 'Consulting', 'description' => 'Samen werken we aan het beste resultaat.'],
+                ],
+            ], 'width' => 'full'],
             ['type' => 'image', 'data' => ['url' => '', 'caption' => ''], 'width' => 'full'],
             ['type' => 'paragraph', 'data' => ['text' => ''], 'width' => 'full'],
         ];

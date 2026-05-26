@@ -1,6 +1,6 @@
 @extends('frontend.layouts.website')
 
-@section('title', $page->title . ' - ' . ($branding['site_name'] ?? config('app.name')))
+@section('title', filled(trim((string) ($page->title ?? ''))) ? trim($page->title).' - '.($branding['site_name'] ?? config('app.name')) : ($branding['site_name'] ?? config('app.name')))
 @section('description', $page->meta_description ?? Str::limit(strip_tags($page->content), 160))
 
 @section('content')
@@ -18,11 +18,11 @@
     @elseif($isNextLandingVpn)
         @include('frontend.website.partials.next-landing-vpn-home')
     @else
-        {{-- Modern thema: hero, stats, Waarom Nexa, Wat Wij Bieden, vacatures, CTA (of alleen hero+footer voor niet-home) --}}
+        {{-- Metronic thema: hero, stats, Waarom Nexa, Wat Wij Bieden, vacatures, CTA (of alleen hero+footer voor niet-home) --}}
         @include('frontend.website.partials.modern-home')
     @endif
 @else
-<div class="container-custom py-10 md:py-16">
+<div class="website-section-inner py-10 md:py-16">
     <article class="w-full max-w-7xl mx-auto">
         <h1 class="kt-page-title text-gray-900 dark:text-white mb-6" style="font-family: var(--theme-font-heading);">{{ $page->title }}</h1>
         @php $blocks = $page->getContentBlocks(); @endphp

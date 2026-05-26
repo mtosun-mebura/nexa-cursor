@@ -139,6 +139,92 @@
         </div>
     </div>
 
+    @if($isSuperAdmin && !empty($tenantPaymentRows))
+    <div class="grid gap-5 grid-cols-1">
+        <div class="kt-card min-w-full">
+            <div class="kt-card-header flex-wrap gap-3">
+                <h3 class="kt-card-title">
+                    <i class="ki-filled ki-wallet me-2"></i>
+                    Betalingen per tenant
+                </h3>
+                <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">
+                    Volledig overzicht
+                </a>
+            </div>
+            @if(!empty($paymentStats))
+            <div class="kt-card-content border-b border-border">
+                <div class="flex lg:px-6 py-1.5 gap-2">
+                    <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                        <span class="text-mono text-xl font-semibold">{{ $paymentStats['pending'] ?? 0 }}</span>
+                        <span class="text-secondary-foreground text-sm">Openstaand</span>
+                    </div>
+                    <span class="border-e border-e-input my-1"></span>
+                    <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                        <span class="text-mono text-xl font-semibold">{{ $paymentStats['paid'] ?? 0 }}</span>
+                        <span class="text-secondary-foreground text-sm">Voldaan</span>
+                    </div>
+                    <span class="border-e border-e-input my-1"></span>
+                    <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
+                        <span class="text-mono text-xl font-semibold">{{ $paymentStats['total'] ?? 0 }}</span>
+                        <span class="text-secondary-foreground text-sm">Totaal</span>
+                    </div>
+                </div>
+            </div>
+            @endif
+            <div class="kt-card-table">
+                <div class="kt-scrollable-x-auto">
+                    <table class="kt-table kt-table-border">
+                        <thead>
+                            <tr>
+                                <th>Tenant</th>
+                                <th>Module(s)</th>
+                                <th class="text-end">Openstaand</th>
+                                <th class="text-end">Voldaan</th>
+                                <th class="text-end">Acties</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($tenantPaymentRows as $row)
+                                <tr>
+                                    <td>
+                                        <a href="{{ route('admin.companies.show', $row['company']->id) }}" class="font-medium text-sm text-mono hover:text-primary">
+                                            {{ $row['company']->name }}
+                                        </a>
+                                        <div class="text-xs text-secondary-foreground">id {{ $row['company']->id }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="text-sm text-secondary-foreground">{{ implode(', ', $row['module_labels']) }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="font-semibold text-sm">{{ $row['open_count'] }}</div>
+                                        <div class="text-xs text-secondary-foreground">€{{ number_format($row['open_amount'], 2, ',', '.') }}</div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="font-semibold text-sm">{{ $row['paid_count'] }}</div>
+                                        <div class="text-xs text-secondary-foreground">€{{ number_format($row['paid_amount'], 2, ',', '.') }}</div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="flex flex-wrap justify-end gap-1.5">
+                                            <a href="{{ route('admin.payments.openstaand', ['company_id' => $row['company']->id]) }}" class="kt-btn kt-btn-sm kt-btn-outline">Openstaand</a>
+                                            <a href="{{ route('admin.payments.voldaan', ['company_id' => $row['company']->id]) }}" class="kt-btn kt-btn-sm kt-btn-primary">Voldaan</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="text-center py-8 text-sm text-secondary-foreground">
+                                        Geen tenants met een actieve betaalmodule gevonden.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- KPI Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-5">
         <div class="kt-card w-full">
@@ -659,6 +745,7 @@
                         <thead>
                             <tr>
                                 <th class="min-w-40">Bedrijf</th>
+                                <th class="min-w-24">Module</th>
                                 <th class="min-w-24">Bedrag</th>
                                 <th class="min-w-24">Status</th>
                                 <th class="min-w-32">Datum</th>
@@ -669,29 +756,36 @@
                                 <tr>
                                     <td>
                                         <div class="font-medium text-foreground">
-                                            {{ $payment->company->name ?? 'Onbekend' }}
+                                            {{ $payment->company_name ?? 'Onbekend' }}
                                         </div>
                                         <div class="text-xs text-secondary-foreground">
-                                            #{{ $payment->id }}
+                                            {{ $payment->source_label ?? '' }} · #{{ $payment->id }}
                                         </div>
                                     </td>
+                                    <td class="text-sm text-secondary-foreground">
+                                        {{ $payment->source_label ?? '—' }}
+                                    </td>
                                     <td class="text-sm font-semibold">
-                                        €{{ number_format((float)$payment->amount, 2, ',', '.') }}
+                                        €{{ number_format((float) $payment->amount, 2, ',', '.') }}
                                     </td>
                                     <td>
-                                        <span class="kt-badge kt-badge-sm {{ $payment->status === 'paid' ? 'kt-badge-success' : 'kt-badge-warning' }}">
-                                            {{ ucfirst($payment->status) }}
+                                        <span class="kt-badge kt-badge-sm {{ ($payment->status_label ?? '') === 'Voldaan' ? 'kt-badge-success' : 'kt-badge-warning' }}">
+                                            {{ $payment->status_label ?? ucfirst((string) ($payment->status ?? '')) }}
                                         </span>
                                     </td>
                                     <td>
                                         <div class="text-sm text-muted-foreground">
-                                            {{ optional($payment->paid_at ?? $payment->created_at)->format('d-m-Y') }}
+                                            @if($payment->occurred_at ?? null)
+                                                {{ \Carbon\Carbon::parse($payment->occurred_at)->format('d-m-Y') }}
+                                            @else
+                                                —
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="text-center text-muted-foreground py-5">
+                                    <td colspan="5" class="text-center text-muted-foreground py-5">
                                         Geen betalingen gevonden
                                     </td>
                                 </tr>

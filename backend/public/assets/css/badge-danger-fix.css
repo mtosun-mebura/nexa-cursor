@@ -1,29 +1,17 @@
 /**
- * Fix voor kt-badge-danger - maak deze rood zoals kt-badge-destructive
- * En zorg dat de grootte consistent is met andere badges
+ * Extra consistentie voor danger-badges (tabellen, datatables, status).
+ * Aanvulling op globale admin-styles in layouts.
  */
+.kt-badge.kt-badge-danger,
 .kt-badge-danger {
-    background-color: var(--destructive) !important;
-    color: var(--destructive-foreground) !important;
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  color: rgb(153, 27, 27) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
 }
 
-/* Zorg dat kt-badge-danger dezelfde grootte heeft als andere kt-badge-sm badges */
-.kt-badge-danger.kt-badge-sm,
-.kt-badge-danger {
-    height: calc(var(--spacing) * 5) !important;
-    min-width: calc(var(--spacing) * 5) !important;
-    gap: calc(var(--spacing) * 1) !important;
-    border-radius: calc(var(--radius) - 4px) !important;
-    padding-inline: 0.325rem !important;
-    font-size: 0.6875rem !important;
-    --tw-leading: 0.75rem !important;
-    line-height: 0.75rem !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+.dark .kt-badge.kt-badge-danger,
+.dark .kt-badge-danger {
+  background-color: rgba(239, 68, 68, 0.22) !important;
+  color: rgb(248, 113, 113) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
 }
-
-
-
-
-

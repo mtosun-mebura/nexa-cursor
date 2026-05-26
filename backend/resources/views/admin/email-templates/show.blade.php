@@ -16,19 +16,19 @@
         background: #a3a3a3 !important;
         color: #1f2937 !important;
     }
-    /* Gehele e-mailpreview links uitlijnen (override centering uit template-HTML) */
-    .email-preview-content,
+    /* Preview-container: ronde hoeken zoals in edit, originele e-mailweergave behouden */
+    .email-preview-content {
+        border-radius: 0.75rem !important;
+        overflow: hidden;
+    }
+    /* E-mailinhoud: alleen typografie links; table/td/th behouden hun inline styling (bv. padding: 20px 0; text-align: center) zoals in de e-mail */
     .email-preview-content .prose,
-    .email-preview-content .prose * {
+    .email-preview-content .prose *:not(table):not(td):not(th) {
         text-align: left !important;
     }
-    .email-preview-content [style*="auto"] {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
     .email-preview-content table {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
+        border-radius: 0.5rem;
+        overflow: hidden;
     }
     /* Zelfde typografie als TinyMCE-editor (editor en detailweergave gelijk) */
     .email-preview-content .prose {
@@ -193,24 +193,15 @@
                 @if($emailTemplate->html_content)
                 <div class="mb-4">
                     <h6 class="text-sm font-semibold text-foreground mb-2">HTML Inhoud:</h6>
-                    <div class="border border-border rounded-lg p-4 bg-muted/30 email-preview-content">
+                    <div class="border border-border rounded-xl p-4 bg-muted/30 email-preview-content">
                         <div class="prose prose-sm max-w-none dark:prose-invert text-left">
-                            {!! $emailTemplate->html_content !!}
+                            {!! $previewHtml ?? $emailTemplate->html_content !!}
                         </div>
                     </div>
                 </div>
                 @endif
                 
-                @if($emailTemplate->text_content)
-                <div>
-                    <h6 class="text-sm font-semibold text-foreground mb-2">Tekst Inhoud:</h6>
-                    <div class="border border-border rounded-lg p-4 bg-muted/30 email-preview-content">
-                        <pre class="text-sm text-foreground whitespace-pre-wrap font-mono">{{ $emailTemplate->text_content }}</pre>
-                    </div>
-                </div>
-                @endif
-                
-                @if(!$emailTemplate->html_content && !$emailTemplate->text_content)
+                @if(!$emailTemplate->html_content)
                 <div class="text-center py-8 text-muted-foreground">
                     <i class="ki-filled ki-information-2 text-4xl mb-2"></i>
                     <p>Geen inhoud beschikbaar</p>
@@ -218,6 +209,10 @@
                 @endif
             </div>
         </div>
+
+        @can('edit-email-templates')
+        @include('admin.email-templates.partials.send-test-form')
+        @endcan
     </div>
 </div>
 

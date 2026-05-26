@@ -396,6 +396,9 @@
         // Select all inputs, selects, and textareas (with or without kt-input class)
         document.querySelectorAll('input, select, textarea').forEach(function(input) {
             if (input.classList.contains('kt-debug-processed')) return;
+
+            // WYSIWYG-toolbar: geen debug-indicators (blokkeren anders klikken op dropdowns)
+            if (input.closest('.flowbite-wysiwyg-toolbar')) return;
             
             // Skip hidden inputs and submit buttons
             if (input.type === 'hidden' || input.type === 'submit' || input.type === 'button') return;

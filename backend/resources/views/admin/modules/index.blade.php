@@ -19,10 +19,10 @@
         </div>
     @endif
 
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" id="error-alert" role="alert">
-            <i class="ki-filled ki-cross-circle me-2"></i>
-            {{ session('error') }}
+    @if(session('info'))
+        <div class="kt-alert kt-alert-info mb-5" id="info-alert" role="alert">
+            <i class="ki-filled ki-information-5 me-2"></i>
+            {{ session('info') }}
         </div>
     @endif
 
@@ -121,20 +121,40 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="flex flex-wrap gap-1">
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex flex-wrap gap-1">
+                                            @if($module['installed'])
+                                                <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #2563eb !important; color: #ffffff !important;">
+                                                    <i class="ki-filled ki-check me-1" style="color: #ffffff !important;"></i> Geïnstalleerd
+                                                </span>
+                                            @else
+                                                <span class="text-xs px-2 py-1 rounded bg-muted/50 text-foreground border border-border">
+                                                    Niet geïnstalleerd
+                                                </span>
+                                            @endif
+                                            @if($module['active'])
+                                                <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #16a34a !important; color: #ffffff !important;">
+                                                    <i class="ki-filled ki-check-circle me-1" style="color: #ffffff !important;"></i> Actief
+                                                </span>
+                                            @endif
+                                        </div>
                                         @if($module['installed'])
-                                            <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #2563eb !important; color: #ffffff !important;">
-                                                <i class="ki-filled ki-check me-1" style="color: #ffffff !important;"></i> Geïnstalleerd
-                                            </span>
-                                        @else
-                                            <span class="text-xs px-2 py-1 rounded bg-muted/50 text-foreground border border-border">
-                                                Niet geïnstalleerd
-                                            </span>
-                                        @endif
-                                        @if($module['active'])
-                                            <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #16a34a !important; color: #ffffff !important;">
-                                                <i class="ki-filled ki-check-circle me-1" style="color: #ffffff !important;"></i> Actief
-                                            </span>
+                                            @if(!empty($useSingleDatabase))
+                                                <span class="text-xs text-muted-foreground" title="MODULE_USE_SINGLE_DATABASE=true: alle module-tabellen staan in DB_DATABASE (één database).">
+                                                    Database: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                                </span>
+                                            @elseif($hasModuleDatabases && !empty($module['database_name']))
+                                                <span class="text-xs text-muted-foreground block" title="Centrale applicatie (o.a. modules, users, settings).">
+                                                    Hoofddatabase: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                                </span>
+                                                <span class="text-xs text-muted-foreground block" title="MODULE_USE_SINGLE_DATABASE=false: aparte database voor deze module. In pgAdmin/DBeaver: onder Databases.">
+                                                    Module-database: <code class="bg-muted/50 px-1 rounded">{{ $module['database_name'] }}</code>
+                                                </span>
+                                            @else
+                                                <span class="text-xs text-muted-foreground" title="Hoofddatabase (geen aparte module-DB in deze modus).">
+                                                    Hoofddatabase: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                                </span>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>
@@ -146,21 +166,30 @@
                                              data-kt-menu-item-placement-rtl="bottom-start" 
                                              data-kt-menu-item-toggle="dropdown" 
                                              data-kt-menu-item-trigger="click">
-                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties" aria-expanded="false" data-modules-action-toggle="true">
                                                 <x-heroicon-o-ellipsis-vertical class="w-5 h-5" />
                                             </button>
                                             <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
                                                 @if(!$module['installed'])
                                                     <div class="kt-menu-item">
-                                                        <form action="{{ route('admin.modules.install', $module['name']) }}" method="POST" style="display: inline;">
-                                                            @csrf
-                                                            <button type="submit" class="kt-menu-link w-full text-left">
+                                                        @if($module['installing'] ?? false)
+                                                            <span class="kt-menu-link w-full text-left text-muted-foreground">
                                                                 <span class="kt-menu-icon">
-                                                                    <x-heroicon-o-arrow-down-tray class="w-5 h-5" />
+                                                                    <x-heroicon-o-arrow-path class="w-5 h-5 animate-spin" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Installeer</span>
-                                                            </button>
-                                                        </form>
+                                                                <span class="kt-menu-title">Bezig met installeren...</span>
+                                                            </span>
+                                                        @else
+                                                            <form action="{{ route('admin.modules.install', $module['name']) }}" method="POST" style="display: inline;">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        <x-heroicon-o-arrow-down-tray class="w-5 h-5" />
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Installeer</span>
+                                                                </button>
+                                                            </form>
+                                                        @endif
                                                     </div>
                                                 @else
                                                     <div class="kt-menu-item">
@@ -170,6 +199,18 @@
                                                             </span>
                                                             <span class="kt-menu-title">Configureren</span>
                                                         </a>
+                                                    </div>
+                                                    <div class="kt-menu-item">
+                                                        <form action="{{ route('admin.modules.run-migrations', $module['name']) }}" method="POST" style="display: inline;"
+                                                              onsubmit="return confirm('Module-migraties opnieuw uitvoeren? Gebruik dit na het wijzigen van MODULE_USE_SINGLE_DATABASE in .env (en eventueel php artisan config:clear). Doorgaan?');">
+                                                            @csrf
+                                                            <button type="submit" class="kt-menu-link w-full text-left" title="Zelfde pad als bij install: hoofddatabase of eigen module-database">
+                                                                <span class="kt-menu-icon">
+                                                                    <x-heroicon-o-table-cells class="w-5 h-5" />
+                                                                </span>
+                                                                <span class="kt-menu-title">Migraties opnieuw</span>
+                                                            </button>
+                                                        </form>
                                                     </div>
                                                     @if(!$module['active'])
                                                         <div class="kt-menu-item">
@@ -208,6 +249,33 @@
                                                                 </a>
                                                             </div>
                                                         @endif
+                                                    @endif
+                                                    @if($hasModuleDatabases)
+                                                    <div class="kt-menu-separator"></div>
+                                                    <div class="kt-menu-item">
+                                                        <form action="{{ route('admin.modules.database-reset') }}" method="POST" style="display: inline;"
+                                                              onsubmit="return confirm('Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan met alle rechten. Weet je het zeker?');">
+                                                            @csrf
+                                                            <input type="hidden" name="confirm_reset" value="yes">
+                                                            <button type="submit" class="kt-menu-link w-full text-left text-warning">
+                                                                <span class="kt-menu-icon">
+                                                                    <x-heroicon-o-arrow-path class="w-5 h-5" />
+                                                                </span>
+                                                                <span class="kt-menu-title">Database reset</span>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                    <div class="kt-menu-item">
+                                                        <form action="{{ route('admin.modules.database-dummydata', $module['name']) }}" method="POST" style="display: inline;">
+                                                            @csrf
+                                                            <button type="submit" class="kt-menu-link w-full text-left">
+                                                                <span class="kt-menu-icon">
+                                                                    <x-heroicon-o-cube class="w-5 h-5" />
+                                                                </span>
+                                                                <span class="kt-menu-title">Database dummydata</span>
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                     @endif
                                                     <div class="kt-menu-separator"></div>
                                                     <div class="kt-menu-item">
@@ -254,6 +322,13 @@
                             Modules zijn uitbreidbare functionaliteiten die kunnen worden geïnstalleerd en geactiveerd. Wanneer een module geactiveerd is, worden de routes automatisch geregistreerd onder <code class="px-1 py-0.5 bg-background rounded">/admin/{module-name}/</code>
                         </p>
                         <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                            @if(!empty($useSingleDatabase))
+                            <li><strong>Eén database:</strong> <code class="px-1 py-0.5 bg-background rounded">MODULE_USE_SINGLE_DATABASE=true</code> — alle module-tabellen staan in <code class="px-1 py-0.5 bg-background rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code> (je <code class="px-1 py-0.5 bg-background rounded">DB_DATABASE</code>). Geen <code class="px-1 py-0.5 bg-background rounded">nexa_*</code> per module.</li>
+                            @elseif($hasModuleDatabases)
+                            <li>Bij <strong>MySQL of PostgreSQL</strong> krijgt elke geïnstalleerde module een eigen <strong>database</strong> (bijv. <code class="px-1 py-0.5 bg-background rounded">nexa_skillmatching</code>). In pgAdmin/DBeaver: kijk onder <strong>Databases</strong>, niet onder Schemas.</li>
+                            @else
+                            <li>Geen aparte module-databases in deze setup (bijv. SQLite of single-DB gedrag).</li>
+                            @endif
                             <li>Na activatie: Routes beschikbaar op <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/*</code></li>
                             <li>Test route: <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/test</code> (werkt alleen als module actief is)</li>
                             <li>Menu items worden automatisch toegevoegd wanneer module actief is</li>
@@ -266,8 +341,41 @@
     </div>
 </div>
 
+<!-- Loader modal bij module-acties: boven alles (sidebar, header, dropdowns) -->
+<div id="modules-action-loader-modal" class="modules-loader-overlay fixed inset-0 hidden" aria-hidden="true" aria-label="Bezig">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-md modules-loader-backdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="relative flex flex-col items-center gap-5 rounded-2xl bg-card border-2 border-border shadow-2xl px-12 py-10 min-w-[240px] modules-loader-card bg-gray-100 dark:bg-gray-700">
+            <div class="modules-loader-spinner h-20 w-20 rounded-full border-4" style="animation: modules-spin 0.8s linear infinite;"></div>
+            <p class="text-base font-semibold text-foreground">Bezig met verwerken...</p>
+        </div>
+    </div>
+</div>
+
 @push('styles')
 <style>
+    /* Loader modal: boven sidebar, header en alle dropdowns */
+    .modules-loader-overlay {
+        z-index: 2147483647 !important;
+    }
+    .modules-loader-backdrop {
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    /* Spinner altijd zichtbaar: light en dark mode */
+    .modules-loader-spinner {
+        flex-shrink: 0;
+        border-color: rgba(0, 0, 0, 0.12);
+        border-top-color: #2563eb;
+    }
+    .dark .modules-loader-spinner,
+    html.dark .modules-loader-spinner {
+        border-color: rgba(255, 255, 255, 0.15);
+        border-top-color: #60a5fa;
+    }
+    @keyframes modules-spin {
+        to { transform: rotate(360deg); }
+    }
     /* Ensure dropdown can overflow table cells without stretching them */
     .kt-card-table td:last-child {
         position: relative;
@@ -325,6 +433,78 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Loader-modal bij module-acties
+    var loaderModal = document.getElementById('modules-action-loader-modal');
+    function showLoader() {
+        if (loaderModal) {
+            loaderModal.classList.remove('hidden');
+            loaderModal.classList.add('flex', 'flex-col');
+        }
+    }
+    function hideLoader() {
+        if (loaderModal) {
+            loaderModal.classList.add('hidden');
+            loaderModal.classList.remove('flex', 'flex-col');
+        }
+    }
+
+    // Forms in actie-dropdown: via fetch, loader direct weg zodra response binnen is
+    document.querySelectorAll('.kt-card-table .kt-menu-dropdown form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var onsubmitAttr = form.getAttribute('onsubmit');
+            if (onsubmitAttr && onsubmitAttr.indexOf('confirm') >= 0) {
+                var msg = 'Weet je het zeker?';
+                if (onsubmitAttr.indexOf('Alle tabellen') >= 0) msg = 'Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan. Weet je het zeker?';
+                if (onsubmitAttr.indexOf('verwijderen') >= 0) msg = 'Weet je zeker dat je deze module wilt verwijderen?';
+                if (!confirm(msg)) return;
+            }
+            showLoader();
+            var formData = new FormData(form);
+            var action = form.getAttribute('action') || '';
+            var method = (form.getAttribute('method') || 'get').toUpperCase();
+            fetch(action, { method: method, body: method === 'POST' ? formData : null, redirect: 'manual' })
+                .then(function(response) {
+                    hideLoader();
+                    var url = response.headers.get('Location');
+                    if (response.status >= 300 && response.status < 400 && url) {
+                        window.location.href = url.startsWith('http') ? url : (window.location.origin + (url.startsWith('/') ? url : ('/' + url)));
+                    } else {
+                        window.location.reload();
+                    }
+                })
+                .catch(function() {
+                    hideLoader();
+                    form.submit();
+                });
+        });
+    });
+
+    // Links in actie-dropdown (zelfde venster): fetch, loader weg bij response, dan navigeer
+    document.querySelectorAll('.kt-card-table .kt-menu-dropdown a.kt-menu-link[href]:not([target="_blank"])').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            var href = this.getAttribute('href');
+            if (!href || href === '#') return;
+            e.preventDefault();
+            showLoader();
+            fetch(href, { redirect: 'manual' })
+                .then(function(response) {
+                    hideLoader();
+                    window.location.href = href;
+                })
+                .catch(function() {
+                    hideLoader();
+                    window.location.href = href;
+                });
+        });
+    });
+
+    // Scroll naar melding zodat deze zichtbaar is na install/activate/etc.
+    var alertEl = document.getElementById('error-alert') || document.getElementById('success-alert') || document.getElementById('info-alert');
+    if (alertEl) {
+        alertEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     // Initialize KTMenu for action menus
     function initializeMenus() {
         if (window.KTMenu && typeof window.KTMenu.init === 'function') {
@@ -343,78 +523,70 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMenus();
     setTimeout(initializeMenus, 300);
     
-    // Find all menu toggles
-    const menuToggles = document.querySelectorAll('.kt-menu-toggle');
-    
-    // Add click handlers directly to toggle buttons
-    menuToggles.forEach(function(toggle) {
-        toggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            
-            const menuItem = toggle.closest('.kt-menu-item');
-            
-            if (menuItem) {
-                const dropdown = menuItem.querySelector('.kt-menu-dropdown');
-                
-                if (dropdown) {
-                    // Toggle show class
-                    const isShowing = menuItem.classList.contains('show');
-                    
-                    // Close all other dropdowns
-                    document.querySelectorAll('.kt-menu-item.show').forEach(function(item) {
-                        if (item !== menuItem) {
-                            item.classList.remove('show');
-                            const otherDropdown = item.querySelector('.kt-menu-dropdown');
-                            if (otherDropdown) {
-                                otherDropdown.style.display = 'none';
-                            }
-                        }
-                    });
-                    
-                    if (!isShowing) {
-                        menuItem.classList.add('show');
-                    } else {
-                        menuItem.classList.remove('show');
-                    }
-                    
-                    setTimeout(function() {
-                        const stillShowing = menuItem.classList.contains('show');
-                        
-                        if (stillShowing) {
-                            const buttonRect = toggle.getBoundingClientRect();
-                            
-                            dropdown.style.position = 'fixed';
-                            dropdown.style.left = (buttonRect.right - 175) + 'px';
-                            dropdown.style.top = (buttonRect.bottom + 5) + 'px';
-                            dropdown.style.right = 'auto';
-                            dropdown.style.minWidth = '175px';
-                            dropdown.style.width = '175px';
-                            dropdown.style.zIndex = '99999';
-                            dropdown.style.display = 'block';
-                            dropdown.style.visibility = 'visible';
-                            dropdown.style.opacity = '1';
-                        } else {
-                            dropdown.style.display = 'none';
-                        }
-                    }, 10);
-                }
+    function closeModuleActionMenus(exceptMenuItem) {
+        document.querySelectorAll('.kt-card-table .kt-menu-item.show').forEach(function(item) {
+            if (exceptMenuItem && item === exceptMenuItem) return;
+            item.classList.remove('show');
+            const toggle = item.querySelector('[data-modules-action-toggle="true"]');
+            if (toggle) {
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+            const dropdown = item.querySelector('.kt-menu-dropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
             }
         });
-    });
-    
-    // Close dropdowns when clicking outside
+    }
+
+    // Event delegation keeps working for dynamically replaced table rows
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.kt-menu-item')) {
-            document.querySelectorAll('.kt-menu-item.show').forEach(function(item) {
-                item.classList.remove('show');
-                const dropdown = item.querySelector('.kt-menu-dropdown');
-                if (dropdown) {
-                    dropdown.style.display = 'none';
-                }
-            });
+        const toggle = e.target.closest('[data-modules-action-toggle="true"]');
+
+        if (toggle) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') {
+                e.stopImmediatePropagation();
+            }
+
+            const menuItem = toggle.closest('.kt-menu-item');
+            if (!menuItem) return;
+
+            const dropdown = menuItem.querySelector('.kt-menu-dropdown');
+            if (!dropdown) return;
+
+            const isShowing = menuItem.classList.contains('show');
+            closeModuleActionMenus(menuItem);
+
+            if (isShowing) {
+                menuItem.classList.remove('show');
+                toggle.setAttribute('aria-expanded', 'false');
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            menuItem.classList.add('show');
+            toggle.setAttribute('aria-expanded', 'true');
+
+            const buttonRect = toggle.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.left = (buttonRect.right - 175) + 'px';
+            dropdown.style.top = (buttonRect.bottom + 5) + 'px';
+            dropdown.style.right = 'auto';
+            dropdown.style.minWidth = '175px';
+            dropdown.style.width = '175px';
+            dropdown.style.zIndex = '99999';
+            dropdown.style.display = 'block';
+            dropdown.style.visibility = 'visible';
+            dropdown.style.opacity = '1';
+            return;
         }
-    });
+
+        // Close dropdowns when clicking outside module action menus
+        if (!e.target.closest('.kt-card-table .kt-menu-item')) {
+            closeModuleActionMenus();
+        }
+    }, true);
 });
 </script>
 @endpush

@@ -8,39 +8,45 @@ use App\Models\WebsitePage;
 
 /**
  * Bij wisselen van thema voor een module: huidige pagina's op inactief,
- * pagina's van het gekozen thema weer actief; ontbrekende home-pagina aanmaken
- * met dezelfde opzet als de referentie (bestaande home van de module of defaults).
+ * pagina's van het gekozen thema weer actief; ontbrekende home-pagina aanmaken.
+ * Gebruikt de module-DB wanneer de module een eigen database heeft.
  */
 class ModuleThemePageService
 {
+    public function __construct(
+        protected ModuleDatabaseService $moduleDb
+    ) {}
+
+    private function pageQuery(Module $module): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($this->moduleDb->supportsModuleDatabases()) {
+            return WebsitePage::on($this->moduleDb->getModuleConnectionName($module->name));
+        }
+        return WebsitePage::query()->whereRaw('LOWER(module_name) = ?', [strtolower((string) $module->name)]);
+    }
+
     /**
      * Na themawissel: oude-thema-pagina's op inactief, nieuwe op actief,
      * en zorg dat er een home-pagina voor het nieuwe thema is (zelfde opzet als referentie).
      */
     public function syncPagesForModuleThemeChange(Module $module, ?int $oldThemeId, ?int $newThemeId): void
     {
-        $moduleName = $module->name;
-        $moduleNameLower = strtolower((string) $moduleName);
-
+        $query = $this->pageQuery($module);
         if ($oldThemeId !== null) {
-            WebsitePage::where('frontend_theme_id', $oldThemeId)
-                ->whereRaw('LOWER(module_name) = ?', [$moduleNameLower])
+            (clone $query)->where('frontend_theme_id', $oldThemeId)
+                ->whereNull('company_id')
                 ->update(['is_active' => false]);
         }
-
         if ($newThemeId === null) {
             return;
         }
-
         $theme = FrontendTheme::find($newThemeId);
         if (!$theme) {
             return;
         }
-
-        WebsitePage::where('frontend_theme_id', $newThemeId)
-            ->whereRaw('LOWER(module_name) = ?', [$moduleNameLower])
+        (clone $query)->where('frontend_theme_id', $newThemeId)
+            ->whereNull('company_id')
             ->update(['is_active' => true]);
-
         $this->ensureHomePageForModuleTheme($module, $theme);
     }
 
@@ -50,29 +56,23 @@ class ModuleThemePageService
      */
     public function ensureHomePageForModuleTheme(Module $module, FrontendTheme $theme): WebsitePage
     {
-        $moduleNameLower = strtolower((string) $module->name);
-        $existing = WebsitePage::whereRaw('LOWER(module_name) = ?', [$moduleNameLower])
-            ->where('frontend_theme_id', $theme->id)
-            ->where('page_type', 'home')
-            ->first();
-
+        $query = $this->pageQuery($module);
+        $existing = (clone $query)->where('frontend_theme_id', $theme->id)->where('page_type', 'home')->first();
         if ($existing) {
             return $existing;
         }
-
-        $referenceHome = WebsitePage::whereRaw('LOWER(module_name) = ?', [$moduleNameLower])
-            ->where('page_type', 'home')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->first();
-
+        $referenceHome = (clone $query)->where('page_type', 'home')->orderBy('sort_order')->orderBy('id')->first();
         $homeSections = $referenceHome && $referenceHome->home_sections
             ? $referenceHome->home_sections
             : WebsitePage::defaultHomeSectionsForTheme($theme->slug);
-
-        $slug = $this->uniqueHomeSlugForModuleTheme($module, $theme);
-
-        return WebsitePage::create([
+        $slug = $this->uniqueHomeSlugForModuleTheme($module, $theme, $query);
+        $conn = $this->moduleDb->supportsModuleDatabases()
+            ? $this->moduleDb->getModuleConnectionName($module->name)
+            : null;
+        $companyId = $referenceHome?->company_id !== null && $referenceHome->company_id !== ''
+            ? (int) $referenceHome->company_id
+            : null;
+        $data = [
             'slug' => $slug,
             'title' => 'Home',
             'content' => $referenceHome?->content,
@@ -82,26 +82,21 @@ class ModuleThemePageService
             'module_name' => $module->name,
             'frontend_theme_id' => $theme->id,
             'is_active' => true,
-            'sort_order' => 0,
-        ]);
+            'sort_order' => WebsitePage::nextSortOrderForTenant($conn, $companyId),
+        ];
+        return $conn !== null ? WebsitePage::on($conn)->create($data) : WebsitePage::create($data);
     }
 
-    /**
-     * Unieke slug voor een module+thema home (globale slug-uniekheid).
-     */
-    private function uniqueHomeSlugForModuleTheme(Module $module, FrontendTheme $theme): string
+    private function uniqueHomeSlugForModuleTheme(Module $module, FrontendTheme $theme, \Illuminate\Database\Eloquent\Builder $query): string
     {
-        $base = strtolower(preg_replace('/[^a-z0-9]+/', '-', trim($module->name)));
-        $themeSlug = strtolower(preg_replace('/[^a-z0-9\-]+/', '-', trim($theme->slug)));
-        $slug = ($base !== '' ? $base . '-' : '') . 'home-' . $themeSlug;
-        $slug = preg_replace('/\-+/', '-', trim($slug, '-'));
-
-        $original = $slug;
-        $n = 0;
-        while (WebsitePage::where('slug', $slug)->exists()) {
-            $slug = $original . '-' . (++$n);
+        $slug = 'home';
+        if (!(clone $query)->where('slug', $slug)->where('frontend_theme_id', $theme->id)->exists()) {
+            return $slug;
         }
-
-        return $slug;
+        $n = 1;
+        while ((clone $query)->where('slug', 'home-' . $n)->where('frontend_theme_id', $theme->id)->exists()) {
+            $n++;
+        }
+        return 'home-' . $n;
     }
 }

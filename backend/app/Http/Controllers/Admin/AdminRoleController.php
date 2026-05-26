@@ -121,8 +121,10 @@ class AdminRoleController extends Controller
             });
 
         $permissionSets = PermissionSetService::getSets();
+        $menuService = app(MenuService::class);
+        $modulePermissions = $menuService->getModulePermissionsGrouped();
 
-        return view('admin.roles.create', compact('permissions', 'permissionSets'));
+        return view('admin.roles.create', compact('permissions', 'permissionSets', 'modulePermissions'));
     }
 
     public function store(Request $request)

@@ -1,0 +1,82 @@
+---
+description: Admin-pagina's en -kaarten altijd met dezelfde padding als bestaande schermen
+globs: backend/**/views/admin/**/*.blade.php
+alwaysApply: false
+---
+
+# Admin: pagina-padding en kaart-opmaak
+
+Nieuwe admin-pagina's moeten dezelfde witruimte hebben als bestaande schermen (configuraties, bedrijven, ritten). **`kt-card-body` heeft geen standaard padding** in het theme — gebruik daarom onderstaande patronen.
+
+## Pagina-wrapper
+
+```html
+<div class="kt-container-fixed">
+    <div class="flex flex-col gap-5 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">Paginatitel</h1>
+        <p class="text-sm text-muted-foreground">Subtitel</p>
+        <div class="pt-3">
+            <a href="..." class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-arrow-left me-2"></i>
+                Terug
+            </a>
+        </div>
+    </div>
+    <!-- alerts, dan inhoud -->
+</div>
+```
+
+## Formulierkaart — voorkeur (meerdere velden, zoals bedrijf/configuraties)
+
+```html
+<div class="kt-card min-w-full">
+    <div class="kt-card-header">
+        <h3 class="kt-card-title">Sectietitel</h3>
+    </div>
+    <div class="kt-card-table kt-scrollable-x-auto pb-3">
+        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <tr>
+                <td class="min-w-56 text-secondary-foreground font-normal">Label</td>
+                <td class="min-w-48 w-full"><!-- input --></td>
+            </tr>
+        </table>
+    </div>
+    <div class="kt-card-footer flex gap-2.5">
+        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+    </div>
+</div>
+```
+
+`kt-card-header`, `kt-card-table` (cel-padding) en `kt-card-footer` hebben ingebouwde padding.
+
+## Formulierkaart — compact (weinig velden)
+
+Gebruik **`kt-card-content`**, niet een kale `kt-card-body`:
+
+```html
+<div class="kt-card min-w-full">
+    <div class="kt-card-header">
+        <h3 class="kt-card-title">Sectietitel</h3>
+    </div>
+    <div class="kt-card-content flex flex-col gap-5">
+        <!-- velden -->
+    </div>
+    <div class="kt-card-footer flex gap-2.5">
+        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+    </div>
+</div>
+```
+
+## Niet doen
+
+- Geen `<div class="kt-card-body">` zonder expliciete padding (`p-5` / `p-5 lg:p-7.5`) — liever `kt-card-content`.
+- Geen formuliervelden direct in `kt-card` zonder header + content/table/footer.
+- Geen dubbele geneste `kt-container-fixed` zonder tussenruimte (`gap-5` / `pb-7.5` bij titelblok).
+
+## Grid tussen kaarten
+
+```html
+<div class="grid gap-5 lg:gap-7.5">
+    <div class="kt-card min-w-full">...</div>
+</div>
+```

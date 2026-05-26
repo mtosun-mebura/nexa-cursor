@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.job-configuration-types.store') }}" method="POST">
+    <form action="{{ route('admin.job-configuration-types.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -119,6 +119,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const displayNameInput = document.getElementById('display_name');

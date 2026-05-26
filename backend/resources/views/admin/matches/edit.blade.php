@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.matches.update', $match) }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.matches.update', $match) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -211,4 +211,8 @@
         </div>
     </form>
 </div>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

@@ -35,6 +35,7 @@
     <!-- End of Theme Mode -->
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('styles')
 
     <style>
         /* Maak menu heading borders grijs - voeg border-top toe aan menu items met headings */
@@ -335,9 +336,32 @@
             max-width: 100% !important;
             width: 100% !important;
         }
+        /* Logo light/dark: toon juiste logo volgens thema (html of body kan .dark hebben) */
+        .logo-light { display: block !important; }
+        .logo-dark { display: none !important; }
+        html.dark .logo-light, body.dark .logo-light, .dark .logo-light { display: none !important; }
+        html.dark .logo-dark, body.dark .logo-dark, .dark .logo-dark { display: block !important; }
+
+        /* Flash success: iets donkerder groen (leesbaarder) */
+        #content .kt-alert.kt-alert-success {
+            background-color: rgba(5, 120, 85, 0.14) !important;
+            border: 1px solid rgb(4, 120, 87) !important;
+            color: rgb(6, 78, 59) !important;
+        }
+        #content .kt-alert.kt-alert-success .ki-filled {
+            color: rgb(4, 120, 87) !important;
+        }
+        .dark #content .kt-alert.kt-alert-success {
+            background-color: rgba(16, 185, 129, 0.18) !important;
+            border-color: rgb(52, 211, 153) !important;
+            color: rgb(209, 250, 229) !important;
+        }
+        .dark #content .kt-alert.kt-alert-success .ki-filled {
+            color: rgb(167, 243, 208) !important;
+        }
     </style>
 </head>
-<body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased">
+<body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
     <!-- Page -->
     <!-- Main -->
     <div class="flex grow">
@@ -351,6 +375,26 @@
             <main class="grow pt-5" id="content" role="content">
                 <!-- Container -->
                 <div class="kt-container-fixed">
+                    @if ($errors->any())
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        var content = document.getElementById('content');
+                        if (!content) return;
+                        var hash = (window.location.hash || '').replace(/^#/, '');
+                        if (hash) {
+                            var byId = document.getElementById(hash);
+                            if (byId && typeof byId.scrollIntoView === 'function') {
+                                byId.scrollIntoView({ behavior: 'auto', block: 'start' });
+                                return;
+                            }
+                        }
+                        var first = content.querySelector('[data-validation-error], .border-destructive, [data-server-error]');
+                        if (first && typeof first.scrollIntoView === 'function') {
+                            first.scrollIntoView({ behavior: 'auto', block: 'center' });
+                        }
+                    });
+                    </script>
+                    @endif
                     @if(session('error'))
                         <div class="kt-alert kt-alert-danger mb-5">
                             <i class="ki-filled ki-information"></i>
@@ -372,6 +416,38 @@
     <!-- End of Page -->
 
     @include('layouts.partials.scripts')
+
+    <!-- Logo light/dark sync: toon juiste logo bij thema-wissel -->
+    <script>
+    (function() {
+        function isDark() {
+            var root = document.documentElement;
+            if (root.classList.contains('dark')) return true;
+            if (root.classList.contains('light')) return false;
+            var m = root.getAttribute('data-kt-theme-mode');
+            if (m === 'dark') return true;
+            if (m === 'light') return false;
+            return document.body.classList.contains('dark');
+        }
+        function syncLogoVisibility() {
+            var dark = isDark();
+            document.querySelectorAll('.logo-light').forEach(function(el) { el.style.setProperty('display', dark ? 'none' : 'block', 'important'); });
+            document.querySelectorAll('.logo-dark').forEach(function(el) { el.style.setProperty('display', dark ? 'block' : 'none', 'important'); });
+        }
+        window.syncAdminLogoVisibility = syncLogoVisibility;
+        function initLogoSync() {
+            syncLogoVisibility();
+            var obs = new MutationObserver(syncLogoVisibility);
+            obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-kt-theme-mode'] });
+            obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLogoSync);
+        } else {
+            initLogoSync();
+        }
+    })();
+    </script>
 
     <!-- Ensure Cmd+A / Ctrl+A works in input fields -->
     <script>
@@ -414,50 +490,233 @@
     })();
     </script>
 
-    <!-- Ctrl+S / Cmd+S: opslaan op pagina's met een Opslaan-knop -->
+    <!-- Ctrl+S / Cmd+S: hoofdformulier in #content opslaan (alle admin-pagina's met formulier) -->
     <script>
     (function() {
+        function findPrimarySubmitButton(form) {
+            var selectors = [
+                'button[type="submit"].kt-btn-primary',
+                'button[type="submit"][class*="btn-primary"]',
+                'button[type="submit"].kt-btn-success',
+                'input[type="submit"].kt-btn-primary',
+                'button[type="submit"]',
+                'input[type="submit"]'
+            ];
+            for (var i = 0; i < selectors.length; i++) {
+                var btn = form.querySelector(selectors[i]);
+                if (btn) return btn;
+            }
+            return null;
+        }
+
+        function firstMainFormInContent(content) {
+            if (!content) return null;
+            var preferred = content.querySelector('form[data-cmd-s-primary="1"]');
+            if (preferred && !preferred.closest('[role="dialog"]') && !preferred.closest('.modal') && !preferred.hasAttribute('data-no-cmd-s')) {
+                return preferred;
+            }
+            var list = content.querySelectorAll('form');
+            for (var i = 0; i < list.length; i++) {
+                var f = list[i];
+                if (f.closest('[role="dialog"]') || f.closest('.modal')) continue;
+                if (f.hasAttribute('data-no-cmd-s')) continue;
+                return f;
+            }
+            return null;
+        }
+
+        function resolveFormForSave(active, content) {
+            if (!content) return null;
+            if (active && typeof active.closest === 'function') {
+                var fromFocus = active.closest('form');
+                if (fromFocus && !fromFocus.closest('[role="dialog"]') && !fromFocus.closest('.modal') && !fromFocus.hasAttribute('data-no-cmd-s')) {
+                    return fromFocus;
+                }
+            }
+            var websitePageForm = document.getElementById('website-page-form');
+            if (websitePageForm && content.contains(websitePageForm) && active) {
+                if (content.contains(active) || (active.tagName === 'IFRAME' && content.contains(active))) {
+                    return websitePageForm;
+                }
+            }
+            return firstMainFormInContent(content);
+        }
+
         document.addEventListener('keydown', function(e) {
-            var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
+            var isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.keyCode === 83 || e.which === 83);
             if (!isSave) return;
+
+            var path = window.location.pathname || '';
+            if (path.includes('/admin/login') || path.includes('/admin/meld/')) return;
+
+            var active = document.activeElement;
+            var content = document.getElementById('content');
+            var form = resolveFormForSave(active, content);
+            if (!form) return;
+
             e.preventDefault();
 
-            var content = document.getElementById('content');
-            if (!content) return;
-            var forms = content.querySelectorAll('form');
-            for (var i = 0; i < forms.length; i++) {
-                var form = forms[i];
-                if (form.closest('[role="dialog"]') || form.closest('.modal')) continue;
-                var btn = form.querySelector('button[type="submit"].kt-btn-primary');
-                if (!btn) btn = form.querySelector('button[type="submit"][class*="btn-primary"]');
-                if (!btn) continue;
-                var text = (btn.textContent || btn.innerText || '').trim();
-                var isSaveBtn = /opslaan|opsla|save|wijzigingen opslaan|template opslaan|gebruiker opslaan|vestiging opslaan|match opslaan|toevoegen/i.test(text) || form.id === 'website-page-form' || form.id === 'general-settings-form' || form.id === 'coming-soon-form';
-                if (isSaveBtn) {
+            var btn = findPrimarySubmitButton(form);
+            if (!btn) {
+                try {
                     if (typeof form.requestSubmit === 'function') {
-                        form.requestSubmit(btn);
+                        form.requestSubmit();
                     } else {
                         form.submit();
                     }
-                    return;
+                } catch (err) {}
+                return;
+            }
+
+            if (btn.disabled) btn.disabled = false;
+            try {
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit(btn);
+                } else {
+                    form.submit();
                 }
+            } catch (err) {
+                try { btn.disabled = false; btn.click(); } catch (e2) {}
             }
         });
     })();
     </script>
 
-    <!-- Success Banner Auto-Dismiss -->
+    <!-- Direct serverfout onder veld wissen bij typen/wijzigen (inline: werkt altijd, los van Vite-bundle) -->
     <script>
     (function() {
-        const successBanner = document.getElementById('success-banner');
-        if (successBanner) {
-            // Auto-dismiss after 5 seconds
+        function clearFieldServerError(el) {
+            if (!el || !el.classList) return;
+            /* Alleen Laravel/serverfouten wissen — niet client-side hint-rand (e-mail/telefoon) */
+            if (!el.hasAttribute('data-server-error')) return;
+
+            el.classList.remove('border-destructive');
+            el.removeAttribute('data-server-error');
+
+            var fieldName = el.getAttribute('name');
+            var cell = el.closest('td');
+
+            if (fieldName && cell) {
+                var esc = fieldName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                var byFor = cell.querySelector('[data-validation-error][data-validation-error-for="' + esc + '"]');
+                if (byFor) {
+                    byFor.remove();
+                    return;
+                }
+            }
+
+            var n = el.nextElementSibling;
+            while (n) {
+                if (n.nodeType === 1 && n.matches) {
+                    if (n.matches('input:not([type=hidden])') || n.matches('select') || n.matches('textarea')) {
+                        if (n !== el) break;
+                    }
+                    if (n.hasAttribute('data-validation-error')) {
+                        n.remove();
+                        return;
+                    }
+                }
+                n = n.nextElementSibling;
+            }
+
+            if (cell) {
+                var err = cell.querySelector('[data-validation-error]');
+                if (err) err.remove();
+            }
+        }
+
+        function onFieldEdit(e) {
+            var t = e.target;
+            if (!t || typeof t.closest !== 'function' || !t.closest('#content')) return;
+            var tag = (t.tagName || '').toUpperCase();
+            if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+            var type = (t.getAttribute('type') || '').toLowerCase();
+            if (type === 'hidden' || type === 'button' || type === 'submit' || type === 'reset') return;
+            clearFieldServerError(t);
+        }
+
+        document.addEventListener('input', onFieldEdit, true);
+        document.addEventListener('change', onFieldEdit, true);
+    })();
+    </script>
+
+    <!-- Scrollpositie na opslaan: standaard voor alle admin-pagina's -->
+    <script>
+    (function() {
+        var SCROLL_KEY = 'admin-scroll-after-save';
+        function saveScroll() {
+            try {
+                var y = window.scrollY || window.pageYOffset || 0;
+                sessionStorage.setItem(SCROLL_KEY, String(y));
+            } catch (err) {}
+        }
+        var scrollSaveTimer;
+        document.addEventListener('scroll', function() {
+            clearTimeout(scrollSaveTimer);
+            scrollSaveTimer = setTimeout(saveScroll, 150);
+        }, { passive: true });
+        document.addEventListener('submit', function(e) {
+            var form = e.target && e.target.tagName === 'FORM' ? e.target : (e.target && e.target.closest ? e.target.closest('form') : null);
+            if (form && (form.method === 'post' || form.method === 'POST') && form.action) {
+                saveScroll();
+            }
+        }, true);
+        function restoreScrollAfterSave() {
+            var justSaved = document.body && document.body.getAttribute('data-admin-just-saved') === '1';
+            var u;
+            try { u = window.location.href ? new URL(window.location.href) : null; } catch (e) { u = null; }
+            var hasSavedParam = u && (u.searchParams.get('saved') || u.searchParams.get('updated') || u.searchParams.get('created'));
+            if (!justSaved && !hasSavedParam) return;
+            try {
+                var saved = sessionStorage.getItem(SCROLL_KEY);
+                if (saved !== null) {
+                    var y = parseInt(saved, 10);
+                    if (!isNaN(y) && y >= 0) {
+                        function doScroll() { window.scrollTo(0, y); }
+                        doScroll();
+                        requestAnimationFrame(function() { doScroll(); });
+                        setTimeout(doScroll, 100);
+                        setTimeout(doScroll, 350);
+                        setTimeout(doScroll, 800);
+                        setTimeout(doScroll, 1500);
+                        setTimeout(function() { doScroll(); sessionStorage.removeItem(SCROLL_KEY); }, 2500);
+                    }
+                }
+            } catch (err) {}
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', restoreScrollAfterSave);
+        } else {
+            restoreScrollAfterSave();
+        }
+        window.addEventListener('load', function() {
+            restoreScrollAfterSave();
+        });
+    })();
+    </script>
+
+    <!-- Flash success: na 5s uitfaden en verwijderen (alle .kt-alert-success in #content) -->
+    <script>
+    (function() {
+        function fadeRemove(el) {
+            if (!el || !el.parentNode) return;
+            el.style.transition = 'opacity 0.35s ease';
+            el.style.opacity = '0';
             setTimeout(function() {
-                successBanner.classList.add('fade-out');
-                setTimeout(function() {
-                    successBanner.remove();
-                }, 300); // Match CSS transition duration
-            }, 5000); // 5 seconds
+                if (el.parentNode) el.parentNode.removeChild(el);
+            }, 350);
+        }
+        function init() {
+            var alerts = document.querySelectorAll('#content .kt-alert-success');
+            alerts.forEach(function(el) {
+                if (el.hasAttribute('data-no-auto-dismiss')) return;
+                setTimeout(function() { fadeRemove(el); }, 5000);
+            });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
         }
     })();
     </script>
@@ -492,6 +751,12 @@
             if (!url) return false;
             const urlStr = typeof url === 'string' ? url : (url.url || '');
             return urlStr.includes('/admin/login') || urlStr.includes('admin.login.post');
+        }
+
+        function isSessionCheckUrl(url) {
+            if (!url) return false;
+            const urlStr = typeof url === 'string' ? url : (url.url || '');
+            return urlStr.includes('session-check');
         }
 
         // Wait for jQuery to be available
@@ -556,6 +821,11 @@
 
             // Skip handling for login-related requests
             if (isLoginUrl(url)) {
+                return originalFetch.apply(this, args);
+            }
+
+            // Sessiecheck mag nooit globale login-redirect triggeren (route gebruikt alleen auth, geen rol).
+            if (isSessionCheckUrl(url)) {
                 return originalFetch.apply(this, args);
             }
 

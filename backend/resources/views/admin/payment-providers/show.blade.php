@@ -53,6 +53,16 @@
         border-color: rgba(239, 68, 68, 0.5) !important;
         color: #f87171 !important;
     }
+
+    .kt-card-table .payment-provider-show-table tr td {
+        vertical-align: middle !important;
+    }
+    .kt-card-table .payment-provider-show-table tr:first-child td {
+        padding-top: 0.5rem !important;
+    }
+    .kt-card-table .payment-provider-show-table tr:not(:first-child) td {
+        padding-top: 0.5rem !important;
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -90,6 +100,22 @@
                         {{ $paymentProvider->is_active ? 'Actief' : 'Inactief' }}
                     </span>
                 </div>
+                @if($scopedTenantCompany ?? $storedTenantCompany ?? $paymentProvider->company)
+                    @php $badgeCompany = $scopedTenantCompany ?? $storedTenantCompany ?? $paymentProvider->company; @endphp
+                    <div class="flex gap-1.25 items-center">
+                        <span class="kt-badge kt-badge-sm kt-badge-outline">
+                            {{ $badgeCompany->name }} (tenant #{{ $badgeCompany->id }})
+                        </span>
+                    </div>
+                @elseif($paymentProvider->company_id)
+                    <div class="flex gap-1.25 items-center">
+                        <span class="kt-badge kt-badge-sm kt-badge-outline">Tenant #{{ $paymentProvider->company_id }}</span>
+                    </div>
+                @else
+                    <div class="flex gap-1.25 items-center">
+                        <span class="kt-badge kt-badge-sm kt-badge-danger">Geen tenant</span>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -150,6 +176,53 @@
 <div class="kt-container-fixed">
     <!-- begin: grid -->
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-7.5">
+        <!-- Configuratie (API eerst, bovenaan) -->
+        <div class="kt-card">
+            <div class="kt-card-header">
+                <h3 class="kt-card-title">
+                    Configuratie
+                </h3>
+            </div>
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-show-table">
+                    <tbody>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal">
+                            API Key
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal">
+                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••••••••••••••••••••••</code>
+                            <small class="text-muted-foreground d-block mt-1">Versleuteld opgeslagen</small>
+                        </td>
+                    </tr>
+                    @if($paymentProvider->getConfigValue('webhook_url'))
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal pt-2">
+                            Webhook URL
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal pt-2">
+                            <a href="{{ $paymentProvider->getConfigValue('webhook_url') }}" target="_blank" class="text-primary hover:underline break-all">
+                                {{ $paymentProvider->getConfigValue('webhook_url') }}
+                            </a>
+                        </td>
+                    </tr>
+                    @endif
+                    @if($paymentProvider->getConfigValue('api_secret'))
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal pt-2">
+                            API Secret
+                        </td>
+                        <td class="min-w-48 w-full text-foreground font-normal pt-2">
+                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••••••••••••••••••••••</code>
+                            <small class="text-muted-foreground d-block mt-1">Versleuteld opgeslagen</small>
+                        </td>
+                    </tr>
+                    @endif
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Basis Informatie -->
         <div class="kt-card">
             <div class="kt-card-header">
@@ -157,8 +230,8 @@
                     Basis Informatie
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-show-table">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
                             Naam
@@ -213,51 +286,6 @@
             </div>
         </div>
 
-        <!-- Configuratie -->
-        <div class="kt-card">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    Configuratie
-                </h3>
-            </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                    <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">
-                            API Key
-                        </td>
-                        <td class="min-w-48 w-full text-foreground font-normal">
-                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••••••••••••••••••••••</code>
-                            <small class="text-muted-foreground d-block mt-1">Versleuteld opgeslagen</small>
-                        </td>
-                    </tr>
-                    @if($paymentProvider->getConfigValue('api_secret'))
-                    <tr>
-                        <td class="text-secondary-foreground font-normal">
-                            API Secret
-                        </td>
-                        <td class="text-foreground font-normal">
-                            <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••••••••••••••••••••••</code>
-                            <small class="text-muted-foreground d-block mt-1">Versleuteld opgeslagen</small>
-                        </td>
-                    </tr>
-                    @endif
-                    @if($paymentProvider->getConfigValue('webhook_url'))
-                    <tr>
-                        <td class="text-secondary-foreground font-normal">
-                            Webhook URL
-                        </td>
-                        <td class="text-foreground font-normal">
-                            <a href="{{ $paymentProvider->getConfigValue('webhook_url') }}" target="_blank" class="text-primary hover:underline break-all">
-                                {{ $paymentProvider->getConfigValue('webhook_url') }}
-                            </a>
-                        </td>
-                    </tr>
-                    @endif
-                </table>
-            </div>
-        </div>
-
         <!-- Systeem Informatie -->
         <div class="kt-card">
             <div class="kt-card-header">
@@ -265,8 +293,8 @@
                     Systeem Informatie
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-show-table">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
                             ID

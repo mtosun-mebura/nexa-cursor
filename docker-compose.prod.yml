@@ -1,34 +1,59 @@
+# Productie / staging: backend + PostgreSQL in Docker.
+# Geen `include` — compatibel met docker-compose v1 én `docker compose` v2 (AWS Lightsail).
+# DB-credentials en APP_KEY: repo-root .env (bind-mount). Compose zet alleen DB_HOST=db.
+# Lokaal/dev: docker-compose.yml includeert nog docker-compose.postgres.yml.
+
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-nexa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Zet DB_PASSWORD in .env (repo-root)}
+      POSTGRES_DB: ${DB_DATABASE:-nexa}
+    volumes:
+      - nexa_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${DB_USERNAME:-nexa}" -d "${DB_DATABASE:-nexa}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    container_name: nexa_backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8085:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: https://nexa.tosun.nl
-      APP_KEY: ${APP_KEY}
-
+      APP_URL: https://nexasuite.nl
       DB_CONNECTION: pgsql
-      DB_HOST: 192.168.178.249
-      DB_PORT: 5432
-      DB_DATABASE: nexa
-      DB_USERNAME: mtosun
-      DB_PASSWORD: ${DB_PASSWORD}     # inject via runner/host env of .env naast compose
+      DB_HOST: db
+      DB_PORT: "5432"
 
       N8N_URL: https://n8n.tosun.nl
       N8N_PORT: "5678"
       N8N_EMAIL: m.tosun@mebura.nl
-      N8N_PASSWORD: ${N8N_PASSWORD}   # idem
 
     volumes:
       - ./backend/storage:/var/www/html/storage
       - ./backend/bootstrap/cache:/var/www/html/bootstrap/cache
       - ./backend/public/build:/var/www/html/public/build
-      - ./.env:/var/www/html/.env  # .env file uit root naar container
+      - ./.env:/var/www/html/.env
+    dns:
+      - 127.0.0.11
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
 
     healthcheck:
@@ -36,3 +61,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+
+volumes:
+  nexa_postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-nexa}_postgres_data

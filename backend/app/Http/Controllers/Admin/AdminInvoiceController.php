@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
-use App\Models\PaymentReminder;
 use App\Models\Company;
 use App\Models\CompanyLocation;
 use App\Models\JobMatch;
+use App\Modules\NexaTaxi\Models\RidePayment;
+use App\Services\InvoicePdfService;
+use App\Services\InvoiceReminderService;
+use App\Support\AdminReturnUrl;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class AdminInvoiceController extends Controller
 {
@@ -21,7 +27,11 @@ class AdminInvoiceController extends Controller
             abort(403, 'Alleen super-admin heeft toegang tot facturen.');
         }
 
-        $query = Invoice::with(['company', 'jobMatch']);
+        $with = ['company'];
+        if ($this->matchesTableExists()) {
+            $with[] = 'jobMatch';
+        }
+        $query = Invoice::with($with);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -61,13 +71,15 @@ class AdminInvoiceController extends Controller
         }
 
         $companies = Company::where('is_active', true)->orderBy('name')->get();
-        $jobMatches = JobMatch::where('status', 'hired')
-            ->with(['company', 'vacancy', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->get();
         $settings = InvoiceSetting::getSettings();
+        $skillmatchingAvailable = $this->matchesTableExists();
 
-        return view('admin.invoices.create', compact('companies', 'jobMatches', 'settings'));
+        return view('admin.invoices.create', [
+            'companies' => $companies,
+            'jobMatches' => $this->loadJobMatchesForForm(),
+            'settings' => $settings,
+            'skillmatchingAvailable' => $skillmatchingAvailable,
+        ]);
     }
 
     public function store(Request $request)
@@ -78,7 +90,7 @@ class AdminInvoiceController extends Controller
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'job_match_id' => 'nullable|exists:matches,id',
+            ...$this->jobMatchValidationRules(),
             'amount' => 'required|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',
             'tax_amount' => 'required|numeric|min:0',
@@ -93,7 +105,11 @@ class AdminInvoiceController extends Controller
             'partial_number' => 'nullable|integer|min:1',
         ]);
 
-        $settings = InvoiceSetting::getSettings();
+        if (! $this->matchesTableExists()) {
+            $validated['job_match_id'] = null;
+        }
+
+        $settings = InvoiceSetting::getSettingsForCompany((int) $validated['company_id']);
         $taxRate = $validated['tax_rate'] ?? $settings->default_tax_rate;
         $amount = $validated['amount'];
         
@@ -177,16 +193,33 @@ class AdminInvoiceController extends Controller
             ->with('success', 'Factuur aangemaakt');
     }
 
-    public function show(Invoice $invoice)
+    public function show(Request $request, Invoice $invoice)
     {
         if (!auth()->user()->hasRole('super-admin')) {
             abort(403);
         }
 
-        $invoice->load(['company', 'jobMatch.candidate', 'jobMatch.vacancy', 'reminders', 'payments']);
+        $relations = ['company', 'reminders', 'payments'];
+        if ($this->matchesTableExists()) {
+            $relations[] = 'jobMatch.candidate';
+            $relations[] = 'jobMatch.vacancy';
+        }
+        $invoice->load($relations);
         $settings = InvoiceSetting::getSettings();
+        $defaultReminderEmail = app(InvoiceReminderService::class)->defaultRecipientEmail($invoice);
+        $paymentTermsDays = InvoiceSetting::paymentTermsDaysForInvoice($invoice);
+        $invoiceBackUrl = AdminReturnUrl::fromRequest(
+            $request->query('return'),
+            route('admin.invoices.index')
+        );
 
-        return view('admin.invoices.show', compact('invoice', 'settings'));
+        return view('admin.invoices.show', compact(
+            'invoice',
+            'settings',
+            'defaultReminderEmail',
+            'paymentTermsDays',
+            'invoiceBackUrl'
+        ));
     }
 
     public function edit(Invoice $invoice)
@@ -196,13 +229,16 @@ class AdminInvoiceController extends Controller
         }
 
         $companies = Company::where('is_active', true)->orderBy('name')->get();
-        $jobMatches = JobMatch::where('status', 'hired')
-            ->with(['company', 'vacancy', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->get();
         $settings = InvoiceSetting::getSettings();
+        $skillmatchingAvailable = $this->matchesTableExists();
 
-        return view('admin.invoices.edit', compact('invoice', 'companies', 'jobMatches', 'settings'));
+        return view('admin.invoices.edit', [
+            'invoice' => $invoice,
+            'companies' => $companies,
+            'jobMatches' => $this->loadJobMatchesForForm(),
+            'settings' => $settings,
+            'skillmatchingAvailable' => $skillmatchingAvailable,
+        ]);
     }
 
     public function update(Request $request, Invoice $invoice)
@@ -213,7 +249,7 @@ class AdminInvoiceController extends Controller
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
-            'job_match_id' => 'nullable|exists:matches,id',
+            ...$this->jobMatchValidationRules(),
             'amount' => 'required|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',
             'tax_amount' => 'required|numeric|min:0',
@@ -227,7 +263,13 @@ class AdminInvoiceController extends Controller
             'partial_number' => 'nullable|integer|min:1',
             'line_item_description' => 'required|string|max:255',
             'notes' => 'nullable|string',
+            'customer_name' => 'nullable|string|max:255',
+            'customer_email' => 'nullable|email|max:255',
         ]);
+
+        if (! $this->matchesTableExists()) {
+            $validated['job_match_id'] = null;
+        }
 
         $settings = InvoiceSetting::getSettings();
         $taxRate = $validated['tax_rate'] ?? $settings->default_tax_rate;
@@ -296,7 +338,7 @@ class AdminInvoiceController extends Controller
 
         $companyId = $request->input('company_id');
         
-        if (!$companyId) {
+        if (! $companyId || ! $this->matchesTableExists()) {
             return response()->json([]);
         }
 
@@ -327,71 +369,115 @@ class AdminInvoiceController extends Controller
         }));
     }
 
-    public function sendReminder(Invoice $invoice)
+    public function sendReminder(Request $request, Invoice $invoice, InvoiceReminderService $reminders)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403);
         }
 
-        $company = $invoice->company;
-        $email = $company->email ?? $company->contact_email ?? null;
-
-        if (!$email) {
-            return back()->with('error', 'Bedrijf heeft geen e-mailadres');
-        }
-
-        // Determine reminder type based on existing reminders
-        $existingReminders = $invoice->reminders()->count();
-        $reminderType = 'first';
-        if ($existingReminders == 1) {
-            $reminderType = 'second';
-        } elseif ($existingReminders >= 2) {
-            $reminderType = 'final';
-        }
-
-        // Create reminder record
-        $reminder = PaymentReminder::create([
-            'invoice_id' => $invoice->id,
-            'company_id' => $company->id,
-            'reminder_type' => $reminderType,
-            'sent_to_email' => $email,
-            'message' => 'Aanmaning voor factuur ' . $invoice->invoice_number,
-            'sent_at' => now(),
+        $validated = $request->validate([
+            'email' => 'required|email|max:255',
         ]);
 
-        // Send email (would use actual email template in production)
-        // Mail::to($email)->send(new PaymentReminderMail($invoice, $reminder));
+        try {
+            $reminder = $reminders->send($invoice, $validated['email']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()
+                ->withErrors($e->errors())
+                ->withInput()
+                ->with('error', collect($e->errors())->flatten()->first());
+        }
 
-        return back()->with('success', 'Aanmaning verstuurd naar ' . $email);
+        return back()->with('success', 'Aanmaning verstuurd naar '.$reminder->sent_to_email);
     }
 
-    public function generatePdf(Invoice $invoice)
+    public function downloadPdf(Invoice $invoice, InvoicePdfService $pdfService): Response
     {
-        if (!auth()->user()->hasRole('super-admin')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403);
         }
 
-        // PDF generation would be implemented here
-        // For now, return a placeholder
-        return response()->json([
-            'message' => 'PDF generatie wordt geïmplementeerd',
-            'invoice_number' => $invoice->invoice_number,
+        try {
+            $result = $pdfService->generateAndStore($invoice->fresh());
+            $bytes = $result['bytes'];
+        } catch (\Throwable $e) {
+            abort(500, 'PDF kon niet worden gemaakt: '.$e->getMessage());
+        }
+
+        $filename = 'factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
+
+        return response($bytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
         ]);
     }
 
     public function paymentLinks(Invoice $invoice)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403);
         }
 
+        $amountLabel = '€'.number_format((float) $invoice->total_amount, 2, ',', '.');
+
         $links = [
-            'tikkie' => $invoice->getPaymentLink('tikkie'),
-            'qr' => $invoice->getPaymentLink('qr'),
-            'bank' => $invoice->getPaymentLink('bank'),
+            [
+                'key' => 'tikkie',
+                'label' => 'Tikkie',
+                'url' => $invoice->getPaymentLink('tikkie'),
+                'hint' => 'Placeholder-link (nog geen Tikkie-koppeling)',
+            ],
+            [
+                'key' => 'qr',
+                'label' => 'QR-betaling',
+                'url' => $invoice->getPaymentLink('qr'),
+                'hint' => 'Generieke betaalpagina op dit platform',
+            ],
+            [
+                'key' => 'bank',
+                'label' => 'Bankoverschrijving',
+                'url' => $invoice->getPaymentLink('bank'),
+                'hint' => 'Instructiepagina bankbetaling',
+            ],
         ];
 
-        return response()->json($links);
+        $mollie = $this->openMollieCheckoutForInvoice($invoice);
+        if ($mollie) {
+            array_unshift($links, [
+                'key' => 'mollie',
+                'label' => 'Mollie (openstaande ritbetaling)',
+                'url' => $mollie,
+                'hint' => 'Actieve betaallink van de taxirit',
+            ]);
+        }
+
+        return response()->json([
+            'invoice_number' => $invoice->invoice_number,
+            'amount_label' => $amountLabel,
+            'status' => $invoice->status,
+            'is_paid' => $invoice->status === 'paid',
+            'links' => $links,
+        ]);
+    }
+
+    protected function openMollieCheckoutForInvoice(Invoice $invoice): ?string
+    {
+        if ($invoice->module !== Invoice::MODULE_TAXI || ! $invoice->module_reference_id) {
+            return null;
+        }
+
+        if (! Schema::hasTable('ride_payments')) {
+            return null;
+        }
+
+        $payment = RidePayment::query()
+            ->where('ride_request_id', (int) $invoice->module_reference_id)
+            ->where('status', RidePayment::STATUS_OPEN)
+            ->whereNotNull('checkout_url')
+            ->orderByDesc('id')
+            ->first();
+
+        return $payment?->checkout_url;
     }
 
     public function settings()
@@ -475,10 +561,48 @@ class AdminInvoiceController extends Controller
             'logo_path' => 'nullable|string|max:255',
         ]);
 
-        $settings = InvoiceSetting::getSettings();
+        $companyId = isset($validated['company_id']) ? (int) $validated['company_id'] : null;
+        $settings = InvoiceSetting::getSettingsForCompany($companyId > 0 ? $companyId : null);
         $settings->update($validated);
+
+        if ($companyId <= 0 && isset($validated['payment_terms_days'])) {
+            InvoiceSetting::query()
+                ->whereNotNull('company_id')
+                ->where('payment_terms_days', 30)
+                ->update(['payment_terms_days' => (int) $validated['payment_terms_days']]);
+        }
 
         return redirect()->route('admin.invoices.settings')
             ->with('success', 'Factuurinstellingen bijgewerkt');
+    }
+
+    protected function matchesTableExists(): bool
+    {
+        return Schema::hasTable('matches');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function jobMatchValidationRules(): array
+    {
+        if ($this->matchesTableExists()) {
+            return ['job_match_id' => 'nullable|exists:matches,id'];
+        }
+
+        return ['job_match_id' => 'nullable|integer'];
+    }
+
+    protected function loadJobMatchesForForm(): Collection
+    {
+        if (! $this->matchesTableExists()) {
+            return collect();
+        }
+
+        return JobMatch::query()
+            ->where('status', 'hired')
+            ->with(['company', 'vacancy', 'candidate'])
+            ->orderByDesc('created_at')
+            ->get();
     }
 }

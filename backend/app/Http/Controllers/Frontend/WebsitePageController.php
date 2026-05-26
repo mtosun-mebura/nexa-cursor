@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Vacancy;
 use App\Models\WebsitePage;
 use App\Services\EnvService;
+use App\Services\GoogleReviewsService;
+use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Config;
 use Illuminate\View\View;
 
 /**
@@ -23,10 +27,12 @@ class WebsitePageController extends Controller
         'jobs', 'dashboard', 'profile', 'matches', 'agenda', 'help', 'privacy', 'terms',
         'vacature-matching', 'favorites', 'verify-email', 'admin', 'storage', 'file',
         'demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7', 'demo8', 'demo9', 'demo10',
+        \App\Models\WebsitePage::CENTRAL_WELCOME_SLUG,
     ];
 
     public function __construct(
-        protected WebsiteBuilderService $websiteBuilder
+        protected WebsiteBuilderService $websiteBuilder,
+        protected ModuleDatabaseService $moduleDb
     ) {}
 
     /**
@@ -35,9 +41,10 @@ class WebsitePageController extends Controller
     public function showHome(Request $request): View
     {
         $page = $this->websiteBuilder->getHomePage();
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page);
     }
 
@@ -47,9 +54,10 @@ class WebsitePageController extends Controller
     public function showAbout(): View
     {
         $page = $this->websiteBuilder->getAboutPage();
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page);
     }
 
@@ -59,46 +67,64 @@ class WebsitePageController extends Controller
     public function showContact(): View
     {
         $page = $this->websiteBuilder->getContactPage();
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page, true);
     }
 
     /**
      * Toon een pagina op basis van slug (custom of module).
      */
+    /**
+     * Centrale NEXA-welkom (website builder), alleen bedoeld voor route / op niet-tenant hosts.
+     */
+    public function showCentralWelcome(WebsitePage $page): View
+    {
+        return $this->renderPage($page);
+    }
+
     public function showBySlug(string $slug): View
     {
         if (in_array(strtolower($slug), self::RESERVED_SLUGS, true)) {
             abort(404);
         }
         $page = $this->websiteBuilder->getPageBySlug($slug);
-        if (!$page) {
+        if (! $page) {
             abort(404);
         }
+
         return $this->renderPage($page);
     }
 
     /**
      * Render een WebsitePage met het actieve thema-layout.
      *
-     * @param bool $showContactForm Of het contactformulier onder de content getoond moet worden (voor page_type contact)
+     * @param  bool  $showContactForm  Of het contactformulier onder de content getoond moet worden (voor page_type contact)
      */
     protected function renderPage(WebsitePage $page, bool $showContactForm = false): View
     {
         $theme = $this->websiteBuilder->getThemeForPage($page);
         $menuPages = $this->websiteBuilder->getActiveMenuPages();
-        $branding = $this->websiteBuilder->getSiteBranding();
+        $branding = $this->websiteBuilder->getSiteBranding(
+            $this->websiteBuilder->getBrandingModuleNameForWebsitePage($page)
+        );
 
         $themeSlug = $theme ? $theme->slug : 'modern';
         $themeSettings = $theme ? $theme->getSettings() : [];
 
         $jobs = collect();
         $isHomePage = $page->page_type === 'home' || $page->slug === 'home';
-        if ($isHomePage) {
+        $moduleName = $page->module_name ?? null;
+        $isSkillmatchingModule = $moduleName !== null && strtolower((string) $moduleName) === 'skillmatching';
+        if ($isHomePage && $isSkillmatchingModule) {
             $rotationKey = floor(now()->timestamp / (2 * 3600));
             $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () {
+                if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+                    return collect();
+                }
+
                 return Vacancy::with(['company', 'category'])
                     ->where('is_active', true)
                     ->where(function ($q) {
@@ -115,12 +141,42 @@ class WebsitePageController extends Controller
         }
 
         $themeHasHomeSections = in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true);
+        $isRenderingHome = $page->page_type === 'home' || $page->slug === 'home';
         $useThemeHomeLayout = $themeHasHomeSections && (
-            !empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
+            ! empty($page->home_sections) || $isRenderingHome
         );
-        // Footer altijd van de home-pagina, zodat deze op elke pagina hetzelfde is (logo, kaart, links, copyright)
+        // Gebruik secties van de huidige pagina als die eigen home_sections heeft (o.a. modulepagina's);
+        // anders bij home de home-secties, anders secties van de hoofdpagina (footer e.d.).
         $homePage = $themeHasHomeSections ? $this->websiteBuilder->getHomePage() : null;
-        $homeSections = $homePage ? $homePage->getHomeSections() : ($useThemeHomeLayout ? $page->getHomeSections() : []);
+        $useCurrentPageSections = $useThemeHomeLayout && ($isRenderingHome || ! empty($page->home_sections));
+        $homeSections = $useCurrentPageSections
+            ? $page->getHomeSections()
+            : ($homePage ? $homePage->getHomeSections() : []);
+
+        if (! $isRenderingHome && $homePage && ! empty($homeSections['footer']['inherit_from_home'])) {
+            $homeFooterSections = $homePage->getHomeSections();
+            $homeSections['footer'] = $homeFooterSections['footer'] ?? [];
+            $homeSections['copyright'] = $homeFooterSections['copyright'] ?? ($homeSections['copyright'] ?? '');
+            $footerVisibilityKeys = ['footer', 'footer_logo', 'footer_tagline', 'footer_quick_links', 'footer_support_links', 'footer_social', 'footer_map'];
+            foreach ($footerVisibilityKeys as $k) {
+                if (array_key_exists($k, $homeFooterSections['visibility'] ?? [])) {
+                    $homeSections['visibility'][$k] = $homeFooterSections['visibility'][$k];
+                }
+            }
+            $sectionOrder = $homeSections['section_order'] ?? [];
+            if (is_array($sectionOrder) && ! in_array('footer', $sectionOrder, true)) {
+                $homeSections['section_order'] = array_merge(array_values($sectionOrder), ['footer']);
+            }
+        }
+        $templateConnection = null;
+        $moduleName = $page->module_name;
+        if ($moduleName && $this->moduleDb->supportsModuleDatabases()) {
+            $connName = $this->moduleDb->getModuleConnectionName($moduleName);
+            if (Config::has("database.connections.{$connName}")) {
+                $templateConnection = $connName;
+            }
+        }
+        $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections, $templateConnection);
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
         $env = app(EnvService::class);
@@ -136,6 +192,17 @@ class WebsitePageController extends Controller
         }
         $googleMapsMapId = $env->getGoogleMapsMapId();
 
+        $reviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage($page);
+        $googleReviews = $useThemeHomeLayout
+            ? app(GoogleReviewsService::class)->getReviews($reviewsCompanyId)
+            : [];
+
+        try {
+            $infoRequestFormFields = \App\Models\InfoRequestFormField::ordered()->get();
+        } catch (\Throwable $e) {
+            $infoRequestFormFields = collect();
+        }
+
         return view('frontend.website.page', [
             'page' => $page,
             'theme' => $theme,
@@ -147,9 +214,12 @@ class WebsitePageController extends Controller
             'jobs' => $jobs,
             'useModernHomeLayout' => $useThemeHomeLayout,
             'homeSections' => $homeSections,
+            'emailTemplateBySectionKey' => $emailTemplateBySectionKey,
+            'infoRequestFormFields' => $infoRequestFormFields,
             'loadAtomV2Styles' => $loadAtomV2Styles,
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
+            'googleReviews' => $googleReviews,
         ]);
     }
 
@@ -167,11 +237,11 @@ class WebsitePageController extends Controller
             $paths[] = $backendEnv;
         }
         foreach ($paths as $path) {
-            if (!is_readable($path)) {
+            if (! is_readable($path)) {
                 continue;
             }
             $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if (!is_array($lines)) {
+            if (! is_array($lines)) {
                 continue;
             }
             foreach ($lines as $line) {
@@ -179,16 +249,18 @@ class WebsitePageController extends Controller
                 if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) {
                     continue;
                 }
-                list($k, $value) = explode('=', $line, 2);
+                [$k, $value] = explode('=', $line, 2);
                 if (trim($k) === $keyName) {
                     $value = trim($value);
                     if (strlen($value) >= 2 && ($value[0] === '"' && $value[strlen($value) - 1] === '"' || $value[0] === "'" && $value[strlen($value) - 1] === "'")) {
                         $value = substr($value, 1, -1);
                     }
+
                     return trim($value);
                 }
             }
         }
+
         return '';
     }
 }

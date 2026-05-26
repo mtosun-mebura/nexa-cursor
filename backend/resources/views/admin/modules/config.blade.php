@@ -57,25 +57,28 @@
         color: #e5e7eb !important;
         border-color: rgba(255, 255, 255, 0.2) !important;
     }
+
+    /* Meer ruimte boven card headers op deze pagina */
+    .module-config-form .kt-card-header {
+        padding-top: 1.5rem;
+    }
 </style>
 @endpush
 
 @section('content')
 
 <div class="kt-container-fixed">
-    <div class="flex flex-col gap-5 pb-7.5">
-        <div class="flex flex-wrap items-center justify-between gap-5">
-            <div class="flex items-center gap-3">
-                <i class="{{ $module->getIcon() }} text-2xl text-primary"></i>
-                <div>
-                    <h1 class="text-xl font-medium leading-none text-mono">
-                        {{ $module->getDisplayName() }}
-                    </h1>
-                    <p class="text-sm text-muted-foreground mt-0.5">Onderdelen in sidebar selecteren</p>
-                </div>
+    <div class="pb-7.5">
+        <div class="flex items-center gap-3">
+            <i class="{{ $module->getIcon() }} text-2xl text-primary"></i>
+            <div>
+                <h1 class="text-xl font-medium leading-none text-mono">
+                    {{ $module->getDisplayName() }}
+                </h1>
+                <p class="text-sm text-muted-foreground mt-0.5">Onderdelen in sidebar en applicatie-instellingen</p>
             </div>
         </div>
-        <div class="flex items-center">
+        <div class="pt-3">
             <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
@@ -83,7 +86,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.modules.config.store', $moduleName) }}" method="POST">
+    <form action="{{ route('admin.modules.config.store', $moduleName) }}" method="POST" class="module-config-form">
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
@@ -102,6 +105,42 @@
                     {{ session('error') }}
                 </div>
             @endif
+
+            <!-- Applicatie naam en omschrijving (meta, header, logo's) -->
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Applicatie</h3>
+                    <p class="text-sm text-muted-foreground mt-1">Naam en omschrijving van de applicatie voor deze module. Wordt gebruikt in meta-tags, header en als alt-tekst bij het logo zodra de module actief is.</p>
+                </div>
+                <div class="kt-card-content">
+                    <div class="mb-6">
+                        <label for="app_name" class="kt-form-label mb-2">Naam van de applicatie</label>
+                        <input type="text" name="app_name" id="app_name" class="kt-input w-full max-w-md" value="{{ old('app_name', $app_name ?? '') }}" placeholder="{{ config('app.name') }}">
+                        <p class="text-xs text-muted-foreground mt-1">Wordt o.a. getoond in de footer, in de titel en als alt-tekst bij het logo.</p>
+                    </div>
+                    <div class="mb-6">
+                        <label for="app_description" class="kt-form-label mb-2">Omschrijving</label>
+                        <textarea name="app_description" id="app_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('app_description', $app_description ?? '') }}</textarea>
+                        <p class="text-xs text-muted-foreground mt-1">Gebruikt o.a. in meta description voor zoekmachines.</p>
+                    </div>
+                    @php
+                        $dashOld = old('dashboard_link_visible', $dashboard_link_visible ?? false);
+                        $dashChecked = $dashOld === true || $dashOld === 1 || $dashOld === '1' || $dashOld === 'true';
+                    @endphp
+                    <div class="mb-6 flex flex-wrap items-center gap-3">
+                        <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
+                        {{-- Eén POST-veld: hidden. kt-switch + dubbele name= veroorzaakte array/false boolean in Laravel → sleutel werd nooit betrouwbaar opgeslagen. --}}
+                        <input type="hidden" name="dashboard_link_visible" id="dashboard_link_visible_hidden" value="{{ $dashChecked ? '1' : '0' }}">
+                        <input type="checkbox" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ $dashChecked ? 'checked' : '' }} autocomplete="off">
+                        <span class="text-sm text-muted-foreground">Toon de knop in de header die naar het dashboard gaat.</span>
+                    </div>
+                    <div class="mb-6">
+                        <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
+                        <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboard_link_label ?? 'Mijn Nexa') }}" placeholder="Mijn Nexa">
+                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header (bijv. "Mijn Nexa", "Mijn omgeving").</p>
+                    </div>
+                </div>
+            </div>
 
             <!-- Module Configuratie -->
             <div class="kt-card min-w-full">
@@ -152,17 +191,11 @@
                         </table>
                     @endif
                 </div>
-                @if(!empty($availableItems))
-                    <div class="kt-card-footer flex items-center justify-end gap-2 pt-3">
-                        <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">
-                            Annuleren
-                        </a>
-                        <button type="submit" class="kt-btn kt-btn-primary">
-                            <i class="ki-filled ki-check me-2"></i>
-                            Opslaan
-                        </button>
-                    </div>
-                @endif
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5">
+                <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">Annuleren</a>
+                <button type="submit" class="kt-btn kt-btn-primary"><i class="ki-filled ki-check me-2"></i>Opslaan</button>
             </div>
 
             <!-- Info Card -->
@@ -184,5 +217,19 @@
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    var form = document.querySelector('form.module-config-form');
+    var cb = document.getElementById('dashboard_link_visible');
+    var hidden = document.getElementById('dashboard_link_visible_hidden');
+    if (!form || !cb || !hidden) return;
+    function syncDashboardHidden() {
+        hidden.value = cb.checked ? '1' : '0';
+    }
+    cb.addEventListener('change', syncDashboardHidden);
+    form.addEventListener('submit', syncDashboardHidden);
+})();
+</script>
 
 @endsection

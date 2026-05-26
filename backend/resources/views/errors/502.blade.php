@@ -146,7 +146,7 @@
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
     <div class="error-container">
         <div class="logo-container">
-            <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="NEXA Skillmatching" class="mx-auto">
+            <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="mx-auto">
         </div>
         
         <div class="error-icon">

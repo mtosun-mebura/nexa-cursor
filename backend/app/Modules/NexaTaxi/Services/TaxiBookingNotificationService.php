@@ -1,0 +1,241 @@
+<?php
+
+namespace App\Modules\NexaTaxi\Services;
+
+use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Services\EnvService;
+use App\Services\WhatsAppBusinessService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+
+class TaxiBookingNotificationService
+{
+    public function __construct(
+        protected EnvService $env,
+        protected WhatsAppBusinessService $whatsapp,
+        protected TaxiBookingSummaryText $summaryText,
+        protected TaxiDriverEligibilityService $drivers,
+        protected TaxiDispatchSettingsService $dispatchSettings,
+        protected TaxiRideNotificationLogService $notificationLogs
+    ) {}
+
+    /**
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>}  $context
+     */
+    public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
+    {
+        $companyId = (int) ($ride->company_id ?? 0);
+        $summary = $this->summaryText->build($ride, $context);
+
+        $settingsCompanyId = $companyId > 0 ? $companyId : null;
+        $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary);
+        $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
+    }
+
+    public function whatsappAutoSendEnabled(?int $companyId = null): bool
+    {
+        if (! $this->whatsapp->isConfigured()) {
+            return false;
+        }
+
+        if (! $this->dispatchSettings->bookingWhatsappEnabled($companyId)) {
+            return false;
+        }
+
+        return $this->dispatchSettings->bookingWhatsappNumber($companyId) !== '';
+    }
+
+    public function whatsappClientClickToChatEnabled(?int $companyId = null): bool
+    {
+        if ($this->whatsappAutoSendEnabled($companyId)) {
+            return false;
+        }
+
+        if (! $this->dispatchSettings->bookingWhatsappClickToChatEnabled($companyId)) {
+            return false;
+        }
+
+        return $this->dispatchSettings->bookingWhatsappNumber($companyId) !== '';
+    }
+
+    private function sendDispatchWhatsapp(string $conn, RideRequest $ride, ?int $companyId, string $summary): void
+    {
+        $rideId = (int) $ride->id;
+
+        if (! $this->dispatchSettings->bookingWhatsappEnabled($companyId)) {
+            $this->notificationLogs->recordWhatsappSkipped(
+                $conn,
+                $rideId,
+                'WhatsApp bij boeking staat uit in chauffeur-dispatch.'
+            );
+
+            return;
+        }
+
+        if (! $this->whatsapp->isConfigured()) {
+            $this->notificationLogs->recordWhatsappSkipped(
+                $conn,
+                $rideId,
+                'WhatsApp Business API is niet geconfigureerd op de server.'
+            );
+
+            return;
+        }
+
+        $recipient = $this->dispatchSettings->bookingWhatsappNumber($companyId);
+        if ($recipient === '') {
+            $this->notificationLogs->recordWhatsappSkipped(
+                $conn,
+                $rideId,
+                'Geen WhatsApp-ontvangernummer ingesteld.'
+            );
+            Log::warning('WhatsApp boeking: geen ontvangernummer geconfigureerd.', [
+                'company_id' => $companyId,
+                'ride_request_id' => $rideId,
+            ]);
+
+            return;
+        }
+
+        $result = $this->whatsapp->sendText($recipient, $summary);
+        if ($result['ok'] ?? false) {
+            $this->notificationLogs->recordWhatsappSent($conn, $rideId, $recipient, $result['meta'] ?? null);
+        } else {
+            $error = (string) ($result['error'] ?? 'Onbekende fout');
+            $this->notificationLogs->recordWhatsappFailed($conn, $rideId, $recipient, $error);
+            Log::warning('WhatsApp boeking: bericht niet verzonden.', [
+                'ride_request_id' => $rideId,
+                'error' => $error,
+            ]);
+        }
+    }
+
+    private function sendDriverEmails(
+        string $conn,
+        int $companyId,
+        RideRequest $ride,
+        string $summary,
+        ?int $settingsCompanyId
+    ): void {
+        $rideId = (int) $ride->id;
+
+        if ($companyId <= 0) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                $rideId,
+                'Geen bedrijf gekoppeld aan deze rit.'
+            );
+
+            return;
+        }
+
+        if (! $this->dispatchSettings->bookingDriverEmailEnabled($settingsCompanyId)) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                $rideId,
+                'E-mail naar chauffeurs staat uit in chauffeur-dispatch.'
+            );
+
+            return;
+        }
+
+        $recipients = $this->drivers
+            ->buildChauffeurQuery($companyId)
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->get(['id', 'email', 'first_name', 'last_name']);
+
+        if ($recipients->isEmpty()) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                $rideId,
+                'Geen chauffeurs met een geldig e-mailadres gevonden.'
+            );
+
+            return;
+        }
+
+        $this->env->applyMailConfigToRuntime();
+        $from = $this->env->resolveMailFromHeaders();
+        $fromAddress = $from['from_address'];
+        $fromName = $from['from_name'];
+        $smtpUsername = $from['smtp_username'];
+        $subject = 'Nieuwe taxirit #'.$ride->id;
+        $pickupAt = $ride->pickup_at
+            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+            : '—';
+
+        foreach ($recipients as $driver) {
+            $email = trim((string) $driver->email);
+            $driverName = trim(($driver->first_name ?? '').' '.($driver->last_name ?? ''));
+            if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $this->notificationLogs->recordDriverEmailFailed(
+                    $conn,
+                    $rideId,
+                    (int) $driver->id,
+                    $driverName !== '' ? $driverName : 'Chauffeur #'.$driver->id,
+                    $email,
+                    'Ongeldig e-mailadres.'
+                );
+
+                continue;
+            }
+
+            try {
+                Mail::send('emails.taxi-ride-request-driver', [
+                    'driver_name' => $driverName,
+                    'ride_id' => $ride->id,
+                    'pickup_at' => $pickupAt,
+                    'pickup_address' => $ride->pickup_address,
+                    'dropoff_address' => $ride->dropoff_address,
+                    'customer_name' => $ride->customer_name,
+                    'customer_phone' => $ride->customer_phone,
+                    'customer_email' => $ride->customer_email,
+                    'quoted_price' => $ride->quoted_price,
+                    'summary_text' => $summary,
+                ], function ($mailMessage) use ($email, $driverName, $subject, $fromAddress, $fromName, $smtpUsername, $ride) {
+                    $mailMessage->to($email, $driverName)
+                        ->subject($subject)
+                        ->from($fromAddress, $fromName);
+
+                    if ($ride->customer_email) {
+                        $mailMessage->replyTo($ride->customer_email, (string) ($ride->customer_name ?: ''));
+                    }
+
+                    if ($smtpUsername !== '') {
+                        try {
+                            $symfonyMessage = $mailMessage->getSymfonyMessage();
+                            $symfonyMessage->getHeaders()->remove('Sender');
+                            $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $smtpUsername);
+                        } catch (\Throwable) {
+                            // Sender header is optioneel
+                        }
+                    }
+                });
+
+                $this->notificationLogs->recordDriverEmailSent(
+                    $conn,
+                    $rideId,
+                    (int) $driver->id,
+                    $driverName !== '' ? $driverName : 'Chauffeur #'.$driver->id,
+                    $email
+                );
+            } catch (\Throwable $e) {
+                $this->notificationLogs->recordDriverEmailFailed(
+                    $conn,
+                    $rideId,
+                    (int) $driver->id,
+                    $driverName !== '' ? $driverName : 'Chauffeur #'.$driver->id,
+                    $email,
+                    $e->getMessage()
+                );
+                Log::warning('Chauffeur-e-mail rit niet verzonden.', [
+                    'ride_request_id' => $rideId,
+                    'driver_id' => $driver->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+}

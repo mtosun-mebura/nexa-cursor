@@ -32,7 +32,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.frontend-themes.update', $frontend_theme) }}" method="POST">
+    <form action="{{ route('admin.frontend-themes.update', $frontend_theme) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -202,4 +202,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

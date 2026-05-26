@@ -3,92 +3,76 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Payment;
-use App\Models\Invoice;
-use App\Models\JobMatch;
+use App\Models\Company;
+use App\Services\AdminPaymentOverviewService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AdminPaymentController extends Controller
 {
+    public function __construct(
+        protected AdminPaymentOverviewService $paymentOverview
+    ) {}
+
     public function index()
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admin heeft toegang tot betalingen.');
-        }
+        $this->ensureSuperAdmin();
+
+        $tenantRows = $this->paymentOverview->tenantSummaries();
+        $totals = $this->paymentOverview->globalTotals();
+
+        $paymentStats = [
+            'pending' => $totals['open'],
+            'paid' => $totals['paid'],
+            'total' => $totals['total'],
+        ];
 
         $stats = [
-            'total_payments' => Payment::count(),
-            'pending_payments' => Payment::where('status', 'pending')->count(),
-            'paid_payments' => Payment::where('status', 'paid')->count(),
-            'total_revenue' => Payment::where('status', 'paid')->sum('amount'),
-            'pending_revenue' => Payment::where('status', 'pending')->sum('amount'),
-        ];
-        
-        $paymentStats = [
-            'pending' => $stats['pending_payments'],
-            'paid' => $stats['paid_payments'],
-            'total' => $stats['total_payments'],
+            'total_payments' => $totals['total'],
+            'pending_payments' => $totals['open'],
+            'paid_payments' => $totals['paid'],
+            'total_revenue' => $totals['paid_amount'],
+            'pending_revenue' => $totals['open_amount'],
         ];
 
-        return view('admin.payments.index', compact('stats', 'paymentStats'));
+        return view('admin.payments.index', compact('stats', 'paymentStats', 'tenantRows'));
     }
 
     public function openstaand(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admin heeft toegang tot betalingen.');
-        }
+        $this->ensureSuperAdmin();
 
-        $query = Payment::with(['company', 'jobMatch', 'invoice'])
-            ->where('status', 'pending');
+        $companyId = $request->filled('company_id') ? (int) $request->input('company_id') : null;
+        $search = $request->filled('search') ? trim((string) $request->input('search')) : null;
 
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->whereHas('company', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            });
-        }
+        $payments = $this->paymentOverview->paginateOpenPayments($companyId, $search, 25);
+        $filterCompany = $companyId ? Company::query()->find($companyId) : null;
+        $tenantRows = $this->paymentOverview->tenantSummaries();
 
-        $payments = $query->orderBy('created_at', 'desc')->paginate(25);
-
-        return view('admin.payments.openstaand', compact('payments'));
+        return view('admin.payments.openstaand', compact('payments', 'filterCompany', 'tenantRows'));
     }
 
     public function voldaan(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
+        $this->ensureSuperAdmin();
+
+        $companyId = $request->filled('company_id') ? (int) $request->input('company_id') : null;
+        $search = $request->filled('search') ? trim((string) $request->input('search')) : null;
+
+        $payments = $this->paymentOverview->paginatePaidPayments($companyId, $search, 25);
+        $filterCompany = $companyId ? Company::query()->find($companyId) : null;
+        $tenantRows = $this->paymentOverview->tenantSummaries();
+
+        $chart = $this->paymentOverview->revenueChartForPaid($companyId, 12);
+        $chartLabels = $chart['labels'];
+        $chartData = $chart['data'];
+
+        return view('admin.payments.voldaan', compact('payments', 'filterCompany', 'tenantRows', 'chartLabels', 'chartData'));
+    }
+
+    private function ensureSuperAdmin(): void
+    {
+        if (! auth()->user()->hasRole('super-admin')) {
             abort(403, 'Alleen super-admin heeft toegang tot betalingen.');
         }
-
-        $query = Payment::with(['company', 'jobMatch', 'invoice'])
-            ->where('status', 'paid');
-
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->whereHas('company', function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            });
-        }
-
-        $payments = $query->orderBy('paid_at', 'desc')->paginate(25);
-
-        // Revenue chart data (last 12 months)
-        $revenueData = Payment::where('status', 'paid')
-            ->select(
-                DB::raw("TO_CHAR(paid_at, 'YYYY-MM') as month"),
-                DB::raw('SUM(amount) as total')
-            )
-            ->where('paid_at', '>=', now()->subMonths(12))
-            ->groupBy(DB::raw("TO_CHAR(paid_at, 'YYYY-MM')"))
-            ->orderBy('month')
-            ->get();
-
-        $chartLabels = $revenueData->pluck('month')->toArray();
-        $chartData = $revenueData->pluck('total')->toArray();
-
-        return view('admin.payments.voldaan', compact('payments', 'chartLabels', 'chartData'));
     }
 }

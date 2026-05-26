@@ -102,11 +102,14 @@
                                        type="number" 
                                        name="current_year" 
                                        id="current_year"
-                                       value="{{ old('current_year', $settings->current_year) }}"
+                                       value="{{ old('current_year', $settings->suggestedCurrentYear()) }}"
                                        min="2020"
                                        max="2100"
                                        style="width: 13ch;"
                                        required>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Standaard {{ now()->year }} (lopend kalenderjaar). Pas handmatig aan indien nodig en sla op.
+                                </div>
                                 @error('current_year')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -211,26 +214,22 @@
                                         <option value="">Selecteer bedrijf</option>
                                         @foreach($companies as $company)
                                             @php
-                                                $hasMainAddress = $company->street || $company->city;
                                                 $hasLocations = $company->locations && $company->locations->count() > 0;
                                             @endphp
-                                            
-                                            @if($hasMainAddress || $hasLocations)
-                                                <option value="{{ $company->id }}" 
-                                                        data-company-name="{{ $company->name }}"
-                                                        data-company-id="{{ $company->id }}"
-                                                        data-has-locations="{{ $hasLocations ? '1' : '0' }}"
-                                                        data-address="{{ trim(($company->street ?? '') . ' ' . ($company->house_number ?? '') . ($company->house_number_extension ? '-' . $company->house_number_extension : '')) }}"
-                                                        data-city="{{ $company->city ?? '' }}"
-                                                        data-postal-code="{{ $company->postal_code ?? '' }}"
-                                                        data-country="{{ $company->country ?? '' }}"
-                                                        data-email="{{ $company->email ?? '' }}"
-                                                        data-phone="{{ $company->phone ?? '' }}"
-                                                        data-vat-number="{{ $company->kvk_number ?? '' }}"
-                                                        {{ old('company_id', $settings->company_id ?? '') == $company->id ? 'selected' : '' }}>
-                                                    {{ $company->name }}
-                                                </option>
-                                            @endif
+                                            <option value="{{ $company->id }}"
+                                                    data-company-name="{{ $company->name }}"
+                                                    data-company-id="{{ $company->id }}"
+                                                    data-has-locations="{{ $hasLocations ? '1' : '0' }}"
+                                                    data-address="{{ trim(($company->street ?? '') . ' ' . ($company->house_number ?? '') . ($company->house_number_extension ? '-' . $company->house_number_extension : '')) }}"
+                                                    data-city="{{ $company->city ?? '' }}"
+                                                    data-postal-code="{{ $company->postal_code ?? '' }}"
+                                                    data-country="{{ $company->country ?? '' }}"
+                                                    data-email="{{ $company->email ?? '' }}"
+                                                    data-phone="{{ $company->phone ?? '' }}"
+                                                    data-vat-number="{{ $company->kvk_number ?? '' }}"
+                                                    {{ old('company_id', $settings->company_id ?? '') == $company->id ? 'selected' : '' }}>
+                                                {{ $company->name }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>

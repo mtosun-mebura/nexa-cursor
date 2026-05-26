@@ -34,7 +34,7 @@
 
 <div class="kt-container-fixed">
     <div class="flex flex-col items-stretch grow">
-        <form action="{{ route('admin.interviews.store') }}" method="POST" class="flex flex-col gap-5 lg:gap-7.5" novalidate>
+        <form action="{{ route('admin.interviews.store') }}" method="POST" class="flex flex-col gap-5 lg:gap-7.5" novalidate data-validate="true">
             @csrf
             @if(isset($prefilledData['notification_id']) && $prefilledData['notification_id'])
                 <input type="hidden" name="notification_id" value="{{ $prefilledData['notification_id'] }}">
@@ -714,6 +714,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize datepicker elements

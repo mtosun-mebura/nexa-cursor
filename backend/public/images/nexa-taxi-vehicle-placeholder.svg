@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="240" viewBox="0 0 440 240" role="img" aria-label="Geen voertuigfoto">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8ecf1"/>
+      <stop offset="100%" style="stop-color:#d4dbe5"/>
+    </linearGradient>
+  </defs>
+  <rect width="440" height="240" fill="url(#bg)"/>
+  <rect x="24" y="24" width="392" height="192" rx="16" fill="#f4f6f9" stroke="#c5cdd8" stroke-width="2"/>
+  <!-- road -->
+  <rect x="40" y="168" width="360" height="28" rx="6" fill="#9aa5b5"/>
+  <rect x="60" y="180" width="48" height="4" rx="2" fill="#e8ecf1"/>
+  <rect x="140" y="180" width="48" height="4" rx="2" fill="#e8ecf1"/>
+  <rect x="220" y="180" width="48" height="4" rx="2" fill="#e8ecf1"/>
+  <rect x="300" y="180" width="48" height="4" rx="2" fill="#e8ecf1"/>
+  <!-- car body -->
+  <path fill="#5b6b82" d="M88 148h264c8 0 14 6 14 14v8c0 6-5 11-11 11H85c-6 0-11-5-11-11v-8c0-8 6-14 14-14z"/>
+  <path fill="#7a8a9e" d="M118 108h204c10 0 18 8 20 18l8 22H90l8-22c2-10 10-18 20-18z"/>
+  <rect x="128" y="118" width="52" height="28" rx="4" fill="#a8b8cc"/>
+  <rect x="260" y="118" width="52" height="28" rx="4" fill="#a8b8cc"/>
+  <!-- wheels -->
+  <circle cx="130" cy="176" r="22" fill="#2d3748"/>
+  <circle cx="130" cy="176" r="10" fill="#718096"/>
+  <circle cx="310" cy="176" r="22" fill="#2d3748"/>
+  <circle cx="310" cy="176" r="10" fill="#718096"/>
+  <!-- subtle label -->
+  <text x="220" y="52" text-anchor="middle" fill="#8a96a8" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">Geen foto</text>
+</svg>

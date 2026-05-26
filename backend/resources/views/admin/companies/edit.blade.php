@@ -19,13 +19,19 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
         @csrf
         @method('PUT')
-        <input type="hidden" name="is_active" id="is_active_hidden" value="{{ old('is_active', $company->is_active) ? '1' : '0' }}">
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
+
+            @if(session('error'))
+                <div class="kt-alert kt-alert-danger" role="alert">
+                    <i class="ki-filled ki-cross-circle me-2"></i>
+                    {{ session('error') }}
+                </div>
+            @endif
 
             <!-- General Info -->
             <div class="kt-card min-w-full">
@@ -35,7 +41,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Bedrijfsnaam *
@@ -51,44 +57,99 @@
                                 @enderror
                             </td>
                         </tr>
+                        @php
+                            $formLogoMode = old('company_logo_mode', ! empty($company->logo_dark_blob) ? 'light_dark' : 'single');
+                            $hasFormLogo = (bool) $company->logo_blob;
+                            $hasFormLogoDark = ! empty($company->logo_dark_blob);
+                            $useFormLightDark = $formLogoMode === 'light_dark';
+                            $formLightUrl = $hasFormLogo ? route('admin.companies.logo', $company) : null;
+                            $formDarkUrl = ($hasFormLogo && $useFormLightDark && $hasFormLogoDark)
+                                ? route('admin.companies.logo.dark', $company)
+                                : $formLightUrl;
+                        @endphp
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">
-                                Bedrijfslogo
-                            </td>
-                            <td>
-                                <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full">
-                                    <img alt="Company Logo" class="h-[35px] mt-2 {{ $company->logo_blob ? '' : 'hidden' }}" src="{{ $company->logo_blob ? route('admin.companies.logo', $company) : '' }}" id="logo-preview"/>
-                                    <div class="flex bg-center w-full p-5 lg:p-7 bg-no-repeat bg-[length:550px] border border-input rounded-xl border-dashed branding-bg" id="logo-upload-area">
-                                        <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full">
-                                            <div class="flex items-center mb-2.5">
-                                                <div class="relative size-11 shrink-0">
-                                                    <svg class="w-full h-full stroke-primary/10 fill-light" fill="none" height="48" viewbox="0 0 44 48" width="44" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M16 2.4641C19.7128 0.320509 24.2872 0.320508 28 2.4641L37.6506 8.0359C41.3634 10.1795 43.6506 14.141 43.6506 18.4282V29.5718C43.6506 33.859 41.3634 37.8205 37.6506 39.9641L28 45.5359C24.2872 47.6795 19.7128 47.6795 16 45.5359L6.34937 39.9641C2.63655 37.8205 0.349365 33.859 0.349365 29.5718V18.4282C0.349365 14.141 2.63655 10.1795 6.34937 8.0359L16 2.4641Z" fill=""></path>
-                                                        <path d="M16.25 2.89711C19.8081 0.842838 24.1919 0.842837 27.75 2.89711L37.4006 8.46891C40.9587 10.5232 43.1506 14.3196 43.1506 18.4282V29.5718C43.1506 33.6804 40.9587 37.4768 37.4006 39.5311L27.75 45.1029C24.1919 47.1572 19.8081 47.1572 16.25 45.1029L6.59937 39.5311C3.04125 37.4768 0.849365 33.6803 0.849365 29.5718V18.4282C0.849365 14.3196 3.04125 10.5232 6.59937 8.46891L16.25 2.89711Z" stroke="" stroke-opacity="0.2"></path>
-                                                    </svg>
-                                                    <div class="absolute leading-none left-2/4 top-2/4 -translate-y-2/4 -translate-x-2/4">
-                                                        <i class="ki-filled ki-picture text-xl ps-px text-primary"></i>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="logo-upload-link">
-                                                Klik of Sleep & Drop
-                                            </a>
-                                            <span class="text-xs text-secondary-foreground text-nowrap">
-                                                SVG, PNG, JPG (max. 800x400)
-                                            </span>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo</td>
+                            <td class="min-w-48 w-full align-top">
+                                <input type="hidden" name="company_logo_mode" id="company-form-logo-mode-input" value="{{ $formLogoMode }}">
+
+                                <div class="mb-0">
+                                    <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
+                                    <div class="flex flex-col gap-2 mb-4">
+                                        <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <input type="checkbox" id="company-form-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $formLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
+                                            <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
                                         </div>
                                     </div>
-                                    <input type="file" 
-                                           name="logo" 
-                                           id="logo-input" 
-                                           accept="image/svg+xml,image/png,image/jpeg,image/jpg"
-                                           class="hidden">
+
+                                    @if($formLightUrl)
+                                        <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
+                                        <div class="flex items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                                            <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $formLightUrl }}" id="company-form-live-preview-light" />
+                                            <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $formDarkUrl }}" id="company-form-live-preview-dark" />
+                                        </div>
+                                    @endif
+
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
+                                    <div class="max-w-96 w-full">
+                                        @include('admin.partials.image-upload-dropzone-inline', [
+                                            'name' => 'logo',
+                                            'inputId' => 'company-form-logo-input',
+                                            'previewId' => 'company-form-logo-preview',
+                                            'areaId' => 'company-form-logo-upload-area',
+                                            'linkId' => 'company-form-logo-upload-link',
+                                            'removeBtnId' => 'company-form-logo-remove',
+                                            'existingUrl' => $company->logo_blob ? route('admin.companies.logo', $company) : null,
+                                            'dropzoneKey' => 'light',
+                                            'clientMsgId' => 'company-form-logo-client-msg',
+                                            'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
+                                            'maxFileBytes' => 5 * 1024 * 1024,
+                                            'livePreviewLightId' => 'company-form-live-preview-light',
+                                            'livePreviewDarkId' => 'company-form-live-preview-dark',
+                                            'logoModeInputId' => 'company-form-logo-mode-input',
+                                        ])
+                                    </div>
+                                    <div id="company-form-logo-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
                                     <input type="hidden" name="logo_path" value="{{ old('logo_path', $company->logo_path) }}" id="logo-path-input">
+                                    <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                    @error('logo')
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+
+                                    <div id="company-form-logo-dark-block" class="{{ $formLogoMode === 'light_dark' ? '' : 'hidden' }}">
+                                        <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
+                                        <p class="text-xs text-muted-foreground mb-2 max-w-xl">Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.</p>
+                                        <div class="max-w-96 w-full">
+                                            @include('admin.partials.image-upload-dropzone-inline', [
+                                                'name' => 'logo_dark',
+                                                'inputId' => 'company-form-logo-dark-input',
+                                                'previewId' => 'company-form-logo-dark-preview',
+                                                'areaId' => 'company-form-logo-dark-upload-area',
+                                                'linkId' => 'company-form-logo-dark-upload-link',
+                                                'removeBtnId' => 'company-form-logo-dark-remove',
+                                                'existingUrl' => $company->logo_dark_blob ? route('admin.companies.logo.dark', $company) : null,
+                                                'dropzoneKey' => 'dark',
+                                                'clientMsgId' => 'company-form-logo-dark-client-msg',
+                                                'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
+                                                'maxFileBytes' => 5 * 1024 * 1024,
+                                                'livePreviewDarkId' => 'company-form-live-preview-dark',
+                                            ])
+                                        </div>
+                                        <div id="company-form-logo-dark-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
+                                        <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                        @error('logo_dark')
+                                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                        @enderror
+                                    </div>
                                 </div>
-                                @error('logo')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Plaatje gebouw
+                            </td>
+                            <td>
+                                @include('admin.partials.building-image-select', ['company' => $company])
                             </td>
                         </tr>
                         <tr>
@@ -156,10 +217,38 @@
                                            value="1" 
                                            {{ old('is_intermediary', $company->is_intermediary) ? 'checked' : '' }}>
                                     <label for="is_intermediary" class="text-sm font-normal mb-0">
-                                        Tussenpartij
+                                        Tussenpartij / Recruiter
                                     </label>
                                 </div>
                                 @error('is_intermediary')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Hoofdkantoor (wizard)
+                            </td>
+                            <td>
+                                <label class="kt-label flex items-center gap-2 mb-0">
+                                    <input type="checkbox" name="is_main" value="1" class="kt-switch kt-switch-sm" {{ old('is_main', $company->is_main) ? 'checked' : '' }}>
+                                    <span class="text-sm text-muted-foreground">Dit bedrijf gebruikt het adres uit stap Bedrijf als hoofdvestiging (zoals in de tenant-wizard).</span>
+                                </label>
+                                @error('is_main')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Actief
+                            </td>
+                            <td>
+                                <label class="kt-label flex items-center gap-2 mb-0">
+                                    <input type="checkbox" name="is_active" value="1" class="kt-switch kt-switch-sm" {{ old('is_active', $company->is_active) ? 'checked' : '' }}>
+                                    <span class="text-sm text-muted-foreground">Bedrijf is actief in het systeem.</span>
+                                </label>
+                                @error('is_active')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
@@ -224,13 +313,14 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Telefoon
+                                Telefoon *
                             </td>
                             <td>
                                 <input type="tel" 
                                        class="kt-input @error('phone') border-destructive @enderror" 
                                        name="phone" 
                                        value="{{ old('phone', $company->phone) }}"
+                                       required
                                        pattern="(\+31|0)[1-9][0-9]{8}"
                                        placeholder="0612345678 of +31612345678"
                                        maxlength="13">
@@ -242,47 +332,54 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Straat
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Contactpersoon voornaam
                             </td>
                             <td>
-                                <input type="text" 
-                                       class="kt-input @error('street') border-destructive @enderror" 
-                                       name="street" 
-                                       value="{{ old('street', $company->street) }}">
-                                @error('street')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Huisnummer
-                            </td>
-                            <td>
-                                <input type="text" 
-                                       class="kt-input @error('house_number') border-destructive @enderror" 
-                                       name="house_number" 
-                                       value="{{ old('house_number', $company->house_number) }}">
-                                @error('house_number')
+                                <input type="text" class="kt-input @error('contact_first_name') border-destructive @enderror" name="contact_first_name" value="{{ old('contact_first_name', $company->contact_first_name) }}" maxlength="255" autocomplete="given-name">
+                                @error('contact_first_name')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Postcode
+                                Contactpersoon tussenvoegsel
+                            </td>
+                            <td>
+                                <input type="text" class="kt-input @error('contact_middle_name') border-destructive @enderror" name="contact_middle_name" value="{{ old('contact_middle_name', $company->contact_middle_name) }}" maxlength="255">
+                                @error('contact_middle_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Contactpersoon achternaam
+                            </td>
+                            <td>
+                                <input type="text" class="kt-input @error('contact_last_name') border-destructive @enderror" name="contact_last_name" value="{{ old('contact_last_name', $company->contact_last_name) }}" maxlength="255" autocomplete="family-name">
+                                @error('contact_last_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Postcode *
                             </td>
                             <td>
                                 <input type="text" 
+                                       id="postal_code"
                                        class="kt-input @error('postal_code') border-destructive @enderror" 
                                        name="postal_code" 
                                        value="{{ old('postal_code', $company->postal_code) }}"
+                                       required
                                        pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
                                        placeholder="1234AB"
                                        maxlength="7"
                                        style="text-transform: uppercase;">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB)</div>
+                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.</div>
                                 @error('postal_code')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -291,13 +388,54 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Plaats
+                                Huisnummer *
                             </td>
                             <td>
                                 <input type="text" 
+                                       id="house_number"
+                                       class="kt-input @error('house_number') border-destructive @enderror" 
+                                       name="house_number" 
+                                       required
+                                       value="{{ old('house_number', $company->house_number) }}">
+                                <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld wordt straat en plaats automatisch ingevuld.</div>
+                                @error('house_number')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
+                                Straat *
+                            </td>
+                            <td>
+                                @php
+                                    $hasAddress = trim(old('street', $company->street ?? '') . old('city', $company->city ?? '')) !== '';
+                                @endphp
+                                <input type="text" 
+                                       id="street"
+                                       class="kt-input @error('street') border-destructive @enderror" 
+                                       name="street" 
+                                       required
+                                       value="{{ old('street', $company->street) }}"
+                                       @if($hasAddress) readonly @endif>
+                                <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.</div>
+                                @error('street')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal">
+                                Plaats *
+                            </td>
+                            <td>
+                                <input type="text" 
+                                       id="city"
                                        class="kt-input @error('city') border-destructive @enderror" 
                                        name="city" 
-                                       value="{{ old('city', $company->city) }}">
+                                       required
+                                       value="{{ old('city', $company->city) }}"
+                                       @if($hasAddress) readonly @endif>
                                 @error('city')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -309,9 +447,11 @@
                             </td>
                             <td>
                                 <input type="text" 
+                                       id="country"
                                        class="kt-input @error('country') border-destructive @enderror" 
                                        name="country" 
-                                       value="{{ old('country', $company->country) }}">
+                                       value="{{ old('country', $company->country) }}"
+                                       @if($hasAddress) readonly @endif>
                                 @error('country')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -321,17 +461,137 @@
                 </div>
             </div>
 
-            <!-- Actions -->
-            <div class="flex items-center justify-end gap-2.5">
-                <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline">
-                    <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
-                </a>
-                <button type="submit" class="kt-btn kt-btn-primary">
-                    <i class="ki-filled ki-check me-2"></i>
-                    Wijzigingen Opslaan
-                </button>
+            @can('edit-companies')
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Website-thema</h3>
+                </div>
+                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
+                    Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij nieuwe website-pagina's voor dit bedrijf. Alleen gepubliceerde thema's zijn kiesbaar (Frontend Thema's → Activeren).
+                </p>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Thema</td>
+                            <td class="min-w-48 w-full">
+                                <select name="frontend_theme_id" class="kt-input @error('frontend_theme_id') border-destructive @enderror">
+                                    <option value="">— Geen thema —</option>
+                                    @foreach($publishedFrontendThemes ?? [] as $theme)
+                                        <option value="{{ $theme->id }}" {{ (string) old('frontend_theme_id', $company->frontend_theme_id) === (string) $theme->id ? 'selected' : '' }}>
+                                            {{ $theme->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @if(($publishedFrontendThemes ?? collect())->isEmpty())
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Er is nog geen thema gepubliceerd. Ga naar <a href="{{ route('admin.frontend-themes.index') }}" class="text-primary underline">Frontend Thema's</a> en klik op Activeren.</p>
+                                @endif
+                                @error('frontend_theme_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             </div>
+
+            <div class="kt-card min-w-full @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">Modules voor deze tenant</h3>
+                </div>
+                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
+                    Zelfde keuze als in de tenant-wizard (stap 4). Niet-geïnstalleerde of niet-actieve modules worden bij opslaan geïnstalleerd en geactiveerd waar mogelijk.
+                </p>
+                <input type="hidden" name="apply_module_sync" value="1">
+                @php
+                    $selectedModuleIds = [];
+                    $oldModuleIdsState = old('module_ids_state');
+                    if (is_string($oldModuleIdsState) && $oldModuleIdsState !== '') {
+                        $selectedModuleIds = collect(explode(',', $oldModuleIdsState))
+                            ->map(static fn($id) => (int) trim((string) $id))
+                            ->filter(static fn($id) => $id > 0)
+                            ->values()
+                            ->all();
+                    } elseif (old('module_ids') !== null) {
+                        $selectedModuleIds = collect((array) old('module_ids', []))
+                            ->map(static fn($id) => (int) $id)
+                            ->filter(static fn($id) => $id > 0)
+                            ->values()
+                            ->all();
+                    } else {
+                        $selectedModuleIds = $company->modules->pluck('id')
+                            ->map(static fn($id) => (int) $id)
+                            ->values()
+                            ->all();
+                    }
+                @endphp
+                <input type="hidden" name="module_ids_state" id="module_ids_state" value="{{ implode(',', $selectedModuleIds) }}">
+                @if(($allModules ?? collect())->isEmpty())
+                    <div class="px-6 pb-6">
+                        <p class="text-sm text-muted-foreground mb-0">Er zijn nog geen modules in de database. Registreer modules via <a href="{{ route('admin.modules.index') }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary/90">Modules</a>.</p>
+                    </div>
+                @else
+                    <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                            <thead>
+                                <tr>
+                                    <th class="w-16"></th>
+                                    <th>Module</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($allModules as $mod)
+                                    <tr>
+                                        <td>
+                                            <label class="kt-label flex items-center justify-center mb-0">
+                                                <input type="checkbox"
+                                                       class="kt-switch kt-switch-sm"
+                                                       data-checkbox-group="module_ids[]"
+                                                       name="module_ids[]"
+                                                       value="{{ $mod->id }}"
+                                                       {{ in_array((int) $mod->id, $selectedModuleIds, true) ? 'checked' : '' }}>
+                                            </label>
+                                        </td>
+                                        <td class="font-medium">{{ $mod->display_name }} <span class="text-muted-foreground text-xs">({{ $mod->name }})</span></td>
+                                        <td>
+                                            @if($mod->installed && $mod->active)
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                            @elseif($mod->installed)
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Geïnstalleerd</span>
+                                            @else
+                                                <span class="kt-badge kt-badge-sm kt-badge-outline">Niet geïnstalleerd</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="module-validation-wrapper" class="hidden px-6 pb-4">
+                        <div class="field-feedback text-xs text-destructive mt-1 whitespace-nowrap" data-field="module_ids[]">
+                            Selecteer minimaal één module.
+                        </div>
+                    </div>
+                    @error('module_ids')
+                        <div class="px-6 pb-4 text-xs text-destructive">{{ $message }}</div>
+                    @enderror
+                    @if($errors->has('module_ids.*'))
+                        <div class="px-6 pb-4 text-xs text-destructive">{{ $errors->first('module_ids.*') }}</div>
+                    @endif
+                @endif
+            </div>
+            @endcan
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 mt-5">
+            <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline">
+                <i class="ki-filled ki-cross me-2"></i>
+                Annuleren
+            </a>
+            <button type="submit" class="kt-btn kt-btn-primary">
+                <i class="ki-filled ki-check me-2"></i>
+                Wijzigingen Opslaan
+            </button>
         </div>
     </form>
 </div>
@@ -368,123 +628,133 @@
     .kt-label {
         cursor: pointer;
     }
+    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
+    .wizard-onboarding-form-table tbody tr,
+    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
+    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
+    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
 </style>
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Logo upload handling
-        const logoInput = document.getElementById('logo-input');
-        const logoUploadArea = document.getElementById('logo-upload-area');
-        const logoUploadLink = document.getElementById('logo-upload-link');
-        const logoPreview = document.getElementById('logo-preview');
-        
-        if (logoInput && logoUploadArea && logoUploadLink) {
-            // Click to upload
-            logoUploadLink.addEventListener('click', function(e) {
-                e.preventDefault();
-                logoInput.click();
-            });
-            
-            logoUploadArea.addEventListener('click', function(e) {
-                if (e.target === logoUploadArea || e.target.closest('#logo-upload-area')) {
-                    logoInput.click();
-                }
-            });
-            
-            // Drag and drop
-            logoUploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                logoUploadArea.classList.add('border-primary');
-            });
-            
-            logoUploadArea.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                logoUploadArea.classList.remove('border-primary');
-            });
-            
-            logoUploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                logoUploadArea.classList.remove('border-primary');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleLogoFile(files[0]);
-                }
-            });
-            
-            // File input change
-            logoInput.addEventListener('change', function(e) {
-                if (this.files && this.files.length > 0) {
-                    handleLogoFile(this.files[0]);
-                }
-            });
-            
-            function handleLogoFile(file) {
-                // Validate file type
-                const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg'];
-                if (!allowedTypes.includes(file.type)) {
-                    alert('Alleen SVG, PNG en JPG bestanden zijn toegestaan.');
-                    return;
-                }
-                
-                // Validate file size (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('Het bestand mag maximaal 5MB groot zijn.');
-                    return;
-                }
-                
-                // Create preview immediately
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    logoPreview.src = e.target.result;
-                    logoPreview.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-                
-                // Upload logo immediately via AJAX
-                const formData = new FormData();
-                formData.append('logo', file);
-                formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
-                
-                fetch('{{ route("admin.companies.upload-logo", $company) }}', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json',
+        // Contact address: postcode + huisnummer lookup on blur
+        (function() {
+            const postalCodeInput = document.getElementById('postal_code');
+            const houseNumberInput = document.getElementById('house_number');
+            const streetInput = document.getElementById('street');
+            const cityInput = document.getElementById('city');
+            const countryInput = document.getElementById('country');
+            if (!postalCodeInput || !houseNumberInput || !streetInput || !cityInput) return;
+
+            let lookupTimeout;
+            function lookupContactAddress() {
+                const postcode = postalCodeInput.value.trim().toUpperCase().replace(/\s+/g, '');
+                const huisnummer = houseNumberInput.value.trim();
+                if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode) || !huisnummer) return;
+
+                clearTimeout(lookupTimeout);
+                lookupTimeout = setTimeout(function() {
+                    fetch('{{ route('admin.postcode.lookup') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ postcode: postcode, huisnummer: huisnummer })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            streetInput.value = data.street || '';
+                            cityInput.value = data.city || '';
+                            if (countryInput) countryInput.value = data.country || 'Nederland';
+                            streetInput.setAttribute('readonly', 'readonly');
+                            cityInput.setAttribute('readonly', 'readonly');
+                            if (countryInput) countryInput.setAttribute('readonly', 'readonly');
+
+                            // Als velden automatisch zijn ingevuld via postcodecheck:
+                            // direct als geldig markeren (groene vink) en foutmeldingen verbergen.
+                            var validator = postalCodeInput.closest('form')?._formValidator;
+                            [streetInput, cityInput, countryInput].forEach(function(field) {
+                                if (!field) return;
+                                field.dataset.userInteracted = 'true';
+                                field.dispatchEvent(new Event('input', { bubbles: true }));
+                                if (validator && typeof validator.validateField === 'function') {
+                                    validator.validateField(field, null, true);
+                                }
+                            });
+                        } else {
+                            streetInput.removeAttribute('readonly');
+                            cityInput.removeAttribute('readonly');
+                            if (countryInput) countryInput.removeAttribute('readonly');
+                        }
+                    })
+                    .catch(function() {
+                        streetInput.removeAttribute('readonly');
+                        cityInput.removeAttribute('readonly');
+                        if (countryInput) countryInput.removeAttribute('readonly');
+                    });
+                }, 300);
+            }
+
+            postalCodeInput.addEventListener('blur', lookupContactAddress);
+            houseNumberInput.addEventListener('blur', lookupContactAddress);
+        })();
+
+        @include('admin.partials.logo-dropzone-init-inner')
+
+        (function() {
+            var modeToggle = document.getElementById('company-form-logo-mode-toggle');
+            var modeInput = document.getElementById('company-form-logo-mode-input');
+            var darkBlock = document.getElementById('company-form-logo-dark-block');
+            if (modeToggle && modeInput && darkBlock) {
+                modeToggle.addEventListener('change', function() {
+                    var isLightDark = modeToggle.checked;
+                    modeInput.value = isLightDark ? 'light_dark' : 'single';
+                    darkBlock.classList.toggle('hidden', !isLightDark);
+                    if (!isLightDark) {
+                        var darkInput = document.getElementById('company-form-logo-dark-input');
+                        if (darkInput) darkInput.value = '';
+                        var liveLight = document.getElementById('company-form-live-preview-light');
+                        var liveDark = document.getElementById('company-form-live-preview-dark');
+                        if (liveLight && liveDark && liveLight.src) {
+                            liveDark.src = liveLight.src;
+                        }
+                        if (typeof window.syncAdminLogoVisibility === 'function') {
+                            window.syncAdminLogoVisibility();
+                        }
                     }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(data => {
-                            throw new Error(data.message || 'Network response was not ok');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && logoPreview) {
-                        // Update preview with server URL (add timestamp to force refresh)
-                        logoPreview.src = data.logo_url + '?t=' + new Date().getTime();
-                        logoPreview.classList.remove('hidden');
-                        console.log('Logo succesvol geüpload.');
-                    } else {
-                        alert(data.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert(error.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
-                    // Keep the preview even if upload fails
                 });
             }
-        }
-        
+        })();
+
+        (function() {
+            var moduleCheckboxes = document.querySelectorAll('input[name="module_ids[]"]');
+            var moduleStateInput = document.getElementById('module_ids_state');
+            if (!moduleStateInput || moduleCheckboxes.length === 0) return;
+
+            function syncModuleState() {
+                var selected = Array.from(moduleCheckboxes)
+                    .filter(function(checkbox) { return checkbox.checked; })
+                    .map(function(checkbox) { return checkbox.value; });
+                moduleStateInput.value = selected.join(',');
+            }
+
+            moduleCheckboxes.forEach(function(checkbox) {
+                checkbox.addEventListener('change', syncModuleState);
+            });
+
+            var form = moduleStateInput.closest('form');
+            if (form) {
+                form.addEventListener('submit', syncModuleState);
+            }
+
+            syncModuleState();
+        })();
+
         // Branch dropdown handling
         const branchSelect = document.getElementById('branch_select');
         const industryCustom = document.getElementById('industry_custom');
@@ -514,193 +784,7 @@
                 });
             }
         }
-    // Real-time validation for all form fields
-    const form = document.querySelector('form');
-    if (form) {
-        // KVK Number validation
-        const kvkInput = document.querySelector('input[name="kvk_number"]');
-        if (kvkInput) {
-            kvkInput.addEventListener('input', function() {
-                const value = this.value.replace(/\D/g, ''); // Remove non-digits
-                this.value = value;
-                validateKVK(this);
-            });
-            kvkInput.addEventListener('blur', function() {
-                validateKVK(this);
-            });
-        }
-        
-        // Phone validation
-        const phoneInput = document.querySelector('input[name="phone"]');
-        if (phoneInput) {
-            phoneInput.addEventListener('input', function() {
-                let value = this.value.replace(/\s/g, ''); // Remove spaces
-                // Auto-format: add +31 if starts with 0 and has 10 digits
-                if (value.startsWith('0') && value.length === 10) {
-                    value = '+31' + value.substring(1);
-                }
-                this.value = value;
-                validatePhone(this);
-            });
-            phoneInput.addEventListener('blur', function() {
-                validatePhone(this);
-            });
-        }
-        
-        // Postal code validation
-        const postalCodeInput = document.querySelector('input[name="postal_code"]');
-        if (postalCodeInput) {
-            postalCodeInput.addEventListener('input', function() {
-                let value = this.value.replace(/\s/g, '').toUpperCase(); // Remove spaces, uppercase
-                // Auto-format: add space after 4 digits
-                if (value.length > 4) {
-                    value = value.substring(0, 4) + ' ' + value.substring(4, 7);
-                }
-                this.value = value;
-                validatePostalCode(this);
-            });
-            postalCodeInput.addEventListener('blur', function() {
-                validatePostalCode(this);
-            });
-        }
-        
-        // Email validation
-        const emailInput = document.querySelector('input[type="email"]');
-        if (emailInput) {
-            emailInput.addEventListener('blur', function() {
-                validateEmail(this);
-            });
-        }
-        
-        // Website validation
-        const websiteInput = document.querySelector('input[name="website"]');
-        if (websiteInput) {
-            websiteInput.addEventListener('blur', function() {
-                validateWebsite(this);
-            });
-        }
-        
-        // Form submission validation
-        form.addEventListener('submit', function(e) {
-            let isValid = true;
-            
-            // Validate all required fields
-            const requiredFields = form.querySelectorAll('[required]');
-            requiredFields.forEach(field => {
-                if (!field.value.trim()) {
-                    isValid = false;
-                    field.classList.add('border-destructive');
-                } else {
-                    field.classList.remove('border-destructive');
-                }
-            });
-            
-            // Validate pattern fields
-            const patternFields = form.querySelectorAll('[pattern]');
-            patternFields.forEach(field => {
-                if (field.value && !validatePattern(field)) {
-                    isValid = false;
-                    field.classList.add('border-destructive');
-                } else if (field.value) {
-                    field.classList.remove('border-destructive');
-                }
-            });
-            
-            if (!isValid) {
-                e.preventDefault();
-                alert('Controleer de ingevulde gegevens. Sommige velden zijn ongeldig.');
-            }
-        });
-    }
-    
-    function validateKVK(input) {
-        const value = input.value.replace(/\D/g, '');
-        const errorDiv = document.getElementById('kvk_number_error');
-        
-        if (value && value.length !== 8) {
-            input.classList.add('border-destructive');
-            if (errorDiv) {
-                errorDiv.textContent = 'KVK nummer moet 8 cijfers bevatten.';
-                errorDiv.classList.remove('hidden');
-            }
-            return false;
-        } else {
-            input.classList.remove('border-destructive');
-            if (errorDiv) {
-                errorDiv.classList.add('hidden');
-            }
-            return true;
-        }
-    }
-    
-    function validatePhone(input) {
-        const value = input.value.replace(/\s/g, '');
-        const pattern = /^(\+31|0)[1-9][0-9]{8}$/;
-        const isValid = !value || pattern.test(value);
-        
-        if (!isValid && value) {
-            input.classList.add('border-destructive');
-        } else {
-            input.classList.remove('border-destructive');
-        }
-        
-        return isValid;
-    }
-    
-    function validatePostalCode(input) {
-        const value = input.value.replace(/\s/g, '').toUpperCase();
-        const pattern = /^[1-9][0-9]{3}[A-Z]{2}$/;
-        const isValid = !value || pattern.test(value);
-        
-        if (!isValid && value) {
-            input.classList.add('border-destructive');
-        } else {
-            input.classList.remove('border-destructive');
-        }
-        
-        return isValid;
-    }
-    
-    function validateEmail(input) {
-        const value = input.value.trim();
-        const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const isValid = !value || pattern.test(value);
-        
-        if (!isValid && value) {
-            input.classList.add('border-destructive');
-        } else {
-            input.classList.remove('border-destructive');
-        }
-        
-        return isValid;
-    }
-    
-    function validateWebsite(input) {
-        const value = input.value.trim();
-        if (!value) return true;
-        
-        try {
-            const url = new URL(value);
-            const isValid = url.protocol === 'http:' || url.protocol === 'https:';
-            
-            if (!isValid) {
-                input.classList.add('border-destructive');
-            } else {
-                input.classList.remove('border-destructive');
-            }
-            
-            return isValid;
-        } catch (e) {
-            input.classList.add('border-destructive');
-            return false;
-        }
-    }
-    
-    function validatePattern(input) {
-        const pattern = new RegExp(input.getAttribute('pattern'));
-        const value = input.value.replace(/\s/g, ''); // Remove spaces for validation
-        return pattern.test(value);
-    }
+        // Live inline validatie verloopt via assets/js/form-validation.js (zelfde patroon als admin/users/create).
 });
 </script>
 @endpush

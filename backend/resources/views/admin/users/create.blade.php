@@ -12,15 +12,21 @@
             </h1>
         </div>
         <div class="flex items-center">
-            <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-outline">
+            <a href="{{ $userCreateBackUrl }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
         </div>
     </div>
 
-    <form action="{{ route('admin.users.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.users.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
+        <input type="hidden" name="wizard_back_url" value="{{ $userCreateBackUrl }}">
+        @if(!empty($wizardContextCompanyId))
+            <input type="hidden" name="from_wizard" value="1">
+            <input type="hidden" name="wizard_company" value="{{ $wizardContextCompanyId }}">
+            <input type="hidden" name="wizard_step" value="{{ $wizardContextStep ?? 5 }}">
+        @endif
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
@@ -45,7 +51,7 @@
                                        value="{{ old('first_name') }}" 
                                        required>
                                 @error('first_name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="first_name" role="alert">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -60,7 +66,7 @@
                                        value="{{ old('last_name') }}" 
                                        required>
                                 @error('last_name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="last_name" role="alert">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -174,25 +180,14 @@
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
-                                Rol *
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
+                                Rollen *
                             </td>
-                            <td class="min-w-48 w-full">
-                                <select class="kt-input @error('role') border-destructive @enderror" 
-                                        name="role" 
-                                        required>
-                                    <option value="">-- Selecteer rol --</option>
-                                    @foreach($roles as $role)
-                                        @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
-                                            <option value="{{ $role->name }}" {{ old('role') == $role->name ? 'selected' : '' }}>
-                                                {{ ucfirst(str_replace('-', ' ', $role->name)) }}
-                                            </option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                                @error('role')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                            <td class="min-w-48 w-full pt-4">
+                                @include('admin.users.partials.role-checkboxes', [
+                                    'roles' => $roles,
+                                    'selectedRoles' => old('roles', $defaultRoleForForm ? [$defaultRoleForForm] : []),
+                                ])
                             </td>
                         </tr>
                         @if(auth()->user()->hasRole('super-admin'))
@@ -205,7 +200,7 @@
                                             name="company_id">
                                         <option value="">-- Geen bedrijf --</option>
                                         @foreach($companies as $company)
-                                            <option value="{{ $company->id }}" {{ old('company_id', session('selected_tenant')) == $company->id ? 'selected' : '' }}>
+                                            <option value="{{ $company->id }}" {{ (string) old('company_id', $wizardContextCompanyId ?? session('selected_tenant')) === (string) $company->id ? 'selected' : '' }}>
                                                 {{ $company->name }}
                                             </option>
                                         @endforeach

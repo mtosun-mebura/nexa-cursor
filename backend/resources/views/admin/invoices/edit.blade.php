@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('admin.invoices.update', $invoice->id) }}">
+    <form method="POST" action="{{ route('admin.invoices.update', $invoice->id) }}" data-validate="true" novalidate>
         @csrf
         @method('PUT')
         
@@ -56,6 +56,37 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
+                                Klantnaam
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input w-full @error('customer_name') border-destructive @enderror"
+                                       type="text"
+                                       name="customer_name"
+                                       id="customer_name"
+                                       value="{{ old('customer_name', $invoice->customer_name) }}">
+                                @error('customer_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
+                                E-mail klant
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <input class="kt-input w-full @error('customer_email') border-destructive @enderror"
+                                       type="email"
+                                       name="customer_email"
+                                       id="customer_email"
+                                       value="{{ old('customer_email', $invoice->customer_email) }}">
+                                @error('customer_email')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        @if($skillmatchingAvailable ?? false)
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">
                                 Match (optioneel)
                             </td>
                             <td class="min-w-48 w-full">
@@ -72,6 +103,7 @@
                                 @enderror
                             </td>
                         </tr>
+                        @endif
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Factuurdatum <span class="text-destructive">*</span>
@@ -350,6 +382,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 (function() {
     'use strict';
@@ -745,16 +778,22 @@
     }
     
     // Initialiseer direct als DOM al geladen is, anders wacht op DOMContentLoaded
+    const skillmatchingAvailable = @json($skillmatchingAvailable ?? false);
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
             initInvoiceCalculation();
-            initCompanyMatchLoader();
+            if (skillmatchingAvailable) {
+                initCompanyMatchLoader();
+            }
         });
     } else {
         // DOM is al geladen, maar wacht even om zeker te zijn dat alle scripts geladen zijn
         setTimeout(function() {
             initInvoiceCalculation();
-            initCompanyMatchLoader();
+            if (skillmatchingAvailable) {
+                initCompanyMatchLoader();
+            }
         }, 50);
     }
 })();

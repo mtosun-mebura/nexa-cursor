@@ -37,7 +37,7 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('admin.invoices.store') }}" data-validate="true">
+    <form method="POST" action="{{ route('admin.invoices.store') }}"  data-validate="true" novalidate>
         @csrf
         
         <div class="grid gap-5 lg:gap-7.5">
@@ -74,6 +74,7 @@
                                 @enderror
                             </td>
                         </tr>
+                        @if($skillmatchingAvailable ?? false)
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
                                 Match (optioneel)
@@ -95,6 +96,7 @@
                                 @enderror
                             </td>
                         </tr>
+                        @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
                                 Factuurdatum *
@@ -380,6 +382,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Toggle partial fields

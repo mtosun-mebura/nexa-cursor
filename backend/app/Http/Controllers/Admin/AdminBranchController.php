@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Branch;
 use App\Models\Vacancy;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -26,8 +27,10 @@ class AdminBranchController extends Controller
             'inactive_branches' => Branch::where('is_active', false)->count(),
         ];
         
-        $query = Branch::query()
-            ->withCount('vacancies as used_count');
+        $query = Branch::query();
+        if (ModuleSchemaAvailability::vacanciesTableExists()) {
+            $query->withCount('vacancies as used_count');
+        }
         $this->applyTenantFilter($query);
         
         // Search functionality
@@ -54,7 +57,10 @@ class AdminBranchController extends Controller
         $sortBy = $request->get('sort_by', 'name');
         $sortOrder = $request->get('sort_order', 'asc');
         
-        $allowedSortFields = ['name', 'created_at', 'is_active', 'used_count'];
+        $allowedSortFields = ['name', 'created_at', 'is_active'];
+        if (ModuleSchemaAvailability::vacanciesTableExists()) {
+            $allowedSortFields[] = 'used_count';
+        }
         if (in_array($sortBy, $allowedSortFields)) {
             $query->orderBy($sortBy, $sortOrder);
         } else {
@@ -114,15 +120,21 @@ class AdminBranchController extends Controller
             abort(403, 'Je hebt geen rechten om branches te bekijken.');
         }
 
-        $branch->loadCount('vacancies')->load(['functions' => function ($q) {
-            $q->orderBy('name');
-        }]);
-
-        $recentVacancies = Vacancy::with(['company'])
-            ->where('branch_id', $branch->id)
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+        if (ModuleSchemaAvailability::vacanciesTableExists()) {
+            $branch->loadCount('vacancies')->load(['functions' => function ($q) {
+                $q->orderBy('name');
+            }]);
+            $recentVacancies = Vacancy::with(['company'])
+                ->where('branch_id', $branch->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+        } else {
+            $branch->load(['functions' => function ($q) {
+                $q->orderBy('name');
+            }]);
+            $recentVacancies = collect();
+        }
         
         return view('admin.branches.show', compact('branch', 'recentVacancies'));
     }
@@ -169,7 +181,7 @@ class AdminBranchController extends Controller
             abort(403, 'Je hebt geen rechten om branches te verwijderen.');
         }
         
-        if ($branch->vacancies()->count() > 0) {
+        if (ModuleSchemaAvailability::vacanciesTableExists() && $branch->vacancies()->count() > 0) {
             return back()->with('error', 'Kan branch niet verwijderen omdat er vacatures aan gekoppeld zijn.');
         }
 

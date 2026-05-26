@@ -24,7 +24,7 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.companies.pipeline-templates.update', [$company, $pipelineTemplate]) }}" method="POST" id="pipeline-template-form">
+    <form action="{{ route('admin.companies.pipeline-templates.update', [$company, $pipelineTemplate]) }}" method="POST" id="pipeline-template-form" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -160,6 +160,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Handle stage toggle

@@ -4,24 +4,25 @@
 
 @section('content')
 
+@if(session('success'))
+    <div class="kt-alert kt-alert-success mb-5" role="alert">
+        <i class="ki-filled ki-check-circle me-2"></i>
+        {{ session('success') }}
+    </div>
+@endif
+@if(session('error'))
+    <div class="kt-alert kt-alert-danger mb-5" role="alert">
+        <i class="ki-filled ki-cross-circle me-2"></i>
+        {{ session('error') }}
+    </div>
+@endif
+
 <style>
     .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
     }
     .dark .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
-    }
-    /* Hide scrollbar in Google Maps InfoWindow */
-    .gm-style-iw-c {
-        overflow: hidden !important;
-    }
-    .gm-style-iw-d {
-        overflow: hidden !important;
-        max-height: none !important;
-    }
-    /* Remove close button container */
-    .gm-style-iw-chr {
-        display: none !important;
     }
 </style>
 
@@ -30,8 +31,14 @@
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($company->logo_blob)
+                @php
+                    $companyHeroLogoDarkUrl = ! empty($company->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $company)
+                        : route('admin.companies.logo', $company);
+                @endphp
                 <div class="rounded-lg shrink-0 inline-block" style="background: transparent; padding: 3px;">
-                    <img class="rounded-lg w-auto object-contain bg-transparent dark:bg-transparent" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
+                    <img class="logo-light rounded-lg w-auto object-contain bg-transparent dark:hidden" style="height: 80px; display: block; padding: 8px;" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}">
+                    <img class="logo-dark rounded-lg w-auto object-contain bg-transparent hidden dark:block" style="height: 80px; display: block; padding: 8px;" src="{{ $companyHeroLogoDarkUrl }}" alt="{{ $company->name }}">
                 </div>
             @else
                 <div class="rounded-lg border-3 border-primary h-[100px] w-[100px] lg:h-[150px] lg:w-[150px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
@@ -114,11 +121,13 @@
                     </label>
                 </form>
             </div>
+            @if($company->hasSkillmatchingModule())
             <span class="text-orange-500 dark:text-orange-400 flex items-center">|</span>
             <a href="{{ route('admin.companies.pipeline-templates.index', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-diagram-3 me-2"></i>
                 Pipeline Templates
             </a>
+            @endif
             <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-primary ml-auto">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
                 Bewerken
@@ -131,16 +140,16 @@
 
 <!-- Container -->
 <div class="kt-container-fixed">
-    <!-- begin: grid -->
-    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 items-stretch">
+    <!-- begin: grid — bedrijfsinfo eerst, contact eronder (volle breedte i.p.v. smalle kolom) -->
+    <div class="flex flex-col gap-5 lg:gap-7.5 items-stretch">
         <!-- Bedrijfsinformatie -->
-        <div class="kt-card flex-1 flex flex-col">
+        <div class="kt-card w-full flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Bedrijfsinformatie
                 </h3>
             </div>
-            <div class="kt-card-table kt-scrollable-x-auto pb-3 flex-1">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
@@ -175,7 +184,7 @@
                         </td>
                         <td class="text-foreground font-normal">
                             @if($company->is_intermediary)
-                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij / Recruiter</span>
                             @else
                                 <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
                             @endif
@@ -189,22 +198,187 @@
                             {{ $company->description ?? '-' }}
                         </td>
                     </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Gebouw-illustratie
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $bi = (int) ($company->building_image ?? 0);
+                                $biLabels = [1 => 'Oranje gevel', 2 => 'Twee torens', 3 => 'Wit minimalisme'];
+                            @endphp
+                            @if(isset($biLabels[$bi]))
+                                <span class="inline-flex items-center gap-2">
+                                    @if($company->buildingImageAssetUrl())
+                                        <img src="{{ $company->buildingImageAssetUrl() }}" alt="" class="h-10 w-auto rounded border border-border" width="40" height="40">
+                                    @endif
+                                    <span>{{ $biLabels[$bi] }}</span>
+                                </span>
+                            @else
+                                —
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Contactpersoon
+                        </td>
+                        <td class="text-foreground font-normal">
+                            @php
+                                $cn = trim(implode(' ', array_filter([
+                                    $company->contact_first_name,
+                                    $company->contact_middle_name,
+                                    $company->contact_last_name,
+                                ])));
+                            @endphp
+                            {{ $cn !== '' ? $cn : '—' }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-secondary-foreground font-normal">
+                            Bedrijf als hoofdkantoor (wizard)
+                        </td>
+                        <td class="text-foreground font-normal">
+                            {{ $company->is_main ? 'Ja' : 'Nee' }}
+                        </td>
+                    </tr>
                 </table>
             </div>
         </div>
 
         <!-- Contact Informatie -->
-        <div class="kt-card flex-1 flex flex-col">
+        <div class="kt-card w-full flex flex-col">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
                     Contact Informatie
                 </h3>
             </div>
-            <div class="kt-card-content flex-1">
-                <div class="flex flex-wrap items-start gap-5">
-                    <div class="rounded-xl w-full md:w-80 min-h-52 flex-shrink-0" id="company_contact_map">
+            <div class="kt-card-content">
+                @php
+                    // Eén adresbron voor weergave én kaart: hoofdkantoor of bedrijfsadres
+                    $contactSource = $company->mainLocation ?: $company;
+                    $addressLine1 = trim(($contactSource->street ?? '') . ' ' . ($contactSource->house_number ?? '') . (isset($contactSource->house_number_extension) && $contactSource->house_number_extension ? '-' . $contactSource->house_number_extension : ''));
+                    $postalRaw = trim((string) ($contactSource->postal_code ?? ''));
+                    // Weergave: NL "1234 AB" | Geocode-string: "1234AB" (zonder spatie) — gewenst voor betrouwbare Maps-load
+                    $postalDisplay = $postalRaw;
+                    $postalGeocode = str_replace(' ', '', $postalRaw);
+                    if ($postalRaw !== '' && preg_match('/^(\d{4})\s*([A-Za-z]{2})$/u', str_replace(' ', '', $postalRaw), $pcm)) {
+                        $postalDisplay = $pcm[1].' '.strtoupper($pcm[2]);
+                        $postalGeocode = $pcm[1].strtoupper($pcm[2]);
+                    }
+                    $addressLine2 = trim($postalDisplay.' '.trim((string) ($contactSource->city ?? '')));
+                    $addressLine2Geocode = trim($postalGeocode.' '.trim((string) ($contactSource->city ?? '')));
+                    $addressLine3 = $contactSource->country ?? '';
+                    $addressParts = array_filter([$addressLine1, $addressLine2, $addressLine3]);
+                    $addressPartsForGeocode = array_filter([$addressLine1, $addressLine2Geocode, $addressLine3]);
+                    $addrQuery = ! empty($addressPartsForGeocode) ? implode(', ', $addressPartsForGeocode) : '';
+                    $mapCfgZoom = max(1, min(21, (int) (string) ($googleMapsZoom ?? 12)));
+                    $mapCfgCenterLat = (float) ($googleMapsCenterLat ?? 52.3676);
+                    $mapCfgCenterLng = (float) ($googleMapsCenterLng ?? 4.9041);
+                    $mapCfgType = trim((string) ($googleMapsType ?? 'roadmap')) ?: 'roadmap';
+                    $mapFallbackLat = null;
+                    $mapFallbackLng = null;
+                    $mfLat = $contactSource->latitude ?? null;
+                    $mfLng = $contactSource->longitude ?? null;
+                    if ($mfLat !== null && $mfLng !== null && is_numeric($mfLat) && is_numeric($mfLng)) {
+                        $mfLat = (float) $mfLat;
+                        $mfLng = (float) $mfLng;
+                        if ($mfLat != 0.0 && $mfLng != 0.0 && abs($mfLat) <= 90 && abs($mfLng) <= 180) {
+                            $mapFallbackLat = $mfLat;
+                            $mapFallbackLng = $mfLng;
+                        }
+                    }
+                    $resolvedLat = null;
+                    $resolvedLng = null;
+                    $mapsKeyTrim = trim((string) ($googleMapsApiKey ?? ''));
+                    if ($mapsKeyTrim !== '' && $addrQuery !== '') {
+                        try {
+                            $cacheKey = 'maps.geocode.company-show.'.md5($addrQuery);
+                            $resolved = \Illuminate\Support\Facades\Cache::remember($cacheKey, 86400, function () use ($addrQuery, $mapsKeyTrim) {
+                                $response = \Illuminate\Support\Facades\Http::timeout(8)->get(
+                                    'https://maps.googleapis.com/maps/api/geocode/json',
+                                    [
+                                        'address' => $addrQuery,
+                                        'key' => $mapsKeyTrim,
+                                        'region' => 'nl',
+                                    ]
+                                );
+                                if (! $response->successful()) {
+                                    return null;
+                                }
+                                $data = $response->json();
+                                if (($data['status'] ?? '') !== 'OK' || empty($data['results'][0]['geometry']['location'])) {
+                                    return null;
+                                }
+                                $loc = $data['results'][0]['geometry']['location'];
+
+                                return [
+                                    'lat' => (float) $loc['lat'],
+                                    'lng' => (float) $loc['lng'],
+                                ];
+                            });
+                            if (is_array($resolved) && isset($resolved['lat'], $resolved['lng'])) {
+                                $resolvedLat = $resolved['lat'];
+                                $resolvedLng = $resolved['lng'];
+                            }
+                        } catch (\Throwable $e) {
+                            $resolvedLat = null;
+                            $resolvedLng = null;
+                        }
+                    }
+                    $companyContactStaticMapUrl = null;
+                    if ($mapsKeyTrim !== '') {
+                        $pinLat = $resolvedLat ?? $mapFallbackLat;
+                        $pinLng = $resolvedLng ?? $mapFallbackLng;
+                        $mapTypeStatic = in_array($mapCfgType, ['roadmap', 'satellite', 'hybrid', 'terrain'], true) ? $mapCfgType : 'roadmap';
+                        $staticParams = [
+                            'size' => '640x296',
+                            'scale' => '2',
+                            'maptype' => $mapTypeStatic,
+                            'key' => $mapsKeyTrim,
+                            'language' => 'nl',
+                            'region' => 'nl',
+                        ];
+                        if ($pinLat !== null && $pinLng !== null) {
+                            $ll = sprintf('%.7f,%.7f', $pinLat, $pinLng);
+                            $staticParams['center'] = $ll;
+                            $staticParams['zoom'] = (string) $mapCfgZoom;
+                            $staticParams['markers'] = 'color:red|'.$ll;
+                        } elseif ($addrQuery !== '') {
+                            $staticParams['center'] = $addrQuery;
+                            $staticParams['zoom'] = (string) max(8, min(18, $mapCfgZoom));
+                        } else {
+                            $staticParams['center'] = sprintf('%.7f,%.7f', $mapCfgCenterLat, $mapCfgCenterLng);
+                            $staticParams['zoom'] = (string) max(6, min(12, $mapCfgZoom));
+                        }
+                        $companyContactStaticMapUrl = 'https://maps.googleapis.com/maps/api/staticmap?'.http_build_query($staticParams, '', '&', PHP_QUERY_RFC3986);
+                    }
+                @endphp
+                <div class="flex flex-col md:flex-row md:items-stretch gap-5">
+                    <div class="rounded-xl w-full md:w-1/2 min-w-0 bg-muted/30 overflow-hidden flex items-center justify-center" id="company_contact_map" style="height: 208px;">
+                        @if(! empty($companyContactStaticMapUrl))
+                            <img src="{{ $companyContactStaticMapUrl }}"
+                                 alt=""
+                                 class="nexa-company-static-map w-full h-full max-w-none object-cover object-center rounded-xl"
+                                 width="640"
+                                 height="296"
+                                 decoding="async"
+                                 fetchpriority="low" />
+                        @endif
                     </div>
-                    <div class="flex flex-col gap-2.5 flex-1 min-w-0">
+                    <div class="flex flex-col gap-2.5 w-full md:w-1/2 min-w-0">
+                        @if(!empty($addressParts))
+                        <div class="flex items-start gap-2.5">
+                            <span class="mt-0.5">
+                                <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
+                            </span>
+                            <div class="flex flex-col gap-0.5">
+                                @foreach($addressParts as $part)
+                                <span class="text-sm text-mono">{{ $part }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                         @if($company->email)
                         <div class="flex items-center gap-2.5">
                             <span>
@@ -235,42 +409,12 @@
                             </a>
                         </div>
                         @endif
-                        @php
-                            $addressParts = [];
-                            if ($company->mainLocation) {
-                                if ($company->mainLocation->street && $company->mainLocation->house_number) {
-                                    $addressParts[] = $company->mainLocation->street . ' ' . $company->mainLocation->house_number . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : '');
-                                }
-                                if ($company->mainLocation->postal_code && $company->mainLocation->city) {
-                                    $addressParts[] = $company->mainLocation->postal_code . ' ' . $company->mainLocation->city;
-                                }
-                                if ($company->mainLocation->country) {
-                                    $addressParts[] = $company->mainLocation->country;
-                                }
-                            } elseif ($company->street || $company->city) {
-                                if ($company->street && $company->house_number) {
-                                    $addressParts[] = $company->street . ' ' . $company->house_number . ($company->house_number_extension ? '-' . $company->house_number_extension : '');
-                                }
-                                if ($company->postal_code && $company->city) {
-                                    $addressParts[] = $company->postal_code . ' ' . $company->city;
-                                }
-                                if ($company->country) {
-                                    $addressParts[] = $company->country;
-                                }
-                            }
-                        @endphp
-                        @if(!empty($addressParts))
-                        <div class="flex items-start gap-2.5">
-                            <span class="mt-0.5">
-                                <i class="ki-filled ki-map text-lg text-muted-foreground"></i>
+                        @if($company->latitude !== null && $company->latitude !== '' && $company->longitude !== null && $company->longitude !== '')
+                        <div class="flex items-center gap-2.5">
+                            <span>
+                                <i class="ki-filled ki-geolocation text-lg text-muted-foreground"></i>
                             </span>
-                            <div class="flex flex-col gap-0.5">
-                                @foreach($addressParts as $part)
-                                <span class="text-sm text-mono">
-                                    {{ $part }}
-                                </span>
-                                @endforeach
-                            </div>
+                            <span class="text-sm text-mono text-muted-foreground">{{ $company->latitude }}, {{ $company->longitude }}</span>
                         </div>
                         @endif
                     </div>
@@ -279,6 +423,190 @@
         </div>
     </div>
     <!-- end: grid -->
+</div>
+<!-- End of Container -->
+
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
+            <h3 class="kt-card-title">
+                Gekoppelde modules
+            </h3>
+            @can('edit-companies')
+                <a href="{{ route('admin.companies.edit', $company) }}#company-modules" class="kt-btn kt-btn-sm kt-btn-outline">
+                    <i class="ki-filled ki-notepad-edit me-1"></i>
+                    Aanpassen
+                </a>
+            @endcan
+        </div>
+        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
+            Zelfde keuze als in de tenant-wizard (stap Modules). Alleen gekoppelde modules zijn beschikbaar voor dit bedrijf.
+        </p>
+        @if($company->modules->isEmpty())
+            <div class="kt-card-content pb-6">
+                <p class="text-sm text-muted-foreground mb-0">Geen modules gekoppeld.</p>
+            </div>
+        @else
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <thead>
+                        <tr>
+                            <th class="min-w-48 text-start">Module</th>
+                            <th class="min-w-32 text-start">Technische naam</th>
+                            <th class="min-w-32 text-start">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($company->modules->sortBy('display_name') as $mod)
+                            <tr>
+                                <td class="font-medium text-foreground">{{ $mod->display_name }}</td>
+                                <td><code class="text-xs">{{ $mod->name }}</code></td>
+                                <td>
+                                    @if($mod->installed && $mod->active)
+                                        <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                    @elseif($mod->installed)
+                                        <span class="kt-badge kt-badge-sm kt-badge-warning">Geïnstalleerd</span>
+                                    @else
+                                        <span class="kt-badge kt-badge-sm kt-badge-outline">Niet geïnstalleerd</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+</div>
+<!-- End of Container -->
+
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                Gebruikers &amp; website
+            </h3>
+        </div>
+        <div class="kt-card-content">
+            <ul class="list-none space-y-3 text-sm text-muted-foreground m-0 p-0">
+                <li class="flex flex-wrap items-center gap-2">
+                    <span class="text-foreground font-medium">{{ $company->users->count() }}</span>
+                    <span>gebruiker(s) gekoppeld aan dit bedrijf.</span>
+                    @can('view-users')
+                        <a href="{{ route('admin.users.index', ['company' => $company->id]) }}" class="text-primary font-medium hover:underline">Gebruikers bekijken</a>
+                    @endcan
+                </li>
+                @if(! empty($companyWebsiteDevPreviewUrl))
+                    <li class="flex flex-col gap-2">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <a href="{{ $companyWebsiteDevPreviewUrl }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
+                                Website openen (dev)
+                            </a>
+                            <span class="text-xs text-muted-foreground">
+                                Opent <code class="text-xs">{{ parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost' }}</code> met <code class="text-xs">{{ config('tenancy.dev_effective_host_query_param') }}={{ $companyWebsiteDevPreviewHost }}</code>.
+                            </span>
+                        </div>
+                        @if($companyWebsiteInactivePages->isNotEmpty())
+                            <p class="text-xs text-amber-800 dark:text-amber-200 mb-0 rounded-md border border-amber-300/80 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700/80 px-3 py-2">
+                                @if(! empty($companyWebsiteHomeInactive))
+                                    De home staat op <strong>Inactief</strong> en de live site toont dan niet de website-builder.
+                                @else
+                                    Sommige geconfigureerde pagina&rsquo;s staan op <strong>Inactief</strong> en ontbreken in het menu; footer-links geven 404.
+                                @endif
+                                Inactief:
+                                <strong>{{ $companyWebsiteInactivePages->map(fn ($p) => $p->title ?: $p->slug)->implode(', ') }}</strong>.
+                                Zet bij <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="font-medium underline">Website-pagina&rsquo;s</a> per pagina <strong>Actief</strong> aan en sla op.
+                            </p>
+                        @endif
+                    </li>
+                @endif
+                @if(auth()->user()->hasRole('super-admin'))
+                    <li class="flex flex-wrap items-center gap-2">
+                        <span>Website-pagina's voor deze tenant beheren (zoals in wizard stap Website).</span>
+                        <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">Naar website-pagina's</a>
+                    </li>
+                    <li class="flex flex-col gap-1 pt-2 border-t border-border mt-2">
+                        <p class="text-xs text-muted-foreground mb-0">Volledige tenant-ZIP (pagina’s, media, tenant-instellingen): <strong class="text-foreground font-medium">Configuraties → Omgeving-sync</strong>. Database-push naar een andere omgeving staat daar ook.</p>
+                    </li>
+                @endif
+            </ul>
+        </div>
+    </div>
+</div>
+<!-- End of Container -->
+
+<!-- Container -->
+<div class="kt-container-fixed">
+    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+        <div class="kt-card-header">
+            <h3 class="kt-card-title">
+                Tenant domeinen (SaaS)
+            </h3>
+        </div>
+        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
+            Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit <code class="text-xs">APP_URL</code> en domeinen in <code class="text-xs">TENANCY_CENTRAL_DOMAINS</code> worden niet als tenant opgelost.
+        </p>
+
+        <p id="company-domains-empty" class="text-sm text-secondary-foreground px-6 pb-4 mb-0 {{ $company->domains->isNotEmpty() ? 'hidden' : '' }}">Nog geen domeinen gekoppeld.</p>
+
+        <div id="company-domains-table-wrap" class="kt-card-table kt-scrollable-x-auto pb-3 {{ $company->domains->isEmpty() ? 'hidden' : '' }}">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <thead>
+                    <tr>
+                        <th class="min-w-48 text-start">Host</th>
+                        <th class="min-w-32 text-start">Primair</th>
+                        @can('edit-companies')
+                        <th class="w-[120px] text-end">Acties</th>
+                        @endcan
+                    </tr>
+                </thead>
+                <tbody id="company-domains-tbody">
+                    @include('admin.companies.partials.domain-table-rows', ['company' => $company])
+                </tbody>
+            </table>
+        </div>
+
+        @can('edit-companies')
+        <form id="company-domain-add-form" action="{{ route('admin.companies.domains.store', $company) }}" method="post" class="{{ $company->domains->isNotEmpty() ? 'border-t border-border' : 'pt-2' }}">
+            @csrf
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Hostnaam</td>
+                        <td class="min-w-48 w-full">
+                            <input type="text" name="host" id="domain_host" value="{{ old('host') }}" class="kt-input @error('host') border-destructive @enderror" placeholder="bijv. klant.jouwdomein.nl" required autocomplete="off" @error('host') data-server-error="1" @enderror>
+                            <div id="domain-host-error-ajax" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
+                            @error('host')
+                                <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="host">{{ $message }}</div>
+                            @enderror
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Primair domein</td>
+                        <td class="min-w-48 w-full">
+                            <input type="hidden" name="is_primary" value="0">
+                            <label class="kt-label flex items-center gap-2 mb-0">
+                                <input type="checkbox" name="is_primary" value="1" class="kt-switch kt-switch-sm" {{ old('is_primary') ? 'checked' : '' }}>
+                                Instellen als primair domein
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top"></td>
+                        <td class="min-w-48 w-full">
+                            <button type="submit" class="kt-btn kt-btn-primary">
+                                <i class="ki-filled ki-plus me-2"></i>
+                                Domein toevoegen
+                            </button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </form>
+        @endcan
+    </div>
 </div>
 <!-- End of Container -->
 
@@ -754,251 +1082,138 @@
                 e.stopPropagation();
             });
         });
+
+        // Tenant domeinen: tabel bijwerken zonder volledige pagina-refresh
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const domainTbody = document.getElementById('company-domains-tbody');
+        const domainEmptyMsg = document.getElementById('company-domains-empty');
+        const domainTableWrap = document.getElementById('company-domains-table-wrap');
+        const domainAddForm = document.getElementById('company-domain-add-form');
+
+        function applyCompanyDomainsTable(data) {
+            if (domainTbody && data.tbody_html !== undefined) {
+                domainTbody.innerHTML = data.tbody_html;
+            }
+            const hasDomains = data.has_domains !== false;
+            if (hasDomains) {
+                domainEmptyMsg?.classList.add('hidden');
+                domainTableWrap?.classList.remove('hidden');
+                domainAddForm?.classList.add('border-t', 'border-border');
+                domainAddForm?.classList.remove('pt-2');
+            } else {
+                domainEmptyMsg?.classList.remove('hidden');
+                domainTableWrap?.classList.add('hidden');
+                domainAddForm?.classList.remove('border-t', 'border-border');
+                domainAddForm?.classList.add('pt-2');
+            }
+        }
+
+        function fetchJsonDomainAction(url, formData) {
+            return fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                credentials: 'same-origin'
+            }).then(function(response) {
+                return response.json().then(function(data) {
+                    return { ok: response.ok, status: response.status, data: data };
+                });
+            });
+        }
+
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (!(form instanceof HTMLFormElement) || !form.classList.contains('js-company-domain-action')) {
+                return;
+            }
+            e.preventDefault();
+            if (form.getAttribute('data-domain-destroy') === '1') {
+                if (!window.confirm('Domein verwijderen?')) {
+                    return;
+                }
+            }
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+            fetchJsonDomainAction(form.action, new FormData(form))
+                .then(function(result) {
+                    if (!result.ok) {
+                        throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
+                    }
+                    applyCompanyDomainsTable(result.data);
+                })
+                .catch(function(err) {
+                    alert(err.message || 'Er is een fout opgetreden.');
+                })
+                .finally(function() {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                });
+        });
+
+        if (domainAddForm) {
+            const hostInput = document.getElementById('domain_host');
+            const ajaxErr = document.getElementById('domain-host-error-ajax');
+
+            function clearDomainHostErrors() {
+                if (ajaxErr) {
+                    ajaxErr.textContent = '';
+                    ajaxErr.classList.add('hidden');
+                }
+                if (hostInput) {
+                    hostInput.classList.remove('border-destructive');
+                }
+            }
+
+            hostInput?.addEventListener('input', clearDomainHostErrors);
+
+            domainAddForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                clearDomainHostErrors();
+                const submitBtn = domainAddForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+
+                fetchJsonDomainAction(domainAddForm.action, new FormData(domainAddForm))
+                .then(function(result) {
+                    if (!result.ok) {
+                        if (result.status === 422 && result.data && result.data.errors && result.data.errors.host) {
+                            const msg = Array.isArray(result.data.errors.host) ? result.data.errors.host[0] : result.data.errors.host;
+                            if (ajaxErr) {
+                                ajaxErr.textContent = msg;
+                                ajaxErr.classList.remove('hidden');
+                            }
+                            if (hostInput) {
+                                hostInput.classList.add('border-destructive');
+                            }
+                            return;
+                        }
+                        throw new Error((result.data && result.data.message) ? result.data.message : 'Opslaan mislukt');
+                    }
+                    applyCompanyDomainsTable(result.data);
+                    domainAddForm.reset();
+                })
+                .catch(function(err) {
+                    alert(err.message || 'Er is een fout opgetreden bij het toevoegen van het domein.');
+                })
+                .finally(function() {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                });
+            });
+        }
     });
 </script>
 @endcan
 
-<!-- Google Maps Initialization -->
-@if(!empty($googleMapsApiKey))
-<script>
-// Store reference to initGoogleMap function
-let initGoogleMapFunction = null;
-
-// Define callback function globally before loading the script
-window.initGoogleMapsCallback = function() {
-    // Wait for DOM to be ready and function to be defined
-    function tryInit() {
-        if (typeof initGoogleMapFunction === 'function') {
-            initGoogleMapFunction();
-        } else {
-            setTimeout(tryInit, 50);
-        }
-    }
-    tryInit();
-};
-
-document.addEventListener('DOMContentLoaded', function() {
-    const mapElement = document.getElementById('company_contact_map');
-    if (!mapElement) return;
-
-    @php
-        // Get address for geocoding and popup display
-        $streetAddress = '';
-        $postalCity = '';
-        $country = '';
-        $lat = null;
-        $lng = null;
-        $defaultZoom = $googleMapsZoom;
-        $fullAddress = '';
-        
-        if ($company->mainLocation) {
-            $streetAddress = trim(($company->mainLocation->street ?? '') . ' ' . ($company->mainLocation->house_number ?? '') . ($company->mainLocation->house_number_extension ? '-' . $company->mainLocation->house_number_extension : ''));
-            $postalCity = trim(($company->mainLocation->postal_code ?? '') . ' ' . ($company->mainLocation->city ?? ''));
-            $country = $company->mainLocation->country ?: '';
-            $lat = $company->mainLocation->latitude;
-            $lng = $company->mainLocation->longitude;
-            
-            // Build full address for geocoding
-            $addressParts = array_filter([
-                $streetAddress,
-                $postalCity,
-                $country
-            ]);
-            $fullAddress = implode(', ', $addressParts);
-        } elseif ($company->street || $company->city) {
-            $streetAddress = trim(($company->street ?? '') . ' ' . ($company->house_number ?? '') . ($company->house_number_extension ? '-' . $company->house_number_extension : ''));
-            $postalCity = trim(($company->postal_code ?? '') . ' ' . ($company->city ?? ''));
-            $country = $company->country ?: '';
-            $lat = $company->latitude;
-            $lng = $company->longitude;
-            
-            // Build full address for geocoding
-            $addressParts = array_filter([
-                $streetAddress,
-                $postalCity,
-                $country
-            ]);
-            $fullAddress = implode(', ', $addressParts);
-        }
-        
-        // Store original coordinates before any fallback
-        $originalLat = $lat;
-        $originalLng = $lng;
-        
-        // Check if we have valid stored coordinates (not fallback)
-        // Coordinates must be numeric, not null, not empty, and not zero (0,0 is invalid for Netherlands)
-        $hasCoordinates = false;
-        if ($originalLat !== null && $originalLng !== null) {
-            $originalLat = is_numeric($originalLat) ? (float)$originalLat : null;
-            $originalLng = is_numeric($originalLng) ? (float)$originalLng : null;
-            $hasCoordinates = $originalLat !== null && $originalLng !== null && 
-                             $originalLat != 0 && $originalLng != 0 &&
-                             abs($originalLat) <= 90 && abs($originalLng) <= 180;
-        }
-        
-        // Use original coordinates if we have them
-        if ($hasCoordinates) {
-            $lat = $originalLat;
-            $lng = $originalLng;
-        } elseif (empty($fullAddress) && empty($streetAddress) && empty($postalCity)) {
-            // Only use default center if we have no coordinates AND no address to geocode
-            $lat = $googleMapsCenterLat;
-            $lng = $googleMapsCenterLng;
-        } else {
-            // If we have an address but no coordinates, keep lat/lng as null for geocoding
-            $lat = null;
-            $lng = null;
-        }
-    @endphp
-
-    function initGoogleMap() {
-        if (typeof google === 'undefined' || typeof google.maps === 'undefined' || typeof google.maps.Map === 'undefined') {
-            console.error('Google Maps API not loaded');
-            return;
-        }
-
-        const hasCoordinates = {{ $hasCoordinates ? 'true' : 'false' }};
-        const mapLat = {{ $hasCoordinates && $lat ? $lat : 'null' }};
-        const mapLng = {{ $hasCoordinates && $lng ? $lng : 'null' }};
-        const mapZoom = hasCoordinates ? 16 : {{ $defaultZoom }};
-        const defaultCenterLat = {{ $googleMapsCenterLat }};
-        const defaultCenterLng = {{ $googleMapsCenterLng }};
-
-        @if($fullAddress || $streetAddress || $postalCity)
-        const streetAddress = @json($streetAddress);
-        const postalCity = @json($postalCity);
-        const country = @json($country);
-        const companyName = @json($company->name);
-        const fullAddress = @json($fullAddress);
-        const addressText = fullAddress || (streetAddress + (postalCity ? ', ' + postalCity : '') + (country ? ', ' + country : ''));
-        
-        // Determine initial map center
-        let initialCenter;
-        let initialZoom = mapZoom;
-        if (hasCoordinates) {
-            initialCenter = { lat: parseFloat(mapLat), lng: parseFloat(mapLng) };
-        } else if (addressText && addressText.trim() !== '') {
-            // If we have an address but no coordinates, we'll geocode it
-            // Use a wider zoom to show Netherlands while geocoding
-            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
-            initialZoom = 7; // Wider zoom to show Netherlands
-        } else {
-            initialCenter = { lat: defaultCenterLat, lng: defaultCenterLng };
-        }
-
-        const googleMap = new google.maps.Map(mapElement, {
-            center: initialCenter,
-            zoom: initialZoom,
-            mapTypeId: '{{ $googleMapsType }}',
-            mapTypeControl: false,
-            mapId: 'COMPANY_MAP'
-        });
-        
-        @if($hasCoordinates)
-        // Use stored coordinates
-        const marker = new google.maps.marker.AdvancedMarkerElement({
-            position: { lat: parseFloat(mapLat), lng: parseFloat(mapLng) },
-            map: googleMap,
-            title: addressText
-        });
-        
-        // Center map on marker
-        googleMap.setCenter({ lat: parseFloat(mapLat), lng: parseFloat(mapLng) });
-        googleMap.setZoom(16);
-
-        // Create HTML for InfoWindow with company name and address
-        let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
-        if (companyName) {
-            addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
-        }
-        if (streetAddress) {
-            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
-        }
-        if (postalCity) {
-            addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
-        }
-        if (country) {
-            addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
-        }
-        addressHtml += '</div>';
-        
-        const infoWindow = new google.maps.InfoWindow({
-            content: addressHtml,
-            maxWidth: 300
-        });
-        
-        infoWindow.open(googleMap, marker);
-        @else
-        // Geocode address immediately if no coordinates
-        if (addressText && addressText.trim() !== '') {
-            const geocoder = new google.maps.Geocoder();
-            // Execute geocoding immediately - this is async but will update the map as soon as results arrive
-            geocoder.geocode({ address: addressText }, function(results, status) {
-                if (status === 'OK' && results[0]) {
-                    const location = results[0].geometry.location;
-                    const lat = location.lat();
-                    const lng = location.lng();
-                    
-                    // Create marker at geocoded location
-                    const marker = new google.maps.marker.AdvancedMarkerElement({
-                        position: { lat: lat, lng: lng },
-                        map: googleMap,
-                        title: addressText
-                    });
-
-                    // Create HTML for InfoWindow with company name and address
-                    let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
-                    if (companyName) {
-                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">${companyName}</div>`;
-                    }
-                    if (streetAddress) {
-                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${streetAddress}</div>`;
-                    }
-                    if (postalCity) {
-                        addressHtml += `<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">${postalCity}</div>`;
-                    }
-                    if (country) {
-                        addressHtml += `<div style="line-height: 1.4; color: #374151; font-size: 13px;">${country}</div>`;
-                    }
-                    addressHtml += '</div>';
-                    
-                    const infoWindow = new google.maps.InfoWindow({
-                        content: addressHtml,
-                        maxWidth: 300
-                    });
-                    
-                    // Open InfoWindow immediately
-                    infoWindow.open(googleMap, marker);
-                    
-                    // Center and zoom to the geocoded location AFTER marker and infowindow are created
-                    googleMap.setCenter({ lat: lat, lng: lng });
-                    googleMap.setZoom(16);
-                } else {
-                    console.error('Geocoding failed for address:', addressText, 'Status:', status);
-                }
-            });
-        } else {
-            console.warn('No address text available for geocoding');
-        }
-        @endif
-        @endif
-    }
-    
-    // Store function reference globally
-    initGoogleMapFunction = initGoogleMap;
-    
-    // Fallback: also check if Google Maps is already loaded
-    if (typeof google !== 'undefined' && typeof google.maps !== 'undefined' && typeof google.maps.Map !== 'undefined') {
-        setTimeout(function() {
-            if (typeof initGoogleMapFunction === 'function') {
-                initGoogleMapFunction();
-            }
-        }, 100);
-    }
-});
-</script>
-<script src="https://maps.googleapis.com/maps/api/js?key={{ $googleMapsApiKey }}&libraries=places,geocoding,marker&callback=initGoogleMapsCallback&loading=async"></script>
-@endif
 @endpush
 
 @push('styles')

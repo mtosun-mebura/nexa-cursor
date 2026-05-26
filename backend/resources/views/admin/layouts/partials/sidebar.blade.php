@@ -3,18 +3,35 @@
     data-kt-drawer="true" data-kt-drawer-class="kt-drawer kt-drawer-start top-0 bottom-0" id="sidebar">
     <div class="kt-sidebar-header flex items-center relative justify-center px-3 lg:px-6 shrink-0"
         id="sidebar_header">
-        <a href="{{ route('admin.dashboard') }}" class="flex items-center">
+        <a href="{{ route('admin.dashboard') }}" class="flex w-full items-center justify-center">
             @php
-                $logo = \App\Models\GeneralSetting::get('logo');
                 $logoSize = \App\Models\GeneralSetting::get('logo_size', '26');
                 $logoHeight = $logoSize . 'px';
+                $company = auth()->user()?->company;
+                $useCompanyLogo = $company && $company->logo_blob;
+                $settingsLogo = \App\Models\GeneralSetting::get('logo');
+                $hasSettingsLogo = $settingsLogo && \Storage::disk('public')->exists($settingsLogo);
+                $settingsLogoMode = \App\Models\GeneralSetting::get('logo_mode', 'single');
+                $settingsLogoDark = \App\Models\GeneralSetting::get('logo_dark');
+                $hasSettingsLogoDark = $settingsLogoDark && \Storage::disk('public')->exists($settingsLogoDark);
+                $logoLightUrl = $hasSettingsLogo ? route('admin.settings.logo') : null;
+                $logoDarkUrl = ($hasSettingsLogo && $settingsLogoMode === 'light_dark' && $hasSettingsLogoDark)
+                    ? route('admin.settings.logo-dark')
+                    : $logoLightUrl;
             @endphp
-            @if($logo && \Storage::disk('public')->exists($logo))
-                <img class="default-logo w-auto max-w-[140px] object-contain" style="height: {{ $logoHeight }};" src="{{ route('admin.settings.logo') }}" alt="Logo" />
-                <img class="small-logo w-auto max-w-[94px] object-contain" style="height: {{ $logoHeight }};" src="{{ route('admin.settings.logo') }}" alt="Logo" />
+            @if($hasSettingsLogo)
+                <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ $logoLightUrl }}" alt="Logo" />
+                <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $logoDarkUrl }}" alt="Logo" />
+            @elseif($useCompanyLogo)
+                @php
+                    $companyLogoDarkUrl = ! empty($company->logo_dark_blob)
+                        ? route('admin.companies.logo.dark', $company)
+                        : route('admin.companies.logo', $company);
+                @endphp
+                <img class="default-logo logo-light w-auto max-w-[350px] object-contain dark:hidden" style="height: {{ $logoHeight }};" src="{{ route('admin.companies.logo', $company) }}" alt="{{ $company->name }}" />
+                <img class="default-logo logo-dark w-auto max-w-[350px] object-contain hidden dark:block" style="height: {{ $logoHeight }};" src="{{ $companyLogoDarkUrl }}" alt="{{ $company->name }}" />
             @else
-                <img class="default-logo h-[26px] w-auto max-w-[140px] object-contain" src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" />
-                <img class="small-logo h-[26px] w-auto max-w-[94px] object-contain" src="{{ asset('images/nexa-x-logo.png') }}" alt="Nexa" />
+                <img class="default-logo h-[26px] w-auto max-w-[350px] object-contain" src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" />
             @endif
         </a>
         <button
@@ -34,11 +51,23 @@
                 id="sidebar_menu">
 
                 <!-- Client API (Super Admin only) -->
-                @if(auth()->user()?->hasRole('super-admin'))
+                @if(auth()->user()?->isSuperAdmin())
                 @php
-                    $companies = \App\Models\Company::orderBy('name')->get();
+                    /**
+                     * Tenant-switcher moet dezelfde bedrijven tonen als o.a. Bedrijven en session('selected_tenant'):
+                     * altijd de centrale `companies`-tabel op de standaard-app-verbinding.
+                     * Eerder: Company::on(module_*) op basis van de huidige route — die module-DB's bevatten
+                     * vaak geen (of andere) company-rijen, waardoor de lijst leek terwijl Bedrijven wél gevuld is.
+                     */
+                    $companies = \Illuminate\Support\Facades\Cache::remember(
+                        'admin.tenant_switcher.companies',
+                        300,
+                        fn () => \App\Models\Company::query()->orderBy('name')->get(['id', 'name'])
+                    );
                     $selectedTenant = session('selected_tenant');
-                    $selectedCompany = $selectedTenant ? \App\Models\Company::find($selectedTenant) : null;
+                    $selectedCompany = $selectedTenant
+                        ? $companies->firstWhere('id', (int) $selectedTenant)
+                        : null;
                 @endphp
                 <div class="mb-2 tenant-switcher" data-kt-dropdown="true" data-kt-dropdown-placement="bottom-start" data-kt-dropdown-trigger="click" data-kt-dropdown-offset="0px, 5px">
                     <!-- Collapsed sidebar: icon-only toggle (opens same dropdown) -->
@@ -229,9 +258,10 @@
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('view-email-templates'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.*') ? 'active' : '' }}">
-                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
-                        href="{{ route('admin.email-templates.index') }}" tabindex="0">
+                <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.*') ? 'here show' : '' }}"
+                     data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                    <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        tabindex="0">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
                             <i class="ki-filled ki-sms text-lg">
                             </i>
@@ -240,12 +270,44 @@
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
                             E-mail Templates
                         </span>
-                    </a>
+                        <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                            <span class="inline-flex kt-menu-item-show:hidden">
+                                <i class="ki-filled ki-plus text-[11px]">
+                                </i>
+                            </span>
+                            <span class="hidden kt-menu-item-show:inline-flex">
+                                <i class="ki-filled ki-minus text-[11px]">
+                                </i>
+                            </span>
+                        </span>
+                    </div>
+                    <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                        <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.index') || (request()->routeIs('admin.email-templates.show') || request()->routeIs('admin.email-templates.edit') || request()->routeIs('admin.email-templates.create')) ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.email-templates.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    E-mail Templates
+                                </span>
+                            </a>
+                        </div>
+                        @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->can('edit-email-templates'))
+                        <div class="kt-menu-item {{ request()->routeIs('admin.email-templates.form-fields.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.email-templates.form-fields.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Formulier velden
+                                </span>
+                            </a>
+                        </div>
+                        @endif
+                    </div>
                 </div>
                 @endif
 
-                <!-- Job Configuraties (Super Admin only) -->
-                @if(auth()->user()?->hasRole('super-admin'))
+                <!-- Job Configuraties (Nexa Skillmatching: alleen wanneer module actief + Super Admin) -->
+                @if((auth()->user()?->hasRole('super-admin')) && app(\App\Services\ModuleManager::class)->isActive('skillmatching'))
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
@@ -318,7 +380,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Rollen & Permissies
+                            Toegang
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -366,7 +428,8 @@
                 </div>
                 @endif
 
-                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.payment-providers.*') ? 'here show' : '' }}" 
+                @if(auth()->user()?->hasRole('super-admin'))
+                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.payment-providers.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -444,8 +507,11 @@
                         </div>
                     </div>
                 </div>
+                @endif
+
                 <!-- Configuraties (Super Admin only) -->
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') ? 'here show' : '' }}" 
+                @if(auth()->user()?->hasRole('super-admin'))
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -496,9 +562,23 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
                 <!-- Front-end (Super Admin only): Coming Soon, Pagina's, Thema's, Componenten -->
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || request()->routeIs('admin.website-pages.*') || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
+                @if(auth()->user()?->hasRole('super-admin'))
+                @php
+                    $websitePageRouteParam = request()->route('website_page');
+                    $websitePageOnRoute = $websitePageRouteParam instanceof \App\Models\WebsitePage
+                        ? $websitePageRouteParam
+                        : (\is_numeric($websitePageRouteParam) ? \App\Models\WebsitePage::find((int) $websitePageRouteParam) : null);
+                    $isCentralWelcomeWebsitePage = $websitePageOnRoute
+                        && \App\Models\WebsitePage::isCentralMarketingWelcomeSlug((string) $websitePageOnRoute->slug)
+                        && ($websitePageOnRoute->module_name === null || $websitePageOnRoute->module_name === '');
+                    $isWelcomeMenuActive = request()->routeIs('admin.welcome-page.*')
+                        || (request()->routeIs('admin.website-pages.*') && $isCentralWelcomeWebsitePage);
+                    $isWebsitePagesMenuActive = request()->routeIs('admin.website-pages.*') && ! $isCentralWelcomeWebsitePage;
+                @endphp
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.frontend.*') || $isWelcomeMenuActive || $isWebsitePagesMenuActive || request()->routeIs('admin.frontend-themes.*') || request()->routeIs('admin.frontend-components.*') ? 'here show' : '' }}" 
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -535,7 +615,16 @@
                                 </span>
                             </a>
                         </div>
-                        <div class="kt-menu-item {{ request()->routeIs('admin.website-pages.*') ? 'active' : '' }}">
+                        <div class="kt-menu-item {{ $isWelcomeMenuActive ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.welcome-page.edit') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    Welkom
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ $isWebsitePagesMenuActive ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.website-pages.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
@@ -564,6 +653,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
 
             </div>
@@ -721,6 +811,7 @@ function switchTenant(tenantId) {
     const formData = new FormData();
     formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
     formData.append('tenant_id', tenantId);
+    formData.append('redirect', window.location.pathname + window.location.search);
     
     fetch('{{ route('admin.tenant.switch') }}', {
         method: 'POST',
@@ -738,8 +829,6 @@ function switchTenant(tenantId) {
     })
     .then(data => {
         if (data.success) {
-            // Redirect naar dashboard om company-profile te tonen
-            // Gebruik redirect URL uit response als die beschikbaar is, anders gebruik dashboard route
             const redirectUrl = data.redirect || '{{ route("admin.dashboard") }}';
             window.location.href = redirectUrl;
         }

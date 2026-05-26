@@ -27,7 +27,7 @@
   <header class="sticky top-0 z-40 border-b border-border dark:border-border-dark bg-white/90 dark:bg-surface-dark/90 backdrop-blur">
     <div class="w-full px-4 py-3 flex items-center gap-4">
       <a href="/" class="flex items-center gap-3">
-        <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="NEXA" class="h-7 w-auto">
+        <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-7 w-auto">
         <span class="hidden sm:block font-semibold">NEXA Skillmatching</span>
       </a>
 

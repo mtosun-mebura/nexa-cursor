@@ -61,6 +61,7 @@
 @section('title', "Frontend Thema's")
 
 @section('content')
+@php $themeStagingUrls = $themeStagingUrls ?? []; @endphp
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Frontend Thema's</h1>
@@ -77,7 +78,7 @@
             </a>
         </div>
     </div>
-    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema te gebruiken; het actieve thema bepaalt het uiterlijk van de website. Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
+    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per <strong>bedrijf</strong> kies je welk thema op de tenant-site wordt getoond (Bedrijf bewerken → Website-thema). Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
 
     @if(session('success'))
         <div class="kt-alert kt-alert-success mb-5">
@@ -92,7 +93,10 @@
 
     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         @foreach($themes as $theme)
-            <div class="kt-card overflow-hidden {{ $theme->is_active ? 'ring-2 ring-primary' : '' }}">
+            @php
+                $isThemeActive = ((string)($activeThemeId ?? '') === (string)$theme->id) || (bool)$theme->is_active;
+            @endphp
+            <div class="kt-card overflow-hidden {{ $isThemeActive ? 'ring-2 ring-primary' : '' }}">
                 {{-- Screenshot / preview van het thema --}}
                 <div class="aspect-video w-full bg-muted flex items-center justify-center overflow-hidden">
                     @if($theme->preview_path && file_exists(public_path($theme->preview_path)))
@@ -113,26 +117,26 @@
                 </div>
                 <div class="kt-card-header flex items-center justify-between">
                     <h3 class="kt-card-title">{{ $theme->name }}</h3>
-                    @if($theme->is_active)
+                    @if($isThemeActive)
                         <span class="kt-badge kt-badge-success">Actief</span>
                     @endif
                 </div>
                 <div class="kt-card-content">
                     <p class="text-sm text-muted-foreground mb-4">{{ $theme->description }}</p>
                     <div class="flex flex-wrap gap-2 theme-card-actions">
-                        @if(!$theme->is_active)
+                        @if(!$isThemeActive)
                             <form action="{{ route('admin.frontend-themes.set-active', $theme) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Activeren</button>
                             </form>
                         @else
-                            <a href="{{ route('admin.frontend-themes.staging', ['theme_id' => $theme->id, 'module' => '']) }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-warning" title="Staging met dit thema">Website tonen</a>
-                            <form action="{{ route('admin.frontend-themes.publish') }}" method="POST" class="inline">
+                            <a href="{{ $themeStagingUrls[$theme->id] ?? route('admin.frontend-themes.staging', ['theme_id' => $theme->id]) }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-warning" title="Geconfigureerde website van dit thema tonen">Website tonen</a>
+                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline" onsubmit="return confirm('Thema de-publiceren? Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.');">
                                 @csrf
                                 <input type="hidden" name="theme_id" value="{{ $theme->id }}">
-                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-success" title="Thema publiceren en demo-URL's omzetten naar daadwerkelijke URL's">Publiceren</button>
+                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline text-muted-foreground hover:text-destructive" title="Thema niet meer beschikbaar maken">De-publiceren</button>
                             </form>
-                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground">Instellingen</a>
+                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="kt-btn kt-btn-sm kt-btn-ghost text-muted-foreground" title="Kleur, lettertypen en footer aanpassen">Instellingen</a>
                         @endif
                     </div>
                 </div>
@@ -140,10 +144,10 @@
         @endforeach
     </div>
 
-    @if(count($installedModules) > 0)
+    @if(count($activeModulesForThemes ?? []) > 0)
         <div class="mt-8">
             <h2 class="text-lg font-medium mb-3">Thema per module</h2>
-            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module. Kernpagina's (geen module) gebruiken het actieve standaardthema hierboven.</p>
+            <p class="text-sm text-muted-foreground mb-4">Stel per module in welk thema gebruikt wordt voor website-pagina's van die module (fallback). Per tenant bepaalt het <strong>website-thema op het bedrijf</strong> het uiterlijk. Alleen actieve modules worden getoond.</p>
             <div class="kt-card">
                 <div class="kt-card-table kt-scrollable-x-auto">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm">
@@ -155,7 +159,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($installedModules as $module)
+                            @foreach($activeModulesForThemes as $module)
                                     @php
                                     $moduleName = $module->getName();
                                     $moduleModel = $moduleModels[$moduleName] ?? null;

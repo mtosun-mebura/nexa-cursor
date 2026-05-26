@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.users.update', $user) }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.users.update', $user) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -46,7 +46,7 @@
                                        value="{{ old('first_name', $user->first_name) }}" 
                                        required>
                                 @error('first_name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="first_name" role="alert">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -61,7 +61,7 @@
                                        value="{{ old('last_name', $user->last_name) }}" 
                                        required>
                                 @error('last_name')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="last_name" role="alert">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
@@ -175,25 +175,14 @@
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">
-                                Rol *
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
+                                Rollen *
                             </td>
-                            <td class="min-w-48 w-full">
-                                <select class="kt-input @error('role') border-destructive @enderror" 
-                                        name="role" 
-                                        required>
-                                    <option value="">-- Selecteer rol --</option>
-                                    @foreach($roles as $role)
-                                        @if($role->name !== 'super-admin' || auth()->user()->hasRole('super-admin'))
-                                            <option value="{{ $role->name }}" {{ old('role', $user->roles->first()->name ?? '') == $role->name ? 'selected' : '' }}>
-                                                {{ ucfirst(str_replace('-', ' ', $role->name)) }}
-                                            </option>
-                                        @endif
-                                    @endforeach
-                                </select>
-                                @error('role')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
+                            <td class="min-w-48 w-full pt-4">
+                                @include('admin.users.partials.role-checkboxes', [
+                                    'roles' => $roles,
+                                    'selectedRoles' => old('roles', $user->webRoleNames()),
+                                ])
                             </td>
                         </tr>
                         @if(auth()->user()->hasRole('super-admin'))

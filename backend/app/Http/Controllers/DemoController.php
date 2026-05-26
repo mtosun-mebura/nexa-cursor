@@ -27,14 +27,19 @@ class DemoController extends Controller
 
         // First, try public/html/demo{$demoNumber}/index.html
         $publicPath = public_path("html/demo{$demoNumber}/index.html");
-        
-        // Fallback: Try to load Metronic HTML file (old method)
+
+        // Repo fallback: Metronic demos committed under resources/views/layouts/demo{N}/
+        $viewsLayoutPath = resource_path("views/layouts/demo{$demoNumber}/index.html");
+
+        // Fallback: Try to load Metronic HTML file (optional external clone)
         $metronicPath = base_path("../metronic-v9.3.4/metronic-tailwind-html-demos/dist/html/demo{$demoNumber}/index.html");
-        
+
         // Determine which path to use
         $htmlPath = null;
         if (File::exists($publicPath)) {
             $htmlPath = $publicPath;
+        } elseif (File::exists($viewsLayoutPath)) {
+            $htmlPath = $viewsLayoutPath;
         } elseif (File::exists($metronicPath)) {
             $htmlPath = $metronicPath;
         }
@@ -160,14 +165,19 @@ class DemoController extends Controller
             
             // First, try public/html/demo{$demoNumber}/ directory
             $publicBasePath = public_path("html/demo{$demoNumber}/");
-            
+
+            // Repo fallback: layouts under resources/views/layouts/demo{N}/
+            $viewsLayoutBasePath = resource_path("views/layouts/demo{$demoNumber}/");
+
             // Fallback to metronic-v9.3.4 directory
             $metronicBasePathRaw = base_path("../metronic-v9.3.4/metronic-tailwind-html-demos/dist/html/demo{$demoNumber}/");
-            
+
             // Determine which base path to use
             $basePath = null;
             if (is_dir($publicBasePath)) {
                 $basePath = $publicBasePath;
+            } elseif (is_dir($viewsLayoutBasePath)) {
+                $basePath = $viewsLayoutBasePath;
             } else {
                 // Normalize the base path (resolve ..)
                 $basePath = realpath($metronicBasePathRaw);

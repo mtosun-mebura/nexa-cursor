@@ -13,7 +13,7 @@ class StoreUserRequest extends BaseFormRequest
     public function authorize(): bool
     {
         return auth()->check() && (
-            auth()->user()->hasRole('super-admin') || 
+            auth()->user()->hasRole('super-admin') ||
             auth()->user()->can('create-users')
         );
     }
@@ -68,12 +68,49 @@ class StoreUserRequest extends BaseFormRequest
                 'nullable',
                 'exists:companies,id',
             ],
-            'role' => [
+            'roles' => [
                 'required',
+                'array',
+                'min:1',
+            ],
+            'roles.*' => [
                 'string',
-                'exists:roles,name',
+                'distinct',
+                Rule::exists('roles', 'name')->where('guard_name', 'web'),
+            ],
+            'wizard_back_url' => [
+                'nullable',
+                'string',
+                'max:2048',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+                    $parsed = parse_url($value);
+                    if (! is_array($parsed) || empty($parsed['path']) || ! str_starts_with($parsed['path'], '/admin/')) {
+                        $fail('Ongeldige terug-URL.');
+
+                        return;
+                    }
+                    if (isset($parsed['host']) && $parsed['host'] !== request()->getHost()) {
+                        $fail('Ongeldige terug-URL.');
+                    }
+                },
             ],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $roles = $this->input('roles', []);
+            if (! is_array($roles)) {
+                return;
+            }
+            if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
+                $validator->errors()->add('roles', 'Je mag geen super-admin rol toewijzen.');
+            }
+        });
     }
 
     public function messages(): array
@@ -96,13 +133,9 @@ class StoreUserRequest extends BaseFormRequest
             'phone.regex' => 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).',
             'date_of_birth.before' => 'Geboortedatum moet in het verleden liggen.',
             'company_id.exists' => 'Het geselecteerde bedrijf bestaat niet.',
-            'role.required' => 'Rol is verplicht.',
-            'role.exists' => 'De geselecteerde rol bestaat niet.',
+            'roles.required' => 'Selecteer minimaal één rol.',
+            'roles.min' => 'Selecteer minimaal één rol.',
+            'roles.*.exists' => 'Een geselecteerde rol bestaat niet.',
         ];
     }
 }
-
-
-
-
-

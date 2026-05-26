@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.companies.locations.update', [$company, $location]) }}" method="POST">
+    <form action="{{ route('admin.companies.locations.update', [$company, $location]) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -343,15 +343,35 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (lat && lng) {
-                const address = '{{ $location->street }} {{ $location->house_number }}, {{ $location->postal_code }} {{ $location->city }}';
+                const locationName = @json($location->name ?? '');
+                const companyName = @json($company->name ?? '');
+                const streetAddress = @json(trim(($location->street ?? '') . ' ' . ($location->house_number ?? '') . ($location->house_number_extension ? '-' . $location->house_number_extension : '')));
+                const postalCity = @json(trim(($location->postal_code ?? '') . ' ' . ($location->city ?? '')));
+                const country = @json($location->country ?? '');
+                const titleText = locationName || companyName || streetAddress || 'Locatie';
                 googleMarker = new google.maps.Marker({
                     position: { lat: lat, lng: lng },
                     map: googleMap,
-                    title: address
+                    title: titleText
                 });
 
+                let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
+                if (locationName || companyName) {
+                    addressHtml += '<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">' + (locationName || companyName) + '</div>';
+                }
+                if (streetAddress) {
+                    addressHtml += '<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">' + streetAddress + '</div>';
+                }
+                if (postalCity) {
+                    addressHtml += '<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">' + postalCity + '</div>';
+                }
+                if (country) {
+                    addressHtml += '<div style="line-height: 1.4; color: #374151; font-size: 13px;">' + country + '</div>';
+                }
+                addressHtml += '</div>';
                 const infoWindow = new google.maps.InfoWindow({
-                    content: `<div style="padding: 8px; color: #000000;"><strong style="color: #000000;">${address}</strong></div>`
+                    content: addressHtml,
+                    maxWidth: 300
                 });
                 googleMarker.addListener('click', function() {
                     infoWindow.open(googleMap, googleMarker);
@@ -451,16 +471,36 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
 
                             // Add new marker
-                            const address = `${data.street} ${data.house_number}, ${data.postal_code} ${data.city}`;
+                            const nameInput = document.querySelector('input[name="name"]');
+                            const locationName = nameInput ? nameInput.value.trim() : '';
+                            const companyName = @json($company->name ?? '');
+                            const streetAddress = [data.street, data.house_number].filter(Boolean).join(' ');
+                            const postalCity = [data.postal_code, data.city].filter(Boolean).join(' ');
+                            const country = data.country || 'Nederland';
+                            const titleText = locationName || companyName || streetAddress || 'Locatie';
                             googleMarker = new google.maps.Marker({
                                 position: { lat: lat, lng: lng },
                                 map: googleMap,
-                                title: address
+                                title: titleText
                             });
 
-                            // Add info window
+                            let addressHtml = '<div style="padding: 8px 12px; margin: 0; color: #1f2937; background-color: #ffffff; max-width: 300px; box-sizing: border-box; overflow: hidden;">';
+                            if (locationName || companyName) {
+                                addressHtml += '<div style="line-height: 1.4; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #111827;">' + (locationName || companyName) + '</div>';
+                            }
+                            if (streetAddress) {
+                                addressHtml += '<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">' + streetAddress + '</div>';
+                            }
+                            if (postalCity) {
+                                addressHtml += '<div style="line-height: 1.4; margin-bottom: 2px; color: #374151; font-size: 13px;">' + postalCity + '</div>';
+                            }
+                            if (country) {
+                                addressHtml += '<div style="line-height: 1.4; color: #374151; font-size: 13px;">' + country + '</div>';
+                            }
+                            addressHtml += '</div>';
                             const infoWindow = new google.maps.InfoWindow({
-                                content: `<div style="padding: 8px; color: #000000;"><strong style="color: #000000;">${address}</strong></div>`
+                                content: addressHtml,
+                                maxWidth: 300
                             });
                             googleMarker.addListener('click', function() {
                                 infoWindow.open(googleMap, googleMarker);
@@ -508,8 +548,15 @@ document.addEventListener('DOMContentLoaded', function() {
         border-radius: 0.75rem;
         border: 1px solid var(--input);
     }
+    /* Verberg sluitknop InfoWindow op de kaart */
+    .gm-style-iw-chr {
+        display: none !important;
+    }
 </style>
 @endpush
 
-@endsection
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
+@endsection

@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.job-configuration-types.update', $jobConfigurationType) }}" method="POST">
+    <form action="{{ route('admin.job-configuration-types.update', $jobConfigurationType) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -120,6 +120,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const displayNameInput = document.getElementById('display_name');

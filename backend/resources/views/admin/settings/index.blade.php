@@ -1,5 +1,7 @@
 @extends('admin.layouts.app')
 
+@include('admin.settings.partials.collapsible-section-assets')
+
 @section('title', 'Configuraties')
 
 @push('scripts')
@@ -15,6 +17,13 @@
         </h1>
     </div>
 
+    @if(session('settings_tenant_save_notice'))
+        <div class="mb-5 flex gap-3 rounded-lg border-2 border-orange-700 bg-orange-950 px-4 py-3 text-sm text-orange-50 shadow-md dark:border-orange-600 dark:bg-orange-950 dark:text-orange-50 dark:shadow-lg dark:shadow-orange-950/50" role="alert">
+            <i class="ki-filled ki-information mt-0.5 shrink-0 text-2xl text-orange-300"></i>
+            <div class="min-w-0 leading-relaxed font-medium text-orange-50">{{ session('settings_tenant_save_notice') }}</div>
+        </div>
+    @endif
+
     <!-- Success Alert -->
     @if(session('success'))
         <div class="kt-alert kt-alert-success mb-5" id="success-alert" role="alert">
@@ -23,10 +32,13 @@
         </div>
     @endif
 
-    @if(session('error'))
-        <div class="kt-alert kt-alert-danger mb-5" role="alert">
-            <i class="ki-filled ki-information me-2"></i>
-            {{ session('error') }}
+    @if(session('success'))
+        <div id="settings-success-toast"
+             class="fixed top-5 right-5 z-[120] max-w-md w-[calc(100%-2.5rem)] sm:w-auto rounded-lg border border-emerald-300/60 bg-emerald-50 text-emerald-900 shadow-lg px-4 py-3 opacity-0 translate-y-2 pointer-events-none transition-all duration-300">
+            <div class="flex items-start gap-2">
+                <i class="ki-filled ki-check-circle text-emerald-600 mt-0.5"></i>
+                <div class="text-sm font-medium">{{ session('success') }}</div>
+            </div>
         </div>
     @endif
 
@@ -42,14 +54,13 @@
         </div>
     @endif
 
-    <div class="grid gap-5 lg:gap-7.5">
+    @include('admin.settings.partials.tenant-scope-notice')
+
+    <div class="grid gap-5 lg:gap-7.5" id="settings-collapsible-root">
         <!-- Mail Server Instellingen -->
-        <div class="kt-card min-w-full" id="mail">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="mail">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-sms me-2"></i> Mail Server Instellingen'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.mail.update') }}" data-validate="true">
                     @csrf
@@ -219,15 +230,13 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
 
         <!-- Google SEO Instellingen -->
-        <div class="kt-card min-w-full" id="seo">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-abstract-26 me-2"></i> Google SEO Account Gegevens
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-abstract-26 me-2"></i> Google SEO Account Gegevens'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.seo.update') }}" data-validate="true">
                     @csrf
@@ -341,15 +350,13 @@
                     </div>
                 </form>
             </div>
+            </div>
         </div>
 
         <!-- Google Maps Instellingen -->
-        <div class="kt-card min-w-full" id="maps">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-geolocation me-2"></i> Google Maps Configuratie
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="maps">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-geolocation me-2"></i> Google Maps Configuratie'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <form method="POST" action="{{ route('admin.settings.maps.update') }}" data-validate="true">
                     @csrf
@@ -469,16 +476,250 @@
                     </div>
                 </form>
             </div>
+            </div>
+        </div>
+
+        <!-- Google Reviews (zelfde Maps API-sleutel; Places API moet ingeschakeld zijn) -->
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="google-reviews">
+            <style>
+            #google-reviews input[type="number"]::-webkit-outer-spin-button,
+            #google-reviews input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+            #google-reviews input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+            #google-reviews .grw-cache-hours-input { width: 4.5rem; min-width: 4.5rem; padding-right: 0.5rem !important; }
+            </style>
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-star me-2"></i> Google Reviews'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <form method="POST" action="{{ route('admin.settings.google-reviews.update') }}" data-validate="true" id="google-reviews-form">
+                    @csrf
+                    <p class="text-sm text-muted-foreground mb-4 p-2">Toon Google-reviews in een carousel op de website. Vul <strong>ofwel</strong> het Place ID in (uit Google Maps/Business Profile) <strong>ofwel</strong> de bedrijfsnaam; bij bedrijfsnaam wordt gezocht en het eerste resultaat gebruikt. Dezelfde Maps API-sleutel wordt gebruikt; zorg dat de <strong>Places API</strong> is ingeschakeld.</p>
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Place ID</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('google_reviews_place_id') border-destructive @enderror"
+                                           id="google_reviews_place_id"
+                                           name="google_reviews_place_id"
+                                           value="{{ old('google_reviews_place_id', $googleReviewsPlaceId ?? '') }}"
+                                           maxlength="255"
+                                           placeholder="ChIJ...">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Optioneel. Google Place ID (bijv. ChIJ...) van je bedrijf. Heeft voorrang op bedrijfsnaam.</div>
+                                @error('google_reviews_place_id')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Bedrijfsnaam</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('google_reviews_business_name') border-destructive @enderror"
+                                           id="google_reviews_business_name"
+                                           name="google_reviews_business_name"
+                                           value="{{ old('google_reviews_business_name', $googleReviewsBusinessName ?? '') }}"
+                                           maxlength="255"
+                                           placeholder="bijv. Nexa Taxi Amsterdam">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Optioneel. Wordt gebruikt als Place ID leeg is; zoekt op naam en neemt het eerste resultaat (regio NL).</div>
+                                @error('google_reviews_business_name')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Carousel-titel</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="text"
+                                           class="kt-input @error('google_reviews_section_title') border-destructive @enderror"
+                                           id="google_reviews_section_title"
+                                           name="google_reviews_section_title"
+                                           value="{{ old('google_reviews_section_title', $googleReviewsSectionTitle ?? '') }}"
+                                           maxlength="255"
+                                           placeholder="Standaard: Wat anderen zeggen">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Tekst boven de review-slider op de website. Laat leeg voor de standaardtekst.</div>
+                                @error('google_reviews_section_title')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Achtergrondkleur sectie</td>
+                            <td class="min-w-48 w-full">
+                                @php
+                                    $__grSettingsBg = trim((string) old('google_reviews_section_background', $googleReviewsSectionBackground ?? ''));
+                                    $__grSettingsBgPicker = $__grSettingsBg !== '' ? \App\Services\GoogleReviewsService::normalizeHexColor($__grSettingsBg) : '';
+                                    if ($__grSettingsBgPicker === '') {
+                                        $__grSettingsBgPicker = '#f3f4f6';
+                                    }
+                                @endphp
+                                <div class="flex items-center gap-2 relative" style="position: relative; width: 100%;">
+                                    <input type="color"
+                                           id="google_reviews_section_background_picker"
+                                           class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0"
+                                           value="{{ $__grSettingsBgPicker }}"
+                                           title="Kies achtergrondkleur"
+                                           aria-label="Achtergrondkleur Google Reviews-sectie">
+                                    <input type="text"
+                                           class="kt-input font-mono text-sm flex-1 min-w-0 max-w-xs @error('google_reviews_section_background') border-destructive @enderror"
+                                           id="google_reviews_section_background"
+                                           name="google_reviews_section_background"
+                                           value="{{ $__grSettingsBg }}"
+                                           maxlength="7"
+                                           placeholder="Leeg = standaard (#f3f4f6)"
+                                           pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Hex (#RGB of #RRGGBB). Leeg = standaard thema-achtergrond.</div>
+                                @error('google_reviews_section_background')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Aantal reviews</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="number"
+                                           class="kt-input w-24 @error('google_reviews_count') border-destructive @enderror"
+                                           id="google_reviews_count"
+                                           name="google_reviews_count"
+                                           value="{{ old('google_reviews_count', $googleReviewsCount ?? 5) }}"
+                                           min="1"
+                                           max="5">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Hoeveel reviews getoond worden in de carousel (1–5). De Google Places API levert maximaal 5 reviews per plaats. Het getal “Gebaseerd op X beoordelingen” is het totaal aantal beoordelingen van Google.</div>
+                                @error('google_reviews_count')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Min. sterren</td>
+                            <td class="min-w-48 w-full">
+                                <input type="hidden" name="google_reviews_min_stars" id="google_reviews_min_stars" value="{{ old('google_reviews_min_stars', $googleReviewsMinStars ?? 1) }}">
+                                <div class="grw-admin-star-picker flex items-center gap-1" role="group" aria-label="Minimaal aantal sterren">
+                                    @php $minStarsVal = (int) old('google_reviews_min_stars', $googleReviewsMinStars ?? 1); @endphp
+                                    @for($s = 1; $s <= 5; $s++)
+                                        <button type="button"
+                                                class="grw-admin-star w-8 h-8 rounded p-0 flex items-center justify-center text-xl text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors focus:outline-none {{ $s <= $minStarsVal ? 'text-yellow-500 dark:text-yellow-400' : '' }}"
+                                                data-value="{{ $s }}"
+                                                aria-label="Minimaal {{ $s }} {{ $s === 1 ? 'ster' : 'sterren' }}">
+                                            <span class="grw-admin-star-icon">★</span>
+                                        </button>
+                                    @endfor
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Alleen reviews met dit aantal sterren of meer tonen. Klik een ster om te selecteren.</div>
+                                @error('google_reviews_min_stars')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Cacheduur (uren)</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="number"
+                                           class="kt-input grw-cache-hours-input @error('google_reviews_cache_hours') border-destructive @enderror"
+                                           id="google_reviews_cache_hours"
+                                           name="google_reviews_cache_hours"
+                                           value="{{ old('google_reviews_cache_hours', $googleReviewsCacheHours ?? '24') }}"
+                                           min="1"
+                                           max="168"
+                                           size="3"
+                                           inputmode="numeric"
+                                           pattern="[0-9]*">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Hoe lang reviews gecached worden (1–168 uur)</div>
+                                @error('google_reviews_cache_hours')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
+                        <button type="submit" class="kt-btn kt-btn-primary">
+                            <i class="ki-filled ki-check me-2"></i> Google Reviews Opslaan
+                        </button>
+                    </div>
+                </form>
+                <script>
+                (function() {
+                    var picker = document.querySelector('#google-reviews .grw-admin-star-picker');
+                    var hidden = document.getElementById('google_reviews_min_stars');
+                    if (!picker || !hidden) return;
+                    var buttons = picker.querySelectorAll('.grw-admin-star');
+                    function updateStars(value) {
+                        var v = parseInt(value, 10) || 1;
+                        v = Math.max(1, Math.min(5, v));
+                        hidden.value = v;
+                        buttons.forEach(function(btn) {
+                            var starVal = parseInt(btn.getAttribute('data-value'), 10);
+                            if (starVal <= v) {
+                                btn.classList.add('text-yellow-500', 'dark:text-yellow-400');
+                                btn.classList.remove('text-muted-foreground');
+                            } else {
+                                btn.classList.remove('text-yellow-500', 'dark:text-yellow-400');
+                                btn.classList.add('text-muted-foreground');
+                            }
+                        });
+                    }
+                    buttons.forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            updateStars(btn.getAttribute('data-value'));
+                        });
+                    });
+                    updateStars(hidden.value);
+                })();
+                (function() {
+                    var input = document.getElementById('google_reviews_cache_hours');
+                    if (input) {
+                        input.addEventListener('input', function() {
+                            var v = this.value.replace(/\D/g, '');
+                            if (v.length > 3) v = v.slice(0, 3);
+                            this.value = v === '' ? '' : Math.min(parseInt(v, 10) || 0, 999);
+                        });
+                    }
+                })();
+                (function() {
+                    var pick = document.getElementById('google_reviews_section_background_picker');
+                    var hex = document.getElementById('google_reviews_section_background');
+                    if (!pick || !hex) return;
+                    pick.addEventListener('input', function() {
+                        hex.value = pick.value;
+                    });
+                    hex.addEventListener('input', function() {
+                        var valBg = (hex.value || '').trim();
+                        if (valBg === '') {
+                            pick.value = '#f3f4f6';
+                            return;
+                        }
+                        var h = valBg[0] === '#' ? valBg : '#' + valBg;
+                        if (/^#([A-Fa-f0-9]{3})$/.test(h)) {
+                            h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+                        }
+                        if (/^#([A-Fa-f0-9]{6})$/.test(h)) {
+                            pick.value = h.toLowerCase();
+                        }
+                    });
+                })();
+                </script>
+            </div>
+            </div>
         </div>
 
         <!-- WhatsApp Business Instellingen -->
-        <div class="kt-card min-w-full" id="whatsapp">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">
-                    <i class="ki-filled ki-chat me-2"></i> WhatsApp Business Configuratie
-                </h3>
-            </div>
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="whatsapp">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business Configuratie'])
+            <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                <div class="px-5 pb-3 text-xs text-muted-foreground">
+                    Server-brede WhatsApp Business API (token en Phone Number ID). Per bedrijf: ontvangernummer, aan/uit en chauffeur-e-mails instellen onder <strong>Taxi → Chauffeur dispatch</strong>.
+                </div>
                 <form method="POST" action="{{ route('admin.settings.whatsapp.update') }}" data-validate="true">
                     @csrf
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
@@ -583,6 +824,104 @@
                                 @enderror
                             </td>
                         </tr>
+                        <tr>
+                            <td colspan="2" class="pt-4">
+                                <div class="rounded-lg border border-border bg-background px-4 py-3">
+                                    <div class="text-sm font-semibold text-secondary-foreground">WhatsApp Direct (zonder Business API)</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Gebruik alleen een telefoonnummer om bij het versturen van de boeking direct WhatsApp te openen met een voorgestelde samenvatting.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Direct inschakelen</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="WHATSAPP_CLICK_TO_CHAT_ENABLED" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           id="WHATSAPP_CLICK_TO_CHAT_ENABLED"
+                                           name="WHATSAPP_CLICK_TO_CHAT_ENABLED"
+                                           value="1"
+                                           {{ old('WHATSAPP_CLICK_TO_CHAT_ENABLED', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">Fallback: boekingsknop opent WhatsApp (alleen zonder Business API)</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">WhatsApp Nummer (zonder Business API)</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="tel"
+                                           class="kt-input @error('WHATSAPP_CLICK_TO_CHAT_NUMBER') border-destructive @enderror"
+                                           id="WHATSAPP_CLICK_TO_CHAT_NUMBER"
+                                           name="WHATSAPP_CLICK_TO_CHAT_NUMBER"
+                                           value="{{ old('WHATSAPP_CLICK_TO_CHAT_NUMBER', $whatsappSettings['WHATSAPP_CLICK_TO_CHAT_NUMBER'] ?? '') }}"
+                                           placeholder="0612345678 of +31612345678"
+                                           autocomplete="tel">
+                                </div>
+                                    <div class="text-xs text-muted-foreground mt-1">Ontvangernummer voor boekingsmeldingen. Met Business API-token wordt het bericht automatisch verstuurd; anders opent de boekingsknop <code class="text-xs">wa.me</code> als fallback.</div>
+                                @error('WHATSAPP_CLICK_TO_CHAT_NUMBER')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" class="pt-4">
+                                <div class="rounded-lg border border-border bg-background px-4 py-3">
+                                    <div class="text-sm font-semibold text-secondary-foreground">Frontend WhatsApp Widget</div>
+                                    <div class="text-xs text-muted-foreground mt-1">Toont rechtsonder op de frontend een WhatsApp-icoon. Klanten kunnen dan kiezen tussen bellen of een WhatsApp-bericht starten.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Widget tonen op frontend</td>
+                            <td class="min-w-48 w-full">
+                                <label class="inline-flex items-center gap-2">
+                                    <input type="hidden" name="WHATSAPP_WIDGET_ENABLED" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox"
+                                           id="WHATSAPP_WIDGET_ENABLED"
+                                           name="WHATSAPP_WIDGET_ENABLED"
+                                           value="1"
+                                           {{ old('WHATSAPP_WIDGET_ENABLED', $whatsappSettings['WHATSAPP_WIDGET_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">WhatsApp widget rechtsonder weergeven</span>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Widget telefoonnummer</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <input type="tel"
+                                           class="kt-input @error('WHATSAPP_WIDGET_PHONE') border-destructive @enderror"
+                                           id="WHATSAPP_WIDGET_PHONE"
+                                           name="WHATSAPP_WIDGET_PHONE"
+                                           value="{{ old('WHATSAPP_WIDGET_PHONE', $whatsappSettings['WHATSAPP_WIDGET_PHONE'] ?? '') }}"
+                                           placeholder="0612345678 of +31612345678"
+                                           autocomplete="tel">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Zelfde controle als “WhatsApp Nummer (zonder Business API)”; wordt opgeslagen als +31… voor <code class="text-xs">tel:</code> en <code class="text-xs">wa.me</code>.</div>
+                                @error('WHATSAPP_WIDGET_PHONE')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Widget standaardbericht</td>
+                            <td class="min-w-48 w-full">
+                                <div class="relative">
+                                    <textarea rows="3"
+                                              class="kt-input pt-1 @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE') border-destructive @enderror"
+                                              id="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
+                                              name="WHATSAPP_WIDGET_DEFAULT_MESSAGE"
+                                              placeholder="Hallo, ik heb een vraag over jullie diensten.">{{ old('WHATSAPP_WIDGET_DEFAULT_MESSAGE', $whatsappSettings['WHATSAPP_WIDGET_DEFAULT_MESSAGE'] ?? 'Hallo, ik heb een vraag over jullie diensten.') }}</textarea>
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Deze tekst wordt voorgesteld wanneer iemand via de frontend-widget op “Bericht sturen” klikt.</div>
+                                @error('WHATSAPP_WIDGET_DEFAULT_MESSAGE')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
                     </table>
                     <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
                         <button type="submit" class="kt-btn kt-btn-primary">
@@ -590,6 +929,163 @@
                         </button>
                     </div>
                 </form>
+            </div>
+            </div>
+        </div>
+
+        <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="tenant-sync">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-content px-6 pb-4 space-y-6">
+                <p class="text-sm text-secondary-foreground">
+                    Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>:
+                    de rij in <code class="text-xs">companies</code> plus alle rijen op tabellen met <code class="text-xs">company_id</code> voor dat bedrijf.
+                    Bestaande rijen op doel worden niet overschreven; bron-<code class="text-xs">id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk).
+                    Gebruikers, tenant-rollen (<code class="text-xs">roles</code> + <code class="text-xs">model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code class="text-xs">permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.
+                </p>
+
+                <div class="rounded-md border border-border bg-muted/30 px-3 py-3 text-xs text-secondary-foreground">
+                    <p class="font-medium text-foreground mb-2">Tabellen op <strong>deze</strong> omgeving (driver: <code class="font-mono">{{ $tenantSyncScope['driver'] ?? '?' }}</code>)</p>
+                    <p class="mb-1"><span class="text-foreground font-medium">Altijd mee:</span> {{ $tenantSyncScope['company_row'] ?? 'companies' }}</p>
+                    <p class="mb-1"><span class="text-foreground font-medium">Met <code class="font-mono">company_id</code> ({{ count($tenantSyncScope['tables_with_company_id'] ?? []) }} tabellen):</span></p>
+                    <div class="max-h-40 overflow-y-auto rounded border border-border/80 bg-background px-2 py-1.5 font-mono text-[11px] leading-relaxed text-foreground">
+                        @php $syncTables = $tenantSyncScope['tables_with_company_id'] ?? []; @endphp
+                        @forelse ($syncTables as $t)
+                            <span class="inline-block me-2 mb-0.5">{{ $t }}</span>
+                        @empty
+                            <span class="text-destructive">Geen tabellen gevonden (controleer database).</span>
+                        @endforelse
+                    </div>
+                    @php $paymentSyncTables = $tenantSyncScope['payment_company_scoped_tables'] ?? []; @endphp
+                    @if ($paymentSyncTables !== [])
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Betaling &amp; facturatie</span> (altijd mee bij sync als tabel bestaat):</p>
+                        <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $paymentSyncTables) }}</p>
+                    @endif
+                    <p class="mt-2 mb-0"><span class="text-foreground font-medium">Expliciet uitgesloten</span> (config <code class="font-mono">tenant_sync.excluded_tables</code>):</p>
+                    <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
+                </div>
+
+                <form method="POST" action="{{ route('admin.settings.tenant-sync.update') }}" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label for="tenant_sync_target_database_url" class="text-sm text-secondary-foreground block mb-1">Database-URL (doel)</label>
+                        <input type="text" name="tenant_sync_target_database_url" id="tenant_sync_target_database_url"
+                               class="kt-input w-full font-mono text-xs"
+                               value="{{ old('tenant_sync_target_database_url', $tenantSyncSettings['tenant_sync_target_database_url'] ?? '') }}"
+                               placeholder="pgsql://user:pass@host:5432/database_of_mysql_url">
+                        <p class="text-xs text-muted-foreground mt-1">Ook via .env: <code class="text-xs">TENANT_SYNC_TARGET_DATABASE_URL</code>. Speciale tekens in gebruikersnaam of wachtwoord (zoals <code class="text-xs">@</code>, <code class="text-xs">:</code>, <code class="text-xs">/</code>) moeten <strong>URL-encoded</strong> zijn, bijv. <code class="text-xs">@</code> → <code class="text-xs">%40</code>, anders wordt de host verkeerd geparsed.</p>
+                    </div>
+                    <label class="inline-flex items-center gap-2">
+                        <input type="hidden" name="tenant_sync_push_enabled" value="0">
+                        <input type="checkbox" name="tenant_sync_push_enabled" value="1" class="kt-checkbox"
+                               @if(old('tenant_sync_push_enabled', ($tenantSyncSettings['tenant_sync_push_enabled'] ?? false) ? '1' : '0') === '1') checked @endif>
+                        <span class="text-sm text-secondary-foreground">Push/sync naar doel-database toestaan</span>
+                    </label>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <button type="submit" class="kt-btn kt-btn-primary">
+                            <i class="ki-filled ki-check me-2"></i> Opslaan
+                        </button>
+                        <button type="button" id="tenant-sync-test-btn" class="kt-btn kt-btn-outline">
+                            <i class="ki-filled ki-verify me-2"></i> Test verbinding
+                        </button>
+                    </div>
+                    <div id="tenant-sync-test-result" class="hidden rounded-md border px-3 py-2 text-sm" role="status" aria-live="polite"></div>
+                </form>
+
+                <div class="border-t border-border pt-6">
+                    <h4 class="text-sm font-medium text-foreground mb-2">Volledige tenant-sync uitvoeren</h4>
+                    <p class="text-xs text-muted-foreground mb-4">
+                        Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.
+                    </p>
+                    <form id="tenant-sync-run-form" method="POST" action="{{ route('admin.settings.tenant-sync.run') }}" class="space-y-4" novalidate>
+                        @csrf
+                        <div>
+                            <label for="source_company_id" class="text-sm text-secondary-foreground block mb-1">Bron-tenant (bedrijf) <span class="text-destructive">*</span></label>
+                            <select name="source_company_id" id="source_company_id" class="kt-select w-full max-w-xl @error('source_company_id') border-destructive @enderror">
+                                <option value="" disabled @selected(old('source_company_id') === null || old('source_company_id') === '')>— Kies een bedrijf —</option>
+                                @foreach ($companiesForSync ?? [] as $c)
+                                    <option value="{{ $c->id }}" @selected((string) old('source_company_id') === (string) $c->id)>{{ $c->name }} (id {{ $c->id }})</option>
+                                @endforeach
+                            </select>
+                            @error('source_company_id')
+                                <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                            @enderror
+                            <div id="tenant-sync-ajax-error-source_company_id" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
+                            @if (($companiesForSync ?? collect())->isEmpty())
+                                <div class="text-xs text-destructive mt-1">Geen bedrijven gevonden om te synchroniseren.</div>
+                            @endif
+                        </div>
+                        <label class="inline-flex items-start gap-2">
+                            <input type="checkbox" name="confirm_full_sync" value="1" id="confirm_full_sync" class="kt-checkbox mt-0.5 @error('confirm_full_sync') border-destructive @enderror"
+                                   @checked(old('confirm_full_sync') === '1')>
+                            <span class="text-sm text-secondary-foreground">Ik bevestig dat ik naar de geconfigureerde doel-database wil schrijven (alleen toevoegen, geen overschrijven op bestaande pk’s).</span>
+                        </label>
+                        @error('confirm_full_sync')
+                            <div class="text-xs text-destructive">{{ $message }}</div>
+                        @enderror
+                        <div id="tenant-sync-ajax-error-confirm_full_sync" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
+                        <div class="flex flex-wrap items-start gap-3">
+                            <button type="submit" id="tenant-sync-submit-btn" class="kt-btn kt-btn-primary shrink-0"
+                                    style="padding-top: 2px;"
+                                    @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
+                                <i class="ki-filled ki-cloud-add me-2"></i> Start tenant-sync
+                            </button>
+                            <span id="tenant-sync-submit-status" class="inline-flex items-center gap-2 text-sm min-h-[2.125rem] max-w-xl" aria-live="polite"></span>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="border-t border-border pt-6 mt-2">
+                    <h4 class="text-sm font-medium text-foreground mb-2">ZIP-export / -import (volledige tenant)</h4>
+                    <p class="text-xs text-muted-foreground mb-4">
+                        Eén bundle per bedrijf: <strong class="text-foreground">bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code class="font-mono text-[11px]">private_files/invoices/…</code>),
+                        <strong class="text-foreground">website_pages</strong> in het manifest, en <strong class="text-foreground">tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys).
+                        Bestandsnaam begint met <code class="font-mono text-[11px]">tenant-export-</code>. Manifest: <code class="font-mono text-[11px]">bundle_type</code> <code class="font-mono text-[11px]">tenant_media</code>, <code class="font-mono text-[11px]">bundle_version</code> 2.
+                        Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.
+                    </p>
+                    <div class="space-y-6 max-w-2xl">
+                        <div>
+                            <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
+                            <select id="tenant-sync-zip-company-id" class="kt-select w-full" aria-describedby="tenant-sync-zip-company-error" aria-invalid="false">
+                                <option value="">— Kies een bedrijf —</option>
+                                @foreach (($companiesForSync ?? []) as $c)
+                                    <option value="{{ $c->id }}">{{ $c->name }} (id {{ $c->id }})</option>
+                                @endforeach
+                            </select>
+                            <p id="tenant-sync-zip-company-error" class="mt-1.5 hidden text-sm text-destructive" role="alert"></p>
+                        </div>
+
+                        <div class="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-3">
+                            <h5 class="text-sm font-medium text-foreground m-0">Tenant-export (ZIP)</h5>
+                            <p class="text-xs text-muted-foreground m-0">
+                                Download of importeer één ZIP met <code class="font-mono text-[11px]">manifest.json</code>.
+                                Publieke bestanden staan onder <code class="font-mono text-[11px]">files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/public</code> met dezelfde mappenstructuur).
+                                Versleutelde website-carouselbestanden en <strong class="text-foreground">factuur-PDF’s</strong> staan onder <code class="font-mono text-[11px]">private_files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/…</code>, facturen o.a. <code class="font-mono text-[11px]">private_files/private/invoices/{company_id}/</code>).
+                                Import overschrijft <code class="font-mono text-[11px]">website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug.
+                                Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong class="text-foreground">Volledige tenant-sync</strong> — alle tabellen met <code class="font-mono text-[11px]">company_id</code>, inclusief <code class="font-mono text-[11px]">payment_providers</code>, <code class="font-mono text-[11px]">invoice_settings</code>, <code class="font-mono text-[11px]">invoices</code>, <code class="font-mono text-[11px]">payments</code>, <code class="font-mono text-[11px]">payment_reminders</code>, <code class="font-mono text-[11px]">ride_payments</code>.
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
+                                    <i class="ki-filled ki-file-down me-2"></i> Download tenant-ZIP
+                                </button>
+                            </div>
+                            <form method="POST" action="{{ route('admin.settings.tenant-storage-bundle.import') }}" enctype="multipart/form-data" class="space-y-3" id="tenant-files-import-form">
+                                @csrf
+                                <input type="hidden" name="company_id" id="tenant-files-import-company-id" value="">
+                                <div>
+                                    <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">Tenant-ZIP importeren</label>
+                                    <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
+                                    <p class="text-xs text-muted-foreground mt-1">Max. 500 MB per upload. Bestaande bestanden met dezelfde relatieve padnaam worden overschreven.</p>
+                                </div>
+                                <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
+                                        @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
+                                    <i class="ki-filled ki-file-up me-2"></i> Importeer tenant-ZIP
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
 
@@ -608,6 +1104,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 successAlert.remove();
             }, 300);
         }, 5000);
+    }
+
+    const successToast = document.getElementById('settings-success-toast');
+    if (successToast) {
+        requestAnimationFrame(function() {
+            successToast.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
+        });
+
+        setTimeout(function() {
+            successToast.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none');
+            setTimeout(function() {
+                successToast.remove();
+            }, 300);
+        }, 4000);
     }
 
     // Test email functionality
@@ -658,6 +1168,282 @@ document.addEventListener('DOMContentLoaded', function() {
                 testEmailBtn.disabled = false;
                 testEmailBtn.innerHTML = '<i class="ki-filled ki-send me-2"></i> Verstuur Test';
             });
+        });
+    }
+
+    const tenantSyncTestBtn = document.getElementById('tenant-sync-test-btn');
+    const tenantSyncUrlInput = document.getElementById('tenant_sync_target_database_url');
+    const tenantSyncTestResult = document.getElementById('tenant-sync-test-result');
+    function showTenantSyncTestMessage(ok, text) {
+        if (!tenantSyncTestResult) {
+            window.alert((ok ? '✓ ' : '✗ ') + text);
+            return;
+        }
+        tenantSyncTestResult.classList.remove('hidden', 'border-emerald-300', 'bg-emerald-50', 'text-emerald-900', 'border-destructive/60', 'bg-destructive/10', 'text-destructive');
+        if (ok) {
+            tenantSyncTestResult.classList.add('border-emerald-300', 'bg-emerald-50', 'text-emerald-900');
+        } else {
+            tenantSyncTestResult.classList.add('border-destructive/60', 'bg-destructive/10', 'text-destructive');
+        }
+        tenantSyncTestResult.textContent = (ok ? '✓ ' : '✗ ') + text;
+    }
+    if (tenantSyncTestBtn && tenantSyncUrlInput) {
+        tenantSyncTestBtn.addEventListener('click', function() {
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            if (!token) {
+                showTenantSyncTestMessage(false, 'CSRF-token ontbreekt in de pagina; herlaad de pagina.');
+                return;
+            }
+            const url = tenantSyncUrlInput.value.trim();
+            if (!url) {
+                showTenantSyncTestMessage(false, 'Vul eerst een database-URL in (of sla op en test met de opgeslagen URL).');
+                return;
+            }
+            const fd = new FormData();
+            fd.append('tenant_sync_target_database_url', url);
+            fd.append('_token', token);
+            tenantSyncTestBtn.disabled = true;
+            const label = tenantSyncTestBtn.innerHTML;
+            tenantSyncTestBtn.innerHTML = '<i class="ki-filled ki-arrows-circle me-2"></i> Bezig…';
+            fetch('{{ route("admin.settings.tenant-sync.test") }}', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': token,
+                },
+            })
+                .then(function(r) {
+                    return r.text().then(function(text) {
+                        var data = null;
+                        try {
+                            data = text ? JSON.parse(text) : null;
+                        } catch (e) {
+                            throw new Error('Antwoord is geen JSON (HTTP ' + r.status + '). Controleer of je ingelogd bent en de route bereikbaar is.');
+                        }
+                        return { status: r.status, data: data };
+                    });
+                })
+                .then(function(res) {
+                    var d = res.data || {};
+                    if (d.success) {
+                        showTenantSyncTestMessage(true, d.message || 'Verbinding OK.');
+                    } else {
+                        showTenantSyncTestMessage(false, d.message || ('HTTP ' + res.status));
+                    }
+                })
+                .catch(function(err) {
+                    showTenantSyncTestMessage(false, err && err.message ? err.message : 'Netwerkfout of ongeldig antwoord.');
+                })
+                .finally(function() {
+                    tenantSyncTestBtn.disabled = false;
+                    tenantSyncTestBtn.innerHTML = label;
+                });
+        });
+    }
+
+    var tenantSyncRunForm = document.getElementById('tenant-sync-run-form');
+    var tenantSyncSubmitBtn = document.getElementById('tenant-sync-submit-btn');
+    var tenantSyncSubmitStatus = document.getElementById('tenant-sync-submit-status');
+    var tenantSyncSubmitDefaultHtml = tenantSyncSubmitBtn ? tenantSyncSubmitBtn.innerHTML.trim() : '';
+
+    function clearTenantSyncAjaxUi() {
+        ['source_company_id', 'confirm_full_sync'].forEach(function(field) {
+            var el = document.getElementById('tenant-sync-ajax-error-' + field);
+            if (el) {
+                el.textContent = '';
+                el.classList.add('hidden');
+            }
+        });
+        var sel = document.getElementById('source_company_id');
+        if (sel) sel.classList.remove('border-destructive');
+        var cb = document.getElementById('confirm_full_sync');
+        if (cb) cb.classList.remove('border-destructive');
+    }
+
+    function applyTenantSyncValidationErrors(errors) {
+        if (!errors || typeof errors !== 'object') return;
+        Object.keys(errors).forEach(function(field) {
+            var msgs = errors[field];
+            if (!msgs || !msgs.length) return;
+            var el = document.getElementById('tenant-sync-ajax-error-' + field);
+            if (el) {
+                el.textContent = msgs[0];
+                el.classList.remove('hidden');
+            }
+            if (field === 'source_company_id') {
+                var sel = document.getElementById('source_company_id');
+                if (sel) sel.classList.add('border-destructive');
+            }
+            if (field === 'confirm_full_sync') {
+                var cb = document.getElementById('confirm_full_sync');
+                if (cb) cb.classList.add('border-destructive');
+            }
+        });
+    }
+
+    function setTenantSyncStatusSuccess(message) {
+        if (!tenantSyncSubmitStatus) return;
+        tenantSyncSubmitStatus.textContent = '';
+        var wrap = document.createElement('span');
+        wrap.className = 'inline-flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium';
+        var icon = document.createElement('i');
+        icon.className = 'ki-filled ki-check-circle text-lg shrink-0 mt-0.5';
+        icon.setAttribute('aria-hidden', 'true');
+        var txt = document.createElement('span');
+        txt.textContent = message || 'Sync voltooid.';
+        wrap.appendChild(icon);
+        wrap.appendChild(txt);
+        tenantSyncSubmitStatus.appendChild(wrap);
+    }
+
+    function setTenantSyncStatusError(message) {
+        if (!tenantSyncSubmitStatus) return;
+        tenantSyncSubmitStatus.textContent = '';
+        var wrap = document.createElement('span');
+        wrap.className = 'inline-flex items-start gap-1.5 text-destructive font-medium';
+        var icon = document.createElement('i');
+        icon.className = 'ki-filled ki-information text-lg shrink-0 mt-0.5';
+        icon.setAttribute('aria-hidden', 'true');
+        var txt = document.createElement('span');
+        txt.textContent = message || 'Er is een fout opgetreden.';
+        wrap.appendChild(icon);
+        wrap.appendChild(txt);
+        tenantSyncSubmitStatus.appendChild(wrap);
+    }
+
+    function setTenantSyncStatusIdle() {
+        if (tenantSyncSubmitStatus) tenantSyncSubmitStatus.textContent = '';
+    }
+
+    if (tenantSyncRunForm && tenantSyncSubmitBtn && tenantSyncSubmitStatus) {
+        tenantSyncRunForm.addEventListener('submit', function(ev) {
+            ev.preventDefault();
+            if (tenantSyncSubmitBtn.disabled) return;
+
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            if (!token) {
+                setTenantSyncStatusIdle();
+                setTenantSyncStatusError('CSRF-token ontbreekt; herlaad de pagina.');
+                return;
+            }
+
+            clearTenantSyncAjaxUi();
+            setTenantSyncStatusIdle();
+
+            var sel = document.getElementById('source_company_id');
+            var cb = document.getElementById('confirm_full_sync');
+            var fd = new FormData(tenantSyncRunForm);
+
+            tenantSyncSubmitBtn.disabled = true;
+            tenantSyncSubmitBtn.setAttribute('aria-busy', 'true');
+            tenantSyncSubmitBtn.innerHTML = '<span class="inline-flex items-center gap-2"><i class="ki-filled ki-cloud-add" aria-hidden="true"></i><i class="ki-filled ki-arrows-circle text-sm animate-spin" aria-hidden="true"></i><span> Bezig…</span></span>';
+
+            if (sel) sel.disabled = true;
+            if (cb) cb.disabled = true;
+
+            fetch('{{ route("admin.settings.tenant-sync.run") }}', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': token,
+                },
+            })
+                .then(function(r) {
+                    return r.text().then(function(text) {
+                        var data = null;
+                        try {
+                            data = text ? JSON.parse(text) : null;
+                        } catch (e) {
+                            throw new Error('Ongeldig antwoord van de server (HTTP ' + r.status + ').');
+                        }
+                        return { ok: r.ok, status: r.status, data: data };
+                    });
+                })
+                .then(function(res) {
+                    var d = res.data || {};
+                    if (res.ok && d.success) {
+                        setTenantSyncStatusSuccess(d.message || 'Sync voltooid.');
+                        if (cb) cb.checked = false;
+                        return;
+                    }
+                    var hasFieldErrors = d.errors && typeof d.errors === 'object' && Object.keys(d.errors).length > 0;
+                    if (hasFieldErrors) {
+                        applyTenantSyncValidationErrors(d.errors);
+                    }
+                    if (!hasFieldErrors) {
+                        setTenantSyncStatusError(d.message || ('Fout (HTTP ' + res.status + ')'));
+                    } else {
+                        setTenantSyncStatusIdle();
+                    }
+                })
+                .catch(function(err) {
+                    setTenantSyncStatusError(err && err.message ? err.message : 'Netwerkfout.');
+                })
+                .finally(function() {
+                    tenantSyncSubmitBtn.disabled = false;
+                    tenantSyncSubmitBtn.removeAttribute('aria-busy');
+                    tenantSyncSubmitBtn.innerHTML = tenantSyncSubmitDefaultHtml;
+                    if (sel) sel.disabled = false;
+                    if (cb) cb.disabled = false;
+                });
+        });
+    }
+
+    var tenantZipCompanySel = document.getElementById('tenant-sync-zip-company-id');
+    var tenantZipCompanyErr = document.getElementById('tenant-sync-zip-company-error');
+    var tenantStorageExportUrl = @json(route('admin.settings.tenant-storage-bundle.export'));
+    var tenantFilesExportBtn = document.getElementById('tenant-files-export-btn');
+    var tenantFilesImportForm = document.getElementById('tenant-files-import-form');
+    var tenantFilesImportHid = document.getElementById('tenant-files-import-company-id');
+    function clearTenantZipCompanyError() {
+        if (!tenantZipCompanyErr) return;
+        tenantZipCompanyErr.textContent = '';
+        tenantZipCompanyErr.classList.add('hidden');
+        if (tenantZipCompanySel) {
+            tenantZipCompanySel.setAttribute('aria-invalid', 'false');
+        }
+    }
+    function showTenantZipCompanyError(message) {
+        if (!tenantZipCompanyErr) return;
+        tenantZipCompanyErr.textContent = message;
+        tenantZipCompanyErr.classList.remove('hidden');
+        if (tenantZipCompanySel) {
+            tenantZipCompanySel.setAttribute('aria-invalid', 'true');
+            try { tenantZipCompanySel.focus(); } catch (e) {}
+        }
+    }
+    if (tenantZipCompanySel) {
+        tenantZipCompanySel.addEventListener('change', clearTenantZipCompanyError);
+    }
+    if (tenantFilesExportBtn && tenantZipCompanySel) {
+        tenantFilesExportBtn.addEventListener('click', function() {
+            var id = tenantZipCompanySel.value;
+            if (!id) {
+                showTenantZipCompanyError('Selecteer een tenant (bedrijf) om de ZIP te downloaden.');
+                return;
+            }
+            clearTenantZipCompanyError();
+            window.location.href = tenantStorageExportUrl + '?company_id=' + encodeURIComponent(id);
+        });
+    }
+    if (tenantFilesImportForm && tenantZipCompanySel && tenantFilesImportHid) {
+        tenantFilesImportForm.addEventListener('submit', function(ev) {
+            var id = tenantZipCompanySel.value;
+            if (!id) {
+                ev.preventDefault();
+                showTenantZipCompanyError('Selecteer een tenant (bedrijf) om de tenant-ZIP te importeren.');
+                return;
+            }
+            clearTenantZipCompanyError();
+            tenantFilesImportHid.value = id;
         });
     }
 });

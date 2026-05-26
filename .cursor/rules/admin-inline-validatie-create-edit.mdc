@@ -1,0 +1,32 @@
+---
+description: Admin create/edit formulieren gebruiken uniforme inline validatie
+globs: backend/resources/views/admin/**/*{create,edit}.blade.php
+alwaysApply: false
+---
+
+# Admin formulier-validatie (create/edit)
+
+Voor alle admin create/edit formulieren geldt:
+
+- Gebruik altijd `data-validate="true"` op het hoofdformulier.
+- Gebruik altijd `novalidate` op het hoofdformulier (geen browser-popup validatie).
+- Laad `assets/js/form-validation.js` op de pagina.
+- Toon foutmeldingen inline als rode tekst onder het veld (`@error(...)`).
+- Gebruik bij checkbox-groepen een duidelijke foutmelding onder de hele sectie, niet in smalle tabelcellen.
+- Bij live-validatie verdwijnt de rode foutmelding direct zodra de invoer weer geldig is.
+
+## Formulierpatroon
+
+```html
+<form action="..." method="POST" data-validate="true" novalidate>
+    ...
+</form>
+```
+
+## Scriptpatroon
+
+```blade
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+```

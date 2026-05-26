@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.skillmatching.branches.update', $branch) }}" method="POST">
+    <form action="{{ route('admin.skillmatching.branches.update', $branch) }}" method="POST" data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -262,6 +262,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const nameInput = document.querySelector('input[name="name"]');

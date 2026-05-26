@@ -23,9 +23,17 @@
     <meta property="twitter:description" content="@yield('description', 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures.')">
     <meta property="twitter:image" content="{{ asset('images/og-image.jpg') }}">
     
+    @php
+        $layoutBranding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+    @endphp
     <!-- Favicon -->
+    @if(!empty($layoutBranding['favicon_url']))
+    <link rel="icon" href="{{ $layoutBranding['favicon_url'] }}">
+    <link rel="shortcut icon" href="{{ $layoutBranding['favicon_url'] }}">
+    @else
     <link rel="icon" type="image/png" href="{{ asset('images/nexa-x-logo.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ asset('images/nexa-x-logo.png') }}">
+    @endif
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/nexa-x-logo.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
     
@@ -80,6 +88,10 @@
         /* Footer: witte lijntjes grijs in dark mode */
         html.dark footer,
         html.dark footer .border-t { border-color: #4b5563 !important; }
+        .fe-logo-light { display: block !important; }
+        .fe-logo-dark { display: none !important; }
+        html.dark .fe-logo-light { display: none !important; }
+        html.dark .fe-logo-dark { display: block !important; }
     </style>
     @stack('styles')
 </head>
@@ -90,7 +102,7 @@
     </a>
     
     <!-- Header -->
-    @include('frontend.layouts.partials.header')
+    @include('frontend.layouts.partials.header', ['branding' => $layoutBranding])
     
     <!-- Main Content -->
     <main id="main-content" class="flex-1">
@@ -100,7 +112,7 @@
     </main>
     
     <!-- Footer -->
-    @include('frontend.layouts.partials.footer')
+    @include('frontend.layouts.partials.footer', ['branding' => $layoutBranding])
     
     <!-- AI Chatbot (alleen tonen als ingeschakeld in Instellingen > Algemene configuraties) -->
     @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')
@@ -151,6 +163,13 @@
           html.classList.add('dark');
           localStorage.setItem('theme', 'dark');
         }
+        var dark = html.classList.contains('dark');
+        document.querySelectorAll('.fe-logo-light').forEach(function(el) {
+          el.style.setProperty('display', dark ? 'none' : 'block', 'important');
+        });
+        document.querySelectorAll('.fe-logo-dark').forEach(function(el) {
+          el.style.setProperty('display', dark ? 'block' : 'none', 'important');
+        });
       }
     </script>
     <!-- Hide user dropdown if not authenticated -->

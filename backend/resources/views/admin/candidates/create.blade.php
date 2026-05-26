@@ -50,7 +50,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.candidates.store') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('admin.candidates.store') }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
                         @csrf
                         
                         <!-- Persoonlijke Informatie -->
@@ -477,4 +477,8 @@ document.addEventListener('DOMContentLoaded', function() {
     oldLanguages.forEach(language => addLanguage(language));
 });
 </script>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

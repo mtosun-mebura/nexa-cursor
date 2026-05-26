@@ -7,15 +7,26 @@ use App\Models\Company;
 use App\Models\PipelineTemplate;
 use App\Models\StageType;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class PipelineTemplateController extends Controller
 {
+    /**
+     * Pipeline templates horen bij module Nexa Skillmatching (skillmatching).
+     */
+    protected function authorizeSkillmatchingModule(Company $company): void
+    {
+        if (! $company->hasSkillmatchingModule()) {
+            abort(403, 'Pipeline templates zijn alleen beschikbaar voor tenants met de module Nexa Skillmatching.');
+        }
+    }
+
     /**
      * Display pipeline templates for a company
      */
     public function index(Company $company)
     {
+        $this->authorizeSkillmatchingModule($company);
+
         $templates = PipelineTemplate::where('company_id', $company->id)
             ->orWhere('company_id', null)
             ->orderBy('is_default', 'desc')
@@ -30,6 +41,8 @@ class PipelineTemplateController extends Controller
      */
     public function edit(Company $company, PipelineTemplate $pipelineTemplate)
     {
+        $this->authorizeSkillmatchingModule($company);
+
         $stageTypes = StageType::where('is_active', true)
             ->orderBy('sort_order')
             ->get();
@@ -42,6 +55,8 @@ class PipelineTemplateController extends Controller
      */
     public function update(Request $request, Company $company, PipelineTemplate $pipelineTemplate)
     {
+        $this->authorizeSkillmatchingModule($company);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'stages' => 'required|array',
@@ -56,7 +71,7 @@ class PipelineTemplateController extends Controller
 
         // Process terminal stages
         $terminalStages = [];
-        if (!empty($validated['terminal_stages'])) {
+        if (! empty($validated['terminal_stages'])) {
             $terminalStages = array_map('trim', explode(',', $validated['terminal_stages']));
             $terminalStages = array_filter($terminalStages);
         }
@@ -71,13 +86,13 @@ class PipelineTemplateController extends Controller
                 'id' => $stage['id'],
                 'stageType' => $stage['stageType'],
                 'label' => $stage['label'],
-                'sequence' => (int)$stage['sequence'],
+                'sequence' => (int) $stage['sequence'],
                 'optional' => isset($stage['optional']) && $stage['optional'] === 'on' || $stage['optional'] === true || $stage['optional'] === '1',
             ];
         }
 
         // Sort stages by sequence
-        usort($stages, function($a, $b) {
+        usort($stages, function ($a, $b) {
             return $a['sequence'] <=> $b['sequence'];
         });
 
@@ -86,7 +101,7 @@ class PipelineTemplateController extends Controller
             $pipelineTemplate = PipelineTemplate::create([
                 'company_id' => $company->id,
                 'name' => $validated['name'],
-                'key' => 'custom_' . $company->id . '_' . time(),
+                'key' => 'custom_'.$company->id.'_'.time(),
                 'version' => 1,
                 'is_default' => false,
                 'is_active' => true,
@@ -112,19 +127,21 @@ class PipelineTemplateController extends Controller
      */
     public function createFromDefault(Company $company)
     {
+        $this->authorizeSkillmatchingModule($company);
+
         $defaultTemplate = PipelineTemplate::where('key', 'default_general')
             ->where('company_id', null)
             ->first();
 
-        if (!$defaultTemplate) {
+        if (! $defaultTemplate) {
             return redirect()->route('admin.companies.pipeline-templates.index', $company)
                 ->with('error', 'Standaard template niet gevonden.');
         }
 
         $pipelineTemplate = PipelineTemplate::create([
             'company_id' => $company->id,
-            'name' => $defaultTemplate->name . ' (Kopie)',
-            'key' => 'custom_' . $company->id . '_' . time(),
+            'name' => $defaultTemplate->name.' (Kopie)',
+            'key' => 'custom_'.$company->id.'_'.time(),
             'version' => 1,
             'is_default' => false,
             'is_active' => true,

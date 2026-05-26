@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class AdminMiddleware
@@ -15,32 +17,44 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if user is authenticated
-        if (!auth()->check()) {
-            // Store the intended URL for redirect after login
-            session(['url.intended' => $request->url()]);
-            
+        Auth::shouldUse('web');
+
+        // Check if user is authenticated (sessie op web-guard; zie AdminRoutesUseWebGuard bij AUTH_GUARD=api)
+        if (! auth('web')->check()) {
+            // Alleen een echte paginapagina als intended bewaren, niet API-endpoints (bijv. unread-count)
+            $path = $request->path();
+            $isUtilityPath = preg_match('#^(admin/)?(chat|notifications)/unread-count#', $path);
+            if (! $isUtilityPath) {
+                session(['url.intended' => $request->fullUrl()]);
+            }
+
             // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+                $relative = '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
+
                 return response()->json([
                     'message' => 'Je sessie is verlopen. Log opnieuw in.',
-                    'redirect' => route('admin.meld.sessie-verlopen', ['intended' => $request->url()])
+                    'redirect' => $relative,
                 ], 401);
             }
-            
-            return redirect()->route('admin.meld.sessie-verlopen', ['intended' => $request->url()]);
+
+            // Relatief pad i.p.v. route(): voorkomt absolute https://… URL’s terwijl Docker op :8000 geen TLS heeft
+            // (anders ERR_CONNECTION_CLOSED in de browser).
+            return new RedirectResponse(
+                '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()])
+            );
         }
 
         // Check if user has admin role (super-admin, company-admin, or staff)
-        if (!auth()->user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
+        if (! auth('web')->user()->hasAnyRole(['super-admin', 'company-admin', 'staff'])) {
             // For AJAX requests, return 403 status instead of redirect
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
                 return response()->json([
                     'message' => 'Je hebt geen rechten om deze actie uit te voeren.',
-                    'redirect' => route('admin.login')
+                    'redirect' => route('admin.login'),
                 ], 403);
             }
-            
+
             // Redirect to admin login page instead of home
             return redirect()->route('admin.login')->with('error', 'Je hebt geen rechten om deze pagina te bekijken.');
         }

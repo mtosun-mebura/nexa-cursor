@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title', 'NEXA Skillmatching')</title>
+  @php
+      $layoutBranding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+  @endphp
   @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
+  <style>
+    .fe-logo-light { display: block !important; }
+    .fe-logo-dark { display: none !important; }
+    html.dark .fe-logo-light { display: none !important; }
+    html.dark .fe-logo-dark { display: block !important; }
+  </style>
   <!-- Inter (optioneel) -->
   <link rel="preconnect" href="https://rsms.me/" />
   <link href="https://rsms.me/inter/inter.css" rel="stylesheet" />
@@ -40,7 +49,7 @@
 </head>
 <body class="bg-white dark:bg-surface-dark text-text dark:text-text-dark antialiased min-h-screen flex flex-col">
   <!-- Header -->
-  @include('frontend.layouts.partials.header')
+  @include('frontend.layouts.partials.header', ['branding' => $layoutBranding])
   
   <div class="w-full py-6 flex-1">
     <div class="w-full max-w-none">
@@ -49,6 +58,6 @@
   </div>
 
   <!-- Footer -->
-  @include('frontend.layouts.partials.footer')
+  @include('frontend.layouts.partials.footer', ['branding' => $layoutBranding])
 </body>
 </html>

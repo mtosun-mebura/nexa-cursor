@@ -18,7 +18,7 @@ class RoleMiddleware
         // Check if user is authenticated
         if (!$request->user()) {
             // Store the intended URL for redirect after login
-            session(['url.intended' => $request->url()]);
+            session(['url.intended' => $request->fullUrl()]);
             return redirect()->route('admin.login')->with('error', 'Je moet ingelogd zijn om deze pagina te bekijken.');
         }
 

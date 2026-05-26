@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Vacancy;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -16,14 +17,18 @@ class HomeController extends Controller
         $rotationKey = floor(now()->timestamp / (2 * 3600)); // Elke 2 uur een nieuwe key
         
         $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () use ($rotationKey) {
+            if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+                return collect();
+            }
+
             // Haal alle beschikbare vacatures op
             $allJobs = Vacancy::with(['company', 'category'])
                 ->where('is_active', true)
-                ->where(function($q) {
-                    $q->where(function($subQ) {
+                ->where(function ($q) {
+                    $q->where(function ($subQ) {
                         $subQ->where('published_at', '<=', now())
-                             ->orWhereNull('published_at')
-                             ->orWhereNull('publication_date');
+                            ->orWhereNull('published_at')
+                            ->orWhereNull('publication_date');
                     });
                 })
                 ->orderBy('published_at', 'desc')

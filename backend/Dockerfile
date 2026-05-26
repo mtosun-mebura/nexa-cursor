@@ -3,7 +3,9 @@ FROM php:8.3-cli
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq-dev git unzip libzip-dev libicu-dev libonig-dev \
-    && docker-php-ext-install pdo pdo_pgsql intl zip \
+        libfreetype6-dev libjpeg62-turbo-dev libpng-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo pdo_pgsql intl zip gd \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
@@ -16,6 +18,9 @@ COPY composer.json composer.lock ./
 
 # Install dependencies ZONDER scripts (artisan bestaat nog niet)
 RUN composer install --no-interaction --prefer-dist --no-scripts
+
+# PHP upload limits (voor php artisan serve)
+COPY php-upload.ini /usr/local/etc/php/conf.d/99-upload.ini
 
 # Copy rest of code (entrypoint script included)
 COPY . /var/www/html

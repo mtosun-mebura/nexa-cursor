@@ -1,13 +1,15 @@
 .DS_Store
 .idea/
 
-# Root env
-.env
+# Env files (nooit committen), behalve .env.local en .env.example
+.env*
+!.env.local
+!.env.example
 
 # Backend env and config files
-backend/.env
-backend/.env.backup
-backend/.env.production
+backend/.env*
+!backend/.env.local
+!backend/.env.example
 backend/.phpactor.json
 backend/.phpunit.result.cache
 backend/.fleet/
@@ -104,3 +106,5 @@ backend/resources/views/demo/
 
 # Local notes/docs not for VCS
 backend/IS_ACTIVE_COLUMN_FIX.md
+/docs/
+/backend/public/docs/

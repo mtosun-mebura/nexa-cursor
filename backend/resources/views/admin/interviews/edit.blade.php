@@ -40,7 +40,7 @@
 
 <div class="kt-container-fixed">
     <div class="flex flex-col items-stretch grow">
-        <form action="{{ route('admin.interviews.update', $interview) }}" method="POST" class="flex flex-col gap-5 lg:gap-7.5" novalidate>
+        <form action="{{ route('admin.interviews.update', $interview) }}" method="POST" class="flex flex-col gap-5 lg:gap-7.5" novalidate data-validate="true">
             @csrf
             @method('PUT')
 
@@ -666,6 +666,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize datepicker elements

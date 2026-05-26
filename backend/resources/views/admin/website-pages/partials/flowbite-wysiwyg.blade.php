@@ -1,4 +1,4 @@
-{{-- Flowbite-style WYSIWYG (Tiptap). Variabelen: $editorId, $name, $value, $placeholder, $textareaId. Hoogte 300px; afbeelding/document via bladeren. --}}
+{{-- Flowbite-style WYSIWYG (Tiptap). Variabelen: $editorId, $name, $value, $placeholder, $textareaId. Optioneel: $contentMinHeightPx, $contentMaxHeightPx, $contentExtraClass. --}}
 @php
     $editorId = $editorId ?? ('wysiwyg-' . bin2hex(random_bytes(4)));
     $name = $name ?? '';
@@ -6,12 +6,28 @@
     $textareaId = $textareaId ?? ($editorId . '-input');
     $placeholder = $placeholder ?? '';
     $prefix = $editorId;
+    $contentMinHeightPx = $contentMinHeightPx ?? 300;
+    $contentMaxHeightPx = $contentMaxHeightPx ?? $contentMinHeightPx;
+    $contentExtraClass = trim((string) ($contentExtraClass ?? ''));
+    // Ongescaped in textarea zodat opgeslagen HTML in de editor wordt getoond; alleen </textarea> escapen om tag niet te breken
+    $valueForTextarea = str_replace('</textarea>', '&lt;/textarea&gt;', (string) $value);
+    $wysiwygIconKeys = ['phone', 'envelope', 'map-pin', 'clock', 'building-office-2', 'chat-bubble-left-right', 'globe-europe-africa', 'home'];
+    $wysiwygIconsForEditor = [];
+    foreach ($wysiwygIconKeys as $iconKey) {
+        $iconDef = config('heroicons.icons.'.$iconKey);
+        if (is_array($iconDef) && ! empty($iconDef['svg'])) {
+            $wysiwygIconsForEditor[$iconKey] = [
+                'label' => $iconDef['label'] ?? $iconKey,
+                'svg' => $iconDef['svg'],
+            ];
+        }
+    }
 @endphp
-<div class="flowbite-wysiwyg-wrapper w-full max-w-4xl border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 min-w-0" data-flowbite-wysiwyg data-editor-id="{{ $editorId }}" data-upload-image-url="{{ route('admin.website-pages.upload-hero-image') }}" data-upload-document-url="{{ route('admin.website-pages.upload-wysiwyg-document') }}">
+<div class="flowbite-wysiwyg-wrapper w-full max-w-4xl border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 min-w-0" data-flowbite-wysiwyg data-editor-id="{{ $editorId }}" data-upload-image-url="{{ route('admin.website-pages.upload-hero-image') }}" data-upload-document-url="{{ route('admin.website-pages.upload-wysiwyg-document') }}" data-wysiwyg-icons='@json($wysiwygIconsForEditor, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE)'>
     <input type="file" class="hidden flowbite-wysiwyg-image-input" accept="image/*" data-editor-id="{{ $editorId }}" aria-hidden="true">
     <input type="file" class="hidden flowbite-wysiwyg-document-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" data-editor-id="{{ $editorId }}" aria-hidden="true">
-    <div class="p-2 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 min-w-0 overflow-x-auto rounded-t-xl">
-        <div class="flex flex-wrap items-center justify-start gap-1 min-w-max">
+    <div class="flowbite-wysiwyg-toolbar p-2 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 min-w-0 rounded-t-xl space-y-1.5">
+        <div class="flex flex-wrap items-center gap-1 w-full">
             <button type="button" id="{{ $prefix }}-toggleBold" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Vet"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5h4.5a3.5 3.5 0 1 1 0 7H8m0-7v7m0-7H6m2 7h6.5a3.5 3.5 0 1 1 0 7H8m0-7v7m0 0H6"/></svg></button>
             <button type="button" id="{{ $prefix }}-toggleItalic" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Cursief"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m8.874 19 6.143-14M6 19h6.33m-.66-14H18"/></svg></button>
             <button type="button" id="{{ $prefix }}-toggleUnderline" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Onderstrepen"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M6 19h12M8 5v9a4 4 0 0 0 8 0V5M6 5h4m4 0h4"/></svg></button>
@@ -30,19 +46,32 @@
             <button type="button" id="{{ $prefix }}-toggleOrderedList" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Genummerde lijst"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6h8m-8 6h8m-8 6h8M4 16a2 2 0 1 1 3.321 1.5L4 20h5M4 5l2-1v6m-2 0h4"/></svg></button>
             <button type="button" id="{{ $prefix }}-toggleBlockquote" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Citaat"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 11V8a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1Zm0 0v2a4 4 0 0 1-4 4H5m14-6V8a1 1 0 0 0-1-1h-3a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1Zm0 0v2a4 4 0 0 1-4 4h-1"/></svg></button>
             <button type="button" id="{{ $prefix }}-toggleHR" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Horizontale lijn"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M5 12h14"/></svg></button>
-            <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-0.5"></span>
+        </div>
+        <div class="flex flex-wrap items-center gap-1 w-full pt-1.5 border-t border-gray-200 dark:border-gray-600">
+            <span class="text-xs text-gray-500 dark:text-gray-400 shrink-0">Media:</span>
             <button type="button" id="{{ $prefix }}-addImage" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Afbeelding (bladeren)"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m3 16 5-7 6 6.5m6.5 2.5L16 13l-4.286 6M14 10h.01M4 19h16a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1Z"/></svg></button>
             <button type="button" id="{{ $prefix }}-addDocument" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Document (bladeren)"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></button>
-            <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-0.5"></span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 shrink-0">Iconen:</span>
+            <div class="flowbite-wysiwyg-icon-picker flex flex-wrap items-center gap-0.5 shrink-0" id="{{ $prefix }}-icon-picker">
+                @foreach($wysiwygIconsForEditor as $iconKey => $iconMeta)
+                <button type="button" class="flowbite-wysiwyg-icon-pick-btn p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200" data-icon-key="{{ $iconKey }}" title="{{ $iconMeta['label'] }}">
+                    <svg class="w-5 h-5 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">{!! $iconMeta['svg'] !!}</svg>
+                    <span class="sr-only">{{ $iconMeta['label'] }}</span>
+                </button>
+                @endforeach
+            </div>
+            <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-1"></span>
             <button type="button" id="{{ $prefix }}-undo" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Ongedaan"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg></button>
             <button type="button" id="{{ $prefix }}-redo" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Opnieuw"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"/></svg></button>
+            <button type="button" id="{{ $prefix }}-clearFormat" class="p-1.5 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-200 dark:hover:bg-gray-600" title="Opmaak verwijderen"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20h-10.5l-4.21-4.3a1 1 0 010-1.41l10-10a1 1 0 011.41 0l5 5a1 1 0 010 1.41l-9.2 9.3"/><path d="M18 13.3l-6.3-6.3"/></svg></button>
         </div>
-        <div class="flex flex-wrap items-center justify-start gap-1 mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-600 min-w-max">
+        <div class="flex flex-wrap items-center gap-1 w-full pt-1.5 border-t border-gray-200 dark:border-gray-600">
             <span class="text-xs text-gray-500 dark:text-gray-400 mr-1 shrink-0">Format:</span>
-            <button type="button" id="{{ $prefix }}-setParagraph" class="px-2 py-1 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600 shrink-0 text-gray-700 dark:text-gray-900" title="Paragraaf">P</button>
-            <button type="button" id="{{ $prefix }}-setH1" class="px-2 py-1 text-xs font-bold rounded hover:bg-gray-200 dark:hover:bg-gray-600 shrink-0 text-gray-700 dark:text-gray-900" title="Kop 1">H1</button>
-            <button type="button" id="{{ $prefix }}-setH2" class="px-2 py-1 text-xs font-bold rounded hover:bg-gray-200 dark:hover:bg-gray-600 shrink-0 text-gray-700 dark:text-gray-900" title="Kop 2">H2</button>
-            <button type="button" id="{{ $prefix }}-setH3" class="px-2 py-1 text-xs font-bold rounded hover:bg-gray-200 dark:hover:bg-gray-600 shrink-0 text-gray-700 dark:text-gray-900" title="Kop 3">H3</button>
+            <button type="button" id="{{ $prefix }}-setParagraph" class="flowbite-wysiwyg-toolbar-btn flowbite-wysiwyg-toolbar-text-btn px-2 py-1 text-xs rounded shrink-0 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600" title="Paragraaf">P</button>
+            <button type="button" id="{{ $prefix }}-setH1" class="flowbite-wysiwyg-toolbar-btn flowbite-wysiwyg-toolbar-text-btn px-2 py-1 text-xs font-bold rounded shrink-0 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600" title="Kop 1">H1</button>
+            <button type="button" id="{{ $prefix }}-setH2" class="flowbite-wysiwyg-toolbar-btn flowbite-wysiwyg-toolbar-text-btn px-2 py-1 text-xs font-bold rounded shrink-0 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600" title="Kop 2">H2</button>
+            <button type="button" id="{{ $prefix }}-setH3" class="flowbite-wysiwyg-toolbar-btn flowbite-wysiwyg-toolbar-text-btn px-2 py-1 text-xs font-bold rounded shrink-0 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600" title="Kop 3">H3</button>
+            <button type="button" id="{{ $prefix }}-setH4" class="flowbite-wysiwyg-toolbar-btn flowbite-wysiwyg-toolbar-text-btn px-2 py-1 text-xs font-bold rounded shrink-0 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600" title="Kop 4">H4</button>
             <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-1"></span>
             <span class="text-xs text-gray-500 dark:text-gray-400 mr-1 shrink-0">Lettergrootte:</span>
             <select id="{{ $prefix }}-fontSize" class="kt-input text-xs py-1 px-2 h-8 min-w-0 w-20 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" title="Lettergrootte">
@@ -60,8 +89,14 @@
                 <option value="Inter, sans-serif">Inter</option>
                 <option value="Georgia, serif">Georgia</option>
             </select>
+            <span class="w-px h-5 bg-gray-300 dark:bg-gray-500 mx-1"></span>
+            <span class="text-xs text-gray-500 dark:text-gray-400 mr-1 shrink-0">Tekstkleur:</span>
+            <div class="flex items-center gap-1 shrink-0">
+                <input type="color" id="{{ $prefix }}-textColor" class="w-8 h-8 rounded border border-gray-200 dark:border-gray-600 cursor-pointer bg-white dark:bg-gray-800 p-0.5" value="#000000" title="Tekstkleur kiezen">
+                <button type="button" id="{{ $prefix }}-unsetTextColor" class="flowbite-wysiwyg-toolbar-btn flowbite-wysiwyg-toolbar-text-btn px-2 py-1 text-xs rounded text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600" title="Kleur verwijderen">Geen</button>
+            </div>
         </div>
     </div>
-    <div class="flowbite-wysiwyg-content px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus-within:ring-1 focus-within:ring-blue-500 rounded-b-xl overflow-auto min-w-0" style="min-height: 300px; max-height: 300px;" data-editor-content></div>
-    <textarea name="{{ $name }}" id="{{ $textareaId }}" class="hidden flowbite-wysiwyg-textarea" data-editor-input>{{ $value }}</textarea>
+    <div class="flowbite-wysiwyg-content px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus-within:ring-1 focus-within:ring-blue-500 rounded-b-xl overflow-auto min-w-0{{ $contentExtraClass !== '' ? ' ' . $contentExtraClass : '' }}" style="min-height: {{ $contentMinHeightPx }}px; max-height: {{ $contentMaxHeightPx }}px;" data-editor-content></div>
+    <textarea name="{{ $name }}" id="{{ $textareaId }}" class="hidden flowbite-wysiwyg-textarea" data-editor-input>{!! $valueForTextarea !!}</textarea>
 </div>

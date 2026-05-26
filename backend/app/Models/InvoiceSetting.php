@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class InvoiceSetting extends Model
 {
     protected $fillable = [
+        'company_id',
+        'location_id',
         'invoice_number_prefix',
         'invoice_number_format',
         'next_invoice_number',
@@ -34,14 +36,102 @@ class InvoiceSetting extends Model
 
     public static function getSettings(): self
     {
-        return static::firstOrCreate([], [
+        return static::getSettingsForCompany(null);
+    }
+
+    /**
+     * Waarde voor het formulier: minstens het lopende kalenderjaar, hoger indien handmatig gezet.
+     */
+    public function suggestedCurrentYear(): int
+    {
+        $calendarYear = (int) date('Y');
+        $stored = (int) ($this->current_year ?: $calendarYear);
+
+        return max($stored, $calendarYear);
+    }
+
+    public static function getSettingsForCompany(?int $companyId): self
+    {
+        $companyId = $companyId && $companyId > 0 ? $companyId : null;
+
+        $existing = static::query()
+            ->when(
+                $companyId !== null,
+                fn ($q) => $q->where('company_id', $companyId),
+                fn ($q) => $q->whereNull('company_id')
+            )
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $global = static::query()->whereNull('company_id')->first();
+
+        $defaults = [
+            'company_id' => $companyId,
             'invoice_number_prefix' => 'NX',
             'invoice_number_format' => '{prefix}{year}-{number}',
             'next_invoice_number' => 1,
-            'current_year' => date('Y'),
+            'current_year' => (int) date('Y'),
             'default_tax_rate' => 21.00,
             'payment_terms_days' => 30,
-        ]);
+        ];
+
+        if ($global) {
+            foreach ([
+                'invoice_number_prefix', 'invoice_number_format', 'next_invoice_number', 'current_year',
+                'default_tax_rate', 'payment_terms_days', 'company_name', 'company_address', 'company_city',
+                'company_postal_code', 'company_country', 'company_vat_number', 'company_email',
+                'company_phone', 'bank_account', 'invoice_footer_text',
+            ] as $field) {
+                if ($global->{$field} !== null) {
+                    $defaults[$field] = $global->{$field};
+                }
+            }
+        }
+
+        return static::create($defaults);
+    }
+
+    /**
+     * Betaaltermijn voor PDF/e-mail: snapshot → tenant → globaal (admin #payment_terms_days).
+     */
+    public static function paymentTermsDaysForInvoice(Invoice $invoice): int
+    {
+        $details = is_array($invoice->company_details) ? $invoice->company_details : [];
+        if (! empty($details['payment_terms_days']) && (int) $details['payment_terms_days'] >= 1) {
+            return (int) $details['payment_terms_days'];
+        }
+
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $global = static::query()->whereNull('company_id')->first();
+        $tenant = $companyId > 0
+            ? static::query()->where('company_id', $companyId)->first()
+            : null;
+
+        $globalDays = $global && (int) $global->payment_terms_days >= 1
+            ? (int) $global->payment_terms_days
+            : null;
+        $tenantDays = $tenant && (int) $tenant->payment_terms_days >= 1
+            ? (int) $tenant->payment_terms_days
+            : null;
+
+        if ($tenantDays !== null && $globalDays !== null && $tenantDays === 30 && $globalDays !== 30) {
+            return $globalDays;
+        }
+        if ($tenantDays !== null) {
+            return $tenantDays;
+        }
+        if ($globalDays !== null) {
+            return $globalDays;
+        }
+
+        if ($invoice->due_date && $invoice->invoice_date) {
+            return max(1, (int) $invoice->invoice_date->startOfDay()->diffInDays($invoice->due_date->startOfDay()));
+        }
+
+        return 30;
     }
 
     public function generateInvoiceNumber(bool $isPartial = false, ?string $parentInvoiceNumber = null, ?int $partialNumber = null): string

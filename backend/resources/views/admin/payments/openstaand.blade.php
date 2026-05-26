@@ -4,14 +4,11 @@
 
 @section('content')
 <div class="kt-container-fixed">
-    <!-- Page Title -->
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono">
-                Openstaande Betalingen
-            </h1>
-            <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Overzicht van alle openstaande betalingen
+            <h1 class="text-xl font-medium leading-none text-mono">Openstaande Betalingen</h1>
+            <div class="text-sm text-secondary-foreground">
+                Tenants met actieve betaalmodule — status open, pending, mislukt of verlopen
             </div>
         </div>
         <div class="flex items-center gap-2.5">
@@ -22,127 +19,52 @@
         </div>
     </div>
 
-    <!-- Main Card -->
-    <div class="kt-card kt-card-grid h-full min-w-full">
+    @include('admin.payments.partials.tenant-filter', ['filterRoute' => 'admin.payments.openstaand'])
+
+    <div class="kt-card kt-card-grid min-w-full">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">
-                Openstaande Betalingen
-            </h3>
-            <label class="kt-input max-w-48" style="position: relative !important;">
-                <i class="ki-filled ki-magnifier"></i>
-                <form method="GET" action="{{ route('admin.payments.openstaand') }}" class="inline">
-                    <input type="text" 
-                           name="search" 
-                           value="{{ request('search') }}"
-                           placeholder="Zoek bedrijven" 
-                           class="min-w-0"
-                           autocomplete="off">
-                </form>
-            </label>
+            <h3 class="kt-card-title">Openstaande betalingen</h3>
+            <form method="GET" action="{{ route('admin.payments.openstaand') }}" class="flex flex-wrap items-center gap-2">
+                @if(request('company_id'))
+                    <input type="hidden" name="company_id" value="{{ request('company_id') }}">
+                @endif
+                <label class="kt-input max-w-48">
+                    <i class="ki-filled ki-magnifier"></i>
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Zoeken…" class="min-w-0" autocomplete="off">
+                </label>
+            </form>
         </div>
         <div class="kt-card-table">
             <div class="kt-scrollable-x-auto">
                 <table class="kt-table kt-table-border">
                     <thead>
                         <tr>
-                            <th class="w-[200px]">
-                                <span class="kt-table-col">
-                                    <span class="kt-table-col-label">Bedrijf</span>
-                                </span>
-                            </th>
-                            <th class="w-[150px]">
-                                <span class="kt-table-col">
-                                    <span class="kt-table-col-label">Bedrag</span>
-                                </span>
-                            </th>
-                            <th class="w-[150px]">
-                                <span class="kt-table-col">
-                                    <span class="kt-table-col-label">Factuur</span>
-                                </span>
-                            </th>
-                            <th class="w-[150px]">
-                                <span class="kt-table-col">
-                                    <span class="kt-table-col-label">Datum</span>
-                                </span>
-                            </th>
-                            <th class="w-[150px]">
-                                <span class="kt-table-col">
-                                    <span class="kt-table-col-label">Status</span>
-                                </span>
-                            </th>
-                            <th class="w-[150px]">
-                                <span class="kt-table-col">
-                                    <span class="kt-table-col-label">Acties</span>
-                                </span>
-                            </th>
+                            <th>Tenant</th>
+                            <th>Module</th>
+                            <th>Bedrag</th>
+                            <th>Referentie</th>
+                            <th>Datum</th>
+                            <th>Status</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($payments as $payment)
-                        <tr>
-                            <td>
-                                <div class="flex flex-col gap-1">
-                                    <a class="leading-none font-medium text-sm text-mono hover:text-primary" href="{{ route('admin.companies.show', $payment->company_id) }}">
-                                        {{ $payment->company->name ?? 'N/A' }}
-                                    </a>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="text-sm text-secondary-foreground font-normal">
-                                    €{{ number_format($payment->amount, 2, ',', '.') }}
-                                </span>
-                            </td>
-                            <td>
-                                @if($payment->invoice)
-                                    <a class="text-sm text-primary hover:underline" href="{{ route('admin.invoices.show', $payment->invoice_id) }}">
-                                        {{ $payment->invoice->invoice_number }}
-                                    </a>
-                                @else
-                                    <span class="text-sm text-secondary-foreground">Geen factuur</span>
-                                @endif
-                            </td>
-                            <td>
-                                <span class="text-sm text-secondary-foreground font-normal">
-                                    {{ $payment->created_at->format('d M, Y') }}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="kt-badge kt-badge-warning kt-badge-outline rounded-[30px]">
-                                    Openstaand
-                                </span>
-                            </td>
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    @if($payment->invoice)
-                                        <a href="{{ route('admin.invoices.show', $payment->invoice_id) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijk factuur">
-                                            <i class="ki-filled ki-eye"></i>
-                                        </a>
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="6" class="text-center py-10 text-sm text-secondary-foreground">
-                                Geen openstaande betalingen gevonden
-                            </td>
-                        </tr>
-                        @endforelse
+                        @include('admin.payments.partials.payment-rows', [
+                            'payments' => $payments,
+                            'emptyMessage' => 'Geen openstaande betalingen voor deze tenants.',
+                            'paymentsReturnUrl' => request()->getRequestUri(),
+                        ])
                     </tbody>
                 </table>
             </div>
         </div>
         @if($payments->hasPages())
-        <div class="kt-card-footer">
-            <div class="flex items-center justify-between">
+            <div class="kt-card-footer flex items-center justify-between">
                 <div class="text-sm text-secondary-foreground">
-                    Toont {{ $payments->firstItem() }} tot {{ $payments->lastItem() }} van {{ $payments->total() }} resultaten
+                    {{ $payments->firstItem() }}–{{ $payments->lastItem() }} van {{ $payments->total() }}
                 </div>
-                <div>
-                    {{ $payments->links() }}
-                </div>
+                {{ $payments->withQueryString()->links() }}
             </div>
-        </div>
         @endif
     </div>
 </div>
@@ -150,9 +72,4 @@
 @push('scripts')
 <script src="{{ asset('assets/js/search-input-clear.js') }}"></script>
 @endpush
-
 @endsection
-
-
-
-

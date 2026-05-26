@@ -77,12 +77,12 @@ class AdminFrontendThemeController extends Controller
     public function index()
     {
         $this->ensureSuperAdmin();
-        // Zorg dat alle thema's (Modern + Atom v2, Nextly, Next Landing VPN) bestaan
+        // Zorg dat alle thema's (Metronic + Atom v2, Nextly, Next Landing VPN) bestaan
         $newSlugs = ['atom-v2', 'nextly-template', 'next-landing-vpn'];
         if (FrontendTheme::count() === 0 || FrontendTheme::whereIn('slug', $newSlugs)->count() < count($newSlugs)) {
             (new FrontendThemeSeeder())->run();
         }
-        // Zorg dat thema Modern de NEXA Home-screenshot gebruikt
+        // Zorg dat thema Metronic de NEXA Home-screenshot gebruikt
         $modern = FrontendTheme::where('slug', 'modern')->first();
         $modernPreviewPath = 'frontend-themes/modern-home.png';
         if ($modern && file_exists(public_path($modernPreviewPath))) {
@@ -92,8 +92,10 @@ class AdminFrontendThemeController extends Controller
         }
         $themes = FrontendTheme::orderBy('slug')->get();
         $installedModules = $this->moduleManager->getInstalledModules();
+        $activeModulesForThemes = $this->moduleManager->getActiveModules();
         $activeTheme = FrontendTheme::getActive();
-        $activeThemeId = $activeTheme ? $activeTheme->id : $themes->first()?->id;
+        // Geen fallback naar eerste thema: bij lege installatie is niets actief tot de beheerder op Activeren klikt.
+        $activeThemeId = $activeTheme?->id;
 
         // Modulemodels opzoeken met dezelfde case-insensitive lookup als bij opslaan (key = getName())
         $moduleModels = collect();
@@ -112,8 +114,12 @@ class AdminFrontendThemeController extends Controller
             }
         }
 
+        $stagingModuleTop = $activeThemeId ? $this->websiteBuilder->resolveStagingModuleQueryParameterForTheme($activeThemeId) : null;
         $stagingUrlTop = $activeThemeId
-            ? route('admin.frontend-themes.staging', ['theme_id' => $activeThemeId, 'module' => ''])
+            ? route('admin.frontend-themes.staging', array_filter([
+                'theme_id' => $activeThemeId,
+                'module' => $stagingModuleTop,
+            ], static fn ($v) => $v !== null && $v !== ''))
             : null;
 
         $moduleFirstPageUrls = [];
@@ -133,10 +139,20 @@ class AdminFrontendThemeController extends Controller
                 : $stagingUrlTop;
         }
 
+        $themeStagingUrls = [];
+        foreach ($themes as $theme) {
+            $mod = $this->websiteBuilder->resolveStagingModuleQueryParameterForTheme($theme->id);
+            $params = ['theme_id' => $theme->id];
+            if ($mod !== null && $mod !== '') {
+                $params['module'] = $mod;
+            }
+            $themeStagingUrls[$theme->id] = route('admin.frontend-themes.staging', $params);
+        }
+
         $websiteUrl = url('/');
         return view('admin.frontend-themes.index', compact(
-            'themes', 'installedModules', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
-            'websiteUrl', 'stagingUrlTop', 'activeThemeId'
+            'themes', 'installedModules', 'activeModulesForThemes', 'moduleModels', 'moduleFirstPageUrls', 'moduleStagingUrls',
+            'websiteUrl', 'stagingUrlTop', 'activeThemeId', 'themeStagingUrls'
         ));
     }
 
@@ -161,6 +177,7 @@ class AdminFrontendThemeController extends Controller
     {
         $this->ensureSuperAdmin();
         $module = $request->query('module');
+        $module = ($module !== null && trim((string) $module) !== '') ? trim((string) $module) : null;
         $pageParam = $request->query('page');
 
         // Thema strikt uit query: alleen bij aanwezige theme_id dat thema laden, anders actieve
@@ -168,16 +185,36 @@ class AdminFrontendThemeController extends Controller
         $requestedThemeId = $request->query('theme_id');
         if ($requestedThemeId !== null && $requestedThemeId !== '') {
             $theme = FrontendTheme::find((int) $requestedThemeId);
+            if (! $theme && (int) $requestedThemeId > 0) {
+                return redirect()->route('admin.frontend-themes.index')
+                    ->with('error', 'Thema met id ' . (int) $requestedThemeId . ' niet gevonden.');
+            }
         }
-        if (!$theme) {
+        if (! $theme) {
             $theme = FrontendTheme::getActive();
         }
-        if (!$theme) {
+        if (! $theme) {
             return redirect()->route('admin.frontend-themes.index')
                 ->with('error', 'Geen thema gekozen.');
         }
 
-        $menuPages = $this->websiteBuilder->getMenuPagesForStaging($module ?: null);
+        if ($module === null || $module === '') {
+            $module = $this->websiteBuilder->getStagingModuleNameForTheme($theme->id);
+        }
+
+        // Zet dit thema vast op de getoonde module, zodat localhost:8000 dezelfde module toont
+        if ($module !== null && $module !== '') {
+            $moduleModel = Module::where('active', true)
+                ->whereRaw('LOWER(name) = ?', [strtolower($module)])
+                ->first();
+            if ($moduleModel) {
+                if ((int) $theme->active_module_id !== (int) $moduleModel->id) {
+                    $theme->update(['active_module_id' => $moduleModel->id]);
+                }
+            }
+        }
+
+        $menuPages = $this->websiteBuilder->getMenuPagesForStaging($module);
         $menuPages = $menuPages->values();
 
         $page = null;
@@ -192,24 +229,51 @@ class AdminFrontendThemeController extends Controller
                 ?? $menuPages->first();
         }
         // Geen actieve pagina's: toon demo-home voor het gekozen thema zodat het thema altijd bekeken kan worden
-        if (!$page) {
-            $page = WebsitePage::demoPageForTheme($theme, $module ?: null);
+        if (! $page) {
+            $moduleForDemo = $module;
+            if (($moduleForDemo === null || $moduleForDemo === '') && $theme->active_module_id) {
+                $pinnedForDemo = Module::find($theme->active_module_id);
+                if ($pinnedForDemo && $pinnedForDemo->name !== null && $pinnedForDemo->name !== '') {
+                    $moduleForDemo = $pinnedForDemo->name;
+                }
+            }
+            $page = WebsitePage::demoPageForTheme($theme, $moduleForDemo);
             $menuPages = collect([$page]);
         }
 
         $themeSlug = $theme->slug;
         $themeSettings = $theme->getSettings();
-        $branding = $this->websiteBuilder->getSiteBranding();
+        // Staging: branding volgt URL-query → geresolveerde $module → vastgezette module op het thema.
+        // Niet eerst $page->module_name: de getoonde home kan nog van Skillmatching komen terwijl het thema op Nexa Taxi
+        // staat — dan zou de verkeerde module-config (dashboard uit) worden toegepast.
+        $brandingModuleKey = null;
+        if ($module !== null && trim((string) $module) !== '') {
+            $brandingModuleKey = trim((string) $module);
+        }
+        if ($brandingModuleKey === null && $theme->active_module_id) {
+            $pinnedForBranding = Module::find($theme->active_module_id);
+            if ($pinnedForBranding && $pinnedForBranding->name !== null && $pinnedForBranding->name !== '') {
+                $brandingModuleKey = trim((string) $pinnedForBranding->name);
+            }
+        }
+        if ($brandingModuleKey === null && filled($page->module_name)) {
+            $brandingModuleKey = trim((string) $page->module_name);
+        }
+        if ($brandingModuleKey !== null && trim((string) $brandingModuleKey) === '') {
+            $brandingModuleKey = null;
+        }
+        $branding = $this->websiteBuilder->getSiteBranding($brandingModuleKey, true);
         $showContactForm = $page->page_type === 'contact';
 
         $stagingParams = [
             'theme_id' => $theme->id,
-            'module' => $module ?? '',
+            'module' => $module !== null ? $module : '',
         ];
 
         $jobs = collect();
         $isHomePage = $page->page_type === 'home' || $page->slug === 'home';
-        if ($isHomePage) {
+        $isSkillmatchingModule = $module !== null && strtolower((string) $module) === 'skillmatching';
+        if ($isHomePage && $isSkillmatchingModule) {
             $rotationKey = floor(now()->timestamp / (2 * 3600));
             $jobs = Cache::remember("home_jobs_rotation_{$rotationKey}", 7200, function () {
                 return Vacancy::with(['company', 'category'])
@@ -232,6 +296,12 @@ class AdminFrontendThemeController extends Controller
             !empty($page->home_sections) || $page->page_type === 'home' || $page->slug === 'home'
         );
         $homeSections = $useThemeHomeLayout ? $page->getHomeSections() : [];
+        // Staging: bij thema's met home-sections altijd dezelfde footer tonen (logo, tagline, links, map)
+        if ($themeHasHomeSections && empty($homeSections)) {
+            $demoPageForFooter = WebsitePage::demoPageForTheme($theme, $module);
+            $demoPageForFooter->setRelation('theme', $theme);
+            $homeSections = $demoPageForFooter->getHomeSections();
+        }
         // Atom v2: laad thema-styles op alle paginatypes (staging) voor dezelfde weergave als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
 
@@ -245,7 +315,7 @@ class AdminFrontendThemeController extends Controller
             'showContactForm' => $showContactForm,
             'isStaging' => true,
             'stagingThemeId' => $theme->id,
-            'stagingModule' => $module ?? '',
+            'stagingModule' => $module !== null ? $module : '',
             'stagingParams' => $stagingParams,
             'stagingBackUrl' => route('admin.frontend-themes.index'),
             'stagingPublishUrl' => route('admin.frontend-themes.publish'),
@@ -267,6 +337,21 @@ class AdminFrontendThemeController extends Controller
     }
 
     /**
+     * De-publiceren: één thema niet meer beschikbaar maken (andere actieve thema's blijven actief).
+     */
+    public function unpublish(Request $request): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $request->validate(['theme_id' => 'required|exists:frontend_themes,id']);
+
+        $theme = FrontendTheme::findOrFail((int) $request->input('theme_id'));
+        $theme->update(['is_active' => false]);
+
+        return redirect()->route('admin.frontend-themes.index')
+            ->with('success', "Thema \"{$theme->name}\" is gedeactiveerd. Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.");
+    }
+
+    /**
      * Publiceren: thema actief maken en demo-/staging-URL's in content omzetten naar daadwerkelijke URL's.
      */
     public function publish(Request $request): RedirectResponse
@@ -275,7 +360,6 @@ class AdminFrontendThemeController extends Controller
         $request->validate(['theme_id' => 'required|exists:frontend_themes,id']);
 
         $theme = FrontendTheme::findOrFail($request->theme_id);
-        FrontendTheme::where('is_active', true)->update(['is_active' => false]);
         $theme->update(['is_active' => true]);
 
         $stagingBasePath = parse_url(route('admin.frontend-themes.staging', [], true), PHP_URL_PATH);
@@ -294,7 +378,7 @@ class AdminFrontendThemeController extends Controller
             }
         }
 
-        $message = "Thema \"{$theme->name}\" is gepubliceerd en actief.";
+        $message = "Thema \"{$theme->name}\" is gepubliceerd en beschikbaar voor tenants.";
         if ($updated > 0) {
             $message .= " In {$updated} pagina('s) zijn staging-URL's omgezet naar de daadwerkelijke URL's.";
         }
@@ -362,28 +446,14 @@ class AdminFrontendThemeController extends Controller
     }
 
     /**
-     * Maak dit thema het actieve standaardthema. Alle website_pages (kern + module):
-     * - frontend_theme_id ongelijk aan gekozen thema of null → is_active = false.
-     * - frontend_theme_id gelijk aan gekozen thema → is_active = true.
+     * Publiceer dit thema (meerdere thema's kunnen tegelijk actief zijn).
      */
     public function setActive(FrontendTheme $frontend_theme)
     {
         $this->ensureSuperAdmin();
-        $chosenThemeId = $frontend_theme->id;
-
-        FrontendTheme::where('is_active', true)->update(['is_active' => false]);
         $frontend_theme->update(['is_active' => true]);
 
-        WebsitePage::query()
-            ->where(function ($q) use ($chosenThemeId) {
-                $q->where('frontend_theme_id', '!=', $chosenThemeId)
-                    ->orWhereNull('frontend_theme_id');
-            })
-            ->update(['is_active' => false]);
-
-        WebsitePage::where('frontend_theme_id', $chosenThemeId)->update(['is_active' => true]);
-
-        return redirect()->route('admin.frontend-themes.index')->with('success', "Thema \"{$frontend_theme->name}\" is nu actief. Pagina's van andere thema's staan op inactief.");
+        return redirect()->route('admin.frontend-themes.index')->with('success', "Thema \"{$frontend_theme->name}\" is nu beschikbaar. Koppel het aan een bedrijf onder Bedrijven bewerken.");
     }
 
     public function edit(FrontendTheme $frontend_theme)

@@ -19,7 +19,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.notifications.update', $notification) }}" method="POST" enctype="multipart/form-data" novalidate>
+    <form action="{{ route('admin.notifications.update', $notification) }}" method="POST" enctype="multipart/form-data" novalidate data-validate="true">
         @csrf
         @method('PUT')
 
@@ -638,6 +638,7 @@
 @endpush
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize datepicker elements

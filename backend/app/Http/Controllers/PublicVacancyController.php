@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Vacancy;
 use App\Models\Category;
 use App\Models\Company;
+use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 
 class PublicVacancyController extends Controller
@@ -14,6 +15,22 @@ class PublicVacancyController extends Controller
      */
     public function index(Request $request)
     {
+        if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+            $vacancies = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12, 1, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]);
+            $categories = collect();
+            $seoData = [
+                'title' => 'Vacatures',
+                'description' => '',
+                'keywords' => '',
+                'canonical' => $request->url(),
+            ];
+
+            return view('public.vacancies.index', compact('vacancies', 'categories', 'seoData'));
+        }
+
         $query = Vacancy::with(['company', 'category'])
             ->active()
             ->latest();
@@ -67,6 +84,10 @@ class PublicVacancyController extends Controller
      */
     public function show($companySlug, $vacancyId)
     {
+        if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+            abort(404);
+        }
+
         $vacancy = Vacancy::with(['company', 'category'])
             ->whereHas('company', function($query) use ($companySlug) {
                 $query->where('slug', $companySlug);
@@ -106,6 +127,10 @@ class PublicVacancyController extends Controller
      */
     public function frontendShow(string $companySlug, int $vacancyId)
     {
+        if (! ModuleSchemaAvailability::vacanciesTableExists()) {
+            abort(404);
+        }
+
         $vacancy = Vacancy::with(['company', 'branch'])
             ->whereHas('company', function ($query) use ($companySlug) {
                 $query->where('slug', $companySlug);

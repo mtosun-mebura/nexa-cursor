@@ -2,21 +2,21 @@
 
 namespace App\Models;
 
+use App\Helpers\GeoHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use App\Helpers\GeoHelper;
 
 class Vacancy extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'company_id','title','location','contact_name','contact_email','contact_phone','contact_photo_blob','contact_photo_mime_type','contact_user_id','employment_type','description','requirements','offer',
-        'application_instructions','branch_id','reference_number','logo','salary_range','start_date',
-        'working_hours','travel_expenses','remote_work','status','language','publication_date','closing_date',
-        'meta_title','meta_description','meta_keywords','is_active','published_at','salary_min','salary_max',
-        'experience_level','benefits','latitude','longitude','required_skills'
+        'company_id', 'title', 'location', 'contact_name', 'contact_email', 'contact_phone', 'contact_photo_blob', 'contact_photo_mime_type', 'contact_user_id', 'employment_type', 'description', 'requirements', 'offer',
+        'application_instructions', 'branch_id', 'reference_number', 'logo', 'salary_range', 'start_date',
+        'working_hours', 'travel_expenses', 'remote_work', 'status', 'language', 'publication_date', 'closing_date',
+        'meta_title', 'meta_description', 'meta_keywords', 'is_active', 'published_at', 'salary_min', 'salary_max',
+        'experience_level', 'benefits', 'latitude', 'longitude', 'required_skills',
     ];
 
     protected $casts = [
@@ -57,25 +57,25 @@ class Vacancy extends Model
             if (empty($vacancy->publication_date)) {
                 $vacancy->publication_date = now();
             }
-            
+
             // Automatisch coordinaten instellen op basis van locatie
-            if (!empty($vacancy->location) && (empty($vacancy->latitude) || empty($vacancy->longitude))) {
+            if (! empty($vacancy->location) && (empty($vacancy->latitude) || empty($vacancy->longitude))) {
                 $coordinates = GeoHelper::getCityCoordinates($vacancy->location);
                 if ($coordinates) {
                     $vacancy->latitude = $coordinates['latitude'];
                     $vacancy->longitude = $coordinates['longitude'];
                 }
             }
-            
+
             // Automatisch SEO velden genereren als deze niet zijn opgegeven
             if (empty($vacancy->meta_title)) {
                 $vacancy->meta_title = $vacancy->title;
             }
-            
+
             if (empty($vacancy->meta_description)) {
                 $vacancy->meta_description = static::generateMetaDescription($vacancy);
             }
-            
+
             if (empty($vacancy->meta_keywords)) {
                 $vacancy->meta_keywords = static::generateMetaKeywords($vacancy);
             }
@@ -83,24 +83,24 @@ class Vacancy extends Model
 
         static::updating(function ($vacancy) {
             // Automatisch coordinaten bijwerken als locatie verandert
-            if ($vacancy->isDirty('location') && !empty($vacancy->location)) {
+            if ($vacancy->isDirty('location') && ! empty($vacancy->location)) {
                 $coordinates = GeoHelper::getCityCoordinates($vacancy->location);
                 if ($coordinates) {
                     $vacancy->latitude = $coordinates['latitude'];
                     $vacancy->longitude = $coordinates['longitude'];
                 }
             }
-            
+
             // SEO velden bijwerken als titel of beschrijving verandert
             if ($vacancy->isDirty('title') && empty($vacancy->meta_title)) {
                 $vacancy->meta_title = $vacancy->title;
             }
-            
+
             if ($vacancy->isDirty(['title', 'description', 'location', 'employment_type']) && empty($vacancy->meta_description)) {
                 $vacancy->meta_description = static::generateMetaDescription($vacancy);
             }
-            
-            if ($vacancy->isDirty(['title', 'description', 'location', 'employment_type', 'category_id']) && empty($vacancy->meta_keywords)) {
+
+            if ($vacancy->isDirty(['title', 'description', 'location', 'employment_type', 'branch_id']) && empty($vacancy->meta_keywords)) {
                 $vacancy->meta_keywords = static::generateMetaKeywords($vacancy);
             }
         });
@@ -121,7 +121,7 @@ class Vacancy extends Model
     {
         return $this->belongsTo(Branch::class);
     }
-    
+
     /**
      * Alias voor backward compatibility
      */
@@ -152,7 +152,7 @@ class Vacancy extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true)
-                    ->where('published_at', '<=', now());
+            ->where('published_at', '<=', now());
     }
 
     /**
@@ -177,19 +177,19 @@ class Vacancy extends Model
     private static function generateMetaDescription($vacancy)
     {
         $description = $vacancy->title;
-        
+
         if ($vacancy->location) {
-            $description .= ' in ' . $vacancy->location;
+            $description .= ' in '.$vacancy->location;
         }
-        
+
         if ($vacancy->employment_type) {
-            $description .= ' - ' . $vacancy->employment_type;
+            $description .= ' - '.$vacancy->employment_type;
         }
-        
+
         if ($vacancy->description) {
-            $description .= '. ' . Str::limit(strip_tags($vacancy->description), 120);
+            $description .= '. '.Str::limit(strip_tags($vacancy->description), 120);
         }
-        
+
         return Str::limit($description, 160);
     }
 
@@ -199,43 +199,43 @@ class Vacancy extends Model
     private static function generateMetaKeywords($vacancy)
     {
         $keywords = [];
-        
+
         // Basis keywords
         $keywords[] = 'vacature';
         $keywords[] = 'werk';
         $keywords[] = 'baan';
         $keywords[] = 'sollicitatie';
-        
+
         // Titel keywords
         $titleWords = explode(' ', strtolower($vacancy->title));
         $keywords = array_merge($keywords, array_slice($titleWords, 0, 5));
-        
+
         // Locatie
         if ($vacancy->location) {
             $keywords[] = strtolower($vacancy->location);
         }
-        
+
         // Werktype
         if ($vacancy->employment_type) {
             $keywords[] = strtolower($vacancy->employment_type);
         }
-        
+
         // Categorie
         if ($vacancy->category) {
             $keywords[] = strtolower($vacancy->category->name);
         }
-        
+
         // Bedrijf
         if ($vacancy->company) {
             $keywords[] = strtolower($vacancy->company->name);
         }
-        
+
         // Remote werk
         if ($vacancy->remote_work) {
             $keywords[] = 'remote';
             $keywords[] = 'thuiswerken';
         }
-        
+
         return implode(', ', array_unique($keywords));
     }
 
@@ -244,7 +244,7 @@ class Vacancy extends Model
      */
     public function getStatusColorAttribute()
     {
-        return match($this->status) {
+        return match ($this->status) {
             'Open' => '#90EE90', // licht groen
             'Gesloten' => '#FFB6C1', // licht rood
             'In behandeling' => '#FFD700', // licht oranje
@@ -257,7 +257,7 @@ class Vacancy extends Model
      */
     public function getStatusBadgeColorAttribute()
     {
-        return match($this->status) {
+        return match ($this->status) {
             'Open' => 'success',
             'Gesloten' => 'danger',
             'In behandeling' => 'warning',
@@ -272,7 +272,7 @@ class Vacancy extends Model
     {
         return route('vacancies.show', [
             'company' => $this->company->slug ?? $this->company_id,
-            'vacancy' => $this->id
+            'vacancy' => $this->id,
         ]);
     }
 
@@ -294,25 +294,23 @@ class Vacancy extends Model
                 'address' => [
                     '@type' => 'PostalAddress',
                     'addressLocality' => $this->location,
-                ]
+                ],
             ],
             'hiringOrganization' => [
                 '@type' => 'Organization',
                 'name' => $this->company->name,
                 'sameAs' => $this->company->website,
-            ]
+            ],
         ];
 
         if ($this->salary_range) {
             $data['baseSalary'] = [
                 '@type' => 'MonetaryAmount',
                 'currency' => 'EUR',
-                'value' => $this->salary_range
+                'value' => $this->salary_range,
             ];
         }
 
         return $data;
     }
 }
-
-

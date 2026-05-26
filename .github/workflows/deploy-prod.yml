@@ -1,0 +1,127 @@
+# PROD (AWS Lightsail): deploy alleen op git-tags v* (nooit op branch-push).
+# Test (Proxmox): deploy-saas.yml bij push naar release/test.
+# Na merge naar main: tag zetten (Create PROD tag of handmatig) → deze workflow.
+#
+# Triggers: push tag v* (o.a. na "Create PROD tag") | workflow_dispatch (bestaande tag)
+#
+# GitHub → Settings → Secrets and variables → Actions:
+#   Secrets:  AWS_HOST, AWS_USER, AWS_SSH_KEY
+#   Variables: APP_DIR  (= pad naar git-repo op Lightsail, bijv. /home/ubuntu/nexasuite)
+#
+# Environment "production" (Settings → Environments) voor goedkeuring/branch protection.
+#
+# AWS (eenmalig): Docker Compose v2 — bash deploy/install-docker-compose-v2.sh
+# Daarna werkt `docker compose` (spatie); deploy vereist v2 op prod (REQUIRE_COMPOSE_V2=1).
+
+name: Deploy PROD
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Git tag om te deployen, bijv. v1.0.3'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+
+    steps:
+      - name: Resolve deploy tag
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ref="${{ github.event.inputs.version }}"
+          else
+            ref="${GITHUB_REF#refs/tags/}"
+          fi
+          ref="${ref#"${ref%%[![:space:]]*}"}"
+          ref="${ref%"${ref##*[![:space:]]}"}"
+          if [ -z "$ref" ]; then
+            echo "ERROR: Geen tag/ref opgegeven" >&2
+            exit 1
+          fi
+          if [[ ! "$ref" =~ ^v[0-9] ]]; then
+            echo "ERROR: Tag moet beginnen met v + versie (bijv. v1.0.3), got: $ref" >&2
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Deploy tag: $ref"
+
+      - name: Verify tag exists in repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Confirm tag on remote
+        run: |
+          set -euo pipefail
+          ref="${{ steps.version.outputs.ref }}"
+          git rev-parse --verify "refs/tags/${ref}^{commit}"
+
+      - name: Deploy to PROD (deploy-tenant.sh)
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GIT_REF: ${{ steps.version.outputs.ref }}
+          APP_DIR: ${{ vars.APP_DIR }}
+          AWS_USER: ${{ secrets.AWS_USER }}
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          script_stop: true
+          envs: GIT_REF,APP_DIR,AWS_USER
+          script: |
+            set -euo pipefail
+            TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
+            DEPLOY_USER="${AWS_USER:-ubuntu}"
+            GIT_REMOTE="origin"
+            export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER
+            export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+            export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
+            export REQUIRE_COMPOSE_V2=1
+
+            echo "=== PROD deploy ==="
+            echo "Host: $(hostname)"
+            echo "TENANT_DIR: $TENANT_DIR"
+            echo "GIT_REF: $GIT_REF"
+            echo "DEPLOY_USER: $DEPLOY_USER"
+
+            if [[ ! -d "$TENANT_DIR/.git" ]]; then
+              echo "ERROR: Geen git-repo in TENANT_DIR ($TENANT_DIR)" >&2
+              exit 1
+            fi
+
+            SCRIPT="$TENANT_DIR/deploy/deploy-tenant.sh"
+            if [[ ! -f "$SCRIPT" ]]; then
+              echo "ERROR: $SCRIPT ontbreekt (clone repo eerst op de server)" >&2
+              exit 1
+            fi
+
+            if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
+              echo "==> SSH-user is $(id -un); deploy als $DEPLOY_USER"
+              sudo -u "$DEPLOY_USER" -H env \
+                TENANT_DIR="$TENANT_DIR" \
+                GIT_REF="$GIT_REF" \
+                GIT_REMOTE="$GIT_REMOTE" \
+                COMPOSE_FILE="$COMPOSE_FILE" \
+                LARAVEL_SERVICE="$LARAVEL_SERVICE" \
+                DEPLOY_USER="$DEPLOY_USER" \
+                REQUIRE_COMPOSE_V2=1 \
+                bash "$SCRIPT"
+            else
+              bash "$SCRIPT"
+            fi
+
+            echo "=== PROD deploy afgerond ==="

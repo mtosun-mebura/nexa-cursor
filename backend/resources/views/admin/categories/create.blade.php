@@ -46,7 +46,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('admin.categories.store') }}" method="POST">
+                    <form action="{{ route('admin.categories.store') }}" method="POST" data-validate="true" novalidate>
                         @csrf
                         
                         <div class="grid gap-5 lg:gap-7.5">
@@ -194,4 +194,8 @@
                 </div>
     </div>
 </div>
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
+
 @endsection

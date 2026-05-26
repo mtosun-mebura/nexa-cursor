@@ -11,7 +11,7 @@
         <div class="max-w-md mx-auto">
             <!-- Logo -->
             <div class="text-center mb-8">
-                <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="NEXA Skillmatching" class="h-16 w-auto mx-auto mb-6">
+                <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-16 w-auto mx-auto mb-6">
                 <h1 class="text-3xl md:text-4xl font-bold text-white mb-4">
                     Welkom terug!
                 </h1>

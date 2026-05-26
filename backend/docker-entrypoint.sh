@@ -37,9 +37,33 @@ php artisan view:clear || true
 # (Optioneel) storage symlink
 php artisan storage:link || true
 
-# (Optioneel) migraties alleen als DB-variabelen aanwezig zijn
+# Wacht op PostgreSQL (compose service `db` met healthcheck)
+if [ -n "${DB_HOST:-}" ] && [ "${DB_HOST}" != "127.0.0.1" ] && [ "${DB_HOST}" != "localhost" ]; then
+  echo "Wachten op database (${DB_HOST}:5432)..."
+  for i in $(seq 1 60); do
+    if php -r "
+      \$h = getenv('DB_HOST') ?: 'db';
+      \$p = (int) (getenv('DB_PORT') ?: 5432);
+      \$errno = 0; \$err = '';
+      \$s = @fsockopen(\$h, \$p, \$errno, \$err, 2);
+      if (\$s) { fclose(\$s); exit(0); }
+      exit(1);
+    "; then
+      echo "Database bereikbaar."
+      break
+    fi
+    if [ "$i" -eq 60 ]; then
+      echo "⚠️  Database niet bereikbaar na 60 pogingen; migraties worden overgeslagen."
+    fi
+    sleep 2
+  done
+fi
+
+# Migraties + minimale seed (rollen, super admin, branches, thema's, …) als DB-variabelen aanwezig zijn
 if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan migrate --force || true
+  # Idempotent: veilig bij elke container-start; eerste deployment krijgt altijd basisdata
+  php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force || true
 fi
 
 echo "Start Laravel op 0.0.0.0:8000"

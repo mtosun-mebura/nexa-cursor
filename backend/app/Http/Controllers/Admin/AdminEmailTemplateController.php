@@ -6,12 +6,58 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\EmailTemplate;
 use App\Models\Company;
+use App\Models\User;
+use App\Services\EmailTemplateService;
 use App\Services\MenuService;
+use App\Models\InfoRequestFormField;
 use Illuminate\Http\Request;
 
 class AdminEmailTemplateController extends Controller
 {
     use TenantFilter;
+
+    /**
+     * Variabelenaam voor in de e-mailtemplate = slug in HOOFDLETTERS met underscores.
+     * Gebruik in template: {{ VOORNAAM }}, {{ TELEFOONNUMMER }} etc. (slug = voornaam, telefoonnummer).
+     */
+    private static function fieldNameToVariableKey(string $name): string
+    {
+        return strtoupper(str_replace('-', '_', $name));
+    }
+
+    /**
+     * Bouw infoRequestVariables uit Formulier velden (voor variabelenlijst en testmail).
+     */
+    private static function buildInfoRequestVariablesFromFormFields(\Illuminate\Support\Collection $formFields): array
+    {
+        $vars = [];
+        foreach ($formFields as $field) {
+            $vars[static::fieldNameToVariableKey($field->name)] = $field->label;
+        }
+        $vars['DATUM_AANVRAAG'] = 'Datum/tijd aanvraag';
+        return $vars;
+    }
+
+    /**
+     * Validatieregels voor de testformuliervelden (test_*), afgeleid van Formulier velden.
+     * Alleen bij type informatieaanvraag; anders lege array.
+     */
+    private static function getTestFormValidationRules(?string $type, string $context = 'send-test'): array
+    {
+        if ($type !== 'informatieaanvraag') {
+            return [];
+        }
+        try {
+            $formFields = InfoRequestFormField::ordered()->get();
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $rules = [];
+        foreach ($formFields as $field) {
+            $rules['test_' . $field->name] = $field->getValidationRules();
+        }
+        return $rules;
+    }
 
     /**
      * Email template types and the module they belong to (null = core, always visible).
@@ -22,6 +68,7 @@ class AdminEmailTemplateController extends Controller
             'welcome' => null,
             'password_reset' => null,
             'email_verification' => null,
+            'informatieaanvraag' => null,
             'custom' => null,
             'interview' => 'skillmatching',
             'interview_invitation' => 'skillmatching',
@@ -31,6 +78,8 @@ class AdminEmailTemplateController extends Controller
             'application_received' => 'skillmatching',
             'application_status' => 'skillmatching',
             'rejection' => 'skillmatching',
+            'invoice' => 'taxi',
+            'taxi_ride_accepted' => 'taxi',
         ];
     }
 
@@ -43,6 +92,7 @@ class AdminEmailTemplateController extends Controller
             'welcome' => 'Welkom',
             'password_reset' => 'Wachtwoord Reset',
             'email_verification' => 'E-mail Verificatie',
+            'informatieaanvraag' => 'Informatieaanvraag',
             'interview' => 'Interview',
             'interview_invitation' => 'Interview Uitnodiging',
             'interview_update' => 'Interview Update',
@@ -52,6 +102,8 @@ class AdminEmailTemplateController extends Controller
             'application_status' => 'Sollicitatie Status',
             'rejection' => 'Afwijzing',
             'custom' => 'Aangepast',
+            'invoice' => 'Factuur',
+            'taxi_ride_accepted' => 'Taxi: rit geaccepteerd (klant)',
         ];
     }
 
@@ -196,7 +248,26 @@ class AdminEmailTemplateController extends Controller
             'MATCH_SCORE' => 'Match score',
             'INTERVIEW_DATE' => 'Interview datum',
             'RESET_LINK' => 'Wachtwoord reset link',
-            'VERIFICATION_LINK' => 'E-mail verificatie link'
+            'VERIFICATION_LINK' => 'E-mail verificatie link',
+            'VOORNAAM' => 'Voornaam (contact)',
+            'ACHTERNAAM' => 'Achternaam (contact)',
+            'TELEFOONNUMMER' => 'Telefoonnummer',
+            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
+            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
+            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
         
         // Default HTML template
@@ -211,7 +282,7 @@ class AdminEmailTemplateController extends Controller
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
             <td style="padding: 20px 0; text-align: center;">
-                <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                     <tr>
                         <td style="padding: 30px; background-color: #2563eb; border-radius: 8px 8px 0 0;">
                             <h1 style="margin: 0; color: #ffffff; font-size: 24px;">{{ NOTIFICATION_TITLE }}</h1>
@@ -244,12 +315,71 @@ class AdminEmailTemplateController extends Controller
     </table>
 </body>
 </html>';
+
+        // Standaard template voor type Informatieaanvraag (met VOORNAAM, ACHTERNAAM, TELEFOONNUMMER, OMSCHRIJVING, DATUM_AANVRAAG, EMAIL_AANVRAAG)
+        // Styling gelijk aan admin-preview: witte kaart 600px, blauwe header, witte content met donkere tekst.
+        $defaultHtmlTemplateInformatieaanvraag = '<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Informatieaanvraag ontvangen</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td style="padding: 20px 0; text-align: center;">
+                <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="padding: 30px; background-color: #2563eb; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 24px;">Nieuwe informatieaanvraag</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #ffffff; color: #333333;">
+                            <p style="margin: 0 0 15px 0; color: #333333; font-size: 16px; line-height: 1.6;">
+                                Er is een informatieaanvraag binnengekomen met de volgende gegevens:
+                            </p>
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px; color: #333333; background-color: #ffffff; text-align: left;">
+{{ DYNAMIC_FORM_FIELDS }}
+                            </table>
+                            <p style="margin: 0 0 8px 0; color: #333333; font-size: 16px; font-weight: bold;">Omschrijving / vraag:</p>
+                            <p style="margin: 0 0 15px 0; color: #333333; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">{{ OMSCHRIJVING }}</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 30px; background-color: #f9fafb; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0; color: #6b7280; font-size: 14px; text-align: center;">
+                                Met vriendelijke groet,<br>
+                                {{ COMPANY_NAME }}
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>';
         
         $menuService = app(MenuService::class);
         $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
         $typeLabels = static::emailTemplateTypeLabels();
 
-        return view('admin.email-templates.create', compact('companies', 'templateVariables', 'defaultHtmlTemplate', 'allowedTypes', 'typeLabels'));
+        $tenantId = $this->getTenantId();
+        $users = $tenantId
+            ? User::where('company_id', $tenantId)->orderBy('first_name')->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'email'])
+            : collect();
+
+        try {
+            $formFields = InfoRequestFormField::ordered()->get();
+        } catch (\Throwable $e) {
+            $formFields = collect();
+        }
+        $infoRequestVariables = static::buildInfoRequestVariablesFromFormFields($formFields);
+
+        return view('admin.email-templates.create', compact('companies', 'templateVariables', 'infoRequestVariables', 'formFields', 'defaultHtmlTemplate', 'defaultHtmlTemplateInformatieaanvraag', 'allowedTypes', 'typeLabels', 'users'));
     }
 
     public function store(Request $request)
@@ -270,19 +400,56 @@ class AdminEmailTemplateController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'company_id' => 'nullable|exists:companies,id',
-        ]);
+            'recipient_type' => 'nullable|in:user,email',
+            'recipient_user_id' => 'nullable|exists:users,id',
+            'recipient_email' => 'nullable|email',
+            'test_send' => 'nullable|boolean',
+        ] + static::getTestFormValidationRules($request->input('type'), 'store'));
 
-        $emailTemplateData = $request->all();
-        
-        // Als Super Admin: gebruik company_id uit formulier (kan null zijn voor algemeen)
+        $emailTemplateData = $request->only([
+            'name', 'subject', 'type', 'html_content', 'text_content', 'description', 'is_active',
+            'recipient_type', 'recipient_user_id', 'recipient_email',
+        ]);
+        if ($request->filled('recipient_type') && $request->recipient_type === 'email') {
+            $emailTemplateData['recipient_user_id'] = null;
+        }
+        if ($request->filled('recipient_type') && $request->recipient_type === 'user') {
+            $emailTemplateData['recipient_email'] = null;
+        }
+        if (!$request->filled('recipient_type')) {
+            $emailTemplateData['recipient_type'] = null;
+            $emailTemplateData['recipient_user_id'] = null;
+            $emailTemplateData['recipient_email'] = null;
+        }
         if (auth()->user()->hasRole('super-admin')) {
             $emailTemplateData['company_id'] = $request->filled('company_id') ? $request->company_id : null;
         } else {
-            // Als geen Super Admin: gebruik altijd de user's company
             $emailTemplateData['company_id'] = auth()->user()->company_id;
         }
 
-        EmailTemplate::create($emailTemplateData);
+        $emailTemplate = EmailTemplate::create($emailTemplateData);
+
+        if ($request->boolean('test_send') && $this->canAccessResource($emailTemplate)) {
+            $toEmail = $emailTemplate->getRecipientEmailAddress();
+            if ($toEmail) {
+                $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
+                $formFields = $emailTemplate->type === 'informatieaanvraag'
+                    ? $emailTemplate->getOrderedFormFields()
+                    : collect();
+                foreach ($formFields as $field) {
+                    $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_' . $field->name, '');
+                }
+                $toName = $toEmail;
+                if ($formFields->count() >= 2) {
+                    $toName = trim($request->input('test_' . $formFields->get(0)->name, '') . ' ' . $request->input('test_' . $formFields->get(1)->name, ''));
+                } elseif ($formFields->isNotEmpty()) {
+                    $toName = trim((string) $request->input('test_' . $formFields->first()->name, '')) ?: $toEmail;
+                }
+                app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables);
+                return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template aangemaakt en testmail verstuurd naar ' . $toEmail);
+            }
+        }
+
         return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol aangemaakt.');
     }
 
@@ -309,10 +476,53 @@ class AdminEmailTemplateController extends Controller
             'MATCH_SCORE' => 'Match score',
             'INTERVIEW_DATE' => 'Interview datum',
             'RESET_LINK' => 'Wachtwoord reset link',
-            'VERIFICATION_LINK' => 'E-mail verificatie link'
+            'VERIFICATION_LINK' => 'E-mail verificatie link',
+            'VOORNAAM' => 'Voornaam (contact)',
+            'ACHTERNAAM' => 'Achternaam (contact)',
+            'TELEFOONNUMMER' => 'Telefoonnummer',
+            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
+            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
+            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
-        
-        return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables'));
+
+        $tenantId = $this->getTenantId();
+        $users = $tenantId
+            ? User::where('company_id', $tenantId)->orderBy('first_name')->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'email'])
+            : collect();
+
+        $isInfoRequestType = ($emailTemplate->type === 'informatieaanvraag');
+        $formFields = $isInfoRequestType ? $emailTemplate->getOrderedFormFields() : collect();
+        $previewHtml = $emailTemplate->html_content ?? '';
+        if ($isInfoRequestType && $previewHtml !== '') {
+            $previewHtml = str_replace('{{ DYNAMIC_FORM_FIELDS }}', $emailTemplate->renderDynamicFormFieldsHtml(), $previewHtml);
+        }
+        if ($previewHtml !== '' && str_contains($previewHtml, 'COMPANY_LOGO')) {
+            $previewCompanyId = $emailTemplate->company_id ?? $tenantId;
+            $previewCompanyName = $emailTemplate->company?->name
+                ?? ($previewCompanyId ? Company::find($previewCompanyId)?->name : null)
+                ?? 'Ons bedrijf';
+            $logoHtml = app(\App\Services\CompanyEmailLogoService::class)->previewImgHtml(
+                $previewCompanyId ? (int) $previewCompanyId : null,
+                $previewCompanyName
+            );
+            foreach (['{{ COMPANY_LOGO }}', '{{COMPANY_LOGO}}', '{ COMPANY_LOGO }', '{COMPANY_LOGO}'] as $placeholder) {
+                $previewHtml = str_replace($placeholder, $logoHtml, $previewHtml);
+            }
+        }
+        return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables', 'users', 'formFields', 'previewHtml'));
     }
 
     public function edit(EmailTemplate $emailTemplate)
@@ -342,8 +552,32 @@ class AdminEmailTemplateController extends Controller
             'MATCH_SCORE' => 'Match score',
             'INTERVIEW_DATE' => 'Interview datum',
             'RESET_LINK' => 'Wachtwoord reset link',
-            'VERIFICATION_LINK' => 'E-mail verificatie link'
+            'VERIFICATION_LINK' => 'E-mail verificatie link',
+            'VOORNAAM' => 'Voornaam (contact)',
+            'ACHTERNAAM' => 'Achternaam (contact)',
+            'TELEFOONNUMMER' => 'Telefoonnummer',
+            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
+            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
+            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
         ];
+
+        $tenantId = $this->getTenantId();
+        $users = $tenantId
+            ? User::where('company_id', $tenantId)->orderBy('first_name')->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'email'])
+            : collect();
         
         $menuService = app(MenuService::class);
         $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
@@ -353,7 +587,16 @@ class AdminEmailTemplateController extends Controller
         }
         $typeLabels = static::emailTemplateTypeLabels();
 
-        return view('admin.email-templates.edit', compact('emailTemplate', 'companies', 'templateVariables', 'allowedTypes', 'typeLabels'));
+        $isInfoRequestType = ($emailTemplate->type === 'informatieaanvraag');
+        $formFields = $isInfoRequestType ? $emailTemplate->getOrderedFormFields() : collect();
+        try {
+            $allFormFieldsPool = $isInfoRequestType ? InfoRequestFormField::ordered()->get() : collect();
+        } catch (\Throwable $e) {
+            $allFormFieldsPool = collect();
+        }
+        $infoRequestVariables = static::buildInfoRequestVariablesFromFormFields($formFields);
+
+        return view('admin.email-templates.edit', compact('emailTemplate', 'companies', 'templateVariables', 'infoRequestVariables', 'isInfoRequestType', 'formFields', 'allFormFieldsPool', 'allowedTypes', 'typeLabels', 'users'));
     }
 
     public function update(Request $request, EmailTemplate $emailTemplate)
@@ -383,15 +626,37 @@ class AdminEmailTemplateController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
             'company_id' => 'nullable|exists:companies,id',
+            'recipient_type' => 'nullable|in:user,email',
+            'recipient_user_id' => 'nullable|exists:users,id',
+            'recipient_email' => 'nullable|email',
+            'form_field_order' => 'nullable|array',
+            'form_field_order.*' => 'integer|exists:info_request_form_fields,id',
         ]);
 
-        $emailTemplateData = $request->all();
-        
+        $emailTemplateData = $request->only([
+            'name', 'subject', 'type', 'html_content', 'text_content', 'description', 'is_active',
+            'recipient_type', 'recipient_user_id', 'recipient_email',
+            'form_field_order',
+        ]);
+        if (isset($emailTemplateData['form_field_order']) && is_array($emailTemplateData['form_field_order'])) {
+            $emailTemplateData['form_field_order'] = array_values(array_map('intval', $emailTemplateData['form_field_order']));
+        }
+        if ($request->filled('recipient_type') && $request->recipient_type === 'email') {
+            $emailTemplateData['recipient_user_id'] = null;
+        }
+        if ($request->filled('recipient_type') && $request->recipient_type === 'user') {
+            $emailTemplateData['recipient_email'] = null;
+        }
+        if (!$request->filled('recipient_type')) {
+            $emailTemplateData['recipient_type'] = null;
+            $emailTemplateData['recipient_user_id'] = null;
+            $emailTemplateData['recipient_email'] = null;
+        }
+
         // Als Super Admin: gebruik company_id uit formulier (kan null zijn voor algemeen)
         if (auth()->user()->hasRole('super-admin')) {
             $emailTemplateData['company_id'] = $request->filled('company_id') ? $request->company_id : null;
         } else {
-            // Als geen Super Admin: gebruik altijd de user's company
             $emailTemplateData['company_id'] = auth()->user()->company_id;
         }
 
@@ -436,5 +701,56 @@ class AdminEmailTemplateController extends Controller
         
         $emailTemplate->delete();
         return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol verwijderd.');
+    }
+
+    public function sendTest(Request $request, EmailTemplate $emailTemplate)
+    {
+        if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+        }
+        if (!$this->canAccessResource($emailTemplate)) {
+            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+        }
+
+        $formFields = $emailTemplate->type === 'informatieaanvraag'
+            ? $emailTemplate->getOrderedFormFields()
+            : collect();
+        $rules = [];
+        foreach ($formFields as $field) {
+            $key = 'test_' . $field->name;
+            $rules[$key] = $field->getValidationRules();
+        }
+        if ($rules) {
+            $request->validate($rules);
+        }
+
+        $toEmail = $emailTemplate->getRecipientEmailAddress();
+        if (!$toEmail) {
+            return redirect()->back()->with('error', 'Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).');
+        }
+
+        $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
+        foreach ($formFields as $field) {
+            $variables[static::fieldNameToVariableKey($field->name)] = $request->input('test_' . $field->name, '');
+        }
+        $toName = $toEmail;
+        if ($formFields->isNotEmpty()) {
+            $first = $formFields->first();
+            $nameKey = 'test_' . $first->name;
+            $toName = trim((string) $request->input($nameKey, ''));
+        }
+        if ($toName === '' && $formFields->count() >= 2) {
+            $second = $formFields->get(1);
+            $toName = trim($request->input('test_' . $formFields->get(0)->name, '') . ' ' . $request->input('test_' . $second->name, ''));
+        }
+        if ($toName === '') {
+            $toName = $toEmail;
+        }
+        $user = auth()->user();
+        $fromEmail = $user?->email;
+        $fromName = $user ? trim($user->first_name . ' ' . $user->last_name) : null;
+        app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, $fromEmail, $fromName ?: null);
+
+        return redirect()->back()->with('success', 'Testmail verstuurd naar ' . $toEmail);
     }
 }

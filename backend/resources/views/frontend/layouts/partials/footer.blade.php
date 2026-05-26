@@ -1,3 +1,6 @@
+@php
+    $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+@endphp
 <footer class="bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-t border-gray-200 dark:border-gray-600">
     <div class="w-full">
         <div class="py-8 container-custom">
@@ -5,7 +8,10 @@
                     <!-- Company Info -->
                     <div class="col-span-1 md:col-span-2">
                         <div class="flex items-center mb-4">
-                            <img src="{{ asset('images/nexa-skillmatching-logo.png') }}" alt="Nexa Skillmatching" class="h-16 w-auto">
+                            @include('frontend.layouts.partials.brand-logo', [
+                                'branding' => $branding,
+                                'logoHref' => route('home'),
+                            ])
                         </div>
                         <p class="text-gray-600 dark:text-gray-200 mb-4 w-full leading-relaxed">
                             Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.

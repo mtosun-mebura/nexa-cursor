@@ -56,12 +56,28 @@ class ModuleServiceProvider extends ServiceProvider
                 ->group($routesPath . '/web.php');
         }
 
-        // Register API routes
+        // Publieke API (login, webhooks)
+        if (file_exists($routesPath . '/api-public.php')) {
+            Route::middleware(['api'])
+                ->prefix("api/{$moduleName}")
+                ->name("api.{$moduleName}.")
+                ->group($routesPath . '/api-public.php');
+        }
+
+        // Beveiligde API
         if (file_exists($routesPath . '/api.php')) {
             Route::middleware(['api', 'auth:sanctum'])
                 ->prefix("api/{$moduleName}")
                 ->name("api.{$moduleName}.")
                 ->group($routesPath . '/api.php');
+        }
+
+        // Headless chauffeur-app (mobiel / PWA)
+        if (file_exists($routesPath . '/driver-web.php')) {
+            Route::middleware(['web'])
+                ->prefix('taxi/chauffeur')
+                ->name('taxi.chauffeur.')
+                ->group($routesPath . '/driver-web.php');
         }
     }
 

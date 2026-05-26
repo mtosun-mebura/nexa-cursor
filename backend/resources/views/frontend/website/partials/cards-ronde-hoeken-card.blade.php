@@ -12,29 +12,22 @@
 @endphp
 <article class="kt-card w-full shadow-md border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden flex flex-col {{ $imageBgColor !== '' ? '' : 'bg-white dark:bg-gray-800' }}" style="min-height: 0;@if($imageBgColor !== '') background-color: {{ $imageBgColor }};@endif">
     @if($imgUrl !== '')
+    @php $imgUrlBust = $imgUrl . (str_contains($imgUrl, '?') ? '&' : '?') . 'v=' . substr(md5($imgUrl), 0, 8); @endphp
     <div class="flex-shrink-0 block overflow-hidden" style="padding: {{ $imagePadding }}px;">
-        <img alt="" class="w-full h-auto object-cover block" src="{{ $imgUrl }}" loading="lazy">
+        <img alt="" class="w-full h-auto object-cover block" src="{{ $imgUrlBust }}" loading="lazy">
     </div>
     @endif
     @if($textVisible && trim((string) ($card['text'] ?? '')) !== '')
     @php
         $cardText = trim((string) ($card['text'] ?? ''));
         if ($cardText !== '') {
-            $stripped = strip_tags($cardText);
-            if ($stripped === $cardText) {
-                if (str_contains($cardText, "\n")) {
-                    $cardText = nl2br(e($cardText));
-                } else {
-                    $escaped = e($cardText);
-                    if (str_contains($cardText, 'Wachttarief')) {
-                        $cardText = str_replace('Wachttarief', '<hr>Wachttarief', $escaped);
-                    } else {
-                        $cardText = $escaped;
-                    }
-                }
-            } else {
-                $cardText = preg_replace('/<p>(\s*|<br\s*\/?>)\s*<\/p>/u', '<p class="cards-ronde-hoeken-empty-p"></p>', $cardText);
-            }
+            // Bewaar de HTML van de editor zoveel mogelijk 1-op-1 en vervang
+            // alleen volledig lege paragrafen door een speciale klasse voor extra witruimte.
+            $cardText = preg_replace(
+                '/<p>(\s*|<br\s*\/?>)\s*<\/p>/u',
+                '<p class="cards-ronde-hoeken-empty-p"></p>',
+                $cardText
+            );
         }
     @endphp
     <div class="p-5 flex-grow leading-relaxed cards-ronde-hoeken-text {{ $textAlignClass }} {{ ($card['text_color'] ?? '') === '' ? 'text-gray-700 dark:text-gray-300' : '' }}" style="{{ $textStyle }}">

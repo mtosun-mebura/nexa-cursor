@@ -17,6 +17,15 @@
     .kt-card-table, .kt-card {
         overflow: visible !important;
     }
+    .kt-card-table .payment-provider-form-table tbody tr td {
+        vertical-align: middle !important;
+    }
+    .kt-card-table .payment-provider-form-table tbody tr:first-child td {
+        padding-top: 0.75rem !important;
+    }
+    .kt-card-table .payment-provider-form-table tbody tr:not(:first-child) td {
+        padding-top: 0.5rem !important;
+    }
     .kt-select-wrapper {
         position: relative;
         z-index: 1000;
@@ -42,26 +51,31 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.payment-providers.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.payment-providers.store') }}" method="POST"  data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
-            <!-- Basis Informatie -->
+            @include('admin.payment-providers.partials.tenant-banner', [
+                'scopedTenantCompany' => $scopedTenantCompany ?? null,
+                'storedTenantCompany' => null,
+                'paymentProvider' => null,
+            ])
+
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Basis Informatie
+                        Basis &amp; API
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="min-w-56 text-secondary-foreground font-normal align-middle">
                                 Naam *
                             </td>
-                            <td class="min-w-48 w-full align-middle" style="vertical-align: middle;">
+                            <td class="min-w-48 w-full align-middle">
                                 <input type="text" 
                                        class="kt-input @error('name') border-destructive @enderror" 
                                        name="name" 
@@ -74,10 +88,10 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="text-secondary-foreground font-normal align-middle">
                                 Provider Type *
                             </td>
-                            <td class="align-middle" style="vertical-align: middle;">
+                            <td class="align-middle">
                                 <select class="kt-select @error('provider_type') border-destructive @enderror" 
                                         name="provider_type" 
                                         id="provider_type"
@@ -85,7 +99,7 @@
                                         required>
                                     <option value="">Selecteer provider type</option>
                                     @foreach($providerTypes as $key => $name)
-                                        <option value="{{ $key }}" {{ old('provider_type') == $key ? 'selected' : '' }}>
+                                        <option value="{{ $key }}" {{ old('provider_type', 'mollie') == $key ? 'selected' : '' }}>
                                             {{ $name }}
                                         </option>
                                     @endforeach
@@ -96,37 +110,10 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
-                                Beschrijving
-                            </td>
-                            <td class="align-middle" style="vertical-align: middle;">
-                                <textarea class="kt-input @error('description') border-destructive @enderror" 
-                                          name="description" 
-                                          id="description"
-                                          rows="4">{{ old('description') }}</textarea>
-                                @error('description')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-
-            <!-- API Configuratie -->
-            <div class="kt-card min-w-full">
-                <div class="kt-card-header">
-                    <h3 class="kt-card-title">
-                        API Configuratie
-                    </h3>
-                </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                        <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="min-w-56 text-secondary-foreground font-normal align-middle payment-provider-label-cell">
                                 API Key *
                             </td>
-                            <td class="min-w-48 w-full align-middle" style="vertical-align: middle;">
+                            <td class="min-w-48 w-full align-middle">
                                 <input type="password" 
                                        class="kt-input @error('api_key') border-destructive @enderror" 
                                        name="api_key" 
@@ -139,10 +126,10 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="text-secondary-foreground font-normal align-middle payment-provider-label-cell">
                                 API Secret
                             </td>
-                            <td class="align-middle" style="vertical-align: middle;">
+                            <td class="align-middle">
                                 <input type="password" 
                                        class="kt-input @error('api_secret') border-destructive @enderror" 
                                        name="api_secret" 
@@ -155,18 +142,34 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="text-secondary-foreground font-normal align-middle payment-provider-label-cell">
                                 Webhook URL
                             </td>
-                            <td class="align-middle" style="vertical-align: middle;">
+                            <td class="align-middle">
                                 <input type="url" 
                                        class="kt-input @error('webhook_url') border-destructive @enderror" 
                                        name="webhook_url" 
                                        id="webhook_url"
                                        value="{{ old('webhook_url') }}"
-                                       placeholder="https://example.com/webhook">
-                                <div class="text-xs text-muted-foreground mt-1">URL voor webhook notificaties van de provider.</div>
+                                       placeholder="{{ $defaultTaxiWebhookUrl ?? 'https://example.com/webhook' }}">
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    URL voor webhook notificaties. Voor Nexa Taxi: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
+                                </div>
                                 @error('webhook_url')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary-foreground font-normal align-middle">
+                                Beschrijving
+                            </td>
+                            <td class="align-middle">
+                                <textarea class="kt-input @error('description') border-destructive @enderror" 
+                                          name="description" 
+                                          id="description"
+                                          rows="4">{{ old('description') }}</textarea>
+                                @error('description')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
@@ -183,12 +186,12 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="min-w-56 text-secondary-foreground font-normal align-middle">
                                 Status
                             </td>
-                            <td class="min-w-48 w-full align-middle" style="vertical-align: middle;">
+                            <td class="min-w-48 w-full align-middle">
                                 <label class="kt-label flex items-center">
                                     <input type="checkbox" 
                                            class="kt-switch kt-switch-sm" 
@@ -202,10 +205,10 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-middle" style="padding-top: 0; vertical-align: middle;">
+                            <td class="text-secondary-foreground font-normal align-middle">
                                 Modus
                             </td>
-                            <td class="align-middle" style="vertical-align: middle;">
+                            <td class="align-middle">
                                 <label class="kt-label flex items-center">
                                     <input type="checkbox" 
                                            class="kt-switch kt-switch-sm" 
@@ -254,5 +257,9 @@
         </div>
     </form>
 </div>
+
+@push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
+@endpush
 
 @endsection

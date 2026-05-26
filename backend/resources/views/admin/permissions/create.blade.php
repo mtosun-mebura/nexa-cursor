@@ -24,7 +24,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.permissions.store') }}" method="POST" data-validate="true">
+    <form action="{{ route('admin.permissions.store') }}" method="POST"  data-validate="true" novalidate>
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">

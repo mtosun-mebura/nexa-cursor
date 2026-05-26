@@ -5,7 +5,12 @@
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Front-end Componenten</h1>
+        <div>
+            <h1 class="text-xl font-medium leading-none text-mono">Front-end Componenten</h1>
+            @if(!empty($activeModuleName))
+                <p class="text-sm text-muted-foreground mt-1">Alle componenten uit de registry. Actieve module: <strong>{{ $activeModuleName }}</strong></p>
+            @endif
+        </div>
     </div>
     <p class="text-sm text-muted-foreground mb-6">Deze componenten worden automatisch door de applicatie gezien en kunnen op website-pagina's (bijv. home) worden toegevoegd via de sectie-editor. Aanpassen van een component kan alleen in de code, niet via beheer.</p>
 
@@ -20,18 +25,20 @@
                     <thead>
                         <tr class="border-b border-border text-left">
                             <th class="pb-3 font-medium text-foreground">Component</th>
-                            <th class="pb-3 font-medium text-foreground">ID</th>
                             <th class="pb-3 font-medium text-foreground">Omschrijving</th>
-                            <th class="pb-3 font-medium text-foreground">View</th>
+                            <th class="pb-3 font-medium text-foreground text-center">Demo</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($components as $c)
-                        <tr class="border-b border-border/60 last:border-0">
+                        <tr class="border-b border-border last:border-0">
                             <td class="py-3 text-foreground font-medium">{{ $c->name }}</td>
-                            <td class="py-3 font-mono text-muted-foreground text-xs">{{ $c->id }}</td>
                             <td class="py-3 text-muted-foreground max-w-md">{{ $c->description ?? '—' }}</td>
-                            <td class="py-3 font-mono text-muted-foreground text-xs">{{ $c->view ?? '—' }}</td>
+                            <td class="py-3 text-center">
+                                <a href="{{ route('admin.frontend-components.demo', ['componentId' => $c->id]) }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-muted-foreground hover:text-primary transition-colors" aria-label="Demo bekijken">
+                                    <i class="ki-filled ki-eye text-base"></i>
+                                </a>
+                            </td>
                         </tr>
                         @endforeach
                     </tbody>

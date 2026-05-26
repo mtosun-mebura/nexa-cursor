@@ -29,7 +29,7 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.email-templates.store') }}" method="POST">
+    <form action="{{ route('admin.email-templates.store') }}" method="POST" data-validate="true" novalidate>
         @csrf
         
         <div class="grid gap-5 lg:gap-7.5">
@@ -145,22 +145,28 @@
                                 @enderror
                             </td>
                         </tr>
+                        @include('admin.email-templates.partials.recipient-fields', ['users' => $users])
                     </table>
                 </div>
             </div>
 
-            <!-- HTML Content Card -->
-            <div class="kt-card">
+            <!-- HTML Content Card (bij type Informatieaanvraag:zelfde opmaak als formulier op de website) -->
+            <div class="kt-card" id="html-content-card">
                 <div class="kt-card-header">
                     <h5 class="kt-card-title">HTML Inhoud *</h5>
                 </div>
                 <div class="kt-card-content">
+                    <div class="rounded-xl border border-border bg-muted/30 p-5 mb-5" id="formulier-preview-wrap">
+                        <p class="text-sm font-medium text-foreground mb-3">Bij type <strong>Informatieaanvraag</strong> ziet het formulier op de website er zo uit (zelfde opmaak als frontend):</p>
+                        @include('admin.email-templates.partials.formulier-preview', ['formFields' => $formFields ?? collect()])
+                    </div>
                     <div class="mb-3">
                         <label for="html_content" class="kt-form-label mb-2">HTML Inhoud</label>
-                        <textarea class="kt-input @error('html_content') border-destructive @enderror" 
-                                  id="html_content" 
-                                  name="html_content" 
-                                  rows="10" 
+                        <textarea class="kt-input @error('html_content') border-destructive @enderror"
+                                  id="html_content"
+                                  name="html_content"
+                                  rows="10"
+                                  data-skip-validation-wrapper
                                   required>{{ old('html_content', $defaultHtmlTemplate ?? '') }}</textarea>
                         @error('html_content')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -170,12 +176,12 @@
                         <strong>Tip:</strong> Gebruik de knoppen voor opmaak of wissel naar "Bewerk code" (knop &lt;/&gt;) om HTML en variabelen te bewerken.
                     </div>
                     <div class="text-xs text-muted-foreground">
-                        <p class="mb-2"><strong>Beschikbare variabelen:</strong></p>
+                        <p class="mb-2"><strong>Beschikbare variabelen (algemeen):</strong></p>
                         <div class="space-y-1.5">
                             @if(isset($templateVariables) && is_array($templateVariables))
                                 @foreach($templateVariables as $variable => $description)
                                     <div class="flex items-center gap-2">
-                                        <code class="px-2 py-1 bg-muted rounded text-foreground font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
+                                        <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
                                         <span class="text-foreground">{{ $description }}</span>
                                     </div>
                                 @endforeach
@@ -183,32 +189,74 @@
                                 <span class="text-muted-foreground">Geen variabelen beschikbaar</span>
                             @endif
                         </div>
+                        @if(isset($infoRequestVariables) && is_array($infoRequestVariables))
+                            <p class="mb-2 mt-4 font-semibold text-foreground">Bij type Informatieaanvraag (formulier op de website):</p>
+                            <div class="space-y-1.5 mb-2">
+                                @foreach($infoRequestVariables as $variable => $description)
+                                    <div class="flex items-center gap-2">
+                                        <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
+                                        <span class="text-foreground">{{ $description }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                         <p class="text-xs text-muted-foreground mt-3">
-                            <strong>Tip:</strong> Gebruik deze variabelen in je template met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-muted rounded text-foreground font-mono text-xs">{{ '{' }}{{ '{' }}USER_NAME{{ '}' }}{{ '}' }}</code>
+                            <strong>Tip:</strong> Gebruik variabelen met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }}VOORNAAM{{ '}' }}{{ '}' }}</code>
                         </p>
                     </div>
                 </div>
             </div>
 
-            <!-- Text Content Card -->
+            <!-- Test e-mail versturen (optioneel) -->
             <div class="kt-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Tekst Inhoud (Plain Text)</h5>
+                    <h5 class="kt-card-title">Optioneel: testmail versturen na opslaan</h5>
                 </div>
                 <div class="kt-card-content">
-                    <div class="mb-3">
-                        <label for="text_content" class="kt-form-label mb-2">Tekst Inhoud</label>
-                        <textarea class="kt-input pt-2 @error('text_content') border-destructive @enderror" 
-                                  id="text_content" 
-                                  name="text_content" 
-                                  rows="30">{{ old('text_content') }}</textarea>
-                        @error('text_content')
-                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="text-xs text-muted-foreground">
-                        Tekstversie voor e-mail clients die geen HTML ondersteunen. Laat leeg om automatisch te genereren vanuit HTML.
-                    </div>
+                    <p class="text-sm text-muted-foreground mb-4">
+                        De testmail wordt verstuurd naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld. De velden komen uit <a href="{{ route('admin.email-templates.form-fields.index') }}" class="text-primary underline">Formulier velden</a> (bij type Informatieaanvraag). Vul eventueel in en vink aan om direct na het opslaan een testmail te versturen.
+                    </p>
+                    @php
+                        $testDummy = [
+                            'voornaam' => 'Jan',
+                            'achternaam' => 'Jansen',
+                            'email_aanvraag' => 'jan@jansen.nl',
+                            'emailadres' => 'jan@jansen.nl',
+                            'telefoonnummer' => '0612345678',
+                            'omschrijving' => 'Dit is een testaanvraag om de e-mailtemplate te controleren. De velden zijn vooraf ingevuld met dummy data.',
+                        ];
+                        $defaultDummy = 'Testwaarde';
+                    @endphp
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        @foreach($formFields ?? [] as $field)
+                            <tr>
+                                <td class="text-secondary-foreground font-normal">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</td>
+                                <td>
+                                    @if(in_array($field->validation_rule, [null, ''], true) && str_contains(strtolower($field->label), 'omschrijving'))
+                                        <textarea class="kt-input @error('test_' . $field->name) border-destructive @enderror"
+                                                  name="test_{{ $field->name }}" rows="4">{{ old('test_' . $field->name, $testDummy[$field->name] ?? $defaultDummy) }}</textarea>
+                                    @else
+                                        <input type="{{ $field->validation_rule === 'email' ? 'email' : 'text' }}"
+                                               class="kt-input @error('test_' . $field->name) border-destructive @enderror"
+                                               name="test_{{ $field->name }}"
+                                               value="{{ old('test_' . $field->name, $testDummy[$field->name] ?? $defaultDummy) }}">
+                                    @endif
+                                    @error('test_' . $field->name)
+                                        <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                    @enderror
+                                </td>
+                            </tr>
+                        @endforeach
+                        <tr>
+                            <td class="text-secondary-foreground font-normal"></td>
+                            <td>
+                                <label class="kt-label flex items-center gap-2">
+                                    <input type="checkbox" name="test_send" value="1" {{ old('test_send') ? 'checked' : '' }}>
+                                    Verstuur testmail na opslaan
+                                </label>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
             </div>
         </div>
@@ -229,20 +277,46 @@
 @include('admin.email-templates.partials.tinymce-html-editor')
 
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
+window.defaultTemplateInformatieaanvraag = @json($defaultHtmlTemplateInformatieaanvraag ?? '');
 document.addEventListener('DOMContentLoaded', function() {
-    var textContentTextarea = document.getElementById('text_content');
-    if (!textContentTextarea) return;
-
-    function autoResizeTextarea(ta) {
-        ta.style.height = 'auto';
-        var sh = ta.scrollHeight;
-        var lh = parseInt(window.getComputedStyle(ta).lineHeight) || 20;
-        var minH = lh * parseInt(ta.getAttribute('rows') || 30);
-        ta.style.height = Math.max(sh + 12, minH) + 'px';
+    // Toggle ontvanger in Basis Informatie (main form)
+    var mainForm = document.querySelector('form[action*="email-templates/store"]');
+    if (mainForm) {
+        var typeUser = mainForm.querySelector('input.recipient-type-radio[value="user"]');
+        var userWrap = mainForm.querySelector('.recipient-user-wrap.main-form-recipient-wrap');
+        var emailWrap = mainForm.querySelector('.recipient-email-wrap.main-form-recipient-wrap');
+        if (typeUser && userWrap && emailWrap) {
+            function toggleMainRecipient() {
+                var isUser = typeUser.checked;
+                userWrap.style.display = isUser ? '' : 'none';
+                emailWrap.style.display = isUser ? 'none' : '';
+            }
+            mainForm.querySelectorAll('.recipient-type-radio.main-form-recipient').forEach(function(r) {
+                r.addEventListener('change', toggleMainRecipient);
+            });
+            toggleMainRecipient();
+        }
     }
-    autoResizeTextarea(textContentTextarea);
-    textContentTextarea.addEventListener('input', function() { autoResizeTextarea(this); });
+
+    var typeSelect = document.getElementById('type');
+    if (typeSelect && window.defaultTemplateInformatieaanvraag) {
+        function applyInformatieaanvraagTemplate() {
+            if (typeSelect.value === 'informatieaanvraag') {
+                var html = window.defaultTemplateInformatieaanvraag;
+                var textarea = document.getElementById('html_content');
+                if (textarea) {
+                    textarea.value = html;
+                    if (typeof tinymce !== 'undefined') {
+                        var ed = tinymce.get('html_content');
+                        if (ed) ed.setContent(html);
+                    }
+                }
+            }
+        }
+        typeSelect.addEventListener('change', applyInformatieaanvraagTemplate);
+    }
 });
 </script>
 @endpush

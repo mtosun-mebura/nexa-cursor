@@ -11,12 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('job_titles')) {
+            return;
+        }
+
         Schema::create('job_titles', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->integer('usage_count')->default(0); // Track how often this title is used
             $table->timestamps();
-            
+
             $table->index('name');
         });
     }

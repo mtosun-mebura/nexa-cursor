@@ -1,23 +1,16 @@
 @php
     $homeSections = $homeSections ?? \App\Models\WebsitePage::defaultHomeSectionsForTheme('atom-v2');
+    $emailTemplateBySectionKey = $emailTemplateBySectionKey ?? [];
     $visibility = $homeSections['visibility'] ?? [];
+    $isNexaOrSkillmatching = !isset($page) || $page->module_name === null || strtolower((string)$page->module_name) === 'skillmatching';
     $defaultSectionOrder = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel'];
     $sectionOrder = $homeSections['section_order'] ?? $defaultSectionOrder;
     if (!is_array($sectionOrder)) {
         $sectionOrder = $defaultSectionOrder;
     }
     $sectionOrder = array_values($sectionOrder);
-    $missingInOrder = array_diff($defaultSectionOrder, $sectionOrder);
-    if (!empty($missingInOrder)) {
-        foreach (array_values($missingInOrder) as $key) {
-            $pos = array_search($key, $defaultSectionOrder, true);
-            if ($pos !== false) {
-                array_splice($sectionOrder, min($pos, count($sectionOrder)), 0, [$key]);
-            }
-        }
-        $sectionOrder = array_values($sectionOrder);
-    }
-    $baseTypes = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel', 'cards_ronde_hoeken'];
+    // Alleen opgeslagen section_order tonen; verwijderde secties blijven weg.
+    $baseTypes = ['hero', 'why_nexa', 'features', 'stats', 'cta', 'carousel', 'cards_ronde_hoeken', 'featured_services', 'email_template', 'text_block'];
     $baseType = function($key) use ($baseTypes) {
         if (in_array($key, $baseTypes, true)) return $key;
         $base = preg_replace('/_\d+$/', '', (string) $key);
@@ -39,11 +32,21 @@
         $isComponent = $componentService::isComponentKey($sectionKey);
         $component = $isComponent ? $componentService->getById($componentService::componentIdFromKey($sectionKey)) : null;
     @endphp
-    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures'))
-        @if($sectionKey === 'component:nexa.recente_vacatures' && view()->exists('frontend.website.components.recente-vacatures'))
+    @if($isComponent && (($component && view()->exists($component->view ?? '')) || $sectionKey === 'component:nexa.recente_vacatures' || $sectionKey === 'component:taxi.tarieven' || $sectionKey === 'component:taxi.boekingsmodule' || $sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews' || $sectionKey === 'component:website.nexa_modules_overview'))
+        @if($visibility[$sectionKey] ?? true)
+        @if($sectionKey === 'component:nexa.recente_vacatures' && $isNexaOrSkillmatching && view()->exists('frontend.website.components.recente-vacatures'))
             @include('frontend.website.components.recente-vacatures', ['jobs' => $jobs ?? collect()])
+        @elseif($sectionKey === 'component:taxi.tarieven' && view()->exists('frontend.website.components.nexataxi-tarieven'))
+            @include('frontend.website.components.nexataxi-tarieven', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey, 'websitePageCompanyId' => isset($page) && $page->company_id ? (int) $page->company_id : null])
+        @elseif($sectionKey === 'component:taxi.boekingsmodule' && view()->exists('frontend.website.components.nexataxi-boekingsmodule'))
+            @include('frontend.website.components.nexataxi-boekingsmodule', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @elseif(($sectionKey === 'component:website.google_reviews' || $sectionKey === 'component:nexa.google_reviews') && view()->exists('frontend.website.components.google-reviews'))
+            @include('frontend.website.components.google-reviews', ['reviews' => $googleReviews ?? [], 'googleReviews' => $googleReviews ?? []])
+        @elseif($sectionKey === 'component:website.nexa_modules_overview' && view()->exists('frontend.website.components.nexa-modules-overview'))
+            @include('frontend.website.components.nexa-modules-overview', ['homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
         @elseif($component && !empty($component->view) && view()->exists($component->view))
-            @include($component->view, ['jobs' => $jobs ?? collect()])
+            @include($component->view, ['jobs' => $jobs ?? collect(), 'homeSections' => $homeSections ?? [], 'sectionKey' => $sectionKey])
+        @endif
         @endif
     @else
     @php
@@ -55,12 +58,25 @@
 
     @if($base === 'hero' && ($v('') && ($v('_title') || $v('_subtitle') || $v('_cta'))))
     @php
-        $heroBgUrl = !empty($sectionData['background_image_url']) ? $sectionData['background_image_url'] : $atomAsset('assets/img/bg-hero.jpg');
-        $heroAuthorUrl = !empty($sectionData['author_image_url']) ? $sectionData['author_image_url'] : $atomAsset('assets/img/blog-author.jpg');
+        $heroBgUrl = !empty($sectionData['background_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['background_image_url']) : $atomAsset('assets/img/bg-hero.jpg');
+        $heroAuthorUrl = !empty($sectionData['author_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['author_image_url']) : $atomAsset('assets/img/blog-author.jpg');
+        $overlayFrom = $sectionData['overlay_color_from'] ?? '#5540ae';
+        $overlayTo = $sectionData['overlay_color_to'] ?? '#412f90';
+        $overlayOpacity = max(0, min(100, (int) ($sectionData['overlay_opacity'] ?? 95)));
+        $overlayAlpha = $overlayOpacity / 100;
+        $hexToRgb = function($hex) {
+            $hex = ltrim($hex, '#');
+            if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+            if (strlen($hex) !== 6) return [85, 64, 174];
+            return [ hexdec(substr($hex,0,2)), hexdec(substr($hex,2,2)), hexdec(substr($hex,4,2)) ];
+        };
+        $fromRgb = $hexToRgb($overlayFrom);
+        $toRgb = $hexToRgb($overlayTo);
+        $heroOverlayStyle = 'background-image: linear-gradient(to right, rgba('.$fromRgb[0].','.$fromRgb[1].','.$fromRgb[2].','.$overlayAlpha.'), rgba('.$toRgb[0].','.$toRgb[1].','.$toRgb[2].','.$overlayAlpha.'));';
     @endphp
-    {{-- Hero: full-width bg, gradient, title, CTA; afbeeldingen aanpasbaar via Admin > Website-pagina's > Hero --}}
+    {{-- Hero: full-width bg, gradient, title, CTA; afbeeldingen en overloop aanpasbaar via Admin > Website-pagina's > Hero --}}
     <div class="relative bg-cover bg-center bg-no-repeat py-8" style="background-image: url({{ $heroBgUrl }});">
-        <div class="absolute inset-0 z-20 bg-gradient-to-r from-hero-gradient-from to-hero-gradient-to bg-cover bg-center bg-no-repeat" style="--tw-gradient-from: rgba(85, 64, 174, 0.95); --tw-gradient-to: rgba(65, 47, 144, 0.93); background-image: linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to));"></div>
+        <div class="absolute inset-0 z-20 bg-cover bg-center bg-no-repeat" style="{{ $heroOverlayStyle }}" aria-hidden="true"></div>
         <div class="container relative z-30 pt-20 pb-12 sm:pt-56 sm:pb-48 lg:pt-64 lg:pb-48">
             <div class="flex flex-col items-center justify-center lg:flex-row">
                 <div class="rounded-full border-8 shadow-xl flex-shrink-0" style="border-color: {{ $primaryColor }};">
@@ -72,17 +88,23 @@
                         @php
                             $heroTitle = $sectionData['title'] ?? 'Welkom bij Nexa';
                             $heroHighlight = $sectionData['title_highlight'] ?? 'Nexa';
+                            $heroHighlightColor = trim((string) ($sectionData['title_highlight_color'] ?? ''));
+                            $heroHighlightColorValid = preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroHighlightColor);
                             $parts = $heroHighlight !== '' ? explode($heroHighlight, $heroTitle, 2) : [$heroTitle];
                         @endphp
                         @if(count($parts) === 2)
-                            {{ trim($parts[0]) }} <span class="text-yellow">{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
+                            {{ trim($parts[0]) }} <span @class(['text-yellow' => ! $heroHighlightColorValid]) @if($heroHighlightColorValid) style="color: {{ $heroHighlightColor }};" @endif>{{ $heroHighlight }}</span> {{ trim($parts[1]) }}
                         @else
                             {{ $heroTitle }}
                         @endif
                     </h1>
                     @endif
                     @if($v('_subtitle') && !empty($sectionData['subtitle']))
-                    <div class="pt-3 font-body text-lg uppercase text-white sm:pt-5">{!! $sectionData['subtitle'] !!}</div>
+                    @php
+                        $heroSubtitleColor = trim((string) ($sectionData['subtitle_color'] ?? ''));
+                        $heroSubtitleColorStyle = ($heroSubtitleColor !== '' && preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $heroSubtitleColor)) ? 'color: ' . $heroSubtitleColor . ';' : '';
+                    @endphp
+                    <div class="pt-3 font-body text-lg uppercase sm:pt-5 {{ $heroSubtitleColorStyle === '' ? 'text-white' : '' }}" @if($heroSubtitleColorStyle !== '') style="{{ $heroSubtitleColorStyle }}" @endif>{!! $sectionData['subtitle'] !!}</div>
                     @endif
                     @if($v('_cta') && (!empty($sectionData['cta_primary_text']) || !empty($sectionData['cta_secondary_text'])))
                     <div class="flex flex-col justify-center pt-6 sm:flex-row sm:pt-5 lg:justify-start gap-4">
@@ -143,12 +165,17 @@
         <div class="flex justify-center pt-10 md:pt-12">
             <div class="grid gap-6 md:gap-10 w-max max-w-full" style="grid-template-columns: repeat({{ $featuresCols }}, minmax(0, 20rem));">
                 @foreach($featuresItems as $entry)
-                @php $item = $entry['item']; @endphp
-                <div class="group rounded px-8 py-12 shadow hover:opacity-90 transition-opacity" style="background-color: {{ $primaryColor }};">
-                    <div class="mx-auto h-24 w-24 text-center xl:h-28 xl:w-28 flex items-center justify-center">
+                @php
+                    $item = $entry['item'];
+                    $iconAlign = $item['icon_align'] ?? 'center';
+                    $iconAlignItems = $iconAlign === 'right' ? 'items-end' : ($iconAlign === 'left' ? 'items-start' : 'items-center');
+                    $iconAlignText = $iconAlign === 'right' ? 'text-right' : ($iconAlign === 'left' ? 'text-left' : 'text-center');
+                @endphp
+                <div class="group rounded px-8 py-12 shadow hover:opacity-90 transition-opacity flex flex-col w-full {{ $iconAlignItems }} {{ $iconAlignText }}" style="background-color: {{ $primaryColor }};">
+                    <div class="h-24 w-24 shrink-0 xl:h-28 xl:w-28 flex items-center justify-center">
                         <i class="bx bx-bulb text-6xl text-white xl:text-7xl"></i>
                     </div>
-                    <div class="text-center">
+                    <div class="{{ $iconAlignText }}">
                         <h3 class="pt-8 text-lg font-semibold uppercase text-yellow lg:text-xl">
                             {{ $item['title'] ?? 'Dienst' }}
                         </h3>
@@ -164,48 +191,35 @@
     @endif
 
     @if($base === 'stats' && $v(''))
-    @php
-        $statsItems = is_array($sectionData) ? array_values($sectionData) : [];
-        $statsItems = array_slice(array_merge($statsItems, [['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>''],['value'=>'','label'=>'']]), 0, 4);
-        $statsVisibleCount = 0;
-        foreach ($statsItems as $i => $stat) {
-            if ($visibility['stats_' . $i] ?? true) $statsVisibleCount++;
-        }
-        $statsVisibleCount = max(1, min($statsVisibleCount, 4));
-    @endphp
-    <div class="bg-cover bg-top bg-no-repeat pb-16 md:py-16 lg:py-24" style="background-image: url({{ $atomAsset('assets/img/experience-figure.png') }});" id="statistics">
-        <div class="container">
-                            <div class="mx-auto w-5/6 bg-white dark:bg-gray-800 py-16 shadow md:w-11/12 lg:py-20 xl:py-24 2xl:w-full">
-                                <div class="grid gap-6 md:gap-8 w-full place-items-center" style="grid-template-columns: repeat({{ $statsVisibleCount }}, minmax(0, 1fr));">
-                                    @foreach($statsItems as $i => $stat)
-                                        @if($visibility['stats_' . $i] ?? true)
-                                        <div class="flex flex-col items-center justify-center text-center md:flex-row md:text-left w-full md:justify-center min-w-0">
-                                            <div>
-                                                <img src="{{ $atomAsset('assets/img/icon-project.svg') }}" class="mx-auto h-12 w-auto md:h-20 atom-v2-stat-icon" alt="">
-                                            </div>
-                                            <div class="pt-5 md:pl-5 md:pt-0">
-                                                <h1 class="font-body text-2xl font-bold md:text-4xl" style="color: {{ $primaryColor }};">
-                                                    {{ $stat['value'] ?? '0' }}
-                                                </h1>
-                                                <h4 class="font-header text-base font-medium leading-loose md:text-xl text-gray-700 dark:text-gray-200">
-                                                    {{ $stat['label'] ?? '' }}
-                                                </h4>
-                                            </div>
-                                        </div>
-                                        @endif
-                                    @endforeach
-                                </div>
-                            </div>
-        </div>
-    </div>
+        @include('frontend.website.blocks.stats', ['sectionData' => $sectionData, 'visibility' => $visibility, 'sectionKey' => $sectionKey])
     @endif
 
     @if($base === 'cards_ronde_hoeken' && $v(''))
-        @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey])
+        @include('frontend.website.partials.cards-ronde-hoeken', ['items' => $sectionData['items'] ?? [], 'visibility' => $visibility, 'sectionKey' => $sectionKey, 'cards_per_row' => $sectionData['cards_per_row'] ?? 4])
+    @endif
+    @if($base === 'featured_services' && $v(''))
+        @include('frontend.website.blocks.featured_services', ['block' => ['data' => $sectionData]])
+    @endif
+
+    @if($base === 'email_template' && $v(''))
+        @php
+            $emailTemplateForSection = $emailTemplateBySectionKey[$sectionKey] ?? null;
+            $sectionFormFields = $emailTemplateForSection ? $emailTemplateForSection->getOrderedFormFields() : collect();
+            if ($sectionFormFields->isEmpty()) {
+                $sectionFormFields = $infoRequestFormFields ?? collect();
+            }
+        @endphp
+        @if($emailTemplateForSection)
+            @include('frontend.website.components.email-template-section', ['sectionData' => $sectionData, 'sectionKey' => $sectionKey, 'emailTemplate' => $emailTemplateForSection, 'formFields' => $sectionFormFields])
+        @endif
+    @endif
+
+    @if($base === 'text_block' && $v(''))
+        @include('frontend.website.components.text-block-section', ['sectionData' => $sectionData, 'sectionKey' => $sectionKey, 'homeSections' => $homeSections, 'emailTemplateBySectionKey' => $emailTemplateBySectionKey])
     @endif
 
     @if($base === 'cta' && $v(''))
-    @php $ctaBgUrl = !empty($sectionData['background_image_url']) ? $sectionData['background_image_url'] : $atomAsset('assets/img/bg-cta.jpg'); @endphp
+    @php $ctaBgUrl = !empty($sectionData['background_image_url']) ? app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($sectionData['background_image_url']) : $atomAsset('assets/img/bg-cta.jpg'); @endphp
     <div class="relative bg-cover bg-center bg-no-repeat py-16 lg:py-24" style="background-image: url({{ $ctaBgUrl }}); background-color: {{ $primaryColor }}; background-blend-mode: multiply;">
         <div class="container relative z-30">
             @if($v('_title'))
@@ -236,7 +250,7 @@
 
     @if($base === 'carousel' && $v(''))
     <div class="w-full pt-8 md:pt-12">
-        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? []])
+        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5)])
     </div>
     @endif
     @endif
