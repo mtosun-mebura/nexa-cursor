@@ -37,9 +37,15 @@ if [[ ! -d "$TENANT_DIR/.git" ]]; then
   exit 1
 fi
 
-echo "==> chown -R ${DEPLOY_USER}:${DEPLOY_USER} $TENANT_DIR/.git"
+echo "==> chown -R ${DEPLOY_USER}:${DEPLOY_USER} $TENANT_DIR/.git (inclusief objects/pack)"
 chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "$TENANT_DIR/.git"
 chmod -R u+rwX "$TENANT_DIR/.git"
+
+alien="$(find "$TENANT_DIR/.git" ! -user "$DEPLOY_USER" -print -quit 2>/dev/null || true)"
+if [[ -n "$alien" ]]; then
+  echo "ERROR: Nog bestanden met verkeerde eigenaar: $alien" >&2
+  exit 1
+fi
 
 test_file="$TENANT_DIR/.git/objects/.fix-git-ownership-test"
 sudo -u "$DEPLOY_USER" touch "$test_file"
