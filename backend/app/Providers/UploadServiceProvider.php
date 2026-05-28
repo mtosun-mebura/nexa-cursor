@@ -6,14 +6,13 @@ use Illuminate\Support\ServiceProvider;
 
 class UploadServiceProvider extends ServiceProvider
 {
-    public function boot()
+    public function boot(): void
     {
-        // Override PHP upload limits
-        ini_set('upload_max_filesize', '10M');
-        ini_set('post_max_size', '20M');
-        ini_set('max_execution_time', 300);
-        ini_set('max_input_time', 300);
-        ini_set('memory_limit', '256M');
+        ini_set('upload_max_filesize', (string) config('upload.max_filesize', '512M'));
+        ini_set('post_max_size', (string) config('upload.post_max_size', '520M'));
+        ini_set('max_execution_time', (string) config('upload.max_execution_time', 600));
+        ini_set('max_input_time', (string) config('upload.max_input_time', 600));
+        ini_set('memory_limit', (string) config('upload.memory_limit', '512M'));
     }
 
     public function register()

@@ -42,6 +42,16 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function sync_scope_lists_taxi_module_tables(): void
+    {
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $taxiTables = $scope['taxi_module_tables'] ?? [];
+
+        $this->assertContains('vehicles', $taxiTables);
+        $this->assertContains('default_rates', $taxiTables);
+    }
+
+    #[Test]
     public function sync_scope_includes_prerequisite_tables_for_module_foreign_keys(): void
     {
         $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();

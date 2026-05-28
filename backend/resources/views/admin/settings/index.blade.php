@@ -961,6 +961,11 @@
                         <p class="mt-2 mb-1"><span class="text-foreground font-medium">Globale vereisten vóór tenant-data</span> (FK-parents zoals <code class="font-mono">modules</code>):</p>
                         <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $prerequisiteSyncTables) }}</p>
                     @endif
+                    @php $taxiModuleSyncTables = $tenantSyncScope['taxi_module_tables'] ?? []; @endphp
+                    @if ($taxiModuleSyncTables !== [])
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Nexa Taxi</span> (schema <code class="font-mono">nexa_taxi</code>, alleen als module aan tenant gekoppeld is):</p>
+                        <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $taxiModuleSyncTables) }}</p>
+                    @endif
                     @php $paymentSyncTables = $tenantSyncScope['payment_company_scoped_tables'] ?? []; @endphp
                     @if ($paymentSyncTables !== [])
                         <p class="mt-2 mb-1"><span class="text-foreground font-medium">Betaling &amp; facturatie</span> (altijd mee bij sync als tabel bestaat):</p>
@@ -1207,7 +1212,7 @@
                                 <div>
                                     <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">Tenant-ZIP importeren</label>
                                     <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
-                                    <p class="text-xs text-muted-foreground mt-1">Max. 500 MB per upload. Bestaande bestanden met dezelfde relatieve padnaam worden overschreven.</p>
+                                    <p class="text-xs text-muted-foreground mt-1">Max. {{ (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) }} MB per upload. Bij <strong class="text-foreground">413 Request Entity Too Large</strong>: zet op de server in nginx <code class="font-mono text-[11px]">client_max_body_size 512M;</code> (zie <code class="font-mono text-[11px]">deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.</p>
                                 </div>
                                 <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
                                         @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
