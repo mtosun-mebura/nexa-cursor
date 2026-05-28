@@ -24,21 +24,42 @@ class WebsiteBuilderService
     }
 
     /**
-     * Query WebsitePage op de juiste connection: module-DB als actieve module die eigen DB heeft, anders default.
-     * Bij single-DB: filter op module_name wanneer een modulenaam is meegegeven.
+     * Query WebsitePage op de juiste connection: alleen module-DB als die een eigen {@code website_pages}-tabel heeft.
+     * Bij schema-strategy staan module-pagina's meestal in {@code public.website_pages} (met module_name); zonder deze
+     * check valt PG via search_path terug op public en levert de module-connectie verkeerde rijen op.
      * Publieke frontend-requests krijgen een tenant/global scope via {@see applyWebsitePageTenantScope()}.
      */
     private function websitePageQuery(?string $forModuleName = null): Builder
     {
+        $useModuleConnection = false;
+        $connection = null;
+
         if ($forModuleName !== null && $forModuleName !== ''
             && $this->moduleDb && $this->moduleDb->supportsModuleDatabases()) {
-            $q = WebsitePage::on($this->moduleDb->getModuleConnectionName($forModuleName));
+            try {
+                $connection = $this->moduleDb->getModuleConnectionName($forModuleName);
+                if (! Config::has("database.connections.{$connection}")) {
+                    $this->moduleDb->registerConnection($forModuleName);
+                }
+                if (Config::has("database.connections.{$connection}")
+                    && $this->moduleConnectionHasOwnWebsitePagesTable($forModuleName, $connection)) {
+                    $useModuleConnection = true;
+                }
+            } catch (\Throwable) {
+                $useModuleConnection = false;
+            }
+        }
+
+        if ($useModuleConnection && $connection !== null) {
+            $q = WebsitePage::on($connection);
+            $q->whereRaw('LOWER(module_name) = ?', [strtolower($forModuleName)]);
         } else {
             $q = WebsitePage::query();
             if ($forModuleName !== null && $forModuleName !== '') {
                 $q->whereRaw('LOWER(module_name) = ?', [strtolower($forModuleName)]);
             }
         }
+
         $this->applyWebsitePageTenantScope($q);
 
         return $q;
