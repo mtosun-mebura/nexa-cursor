@@ -1,7 +1,7 @@
 @php
     $sectionConfigRaw = (isset($sectionKey) && isset($homeSections) ? ($homeSections[$sectionKey] ?? []) : []);
     $bookingConfig = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig(is_array($sectionConfigRaw) ? $sectionConfigRaw : []);
-    $bookingPageId = $page->id ?? null;
+    $bookingPageId = isset($page) ? ($page->id ?? null) : null;
     $mapsApiKey = trim((string) ($googleMapsApiKey ?? ''));
     $sectionStyle = $bookingConfig['style'] ?? [];
     $bookingDefaultAccent = \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX;
