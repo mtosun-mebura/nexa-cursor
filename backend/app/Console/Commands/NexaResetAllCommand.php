@@ -40,8 +40,14 @@ class NexaResetAllCommand extends Command
         Artisan::call('optimize:clear');
         $this->line(trim(Artisan::output()));
 
-        if (config('module_database.use_single_database', false)) {
-            $this->warn('MODULE_USE_SINGLE_DATABASE=true: er worden geen aparte module-databases gedropt.');
+        if ($dbService->usesSingleStrategy()) {
+            $this->warn('MODULE_DATABASE_STRATEGY=single: er worden geen aparte module-databases gedropt.');
+
+            return $this->runMigrateFreshSeedAndInstall($dbService, $moduleManager);
+        }
+
+        if ($dbService->usesSchemaStrategy()) {
+            $this->warn('MODULE_DATABASE_STRATEGY=schema: module-data staat in PG-schema\'s in de hoofddatabase; alleen migrate:fresh op hoofd-DB.');
 
             return $this->runMigrateFreshSeedAndInstall($dbService, $moduleManager);
         }
@@ -103,7 +109,7 @@ class NexaResetAllCommand extends Command
 
     private function runMigrateFreshSeedAndInstall(ModuleDatabaseService $dbService, ModuleManager $moduleManager): int
     {
-        if (! config('module_database.use_single_database', false)) {
+        if ($dbService->usesDatabaseStrategy()) {
             $pruned = app(MainDatabaseModuleTablePruner::class)->prune();
             if ($pruned > 0) {
                 $this->info("Hoofd-DB: {$pruned} overbodige module-tabel(len) verwijderd (zie config module_database.main_database_prune_tables).");
@@ -130,8 +136,8 @@ class NexaResetAllCommand extends Command
 
         $install = $this->option('install');
         if ($install !== []) {
-            if (! $dbService->supportsModuleDatabases() || config('module_database.use_single_database', false)) {
-                $this->warn('--install wordt overgeslagen (geen losse module-databases in deze modus).');
+            if (! $dbService->supportsModuleDatabases() || ! $dbService->usesDatabaseStrategy()) {
+                $this->warn('--install wordt overgeslagen (alleen bij MODULE_DATABASE_STRATEGY=database).');
 
                 return self::SUCCESS;
             }

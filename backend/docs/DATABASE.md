@@ -21,7 +21,7 @@
 
 3. Sommige services lezen **extra** keys uit **root** `.env` (buiten Laravel), o.a. `GOOGLE_MAPS_API_KEY` via `EnvService::getRootEnvPath()` — zie code. Wil je echt alles op één plek: zet die keys ook in `backend/.env` **of** symlink zodat er maar één fysiek bestand is.
 
-**Modules** (Skillmatching, Nexa Taxi) zijn **geen aparte Laravel-apps**; ze gebruiken **dezelfde** `backend/.env` en `config/database.php`. Alleen bij `MODULE_USE_SINGLE_DATABASE=false` kunnen er **extra database-connections** (`module_*`) worden geregistreerd — nog steeds geconfigureerd via dezelfde `.env` (`DB_*` + module-instellingen).
+**Modules** (Skillmatching, Nexa Taxi) gebruiken **dezelfde** `backend/.env` en `config/database.php`. Standaard (`MODULE_DATABASE_STRATEGY=schema`): één database, per module een PostgreSQL-schema (`nexa_taxi`, …) en connection `module_*`.
 
 ---
 
@@ -31,7 +31,7 @@
 |---------|-----|
 | `docker-compose.postgres.yml` | Service `db` (PostgreSQL 16), volume `nexa_postgres_data` |
 | `docker-compose.yml` | Lokaal: `db` + `backend` |
-| `docker-compose.prod.yml` | Staging/productie: `db` + `backend` |
+| `docker-compose.deploy.yml` | TEST (Proxmox) + PROD (AWS): `db` + `backend` |
 
 In **repo-root `.env`** (gemount in de backend-container):
 
@@ -54,18 +54,19 @@ Migratie van een **externe** Postgres: dump/restore naar de nieuwe container (ee
 
 ---
 
-## Eén database / één schema
+## Module-database strategie
 
-In **`backend/.env`**:
+In **`backend/.env`** (standaard):
 
 ```env
-MODULE_USE_SINGLE_DATABASE=true
+MODULE_DATABASE_STRATEGY=schema
 ```
 
-- Alle tabellen (kern + module) horen in **dezelfde** database als `DB_DATABASE`.
-- Er worden **geen** aparte `module_taxi`-connections voor dit patroon gebruikt (`ModuleDatabaseService::supportsModuleDatabases()` wordt dan `false`).
+- **schema** (aanbevolen): één database (`DB_DATABASE`), kern in `public`, module-tabellen in schema's `nexa_taxi`, `nexa_skillmatching`, …
+- **database** (legacy): aparte PostgreSQL-databases `nexa_taxi`, …
+- **single**: alles in `public` (niet gebruikt op nieuwe omgevingen)
 
-Zet je `MODULE_USE_SINGLE_DATABASE=false` (default), dan kan de app bij MySQL/PostgreSQL **per module een eigen database** gebruiken; de **hoofd-DB** (`DB_*`) blijft voor o.a. `users`, `modules`, `general_settings`.
+Na module-installatie: `php artisan modules:ensure-databases`.
 
 ---
 
@@ -106,7 +107,7 @@ php artisan migrate
 php artisan db:seed   # indien gewenst
 ```
 
-Bij **`MODULE_USE_SINGLE_DATABASE=true`** is één `migrate` op die database voldoende.
+Bij **`MODULE_DATABASE_STRATEGY=schema`** volstaat `php artisan migrate` op de hoofd-DB; module-schema's worden bij install/ensure-databases ingericht.
 
 ---
 

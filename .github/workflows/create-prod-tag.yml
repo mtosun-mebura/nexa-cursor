@@ -1,7 +1,8 @@
-# PROD-only: maakt tag vX.Y.Z op main HEAD. Triggert deploy-prod.yml (AWS Lightsail).
-# Test gebruikt branch release/test (Proxmox), geen tags.
+# PROD-only: maakt tag vX.Y.Z op main HEAD en start daarna Deploy PROD.
+# Test: branch release/test (Proxmox). Prod: tag + deploy (AWS Lightsail).
 #
-# Flow: feature → release/test (test deploy) → PR → main → Create PROD tag → prod deploy
+# Let op: tag-push triggert Deploy PROD alleen als deploy-prod.yml op de getagde
+# main-commit staat. Daarom starten we Deploy PROD hier expliciet via workflow_dispatch.
 
 name: Create PROD tag (main only)
 
@@ -15,10 +16,13 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   create-tag:
     runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.meta.outputs.ref }}
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -33,12 +37,11 @@ jobs:
           ref="${{ github.event.inputs.version }}"
           ref="${ref#"${ref%%[![:space:]]*}"}"
           ref="${ref%"${ref##*[![:space:]]}"}"
-          # V1.0.0 → v1.0.0 (Git-tags zijn hoofdlettergevoelig; deploy verwacht kleine v)
           if [[ "$ref" =~ ^[Vv][0-9] ]]; then
             ref="v${ref:1}"
           fi
           if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-            echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0 (niet 1.2.0 zonder v)" >&2
+            echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0" >&2
             exit 1
           fi
           if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1; then
@@ -56,4 +59,22 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$ref" -m "Release $ref (main @ $(git rev-parse --short HEAD))"
           git push origin "$ref"
-          echo "Tag $ref gepusht — Deploy PROD start automatisch."
+          echo "Tag $ref gepusht."
+
+  start-prod-deploy:
+    needs: create-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Deploy PROD workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ref="${{ needs.create-tag.outputs.ref }}"
+          echo "Start Deploy PROD voor tag ${ref}..."
+          gh workflow run deploy-prod.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            -f "version=${ref}"
+          echo "Deploy PROD workflow_dispatch is in de wachtrij."
+          echo "Zie Actions → Deploy PROD (event: workflow_dispatch)."

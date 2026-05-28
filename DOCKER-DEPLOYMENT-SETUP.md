@@ -186,14 +186,14 @@ npm run build
 cd ..
 
 # Build en start Docker containers
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.deploy.yml build
+docker compose -f docker-compose.deploy.yml up -d
 
 # Wacht tot containers draaien
 sleep 10
 
 # Check of containers draaien
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.deploy.yml ps
 ```
 
 ### Run Laravel Setup Commands
@@ -202,18 +202,18 @@ docker compose -f docker-compose.prod.yml ps
 cd /var/www/nexa
 
 # Generate app key
-docker compose -f docker-compose.prod.yml exec backend php artisan key:generate --force
+docker compose -f docker-compose.deploy.yml exec backend php artisan key:generate --force
 
 # Run migrations
-docker compose -f docker-compose.prod.yml exec backend php artisan migrate --force
+docker compose -f docker-compose.deploy.yml exec backend php artisan migrate --force
 
 # Cache configuratie
-docker compose -f docker-compose.prod.yml exec backend php artisan config:cache
-docker compose -f docker-compose.prod.yml exec backend php artisan route:cache
-docker compose -f docker-compose.prod.yml exec backend php artisan view:cache
+docker compose -f docker-compose.deploy.yml exec backend php artisan config:cache
+docker compose -f docker-compose.deploy.yml exec backend php artisan route:cache
+docker compose -f docker-compose.deploy.yml exec backend php artisan view:cache
 
 # Create storage symlink
-docker compose -f docker-compose.prod.yml exec backend php artisan storage:link
+docker compose -f docker-compose.deploy.yml exec backend php artisan storage:link
 ```
 
 ### Set Permissions
@@ -232,7 +232,7 @@ sudo chmod -R 775 /var/www/nexa/backend/bootstrap/cache
 ### Check Docker Containers
 
 ```bash
-docker compose -f /var/www/nexa/docker-compose.prod.yml ps
+docker compose -f /var/www/nexa/docker-compose.deploy.yml ps
 
 # Output moet zijn:
 # NAME            STATUS      PORTS
@@ -263,9 +263,9 @@ curl -I http://localhost
 
 ```bash
 # Docker logs
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs backend
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs db
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs n8n
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs backend
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs db
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs n8n
 
 # Laravel logs
 tail -f /var/www/nexa/backend/storage/logs/laravel.log
@@ -324,7 +324,7 @@ Monitor de deployment:
 sudo journalctl -u actions.runner.*.service -f
 
 # Docker logs
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs -f
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs -f
 
 # Laravel logs
 tail -f /var/www/nexa/backend/storage/logs/laravel.log
@@ -337,44 +337,44 @@ tail -f /var/www/nexa/backend/storage/logs/laravel.log
 ### Stop Containers
 ```bash
 cd /var/www/nexa
-docker compose -f docker-compose.prod.yml stop
+docker compose -f docker-compose.deploy.yml stop
 ```
 
 ### Start Containers
 ```bash
 cd /var/www/nexa
-docker compose -f docker-compose.prod.yml start
+docker compose -f docker-compose.deploy.yml start
 ```
 
 ### Restart Containers
 ```bash
 cd /var/www/nexa
-docker compose -f docker-compose.prod.yml restart
+docker compose -f docker-compose.deploy.yml restart
 ```
 
 ### Rebuild Container (na code changes)
 ```bash
 cd /var/www/nexa
-docker compose -f docker-compose.prod.yml build backend
-docker compose -f docker-compose.prod.yml up -d backend
+docker compose -f docker-compose.deploy.yml build backend
+docker compose -f docker-compose.deploy.yml up -d backend
 ```
 
 ### View Logs
 ```bash
 # All containers
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs -f
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs -f
 
 # Specific container
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs -f backend
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs -f backend
 ```
 
 ### Enter Container Shell
 ```bash
 # Backend container
-docker compose -f /var/www/nexa/docker-compose.prod.yml exec backend bash
+docker compose -f /var/www/nexa/docker-compose.deploy.yml exec backend bash
 
 # Database container
-docker compose -f /var/www/nexa/docker-compose.prod.yml exec db psql -U nexa -d nexa
+docker compose -f /var/www/nexa/docker-compose.deploy.yml exec db psql -U nexa -d nexa
 ```
 
 ### Clean Up Old Images
@@ -424,7 +424,7 @@ docker volume prune
 
 ```bash
 # Check logs
-docker compose -f /var/www/nexa/docker-compose.prod.yml logs backend
+docker compose -f /var/www/nexa/docker-compose.deploy.yml logs backend
 
 # Check of port al in gebruik is
 sudo netstat -tulpn | grep 9000
@@ -434,10 +434,10 @@ sudo netstat -tulpn | grep 9000
 
 ```bash
 # Check of database container draait
-docker compose -f /var/www/nexa/docker-compose.prod.yml ps
+docker compose -f /var/www/nexa/docker-compose.deploy.yml ps
 
 # Test database connectie
-docker compose -f /var/www/nexa/docker-compose.prod.yml exec backend \
+docker compose -f /var/www/nexa/docker-compose.deploy.yml exec backend \
   php artisan tinker
 >>> \DB::connection()->getPdo();
 ```
@@ -498,7 +498,7 @@ free -h
 sudo apt install htop
 
 # Monitor containers
-watch -n 1 'docker compose -f /var/www/nexa/docker-compose.prod.yml ps'
+watch -n 1 'docker compose -f /var/www/nexa/docker-compose.deploy.yml ps'
 ```
 
 ---

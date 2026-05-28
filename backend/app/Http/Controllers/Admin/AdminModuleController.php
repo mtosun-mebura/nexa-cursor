@@ -34,15 +34,20 @@ class AdminModuleController extends Controller
         $availableModules = $this->moduleManager->discoverModules();
 
         $dbService = app(ModuleDatabaseService::class);
-        $useSingleDatabase = (bool) config('module_database.use_single_database', false);
+        $moduleDatabaseStrategy = $dbService->getStrategy();
         $hasModuleDatabases = $dbService->supportsModuleDatabases();
 
         foreach ($availableModules as &$module) {
             $module['installing'] = Cache::has('module_installing_'.$module['name']);
-            // Alleen aparte module-DB tonen als multi-DB echt actief is (niet bij MODULE_USE_SINGLE_DATABASE=true).
-            $module['database_name'] = ($module['installed'] && ! $useSingleDatabase && $hasModuleDatabases)
-                ? $dbService->getModuleDatabaseName($module['name'])
-                : null;
+            $module['database_name'] = null;
+            $module['schema_name'] = null;
+            if ($module['installed'] && $hasModuleDatabases) {
+                if ($dbService->usesDatabaseStrategy()) {
+                    $module['database_name'] = $dbService->getModuleDatabaseName($module['name']);
+                } elseif ($dbService->usesSchemaStrategy()) {
+                    $module['schema_name'] = $dbService->getModuleSchemaName($module['name']);
+                }
+            }
         }
         unset($module);
 
@@ -57,7 +62,13 @@ class AdminModuleController extends Controller
             'external_modules' => count(array_filter($availableModules, fn ($m) => $m['type'] === 'external')),
         ];
 
-        return view('admin.modules.index', compact('availableModules', 'stats', 'hasModuleDatabases', 'useSingleDatabase', 'mainDatabaseName'));
+        return view('admin.modules.index', compact(
+            'availableModules',
+            'stats',
+            'hasModuleDatabases',
+            'moduleDatabaseStrategy',
+            'mainDatabaseName'
+        ));
     }
 
     public function install(string $moduleName)
@@ -263,7 +274,7 @@ class AdminModuleController extends Controller
     }
 
     /**
-     * Voer module-migraties opnieuw uit op de juiste database (afhankelijk van MODULE_USE_SINGLE_DATABASE).
+     * Voer module-migraties opnieuw uit (schema of module-database, afhankelijk van MODULE_DATABASE_STRATEGY).
      */
     public function runModuleMigrations(string $moduleName)
     {

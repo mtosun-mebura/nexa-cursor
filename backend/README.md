@@ -2,7 +2,7 @@
 
 ## Nexa — database & `.env`
 
-- **[docs/DATABASE.md](docs/DATABASE.md)** — welke `.env` Laravel gebruikt, `MODULE_USE_SINGLE_DATABASE`, migraties.
+- **[docs/DATABASE.md](docs/DATABASE.md)** — welke `.env` Laravel gebruikt, `MODULE_DATABASE_STRATEGY`, migraties.
 - **[docs/MIGRATION_SQUASH.md](docs/MIGRATION_SQUASH.md)** — migraties later comprimeren (baseline / pg_dump).
 
 ---

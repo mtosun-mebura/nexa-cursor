@@ -6,38 +6,22 @@ return [
     | Module database strategy
     |--------------------------------------------------------------------------
     |
-    | Bepaalt hoe module-tabellen worden opgeslagen:
+    |  "schema"   – Één database (DB_DATABASE), per module een PostgreSQL-schema
+    |               (nexa_taxi, nexa_skillmatching). Standaard en aanbevolen.
+    |  "database" – Per module een eigen database (legacy).
+    |  "single"   – Alle tabellen in public (niet gebruikt in nieuwe omgevingen).
     |
-    |  "single"   – Alle tabellen in de hoofddatabase (public schema).
-    |  "schema"   – Één database, per module een eigen PostgreSQL-schema
-    |               (bv. nexa_taxi, nexa_skillmatching) in dezelfde DB.
-    |  "database" – Per module een eigen database (nexa_taxi, nexa_skillmatching).
-    |
-    | "schema" is de aanbevolen modus voor PostgreSQL: geen cross-database
-    | FK-problemen, eenvoudiger backup, en toch nette scheiding per module.
-    |
-    | ENV: MODULE_DATABASE_STRATEGY=schema  (of single / database)
-    | Legacy: MODULE_USE_SINGLE_DATABASE=true wordt automatisch omgezet naar "single".
+    | ENV: MODULE_DATABASE_STRATEGY=schema
     |
     */
-    'strategy' => env('MODULE_DATABASE_STRATEGY',
-        env('MODULE_USE_SINGLE_DATABASE', false) ? 'single' : 'schema'
-    ),
+    'strategy' => env('MODULE_DATABASE_STRATEGY', 'schema'),
 
     /*
     |--------------------------------------------------------------------------
-    | Legacy alias (backward compat)
-    |--------------------------------------------------------------------------
-    */
-    'use_single_database' => env('MODULE_USE_SINGLE_DATABASE', false),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tabellen op de hoofd-DB die weg mogen bij losse module-DB's
+    | Tabellen op de hoofd-DB die weg mogen bij strategy=database
     |--------------------------------------------------------------------------
     |
-    | Alleen relevant bij strategy=database. Bij strategy=schema staan
-    | module-tabellen in hun eigen schema; de hoofd-DB (public) blijft schoon.
+    | Bij strategy=schema staan module-tabellen in hun eigen schema; public blijft schoon.
     |
     */
     'main_database_prune_tables' => [

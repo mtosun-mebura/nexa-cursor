@@ -1,7 +1,7 @@
-# Productie / staging: backend + PostgreSQL in Docker.
-# Geen `include` — compatibel met docker-compose v1 én `docker compose` v2 (AWS Lightsail).
-# DB-credentials en APP_KEY: repo-root .env (bind-mount). Compose zet alleen DB_HOST=db.
-# Lokaal/dev: docker-compose.yml includeert nog docker-compose.postgres.yml.
+# Server-deploy (TEST Proxmox + PROD AWS): backend + PostgreSQL in Docker.
+# Geen `include` — compatibel met docker-compose v1 én `docker compose` v2.
+# Lokaal op je laptop: docker-compose.yml (dev, live code-mount).
+# DB-credentials en APP_KEY: repo-root .env (bind-mount). In de container: DB_HOST=db.
 
 services:
   db:
