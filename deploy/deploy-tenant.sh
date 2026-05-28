@@ -301,38 +301,55 @@ _fix_backend_tree_for_git_reset() {
 _stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
 
-# fetch schrijft naar .git/objects; na eerdere root-deploys kan .git root:www-data zijn (top-level lijkt soms nog writable).
+# fetch schrijft naar .git/objects; pack-bestanden kunnen root zijn terwijl .git/objects zelf van mtosun is.
 _fix_git_dir_ownership() {
-  local uid gid repo_uid test_file
+  local uid gid test_file alien
   uid=$(id -u)
   gid=$(id -g)
   test_file="$TENANT_DIR/.git/objects/.deploy-write-test-$$"
-  repo_uid="$(stat -c '%u' "$TENANT_DIR/.git" 2>/dev/null || echo "")"
 
   _git_objects_writable() {
     touch "$test_file" 2>/dev/null && rm -f "$test_file" 2>/dev/null
   }
 
-  if [[ "$repo_uid" == "$uid" ]] && _git_objects_writable; then
+  # Niet vertrouwen op eigenaar van .git alleen: objects/pack/* is vaak nog root na docker compose run.
+  alien=""
+  if command -v find >/dev/null 2>&1; then
+    alien="$(find "$TENANT_DIR/.git" ! -uid "$uid" -print -quit 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$alien" ]] && _git_objects_writable; then
     return 0
   fi
 
-  echo "==> Eigenaar $TENANT_DIR/.git → $(id -un):$(id -gn) (was uid ${repo_uid:-?}; fix .git/objects permission)"
+  if [[ -n "$alien" ]]; then
+    echo "==> .git bevat bestanden van een andere user (voorbeeld: ${alien})"
+  else
+    echo "==> .git/objects lijkt schrijfbaar maar git fetch faalde eerder — rechten herstellen"
+  fi
+  echo "==> chown -R $(id -un):$(id -gn) $TENANT_DIR/.git"
+
   if chown -R "${uid}:${gid}" "$TENANT_DIR/.git" 2>/dev/null; then
     :
   elif command -v sudo >/dev/null 2>&1 && sudo -n chown -R "${uid}:${gid}" "$TENANT_DIR/.git" 2>/dev/null; then
     :
   else
-    echo "ERROR: chown op $TENANT_DIR/.git mislukt (git fetch faalt met 'insufficient permission')." >&2
+    echo "ERROR: chown op $TENANT_DIR/.git mislukt (root-owned pack/objecten?)." >&2
     echo "Eenmalig op de server (als root):" >&2
     echo "  sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
-    echo "CI: geef de runner passwordless sudo voor chown op .git (zie deploy/github-runner-sudoers.example)." >&2
+    echo "Of: sudo bash $TENANT_DIR/deploy/fix-git-ownership.sh" >&2
+    exit 1
+  fi
+
+  alien="$(find "$TENANT_DIR/.git" ! -uid "$uid" -print -quit 2>/dev/null || true)"
+  if [[ -n "$alien" ]]; then
+    echo "ERROR: Na chown nog steeds vreemde eigenaar: ${alien}" >&2
+    echo "Gebruik root: sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
     exit 1
   fi
 
   if ! _git_objects_writable; then
     echo "ERROR: Kan nog steeds niet schrijven in $TENANT_DIR/.git/objects." >&2
-    echo "Eenmalig: sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
     exit 1
   fi
 }

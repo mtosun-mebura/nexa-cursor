@@ -66,16 +66,24 @@ jobs:
           fi
 
           OBJ="$TENANT_DIR/.git/objects"
-          if [[ -w "$OBJ" ]] && touch "$OBJ/.preflight-write-test" 2>/dev/null; then
+          TARGET_UID="$(id -u "$TARGET" 2>/dev/null || echo "")"
+          ALIEN=""
+          if [[ -n "$TARGET_UID" ]] && command -v find >/dev/null 2>&1; then
+            ALIEN="$(find "$TENANT_DIR/.git" ! -uid "$TARGET_UID" -print -quit 2>/dev/null || true)"
+          fi
+          if [[ -n "$ALIEN" ]]; then
+            echo "WAARSCHUWING: .git bevat vreemde eigenaar: $ALIEN"
+            if sudo -n chown -R "$TARGET:$TARGET" "$TENANT_DIR/.git" 2>/dev/null; then
+              echo ".git: gefixt via sudo chown → $TARGET"
+            else
+              echo "Eenmalig op de server: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
+            fi
+          elif [[ -w "$OBJ" ]] && touch "$OBJ/.preflight-write-test" 2>/dev/null; then
             rm -f "$OBJ/.preflight-write-test"
             echo ".git/objects schrijfbaar als $U: OK"
-          elif sudo -n chown -R "$TARGET:$TARGET" "$TENANT_DIR/.git" 2>/dev/null \
-            && sudo -n -u "$TARGET" test -w "$OBJ"; then
-            echo ".git/objects: gefixt via sudo chown → $TARGET"
           else
-            echo "WAARSCHUWING: $OBJ niet schrijfbaar voor deploy-user $TARGET"
-            echo "Eenmalig op de server: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
-            echo "CI: voeg sudoers-regel toe (deploy/github-runner-sudoers.example → NEXA_CHOWN_GIT)"
+            echo "WAARSCHUWING: $OBJ niet schrijfbaar voor $TARGET"
+            echo "Eenmalig: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
           fi
 
       - name: Deploy
