@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Modules\NexaTaxi\Models\DefaultRate;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Support\NexaTaxiSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -22,6 +23,10 @@ class VehicleController extends Controller
         $this->authorizeOrPermission('vehicles.view');
 
         $conn = $this->moduleConnection();
+        if (! NexaTaxiSchema::coreTablesExist($conn)) {
+            abort(503, 'Taxi-tabellen ontbreken op de module-database. Voer op de server uit: php artisan modules:ensure-databases taxi');
+        }
+
         $query = Vehicle::on($conn)->with('company');
         $this->applyTenantFilter($query);
 

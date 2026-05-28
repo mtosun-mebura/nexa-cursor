@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Beheert per-module database-isolatie:
@@ -19,6 +20,9 @@ use Illuminate\Support\Facades\Log;
  */
 class ModuleDatabaseService
 {
+    /** @var array<string, true> */
+    private array $storageReadyChecked = [];
+
     // ------------------------------------------------------------------
     //  Helpers: namen, slugs
     // ------------------------------------------------------------------
@@ -327,6 +331,99 @@ class ModuleDatabaseService
         Pre2026Baseline::runForSetsOnConnection($sets, $conn);
 
         Log::info("Migrations run on module connection: {$conn}");
+    }
+
+    /**
+     * Zorg dat vereiste module-tabellen bestaan (schema + incrementele migraties).
+     * Wordt o.a. aangeroepen vóór taxi-admin requests als vehicles/ride_requests ontbreken.
+     *
+     * @param  list<string>|null  $requiredTables
+     */
+    public function ensureModuleStorageReady(string $moduleName, ?array $requiredTables = null): void
+    {
+        $slug = strtolower(trim($moduleName));
+        if (isset($this->storageReadyChecked[$slug])) {
+            return;
+        }
+        $this->storageReadyChecked[$slug] = true;
+
+        if ($this->usesSingleStrategy()) {
+            return;
+        }
+
+        $requiredTables ??= config("module_migrations.required_tables.{$slug}", []);
+        if (! is_array($requiredTables) || $requiredTables === []) {
+            return;
+        }
+
+        $this->registerConnection($slug);
+        $conn = $this->getModuleConnectionName($slug);
+
+        $missing = array_values(array_filter(
+            $requiredTables,
+            fn (string $table) => ! Schema::connection($conn)->hasTable($table)
+        ));
+        if ($missing === []) {
+            return;
+        }
+
+        Log::info('Module storage: ontbrekende tabellen, migraties starten', [
+            'module' => $slug,
+            'connection' => $conn,
+            'missing' => $missing,
+        ]);
+
+        $module = app(ModuleManager::class)->loadModule($slug);
+        if ($module !== null) {
+            app(ModuleManager::class)->syncModuleMigrationsToDisk($module);
+        }
+
+        if ($this->usesSchemaStrategy()) {
+            if (! $this->moduleSchemaExists($slug)) {
+                $this->setupModuleSchema($slug);
+            } else {
+                try {
+                    $this->runModuleOnlyMigrations($slug);
+                } catch (\Throwable $e) {
+                    Log::warning("Module baseline retry ({$slug}): ".$e->getMessage());
+                }
+            }
+        } elseif ($this->usesDatabaseStrategy()) {
+            if (! $this->moduleStandaloneDatabaseExists($slug)) {
+                $this->setupModuleDatabase($slug);
+            }
+        }
+
+        $this->runIncrementalModuleMigrations($slug);
+
+        $stillMissing = array_values(array_filter(
+            $requiredTables,
+            fn (string $table) => ! Schema::connection($conn)->hasTable($table)
+        ));
+        if ($stillMissing !== []) {
+            throw new \RuntimeException(
+                'Module-tabellen ontbreken op '.$conn.': '.implode(', ', $stillMissing)
+                .'. Voer uit: php artisan modules:ensure-databases '.$slug
+                .' of php artisan modules:migrate '.$slug
+            );
+        }
+    }
+
+    public function moduleStandaloneDatabaseExists(string $moduleName): bool
+    {
+        $dbName = $this->getModuleDatabaseName($moduleName);
+        $driver = config('database.default');
+
+        if ($driver === 'pgsql') {
+            return DB::selectOne('SELECT 1 FROM pg_database WHERE datname = ?', [$dbName]) !== null;
+        }
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $r = DB::select('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?', [$dbName]);
+
+            return ! empty($r);
+        }
+
+        return false;
     }
 
     public function runIncrementalModuleMigrations(string $moduleName): bool

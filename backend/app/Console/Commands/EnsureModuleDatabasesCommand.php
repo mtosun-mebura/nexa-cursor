@@ -52,16 +52,23 @@ class EnsureModuleDatabasesCommand extends Command
 
         if ($dbService->moduleSchemaExists($name)) {
             $this->info("Schema \"{$schemaName}\" bestaat al in de hoofddatabase.");
+        } else {
+            $this->info("Schema \"{$schemaName}\" aanmaken voor module {$name}...");
+            try {
+                $dbService->setupModuleSchema($name);
+                $this->info('  → Schema aangemaakt.');
+            } catch (\Throwable $e) {
+                $this->error('  → Fout: '.$e->getMessage());
 
-            return;
+                return;
+            }
         }
 
-        $this->info("Schema \"{$schemaName}\" aanmaken voor module {$name}...");
         try {
-            $dbService->setupModuleSchema($name);
-            $this->info('  → Klaar.');
+            $dbService->ensureModuleStorageReady($name);
+            $this->info('  → Vereiste module-tabellen gecontroleerd/aangevuld.');
         } catch (\Throwable $e) {
-            $this->error('  → Fout: '.$e->getMessage());
+            $this->error('  → Tabellen/migraties: '.$e->getMessage());
         }
     }
 
@@ -78,16 +85,23 @@ class EnsureModuleDatabasesCommand extends Command
 
         if ($exists) {
             $this->info("Database {$dbName} bestaat al.");
+        } else {
+            $this->info("Database {$dbName} aanmaken voor module {$name}...");
+            try {
+                $dbService->setupModuleDatabase($name);
+                $this->info('  → Database aangemaakt.');
+            } catch (\Throwable $e) {
+                $this->error('  → Fout: '.$e->getMessage());
 
-            return;
+                return;
+            }
         }
 
-        $this->info("Database {$dbName} aanmaken voor module {$name}...");
         try {
-            $dbService->setupModuleDatabase($name);
-            $this->info('  → Klaar.');
+            $dbService->ensureModuleStorageReady($name);
+            $this->info('  → Vereiste module-tabellen gecontroleerd/aangevuld.');
         } catch (\Throwable $e) {
-            $this->error('  → Fout: '.$e->getMessage());
+            $this->error('  → Tabellen/migraties: '.$e->getMessage());
         }
     }
 }

@@ -12,7 +12,17 @@ class GeneralSetting extends Model
     /** Platform-breed: niet per tenant (sync-doel, vlag). */
     public const GLOBAL_PLATFORM_KEYS = [
         'tenant_sync_target_database_url',
+        'tenant_sync_target_database_password_enc',
         'tenant_sync_push_enabled',
+        'tenant_sync_ssh_enabled',
+        'tenant_sync_ssh_host',
+        'tenant_sync_ssh_port',
+        'tenant_sync_ssh_username',
+        'tenant_sync_ssh_password_enc',
+        'tenant_sync_ssh_remote_db_host',
+        'tenant_sync_ssh_remote_db_port',
+        'tenant_sync_ssh_db_username',
+        'tenant_sync_ssh_db_database',
     ];
 
     protected $fillable = [
@@ -194,7 +204,11 @@ class GeneralSetting extends Model
 
         if (self::isGlobalPlatformKey($key)) {
             try {
-                $setting = self::query()->where('key', $key)->whereNull('company_id')->first();
+                $setting = self::query()
+                    ->where('key', $key)
+                    ->whereNull('company_id')
+                    ->orderByDesc('id')
+                    ->first();
                 $value = $setting ? $setting->value : null;
                 self::$getCache[$cacheKey] = $value;
 
@@ -246,6 +260,33 @@ class GeneralSetting extends Model
                     'GeneralSetting::set vereist een tenant (company_id). Selecteer een tenant in de admin of gebruik een account met bedrijf.'
                 );
             }
+        }
+
+        if (self::isGlobalPlatformKey($key)) {
+            $model = self::query()
+                ->where('key', $key)
+                ->whereNull('company_id')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($model) {
+                $model->update(['value' => (string) $value]);
+                self::query()
+                    ->where('key', $key)
+                    ->whereNull('company_id')
+                    ->where('id', '!=', $model->id)
+                    ->delete();
+            } else {
+                $model = self::query()->create([
+                    'key' => $key,
+                    'company_id' => null,
+                    'value' => (string) $value,
+                ]);
+            }
+
+            self::clearRequestCache();
+
+            return $model;
         }
 
         /** @var self $model */

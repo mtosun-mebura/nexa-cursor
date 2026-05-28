@@ -4,6 +4,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq-dev git unzip libzip-dev libicu-dev libonig-dev \
         libfreetype6-dev libjpeg62-turbo-dev libpng-dev \
+        openssh-client \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo pdo_pgsql intl zip gd \
     && rm -rf /var/lib/apt/lists/*
