@@ -14,6 +14,17 @@
 # Minimaal (voorbeeld; beide paden exact laten overeenkomen met `command -v true`, `command -v bash`
 # en het echte pad naar deploy-tenant.sh uit de job-log):
 #
+# --- .git/objects (fatal: insufficient permission for adding an object) ---
+# Na een deploy als root of handmatige git als root is TENANT_DIR/.git soms root-owned.
+# Preflight in deploy-saas.yml probeert: sudo chown -R mtosun:mtosun …/current/.git
+# Vervang pad en user; op de server: sudo visudo -f /etc/sudoers.d/nexa-deploy && chmod 440
+#
+#   Cmnd_Alias NEXA_CHOWN_GIT = /usr/bin/chown -R mtosun\:mtosun /home/nexasuite.nl/apps/saas/current/.git
+#   github ALL=(root) NOPASSWD: NEXA_CHOWN_GIT
+#
+# Eenmalig handmatig (lost de huidige CI-fout direct op):
+#   sudo chown -R mtosun:mtosun /home/nexasuite.nl/apps/saas/current/.git
+#
 # Als runner ≠ mtosun, bv.:
 #   github ALL=(mtosun) NOPASSWD: /usr/bin/true, /usr/bin/bash
 # (ruimer; CI probeert eerst checkout-pad, daarna /tmp/nexa-deploy-tenant-*.sh)

@@ -301,23 +301,38 @@ _fix_backend_tree_for_git_reset() {
 _stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
 
-# fetch schrijft naar .git/objects; na eerdere root/docker-deploys kan .git nog root:www-data zijn.
+# fetch schrijft naar .git/objects; na eerdere root-deploys kan .git root:www-data zijn (top-level lijkt soms nog writable).
 _fix_git_dir_ownership() {
-  local uid gid
+  local uid gid repo_uid test_file
   uid=$(id -u)
   gid=$(id -g)
-  if [[ -w "$TENANT_DIR/.git/objects" ]] 2>/dev/null; then
+  test_file="$TENANT_DIR/.git/objects/.deploy-write-test-$$"
+  repo_uid="$(stat -c '%u' "$TENANT_DIR/.git" 2>/dev/null || echo "")"
+
+  _git_objects_writable() {
+    touch "$test_file" 2>/dev/null && rm -f "$test_file" 2>/dev/null
+  }
+
+  if [[ "$repo_uid" == "$uid" ]] && _git_objects_writable; then
     return 0
   fi
-  echo "==> Eigenaar $TENANT_DIR/.git → ${uid}:${gid} (fix insufficient permission voor .git/objects)"
-  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-    sudo -n chown -R "${uid}:${gid}" "$TENANT_DIR/.git" || true
+
+  echo "==> Eigenaar $TENANT_DIR/.git → $(id -un):$(id -gn) (was uid ${repo_uid:-?}; fix .git/objects permission)"
+  if chown -R "${uid}:${gid}" "$TENANT_DIR/.git" 2>/dev/null; then
+    :
+  elif command -v sudo >/dev/null 2>&1 && sudo -n chown -R "${uid}:${gid}" "$TENANT_DIR/.git" 2>/dev/null; then
+    :
   else
-    chown -R "${uid}:${gid}" "$TENANT_DIR/.git" 2>/dev/null || true
+    echo "ERROR: chown op $TENANT_DIR/.git mislukt (git fetch faalt met 'insufficient permission')." >&2
+    echo "Eenmalig op de server (als root):" >&2
+    echo "  sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
+    echo "CI: geef de runner passwordless sudo voor chown op .git (zie deploy/github-runner-sudoers.example)." >&2
+    exit 1
   fi
-  if [[ ! -w "$TENANT_DIR/.git/objects" ]]; then
-    echo "ERROR: Kan niet schrijven in $TENANT_DIR/.git/objects (git fetch faalt)." >&2
-    echo "Eenmalig op de server: sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
+
+  if ! _git_objects_writable; then
+    echo "ERROR: Kan nog steeds niet schrijven in $TENANT_DIR/.git/objects." >&2
+    echo "Eenmalig: sudo chown -R $(id -un):$(id -gn) $TENANT_DIR/.git" >&2
     exit 1
   fi
 }
