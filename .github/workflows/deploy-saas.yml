@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 90
     env:
       TENANT_DIR: /home/nexasuite.nl/apps/saas/current
+      COMPOSE_FILE: docker-compose.deploy.yml
       GIT_BRANCH: release/test
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}

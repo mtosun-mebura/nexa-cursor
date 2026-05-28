@@ -45,6 +45,25 @@ DEPLOY_USER="${DEPLOY_USER:-mtosun}"
 LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
 BACKEND_DIR="${BACKEND_DIR:-$TENANT_DIR/backend}"
 
+# Oude deploys / GitHub-variabele COMPOSE_FILE=docker-compose.prod.yml → nieuwe bestandsnaam.
+_resolve_compose_file() {
+  local requested="${COMPOSE_FILE:-docker-compose.deploy.yml}"
+  if [[ -f "$TENANT_DIR/$requested" ]]; then
+    COMPOSE_FILE="$requested"
+    return 0
+  fi
+  for fallback in docker-compose.deploy.yml docker-compose.prod.yml; do
+    if [[ -f "$TENANT_DIR/$fallback" ]]; then
+      if [[ "$requested" != "$fallback" ]]; then
+        echo "==> Compose: ${fallback} (was ingesteld: ${requested})"
+      fi
+      COMPOSE_FILE="$fallback"
+      return 0
+    fi
+  done
+  COMPOSE_FILE="$requested"
+}
+
 _user_allowed_for_deploy() {
   local u="$1" entry
   [[ "$u" == "$DEPLOY_USER" ]] && return 0
@@ -332,6 +351,7 @@ fi
 
 echo "==> Docker Compose pull/build/up"
 cd "$TENANT_DIR"
+_resolve_compose_file
 _ensure_compose_env_mount
 _preflight_compose_file
 _compose pull || true

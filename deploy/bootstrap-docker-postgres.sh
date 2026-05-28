@@ -7,8 +7,13 @@
 set -euo pipefail
 
 TENANT_DIR="${TENANT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 cd "$TENANT_DIR"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
+if [[ ! -f "$COMPOSE_FILE" && -f docker-compose.deploy.yml ]]; then
+  COMPOSE_FILE=docker-compose.deploy.yml
+elif [[ ! -f "$COMPOSE_FILE" && -f docker-compose.prod.yml ]]; then
+  COMPOSE_FILE=docker-compose.prod.yml
+fi
 
 if [[ ! -f .env ]]; then
   echo "ERROR: $TENANT_DIR/.env ontbreekt" >&2
