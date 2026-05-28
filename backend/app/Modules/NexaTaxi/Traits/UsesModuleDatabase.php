@@ -8,6 +8,9 @@ trait UsesModuleDatabase
 {
     protected function moduleConnection(): string
     {
-        return app(ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+        $dbService = app(ModuleDatabaseService::class);
+        $dbService->ensureModuleStorageReady('taxi');
+
+        return $dbService->getModuleConnectionName('taxi');
     }
 }

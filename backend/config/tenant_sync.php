@@ -39,6 +39,15 @@ return [
     ],
 
     /*
+    | Globale tabellen zonder company_id die vóór company-scoped data naar doel gaan
+    | (FK-parents zoals modules → company_module). Volgorde telt; auto-discovery vult aan.
+    */
+    'prerequisite_tables' => [
+        'frontend_themes',
+        'modules',
+    ],
+
+    /*
     | Tabellen zonder company_id die na de hoofd-push nog worden gevuld (tenant-gebonden).
     */
     'post_sync_tables' => [
@@ -55,6 +64,8 @@ return [
         'users' => ['email'],
         'company_domains' => ['host'],
         'company_module' => ['company_id', 'module_id'],
+        'modules' => ['name'],
+        'frontend_themes' => ['slug'],
         'roles' => ['company_id', 'name', 'guard_name'],
         'payment_providers' => ['company_id', 'provider_type'],
         'website_pages' => ['company_id', 'slug'],

@@ -75,10 +75,32 @@
         });
     }
 
+    function openSettingsSectionById(sectionId) {
+        if (!sectionId) {
+            return;
+        }
+        var card = document.getElementById(sectionId);
+        if (card) {
+            setSettingsSectionCollapsed(card, false);
+        }
+    }
+
     function boot() {
         initSettingsCollapsible(document.getElementById('settings-collapsible-root'));
         initSettingsCollapsible(document.getElementById('general-settings-collapsible-root'));
         initSettingsCollapsible(document.getElementById('dispatch-settings-collapsible-root'));
+
+        var hash = (window.location.hash || '').replace(/^#/, '');
+        if (hash) {
+            openSettingsSectionById(hash);
+        }
+        var params = new URLSearchParams(window.location.search);
+        if (params.has('saved') || params.has('updated') || params.has('created')) {
+            openSettingsSectionById(hash || 'tenant-sync');
+        }
+        if (document.querySelector('#tenant-sync-settings-form [role="alert"]')) {
+            openSettingsSectionById('tenant-sync');
+        }
     }
 
     if (document.readyState === 'loading') {

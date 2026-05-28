@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
+use App\Support\TenantSync\TenantSyncConnectionConfig;
+use App\Support\TenantSync\TenantSyncDatabaseUrl;
 use App\Models\WebsiteMedia;
 use App\Models\WebsitePage;
 use Illuminate\Http\UploadedFile;
@@ -28,17 +30,88 @@ final class TenantWebsiteBundleService
     public const SYNC_CONNECTION = 'tenant_website_sync_target';
 
     public function __construct(
-        protected WebsiteBuilderService $websiteBuilder
+        protected WebsiteBuilderService $websiteBuilder,
+        protected TenantSyncSettingsService $tenantSyncSettings,
+        protected TenantSyncSshTunnelService $sshTunnel,
     ) {}
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function runWithSyncTarget(callable $callback): mixed
+    {
+        return $this->sshTunnel->runIsolated($callback);
+    }
 
     public function syncTargetDatabaseUrl(): ?string
     {
-        $u = trim((string) GeneralSetting::get('tenant_sync_target_database_url', ''));
-        if ($u === '') {
-            $u = trim((string) env('TENANT_SYNC_TARGET_DATABASE_URL', ''));
+        $url = $this->tenantSyncSettings->connectionConfig()->resolvedDatabaseUrl();
+
+        return $url !== '' ? $url : null;
+    }
+
+    /**
+     * Voorgestelde doel-URL voor het admin-veld (prefill-knop).
+     * Volgorde: TENANT_SYNC_TARGET_DATABASE_URL → DB_URL → huidige default database-connection.
+     */
+    public function suggestedTargetDatabaseUrl(): ?string
+    {
+        $fromEnv = trim((string) env('TENANT_SYNC_TARGET_DATABASE_URL', ''));
+        if ($fromEnv !== '') {
+            return $fromEnv;
         }
 
-        return $u !== '' ? $u : null;
+        $dbUrl = trim((string) env('DB_URL', ''));
+        if ($dbUrl !== '') {
+            return $dbUrl;
+        }
+
+        $built = $this->buildDatabaseUrlFromConfig();
+
+        return $built !== null ? TenantSyncDatabaseUrl::stripPassword($built) : null;
+    }
+
+    private function buildDatabaseUrlFromConfig(): ?string
+    {
+        $connection = (string) config('database.default');
+        $config = config("database.connections.{$connection}");
+
+        if (! is_array($config)) {
+            return null;
+        }
+
+        if (! empty($config['url'])) {
+            return trim((string) $config['url']);
+        }
+
+        $driver = (string) ($config['driver'] ?? $connection);
+        if (! in_array($driver, ['pgsql', 'mysql', 'mariadb'], true)) {
+            return null;
+        }
+
+        $host = (string) ($config['host'] ?? '');
+        $database = (string) ($config['database'] ?? '');
+        if ($host === '' || $database === '') {
+            return null;
+        }
+
+        $port = $config['port'] ?? null;
+        $portPart = $port !== null && $port !== '' ? ':'.(int) $port : '';
+
+        $username = rawurlencode((string) ($config['username'] ?? ''));
+        $password = rawurlencode((string) ($config['password'] ?? ''));
+        $authority = $username;
+        if ($password !== '') {
+            $authority .= ':'.$password;
+        }
+        if ($authority !== '') {
+            $authority .= '@';
+        }
+
+        return "{$driver}://{$authority}{$host}{$portPart}/{$database}";
     }
 
     public function isPushEnabledInSettings(): bool
@@ -61,27 +134,43 @@ final class TenantWebsiteBundleService
         return filter_var(env('TENANT_SYNC_ALLOW_PRODUCTION_PUSH', false), FILTER_VALIDATE_BOOLEAN);
     }
 
-    public function testSyncConnection(?string $url = null): void
+    public function testSyncConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
     {
-        $this->registerSyncConnection($url);
-        try {
-            DB::connection(self::SYNC_CONNECTION)->getPdo();
-        } finally {
-            DB::purge(self::SYNC_CONNECTION);
-        }
+        $this->sshTunnel->runIsolated(function () use ($url, $config) {
+            $this->registerSyncConnection($url, $config);
+            try {
+                DB::connection(self::SYNC_CONNECTION)->getPdo();
+            } finally {
+                DB::purge(self::SYNC_CONNECTION);
+            }
+        }, $config);
     }
 
-    public function registerSyncConnection(?string $url = null): void
+    public function registerSyncConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
     {
-        $url ??= $this->syncTargetDatabaseUrl();
-        if ($url === null || $url === '') {
+        $config ??= $this->tenantSyncSettings->connectionConfig();
+        $url = $this->resolveTargetUrl($url, $config);
+        if ($url === '') {
             throw new RuntimeException('Geen doel-database-URL geconfigureerd (Instellingen → Omgeving-sync of TENANT_SYNC_TARGET_DATABASE_URL).');
         }
 
+        $url = $this->sshTunnel->applyTunnelToDatabaseUrl($url, $config);
+
+        $plainPassword = $config->databasePassword;
+        if ($plainPassword === null || $plainPassword === '') {
+            $plainPassword = TenantSyncDatabaseUrl::extractPassword($url);
+        }
+
+        $urlWithoutPassword = TenantSyncDatabaseUrl::stripPassword($url);
+
         $parser = new ConfigurationUrlParser;
-        $parsed = $parser->parseConfiguration(['url' => $url]);
+        $parsed = $parser->parseConfiguration(['url' => $urlWithoutPassword]);
         if (empty($parsed['driver'])) {
             throw new RuntimeException('Database-URL kon niet worden geïnterpreteerd (driver ontbreekt).');
+        }
+
+        if ($plainPassword !== null && $plainPassword !== '') {
+            $parsed['password'] = $plainPassword;
         }
 
         $defaultConn = (string) config('database.default');
@@ -97,6 +186,24 @@ final class TenantWebsiteBundleService
 
         config(['database.connections.'.self::SYNC_CONNECTION => $merged]);
         DB::purge(self::SYNC_CONNECTION);
+    }
+
+    private function resolveTargetUrl(?string $url, TenantSyncConnectionConfig $config): string
+    {
+        if ($url !== null && trim($url) !== '') {
+            $plain = trim($url);
+            $password = $config->databasePassword;
+            if ($password !== null && $password !== '') {
+                return TenantSyncDatabaseUrl::injectPassword(
+                    TenantSyncDatabaseUrl::stripPassword($plain),
+                    $password
+                );
+            }
+
+            return $plain;
+        }
+
+        return $config->resolvedDatabaseUrl();
     }
 
     /**

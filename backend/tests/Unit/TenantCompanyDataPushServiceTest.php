@@ -42,6 +42,25 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function sync_scope_includes_prerequisite_tables_for_module_foreign_keys(): void
+    {
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $prerequisite = $scope['prerequisite_tables'] ?? [];
+
+        if (Schema::hasTable('modules') && Schema::hasTable('company_module')) {
+            $this->assertContains('modules', $prerequisite);
+        }
+        if (Schema::hasTable('frontend_themes') && Schema::hasTable('modules')
+            && Schema::hasColumn('modules', 'frontend_theme_id')) {
+            $themePos = array_search('frontend_themes', $prerequisite, true);
+            $modulePos = array_search('modules', $prerequisite, true);
+            if ($themePos !== false && $modulePos !== false) {
+                $this->assertLessThan($modulePos, $themePos, 'frontend_themes must sync before modules');
+            }
+        }
+    }
+
+    #[Test]
     public function sync_scope_lists_users_table_when_present(): void
     {
         if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'company_id')) {
@@ -88,6 +107,37 @@ class TenantCompanyDataPushServiceTest extends TestCase
             'type' => 'other_type',
             'name' => 'Contact',
         ]));
+    }
+
+    #[Test]
+    public function backfill_timestamps_fills_null_created_at_on_target(): void
+    {
+        if (! Schema::hasTable('companies')) {
+            $this->markTestSkipped('companies table required');
+        }
+
+        $company = Company::query()->create([
+            'name' => 'Timestamp Backfill Co',
+            'slug' => 'timestamp-backfill-'.uniqid(),
+        ]);
+        $sourceCreated = now()->subDays(10);
+        DB::table('companies')->where('id', $company->id)->update([
+            'created_at' => null,
+            'updated_at' => null,
+        ]);
+
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'backfillTimestampsIfMissingOnTarget');
+        $method->setAccessible(true);
+        $conn = (string) config('database.default');
+        $method->invoke($service, $conn, 'companies', (int) $company->id, [
+            'created_at' => $sourceCreated,
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $refreshed = DB::table('companies')->where('id', $company->id)->first();
+        $this->assertNotNull($refreshed->created_at);
+        $this->assertSame($sourceCreated->format('Y-m-d H:i:s'), (string) $refreshed->created_at);
     }
 
     #[Test]

@@ -21,5 +21,12 @@ return [
         'skillmatching' => ['skillmatching'],
     ],
 
+    /*
+    | Minimale tabellen per module; ensureModuleStorageReady draait migraties als ze ontbreken.
+    */
+    'required_tables' => [
+        'taxi' => ['vehicles', 'ride_requests', 'default_rates'],
+    ],
+
     'default_set' => ['core', 'shared'],
 ];

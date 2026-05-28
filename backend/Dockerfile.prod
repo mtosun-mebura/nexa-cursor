@@ -12,6 +12,7 @@ RUN apt-get install -y --fix-broken || true
 RUN apt-get install -y --no-install-recommends \
         git \
         unzip \
+        openssh-client \
         libpq-dev \
         libzip-dev \
         libonig-dev \

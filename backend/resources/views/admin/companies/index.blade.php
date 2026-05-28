@@ -299,7 +299,7 @@
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
-                                            <span class="text-sm">{{ $company->created_at->format('d-m-Y') }}</span>
+                                            <span class="text-sm">{{ $company->created_at?->format('d-m-Y') ?? '—' }}</span>
                                         </td>
                                         <td class="w-[60px]" onclick="event.stopPropagation();">
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
