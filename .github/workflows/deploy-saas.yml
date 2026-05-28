@@ -65,6 +65,19 @@ jobs:
             echo "Sudo naar $TARGET: MISLUKT — zie deploy/github-runner-sudoers.example"
           fi
 
+          OBJ="$TENANT_DIR/.git/objects"
+          if [[ -w "$OBJ" ]] && touch "$OBJ/.preflight-write-test" 2>/dev/null; then
+            rm -f "$OBJ/.preflight-write-test"
+            echo ".git/objects schrijfbaar als $U: OK"
+          elif sudo -n chown -R "$TARGET:$TARGET" "$TENANT_DIR/.git" 2>/dev/null \
+            && sudo -n -u "$TARGET" test -w "$OBJ"; then
+            echo ".git/objects: gefixt via sudo chown → $TARGET"
+          else
+            echo "WAARSCHUWING: $OBJ niet schrijfbaar voor deploy-user $TARGET"
+            echo "Eenmalig op de server: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
+            echo "CI: voeg sudoers-regel toe (deploy/github-runner-sudoers.example → NEXA_CHOWN_GIT)"
+          fi
+
       - name: Deploy
         run: |
           set -euxo pipefail
