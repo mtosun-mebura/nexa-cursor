@@ -150,6 +150,15 @@ _docker_safe_prune() {
   docker container prune -f 2>/dev/null || true
 }
 
+# docker-compose 1.29.x faalt soms met KeyError 'ContainerConfig' bij `up -d` + recreate.
+# down + up (zonder --volumes) maakt nieuwe containers; named volumes (Postgres-data) blijven.
+_compose_up_deploy() {
+  echo "==> Compose down (remove-orphans, volumes blijven behouden)"
+  _compose down --remove-orphans 2>/dev/null || true
+  echo "==> Compose up -d"
+  _compose up -d
+}
+
 # docker-compose.deploy: ./.env moet een regulier bestand zijn (geen directory).
 _ensure_compose_env_mount() {
   local env_path="$TENANT_DIR/.env"
@@ -357,7 +366,7 @@ _preflight_compose_file
 _compose pull || true
 _docker_safe_prune
 _compose build --pull
-_compose up -d
+_compose_up_deploy
 
 _read_dotenv_db_credentials() {
   DB_DEPLOY_USER="${DB_USERNAME:-nexa}"
