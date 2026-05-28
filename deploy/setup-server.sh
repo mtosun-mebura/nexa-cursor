@@ -79,6 +79,8 @@ server {
     root /var/www/nexa/public;
     index index.php;
 
+    client_max_body_size 512M;
+
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
 

@@ -55,6 +55,19 @@ return [
     ],
 
     /*
+    | Nexa Taxi (connection module_taxi / schema nexa_taxi): voertuigen per tenant + standaardtarieven.
+    */
+    'taxi_module' => [
+        'module_name' => 'taxi',
+        'company_scoped_tables' => ['vehicles'],
+        'global_tables' => ['default_rates'],
+        'natural_keys' => [
+            'vehicles' => ['company_id', 'name'],
+            'default_rates' => ['person_range'],
+        ],
+    ],
+
+    /*
     | Natuurlijke sleutels om bestaande rijen op doel te herkennen (geen dubbele inserts).
     | Waarden zijn kolomnamen; volgorde telt. Lege/null waarden in een matchkolom → fallback-kolommen (zie service).
     */
@@ -75,6 +88,8 @@ return [
         'invoice_settings' => ['company_id', 'location_id'],
         'ride_payments' => ['mollie_payment_id'],
         'model_has_roles' => ['company_id', 'role_id', 'model_id', 'model_type'],
+        'vehicles' => ['company_id', 'name'],
+        'default_rates' => ['person_range'],
     ],
 
     'priority_tables' => [

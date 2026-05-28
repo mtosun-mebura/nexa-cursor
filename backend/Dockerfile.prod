@@ -41,6 +41,9 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
 
+# PHP upload limits (tenant-ZIP import, grote media)
+COPY php-upload.ini /usr/local/etc/php/conf.d/99-upload.ini
+
 # 2) Dan pas alle code
 COPY . .
 

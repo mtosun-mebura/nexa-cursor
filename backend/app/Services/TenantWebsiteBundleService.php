@@ -29,6 +29,8 @@ final class TenantWebsiteBundleService
 
     public const SYNC_CONNECTION = 'tenant_website_sync_target';
 
+    public const SYNC_MODULE_TAXI_CONNECTION = 'tenant_sync_module_taxi';
+
     public function __construct(
         protected WebsiteBuilderService $websiteBuilder,
         protected TenantSyncSettingsService $tenantSyncSettings,
@@ -186,6 +188,38 @@ final class TenantWebsiteBundleService
 
         config(['database.connections.'.self::SYNC_CONNECTION => $merged]);
         DB::purge(self::SYNC_CONNECTION);
+    }
+
+    /**
+     * Module-taxi connection naar het sync-doel (zelfde host/DB als SYNC_CONNECTION, schema/search_path van module_taxi).
+     */
+    public function registerSyncModuleTaxiConnection(): string
+    {
+        $sync = config('database.connections.'.self::SYNC_CONNECTION);
+        if (! is_array($sync)) {
+            throw new RuntimeException('Sync-connection niet geregistreerd; roep eerst registerSyncConnection() aan.');
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        $moduleName = (string) (config('tenant_sync.taxi_module.module_name') ?? 'taxi');
+        $merged = $sync;
+
+        if ($dbService->usesSchemaStrategy()) {
+            $schema = $dbService->getModuleSchemaName($moduleName);
+            $merged['search_path'] = $schema.',public';
+        } elseif ($dbService->usesDatabaseStrategy()) {
+            $merged['database'] = $dbService->getModuleDatabaseName($moduleName);
+        } else {
+            $sourceModule = config('database.connections.'.app(ModuleDatabaseService::class)->getModuleConnectionName($moduleName));
+            if (is_array($sourceModule) && ! empty($sourceModule['search_path'])) {
+                $merged['search_path'] = $sourceModule['search_path'];
+            }
+        }
+
+        config(['database.connections.'.self::SYNC_MODULE_TAXI_CONNECTION => $merged]);
+        DB::purge(self::SYNC_MODULE_TAXI_CONNECTION);
+
+        return self::SYNC_MODULE_TAXI_CONNECTION;
     }
 
     private function resolveTargetUrl(?string $url, TenantSyncConnectionConfig $config): string

@@ -395,12 +395,14 @@ class AdminSettingsController extends Controller
     public function importTenantStorageBundle(Request $request)
     {
         $this->ensureSuperAdmin();
+        $maxKb = (int) config('upload.tenant_bundle_max_kb', 512000);
         $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
-            'bundle' => ['required', 'file', 'mimes:zip', 'max:512000'],
+            'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
             'bundle.required' => 'Selecteer een ZIP-bestand.',
             'bundle.mimes' => 'Alleen ZIP is toegestaan.',
+            'bundle.max' => 'ZIP is te groot (max. '.(int) floor($maxKb / 1024).' MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).',
         ]);
 
         try {
@@ -440,12 +442,14 @@ class AdminSettingsController extends Controller
     public function importTenantWebsiteBundle(Request $request)
     {
         $this->ensureSuperAdmin();
+        $maxKb = (int) config('upload.tenant_bundle_max_kb', 512000);
         $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
-            'bundle' => ['required', 'file', 'mimes:zip', 'max:512000'],
+            'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
             'bundle.required' => 'Selecteer een ZIP-bestand.',
             'bundle.mimes' => 'Alleen ZIP is toegestaan.',
+            'bundle.max' => 'ZIP is te groot (max. '.(int) floor($maxKb / 1024).' MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).',
         ]);
 
         try {

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Modules\NexaTaxi\Support\NexaTaxiSchema;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ final class TenantCompanyDataPushService
      *     company_row: string,
      *     tables_with_company_id: list<string>,
      *     prerequisite_tables: list<string>,
+     *     taxi_module_tables: list<string>,
      *     payment_company_scoped_tables: list<string>,
      *     excluded_tables: list<string>,
      *     driver: string
@@ -54,6 +56,7 @@ final class TenantCompanyDataPushService
             'company_row' => 'companies (één rij per tenant; op doel hergebruikt op slug of nieuw id)',
             'tables_with_company_id' => $tables,
             'prerequisite_tables' => $this->discoverPrerequisiteTables($connection, $tables),
+            'taxi_module_tables' => $this->taxiModuleSyncTableNames(),
             'payment_company_scoped_tables' => $paymentTables,
             'excluded_tables' => array_values(config('tenant_sync.excluded_tables', [])),
             'driver' => $driver,
@@ -216,6 +219,22 @@ final class TenantCompanyDataPushService
                 }
             }
 
+            $taxiStats = $this->pushTaxiModuleForTenant(
+                $sourceConn,
+                $sourceCompanyId,
+                $remoteCompanyId,
+                $idMaps
+            );
+            $inserted += $taxiStats['inserted'];
+            $skipped += $taxiStats['skipped'];
+            $updated = $taxiStats['updated'];
+            if ($updated > 0) {
+                $inserted += $updated;
+            }
+            if (($taxiStats['message'] ?? '') !== '') {
+                $messages[] = $taxiStats['message'];
+            }
+
             Log::info('tenant_full_push', [
                 'source_company_id' => $sourceCompanyId,
                 'remote_company_id' => $remoteCompanyId,
@@ -233,7 +252,250 @@ final class TenantCompanyDataPushService
             ];
         } finally {
             DB::purge($targetConn);
+            DB::purge(TenantWebsiteBundleService::SYNC_MODULE_TAXI_CONNECTION);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function taxiModuleSyncTableNames(): array
+    {
+        $cfg = config('tenant_sync.taxi_module', []);
+        if (! is_array($cfg)) {
+            return [];
+        }
+
+        $tables = [];
+        foreach (['company_scoped_tables', 'global_tables'] as $key) {
+            $list = $cfg[$key] ?? [];
+            if (is_array($list)) {
+                foreach ($list as $t) {
+                    if (is_string($t) && $t !== '') {
+                        $tables[] = $t;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($tables));
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, skipped: int, updated: int, message: string}
+     */
+    private function pushTaxiModuleForTenant(
+        string $mainSourceConn,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        if (! $this->tenantHasTaxiModuleOnSource($mainSourceConn, $sourceCompanyId)) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-module niet gekoppeld aan deze tenant; voertuigen/tarieven overgeslagen.',
+            ];
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->usesDatabaseStrategy()) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-sync: strategy=database (losse module-DB) wordt niet ondersteund bij omgeving-sync.',
+            ];
+        }
+
+        $dbService->registerConnection('taxi');
+        $dbService->ensureModuleStorageReady('taxi');
+        $sourceModuleConn = $dbService->getModuleConnectionName('taxi');
+
+        if (! NexaTaxiSchema::coreTablesExist($sourceModuleConn)) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-tabellen ontbreken op bron; voertuigen/tarieven overgeslagen.',
+            ];
+        }
+
+        $targetModuleConn = $this->websiteBundle->registerSyncModuleTaxiConnection();
+
+        if (! NexaTaxiSchema::coreTablesExist($targetModuleConn)) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-tabellen ontbreken op doel (draai modules:ensure-databases taxi op de server).',
+            ];
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+
+        $globalStats = $this->syncTaxiGlobalTables($sourceModuleConn, $targetModuleConn);
+        $inserted += $globalStats['inserted'];
+        $skipped += $globalStats['skipped'];
+        $updated += $globalStats['updated'];
+
+        if (Schema::connection($sourceModuleConn)->hasTable('vehicles')
+            && Schema::connection($sourceModuleConn)->hasColumn('vehicles', 'company_id')) {
+            $rows = DB::connection($sourceModuleConn)->table('vehicles')
+                ->where('company_id', $sourceCompanyId)
+                ->orderBy('id')
+                ->get();
+
+            foreach ($rows as $rowObj) {
+                $row = (array) $rowObj;
+                $oldId = isset($row['id']) ? (int) $row['id'] : null;
+                unset($row['id']);
+                $row['company_id'] = $remoteCompanyId;
+                $payload = $this->stripUnsupportedColumns('vehicles', $row, $targetModuleConn);
+                if ($payload === []) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, 'vehicles', $payload);
+                if ($existingId !== null && $existingId > 0) {
+                    $updatePayload = $payload;
+                    unset($updatePayload['created_at'], $updatePayload['company_id']);
+                    if ($updatePayload !== []) {
+                        DB::connection($targetModuleConn)->table('vehicles')
+                            ->where('id', $existingId)
+                            ->update($updatePayload);
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                    if ($oldId !== null) {
+                        $idMaps['vehicles'][$oldId] = $existingId;
+                    }
+
+                    continue;
+                }
+
+                $outcome = $this->insertRowOnTarget(
+                    $sourceModuleConn,
+                    $targetModuleConn,
+                    'vehicles',
+                    $payload,
+                    $oldId,
+                    $remoteCompanyId,
+                    $idMaps
+                );
+                if ($outcome === 'inserted') {
+                    $inserted++;
+                } else {
+                    $skipped++;
+                }
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'skipped' => $skipped,
+            'updated' => $updated,
+            'message' => sprintf(
+                'Taxi-module (schema %s): %d voertuigen/tarieven toegevoegd, %d bijgewerkt, %d overgeslagen.',
+                app(ModuleDatabaseService::class)->getModuleSchemaName('taxi'),
+                $inserted,
+                $updated,
+                $skipped
+            ),
+        ];
+    }
+
+    private function tenantHasTaxiModuleOnSource(string $mainConn, int $companyId): bool
+    {
+        if (! Schema::connection($mainConn)->hasTable('company_module')
+            || ! Schema::connection($mainConn)->hasTable('modules')) {
+            return false;
+        }
+
+        return DB::connection($mainConn)->table('company_module')
+            ->join('modules', 'modules.id', '=', 'company_module.module_id')
+            ->where('company_module.company_id', $companyId)
+            ->whereRaw('LOWER(modules.name) = ?', ['taxi'])
+            ->exists();
+    }
+
+    /**
+     * @return array{inserted: int, skipped: int, updated: int}
+     */
+    private function syncTaxiGlobalTables(string $sourceModuleConn, string $targetModuleConn): array
+    {
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+        $globalTables = config('tenant_sync.taxi_module.global_tables', ['default_rates']);
+        if (! is_array($globalTables)) {
+            return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
+        }
+
+        foreach ($globalTables as $table) {
+            if (! is_string($table) || $table === ''
+                || ! Schema::connection($sourceModuleConn)->hasTable($table)
+                || ! Schema::connection($targetModuleConn)->hasTable($table)) {
+                continue;
+            }
+
+            $rows = DB::connection($sourceModuleConn)->table($table)->orderBy('id')->get();
+            foreach ($rows as $rowObj) {
+                $row = (array) $rowObj;
+                $oldId = isset($row['id']) ? (int) $row['id'] : null;
+                unset($row['id']);
+                $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
+                if ($payload === []) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, $table, $payload);
+                if ($existingId !== null && $existingId > 0) {
+                    $updatePayload = $payload;
+                    unset($updatePayload['created_at']);
+                    if ($updatePayload !== []) {
+                        DB::connection($targetModuleConn)->table($table)
+                            ->where('id', $existingId)
+                            ->update($updatePayload);
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                    if ($oldId !== null) {
+                        $idMaps[$table][$oldId] = $existingId;
+                    }
+
+                    continue;
+                }
+
+                try {
+                    $newId = (int) DB::connection($targetModuleConn)->table($table)->insertGetId($payload);
+                    if ($oldId !== null) {
+                        $idMaps[$table][$oldId] = $newId;
+                    }
+                    $inserted++;
+                } catch (UniqueConstraintViolationException) {
+                    $skipped++;
+                } catch (Throwable $e) {
+                    if ($this->isDuplicateKeyException($e)) {
+                        $skipped++;
+                    } else {
+                        throw $e;
+                    }
+                }
+            }
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped, 'updated' => $updated];
     }
 
     /**
@@ -254,7 +516,7 @@ final class TenantCompanyDataPushService
             return null;
         }
 
-        return $this->stripUnsupportedColumns($table, $row);
+        return $this->stripUnsupportedColumns($table, $row, TenantWebsiteBundleService::SYNC_CONNECTION);
     }
 
     /**
@@ -286,9 +548,9 @@ final class TenantCompanyDataPushService
         return $row;
     }
 
-    private function stripUnsupportedColumns(string $table, array $row): array
+    private function stripUnsupportedColumns(string $table, array $row, ?string $connection = null): array
     {
-        $conn = TenantWebsiteBundleService::SYNC_CONNECTION;
+        $conn = $connection ?? TenantWebsiteBundleService::SYNC_CONNECTION;
         $cols = Schema::connection($conn)->getColumnListing($table);
         $allowed = array_flip($cols);
         $out = [];
@@ -349,6 +611,10 @@ final class TenantCompanyDataPushService
             $q->where('host', $payload['host']);
         } elseif ($table === 'company_module' && isset($payload['module_id'])) {
             $q->where('module_id', $payload['module_id']);
+        } elseif ($table === 'vehicles' && isset($payload['company_id'], $payload['name'])) {
+            $q->where('company_id', $payload['company_id'])->where('name', $payload['name']);
+        } elseif ($table === 'default_rates' && isset($payload['person_range'])) {
+            $q->where('person_range', $payload['person_range']);
         } elseif ($table === 'payment_providers' && isset($payload['provider_type'])) {
             $q->where('provider_type', $payload['provider_type']);
         } elseif ($table === 'invoice_settings') {
