@@ -379,14 +379,34 @@ _read_dotenv_db_credentials() {
   fi
 }
 
-# Laravel migrate maakt geen PostgreSQL-rol/database aan. Bootstrap via superuser postgres (oud volume / handmatige install).
+# Laravel migrate maakt geen PostgreSQL-rol/database aan. Admin = postgres OF POSTGRES_USER uit .env (vaak nexa).
+PSQL_SUPERUSER=""
+
+_detect_psql_superuser() {
+  _read_dotenv_db_credentials
+  local su
+  for su in postgres "$DB_DEPLOY_USER"; do
+    [[ -z "$su" ]] && continue
+    if _compose exec -T db psql -U "$su" -d template1 -tAc "SELECT 1" >/dev/null 2>&1; then
+      PSQL_SUPERUSER="$su"
+      echo "==> Postgres admin-user: ${PSQL_SUPERUSER}"
+      return 0
+    fi
+    if _compose exec -T db psql -U "$su" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+      PSQL_SUPERUSER="$su"
+      echo "==> Postgres admin-user: ${PSQL_SUPERUSER}"
+      return 0
+    fi
+  done
+  echo "ERROR: Geen psql-toegang als postgres of ${DB_DEPLOY_USER} in db-container." >&2
+  echo "TIP: controleer DB_PASSWORD in .env en of het volume bij eerste start met POSTGRES_USER is geïnitialiseerd." >&2
+  return 1
+}
+
 _db_psql_admin() {
-  local maint_db="${1:-postgres}"
+  local maint_db="${1:-template1}"
   shift
-  if _compose exec -T db psql -U postgres -d "$maint_db" "$@"; then
-    return 0
-  fi
-  _compose exec -T db psql -U postgres -d template1 "$@"
+  _compose exec -T db psql -U "$PSQL_SUPERUSER" -d "$maint_db" "$@"
 }
 
 _ensure_main_database_exists() {
@@ -404,21 +424,20 @@ _ensure_main_database_exists() {
     echo "ERROR: DB_PASSWORD ontbreekt in $TENANT_DIR/.env (vereist voor Postgres-bootstrap)." >&2
     exit 1
   fi
-  if ! _db_psql_admin postgres -tAc "SELECT 1" >/dev/null 2>&1; then
-    echo "ERROR: Kan niet inloggen als postgres in db-container. Reset volume of herstel superuser." >&2
-    exit 1
-  fi
-  if ! _db_psql_admin postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${user}'" | grep -q 1; then
+  _detect_psql_superuser
+
+  if [[ "$PSQL_SUPERUSER" != "$user" ]] \
+    && ! _db_psql_admin template1 -tAc "SELECT 1 FROM pg_roles WHERE rolname='${user}'" | grep -q 1; then
     echo "==> Postgres-rol ${user} ontbreekt — aanmaken"
-    _db_psql_admin postgres -v ON_ERROR_STOP=1 -c \
+    _db_psql_admin template1 -v ON_ERROR_STOP=1 -c \
       "CREATE ROLE \"${user//\"/\"\"}\" WITH LOGIN PASSWORD '${pw//\'/\'\'}' CREATEDB;"
   fi
-  if _db_psql_admin postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${dbname}'" | grep -q 1; then
+  if _db_psql_admin template1 -tAc "SELECT 1 FROM pg_database WHERE datname='${dbname}'" | grep -q 1; then
     echo "==> Hoofddatabase ${dbname} bestaat al"
     return 0
   fi
   echo "==> Hoofddatabase ${dbname} ontbreekt — aanmaken (OWNER ${user})"
-  _db_psql_admin postgres -v ON_ERROR_STOP=1 -c \
+  _db_psql_admin template1 -v ON_ERROR_STOP=1 -c \
     "CREATE DATABASE \"${dbname//\"/\"\"}\" OWNER \"${user//\"/\"\"}\";"
 }
 
