@@ -46,16 +46,31 @@ echo "==> Bootstrap Postgres (user=$DB_USER db=$DB_NAME)"
 "${DC[@]}" up -d db
 sleep 3
 
-"${DC[@]}" exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
-  "DO \$\$ BEGIN
-     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DB_USER}') THEN
-       CREATE ROLE \"${DB_USER//\"/\"\"}\" WITH LOGIN PASSWORD '${DB_PASS//\'/\'\'}' CREATEDB;
-     END IF;
-   END \$\$;"
+PSQL_SU=""
+for su in postgres "$DB_USER"; do
+  if "${DC[@]}" exec -T db psql -U "$su" -d template1 -tAc "SELECT 1" >/dev/null 2>&1; then
+    PSQL_SU="$su"
+    break
+  fi
+done
+if [[ -z "$PSQL_SU" ]]; then
+  echo "ERROR: geen psql als postgres of $DB_USER" >&2
+  exit 1
+fi
+echo "==> Admin-user: $PSQL_SU"
 
-"${DC[@]}" exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+if [[ "$PSQL_SU" != "$DB_USER" ]]; then
+  "${DC[@]}" exec -T db psql -U "$PSQL_SU" -d template1 -v ON_ERROR_STOP=1 -c \
+    "DO \$\$ BEGIN
+       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DB_USER}') THEN
+         CREATE ROLE \"${DB_USER//\"/\"\"}\" WITH LOGIN PASSWORD '${DB_PASS//\'/\'\'}' CREATEDB;
+       END IF;
+     END \$\$;"
+fi
+
+"${DC[@]}" exec -T db psql -U "$PSQL_SU" -d template1 -tAc \
   "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1 \
-  || "${DC[@]}" exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+  || "${DC[@]}" exec -T db psql -U "$PSQL_SU" -d template1 -v ON_ERROR_STOP=1 -c \
   "CREATE DATABASE \"${DB_NAME//\"/\"\"}\" OWNER \"${DB_USER//\"/\"\"}\";"
 
 "${DC[@]}" exec -T db pg_isready -U "$DB_USER" -d "$DB_NAME"
