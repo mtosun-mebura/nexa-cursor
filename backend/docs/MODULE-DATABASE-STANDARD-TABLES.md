@@ -151,10 +151,14 @@ php artisan migrate
   - **nexa_skillmatching**: core + shared + modules/skillmatching (geen vehicles/ride_requests).
 - Daarna wordt alleen de **superadmin** ge seed (RoleSeeder); rechten en rollen zijn gebaseerd op de **pagina’s van die module** (via `registerPermissions()`). Tabellen blijven verder leeg.
 
-### Eén database (single-database mode)
+### Schema per module (standaard)
 
-Met `MODULE_USE_SINGLE_DATABASE=true` in je `.env` worden **geen** aparte module-databases aangemaakt. Alle tabellen (core, shared én alle module-tabellen zoals `vehicles`, `ride_requests`) staan dan in de **hoofddatabase** (bijv. `nexa`). Handig als je maar één schema/database wilt beheren.
+Met `MODULE_DATABASE_STRATEGY=schema` (standaard) staat alles in **één database** (`nexa`): kern in `public`, module-tabellen in PostgreSQL-schema's `nexa_taxi`, `nexa_skillmatching`, …
 
-- Bij **installatie** van een module worden de **module-migraties** op de hoofddatabase gedraaid (archief of `database/migrations/modules/{module}/` als die map gevuld is).
-- Bij **verwijderen** van een module wordt geen database gedropt; de module-tabellen blijven in de hoofddatabase staan.
+- Bij **installatie** van een module: `setupModuleSchema` + module-migraties op connection `module_*`.
+- In pgAdmin/DBeaver: open database `nexa` → Schemas → `nexa_taxi`.
+
+### Eén database, alles in public (legacy `single`)
+
+Alleen bij `MODULE_DATABASE_STRATEGY=single`: alle tabellen in `public`, geen aparte schema's.
 - In de admin (Modules) verdwijnen de knoppen "Database reset" en "Database dummydata" en de vermelding van een aparte databasenaam.

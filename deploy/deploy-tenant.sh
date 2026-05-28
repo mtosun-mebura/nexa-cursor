@@ -6,7 +6,7 @@
 #
 # Artisan / Composer: draai in de backend-container, niet met `php artisan` op de host in
 # TENANT_DIR/backend — daar staat geen vendor/ (die zit in de image onder /var/www/html).
-# Voorbeeld: cd TENANT_DIR && docker compose -f docker-compose.prod.yml exec backend php artisan …
+# Voorbeeld: cd TENANT_DIR && docker compose -f docker-compose.deploy.yml exec backend php artisan …
 #
 # DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Voor git reset: storage/bootstrap/cache
 # worden vóór fetch teruggechown (container root of sudo), anders blijven www-data-bestanden
@@ -40,7 +40,7 @@ GIT_REMOTE="${GIT_REMOTE:-origin}"
 GIT_BRANCH="${GIT_BRANCH:-release/test}"
 # Optioneel: exacte tag of commit voor productie (bijv. v1.2.3). Leeg = branch-deploy (test/CI).
 GIT_REF="${GIT_REF:-}"
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 DEPLOY_USER="${DEPLOY_USER:-mtosun}"
 LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
 BACKEND_DIR="${BACKEND_DIR:-$TENANT_DIR/backend}"
@@ -88,7 +88,7 @@ _compose() {
   exit 1
 }
 
-# Proxmox-test en AWS-prod gebruiken docker-compose.prod.yml; oude compose v1 kent geen `include:`.
+# Proxmox-test en AWS-prod gebruiken docker-compose.deploy.yml; oude compose v1 kent geen `include:`.
 _preflight_compose_file() {
   local compose_path="$TENANT_DIR/$COMPOSE_FILE"
   if [[ ! -f "$compose_path" ]]; then
@@ -99,7 +99,7 @@ _preflight_compose_file() {
   echo "==> Compose-bestand: $compose_path"
   if grep -qE '^[[:space:]]*include:' "$compose_path" 2>/dev/null; then
     echo "ERROR: $COMPOSE_FILE gebruikt 'include:' — niet ondersteund op deze server (alleen docker compose v2)." >&2
-    echo "Oplossing: pull/reset naar release/test met inline db in docker-compose.prod.yml (geen include-blok)." >&2
+    echo "Oplossing: pull/reset naar release/test met inline db in docker-compose.deploy.yml (geen include-blok)." >&2
     exit 1
   fi
   echo "==> Valideren compose-config..."
@@ -131,7 +131,7 @@ _docker_safe_prune() {
   docker container prune -f 2>/dev/null || true
 }
 
-# docker-compose.prod: ./.env moet een regulier bestand zijn (geen directory).
+# docker-compose.deploy: ./.env moet een regulier bestand zijn (geen directory).
 _ensure_compose_env_mount() {
   local env_path="$TENANT_DIR/.env"
   if [[ -d "$env_path" ]]; then
@@ -223,7 +223,7 @@ _fix_backend_tree_for_git_reset() {
   local uid gid fix_cmd d
   uid=$(id -u)
   gid=$(id -g)
-  # Eén regel voor exec/run -c (paden = volume-mounts in docker-compose.prod)
+  # Eén regel voor exec/run -c (paden = volume-mounts in docker-compose.deploy)
   fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
 
   echo "==> Laravel writable dirs → ${uid}:${gid} + ug+rwX"
@@ -339,27 +339,89 @@ _docker_safe_prune
 _compose build --pull
 _compose up -d
 
+_read_dotenv_db_credentials() {
+  DB_DEPLOY_USER="${DB_USERNAME:-nexa}"
+  DB_DEPLOY_NAME="${DB_DATABASE:-nexa}"
+  if [[ -f "$TENANT_DIR/.env" ]]; then
+    DB_DEPLOY_USER="$(grep -E '^DB_USERNAME=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
+    DB_DEPLOY_NAME="$(grep -E '^DB_DATABASE=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
+    DB_DEPLOY_USER="${DB_DEPLOY_USER:-nexa}"
+    DB_DEPLOY_NAME="${DB_DEPLOY_NAME:-nexa}"
+  fi
+}
+
+# Laravel migrate maakt geen PostgreSQL-rol/database aan. Bootstrap via superuser postgres (oud volume / handmatige install).
+_db_psql_admin() {
+  local maint_db="${1:-postgres}"
+  shift
+  if _compose exec -T db psql -U postgres -d "$maint_db" "$@"; then
+    return 0
+  fi
+  _compose exec -T db psql -U postgres -d template1 "$@"
+}
+
+_ensure_main_database_exists() {
+  _read_dotenv_db_credentials
+  local user="$DB_DEPLOY_USER" dbname="$DB_DEPLOY_NAME"
+  local pw=""
+  if [[ -f "$TENANT_DIR/.env" ]]; then
+    pw="$(grep -E '^DB_PASSWORD=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
+    pw="${pw%\"}"
+    pw="${pw#\"}"
+    pw="${pw%\'}"
+    pw="${pw#\'}"
+  fi
+  if [[ -z "$pw" ]]; then
+    echo "ERROR: DB_PASSWORD ontbreekt in $TENANT_DIR/.env (vereist voor Postgres-bootstrap)." >&2
+    exit 1
+  fi
+  if ! _db_psql_admin postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+    echo "ERROR: Kan niet inloggen als postgres in db-container. Reset volume of herstel superuser." >&2
+    exit 1
+  fi
+  if ! _db_psql_admin postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${user}'" | grep -q 1; then
+    echo "==> Postgres-rol ${user} ontbreekt — aanmaken"
+    _db_psql_admin postgres -v ON_ERROR_STOP=1 -c \
+      "CREATE ROLE \"${user//\"/\"\"}\" WITH LOGIN PASSWORD '${pw//\'/\'\'}' CREATEDB;"
+  fi
+  if _db_psql_admin postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${dbname}'" | grep -q 1; then
+    echo "==> Hoofddatabase ${dbname} bestaat al"
+    return 0
+  fi
+  echo "==> Hoofddatabase ${dbname} ontbreekt — aanmaken (OWNER ${user})"
+  _db_psql_admin postgres -v ON_ERROR_STOP=1 -c \
+    "CREATE DATABASE \"${dbname//\"/\"\"}\" OWNER \"${user//\"/\"\"}\";"
+}
+
 _wait_for_postgres() {
   local user dbname tries=0
-  user="${DB_USERNAME:-nexa}"
-  dbname="${DB_DATABASE:-nexa}"
-  if [[ -f "$TENANT_DIR/.env" ]]; then
-    user="$(grep -E '^DB_USERNAME=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
-    dbname="$(grep -E '^DB_DATABASE=' "$TENANT_DIR/.env" | cut -d= -f2- | tr -d '\r' || true)"
-    user="${user:-nexa}"
-    dbname="${dbname:-nexa}"
-  fi
-  echo "==> Wachten tot PostgreSQL (db) gezond is (user=${user}, db=${dbname})"
-  until _compose exec -T db pg_isready -U "$user" -d "$dbname" >/dev/null 2>&1; do
+  _read_dotenv_db_credentials
+  user="$DB_DEPLOY_USER"
+  dbname="$DB_DEPLOY_NAME"
+  echo "==> Wachten tot PostgreSQL-server bereikbaar is (user=${user})"
+  until _compose exec -T db pg_isready -U "$user" -d template1 >/dev/null 2>&1 \
+    || _compose exec -T db pg_isready -U "$user" >/dev/null 2>&1; do
     tries=$((tries + 1))
     if [[ "$tries" -ge 30 ]]; then
-      echo "ERROR: PostgreSQL container reageert niet op pg_isready." >&2
+      echo "ERROR: PostgreSQL-server reageert niet." >&2
       _compose logs --tail=60 db || true
       exit 1
     fi
     sleep 2
   done
-  echo "==> PostgreSQL OK"
+  _ensure_main_database_exists
+  echo "==> Wachten tot database ${dbname} bereikbaar is"
+  tries=0
+  until _compose exec -T db pg_isready -U "$user" -d "$dbname" >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [[ "$tries" -ge 15 ]]; then
+      echo "ERROR: Database ${dbname} niet bereikbaar via pg_isready." >&2
+      _compose logs --tail=60 db || true
+      exit 1
+    fi
+    sleep 2
+  done
+  echo "==> PostgreSQL OK (${dbname})"
 }
 
 _wait_for_postgres
@@ -367,9 +429,10 @@ _wait_for_postgres
 echo "==> Wachten tot Laravel service beschikbaar is"
 sleep 3
 
-echo "==> Laravel migrations + basis seed + cache"
+echo "==> Laravel migrations + basis seed + module-schema/DB's"
 _compose exec -T "$LARAVEL_SERVICE" php artisan migrate --force
 _compose exec -T "$LARAVEL_SERVICE" php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force
+_compose exec -T "$LARAVEL_SERVICE" php artisan modules:ensure-databases || true
 _compose exec -T "$LARAVEL_SERVICE" php artisan config:clear
 _compose exec -T "$LARAVEL_SERVICE" php artisan cache:clear
 _compose exec -T "$LARAVEL_SERVICE" php artisan route:clear
@@ -379,5 +442,5 @@ _compose exec -T "$LARAVEL_SERVICE" php artisan optimize
 echo "==> Deploy klaar ($(date -Iseconds))"
 echo ""
 echo "TIP: Geen 'php artisan' op de host in ${BACKEND_DIR} (geen vendor daar)."
-echo "    Voorbeeld: cd $(printf %q "$TENANT_DIR") && docker compose -f ${COMPOSE_FILE} exec -T ${LARAVEL_SERVICE} php artisan config:clear"
+echo "    Voorbeeld: cd $(printf %q "$TENANT_DIR") && docker-compose -f ${COMPOSE_FILE} exec -T ${LARAVEL_SERVICE} php artisan config:clear"
 echo "    (zonder -T voor een TTY: laat -T weg)"

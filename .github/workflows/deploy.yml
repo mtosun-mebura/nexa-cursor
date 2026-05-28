@@ -11,7 +11,7 @@ jobs:
 
     env:
       DEPLOY_DIR: /var/www/nexa
-      COMPOSE_FILE: docker-compose.prod.yml
+      COMPOSE_FILE: docker-compose.deploy.yml
       BACKEND_DIR: /var/www/nexa/backend
     steps:
       - name: Cleanup disk space
@@ -232,10 +232,10 @@ jobs:
       - name: Laravel post-deploy
         run: |
           cd /var/www/nexa
-          docker compose -f docker-compose.prod.yml exec -T backend sh -c "chown www-data:www-data /var/www/html/.env && chmod 644 /var/www/html/.env" || true
-          docker compose -f docker-compose.prod.yml exec -T backend php artisan config:clear
-          docker compose -f docker-compose.prod.yml exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
-          docker compose -f docker-compose.prod.yml exec -T backend php artisan config:cache
+          docker compose -f docker-compose.deploy.yml exec -T backend sh -c "chown www-data:www-data /var/www/html/.env && chmod 644 /var/www/html/.env" || true
+          docker compose -f docker-compose.deploy.yml exec -T backend php artisan config:clear
+          docker compose -f docker-compose.deploy.yml exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
+          docker compose -f docker-compose.deploy.yml exec -T backend php artisan config:cache
 
       - name: Fix .env permissions before key:generate
         run: |

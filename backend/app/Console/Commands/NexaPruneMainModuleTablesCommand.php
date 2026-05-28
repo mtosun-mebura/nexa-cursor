@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 /**
  * Verwijdert op de hoofd-DB (nexa) tabellen die bij losse module-DB's horen
- * (MODULE_USE_SINGLE_DATABASE=false). Zie config/module_database.php → main_database_prune_tables.
+ * (MODULE_DATABASE_STRATEGY=database). Zie config/module_database.php → main_database_prune_tables.
  */
 class NexaPruneMainModuleTablesCommand extends Command
 {
@@ -24,8 +24,9 @@ class NexaPruneMainModuleTablesCommand extends Command
             return self::FAILURE;
         }
 
-        if (config('module_database.use_single_database', false)) {
-            $this->warn('MODULE_USE_SINGLE_DATABASE=true: er is niets te schonen; alle tabellen horen op de hoofd-DB.');
+        $dbService = app(\App\Services\ModuleDatabaseService::class);
+        if (! $dbService->usesDatabaseStrategy()) {
+            $this->warn('Alleen relevant bij MODULE_DATABASE_STRATEGY=database; bij schema/single is er niets te schonen op public.');
 
             return self::SUCCESS;
         }
