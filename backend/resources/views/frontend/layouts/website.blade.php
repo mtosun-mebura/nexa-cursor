@@ -868,11 +868,13 @@
     </footer>
 
     @php
-        $frontendEnv = app(\App\Services\EnvService::class);
-        $whatsappWidgetEnabled = (string) $frontendEnv->get('WHATSAPP_WIDGET_ENABLED', '0') === '1';
-        $whatsappWidgetPhoneRaw = trim((string) $frontendEnv->get('WHATSAPP_WIDGET_PHONE', ''));
-        $whatsappWidgetPhoneDigits = preg_replace('/\D+/', '', $whatsappWidgetPhoneRaw);
-        $whatsappWidgetMessage = trim((string) $frontendEnv->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'));
+        // WhatsApp-widget uitsluitend op basis van de (tenant-)instelling (general_settings), niet uit .env.
+        // De controller geeft $whatsappWidget door; voor pagina's die deze layout zonder die variabele gebruiken
+        // valt de widget terug op "uit" (geen .env-afhankelijkheid).
+        $whatsappWidget = $whatsappWidget ?? ['enabled' => false, 'phone' => '', 'message' => ''];
+        $whatsappWidgetEnabled = (bool) ($whatsappWidget['enabled'] ?? false);
+        $whatsappWidgetPhoneDigits = preg_replace('/\D+/', '', (string) ($whatsappWidget['phone'] ?? ''));
+        $whatsappWidgetMessage = trim((string) ($whatsappWidget['message'] ?? ''));
         if ($whatsappWidgetMessage === '') {
             $whatsappWidgetMessage = 'Hallo, ik heb een vraag over jullie diensten.';
         }

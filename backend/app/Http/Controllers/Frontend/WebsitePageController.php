@@ -180,17 +180,16 @@ class WebsitePageController extends Controller
         // Atom v2: laad thema-styles op alle paginatypes zodat about/contact/custom dezelfde weergave hebben als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
         $env = app(EnvService::class);
-        $googleMapsApiKey = trim((string) (config('maps.api_key') ?? ''));
-        if ($googleMapsApiKey === '') {
-            $googleMapsApiKey = $env->getGoogleMapsApiKey();
-        }
-        if ($googleMapsApiKey === '') {
-            $googleMapsApiKey = trim((string) env('GOOGLE_MAPS_API_KEY', ''));
-        }
+        // Maps-key per tenant: eerst de (tenant-)instelling, daarna .env-fallback.
+        $googleMapsApiKey = $this->websiteBuilder->resolveGoogleMapsApiKeyForPage($page);
         if ($googleMapsApiKey === '') {
             $googleMapsApiKey = $this->readGoogleMapsApiKeyFromEnvFiles();
         }
-        $googleMapsMapId = $env->getGoogleMapsMapId();
+        $googleMapsMapId = $this->websiteBuilder->resolveGoogleMapsMapIdForPage($page);
+        if ($googleMapsMapId === '') {
+            $googleMapsMapId = $env->getGoogleMapsMapId();
+        }
+        $whatsappWidget = $this->websiteBuilder->resolveWhatsappWidgetForPage($page);
 
         $reviewsCompanyId = GoogleReviewsService::resolveCompanyIdForWebsitePage($page);
         $googleReviews = $useThemeHomeLayout
@@ -220,6 +219,7 @@ class WebsitePageController extends Controller
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
             'googleReviews' => $googleReviews,
+            'whatsappWidget' => $whatsappWidget,
         ]);
     }
 

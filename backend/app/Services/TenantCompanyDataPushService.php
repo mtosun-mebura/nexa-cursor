@@ -219,6 +219,13 @@ final class TenantCompanyDataPushService
                 }
             }
 
+            $globalSettingsStats = $this->pushGlobalGeneralSettings($sourceConn, $targetConn);
+            $inserted += $globalSettingsStats['inserted'];
+            $skipped += $globalSettingsStats['skipped'];
+            if (($globalSettingsStats['message'] ?? '') !== '') {
+                $messages[] = $globalSettingsStats['message'];
+            }
+
             $taxiStats = $this->pushTaxiModuleForTenant(
                 $sourceConn,
                 $sourceCompanyId,
@@ -412,6 +419,89 @@ final class TenantCompanyDataPushService
         ];
     }
 
+    /**
+     * Globale (company_id IS NULL) general_settings voor geconfigureerde frontend-keys naar het doel,
+     * zodat o.a. de WhatsApp-widget ook werkt als die niet per tenant is opgeslagen.
+     *
+     * @return array{inserted: int, skipped: int, message: string}
+     */
+    private function pushGlobalGeneralSettings(string $sourceConn, string $targetConn): array
+    {
+        $keys = config('tenant_sync.global_general_setting_keys', []);
+        if (! is_array($keys) || $keys === []
+            || ! Schema::connection($sourceConn)->hasTable('general_settings')
+            || ! Schema::connection($targetConn)->hasTable('general_settings')) {
+            return ['inserted' => 0, 'skipped' => 0, 'message' => ''];
+        }
+
+        $keys = array_values(array_filter($keys, fn ($k) => is_string($k) && $k !== ''));
+        if ($keys === []) {
+            return ['inserted' => 0, 'skipped' => 0, 'message' => ''];
+        }
+
+        $rows = DB::connection($sourceConn)->table('general_settings')
+            ->whereNull('company_id')
+            ->whereIn('key', $keys)
+            ->get();
+
+        $inserted = 0;
+        $skipped = 0;
+        foreach ($rows as $rowObj) {
+            $row = (array) $rowObj;
+            $key = (string) ($row['key'] ?? '');
+            if ($key === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $existing = DB::connection($targetConn)->table('general_settings')
+                ->whereNull('company_id')
+                ->where('key', $key)
+                ->first();
+
+            $payload = $this->stripUnsupportedColumns('general_settings', $row, $targetConn);
+            unset($payload['id']);
+            $payload['company_id'] = null;
+
+            if ($existing !== null) {
+                $update = $payload;
+                unset($update['created_at']);
+                if ($update !== []) {
+                    DB::connection($targetConn)->table('general_settings')
+                        ->where('id', $existing->id)
+                        ->update($update);
+                }
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                DB::connection($targetConn)->table('general_settings')->insert($payload);
+                $inserted++;
+            } catch (UniqueConstraintViolationException) {
+                $skipped++;
+            } catch (Throwable $e) {
+                if ($this->isDuplicateKeyException($e)) {
+                    $skipped++;
+                } else {
+                    throw $e;
+                }
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'skipped' => $skipped,
+            'message' => sprintf(
+                'Globale frontend-instellingen (o.a. WhatsApp-widget): %d toegevoegd, %d bijgewerkt/overgeslagen.',
+                $inserted,
+                $skipped
+            ),
+        ];
+    }
+
     private function tenantHasTaxiModuleOnSource(string $mainConn, int $companyId): bool
     {
         if (! Schema::connection($mainConn)->hasTable('company_module')
@@ -560,7 +650,35 @@ final class TenantCompanyDataPushService
             }
         }
 
-        return $out;
+        return $this->normalizeBinaryColumns($table, $out);
+    }
+
+    /**
+     * Binaire kolommen (bytea/blob) als ruwe bytes klaarzetten: PostgreSQL levert bytea soms als stream-resource,
+     * die anders leeg/corrupt op het doel belandt (o.a. users.photo_blob → profielfoto verdwijnt).
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function normalizeBinaryColumns(string $table, array $row): array
+    {
+        $binaryColumns = config("tenant_sync.binary_columns.{$table}", []);
+        if (! is_array($binaryColumns) || $binaryColumns === []) {
+            return $row;
+        }
+
+        foreach ($binaryColumns as $column) {
+            if (! is_string($column) || ! array_key_exists($column, $row)) {
+                continue;
+            }
+            $value = $row[$column];
+            if (is_resource($value)) {
+                $contents = stream_get_contents($value);
+                $row[$column] = $contents === false ? null : $contents;
+            }
+        }
+
+        return $row;
     }
 
     /**
@@ -1300,6 +1418,7 @@ final class TenantCompanyDataPushService
                     } else {
                         $userUpdate['updated_at'] = now();
                     }
+                    $userUpdate += $this->avatarUpdateForExistingTargetUser($existing, $payload);
                     DB::connection($targetConn)->table('users')
                         ->where('id', $existingId)
                         ->update($userUpdate);
@@ -1558,6 +1677,31 @@ final class TenantCompanyDataPushService
         $this->tryLearnIdFromUniqueHit($targetConn, $table, $payload, $oldId, $idMaps);
 
         return 'skipped';
+    }
+
+    /**
+     * Profielfoto-velden voor de update van een bestaande doel-gebruiker: alleen aanvullen
+     * als het doel nog geen foto heeft, zodat de bron-avatar verschijnt zonder een doel-avatar te overschrijven.
+     *
+     * @param  object  $existing  Huidige rij op doel
+     * @param  array<string, mixed>  $payload  Genormaliseerde bron-rij (photo_blob al als bytes)
+     * @return array<string, mixed>
+     */
+    private function avatarUpdateForExistingTargetUser(object $existing, array $payload): array
+    {
+        $targetHasPhoto = ! empty($existing->photo_blob ?? null) || ! empty($existing->photo ?? null);
+        if ($targetHasPhoto) {
+            return [];
+        }
+
+        $update = [];
+        foreach (['photo_blob', 'photo_mime_type', 'photo'] as $column) {
+            if (array_key_exists($column, $payload) && $payload[$column] !== null && $payload[$column] !== '') {
+                $update[$column] = $payload[$column];
+            }
+        }
+
+        return $update;
     }
 
     /**

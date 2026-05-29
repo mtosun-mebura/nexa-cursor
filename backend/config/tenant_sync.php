@@ -55,6 +55,25 @@ return [
     ],
 
     /*
+    | general_settings die globaal kunnen staan (company_id IS NULL) maar wél naar het doel moeten,
+    | zodat frontend-functies (o.a. WhatsApp-widget) ook werken als ze niet per tenant zijn opgeslagen.
+    | Company-scoped general_settings reizen al mee via de gewone company-push.
+    */
+    'global_general_setting_keys' => [
+        'WHATSAPP_WIDGET_ENABLED',
+        'WHATSAPP_WIDGET_PHONE',
+        'WHATSAPP_WIDGET_DEFAULT_MESSAGE',
+    ],
+
+    /*
+    | Binaire kolommen (bytea/blob) die als ruwe bytes moeten worden overgezet (geen stream-resource).
+    | Voorkomt dat o.a. profielfoto's (users.photo_blob) leeg/corrupt op het doel belanden.
+    */
+    'binary_columns' => [
+        'users' => ['photo_blob'],
+    ],
+
+    /*
     | Nexa Taxi (connection module_taxi / schema nexa_taxi): voertuigen per tenant + standaardtarieven.
     */
     'taxi_module' => [

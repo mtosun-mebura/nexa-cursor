@@ -366,6 +366,15 @@ final class TenantWebsiteBundleService
 
         $pagePayloads = $this->buildPageExportPayloads($company);
 
+        $mediaRecords = $this->collectWebsiteMediaRecordsForCompany($company);
+        $mediaPayloads = $mediaRecords->map(fn (WebsiteMedia $m) => [
+            'uuid' => (string) $m->uuid,
+            'original_filename' => $m->original_filename,
+            'mime_type' => $m->mime_type,
+            'encrypted_path' => str_replace('\\', '/', trim((string) $m->encrypted_path, '/')),
+            'size' => $m->size !== null ? (int) $m->size : null,
+        ])->values()->all();
+
         $manifest = [
             'bundle_version' => self::BUNDLE_VERSION,
             'exported_at' => now()->toIso8601String(),
@@ -373,13 +382,14 @@ final class TenantWebsiteBundleService
             'source_company_name' => (string) $company->name,
             'pages' => $pagePayloads,
             'storage_paths' => $allPaths,
-            'note' => 'Import overschrijft website_pages per slug/module_name/company_id op de doelomgeving. Bestanden onder storage/app/public worden toegevoegd.',
+            'website_media' => $mediaPayloads,
+            'note' => 'Import overschrijft website_pages per slug/module_name/company_id op de doelomgeving. Bestanden onder storage/app/public worden toegevoegd; carousel/slider-media (website_media) worden hersteld onder media-local/.',
         ];
 
         $safeSlug = Str::slug($company->name) ?: 'company';
         $filename = 'website-bundle-'.$company->id.'-'.$safeSlug.'-'.now()->format('Y-m-d-His').'.zip';
 
-        return response()->streamDownload(function () use ($manifest, $allPaths) {
+        return response()->streamDownload(function () use ($manifest, $allPaths, $mediaPayloads) {
             $zipPath = tempnam(sys_get_temp_dir(), 'nexa_wb_');
             if ($zipPath === false) {
                 throw new RuntimeException('Kon geen tijdelijk bestand aanmaken.');
@@ -401,6 +411,18 @@ final class TenantWebsiteBundleService
                 $abs = storage_path('app/public/'.$rel);
                 if (is_file($abs) && is_readable($abs)) {
                     $zip->addFile($abs, 'files/'.$rel);
+                }
+            }
+
+            // Versleutelde carousel/slider-media (schijf "local" = storage/app/...) → media-local/<encrypted_path>
+            foreach ($mediaPayloads as $media) {
+                $rel = trim((string) ($media['encrypted_path'] ?? ''), '/');
+                if ($rel === '' || str_contains($rel, '..')) {
+                    continue;
+                }
+                $abs = storage_path('app/'.$rel);
+                if (is_file($abs) && is_readable($abs)) {
+                    $zip->addFile($abs, 'media-local/'.$rel);
                 }
             }
 
@@ -455,7 +477,86 @@ final class TenantWebsiteBundleService
 
         $copied = $this->copyFilesFromZipToPublicDisk($tmp);
 
+        $mediaEntries = is_array($manifest['website_media'] ?? null) ? $manifest['website_media'] : [];
+        $copied += $this->copyMediaLocalFilesFromZip($tmp);
+        $this->importWebsiteMediaRecords($mediaEntries);
+
         return ['imported_pages' => $imported, 'copied_files' => $copied];
+    }
+
+    /**
+     * Versleutelde carousel/slider-bestanden uit de ZIP (media-local/) terugschrijven op schijf "local" (storage/app/...).
+     */
+    private function copyMediaLocalFilesFromZip(string $zipRealPath): int
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($zipRealPath) !== true) {
+            return 0;
+        }
+
+        $copied = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (! is_string($name) || ! str_starts_with($name, 'media-local/')) {
+                continue;
+            }
+            $rel = substr($name, strlen('media-local/'));
+            $rel = str_replace('\\', '/', trim($rel, '/'));
+            if ($rel === '' || str_contains($rel, '..')) {
+                continue;
+            }
+
+            $target = storage_path('app/'.$rel);
+            $dir = dirname($target);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            $content = $zip->getFromIndex($i);
+            if (is_string($content)) {
+                file_put_contents($target, $content);
+                $copied++;
+            }
+        }
+        $zip->close();
+
+        return $copied;
+    }
+
+    /**
+     * website_media-rijen herstellen (upsert op uuid) zodat /website-media/{uuid} op het doel werkt.
+     *
+     * @param  list<array<string, mixed>>  $entries
+     */
+    private function importWebsiteMediaRecords(array $entries): int
+    {
+        if ($entries === [] || ! Schema::hasTable('website_media')) {
+            return 0;
+        }
+
+        $imported = 0;
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $uuid = trim((string) ($entry['uuid'] ?? ''));
+            $encryptedPath = str_replace('\\', '/', trim((string) ($entry['encrypted_path'] ?? ''), '/'));
+            if ($uuid === '' || $encryptedPath === '' || str_contains($encryptedPath, '..')) {
+                continue;
+            }
+
+            $attrs = [
+                'original_filename' => $entry['original_filename'] ?? null,
+                'mime_type' => $entry['mime_type'] ?? null,
+                'encrypted_path' => $encryptedPath,
+                'size' => isset($entry['size']) && $entry['size'] !== null ? (int) $entry['size'] : null,
+            ];
+
+            WebsiteMedia::query()->updateOrCreate(['uuid' => $uuid], $attrs);
+            $imported++;
+        }
+
+        return $imported;
     }
 
     private function copyFilesFromZipToPublicDisk(string $zipRealPath): int
@@ -551,16 +652,12 @@ final class TenantWebsiteBundleService
     }
 
     /**
-     * Versleutelde carousel-/website-media op schijf "local" (storage/app/…), gerefereerd vanuit pagina’s van dit bedrijf.
+     * UUID's van website-media (carousel/slider) gerefereerd vanuit pagina's van dit bedrijf.
      *
-     * @return list<string> paden relatief t.o.v. storage/app (niet public)
+     * @return list<string>
      */
-    public function collectEncryptedWebsiteMediaAppPathsForCompany(Company $company): array
+    public function collectReferencedWebsiteMediaUuids(Company $company): array
     {
-        if (! Schema::hasTable('website_media')) {
-            return [];
-        }
-
         $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
             ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
 
@@ -572,29 +669,46 @@ final class TenantWebsiteBundleService
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).' ';
         }
 
-        if ($blob === '') {
+        if ($blob === '' || ! preg_match_all('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i', $blob, $mu)) {
             return [];
         }
 
-        if (! preg_match_all('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i', $blob, $mu)) {
-            return [];
+        return array_values(array_unique(array_slice($mu[0], 0, 500)));
+    }
+
+    /**
+     * Versleutelde website-media-records (carousel/slider) gerefereerd vanuit pagina's van dit bedrijf.
+     *
+     * @return \Illuminate\Support\Collection<int, WebsiteMedia>
+     */
+    public function collectWebsiteMediaRecordsForCompany(Company $company): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('website_media')) {
+            return collect();
         }
 
-        $uuids = array_values(array_unique(array_slice($mu[0], 0, 500)));
+        $uuids = $this->collectReferencedWebsiteMediaUuids($company);
         if ($uuids === []) {
-            return [];
+            return collect();
         }
 
-        $paths = WebsiteMedia::query()
-            ->whereIn('uuid', $uuids)
+        return WebsiteMedia::query()->whereIn('uuid', $uuids)->get();
+    }
+
+    /**
+     * Versleutelde carousel-/website-media op schijf "local" (storage/app/…), gerefereerd vanuit pagina’s van dit bedrijf.
+     *
+     * @return list<string> paden relatief t.o.v. storage/app (niet public)
+     */
+    public function collectEncryptedWebsiteMediaAppPathsForCompany(Company $company): array
+    {
+        return $this->collectWebsiteMediaRecordsForCompany($company)
             ->pluck('encrypted_path')
             ->filter(fn ($p) => is_string($p) && trim($p) !== '' && ! str_contains((string) $p, '..'))
             ->map(fn ($p) => str_replace('\\', '/', trim((string) $p, '/')))
             ->unique()
             ->values()
             ->all();
-
-        return array_values($paths);
     }
 
     public function normalizeStorageRelativePath(string $path): string

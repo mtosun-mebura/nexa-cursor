@@ -151,6 +151,51 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function normalize_binary_columns_converts_stream_resource_to_bytes(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'normalizeBinaryColumns');
+        $method->setAccessible(true);
+
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, 'BINARY-AVATAR-BYTES');
+        rewind($stream);
+
+        $out = $method->invoke($service, 'users', ['photo_blob' => $stream, 'name' => 'Jan']);
+
+        $this->assertSame('BINARY-AVATAR-BYTES', $out['photo_blob']);
+        $this->assertSame('Jan', $out['name']);
+    }
+
+    #[Test]
+    public function avatar_update_only_fills_when_target_has_no_photo(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'avatarUpdateForExistingTargetUser');
+        $method->setAccessible(true);
+
+        $payload = ['photo_blob' => 'BYTES', 'photo_mime_type' => 'image/png', 'photo' => null];
+
+        $emptyTarget = (object) ['photo_blob' => null, 'photo' => null];
+        $update = $method->invoke($service, $emptyTarget, $payload);
+        $this->assertSame('BYTES', $update['photo_blob'] ?? null);
+        $this->assertSame('image/png', $update['photo_mime_type'] ?? null);
+        $this->assertArrayNotHasKey('photo', $update);
+
+        $targetWithPhoto = (object) ['photo_blob' => 'EXISTING', 'photo' => null];
+        $this->assertSame([], $method->invoke($service, $targetWithPhoto, $payload));
+    }
+
+    #[Test]
+    public function global_general_setting_keys_include_whatsapp_widget(): void
+    {
+        $keys = config('tenant_sync.global_general_setting_keys', []);
+
+        $this->assertContains('WHATSAPP_WIDGET_ENABLED', $keys);
+        $this->assertContains('WHATSAPP_WIDGET_PHONE', $keys);
+    }
+
+    #[Test]
     public function collect_users_includes_role_linked_users_without_company_id(): void
     {
         if (! Schema::hasTable('model_has_roles') || ! Schema::hasColumn('model_has_roles', 'company_id')) {

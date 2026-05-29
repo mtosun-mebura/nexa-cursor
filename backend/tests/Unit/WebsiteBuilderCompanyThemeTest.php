@@ -215,4 +215,64 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
 
         $this->assertNull(app(WebsiteBuilderService::class)->getThemeForCompany($company->id));
     }
+
+    public function test_google_maps_key_uses_tenant_setting_over_env(): void
+    {
+        config(['maps.api_key' => 'ENV_GLOBAL_KEY']);
+
+        $company = Company::query()->create(['name' => 'Maps Tenant']);
+        \App\Models\GeneralSetting::set('GOOGLE_MAPS_API_KEY', 'TENANT_KEY_123', $company->id);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $service = app(WebsiteBuilderService::class);
+        $this->assertSame('TENANT_KEY_123', $service->resolveGoogleMapsApiKeyForPage($page));
+
+        // Zonder tenant-instelling valt het terug op .env/config.
+        $other = Company::query()->create(['name' => 'No Maps Tenant']);
+        $otherPage = WebsitePage::query()->create([
+            'slug' => 'home-2',
+            'title' => 'Home 2',
+            'page_type' => 'home',
+            'company_id' => $other->id,
+            'is_active' => true,
+        ]);
+        $this->assertSame('ENV_GLOBAL_KEY', $service->resolveGoogleMapsApiKeyForPage($otherPage));
+    }
+
+    public function test_whatsapp_widget_enabled_only_from_tenant_setting(): void
+    {
+        $company = Company::query()->create(['name' => 'WA Tenant']);
+        \App\Models\GeneralSetting::set('WHATSAPP_WIDGET_ENABLED', '1', $company->id);
+        \App\Models\GeneralSetting::set('WHATSAPP_WIDGET_PHONE', '+31 6 1234 5678', $company->id);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'company_id' => $company->id,
+            'is_active' => true,
+        ]);
+
+        $widget = app(WebsiteBuilderService::class)->resolveWhatsappWidgetForPage($page);
+        $this->assertTrue($widget['enabled']);
+        $this->assertSame('31612345678', $widget['phone']);
+
+        // Andere tenant zonder instelling: widget uit, ongeacht .env.
+        $other = Company::query()->create(['name' => 'WA Off Tenant']);
+        $otherPage = WebsitePage::query()->create([
+            'slug' => 'home-2',
+            'title' => 'Home 2',
+            'page_type' => 'home',
+            'company_id' => $other->id,
+            'is_active' => true,
+        ]);
+        $this->assertFalse(app(WebsiteBuilderService::class)->resolveWhatsappWidgetForPage($otherPage)['enabled']);
+    }
 }
