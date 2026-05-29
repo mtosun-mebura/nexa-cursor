@@ -102,6 +102,69 @@ class WebsiteBuilderService
         return (int) $id;
     }
 
+    /**
+     * Tenant-bedrijf voor een pagina: eigen company_id, anders de opgeloste publieke tenant.
+     */
+    public function tenantCompanyIdForPage(WebsitePage $page): ?int
+    {
+        $cid = $page->getAttribute('company_id');
+        $cid = ($cid !== null && $cid !== '') ? (int) $cid : null;
+
+        return $cid ?? $this->resolvedPublicTenantCompanyId();
+    }
+
+    /**
+     * Google Maps API-key per tenant: eerst de (tenant-)instelling in general_settings, daarna pas .env.
+     * Zo kan elke tenant een eigen key gebruiken; .env is alleen fallback als er niets is ingesteld.
+     */
+    public function resolveGoogleMapsApiKeyForPage(WebsitePage $page): string
+    {
+        $cid = $this->tenantCompanyIdForPage($page);
+        $fromSetting = trim((string) (GeneralSetting::get('GOOGLE_MAPS_API_KEY', null, $cid) ?? ''));
+        if ($fromSetting !== '') {
+            return $fromSetting;
+        }
+
+        return trim((string) (config('maps.api_key') ?? env('GOOGLE_MAPS_API_KEY', '')));
+    }
+
+    /**
+     * Google Maps Map ID per tenant: eerst de (tenant-)instelling, daarna .env.
+     */
+    public function resolveGoogleMapsMapIdForPage(WebsitePage $page): string
+    {
+        $cid = $this->tenantCompanyIdForPage($page);
+        $fromSetting = trim((string) (GeneralSetting::get('GOOGLE_MAPS_MAP_ID', null, $cid) ?? ''));
+        if ($fromSetting !== '') {
+            return $fromSetting;
+        }
+
+        return trim((string) (config('maps.map_id') ?? env('GOOGLE_MAPS_MAP_ID', '')));
+    }
+
+    /**
+     * WhatsApp-widget rechtsonder: uitsluitend op basis van de (tenant-)instelling in general_settings,
+     * niet op basis van .env. Tonen zodra de instelling aan staat én er een telefoonnummer is.
+     *
+     * @return array{enabled: bool, phone: string, message: string}
+     */
+    public function resolveWhatsappWidgetForPage(WebsitePage $page): array
+    {
+        $cid = $this->tenantCompanyIdForPage($page);
+        $enabled = (string) (GeneralSetting::get('WHATSAPP_WIDGET_ENABLED', '0', $cid) ?? '0') === '1';
+        $phoneDigits = preg_replace('/\D+/', '', trim((string) (GeneralSetting::get('WHATSAPP_WIDGET_PHONE', '', $cid) ?? '')));
+        $message = trim((string) (GeneralSetting::get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', '', $cid) ?? ''));
+        if ($message === '') {
+            $message = 'Hallo, ik heb een vraag over jullie diensten.';
+        }
+
+        return [
+            'enabled' => $enabled && $phoneDigits !== '',
+            'phone' => (string) $phoneDigits,
+            'message' => $message,
+        ];
+    }
+
     protected function isAdminLikeRequest(): bool
     {
         if (! function_exists('request') || ! request()) {
