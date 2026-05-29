@@ -33,11 +33,7 @@ class TenantWebsiteBundleCarouselMediaTest extends TestCase
 
         $uuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
         $encryptedPath = 'website_media/'.$uuid.'.enc';
-        $absDir = storage_path('app/website_media');
-        if (! is_dir($absDir)) {
-            mkdir($absDir, 0755, true);
-        }
-        file_put_contents(storage_path('app/'.$encryptedPath), 'ENCRYPTED-BYTES');
+        \Illuminate\Support\Facades\Storage::disk('local')->put($encryptedPath, 'ENCRYPTED-BYTES');
 
         WebsiteMedia::query()->create([
             'uuid' => $uuid,
@@ -69,7 +65,7 @@ class TenantWebsiteBundleCarouselMediaTest extends TestCase
 
         // Verwijder media-record + bestand om import te simuleren op een "schone" doelomgeving.
         WebsiteMedia::query()->where('uuid', $uuid)->delete();
-        @unlink(storage_path('app/'.$encryptedPath));
+        \Illuminate\Support\Facades\Storage::disk('local')->delete($encryptedPath);
         $this->assertDatabaseMissing('website_media', ['uuid' => $uuid]);
 
         // Bouw een ZIP zoals export doet (manifest + media-local bestand).
@@ -102,9 +98,9 @@ class TenantWebsiteBundleCarouselMediaTest extends TestCase
         $result = $service->importZip($target, $upload);
 
         $this->assertDatabaseHas('website_media', ['uuid' => $uuid, 'encrypted_path' => $encryptedPath]);
-        $this->assertFileExists(storage_path('app/'.$encryptedPath));
+        $this->assertTrue(\Illuminate\Support\Facades\Storage::disk('local')->exists($encryptedPath));
         $this->assertGreaterThanOrEqual(1, $result['copied_files']);
 
-        @unlink(storage_path('app/'.$encryptedPath));
+        \Illuminate\Support\Facades\Storage::disk('local')->delete($encryptedPath);
     }
 }

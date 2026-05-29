@@ -12,8 +12,10 @@ use App\Models\WebsitePage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\ConfigurationUrlParser;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -30,6 +32,9 @@ final class TenantWebsiteBundleService
     public const SYNC_CONNECTION = 'tenant_website_sync_target';
 
     public const SYNC_MODULE_TAXI_CONNECTION = 'tenant_sync_module_taxi';
+
+    /** Schijf waarop versleutelde website_media staan (root: storage/app/private). */
+    private const MEDIA_DISK = 'local';
 
     public function __construct(
         protected WebsiteBuilderService $websiteBuilder,
@@ -360,20 +365,83 @@ final class TenantWebsiteBundleService
         return $imported;
     }
 
+    /**
+     * Manifest-payload voor carousel/slider-media (website_media) van dit bedrijf.
+     *
+     * @return list<array{uuid: string, original_filename: ?string, mime_type: ?string, encrypted_path: string, size: ?int}>
+     */
+    public function buildWebsiteMediaExportPayloads(Company $company): array
+    {
+        return $this->collectWebsiteMediaRecordsForCompany($company)
+            ->map(fn (WebsiteMedia $m) => [
+                'uuid' => (string) $m->uuid,
+                'original_filename' => $m->original_filename,
+                'mime_type' => $m->mime_type,
+                'encrypted_path' => str_replace('\\', '/', trim((string) $m->encrypted_path, '/')),
+                'size' => $m->size !== null ? (int) $m->size : null,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Versleutelde carousel/slider-media in de ZIP zetten. Standaard ontsleuteld onder media-plain/
+     * (doel-omgeving her-versleutelt met eigen APP_KEY → cross-key veilig). Lukt ontsleutelen niet,
+     * dan de ruwe bytes onder media-local/ als legacy fallback (zelfde-APP_KEY-import).
+     *
+     * @param  list<array<string, mixed>>  $mediaPayloads
+     */
+    public function addWebsiteMediaFilesToZip(ZipArchive $zip, array $mediaPayloads): void
+    {
+        $disk = Storage::disk(self::MEDIA_DISK);
+        foreach ($mediaPayloads as $media) {
+            $rel = str_replace('\\', '/', trim((string) ($media['encrypted_path'] ?? ''), '/'));
+            if ($rel === '' || str_contains($rel, '..') || ! $disk->exists($rel)) {
+                continue;
+            }
+
+            $encrypted = $disk->get($rel);
+            $plain = null;
+            if (is_string($encrypted) && $encrypted !== '') {
+                try {
+                    $decrypted = Crypt::decrypt($encrypted);
+                    $plain = is_string($decrypted) ? $decrypted : null;
+                } catch (\Throwable) {
+                    $plain = null;
+                }
+            }
+
+            if ($plain !== null) {
+                $zip->addFromString('media-plain/'.$rel, $plain);
+            } elseif (is_string($encrypted)) {
+                $zip->addFromString('media-local/'.$rel, $encrypted);
+            }
+        }
+    }
+
+    /**
+     * Volledig herstel van carousel/slider-media uit een ZIP: bestanden terugschrijven
+     * (media-plain/ her-versleuteld met de APP_KEY van deze omgeving, media-local/ ruw als legacy)
+     * en de website_media-rijen upserten op uuid. Retourneert het aantal teruggeschreven bestanden.
+     *
+     * @param  list<array<string, mixed>>  $mediaEntries
+     */
+    public function restoreWebsiteMediaFromZip(string $zipRealPath, array $mediaEntries): int
+    {
+        $written = $this->restoreMediaPlainFilesFromZip($zipRealPath);
+        $written += $this->copyMediaLocalFilesFromZip($zipRealPath);
+        $this->importWebsiteMediaRecords($mediaEntries);
+
+        return $written;
+    }
+
     public function exportZip(Company $company): StreamedResponse
     {
         $allPaths = $this->collectWebsiteMediaPathsForCompany($company);
 
         $pagePayloads = $this->buildPageExportPayloads($company);
 
-        $mediaRecords = $this->collectWebsiteMediaRecordsForCompany($company);
-        $mediaPayloads = $mediaRecords->map(fn (WebsiteMedia $m) => [
-            'uuid' => (string) $m->uuid,
-            'original_filename' => $m->original_filename,
-            'mime_type' => $m->mime_type,
-            'encrypted_path' => str_replace('\\', '/', trim((string) $m->encrypted_path, '/')),
-            'size' => $m->size !== null ? (int) $m->size : null,
-        ])->values()->all();
+        $mediaPayloads = $this->buildWebsiteMediaExportPayloads($company);
 
         $manifest = [
             'bundle_version' => self::BUNDLE_VERSION,
@@ -414,17 +482,9 @@ final class TenantWebsiteBundleService
                 }
             }
 
-            // Versleutelde carousel/slider-media (schijf "local" = storage/app/...) → media-local/<encrypted_path>
-            foreach ($mediaPayloads as $media) {
-                $rel = trim((string) ($media['encrypted_path'] ?? ''), '/');
-                if ($rel === '' || str_contains($rel, '..')) {
-                    continue;
-                }
-                $abs = storage_path('app/'.$rel);
-                if (is_file($abs) && is_readable($abs)) {
-                    $zip->addFile($abs, 'media-local/'.$rel);
-                }
-            }
+            // Versleutelde carousel/slider-media: ontsleuteld onder media-plain/ (cross-key veilig),
+            // anders ruwe bytes onder media-local/.
+            $this->addWebsiteMediaFilesToZip($zip, $mediaPayloads);
 
             $zip->close();
 
@@ -478,14 +538,51 @@ final class TenantWebsiteBundleService
         $copied = $this->copyFilesFromZipToPublicDisk($tmp);
 
         $mediaEntries = is_array($manifest['website_media'] ?? null) ? $manifest['website_media'] : [];
-        $copied += $this->copyMediaLocalFilesFromZip($tmp);
-        $this->importWebsiteMediaRecords($mediaEntries);
+        $copied += $this->restoreWebsiteMediaFromZip($tmp, $mediaEntries);
 
         return ['imported_pages' => $imported, 'copied_files' => $copied];
     }
 
     /**
-     * Versleutelde carousel/slider-bestanden uit de ZIP (media-local/) terugschrijven op schijf "local" (storage/app/...).
+     * Ontsleutelde carousel/slider-bestanden uit de ZIP (media-plain/) her-versleutelen met de
+     * APP_KEY van deze omgeving en wegschrijven op schijf "local" (storage/app/...), zodat
+     * /website-media/{uuid} ze kan ontsleutelen — ook als de bron een andere APP_KEY had.
+     */
+    private function restoreMediaPlainFilesFromZip(string $zipRealPath): int
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($zipRealPath) !== true) {
+            return 0;
+        }
+
+        $copied = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (! is_string($name) || ! str_starts_with($name, 'media-plain/')) {
+                continue;
+            }
+            $rel = substr($name, strlen('media-plain/'));
+            $rel = str_replace('\\', '/', trim($rel, '/'));
+            if ($rel === '' || str_contains($rel, '..')) {
+                continue;
+            }
+
+            $plain = $zip->getFromIndex($i);
+            if (! is_string($plain)) {
+                continue;
+            }
+
+            Storage::disk(self::MEDIA_DISK)->put($rel, Crypt::encrypt($plain));
+            $copied++;
+        }
+        $zip->close();
+
+        return $copied;
+    }
+
+    /**
+     * Legacy: ruwe (nog versleutelde) carousel/slider-bestanden uit de ZIP (media-local/)
+     * terugschrijven op schijf "local". Werkt alleen als bron en doel dezelfde APP_KEY hebben.
      */
     private function copyMediaLocalFilesFromZip(string $zipRealPath): int
     {
@@ -506,15 +603,9 @@ final class TenantWebsiteBundleService
                 continue;
             }
 
-            $target = storage_path('app/'.$rel);
-            $dir = dirname($target);
-            if (! is_dir($dir)) {
-                mkdir($dir, 0755, true);
-            }
-
             $content = $zip->getFromIndex($i);
             if (is_string($content)) {
-                file_put_contents($target, $content);
+                Storage::disk(self::MEDIA_DISK)->put($rel, $content);
                 $copied++;
             }
         }
