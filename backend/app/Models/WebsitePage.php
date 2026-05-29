@@ -144,6 +144,18 @@ class WebsitePage extends Model
             ->whereNull('module_name');
     }
 
+    /**
+     * Lees `home_sections` altijd als array, ook als de kolom een (dubbel ge-encode) JSON-string bevat.
+     * Voorkomt TypeError (array_keys/array-ops) bij data uit een sync of legacy-import.
+     *
+     * @param  mixed  $value
+     * @return array<string, mixed>
+     */
+    public function getHomeSectionsAttribute($value): array
+    {
+        return self::normalizeHomeSectionsValue($value);
+    }
+
     public function theme()
     {
         return $this->belongsTo(FrontendTheme::class, 'frontend_theme_id');
@@ -682,9 +694,36 @@ class WebsitePage extends Model
      * Home-secties voor weergave: opgeslagen data gemerged met defaults.
      * Ondersteunt dynamische sectie-keys (hero_2, features_2, etc.) uit section_order.
      */
+    /**
+     * `home_sections` kan op sommige omgevingen als (dubbel ge-encode) JSON-string in de kolom staan
+     * (bijv. na een data-sync). De array-cast decodeert dan maar één laag en levert een string op.
+     * Hier normaliseren we robuust naar een array, inclusief meerdere JSON-lagen.
+     *
+     * @param  mixed  $value
+     * @return array<string, mixed>
+     */
+    public static function normalizeHomeSectionsValue($value): array
+    {
+        $depth = 0;
+        while (is_string($value) && $depth < 5) {
+            $trimmed = trim($value);
+            if ($trimmed === '') {
+                return [];
+            }
+            $decoded = json_decode($trimmed, true);
+            if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                return [];
+            }
+            $value = $decoded;
+            $depth++;
+        }
+
+        return is_array($value) ? $value : [];
+    }
+
     public function getHomeSections(): array
     {
-        $stored = $this->home_sections ?? [];
+        $stored = self::normalizeHomeSectionsValue($this->home_sections);
         $themeSlug = $this->theme?->slug ?? 'modern';
         $isHome = $this->page_type === 'home' || $this->slug === 'home';
         $defaults = $isHome
