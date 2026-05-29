@@ -46,7 +46,7 @@
         body.theme-classic { --theme-primary: {{ $themeSettings['primary_color'] ?? '#1e40af' }}; }
         body.theme-minimal { --theme-primary: {{ $themeSettings['primary_color'] ?? '#0f172a' }}; }
     </style>
-    @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
+    @include('frontend.layouts.partials.vite-frontend-assets')
     @if(!empty($footerMapEarlyLoad))
     <script>
     (function() {

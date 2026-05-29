@@ -41,13 +41,22 @@
             $bookingTenantCompanyId = (int) $rtid;
         }
     }
-    $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
-    $bookingNotifications = app(\App\Modules\NexaTaxi\Services\TaxiBookingNotificationService::class);
-    $whatsappClickToChatNumber = $dispatchSettings->bookingWhatsappNumber($bookingTenantCompanyId);
-    $whatsappServerAutoSend = $bookingNotifications->whatsappAutoSendEnabled($bookingTenantCompanyId);
-    $whatsappClientClickToChat = $bookingNotifications->whatsappClientClickToChatEnabled($bookingTenantCompanyId);
-    $bookingConfig['address_search_url'] = url()->route('nexataxi.booking.address-search');
-    $bookingConfig['payment'] = $dispatchSettings->paymentOptionsForTenant($bookingTenantCompanyId);
+    $whatsappClickToChatNumber = '';
+    $whatsappServerAutoSend = false;
+    $whatsappClientClickToChat = false;
+    $bookingConfig['address_search_url'] = url('/nexa-taxi/booking/address-search');
+    $bookingConfig['payment'] = ['booking' => false, 'driver' => false, 'mollie_configured' => false];
+    try {
+        $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $bookingNotifications = app(\App\Modules\NexaTaxi\Services\TaxiBookingNotificationService::class);
+        $whatsappClickToChatNumber = $dispatchSettings->bookingWhatsappNumber($bookingTenantCompanyId);
+        $whatsappServerAutoSend = $bookingNotifications->whatsappAutoSendEnabled($bookingTenantCompanyId);
+        $whatsappClientClickToChat = $bookingNotifications->whatsappClientClickToChatEnabled($bookingTenantCompanyId);
+        $bookingConfig['address_search_url'] = url()->route('nexataxi.booking.address-search');
+        $bookingConfig['payment'] = $dispatchSettings->paymentOptionsForTenant($bookingTenantCompanyId);
+    } catch (\Throwable $e) {
+        report($e);
+    }
     $tabFontPxVal = (int) ($sectionStyle['tab_font_size_px'] ?? 14);
     $titleFontPxVal = (int) ($sectionStyle['title_font_size_px'] ?? 36);
     $titleFontPxVal = max(16, min(72, $titleFontPxVal));
