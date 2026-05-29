@@ -64,12 +64,14 @@ final class TenantStorageBundleService
     }
 
     /**
-     * @return list<string> paden relatief t.o.v. storage/app (local / encrypted website_media)
+     * Private app-bestanden (factuur-PDF’s e.d.) onder storage/app. Versleutelde website_media
+     * gaat NIET via private_files/ maar via media-plain/ (her-versleuteld op import → cross-key veilig).
+     *
+     * @return list<string> paden relatief t.o.v. storage/app
      */
     public function collectPrivateAppPathsForExport(Company $company): array
     {
-        $paths = $this->websiteBundle->collectEncryptedWebsiteMediaAppPathsForCompany($company);
-        $paths = array_merge($paths, $this->collectPrivateInvoicePdfPaths((int) $company->id));
+        $paths = $this->collectPrivateInvoicePdfPaths((int) $company->id);
 
         $unique = [];
         foreach ($paths as $p) {
@@ -118,6 +120,8 @@ final class TenantStorageBundleService
         $privateAppPaths = $this->collectPrivateAppPathsForExport($company);
         $pagePayloads = $this->websiteBundle->buildPageExportPayloads($company);
         $settingsPayload = $this->buildGeneralSettingsExportPayload((int) $company->id);
+        $mediaPayloads = $this->websiteBundle->buildWebsiteMediaExportPayloads($company);
+        $userPhotos = $this->buildUserPhotoExportPayload((int) $company->id);
 
         $manifest = [
             'bundle_type' => self::BUNDLE_TYPE,
@@ -129,14 +133,16 @@ final class TenantStorageBundleService
             'general_settings' => $settingsPayload,
             'storage_paths' => $allPaths,
             'private_storage_paths' => $privateAppPaths,
+            'website_media' => $mediaPayloads,
+            'user_photos' => $userPhotos,
             'payment_storage_note' => 'Factuur-PDF’s staan op de local disk (storage/app/private/invoices/{company_id}/) als private_files/private/invoices/… in de ZIP. Betalingsproviders en transacties zitten in de database en gaan via tenant-sync (payment_providers, invoice_settings, invoices, payments, payment_reminders, ride_payments).',
-            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (o.a. versleutelde website_media, factuur-PDF’s). Import zet beide terug. /file/-URL’s in de DB worden bij export als normale publieke paden meegenomen.',
+            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (factuur-PDF’s). Carousel/slider-media (website_media) gaan ontsleuteld onder media-plain/ en worden bij import met de doel-APP_KEY her-versleuteld. Profielfoto’s (user_photos) overschrijven de avatar van bestaande doel-gebruikers (match op e-mail).',
         ];
 
         $safeSlug = Str::slug($company->name) ?: 'company';
         $filename = 'tenant-export-'.$company->id.'-'.$safeSlug.'-'.now()->format('Y-m-d-His').'.zip';
 
-        return response()->streamDownload(function () use ($manifest, $allPaths, $privateAppPaths) {
+        return response()->streamDownload(function () use ($manifest, $allPaths, $privateAppPaths, $mediaPayloads) {
             $zipPath = tempnam(sys_get_temp_dir(), 'nexa_ts_');
             if ($zipPath === false) {
                 throw new RuntimeException('Kon geen tijdelijk bestand aanmaken.');
@@ -171,6 +177,9 @@ final class TenantStorageBundleService
                     $this->zipAddFileOrFromString($zip, $abs, 'private_files/'.$rel);
                 }
             }
+
+            // Carousel/slider-media: ontsleuteld onder media-plain/ (cross-key veilig), anders ruw onder media-local/.
+            $this->websiteBundle->addWebsiteMediaFilesToZip($zip, $mediaPayloads);
 
             $zip->close();
 
@@ -227,6 +236,7 @@ final class TenantStorageBundleService
 
         $importedPages = 0;
         $importedSettings = 0;
+        $importedPhotos = 0;
 
         if ($version === self::BUNDLE_VERSION) {
             $pages = $manifest['pages'] ?? [];
@@ -238,13 +248,112 @@ final class TenantStorageBundleService
             if (is_array($settings) && $settings !== []) {
                 $importedSettings = $this->importGeneralSettingsPayload($targetCompany, $settings);
             }
+
+            $mediaEntries = is_array($manifest['website_media'] ?? null) ? $manifest['website_media'] : [];
+            $copied += $this->websiteBundle->restoreWebsiteMediaFromZip($tmp, $mediaEntries);
+
+            $userPhotos = is_array($manifest['user_photos'] ?? null) ? $manifest['user_photos'] : [];
+            $importedPhotos = $this->importUserPhotos($targetCompany, $userPhotos);
         }
 
         return [
             'copied_files' => $copied,
             'imported_pages' => $importedPages,
             'imported_settings' => $importedSettings,
+            'imported_photos' => $importedPhotos,
         ];
+    }
+
+    /**
+     * Profielfoto’s (users.photo_blob, base64) van company-gebruikers exporteren, op e-mail te matchen.
+     *
+     * @return list<array{email: string, photo_blob: string, photo_mime_type: ?string}>
+     */
+    private function buildUserPhotoExportPayload(int $companyId): array
+    {
+        if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'photo_blob') || ! Schema::hasColumn('users', 'email')) {
+            return [];
+        }
+
+        $hasMime = Schema::hasColumn('users', 'photo_mime_type');
+        $columns = ['email', 'photo_blob'];
+        if ($hasMime) {
+            $columns[] = 'photo_mime_type';
+        }
+
+        $rows = DB::table('users')
+            ->where('company_id', $companyId)
+            ->whereNotNull('photo_blob')
+            ->where('photo_blob', '!=', '')
+            ->get($columns);
+
+        $out = [];
+        foreach ($rows as $row) {
+            $email = trim((string) ($row->email ?? ''));
+            $blob = (string) ($row->photo_blob ?? '');
+            if ($email === '' || $blob === '') {
+                continue;
+            }
+            $out[] = [
+                'email' => $email,
+                'photo_blob' => $blob,
+                'photo_mime_type' => $hasMime ? ($row->photo_mime_type ?? null) : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Profielfoto’s terugzetten op bestaande doel-gebruikers (match op e-mail binnen de tenant).
+     * Overschrijft een bestaande avatar als die er al staat (zoals gevraagd).
+     *
+     * @param  list<array<string, mixed>|mixed>  $entries
+     */
+    private function importUserPhotos(Company $targetCompany, array $entries): int
+    {
+        if ($entries === [] || ! Schema::hasTable('users') || ! Schema::hasColumn('users', 'photo_blob') || ! Schema::hasColumn('users', 'email')) {
+            return 0;
+        }
+
+        $hasMime = Schema::hasColumn('users', 'photo_mime_type');
+        $hasPhotoPath = Schema::hasColumn('users', 'photo');
+        $hasUpdatedAt = Schema::hasColumn('users', 'updated_at');
+
+        $n = 0;
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $email = isset($entry['email']) && is_string($entry['email']) ? trim($entry['email']) : '';
+            $blob = $entry['photo_blob'] ?? null;
+            if ($email === '' || ! is_string($blob) || $blob === '') {
+                continue;
+            }
+
+            $update = ['photo_blob' => $blob];
+            if ($hasMime) {
+                $mime = $entry['photo_mime_type'] ?? null;
+                $update['photo_mime_type'] = is_string($mime) && $mime !== '' ? $mime : null;
+            }
+            if ($hasPhotoPath) {
+                $update['photo'] = null;
+            }
+            if ($hasUpdatedAt) {
+                $update['updated_at'] = now();
+            }
+
+            $affected = DB::table('users')
+                ->where('company_id', (int) $targetCompany->id)
+                ->where('email', $email)
+                ->update($update);
+
+            if ($affected > 0) {
+                $n++;
+            }
+        }
+
+        return $n;
     }
 
     /**

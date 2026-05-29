@@ -418,7 +418,8 @@ class AdminSettingsController extends Controller
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
             ->with('success', 'Tenant-export geïmporteerd: '.$result['copied_files'].' bestand(en), '
-                .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en).');
+                .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en), '
+                .($result['imported_photos'] ?? 0).' profielfoto(\'s).');
     }
 
     /**
