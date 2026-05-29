@@ -65,6 +65,30 @@ class WebsiteBuilderService
         return $q;
     }
 
+    /**
+     * Pagina's uit module-connectie (search_path-fallback) terug op de hoofd-DB zetten voor relaties (theme, …).
+     */
+    protected function ensureWebsitePageOnDefaultConnection(?WebsitePage $page): ?WebsitePage
+    {
+        if ($page === null) {
+            return null;
+        }
+
+        $default = (new WebsitePage)->getConnectionName();
+        if ($page->getConnectionName() === $default) {
+            return $page;
+        }
+
+        $reloaded = WebsitePage::query()->whereKey($page->getKey())->first();
+        if ($reloaded !== null) {
+            return $reloaded;
+        }
+
+        $page->setConnection($default);
+
+        return $page;
+    }
+
     protected function resolvedPublicTenantCompanyId(): ?int
     {
         if (! app()->bound('resolved_tenant_id')) {
@@ -789,7 +813,7 @@ class WebsiteBuilderService
         $query = $this->websitePageQuery($moduleName)->active()
             ->where('page_type', 'home');
         $this->orderWebsiteHomePagesForTenant($query);
-        $page = $query->first();
+        $page = $this->ensureWebsitePageOnDefaultConnection($query->first());
         if ($page !== null) {
             return $page;
         }
@@ -799,7 +823,7 @@ class WebsiteBuilderService
             ->where('page_type', 'home');
         $this->orderWebsiteHomePagesForTenant($fallback);
 
-        return $fallback->first();
+        return $this->ensureWebsitePageOnDefaultConnection($fallback->first());
     }
 
     /**
@@ -940,7 +964,7 @@ class WebsiteBuilderService
     {
         $this->orderWebsitePagesForTenant($query);
 
-        return $query->first();
+        return $this->ensureWebsitePageOnDefaultConnection($query->first());
     }
 
     /**
