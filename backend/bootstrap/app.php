@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Achter reverse proxy (Apache/Varnish/Nginx): juiste scheme/host voor URL’s, sessiecookies en CSRF.
         $middleware->trustProxies(at: '*');
 
+        // Op https: forceer upgrade van http:// subresources naar https:// (geen mixed-content/"niet beveiligd").
+        $middleware->append(\App\Http\Middleware\UpgradeInsecureRequests::class);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
