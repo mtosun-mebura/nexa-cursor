@@ -94,6 +94,7 @@ backend/public/assets/media/app/**
 !backend/public/assets/media/app/og-image.png
 !backend/public/assets/media/app/mini-logo-circle.svg
 !backend/public/assets/media/app/mini-logo-circle-dark.svg
+!backend/public/assets/media/app/whatsapp-icon.svg
 
 # Do not track backend/.gitignore file itself locally
 backend/.gitignore
