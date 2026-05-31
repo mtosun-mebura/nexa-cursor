@@ -13,6 +13,10 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Alleen bij een beveiligde request: op gewone http (lokaal/LAN-dev op :8000 zonder TLS) zou het
  * upgraden van same-origin assets naar https juist ERR_CONNECTION_CLOSED veroorzaken.
+ *
+ * Daarnaast wordt HSTS (Strict-Transport-Security) gezet zodat de browser na het eerste bezoek
+ * automatisch intern naar https upgradet en de http-variant nooit meer toont. includeSubDomains
+ * dekt alle tenant-subdomeinen onder het wildcard-certificaat.
  */
 class UpgradeInsecureRequests
 {
@@ -31,6 +35,10 @@ class UpgradeInsecureRequests
             $response->headers->set('Content-Security-Policy', 'upgrade-insecure-requests');
         } elseif (! str_contains($existing, 'upgrade-insecure-requests')) {
             $response->headers->set('Content-Security-Policy', rtrim($existing, '; ').'; upgrade-insecure-requests');
+        }
+
+        if (! $response->headers->has('Strict-Transport-Security')) {
+            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
 
         return $response;
