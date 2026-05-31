@@ -41,6 +41,11 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
 
+      # `php artisan serve` (PHP built-in server) draait standaard single-threaded: 1 request tegelijk.
+      # Met meerdere workers worden requests parallel afgehandeld, zodat één trage request niet de hele
+      # site (incl. /admin) blokkeert. Vereist een OS met fork (Linux) – geldt voor deze container.
+      PHP_CLI_SERVER_WORKERS: "8"
+
       N8N_URL: https://n8n.tosun.nl
       N8N_PORT: "5678"
       N8N_EMAIL: m.tosun@mebura.nl
