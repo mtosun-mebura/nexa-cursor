@@ -26,6 +26,17 @@
         <div class="kt-alert kt-alert-success mb-5">{{ session('success') }}</div>
     @endif
 
+    @if($errors->has('tenant'))
+        <div class="kt-alert kt-alert-warning mb-5">{{ $errors->first('tenant') }}</div>
+    @endif
+
+    @if(!empty($noTenantSelected))
+        <div class="kt-alert kt-alert-warning mb-5">
+            Selecteer eerst een tenant (bedrijf) in de zijbalk. Dispatch-instellingen worden per bedrijf opgeslagen;
+            zonder geselecteerde tenant kunt u niet opslaan.
+        </div>
+    @endif
+
     <form action="{{ route('admin.taxi.dispatch_settings.update') }}" method="POST" class="kt-card min-w-full">
         @csrf
         @method('PUT')

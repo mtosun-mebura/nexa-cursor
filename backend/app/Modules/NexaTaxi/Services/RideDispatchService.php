@@ -78,6 +78,10 @@ class RideDispatchService
 
     public function expireStaleOffers(string $conn, ?int $rideId = null): int
     {
+        if (! TaxiDispatchSchema::tablesExist($conn)) {
+            return 0;
+        }
+
         $query = RideDispatchOffer::on($conn)
             ->where('status', RideDispatchOffer::STATUS_PENDING)
             ->where('expires_at', '<=', now());
