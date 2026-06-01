@@ -90,8 +90,8 @@ class WebsitePageModelTest extends TestCase
     {
         $expected = [
             'slug', 'title', 'content', 'meta_description', 'home_sections',
-            'page_type', 'module_name', 'frontend_theme_id', 'is_active',
-            'show_in_menu', 'sort_order',
+            'page_type', 'module_name', 'frontend_theme_id', 'company_id',
+            'is_active', 'show_in_menu', 'sort_order',
         ];
         $page = new WebsitePage;
         $this->assertEquals($expected, $page->getFillable());

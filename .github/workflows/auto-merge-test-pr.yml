@@ -1,5 +1,5 @@
-# Schakelt auto-merge in op PR's naar release/test zodra CI groen is.
-# Vereist: Settings → Pull Requests → Allow auto-merge + required check op release/test.
+# Wacht op groene Test and Build, schakel daarna auto-merge in.
+# (workflow_run werkt alleen vanaf default branch; daarom pull_request + wait-on-check.)
 
 name: Auto-merge naar release/test
 
@@ -16,12 +16,22 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   automerge:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
+      - name: Wait for Test and Build
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: test
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 20
+          allowed-conclusions: success
+
       - name: Enable auto-merge
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
