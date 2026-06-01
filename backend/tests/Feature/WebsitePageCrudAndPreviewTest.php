@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\User;
 use App\Models\WebsitePage;
@@ -84,6 +85,9 @@ class WebsitePageCrudAndPreviewTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('super-admin');
 
+        $company = Company::query()->first()
+            ?? Company::query()->create(['name' => 'Menu Test Co', 'is_active' => true]);
+
         $payload = [
             'slug' => 'menu-test-page',
             'title' => 'Menu Test',
@@ -95,6 +99,9 @@ class WebsitePageCrudAndPreviewTest extends TestCase
             'show_in_menu' => '1',
             'sort_order' => '0',
         ];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('website_pages', 'company_id')) {
+            $payload['company_id'] = (string) $company->id;
+        }
 
         $response = $this->actingAs($user)->post(route('admin.website-pages.store'), $payload);
         $response->assertRedirect();
