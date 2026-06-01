@@ -1,17 +1,15 @@
-# Schakelt auto-merge in op PR's naar release/test zodra CI groen is.
-# Vereist: Settings → Pull Requests → Allow auto-merge + required check op release/test.
+# Schakelt auto-merge pas in nadat Test and Build op de PR succesvol is afgerond.
+# Vereist: Settings → Pull Requests → Allow auto-merge
+# En ruleset op release/test: required check "Test and Build / test"
 
 name: Auto-merge naar release/test
 
 on:
-  pull_request:
-    branches:
-      - release/test
+  workflow_run:
+    workflows:
+      - Test and Build
     types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+      - completed
 
 permissions:
   contents: write
@@ -19,11 +17,26 @@ permissions:
 
 jobs:
   automerge:
-    if: github.event.pull_request.draft == false
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve PR number
+        uses: actions/github-script@v7
+        id: pr
+        with:
+          script: |
+            const pullRequests = context.payload.workflow_run.pull_requests || [];
+            if (pullRequests.length === 0) {
+              core.setFailed('Geen PR gekoppeld aan deze workflow-run.');
+              return;
+            }
+            const pr = pullRequests.find((item) => item.base?.ref === 'release/test') || pullRequests[0];
+            core.setOutput('number', String(pr.number));
+
       - name: Enable auto-merge
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
-          pull-request-number: ${{ github.event.pull_request.number }}
+          pull-request-number: ${{ steps.pr.outputs.number }}
           merge-method: merge

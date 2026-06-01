@@ -37,18 +37,26 @@ jobs:
               return;
             }
 
-            const { data: pr } = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Deploy test: ${head} → ${base}`,
-              head,
-              base,
-              body: [
-                'Automatisch aangemaakt bij push op `' + head + '`.',
-                '',
-                'Na groene CI wordt deze PR automatisch gemerged (auto-merge workflow).',
-                'Merge naar `release/test` start de TEST-deploy pipeline.',
-              ].join('\n'),
-            });
-
-            core.info(`PR aangemaakt: #${pr.number}`);
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Deploy test: ${head} → ${base}`,
+                head,
+                base,
+                body: [
+                  'Automatisch aangemaakt bij push op `' + head + '`.',
+                  '',
+                  'Na groene CI wordt deze PR automatisch gemerged (auto-merge workflow).',
+                  'Merge naar `release/test` start de TEST-deploy pipeline.',
+                ].join('\n'),
+              });
+              core.info(`PR aangemaakt: #${pr.number}`);
+            } catch (error) {
+              const message = error?.message || String(error);
+              if (message.includes('No commits between') || message.includes('already exists')) {
+                core.info(`Geen nieuwe PR nodig: ${message}`);
+                return;
+              }
+              throw error;
+            }
