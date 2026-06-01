@@ -1,0 +1,29 @@
+# Schakelt auto-merge in op PR's naar release/test zodra CI groen is.
+# Vereist: Settings → Pull Requests → Allow auto-merge + required check op release/test.
+
+name: Auto-merge naar release/test
+
+on:
+  pull_request:
+    branches:
+      - release/test
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          pull-request-number: ${{ github.event.pull_request.number }}
+          merge-method: merge
