@@ -24,7 +24,9 @@
             <div class="card p-8 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
                 <form class="space-y-6" action="{{ route('login.post') }}" method="POST">
                     @csrf
-                    
+                    @if(!empty($intendedUrl))
+                        <input type="hidden" name="intended" value="{{ $intendedUrl }}">
+                    @endif
                     <!-- Error Messages -->
                     @error('email')
                         <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg">

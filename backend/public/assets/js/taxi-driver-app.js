@@ -15,6 +15,8 @@
     let currentOffer = null;
     let currentActiveRide = null;
     let pendingOffers = [];
+    let scheduledRides = [];
+    let scheduledRideExpanded = {};
     let offerQueueIndex = 0;
     let isOnline = false;
     let companyId = (function () {
@@ -198,7 +200,7 @@
         }
         const activeStrip = $('#active-ride-strip');
         const hasActiveRide = currentActiveRide || (activeStrip && !activeStrip.hidden);
-        if (!currentOffer && !hasActiveRide) {
+        if (!currentOffer && !hasActiveRide && (!scheduledRides || !scheduledRides.length)) {
             empty.hidden = false;
             title.textContent = 'Geen openstaande ritten.';
             hint.textContent = 'Nieuwe ritten verschijnen hier automatisch.';
@@ -1506,6 +1508,48 @@
         return status === 'assigned' || status === 'accepted';
     }
 
+    function isDriverInProgressRide(ride) {
+        return !!(ride && ride.id && String(ride.status || '') === 'assigned');
+    }
+
+    function isDriverScheduledRide(ride) {
+        return !!(ride && ride.id && String(ride.status || '') === 'accepted');
+    }
+
+    function formatPickupAt(value) {
+        if (!value) {
+            return 'Ophaalmoment onbekend';
+        }
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+            return 'Ophaalmoment onbekend';
+        }
+        try {
+            return date.toLocaleString('nl-NL', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        } catch (e) {
+            return date.toISOString();
+        }
+    }
+
+    function setPickupAtLine(el, pickupAt) {
+        if (!el) {
+            return;
+        }
+        if (!pickupAt) {
+            el.hidden = true;
+            el.textContent = '';
+            return;
+        }
+        el.hidden = false;
+        el.textContent = 'Ophaalmoment: ' + formatPickupAt(pickupAt);
+    }
+
     function setCompleteRideButtonVisible(visible) {
         const btn = $('#btn-complete-ride');
         if (btn) {
@@ -1546,7 +1590,7 @@
         if (!btn) {
             return;
         }
-        const show = ride && isDriverAcceptedRide(ride);
+        const show = ride && isDriverInProgressRide(ride);
         btn.hidden = !show;
         if (!show) {
             btn.disabled = true;
@@ -1572,7 +1616,7 @@
         if (!btn) {
             return;
         }
-        if (!ride || !isDriverAcceptedRide(ride) || !driverPaymentEnabled) {
+        if (!ride || !isDriverInProgressRide(ride) || !driverPaymentEnabled) {
             btn.hidden = true;
             btn.disabled = true;
             btn.classList.remove('is-disabled');
@@ -1642,7 +1686,7 @@
 
     function syncRideActionButtons(ride, openPayment) {
         const errEl = $('#payment-ride-error');
-        if (!ride || !isDriverAcceptedRide(ride)) {
+        if (!ride || !isDriverInProgressRide(ride)) {
             setPayRideButtonVisible(false);
             syncSendInvoiceButton(null);
             syncCompleteRideButton(null);
@@ -2180,10 +2224,87 @@
 
         setAddressLink($('#offer-pickup'), offer.ride.pickup_address);
         setAddressLink($('#offer-dropoff'), offer.ride.dropoff_address);
+        setPickupAtLine($('#offer-pickup-at'), offer.ride.pickup_at);
         setCustomerLine($('#offer-customer'), offer.ride.customer_name, offer.ride.customer_phone);
         $('#offer-price').textContent = formatEuro(offer.ride.quoted_price);
 
         startOfferTimer(offer);
+    }
+
+    function renderScheduledRides(rides) {
+        const strip = $('#scheduled-rides-strip');
+        const list = $('#scheduled-rides-list');
+        scheduledRides = Array.isArray(rides) ? rides.slice() : [];
+        if (!strip || !list) {
+            return;
+        }
+        if (!scheduledRides.length || isDriverInProgressRide(currentActiveRide)) {
+            strip.hidden = true;
+            list.innerHTML = '';
+            return;
+        }
+        strip.hidden = false;
+        list.innerHTML = scheduledRides
+            .map(function (ride) {
+                const rideId = String(ride.id);
+                const expanded = !!scheduledRideExpanded[rideId];
+                const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
+                return (
+                    '<div class="card scheduled-ride-card' +
+                    (expanded ? ' is-expanded' : '') +
+                    '" data-ride-id="' +
+                    escapeHtml(rideId) +
+                    '">' +
+                    '<button type="button" class="scheduled-ride-toggle" aria-expanded="' +
+                    (expanded ? 'true' : 'false') +
+                    '" aria-controls="scheduled-ride-body-' +
+                    escapeHtml(rideId) +
+                    '" data-ride-id="' +
+                    escapeHtml(rideId) +
+                    '">' +
+                    '<span class="scheduled-ride-toggle-text">' +
+                    '<span class="offer-title">Geplande rit #' +
+                    escapeHtml(rideId) +
+                    '</span>' +
+                    '<span class="offer-meta scheduled-pickup-at">' +
+                    escapeHtml(formatPickupAt(ride.pickup_at)) +
+                    '</span>' +
+                    '</span>' +
+                    '<span class="scheduled-ride-chevron" aria-hidden="true">▼</span>' +
+                    '</button>' +
+                    '<div class="scheduled-ride-body" id="scheduled-ride-body-' +
+                    escapeHtml(rideId) +
+                    '"' +
+                    (expanded ? '' : ' hidden') +
+                    '>' +
+                    addressLinkHtml(ride.pickup_address, '📍') +
+                    addressLinkHtml(ride.dropoff_address, '🏁') +
+                    customerHtml +
+                    '<p class="offer-price">' +
+                    formatEuro(ride.quoted_price) +
+                    '</p>' +
+                    '<div class="scheduled-ride-actions">' +
+                    '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
+                    escapeHtml(rideId) +
+                    '">Rit starten</button>' +
+                    '<button type="button" class="btn btn-release-ride" data-ride-id="' +
+                    escapeHtml(rideId) +
+                    '">Vrijgeven</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '</div>'
+                );
+            })
+            .join('');
+    }
+
+    function toggleScheduledRideCard(rideId) {
+        const key = String(rideId || '');
+        if (!key) {
+            return;
+        }
+        scheduledRideExpanded[key] = !scheduledRideExpanded[key];
+        renderScheduledRides(scheduledRides);
     }
 
     function renderActiveRide(ride) {
@@ -2209,11 +2330,12 @@
         if (empty) empty.hidden = true;
         showNewRideAlert(false);
         if (el) {
-            const acceptedText = activeRideAcceptedMessage || 'Rit geaccepteerd.';
+            const acceptedText = activeRideAcceptedMessage || 'Rit gestart.';
             const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
             el.innerHTML =
                 '<p class="banner-ride-accepted" role="status">' + escapeHtml(acceptedText) + '</p>' +
                 '<p class="offer-title">Jouw rit</p>' +
+                '<p class="offer-meta offer-pickup-at">' + escapeHtml(formatPickupAt(ride.pickup_at)) + '</p>' +
                 '<p class="offer-meta" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">' +
                 'Rond de rit af wanneer de klant is afgezet. Daarna kun je weer nieuwe ritten ontvangen.' +
                 '</p>' +
@@ -2225,7 +2347,7 @@
                 '</p>';
             activeRideAcceptedMessage = null;
         }
-        if (completeBtn && isDriverAcceptedRide(ride)) {
+        if (completeBtn && isDriverInProgressRide(ride)) {
             completeBtn.dataset.rideId = String(ride.id);
         }
         syncRideActionButtons(ride);
@@ -2357,7 +2479,9 @@
             }
             syncWaitingRideIdsFromOffers(offers);
             const active = res.data && res.data.active_ride;
+            const scheduled = (res.data && res.data.scheduled_rides) || [];
             if (active) {
+                renderScheduledRides([]);
                 renderActiveRide(active);
                 currentOffer = null;
                 clearOfferTimer();
@@ -2365,6 +2489,8 @@
                 $('#inbox-empty').hidden = true;
                 return;
             }
+            renderActiveRide(null);
+            renderScheduledRides(scheduled);
             pendingOffers = offers;
             syncAllPendingOffersWaitingState();
             detectNewOffersInInbox(offers);
@@ -2395,6 +2521,7 @@
                 clearOfferNotificationState();
                 renderOffer(null);
             }
+            updateEmptyState();
         } catch (e) {
             console.warn('inbox', e);
             const empty = $('#inbox-empty');
@@ -2528,12 +2655,8 @@
         setOfferActionButtonsDisabled(true, activeBtn);
         try {
             const res = await api('/dispatch/offers/' + offerId + '/accept', { method: 'POST' });
-            activeRideAcceptedMessage = (res && res.message) || 'Rit geaccepteerd.';
             showNewRideAlert(false);
             vibrate(100);
-            if (res && res.data && res.data.ride) {
-                renderActiveRide(res.data.ride);
-            }
             await refreshInbox();
         } catch (e) {
             alert(e.message);
@@ -2557,6 +2680,53 @@
             alert(e.message);
         } finally {
             setOfferActionButtonsDisabled(false);
+        }
+    }
+
+    async function startScheduledRide(ev) {
+        const btn = ev.target.closest('.btn-start-ride');
+        const rideId = btn && btn.dataset.rideId ? parseInt(btn.dataset.rideId, 10) : NaN;
+        if (!Number.isFinite(rideId) || rideId <= 0) {
+            return;
+        }
+        setButtonLoading(btn, true);
+        try {
+            const res = await api('/dispatch/rides/' + rideId + '/start', { method: 'POST' });
+            activeRideAcceptedMessage = (res && res.message) || 'Rit gestart.';
+            vibrate(100);
+            if (res && res.data && res.data.ride) {
+                renderActiveRide(res.data.ride);
+            }
+            await refreshInbox();
+        } catch (e) {
+            alert(e.message);
+            await refreshInbox();
+        } finally {
+            clearButtonLoading(btn);
+        }
+    }
+
+    async function releaseScheduledRide(ev) {
+        const btn = ev.target.closest('.btn-release-ride');
+        const rideId = btn && btn.dataset.rideId ? parseInt(btn.dataset.rideId, 10) : NaN;
+        if (!Number.isFinite(rideId) || rideId <= 0) {
+            return;
+        }
+        if (!window.confirm('Weet je zeker dat je deze rit wilt vrijgeven? Een andere chauffeur kan hem dan overnemen.')) {
+            return;
+        }
+        setButtonLoading(btn, true);
+        try {
+            await api('/dispatch/rides/' + rideId + '/release', { method: 'POST' });
+            delete scheduledRideExpanded[String(rideId)];
+            vibrate(50);
+            await refreshInbox();
+            updateEmptyState();
+        } catch (e) {
+            alert(e.message);
+            await refreshInbox();
+        } finally {
+            clearButtonLoading(btn);
         }
     }
 
@@ -2586,6 +2756,10 @@
                     ? btn.title
                     : '') || 'Rond eerst de betaling af voordat je de rit afrondt.'
             );
+            return;
+        }
+        if (!isDriverInProgressRide(currentActiveRide)) {
+            alert('Start de rit eerst voordat je deze afrondt.');
             return;
         }
         if (currentActiveRide && !canCompleteActiveRide(currentActiveRide)) {
@@ -2726,6 +2900,22 @@
             if (ev.target.closest('#btn-decline')) {
                 ev.preventDefault();
                 declineOffer(ev);
+                return;
+            }
+            if (ev.target.closest('.btn-start-ride')) {
+                ev.preventDefault();
+                startScheduledRide(ev);
+                return;
+            }
+            if (ev.target.closest('.btn-release-ride')) {
+                ev.preventDefault();
+                releaseScheduledRide(ev);
+                return;
+            }
+            var toggleScheduled = ev.target.closest('.scheduled-ride-toggle');
+            if (toggleScheduled) {
+                ev.preventDefault();
+                toggleScheduledRideCard(toggleScheduled.dataset.rideId);
                 return;
             }
             if (ev.target.closest('#btn-offer-prev')) {

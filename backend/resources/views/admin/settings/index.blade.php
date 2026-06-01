@@ -717,7 +717,7 @@
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business Configuratie'])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <div class="px-5 pb-3 text-xs text-muted-foreground">
+                <div class="px-5 pb-3 text-xs text-muted-foreground" style="padding-top: 10px;">
                     Server-brede WhatsApp Business API (token en Phone Number ID). Per bedrijf: ontvangernummer, aan/uit en chauffeur-e-mails instellen onder <strong>Taxi → Chauffeur dispatch</strong>.
                 </div>
                 <form method="POST" action="{{ route('admin.settings.whatsapp.update') }}" data-validate="true">
@@ -734,7 +734,10 @@
                                            value="{{ old('WHATSAPP_API_TOKEN', $whatsappSettings['WHATSAPP_API_TOKEN'] ?? '') }}" 
                                            placeholder="EAAxxxxxxxxxxxx">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">WhatsApp Business API access token</div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    WhatsApp Business API access token (begint meestal met <code class="text-xs">EAA</code>).
+                                    <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started#get-access-token" target="_blank" rel="noopener" class="underline">Token aanmaken in Meta for Developers</a>
+                                </div>
                                 @error('WHATSAPP_API_TOKEN')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror

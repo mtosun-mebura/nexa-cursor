@@ -26,6 +26,7 @@ return [
     */
     'required_tables' => [
         'taxi' => ['vehicles', 'ride_requests', 'default_rates'],
+        'skillmatching' => ['branches', 'vacancies', 'job_configurations'],
     ],
 
     'default_set' => ['core', 'shared'],

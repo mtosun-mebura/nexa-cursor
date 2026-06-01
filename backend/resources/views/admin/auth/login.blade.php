@@ -112,6 +112,13 @@ Author: Keenthemes
                     </div>
                 @enderror
 
+                @if(session('error'))
+                    <div class="kt-alert kt-alert-warning flex items-center gap-2.5 p-4 rounded-lg border border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+                        <i class="ki-filled ki-information-5 text-xl text-amber-600 dark:text-amber-400"></i>
+                        <div class="text-sm font-medium text-amber-800 dark:text-amber-200">{{ session('error') }}</div>
+                    </div>
+                @endif
+
                 <div class="flex flex-col gap-1">
                     <label class="kt-form-label font-normal text-mono">
                         E-mail

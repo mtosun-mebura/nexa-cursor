@@ -143,6 +143,15 @@ class NexaTaxiBookingController extends Controller
             $companyId = (int) $resolved['tenant_company_id'];
         }
 
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        if ($dispatchSettings->customerEmailRequiredForBooking($companyId) && trim((string) ($data['email'] ?? '')) === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'E-mailadres is verplicht.',
+                'errors' => ['email' => ['E-mailadres is verplicht.']],
+            ], 422);
+        }
+
         $paymentService = app(TaxiRidePaymentService::class);
         try {
             $paymentMethod = $paymentService->validatePaymentMethodChoice(
@@ -278,8 +287,12 @@ class NexaTaxiBookingController extends Controller
         if ($q === '') {
             return response()->json([]);
         }
-        $countrycodes = $request->input('countrycodes', 'nl');
-        $countrycodes = is_string($countrycodes) ? strtolower(trim($countrycodes)) : 'nl';
+        // Leeg of een wildcard (*/all/worldwide) = geen landbeperking -> wereldwijd zoeken (ook buiten NL).
+        $countrycodes = $request->input('countrycodes', '');
+        $countrycodes = is_string($countrycodes) ? strtolower(trim($countrycodes)) : '';
+        if (in_array($countrycodes, ['*', 'all', 'worldwide', 'world'], true)) {
+            $countrycodes = '';
+        }
         $limit = (int) $request->input('limit', 8);
         $limit = max(1, min(20, $limit));
         $format = $request->input('format', 'jsonv2');
@@ -289,15 +302,19 @@ class NexaTaxiBookingController extends Controller
 
         $cacheKey = 'nominatim_search:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails);
         $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage) {
-            $url = 'https://nominatim.openstreetmap.org/search?'.http_build_query([
+            $query = [
                 'format' => $format,
                 'addressdetails' => $addressdetails,
                 'limit' => $limit,
                 'dedupe' => $dedupe,
-                'countrycodes' => $countrycodes,
                 'accept-language' => $acceptLanguage,
                 'q' => $q,
-            ]);
+            ];
+            // Alleen beperken op land(en) als er expliciet een landcode is meegegeven; anders wereldwijd.
+            if ($countrycodes !== '') {
+                $query['countrycodes'] = $countrycodes;
+            }
+            $url = 'https://nominatim.openstreetmap.org/search?'.http_build_query($query);
             $response = Http::withHeaders([
                 'User-Agent' => config('app.name', 'NexaTaxiBooking').'/1.0 (address search)',
             ])->timeout(8)->get($url);

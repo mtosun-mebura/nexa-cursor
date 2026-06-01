@@ -215,10 +215,12 @@ class AdminModuleController extends Controller
         $config['enabled_menu_items'] = $enabledKeys;
         $config['app_name'] = $request->input('app_name', '');
         $config['app_description'] = $request->input('app_description', '');
-        // Eén veld dashboard_link_visible ('0'|'1'); geen boolean() — dubbele name in een vorige versie gaf array → false.
-        $raw = $request->input('dashboard_link_visible');
-        $config['dashboard_link_visible'] = ($raw === '1' || $raw === true || $raw === 1) ? '1' : '0';
-        $config['dashboard_link_label'] = $request->input('dashboard_link_label', 'Mijn Nexa');
+        if (in_array(strtolower($moduleModel->name), ['skillmatching', 'taxi'], true)) {
+            // Eén veld dashboard_link_visible ('0'|'1'); geen boolean() — dubbele name in een vorige versie gaf array → false.
+            $raw = $request->input('dashboard_link_visible');
+            $config['dashboard_link_visible'] = ($raw === '1' || $raw === true || $raw === 1) ? '1' : '0';
+            $config['dashboard_link_label'] = $request->input('dashboard_link_label', 'Mijn Nexa');
+        }
         unset($config['company_id']);
         $moduleModel->update(['configuration' => $config]);
 

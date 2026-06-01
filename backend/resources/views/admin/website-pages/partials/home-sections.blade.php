@@ -1829,6 +1829,35 @@
                 </div>
             </div>
 
+            <div class="p-3 border border-border rounded-lg space-y-3">
+                <h4 class="text-sm font-medium">Bagage → bus/van</h4>
+                <p class="text-xs text-muted-foreground">Tel per item: aantal × eenheden. Overschrijding van het auto-maximum schakelt automatisch naar bus/van-aanbiedingen op de aanbiedingen-stap.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <label class="inline-flex items-center gap-2 text-sm md:col-span-2 lg:col-span-4">
+                        <input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_van_upgrade_enabled]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.baggage_van_upgrade_enabled', $bookingData['logic']['baggage_van_upgrade_enabled'] ?? true) ? 'checked' : '' }}>
+                        Automatisch bus/van bij te veel bagage
+                    </label>
+                    <div>
+                        <label class="text-xs text-muted-foreground">Max eenheden auto</label>
+                        <input type="number" min="0" max="50" step="1" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_car_max_units]" value="{{ old('home_sections.'.$sectionKey.'.logic.baggage_car_max_units', $bookingData['logic']['baggage_car_max_units'] ?? 4) }}">
+                    </div>
+                    <div>
+                        <label class="text-xs text-muted-foreground">Personenrange bus/van</label>
+                        <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_upgrade_person_range]">
+                            @foreach($offerPersonRangeOptions as $rangeValue => $rangeLabel)
+                                @if($rangeValue !== '')
+                                <option value="{{ $rangeValue }}" {{ old('home_sections.'.$sectionKey.'.logic.baggage_upgrade_person_range', $bookingData['logic']['baggage_upgrade_person_range'] ?? '5-8') === $rangeValue ? 'selected' : '' }}>{{ $rangeLabel }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-xs text-muted-foreground">Melding op aanbiedingen-stap</label>
+                        <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][baggage_van_upgrade_message]" value="{{ old('home_sections.'.$sectionKey.'.texts.baggage_van_upgrade_message', $bookingData['texts']['baggage_van_upgrade_message'] ?? 'Vanwege de hoeveelheid bagage tonen we bus- of van-aanbiedingen.') }}">
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 p-3 border border-border rounded-lg">
                 <div><label class="text-xs text-muted-foreground">Placeholder ophaaladres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][pickup_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.pickup_placeholder', $bookingData['texts']['pickup_placeholder'] ?? '') }}"></div>
                 <div><label class="text-xs text-muted-foreground">Placeholder afzetadres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][dropoff_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.dropoff_placeholder', $bookingData['texts']['dropoff_placeholder'] ?? '') }}"></div>
@@ -1840,7 +1869,7 @@
                 <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="baggage" data-step-heading-base="Bagage-items">Bagage-items (Stap {{ $baggageStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
                 <div class="space-y-2 nexataxi-booking-list" data-list="baggage" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['baggage_items'] ?? []) as $i => $row)
-                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">
+                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) auto;">
                         <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
                         <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
@@ -1852,6 +1881,7 @@
                             </div>
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}" title="Grote koffer telt bv. als 2"></div>
                         <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
                     </div>
                     @endforeach
@@ -1862,7 +1892,7 @@
                 <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Speciale bagage</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">+ item</button></div>
                 <div class="space-y-2 nexataxi-booking-list" data-list="special" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['special_items'] ?? []) as $i => $row)
-                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">
+                    <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.7fr) auto;">
                         <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
                         <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div>
@@ -1873,6 +1903,7 @@
                             </div>
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}"></div>
                         <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
                     </div>
                     @endforeach
@@ -5097,21 +5128,23 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             }
 
             if (listName === 'special') {
-                return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 3.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;">'
+                return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.7fr) auto;">'
                     + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
                     + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
                     + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div></div>'
                     + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
+                    + '<div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][baggage_units]" value="1"></div>'
                     + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
                     + '</div>';
             }
 
-            return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.6fr) minmax(0, 2.6fr) minmax(0, 1.2fr) minmax(0, 0.7fr) auto;">'
+            return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) auto;">'
                 + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
                 + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
                 + '<div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
                 + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div></div>'
                 + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
+                + '<div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][baggage_units]" value="1"></div>'
                 + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
                 + '</div>';
         }

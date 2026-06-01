@@ -45,6 +45,9 @@ class AdminAuthController extends Controller
             }
         }
 
+        // Verse CSRF-token zodat inloggen werkt na sessieverloop (voorkomt 419 bij refresh/resubmit).
+        $request->session()->regenerateToken();
+
         // Always show login form for non-authenticated users or users without admin role
         return view('admin.auth.login');
     }

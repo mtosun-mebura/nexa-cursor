@@ -536,5 +536,6 @@
       console.log('📱 Dark mode initialized on DOMContentLoaded:', { saved, isDark: html.classList.contains('dark') });
     });
   </script>
+  @include('partials.password-toggle')
 </body>
 </html>

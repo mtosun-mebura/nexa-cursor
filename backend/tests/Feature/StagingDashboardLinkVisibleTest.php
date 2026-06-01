@@ -11,7 +11,70 @@ use Tests\TestCase;
 
 class StagingDashboardLinkVisibleTest extends TestCase
 {
-    public function test_staging_with_empty_module_query_shows_dashboard_cta_when_module_allows(): void
+    public function test_staging_with_empty_module_query_shows_dashboard_cta_when_skillmatching_allows(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('vacancies')) {
+            $this->markTestSkipped('vacancies table required for skillmatching staging preview.');
+        }
+
+        Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+
+        $theme = FrontendTheme::create([
+            'slug' => 'modern',
+            'name' => 'Metronic',
+            'description' => 'Test',
+            'is_active' => true,
+            'settings' => [
+                'primary_color' => '#2563eb',
+                'font_heading' => 'Inter',
+                'font_body' => 'Inter',
+                'dark_mode_available' => true,
+            ],
+        ]);
+
+        $module = Module::create([
+            'name' => 'skillmatching',
+            'display_name' => 'Nexa Skillmatching',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-briefcase',
+            'installed' => true,
+            'active' => true,
+            'configuration' => [
+                'dashboard_link_visible' => '1',
+                'dashboard_link_label' => 'Mijn Skillmatching',
+            ],
+            'frontend_theme_id' => $theme->id,
+        ]);
+        $theme->update(['active_module_id' => $module->id]);
+
+        WebsitePage::create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'content' => '',
+            'page_type' => 'home',
+            'module_name' => 'skillmatching',
+            'frontend_theme_id' => $theme->id,
+            'is_active' => true,
+            'sort_order' => 0,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(route('admin.frontend-themes.staging', [
+            'theme_id' => $theme->id,
+            'module' => '',
+        ]));
+
+        $response->assertStatus(200);
+        $html = $response->getContent();
+        $this->assertStringContainsString('id="website-hamburger-row"', $html);
+        $this->assertStringContainsString('Mijn Skillmatching', $html);
+        $this->assertStringContainsString(route('dashboard'), $html);
+    }
+
+    public function test_staging_shows_dashboard_cta_for_taxi_when_module_config_allows(): void
     {
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
 
@@ -65,9 +128,8 @@ class StagingDashboardLinkVisibleTest extends TestCase
 
         $response->assertStatus(200);
         $html = $response->getContent();
-        $this->assertStringContainsString('id="website-hamburger-row"', $html);
         $this->assertStringContainsString('Mijn Taxi', $html);
-        $this->assertStringContainsString(route('dashboard'), $html);
+        $this->assertStringContainsString(route('taxi.portal.dashboard'), $html);
     }
 
     public function test_staging_branding_uses_pinned_theme_module_not_page_module_name_when_they_differ(): void
@@ -139,5 +201,6 @@ class StagingDashboardLinkVisibleTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertStringContainsString('Mijn Taxi', $response->getContent());
+        $this->assertStringContainsString(route('taxi.portal.dashboard'), $response->getContent());
     }
 }

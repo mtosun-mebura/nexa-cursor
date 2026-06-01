@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Company;
+use App\Models\Module;
 use App\Models\User;
 use App\Services\TenantCompanyDataPushService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -49,6 +50,37 @@ class TenantCompanyDataPushServiceTest extends TestCase
 
         $this->assertContains('vehicles', $taxiTables);
         $this->assertContains('default_rates', $taxiTables);
+    }
+
+    #[Test]
+    public function linked_installed_module_names_includes_taxi_when_company_module_linked(): void
+    {
+        if (! Schema::hasTable('modules') || ! Schema::hasTable('company_module')) {
+            $this->markTestSkipped('modules/company_module tables not present.');
+        }
+
+        $company = Company::query()->create(['name' => 'Taxi Sync Test', 'slug' => 'taxi-sync-test-'.uniqid()]);
+        $module = Module::create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+        ]);
+        DB::table('company_module')->insert([
+            'company_id' => $company->id,
+            'module_id' => $module->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'linkedInstalledModuleNamesForTenant');
+        $method->setAccessible(true);
+        $names = $method->invoke(app(TenantCompanyDataPushService::class), (string) config('database.default'), (int) $company->id);
+
+        $this->assertContains('taxi', $names);
     }
 
     #[Test]

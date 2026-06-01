@@ -123,6 +123,10 @@ final class TenantCompanyDataPushService
                 );
             }
 
+            foreach ($this->ensureInstalledModuleSchemasOnSyncTarget($sourceConn) as $schemaMessage) {
+                $messages[] = $schemaMessage;
+            }
+
             $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
             $allFkEdges = array_merge($fkEdges, $prerequisiteFkEdges);
             $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
@@ -259,6 +263,11 @@ final class TenantCompanyDataPushService
             ];
         } finally {
             DB::purge($targetConn);
+            foreach (array_keys((array) config('database.connections')) as $connName) {
+                if (is_string($connName) && str_starts_with($connName, 'tenant_sync_module_')) {
+                    DB::purge($connName);
+                }
+            }
             DB::purge(TenantWebsiteBundleService::SYNC_MODULE_TAXI_CONNECTION);
         }
     }
@@ -332,12 +341,25 @@ final class TenantCompanyDataPushService
 
         $targetModuleConn = $this->websiteBundle->registerSyncModuleTaxiConnection();
 
+        try {
+            $dbService->ensureModuleStorageReadyOnConnection('taxi', $targetModuleConn);
+        } catch (Throwable $e) {
+            Log::warning('tenant_sync_taxi_schema_setup_failed', ['error' => $e->getMessage()]);
+
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-schema/tabellen op doel konden niet worden aangemaakt: '.$e->getMessage(),
+            ];
+        }
+
         if (! NexaTaxiSchema::coreTablesExist($targetModuleConn)) {
             return [
                 'inserted' => 0,
                 'skipped' => 0,
                 'updated' => 0,
-                'message' => 'Taxi-tabellen ontbreken op doel (draai modules:ensure-databases taxi op de server).',
+                'message' => 'Taxi-tabellen ontbreken op doel na schema-setup.',
             ];
         }
 
@@ -504,16 +526,79 @@ final class TenantCompanyDataPushService
 
     private function tenantHasTaxiModuleOnSource(string $mainConn, int $companyId): bool
     {
+        return in_array('taxi', $this->linkedInstalledModuleNamesForTenant($mainConn, $companyId), true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function linkedInstalledModuleNamesForTenant(string $mainConn, int $companyId): array
+    {
         if (! Schema::connection($mainConn)->hasTable('company_module')
             || ! Schema::connection($mainConn)->hasTable('modules')) {
-            return false;
+            return [];
         }
 
         return DB::connection($mainConn)->table('company_module')
             ->join('modules', 'modules.id', '=', 'company_module.module_id')
             ->where('company_module.company_id', $companyId)
-            ->whereRaw('LOWER(modules.name) = ?', ['taxi'])
-            ->exists();
+            ->where('modules.installed', true)
+            ->pluck('modules.name')
+            ->map(fn ($name) => strtolower(trim((string) $name)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Maak op het sync-doel schema + tabellen aan voor alle geïnstalleerde modules (modules.installed).
+     *
+     * @return list<string>
+     */
+    private function ensureInstalledModuleSchemasOnSyncTarget(string $sourceMainConn): array
+    {
+        $messages = [];
+        if (! Schema::connection($sourceMainConn)->hasTable('modules')) {
+            return $messages;
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->usesDatabaseStrategy()) {
+            $messages[] = 'Module-schema sync: strategy=database (losse module-DB) wordt niet ondersteund bij omgeving-sync.';
+
+            return $messages;
+        }
+
+        $moduleNames = DB::connection($sourceMainConn)->table('modules')
+            ->where('installed', true)
+            ->pluck('name')
+            ->map(fn ($name) => strtolower(trim((string) $name)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach ($moduleNames as $moduleName) {
+            $requiredTables = config("module_migrations.required_tables.{$moduleName}", []);
+            if (! is_array($requiredTables) || $requiredTables === []) {
+                continue;
+            }
+
+            try {
+                $targetModuleConn = $this->websiteBundle->registerSyncModuleConnection($moduleName);
+                $dbService->ensureModuleStorageReadyOnConnection($moduleName, $targetModuleConn);
+                $messages[] = 'Module-schema op doel gereed: '.$moduleName.'.';
+            } catch (Throwable $e) {
+                Log::warning('tenant_sync_module_schema_failed', [
+                    'module' => $moduleName,
+                    'error' => $e->getMessage(),
+                ]);
+                $messages[] = 'Module-schema op doel mislukt ('.$moduleName.'): '.$e->getMessage();
+            }
+        }
+
+        return $messages;
     }
 
     /**
