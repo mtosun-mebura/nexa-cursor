@@ -9,10 +9,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Frontend-portaal (dashboard, matches, agenda, …) alleen voor Nexa Skillmatching.
- * Gebruikt voor frontend-routes die niet bij Nexa Taxi horen.
+ * Frontend-portaal voor Nexa Taxi (Mijn Taxi). Alleen als taxi actief is en de tenant taxi heeft.
  */
-class EnsureSkillmatchingModule
+class EnsureTenantTaxiModule
 {
     public function __construct(
         protected ModuleManager $moduleManager
@@ -23,14 +22,14 @@ class EnsureSkillmatchingModule
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $this->moduleManager->isActive('skillmatching')) {
+        if (! $this->moduleManager->isActive('taxi')) {
             return redirect()->route('home');
         }
 
         if (app()->bound('resolved_tenant') && app('resolved_tenant') instanceof Company) {
             /** @var Company $tenant */
             $tenant = app('resolved_tenant');
-            if (! $tenant->hasSkillmatchingModule()) {
+            if (! $tenant->hasTaxiModule()) {
                 return redirect()->route('home');
             }
         }

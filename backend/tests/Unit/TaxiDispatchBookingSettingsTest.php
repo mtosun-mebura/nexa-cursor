@@ -24,11 +24,19 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         $this->assertSame('+31600112233', $service->bookingWhatsappNumber(99999));
     }
 
-    public function test_booking_driver_email_enabled_defaults_true(): void
+    public function test_booking_customer_email_enabled_defaults_true(): void
     {
         $env = $this->createMock(EnvService::class);
         $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
 
-        $this->assertTrue($service->bookingDriverEmailEnabled(99999));
+        $this->assertTrue($service->bookingCustomerEmailEnabled(99999));
+    }
+
+    public function test_customer_email_required_when_booking_or_accept_email_enabled(): void
+    {
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+
+        $this->assertTrue($service->customerEmailRequiredForBooking(99999));
     }
 }

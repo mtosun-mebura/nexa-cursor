@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class ModuleConfigDashboardVisibilityPersistTest extends TestCase
 {
-    public function test_save_config_persists_dashboard_link_visible_as_string_one_for_taxi(): void
+    public function test_save_config_persists_dashboard_link_visible_for_taxi(): void
     {
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
 
@@ -41,6 +41,40 @@ class ModuleConfigDashboardVisibilityPersistTest extends TestCase
         $module->refresh();
         $this->assertSame('1', $module->configuration['dashboard_link_visible'] ?? null);
         $this->assertSame('Mijn Taxi', $module->configuration['dashboard_link_label'] ?? null);
+    }
+
+    public function test_save_config_persists_dashboard_link_visible_for_skillmatching(): void
+    {
+        Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
+
+        $module = Module::create([
+            'name' => 'skillmatching',
+            'display_name' => 'Nexa Skillmatching',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-briefcase',
+            'installed' => true,
+            'active' => true,
+            'configuration' => [
+                'enabled_menu_items' => [],
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->post(route('admin.modules.config.store', 'skillmatching'), [
+            'enabled_menu_items' => [],
+            'app_name' => 'Skillmatching Test',
+            'app_description' => '',
+            'dashboard_link_visible' => '1',
+            'dashboard_link_label' => 'Mijn Skillmatching',
+        ]);
+
+        $response->assertRedirect(route('admin.modules.config', 'skillmatching'));
+        $module->refresh();
+        $this->assertSame('1', $module->configuration['dashboard_link_visible'] ?? null);
+        $this->assertSame('Mijn Skillmatching', $module->configuration['dashboard_link_label'] ?? null);
     }
 
     public function test_save_config_persists_dashboard_link_visible_as_string_zero_when_zero_posted(): void

@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -27,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.host' => \App\Http\Middleware\ResolveTenantFromHost::class,
             'tenant.domain.user' => \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,
             'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
+            'skillmatching.portal' => \App\Http\Middleware\EnsureSkillmatchingModule::class,
+            'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
             'auth.query.token' => \App\Http\Middleware\AppendBearerTokenFromQuery::class,
         ]);
 
@@ -93,5 +96,38 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
                 ], 500);
             }
+        });
+
+        // CSRF-token verlopen (HTTP 419): niet vastlopen op "Page Expired", maar door naar login/meld.
+        $exceptions->render(function (TokenMismatchException $e, Request $request) {
+            $isAdmin = $request->is('admin') || $request->is('admin/*');
+            $intended = $request->input('intended') ?: session('url.intended') ?: $request->fullUrl();
+            $loginQuery = array_filter(['intended' => is_string($intended) ? $intended : null]);
+            $loginUrl = '/admin/login'.($loginQuery !== [] ? '?'.http_build_query($loginQuery) : '');
+            $meldUrl = '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
+            $message = 'Uw sessie is verlopen. Log opnieuw in.';
+
+            if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
+                if (! $isAdmin) {
+                    return null;
+                }
+
+                return response()->json([
+                    'message' => $message,
+                    'redirect' => $request->is('admin/login') ? $loginUrl : $meldUrl,
+                ], 419);
+            }
+
+            if ($isAdmin) {
+                if ($request->is('admin/login')) {
+                    return redirect()->to($loginUrl)->with('error', $message);
+                }
+
+                return redirect()->to($meldUrl);
+            }
+
+            $frontendMeld = '/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
+
+            return redirect()->to($frontendMeld);
         });
     })->create();

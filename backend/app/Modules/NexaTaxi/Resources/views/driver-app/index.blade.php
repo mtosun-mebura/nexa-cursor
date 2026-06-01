@@ -326,7 +326,7 @@
             border: 1px solid rgba(255,255,255,0.06);
         }
         label { display: block; font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.35rem; }
-        input[type="email"], input[type="password"] {
+        input[type="email"], input[type="password"], #login-form input[type="text"] {
             width: 100%;
             padding: 0.85rem 1rem;
             border-radius: 0.75rem;
@@ -351,6 +351,8 @@
             touch-action: manipulation;
         }
         .btn-primary { background: var(--green); color: #fff; }
+        .btn-accept { background: #ea580c; color: #fff; }
+        .btn-accept:hover { background: #c2410c; }
         .btn-danger { background: var(--red); color: #fff; }
         .btn-ghost { background: transparent; color: var(--muted); border: 1px solid rgba(255,255,255,0.15); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -459,6 +461,79 @@
             flex-shrink: 0;
         }
         .offer-actions .btn { min-height: 3.25rem; font-size: 1.0625rem; }
+        .scheduled-rides-strip { margin-bottom: 1rem; }
+        .scheduled-rides-title {
+            margin: 0 0 0.75rem;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--muted);
+        }
+        .scheduled-ride-card + .scheduled-ride-card { margin-top: 0.75rem; }
+        .scheduled-ride-card .scheduled-ride-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .scheduled-ride-card .scheduled-ride-toggle-text {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            min-width: 0;
+            flex: 1;
+        }
+        .scheduled-ride-card .scheduled-ride-toggle .offer-title {
+            margin: 0;
+        }
+        .scheduled-ride-card .scheduled-ride-toggle .scheduled-pickup-at {
+            margin: 0;
+            font-size: 0.8125rem;
+            color: #94a3b8;
+        }
+        .scheduled-ride-chevron {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #94a3b8;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+        .scheduled-ride-card.is-expanded .scheduled-ride-chevron {
+            transform: rotate(180deg);
+            color: #e2e8f0;
+        }
+        .scheduled-ride-body {
+            margin-top: 0.85rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .scheduled-ride-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 0.85rem;
+        }
+        .scheduled-ride-actions .btn { margin-top: 0; width: 100%; }
+        .scheduled-ride-actions .btn-release-ride {
+            background: transparent;
+            color: #fca5a5;
+            border: 1px solid rgba(248, 113, 113, 0.45);
+        }
+        .scheduled-ride-card .btn-start-ride { margin-top: 0; }
+        .offer-pickup-at { margin: 0 0 0.75rem; font-weight: 600; color: #fbbf24; }
         .offer-queue-nav {
             display: flex;
             align-items: center;
@@ -670,6 +745,10 @@
             <span>Online voor ritten</span>
             <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
         </div>
+        <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
+            <p class="scheduled-rides-title">Geplande ritten</p>
+            <div id="scheduled-rides-list"></div>
+        </div>
         <div id="offer-strip" hidden>
             <div id="offer-container">
                 <div class="card offer-card" id="offer-card">
@@ -683,6 +762,7 @@
                         <button type="button" class="btn btn-queue" id="btn-offer-next" aria-label="Volgende rit">Volgende →</button>
                     </div>
                     <p class="offer-waiting-banner" id="offer-waiting-banner" role="status" aria-live="polite"></p>
+                    <p class="offer-meta offer-pickup-at" id="offer-pickup-at" hidden></p>
                     <p class="offer-timer offer-timer-wait is-waiting" id="offer-timer-wait" hidden aria-live="polite"></p>
                     <p class="offer-timer offer-timer-accept" id="offer-timer-accept" hidden aria-live="polite"></p>
                     <p class="offer-address-row">
@@ -699,7 +779,7 @@
             </div>
             <div id="offer-actions-panel" class="offer-actions">
                 <button type="button" class="btn btn-danger" id="btn-decline">Afwijzen</button>
-                <button type="button" class="btn btn-primary" id="btn-accept">Accepteren</button>
+                <button type="button" class="btn btn-accept" id="btn-accept">Accepteren</button>
             </div>
         </div>
         <div id="active-ride-strip" hidden>
@@ -791,5 +871,6 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=41" defer></script>
+@include('partials.password-toggle')
 </body>
 </html>

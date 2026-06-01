@@ -9,6 +9,7 @@ use App\Notifications\Channels\SmsChannel;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
+use App\Services\WebsiteBuilderService;
 use App\Support\Tenancy\CentralDomains;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Config;
@@ -73,7 +74,33 @@ class AppServiceProvider extends ServiceProvider
                 $view->with('googleMapsMapId', app(EnvService::class)->getGoogleMapsMapId());
             }
             if (! array_key_exists('showSkillmatchingAppLinks', $view->getData())) {
-                $view->with('showSkillmatchingAppLinks', app(ModuleManager::class)->isActive('skillmatching'));
+                $moduleManager = app(ModuleManager::class);
+                $data = $view->getData();
+                $moduleName = null;
+                if (! empty($data['brandingModuleName'])) {
+                    $moduleName = strtolower(trim((string) $data['brandingModuleName']));
+                } elseif (request()->routeIs('taxi.portal.*')) {
+                    $moduleName = 'taxi';
+                } elseif (isset($data['page']) && filled($data['page']->module_name ?? null)) {
+                    $moduleName = strtolower(trim((string) $data['page']->module_name));
+                } else {
+                    $brandingModule = app(WebsiteBuilderService::class)->getBrandingModule();
+                    $moduleName = $brandingModule ? strtolower((string) $brandingModule->name) : null;
+                }
+
+                $tenant = null;
+                if (app()->bound('resolved_tenant') && app('resolved_tenant') instanceof \App\Models\Company) {
+                    $tenant = app('resolved_tenant');
+                } elseif (app()->bound('resolved_tenant_id')) {
+                    $tenant = \App\Models\Company::find(app('resolved_tenant_id'));
+                }
+
+                $view->with(
+                    'showSkillmatchingAppLinks',
+                    $moduleManager->isActive('skillmatching')
+                        && $moduleName === 'skillmatching'
+                        && ($tenant === null || $tenant->hasSkillmatchingModule())
+                );
             }
         });
 

@@ -382,7 +382,7 @@ class WebsiteBuilderService
      * @param  bool  $forStagingPreview  Staging-thema is niet altijd het actieve site-thema: geen fallback naar
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
-     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool}
+     * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
      */
     public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false): array
     {
@@ -412,6 +412,8 @@ class WebsiteBuilderService
         $siteDescription = GeneralSetting::get('site_description', '');
         $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
         $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1') === '1';
+        $dashboardLinkUrl = route('dashboard');
+        $dashboardLinkModule = null;
 
         $explicitModuleRequested = $forModuleName !== null && trim((string) $forModuleName) !== '';
         // Staging zonder expliciete module: niet terugvallen op getBrandingModule() (ander actief thema) of op "dashboard globaal aan"
@@ -448,6 +450,19 @@ class WebsiteBuilderService
             $dashboardLinkVisible = false;
         }
 
+        if ($brandingModule) {
+            $dashboardLinkModule = strtolower((string) $brandingModule->name);
+            $dashboardLinkUrl = $this->portalDashboardUrlForModuleName($dashboardLinkModule);
+
+            if ($dashboardLinkVisible) {
+                if (! $this->moduleManager->isActive($dashboardLinkModule)) {
+                    $dashboardLinkVisible = false;
+                } elseif (! $this->tenantHasModuleNamed($dashboardLinkModule)) {
+                    $dashboardLinkVisible = false;
+                }
+            }
+        }
+
         $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl);
 
         return [
@@ -459,7 +474,51 @@ class WebsiteBuilderService
             'site_description' => $siteDescription,
             'dashboard_link_label' => $dashboardLinkLabel,
             'dashboard_link_visible' => (bool) $dashboardLinkVisible,
+            'dashboard_link_url' => $dashboardLinkUrl,
+            'dashboard_link_module' => $dashboardLinkModule,
         ];
+    }
+
+    /**
+     * Frontend-portaal-URL per module (Skillmatching-dashboard of Mijn Taxi).
+     */
+    public function portalDashboardUrlForModuleName(string $moduleName): string
+    {
+        return match (strtolower(trim($moduleName))) {
+            'skillmatching' => route('dashboard'),
+            'taxi' => route('taxi.portal.dashboard'),
+            default => route('home'),
+        };
+    }
+
+    /**
+     * Of de huidige tenant de opgegeven module heeft (company_modules). Zonder tenant-context: true.
+     */
+    public function tenantHasModuleNamed(string $moduleName): bool
+    {
+        $company = $this->resolveBrandingCompany();
+        if ($company === null) {
+            return true;
+        }
+
+        return $company->hasModuleNamed($moduleName);
+    }
+
+    /**
+     * Tenant voor branding/portaal (host of ingelogde gebruiker).
+     */
+    public function resolveBrandingCompany(): ?Company
+    {
+        if (app()->bound('resolved_tenant') && app('resolved_tenant') instanceof Company) {
+            return app('resolved_tenant');
+        }
+
+        $companyId = app()->bound('resolved_tenant_id') ? (int) app('resolved_tenant_id') : null;
+        if ($companyId) {
+            return Company::find($companyId);
+        }
+
+        return null;
     }
 
     /**
@@ -871,8 +930,19 @@ class WebsiteBuilderService
      */
     public function getHomePage(): ?WebsitePage
     {
-        $brandingModule = $this->getBrandingModule();
-        $moduleName = $brandingModule ? $brandingModule->name : null;
+        return $this->getHomePageForModule(null);
+    }
+
+    /**
+     * Homepagina voor een specifieke module (of branding-module als null).
+     */
+    public function getHomePageForModule(?string $moduleName = null): ?WebsitePage
+    {
+        if ($moduleName === null) {
+            $brandingModule = $this->getBrandingModule();
+            $moduleName = $brandingModule ? $brandingModule->name : null;
+        }
+
         $query = $this->websitePageQuery($moduleName)->active()
             ->where('page_type', 'home');
         $this->orderWebsiteHomePagesForTenant($query);
@@ -887,6 +957,31 @@ class WebsiteBuilderService
         $this->orderWebsiteHomePagesForTenant($fallback);
 
         return $this->ensureWebsitePageOnDefaultConnection($fallback->first());
+    }
+
+    /**
+     * Footer-secties van de tenant-home (zelfde bron als frontend home).
+     */
+    public function getHomeFooterSections(?string $moduleName = null): array
+    {
+        $homePage = $this->getHomePageForModule($moduleName);
+        if ($homePage === null) {
+            return [];
+        }
+
+        $theme = $this->getThemeForPage($homePage);
+        $themeSlug = $theme ? $theme->slug : 'modern';
+        if (! in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true)) {
+            return [];
+        }
+
+        $sections = $homePage->getHomeSections();
+        $footerVisible = (bool) ($sections['visibility']['footer'] ?? true);
+        if ($footerVisible && (! empty($sections['footer']) || ! empty($sections['copyright']))) {
+            return $sections;
+        }
+
+        return [];
     }
 
     /**

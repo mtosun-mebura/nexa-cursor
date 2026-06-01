@@ -87,6 +87,11 @@ class TaxiDispatchOfferResource
             'distance_km' => $ride->distance_meters ? round($ride->distance_meters / 1000, 1) : null,
             'payment' => $payments->paymentSummaryForRide($ride),
             'invoice' => app(TaxiRideInvoiceService::class)->driverInvoicePayload($ride),
+            'actions' => [
+                'start' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start"),
+                'release' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release"),
+                'complete' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/complete"),
+            ],
         ];
     }
 }

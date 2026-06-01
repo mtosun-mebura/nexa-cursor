@@ -312,7 +312,11 @@ class AdminFrontendThemeController extends Controller
             'themeSettings' => $themeSettings,
             'menuPages' => $menuPages,
             'branding' => $branding,
+            'brandingModuleName' => $brandingModuleKey,
             'showContactForm' => $showContactForm,
+            'showSkillmatchingAppLinks' => $brandingModuleKey !== null
+                && strtolower((string) $brandingModuleKey) === 'skillmatching'
+                && app(\App\Services\ModuleManager::class)->isActive('skillmatching'),
             'isStaging' => true,
             'stagingThemeId' => $theme->id,
             'stagingModule' => $module !== null ? $module : '',

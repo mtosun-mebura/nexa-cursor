@@ -124,21 +124,30 @@
                         <p class="text-xs text-muted-foreground mt-1">Gebruikt o.a. in meta description voor zoekmachines.</p>
                     </div>
                     @php
+                        $moduleKey = strtolower((string) ($moduleName ?? ''));
+                        $isPortalModule = in_array($moduleKey, ['skillmatching', 'taxi'], true);
                         $dashOld = old('dashboard_link_visible', $dashboard_link_visible ?? false);
                         $dashChecked = $dashOld === true || $dashOld === 1 || $dashOld === '1' || $dashOld === 'true';
+                        $portalHelp = $moduleKey === 'taxi'
+                            ? 'Toon de knop in de header die naar het taxi-portaal (Mijn Taxi) gaat.'
+                            : 'Toon de knop in de header die naar het Skillmatching-dashboard gaat.';
                     @endphp
+                    @if($isPortalModule)
                     <div class="mb-6 flex flex-wrap items-center gap-3">
                         <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
                         {{-- Eén POST-veld: hidden. kt-switch + dubbele name= veroorzaakte array/false boolean in Laravel → sleutel werd nooit betrouwbaar opgeslagen. --}}
                         <input type="hidden" name="dashboard_link_visible" id="dashboard_link_visible_hidden" value="{{ $dashChecked ? '1' : '0' }}">
                         <input type="checkbox" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ $dashChecked ? 'checked' : '' }} autocomplete="off">
-                        <span class="text-sm text-muted-foreground">Toon de knop in de header die naar het dashboard gaat.</span>
+                        <span class="text-sm text-muted-foreground">{{ $portalHelp }}</span>
                     </div>
                     <div class="mb-6">
                         <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
-                        <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboard_link_label ?? 'Mijn Nexa') }}" placeholder="Mijn Nexa">
-                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header (bijv. "Mijn Nexa", "Mijn omgeving").</p>
+                        <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboard_link_label ?? 'Mijn Nexa') }}" placeholder="{{ $moduleKey === 'taxi' ? 'Mijn Taxi' : 'Mijn Nexa' }}">
+                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header (bijv. "Mijn Nexa", "Mijn Taxi").</p>
                     </div>
+                    @else
+                    <p class="mb-0 text-sm text-muted-foreground">De Mijn-omgeving-knop is alleen beschikbaar voor modules met een frontend-portaal.</p>
+                    @endif
                 </div>
             </div>
 

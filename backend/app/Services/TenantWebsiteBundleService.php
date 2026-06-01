@@ -196,9 +196,9 @@ final class TenantWebsiteBundleService
     }
 
     /**
-     * Module-taxi connection naar het sync-doel (zelfde host/DB als SYNC_CONNECTION, schema/search_path van module_taxi).
+     * Module-connection naar het sync-doel (zelfde host/DB als SYNC_CONNECTION, schema/search_path van de module).
      */
-    public function registerSyncModuleTaxiConnection(): string
+    public function registerSyncModuleConnection(string $moduleName): string
     {
         $sync = config('database.connections.'.self::SYNC_CONNECTION);
         if (! is_array($sync)) {
@@ -206,7 +206,8 @@ final class TenantWebsiteBundleService
         }
 
         $dbService = app(ModuleDatabaseService::class);
-        $moduleName = (string) (config('tenant_sync.taxi_module.module_name') ?? 'taxi');
+        $moduleName = strtolower(trim($moduleName));
+        $connName = 'tenant_sync_module_'.$moduleName;
         $merged = $sync;
 
         if ($dbService->usesSchemaStrategy()) {
@@ -215,16 +216,26 @@ final class TenantWebsiteBundleService
         } elseif ($dbService->usesDatabaseStrategy()) {
             $merged['database'] = $dbService->getModuleDatabaseName($moduleName);
         } else {
-            $sourceModule = config('database.connections.'.app(ModuleDatabaseService::class)->getModuleConnectionName($moduleName));
+            $sourceModule = config('database.connections.'.$dbService->getModuleConnectionName($moduleName));
             if (is_array($sourceModule) && ! empty($sourceModule['search_path'])) {
                 $merged['search_path'] = $sourceModule['search_path'];
             }
         }
 
-        config(['database.connections.'.self::SYNC_MODULE_TAXI_CONNECTION => $merged]);
-        DB::purge(self::SYNC_MODULE_TAXI_CONNECTION);
+        config(['database.connections.'.$connName => $merged]);
+        DB::purge($connName);
 
-        return self::SYNC_MODULE_TAXI_CONNECTION;
+        return $connName;
+    }
+
+    /**
+     * @deprecated gebruik registerSyncModuleConnection('taxi')
+     */
+    public function registerSyncModuleTaxiConnection(): string
+    {
+        $moduleName = (string) (config('tenant_sync.taxi_module.module_name') ?? 'taxi');
+
+        return $this->registerSyncModuleConnection($moduleName);
     }
 
     private function resolveTargetUrl(?string $url, TenantSyncConnectionConfig $config): string

@@ -1,29 +1,17 @@
 @php
-    $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+    $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding(
+        request()->routeIs('taxi.portal.*') ? 'taxi' : null
+    );
     $dashboardLinkLabel = $dashboardLinkLabel ?? ($branding['dashboard_link_label'] ?? \App\Models\GeneralSetting::get('dashboard_link_label', 'Mijn Nexa'));
     $dashboardLinkVisible = $dashboardLinkVisible ?? (bool) ($branding['dashboard_link_visible'] ?? (\App\Models\GeneralSetting::get('dashboard_link_visible', '1') === '1'));
+    $dashboardLinkUrl = $dashboardLinkUrl ?? ($branding['dashboard_link_url'] ?? route('dashboard'));
+    $showSkillmatchingNav = ($showSkillmatchingAppLinks ?? false) && ! request()->routeIs('taxi.portal.*');
+    $isFrontendAppPage = request()->routeIs('dashboard', 'profile', 'matches', 'agenda', 'applications', 'applications.*', 'settings', 'taxi.portal.*');
+    $isPublicWebsitePage = ! $isFrontendAppPage;
 @endphp
 <!-- Header -->
 <header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50" 
-        x-data="{ 
-            mobileMenuOpen: false,
-            languageMenuOpen: false,
-            currentLanguage: '{{ app()->getLocale() }}',
-            switchLanguage(lang) {
-                this.currentLanguage = lang;
-                fetch('{{ route("language.switch") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ language: lang })
-                }).then(() => {
-                    window.location.reload();
-                });
-                this.languageMenuOpen = false;
-            }
-        }">
+        x-data="{ mobileMenuOpen: false }">
     <div class="container-custom">
         <div class="flex justify-between items-center h-16 md:h-20">
             <!-- Logo + Hamburger (hamburger alleen zichtbaar onder md) -->
@@ -56,6 +44,7 @@
                     <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Home
                     </a>
+                    @if($showSkillmatchingNav)
                     <a href="{{ route('dashboard') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('dashboard') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Dashboard
                     </a>
@@ -69,6 +58,7 @@
                     <a href="{{ route('agenda') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('agenda') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Agenda
                     </a>
+                    @endif
                     @endif
                 @else
                     <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
@@ -86,8 +76,8 @@
                 @endauth
             </nav>
             
-            <!-- Right side: theme-toggle (iedereen), taal (ingelogd), Inloggen/Dashboard -->
-            <div class="flex items-center gap-2 md:gap-2.5 flex-shrink-0">
+            <!-- Right side: theme-toggle, Inloggen/Dashboard -->
+            <div class="relative flex items-center gap-2 md:gap-2.5 flex-shrink-0">
                 <!-- Light/Dark mode toggle – altijd zichtbaar -->
                 <div class="flex items-center">
                     <button onclick="toggleDarkMode()" 
@@ -103,49 +93,16 @@
                 </div>
 
                 @auth
-                    <!-- Language selector -->
-                    <div class="relative">
-                        <button @click="languageMenuOpen = !languageMenuOpen" 
-                                class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
-                                aria-label="Select language">
-                            <!-- Dutch flag -->
-                            <span x-show="currentLanguage === 'nl'" class="fi fi-nl text-lg"></span>
-                            <!-- English flag -->
-                            <span x-show="currentLanguage === 'en'" class="fi fi-gb text-lg"></span>
-                        </button>
-                        
-                        <div x-show="languageMenuOpen" 
-                             @click.away="languageMenuOpen = false"
-                             x-cloak
-                             x-transition:enter="transition ease-out duration-200"
-                             x-transition:enter-start="transform opacity-0 scale-95 translate-y-1"
-                             x-transition:enter-end="transform opacity-100 scale-100 translate-y-0"
-                             x-transition:leave="transition ease-in duration-150"
-                             x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
-                             x-transition:leave-end="transform opacity-0 scale-95 translate-y-1"
-                             class="absolute right-0 mt-2 w-24 bg-white dark:bg-gray-800 rounded-lg shadow-sm py-1 z-50 border border-gray-200 dark:border-gray-600"
-                             role="menu">
-                            <button @click="switchLanguage('nl')" 
-                                    class="flex items-center justify-center w-full px-3 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                                    role="menuitem">
-                                <span class="fi fi-nl text-base"></span>
-                            </button>
-                            <button @click="switchLanguage('en')" 
-                                    class="flex items-center justify-center w-full px-3 py-2 text-base text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
-                                    role="menuitem">
-                                <span class="fi fi-gb text-base"></span>
-                            </button>
-                        </div>
-                    </div>
-                    
                     <!-- Op ingelogde app-pagina's (dashboard, profiel, agenda, etc.): notificaties, chat, user dropdown; op website-pagina's (home, over ons, vacatures, etc.): alleen "Mijn Nexa" (als ingeschakeld) -->
                     @if(auth()->check() && auth()->user())
-                        @if(request()->routeIs('dashboard') || request()->routeIs('profile') || request()->routeIs('matches') || request()->routeIs('agenda') || request()->routeIs('applications') || request()->routeIs('applications.*') || request()->routeIs('settings'))
+                        @if($isFrontendAppPage)
+                            @if($showSkillmatchingNav)
                             @include('frontend.partials.topbar-notification-dropdown')
                             @include('frontend.partials.topbar-chat')
+                            @endif
                             @include('frontend.partials.topbar-user-dropdown')
-                        @elseif($dashboardLinkVisible)
-                            <a href="{{ route('dashboard') }}" class="btn btn-primary text-sm font-medium px-4 py-2 rounded-lg">
+                        @elseif($dashboardLinkVisible && $isPublicWebsitePage)
+                            <a href="{{ $dashboardLinkUrl }}" class="btn btn-primary text-sm font-medium px-4 py-2 rounded-lg">
                                 {{ $dashboardLinkLabel }}
                             </a>
                         @endif
@@ -179,6 +136,7 @@
                     <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
                         Home
                     </a>
+                    @if($showSkillmatchingNav)
                     <a href="{{ route('dashboard') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('dashboard') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
                         Dashboard
                     </a>
@@ -192,6 +150,7 @@
                     <a href="{{ route('agenda') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('agenda') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
                         Agenda
                     </a>
+                    @endif
                     @endif
                 @else
                     <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">

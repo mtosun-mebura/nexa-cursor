@@ -23,6 +23,11 @@ class ModuleDatabaseService
     /** @var array<string, true> */
     private array $storageReadyChecked = [];
 
+    private function storageReadyCacheKey(string $moduleName, string $connectionName): string
+    {
+        return strtolower(trim($moduleName)).'@'.$connectionName;
+    }
+
     // ------------------------------------------------------------------
     //  Helpers: namen, slugs
     // ------------------------------------------------------------------
@@ -144,14 +149,24 @@ class ModuleDatabaseService
      */
     public function setupModuleSchema(string $moduleName): void
     {
-        $schemaName = $this->getModuleSchemaName($moduleName);
-        $quoted = '"'.str_replace('"', '""', $schemaName).'"';
-        DB::statement("CREATE SCHEMA IF NOT EXISTS {$quoted}");
-        Log::info("Module schema created: {$schemaName}");
-
         $this->registerConnection($moduleName);
-        $this->runModuleOnlyMigrations($moduleName);
-        $this->applySchemaFixups($moduleName);
+        $this->setupModuleSchemaOnConnection($moduleName, $this->getModuleConnectionName($moduleName));
+    }
+
+    /**
+     * Maak het PG-schema aan op een specifieke connection (o.a. tenant-sync doel) en draai module-migraties.
+     */
+    public function setupModuleSchemaOnConnection(string $moduleName, string $connectionName): void
+    {
+        if ($this->usesSchemaStrategy()) {
+            $schemaName = $this->getModuleSchemaName($moduleName);
+            $quoted = '"'.str_replace('"', '""', $schemaName).'"';
+            DB::connection($connectionName)->statement("CREATE SCHEMA IF NOT EXISTS {$quoted}");
+            Log::info("Module schema created on {$connectionName}: {$schemaName}");
+        }
+
+        $this->runModuleOnlyMigrations($moduleName, $connectionName);
+        $this->applySchemaFixups($moduleName, $connectionName);
     }
 
     /**
@@ -161,9 +176,9 @@ class ModuleDatabaseService
      * tolerateErrors=true vangt fouten op van migraties die shared-tabellen (users, invoices, …)
      * proberen te ALTERen — die kolommen bestaan al in public.
      */
-    public function runModuleOnlyMigrations(string $moduleName): void
+    public function runModuleOnlyMigrations(string $moduleName, ?string $connectionName = null): void
     {
-        $conn = $this->getModuleConnectionName($moduleName);
+        $conn = $connectionName ?? $this->getModuleConnectionName($moduleName);
         $sets = config('module_migrations.schema_only_sets', [])[$moduleName] ?? [];
 
         if ($sets === []) {
@@ -186,9 +201,9 @@ class ModuleDatabaseService
      * Post-processing na de baseline: hernoem kolommen, verwijder stub-tabellen, etc.
      * Nodig omdat sommige shared-set migraties (bv. categories→branches rename) niet draaien in schema-only mode.
      */
-    private function applySchemaFixups(string $moduleName): void
+    private function applySchemaFixups(string $moduleName, ?string $connectionName = null): void
     {
-        $conn = $this->getModuleConnectionName($moduleName);
+        $conn = $connectionName ?? $this->getModuleConnectionName($moduleName);
         $db = DB::connection($conn);
         $schemaName = $this->getModuleSchemaName($moduleName);
 
@@ -226,9 +241,14 @@ class ModuleDatabaseService
 
     public function moduleSchemaExists(string $moduleName): bool
     {
+        return $this->moduleSchemaExistsOnConnection($moduleName, (string) config('database.default'));
+    }
+
+    public function moduleSchemaExistsOnConnection(string $moduleName, string $connectionName): bool
+    {
         $schemaName = $this->getModuleSchemaName($moduleName);
 
-        return DB::selectOne(
+        return DB::connection($connectionName)->selectOne(
             'SELECT 1 FROM information_schema.schemata WHERE schema_name = ?',
             [$schemaName]
         ) !== null;
@@ -342,10 +362,29 @@ class ModuleDatabaseService
     public function ensureModuleStorageReady(string $moduleName, ?array $requiredTables = null): void
     {
         $slug = strtolower(trim($moduleName));
-        if (isset($this->storageReadyChecked[$slug])) {
+        $this->registerConnection($slug);
+        $conn = $this->getModuleConnectionName($slug);
+
+        if ($this->usesDatabaseStrategy() && ! $this->moduleStandaloneDatabaseExists($slug)) {
+            $this->setupModuleDatabase($slug);
+        }
+
+        $this->ensureModuleStorageReadyOnConnection($slug, $conn, $requiredTables);
+    }
+
+    /**
+     * Zelfde als ensureModuleStorageReady, maar op een willekeurige DB-connection (tenant-sync doel).
+     *
+     * @param  list<string>|null  $requiredTables
+     */
+    public function ensureModuleStorageReadyOnConnection(string $moduleName, string $connectionName, ?array $requiredTables = null): void
+    {
+        $slug = strtolower(trim($moduleName));
+        $cacheKey = $this->storageReadyCacheKey($slug, $connectionName);
+        if (isset($this->storageReadyChecked[$cacheKey])) {
             return;
         }
-        $this->storageReadyChecked[$slug] = true;
+        $this->storageReadyChecked[$cacheKey] = true;
 
         if ($this->usesSingleStrategy()) {
             return;
@@ -356,12 +395,9 @@ class ModuleDatabaseService
             return;
         }
 
-        $this->registerConnection($slug);
-        $conn = $this->getModuleConnectionName($slug);
-
         $missing = array_values(array_filter(
             $requiredTables,
-            fn (string $table) => ! Schema::connection($conn)->hasTable($table)
+            fn (string $table) => ! Schema::connection($connectionName)->hasTable($table)
         ));
         if ($missing === []) {
             return;
@@ -369,7 +405,7 @@ class ModuleDatabaseService
 
         Log::info('Module storage: ontbrekende tabellen, migraties starten', [
             'module' => $slug,
-            'connection' => $conn,
+            'connection' => $connectionName,
             'missing' => $missing,
         ]);
 
@@ -379,30 +415,30 @@ class ModuleDatabaseService
         }
 
         if ($this->usesSchemaStrategy()) {
-            if (! $this->moduleSchemaExists($slug)) {
-                $this->setupModuleSchema($slug);
+            if (! $this->moduleSchemaExistsOnConnection($slug, $connectionName)) {
+                $this->setupModuleSchemaOnConnection($slug, $connectionName);
             } else {
                 try {
-                    $this->runModuleOnlyMigrations($slug);
+                    $this->runModuleOnlyMigrations($slug, $connectionName);
                 } catch (\Throwable $e) {
-                    Log::warning("Module baseline retry ({$slug}): ".$e->getMessage());
+                    Log::warning("Module baseline retry ({$slug}@{$connectionName}): ".$e->getMessage());
                 }
             }
         } elseif ($this->usesDatabaseStrategy()) {
-            if (! $this->moduleStandaloneDatabaseExists($slug)) {
-                $this->setupModuleDatabase($slug);
+            if ($connectionName !== $this->getModuleConnectionName($slug)) {
+                return;
             }
         }
 
-        $this->runIncrementalModuleMigrations($slug);
+        $this->runIncrementalModuleMigrations($slug, $connectionName);
 
         $stillMissing = array_values(array_filter(
             $requiredTables,
-            fn (string $table) => ! Schema::connection($conn)->hasTable($table)
+            fn (string $table) => ! Schema::connection($connectionName)->hasTable($table)
         ));
         if ($stillMissing !== []) {
             throw new \RuntimeException(
-                'Module-tabellen ontbreken op '.$conn.': '.implode(', ', $stillMissing)
+                'Module-tabellen ontbreken op '.$connectionName.': '.implode(', ', $stillMissing)
                 .'. Voer uit: php artisan modules:ensure-databases '.$slug
                 .' of php artisan modules:migrate '.$slug
             );
@@ -426,10 +462,12 @@ class ModuleDatabaseService
         return false;
     }
 
-    public function runIncrementalModuleMigrations(string $moduleName): bool
+    public function runIncrementalModuleMigrations(string $moduleName, ?string $connectionName = null): bool
     {
-        $this->registerConnection($moduleName);
-        $conn = $this->getModuleConnectionName($moduleName);
+        $conn = $connectionName ?? $this->getModuleConnectionName($moduleName);
+        if ($connectionName === null) {
+            $this->registerConnection($moduleName);
+        }
         $canonical = strtolower(trim($moduleName));
         $relative = ModuleMigrationPathResolver::pathForModule($canonical);
         $fullPath = base_path($relative);

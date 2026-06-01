@@ -59,6 +59,9 @@ class NexaTaxiBookingPricingService
                 'person_range_base_price_multiplier' => 1.0,
                 'person_range_base_old_price_multiplier' => 1.2,
                 'use_evening_night_tariff' => true,
+                'baggage_van_upgrade_enabled' => true,
+                'baggage_car_max_units' => 4,
+                'baggage_upgrade_person_range' => '5-8',
             ],
             'texts' => [
                 'pickup_placeholder' => 'straatnaam met huisnummer',
@@ -70,17 +73,18 @@ class NexaTaxiBookingPricingService
                 'offer_button_text' => 'Selecteer',
                 'submit_button_text' => 'Boeking versturen',
                 'success_message' => 'Bedankt! Je boeking is ontvangen.',
+                'baggage_van_upgrade_message' => 'Vanwege de hoeveelheid bagage tonen we bus- of van-aanbiedingen.',
             ],
             'baggage_items' => [
-                ['key' => 'large', 'title' => 'Grote ruimbagage', 'subtitle' => '85cm x 55cm x 35cm', 'icon' => 'ki-filled ki-briefcase', 'price' => 0, 'max_qty' => 6],
-                ['key' => 'small', 'title' => 'Kleine ruimbagage', 'subtitle' => '55cm x 45cm x 25cm', 'icon' => 'ki-filled ki-bag', 'price' => 0, 'max_qty' => 6],
-                ['key' => 'hand', 'title' => 'Handbagage', 'subtitle' => 'Handtas, rugzak, etc.', 'icon' => 'ki-filled ki-handcart', 'price' => 0, 'max_qty' => 6],
+                ['key' => 'large', 'title' => 'Grote ruimbagage', 'subtitle' => '85cm x 55cm x 35cm', 'icon' => 'ki-filled ki-briefcase', 'price' => 0, 'max_qty' => 6, 'baggage_units' => 2],
+                ['key' => 'small', 'title' => 'Kleine ruimbagage', 'subtitle' => '55cm x 45cm x 25cm', 'icon' => 'ki-filled ki-bag', 'price' => 0, 'max_qty' => 6, 'baggage_units' => 1],
+                ['key' => 'hand', 'title' => 'Handbagage', 'subtitle' => 'Handtas, rugzak, etc.', 'icon' => 'ki-filled ki-handcart', 'price' => 0, 'max_qty' => 6, 'baggage_units' => 1],
             ],
             'special_items' => [
-                ['key' => 'wheelchair', 'title' => 'Opvouwbare rolstoel', 'icon' => 'ki-filled ki-wheelchair', 'price' => 0, 'max_qty' => 4],
-                ['key' => 'pets', 'title' => 'Huisdieren', 'icon' => 'ki-filled ki-heart', 'price' => 0, 'max_qty' => 4],
-                ['key' => 'winter', 'title' => 'Wintersport', 'icon' => 'ki-filled ki-snowflake', 'price' => 2.5, 'max_qty' => 4],
-                ['key' => 'golf', 'title' => 'Golftas', 'icon' => 'ki-filled ki-golf', 'price' => 2.5, 'max_qty' => 4],
+                ['key' => 'wheelchair', 'title' => 'Opvouwbare rolstoel', 'icon' => 'ki-filled ki-wheelchair', 'price' => 0, 'max_qty' => 4, 'baggage_units' => 2],
+                ['key' => 'pets', 'title' => 'Huisdieren', 'icon' => 'ki-filled ki-heart', 'price' => 0, 'max_qty' => 4, 'baggage_units' => 1],
+                ['key' => 'winter', 'title' => 'Wintersport', 'icon' => 'ki-filled ki-snowflake', 'price' => 2.5, 'max_qty' => 4, 'baggage_units' => 2],
+                ['key' => 'golf', 'title' => 'Golftas', 'icon' => 'ki-filled ki-golf', 'price' => 2.5, 'max_qty' => 4, 'baggage_units' => 2],
             ],
             'offers' => [],
             'maps' => [
@@ -180,6 +184,10 @@ class NexaTaxiBookingPricingService
         $section['logic']['use_evening_night_tariff'] = ! empty($logic['use_evening_night_tariff']);
         $section['logic']['person_range_base_price_multiplier'] = max(0.1, min(5, (float) ($logic['person_range_base_price_multiplier'] ?? $defaults['logic']['person_range_base_price_multiplier'])));
         $section['logic']['person_range_base_old_price_multiplier'] = max(1, min(5, (float) ($logic['person_range_base_old_price_multiplier'] ?? $defaults['logic']['person_range_base_old_price_multiplier'])));
+        $section['logic']['baggage_van_upgrade_enabled'] = ! empty($logic['baggage_van_upgrade_enabled']);
+        $section['logic']['baggage_car_max_units'] = max(0, min(50, (int) ($logic['baggage_car_max_units'] ?? $defaults['logic']['baggage_car_max_units'])));
+        $baggageUpgradeRange = $this->normalizePersonRange($logic['baggage_upgrade_person_range'] ?? null);
+        $section['logic']['baggage_upgrade_person_range'] = $baggageUpgradeRange ?? $defaults['logic']['baggage_upgrade_person_range'];
 
         $texts = is_array($raw['texts'] ?? null) ? $raw['texts'] : [];
         foreach ($defaults['texts'] as $k => $v) {
@@ -225,7 +233,8 @@ class NexaTaxiBookingPricingService
         $returnTrip = ! empty($input['return_trip']);
         $pickupAt = isset($input['pickup_at']) && trim((string) $input['pickup_at']) !== '' ? (string) $input['pickup_at'] : null;
         $waitingMinutes = max(0, (float) ($input['waiting_minutes'] ?? 0));
-        $range = $this->resolvePersonRangeForPassengers($passengers);
+        $baggageContext = $this->resolveBaggagePersonRangeContext($sectionConfig, $input, $passengers);
+        $range = $baggageContext['person_range'];
         $extraTotal = $this->calculateExtraCosts($sectionConfig, $input);
 
         $defaultRates = $this->getDefaultRates($range);
@@ -338,6 +347,9 @@ class NexaTaxiBookingPricingService
             'passengers' => $passengers,
             'offer_display_mode' => $offerDisplayMode,
             'person_range' => $range,
+            'baggage_units' => $baggageContext['baggage_units'],
+            'baggage_car_max_units' => $baggageContext['baggage_car_max_units'],
+            'baggage_van_upgrade' => $baggageContext['baggage_van_upgrade'],
             'distance_meters' => $distanceMeters,
             'duration_seconds' => $durationSeconds,
             'return_trip' => $returnTrip,
@@ -352,6 +364,16 @@ class NexaTaxiBookingPricingService
             return $fallback;
         }
         $out = [];
+        $fallbackByKey = [];
+        foreach ($fallback as $fallbackRow) {
+            if (! is_array($fallbackRow)) {
+                continue;
+            }
+            $fallbackKey = trim((string) ($fallbackRow['key'] ?? ''));
+            if ($fallbackKey !== '') {
+                $fallbackByKey[$fallbackKey] = $fallbackRow;
+            }
+        }
         foreach (array_values($items) as $row) {
             if (! is_array($row)) {
                 continue;
@@ -371,10 +393,70 @@ class NexaTaxiBookingPricingService
                 'icon' => isset($row['icon']) ? trim((string) $row['icon']) : '',
                 'price' => max(0, (float) ($row['price'] ?? 0)),
                 'max_qty' => max(0, min(20, (int) ($row['max_qty'] ?? 4))),
+                'baggage_units' => max(0, min(10, (float) ($row['baggage_units'] ?? ($fallbackByKey[$key]['baggage_units'] ?? 1)))),
             ];
         }
 
         return ! empty($out) ? $out : $fallback;
+    }
+
+    /**
+     * @return array{baggage_units: float, baggage_car_max_units: int, baggage_van_upgrade: bool, person_range: string}
+     */
+    public function resolveBaggagePersonRangeContext(array $sectionConfig, array $input, int $passengers): array
+    {
+        $passengerRange = $this->resolvePersonRangeForPassengers($passengers);
+        $logic = is_array($sectionConfig['logic'] ?? null) ? $sectionConfig['logic'] : [];
+        $maxUnits = max(0, (int) ($logic['baggage_car_max_units'] ?? 0));
+        $upgradeRange = $this->normalizePersonRange($logic['baggage_upgrade_person_range'] ?? null) ?? '5-8';
+        $baggageUnits = $this->calculateBaggageUnits($sectionConfig, $input);
+        $upgradeEnabled = ! empty($logic['baggage_van_upgrade_enabled']) && $maxUnits > 0;
+
+        $vanUpgrade = $upgradeEnabled && $baggageUnits > $maxUnits;
+        $range = $passengerRange;
+        if ($vanUpgrade) {
+            $range = $this->higherPersonRange($passengerRange, $upgradeRange);
+        }
+
+        return [
+            'baggage_units' => round($baggageUnits, 2),
+            'baggage_car_max_units' => $maxUnits,
+            'baggage_van_upgrade' => $vanUpgrade,
+            'person_range' => $range,
+        ];
+    }
+
+    private function calculateBaggageUnits(array $sectionConfig, array $input): float
+    {
+        $total = 0.0;
+        $selectedBaggage = is_array($input['baggage'] ?? null) ? $input['baggage'] : [];
+        $selectedSpecial = is_array($input['special_baggage'] ?? null) ? $input['special_baggage'] : [];
+        foreach (array_merge($sectionConfig['baggage_items'] ?? [], $sectionConfig['special_items'] ?? []) as $item) {
+            $key = (string) ($item['key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $qty = 0;
+            if (array_key_exists($key, $selectedBaggage)) {
+                $qty = (int) $selectedBaggage[$key];
+            } elseif (array_key_exists($key, $selectedSpecial)) {
+                $qty = (int) $selectedSpecial[$key];
+            }
+            $maxQty = max(0, (int) ($item['max_qty'] ?? 0));
+            $qty = max(0, min($maxQty > 0 ? $maxQty : 20, $qty));
+            $units = max(0, (float) ($item['baggage_units'] ?? 1));
+            $total += $qty * $units;
+        }
+
+        return $total;
+    }
+
+    private function higherPersonRange(string $a, string $b): string
+    {
+        [, $aEnd] = DefaultRate::parseRangeBounds($a);
+        [, $bEnd] = DefaultRate::parseRangeBounds($b);
+
+        return $aEnd >= $bEnd ? $a : $b;
     }
 
     private function normalizeOffers(mixed $offers): array

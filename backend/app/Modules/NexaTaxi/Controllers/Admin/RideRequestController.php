@@ -270,10 +270,8 @@ class RideRequestController extends Controller
             $driver = User::query()->find($newDriverId);
             $freshRide = $ride_request->fresh();
             if ($driver && $freshRide) {
-                app()->terminating(function () use ($conn, $freshRide, $driver) {
-                    app(TaxiCustomerRideAcceptedNotificationService::class)
-                        ->notifyAfterRideAssigned($conn, $freshRide, $driver);
-                });
+                app(TaxiCustomerRideAcceptedNotificationService::class)
+                    ->notifyAfterRideAssigned($conn, $freshRide, $driver);
             }
         }
 

@@ -50,6 +50,7 @@ class DispatchSettingsController extends Controller
             'bookingWhatsappEnabled' => $this->dispatchSettings->bookingWhatsappEnabled($companyId),
             'bookingWhatsappClickToChat' => $this->dispatchSettings->bookingWhatsappClickToChatEnabled($companyId),
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
+            'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
             'bookingWhatsappNumber' => $displayWhatsappNumber,
             'hasStoredWhatsappNumber' => $storedWhatsappNumber !== '',
             'whatsappApiConfigured' => $this->whatsapp->isConfigured(),
@@ -135,6 +136,7 @@ class DispatchSettingsController extends Controller
             'booking_whatsapp_enabled' => ['nullable', 'in:0,1'],
             'booking_whatsapp_click_to_chat' => ['nullable', 'in:0,1'],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
+            'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
             'booking_whatsapp_number' => ['nullable', 'string', 'max:50'],
             'payment_booking_enabled' => ['nullable', 'in:0,1'],
             'payment_driver_enabled' => ['nullable', 'in:0,1'],
@@ -172,6 +174,7 @@ class DispatchSettingsController extends Controller
         $this->dispatchSettings->setBookingWhatsappEnabled($request->boolean('booking_whatsapp_enabled'), $companyId);
         $this->dispatchSettings->setBookingWhatsappClickToChatEnabled($request->boolean('booking_whatsapp_click_to_chat'), $companyId);
         $this->dispatchSettings->setBookingDriverEmailEnabled($request->boolean('booking_driver_email_enabled'), $companyId);
+        $this->dispatchSettings->setBookingCustomerEmailEnabled($request->boolean('booking_customer_email_enabled'), $companyId);
         $this->dispatchSettings->setBookingWhatsappNumber((string) $normalizedWhatsappNumber, $companyId);
         $this->dispatchSettings->setPaymentBookingEnabled($request->boolean('payment_booking_enabled'), $companyId);
         $this->dispatchSettings->setPaymentDriverEnabled($request->boolean('payment_driver_enabled'), $companyId);

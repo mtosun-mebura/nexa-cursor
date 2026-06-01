@@ -6,9 +6,10 @@ use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideClaimService;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class RideClaimServiceTest extends TestCase
@@ -91,13 +92,33 @@ class RideClaimServiceTest extends TestCase
         $claim = app(RideClaimService::class);
         $result = $claim->acceptOffer('module_taxi', $driver, $offer->id);
 
-        $this->assertSame(RideRequest::STATUS_ASSIGNED, $result['ride']->status);
+        $this->assertSame(RideRequest::STATUS_ACCEPTED, $result['ride']->status);
         $this->assertSame($driver->id, (int) $result['ride']->driver_id);
 
         $otherOffer = RideDispatchOffer::on('module_taxi')
             ->where('driver_id', $other->id)
             ->first();
         $this->assertSame(RideDispatchOffer::STATUS_SUPERSEDED, $otherOffer->status);
+    }
+
+    public function test_start_moves_accepted_ride_to_assigned(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addDay(),
+            'customer_name' => 'Test',
+        ]);
+
+        $claim = app(RideClaimService::class);
+        $started = $claim->startRide('module_taxi', $driver, $ride->id);
+
+        $this->assertSame(RideRequest::STATUS_ASSIGNED, $started->status);
     }
 
     public function test_complete_marks_ride_completed_for_assigned_driver(): void
@@ -118,5 +139,61 @@ class RideClaimServiceTest extends TestCase
         $completed = $claim->completeRide('module_taxi', $driver, $ride->id);
 
         $this->assertSame(RideRequest::STATUS_COMPLETED, $completed->status);
+    }
+
+    public function test_complete_rejects_accepted_ride_without_start(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addDay(),
+            'customer_name' => 'Test',
+        ]);
+
+        $claim = app(RideClaimService::class);
+
+        $this->expectException(ValidationException::class);
+        $claim->completeRide('module_taxi', $driver, $ride->id);
+    }
+
+    public function test_release_clears_driver_and_redispatches(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addDay(),
+            'customer_name' => 'Test',
+        ]);
+
+        RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_ACCEPTED,
+            'offered_at' => now(),
+            'expires_at' => now()->addHour(),
+        ]);
+
+        $claim = app(RideClaimService::class);
+        $released = $claim->releaseAcceptedRide('module_taxi', $driver, $ride->id);
+
+        $this->assertNull($released->driver_id);
+        $this->assertSame(RideRequest::STATUS_PENDING_DISPATCH, $released->status);
+
+        $driverOffer = RideDispatchOffer::on('module_taxi')
+            ->where('ride_request_id', $ride->id)
+            ->where('driver_id', $driver->id)
+            ->first();
+        $this->assertSame(RideDispatchOffer::STATUS_DECLINED, $driverOffer->status);
     }
 }
