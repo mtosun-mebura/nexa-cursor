@@ -37,6 +37,17 @@ jobs:
               return;
             }
 
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${base}...${head}`,
+            });
+
+            if ((comparison.ahead_by ?? 0) === 0) {
+              core.info('Geen commits tussen release/test en ' + head + '; geen PR nodig.');
+              return;
+            }
+
             try {
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
@@ -53,8 +64,11 @@ jobs:
               });
               core.info(`PR aangemaakt: #${pr.number}`);
             } catch (error) {
-              const message = error?.message || String(error);
-              if (message.includes('No commits between') || message.includes('already exists')) {
+              const message = [
+                error?.message,
+                error?.response?.data?.message,
+              ].filter(Boolean).join(' ');
+              if (/No commits between|already exists|Nothing to compare/i.test(message)) {
                 core.info(`Geen nieuwe PR nodig: ${message}`);
                 return;
               }
