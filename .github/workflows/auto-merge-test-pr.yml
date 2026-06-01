@@ -1,6 +1,5 @@
-# Schakelt auto-merge pas in nadat Test and Build op de PR succesvol is afgerond.
-# Vereist: Settings → Pull Requests → Allow auto-merge
-# En ruleset op release/test: required check "Test and Build / test"
+# Schakelt auto-merge in nadat Test and Build succesvol is afgerond.
+# Werkt bij zowel pull_request- als push-runs (PR wordt vaak na push geopend).
 
 name: Auto-merge naar release/test
 
@@ -17,9 +16,7 @@ permissions:
 
 jobs:
   automerge:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Resolve PR number
@@ -27,15 +24,31 @@ jobs:
         id: pr
         with:
           script: |
+            const base = 'release/test';
             const pullRequests = context.payload.workflow_run.pull_requests || [];
-            if (pullRequests.length === 0) {
-              core.setFailed('Geen PR gekoppeld aan deze workflow-run.');
+
+            let pr = pullRequests.find((item) => item.base?.ref === base) || pullRequests[0];
+
+            if (!pr && context.payload.workflow_run.head_branch === 'nexa-saas') {
+              const { data: openPrs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                head: `${context.repo.owner}:nexa-saas`,
+                base,
+              });
+              pr = openPrs.find((item) => item.head.sha === context.payload.workflow_run.head_sha) || openPrs[0];
+            }
+
+            if (!pr) {
+              core.info('Geen open PR naar release/test; auto-merge overgeslagen.');
               return;
             }
-            const pr = pullRequests.find((item) => item.base?.ref === 'release/test') || pullRequests[0];
+
             core.setOutput('number', String(pr.number));
 
       - name: Enable auto-merge
+        if: steps.pr.outputs.number != ''
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           pull-request-number: ${{ steps.pr.outputs.number }}
