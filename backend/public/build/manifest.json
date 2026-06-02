@@ -2168,7 +2168,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CLAF9wV0.css",
+    "file": "assets/app-DQy6w6-8.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2191,6 +2191,12 @@
     "file": "assets/frontend-app-B6vhmd6y.js",
     "name": "frontend-app",
     "src": "resources/js/frontend-app.js",
+    "isEntry": true
+  },
+  "resources/js/metronic-vue-demo1.ts": {
+    "file": "assets/metronic-vue-demo1-F2y0Iil3.js",
+    "name": "metronic-vue-demo1",
+    "src": "resources/js/metronic-vue-demo1.ts",
     "isEntry": true
   }
 }
