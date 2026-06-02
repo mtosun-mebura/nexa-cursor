@@ -1,5 +1,8 @@
-# Wacht op groene Test and Build, schakel daarna auto-merge in.
-# (workflow_run werkt alleen vanaf default branch; daarom pull_request + wait-on-check.)
+# Na geslaagde Test and Build op een PR naar release/test: auto-merge inschakelen.
+# workflow_run i.p.v. wait-on-check: bij synchronize bestaat check "test" vaak nog niet
+# en lewagon/wait-on-check-action stopt direct met "check was never run".
+#
+# Vereist: dit workflow-bestand staat op de default branch van de repo.
 
 name: Auto-merge naar release/test
 
@@ -7,41 +10,45 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
-  pull_request:
-    branches:
-      - release/test
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+  workflow_run:
+    workflows: ["Test and Build"]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
-  checks: read
-
-concurrency:
-  group: automerge-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   automerge:
-    if: github.event.pull_request.draft == false
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Test and Build
-        uses: lewagon/wait-on-check-action@v1.3.4
+      - name: Find PR naar release/test
+        id: pr
+        uses: actions/github-script@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          check-name: Test and Build / test
-          running-workflow-name: Auto-merge naar release/test
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 20
-          allowed-conclusions: success
+          script: |
+            const sha = context.payload.workflow_run.head_sha;
+            const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: sha,
+            });
+            const pr = pulls.find(
+              (p) => p.state === 'open' && p.base.ref === 'release/test' && !p.draft
+            );
+            if (!pr) {
+              core.info(`Geen open, niet-draft PR naar release/test voor ${sha}.`);
+              return;
+            }
+            core.info(`Auto-merge voor PR #${pr.number} (${pr.head.ref} → release/test)`);
+            core.setOutput('number', String(pr.number));
 
       - name: Enable auto-merge
+        if: steps.pr.outputs.number != ''
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
-          pull-request-number: ${{ github.event.pull_request.number }}
+          pull-request-number: ${{ steps.pr.outputs.number }}
           merge-method: merge
