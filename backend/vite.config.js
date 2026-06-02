@@ -10,7 +10,8 @@ export default defineConfig({
         'resources/css/app.css', 
         'resources/js/app.js',
         'resources/js/frontend-app.js',
-        'resources/js/metronic-vue-demo1.ts'
+        'resources/js/metronic-vue-demo1.ts',
+        'resources/js/taxi-portal-app.ts'
       ],
       refresh: true,
     }),

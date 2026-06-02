@@ -1,13 +1,4 @@
-import { createApp, defineComponent, ref } from 'vue'
-
-const App = defineComponent({
-  name: 'MetronicVueDemo1Playground',
-  setup() {
-    const count = ref(0)
-
-    return { count }
-  },
-  template: `
+import{c as a,d as e,r as s}from"./runtime-dom.esm-bundler-hmS5lQzQ.js";const l=e({name:"MetronicVueDemo1Playground",setup(){return{count:s(0)}},template:`
     <div class="flex flex-col gap-6">
       <div class="kt-alert kt-alert-info" role="alert">
         <div class="kt-alert-title">Component catalog</div>
@@ -126,11 +117,4 @@ const App = defineComponent({
         </div>
       </div>
     </div>
-  `,
-})
-
-const el = document.getElementById('metronic-vue-demo1-app')
-if (el) {
-  createApp(App).mount(el)
-}
-
+  `}),t=document.getElementById("metronic-vue-demo1-app");t&&a(l).mount(t);
