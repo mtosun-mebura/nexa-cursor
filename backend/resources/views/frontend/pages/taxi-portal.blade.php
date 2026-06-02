@@ -2,15 +2,19 @@
 
 @section('title', ($branding['dashboard_link_label'] ?? 'Mijn Taxi').' - '.($branding['site_name'] ?? 'Nexa'))
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('metronic-v9.4.13/demo1/assets/vendors/keenicons/styles.bundle.css') }}">
+    <link rel="stylesheet" href="{{ asset('metronic-v9.4.13/demo1/assets/css/styles.css') }}">
+@endpush
+
+@push('scripts')
+    <script src="{{ asset('metronic-v9.4.13/demo1/assets/vendors/ktui/ktui.min.js') }}"></script>
+    <script src="{{ asset('metronic-v9.4.13/demo1/assets/js/core.bundle.js') }}"></script>
+    @vite('resources/js/taxi-portal-app.ts')
+@endpush
+
 @section('content')
-<section class="py-16 bg-gray-50 dark:bg-gray-900 flex-1">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-            {{ $branding['dashboard_link_label'] ?? 'Mijn Taxi' }}
-        </h1>
-        <p class="mt-4 text-gray-600 dark:text-gray-300">
-            Welkom in je persoonlijke taxi-omgeving. Hier komt binnenkort je overzicht van ritten en boekingen.
-        </p>
-    </div>
-</section>
+<div class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased">
+    <div id="taxi-portal-app" class="min-h-[calc(100vh-0px)] w-full"></div>
+</div>
 @endsection
