@@ -3,6 +3,9 @@
 
 name: Auto-merge naar release/test
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   pull_request:
     branches:
@@ -18,6 +21,10 @@ permissions:
   pull-requests: write
   checks: read
 
+concurrency:
+  group: automerge-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   automerge:
     if: github.event.pull_request.draft == false
@@ -27,7 +34,8 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          check-name: test
+          check-name: Test and Build / test
+          running-workflow-name: Auto-merge naar release/test
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 20
           allowed-conclusions: success
