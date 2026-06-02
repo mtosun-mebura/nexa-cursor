@@ -896,10 +896,11 @@ Route::middleware(['auth:web'])->group(function () {
         Route::delete('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'removeCV'])->name('profile.cv.remove');
     });
 
-    // Nexa Taxi frontend-portaal (Mijn Taxi)
-    Route::middleware(['taxi.portal'])->group(function () {
-        Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
-    });
+});
+
+// Nexa Taxi frontend-portaal (Mijn Taxi)
+Route::middleware(['taxi.portal'])->group(function () {
+    Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
 });
 
 // Language switching
