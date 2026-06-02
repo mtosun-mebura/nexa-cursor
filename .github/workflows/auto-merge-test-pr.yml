@@ -1,8 +1,8 @@
-# Na geslaagde Test and Build op een PR naar release/test: auto-merge inschakelen.
-# workflow_run i.p.v. wait-on-check: bij synchronize bestaat check "test" vaak nog niet
-# en lewagon/wait-on-check-action stopt direct met "check was never run".
+# Na groene Test and Build op PR naar release/test: direct mergen.
+# Deploy TEST (deploy-saas.yml) start daarna via push op release/test.
 #
-# Vereist: dit workflow-bestand staat op de default branch van de repo.
+# Let op: workflow_run luistert alleen op de default branch; daarom pull_request
+# + wachten tot check "test" bestaat en klaar is (geen lewagon race).
 
 name: Auto-merge naar release/test
 
@@ -10,45 +10,89 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
-  workflow_run:
-    workflows: ["Test and Build"]
-    types: [completed]
+  pull_request:
+    branches:
+      - release/test
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
 
 permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: automerge-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   automerge:
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
-      - name: Find PR naar release/test
-        id: pr
+      - name: Wait for test check and merge PR
         uses: actions/github-script@v7
         with:
           script: |
-            const sha = context.payload.workflow_run.head_sha;
-            const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: sha,
-            });
-            const pr = pulls.find(
-              (p) => p.state === 'open' && p.base.ref === 'release/test' && !p.draft
-            );
-            if (!pr) {
-              core.info(`Geen open, niet-draft PR naar release/test voor ${sha}.`);
+            const pr = context.payload.pull_request;
+            const headSha = pr.head.sha;
+            const waitMs = 20000;
+            const maxWaitMs = 30 * 60 * 1000;
+            const started = Date.now();
+
+            core.info(`Wacht op check "test" voor ${headSha} (PR #${pr.number})`);
+
+            while (Date.now() - started < maxWaitMs) {
+              const { data } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: headSha,
+              });
+
+              const testRuns = data.check_runs.filter((c) => c.name === 'test');
+              if (testRuns.length === 0) {
+                core.info('Check "test" nog niet gestart, wacht...');
+                await new Promise((r) => setTimeout(r, waitMs));
+                continue;
+              }
+
+              const pending = testRuns.filter((c) => c.status !== 'completed');
+              if (pending.length > 0) {
+                core.info(`Check "test" nog bezig (${pending.map((c) => c.status).join(', ')})`);
+                await new Promise((r) => setTimeout(r, waitMs));
+                continue;
+              }
+
+              const failed = testRuns.filter((c) => c.conclusion !== 'success');
+              if (failed.length > 0) {
+                core.setFailed(`Check "test" niet geslaagd: ${failed.map((c) => c.conclusion).join(', ')}`);
+                return;
+              }
+
+              core.info('Check "test" geslaagd, PR mergen...');
+              break;
+            }
+
+            if (Date.now() - started >= maxWaitMs) {
+              core.setFailed('Timeout: check "test" niet op tijd afgerond');
               return;
             }
-            core.info(`Auto-merge voor PR #${pr.number} (${pr.head.ref} → release/test)`);
-            core.setOutput('number', String(pr.number));
 
-      - name: Enable auto-merge
-        if: steps.pr.outputs.number != ''
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          pull-request-number: ${{ steps.pr.outputs.number }}
-          merge-method: merge
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'merge',
+              });
+              core.info(`PR #${pr.number} gemerged naar ${pr.base.ref}`);
+            } catch (error) {
+              const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
+              if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
+                core.info(`Merge overgeslagen: ${msg}`);
+                return;
+              }
+              throw error;
+            }
