@@ -22,6 +22,11 @@ class EnsureTenantTaxiModule
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Super-admin mag altijd bij de portal (handig voor ontwikkeling op centraal domein / localhost).
+        if (auth()->check() && auth()->user()?->hasRole('super-admin')) {
+            return $next($request);
+        }
+
         if (! $this->moduleManager->isActive('taxi')) {
             return redirect()->route('home');
         }
