@@ -69,6 +69,23 @@
                         @error('quoted_price')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
+                @if(auth()->user()->hasRole('super-admin') && isset($customers) && $customers->count())
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">Koppel klant</td>
+                    <td class="min-w-48 w-full">
+                        <select name="customer_user_id" class="kt-input w-full @error('customer_user_id') border-destructive @enderror">
+                            <option value="">— Niet gekoppeld —</option>
+                            @foreach($customers as $c)
+                                <option value="{{ $c->id }}" {{ (string) old('customer_user_id', $ride->customer_user_id ?? '') === (string) $c->id ? 'selected' : '' }}>
+                                    {{ trim($c->first_name.' '.$c->last_name) }}@if($c->email) — {{ $c->email }}@endif
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('customer_user_id')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
+                        <div class="text-xs text-muted-foreground mt-1">Selecteer een bestaande klant van deze tenant om de rit te koppelen.</div>
+                    </td>
+                </tr>
+                @endif
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Klantnaam *</td>
                     <td class="min-w-48 w-full">

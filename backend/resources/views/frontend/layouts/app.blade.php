@@ -101,6 +101,7 @@
         html.dark body #main-content,
         html.dark header,
         html.dark footer { background-color: #111827 !important; }
+        html.dark header { border-bottom-color: #4b5563 !important; }
         html.dark body { color: #f3f4f6; }
         /* Dark mode: footertekst leesbaar */
         html.dark footer,
@@ -148,8 +149,8 @@
     @endunless
 
     @if(($layoutHideFooter ?? false) && filled($layoutPortalCopyright ?? null))
-    <footer class="mt-auto border-t border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-900">
-        <div class="container-custom py-4">
+    <footer class="relative z-30 mt-auto border-t border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-900">
+        <div class="container-custom py-3">
             <p class="text-sm text-gray-600 dark:text-gray-200">
                 {{ $layoutPortalCopyright }}
             </p>

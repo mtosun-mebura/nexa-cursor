@@ -1,40 +1,32 @@
-<!DOCTYPE html>
-<html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ ($branding['dashboard_link_label'] ?? 'Mijn Taxi').' - '.($branding['site_name'] ?? 'Nexa') }}</title>
+@extends('frontend.layouts.app')
 
+@section('title', ($branding['dashboard_link_label'] ?? 'Mijn Taxi').' - '.($branding['site_name'] ?? 'Nexa'))
+
+@push('styles')
     <link rel="stylesheet" href="{{ asset('metronic-v9.4.13/demo1/assets/vendors/keenicons/styles.bundle.css') }}">
     <link rel="stylesheet" href="{{ asset('metronic-v9.4.13/demo1/assets/css/styles.css') }}">
+@endpush
 
-    <!-- Theme Mode (Metronic) -->
-    <script>
-        const defaultThemeMode = 'light'; // light|dark|system
-        let themeMode;
-        if (document.documentElement) {
-            if (localStorage.getItem('kt-theme')) {
-                themeMode = localStorage.getItem('kt-theme');
-            } else if (document.documentElement.hasAttribute('data-kt-theme-mode')) {
-                themeMode = document.documentElement.getAttribute('data-kt-theme-mode');
-            } else {
-                themeMode = defaultThemeMode;
-            }
+@section('content')
+    @php
+        $logoAlt = $branding['site_name'] ?? config('app.name', 'Nexa');
+        $logoHref = route('home');
+        $logoLight = $branding['logo_url'] ?? asset('images/nexa-logo.png');
+        $logoDark = $branding['logo_dark_url'] ?? $logoLight;
+    @endphp
 
-            if (themeMode === 'system') {
-                themeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            }
+    <div
+        id="taxi-portal-app"
+        class="w-full flex-1"
+        data-logo-alt="{{ $logoAlt }}"
+        data-logo-href="{{ $logoHref }}"
+        data-logo-light="{{ $logoLight }}"
+        data-logo-dark="{{ $logoDark }}"
+    ></div>
+@endsection
 
-            document.documentElement.classList.add(themeMode);
-        }
-    </script>
-</head>
-<body class="antialiased flex h-full text-base text-foreground bg-background demo1 kt-sidebar-fixed kt-header-fixed">
-    <div id="taxi-portal-app" class="w-full"></div>
-
+@push('scripts')
     <script src="{{ asset('metronic-v9.4.13/demo1/assets/vendors/ktui/ktui.min.js') }}"></script>
     <script src="{{ asset('metronic-v9.4.13/demo1/assets/js/core.bundle.js') }}"></script>
     @vite('resources/js/taxi-portal-app.ts')
-</body>
-</html>
+@endpush

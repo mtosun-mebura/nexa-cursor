@@ -206,7 +206,28 @@ class RideRequestController extends Controller
 
         $statusLabels = RideRequest::statusLabels();
 
-        return view('taxi::admin.ride_requests.edit', ['ride' => $ride_request, 'vehicles' => $vehicles, 'drivers' => $drivers, 'statusLabels' => $statusLabels]);
+        $customers = collect();
+        $customerCompanyId = $rideCompanyId;
+        if ((! $customerCompanyId || $customerCompanyId <= 0) && auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            $customerCompanyId = (int) session('selected_tenant');
+        }
+        if (auth()->user()->hasRole('super-admin') && $customerCompanyId && $customerCompanyId > 0) {
+            $customers = User::query()
+                ->where('company_id', (int) $customerCompanyId)
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->get();
+        }
+
+        return view('taxi::admin.ride_requests.edit', [
+            'ride' => $ride_request,
+            'vehicles' => $vehicles,
+            'drivers' => $drivers,
+            'statusLabels' => $statusLabels,
+            'customers' => $customers,
+            'rideCompanyId' => $rideCompanyId,
+            'customerCompanyId' => $customerCompanyId,
+        ]);
     }
 
     public function update(Request $request, RideRequest $ride_request)
@@ -215,8 +236,24 @@ class RideRequestController extends Controller
         $this->ensureCanAccessRide($ride_request);
 
         $conn = $this->moduleConnection();
+        $rideCompanyId = $this->resolveCompanyIdForChauffeurList($ride_request, $conn);
+        $customerCompanyId = $rideCompanyId;
+        if ((! $customerCompanyId || $customerCompanyId <= 0) && auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            $customerCompanyId = (int) session('selected_tenant');
+        }
         $validated = $request->validate(
-            $this->rideRequestFormRules($conn),
+            array_merge($this->rideRequestFormRules($conn), [
+                'customer_user_id' => [
+                    'nullable',
+                    Rule::exists('users', 'id')->where(function ($q) use ($customerCompanyId) {
+                        if ($customerCompanyId) {
+                            $q->where('company_id', (int) $customerCompanyId);
+                        } else {
+                            $q->whereRaw('1 = 0');
+                        }
+                    }),
+                ],
+            ]),
             $this->rideRequestFormMessages()
         );
         $ride_request->update($validated);
@@ -496,6 +533,7 @@ class RideRequestController extends Controller
             'quoted_price' => 'nullable|numeric|min:0',
             'customer_name' => 'required|string|max:255',
             'customer_email' => 'nullable|email|max:255',
+            'customer_user_id' => 'nullable|integer',
             'customer_phone' => 'nullable|string|max:50',
             'customer_note' => 'nullable|string|max:2000',
             'quote_expires_at' => 'nullable|date',

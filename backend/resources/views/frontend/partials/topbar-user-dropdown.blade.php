@@ -31,9 +31,9 @@
          x-transition:leave="transition ease-in duration-100"
          x-transition:leave-start="opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="opacity-0 scale-95 translate-y-1"
-         class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-600 dark:bg-gray-800"
+         class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-lg border border-gray-700 !bg-[#111827] py-2 shadow-lg text-gray-100"
          role="menu">
-        <div class="flex items-start gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-600">
+        <div class="flex items-start gap-3 border-b border-gray-700 px-4 py-3">
             @if(auth()->user()->photo_blob)
                 <div class="shrink-0 overflow-hidden rounded-full border-2 border-green-500" style="width: 40px; height: 40px;">
                     <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
@@ -51,39 +51,42 @@
                 </div>
             @endif
             <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                <p class="truncate text-sm font-semibold text-gray-100">
                     {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
                 </p>
-                <a href="{{ route('profile') }}" class="mt-1 block truncate text-xs font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400">
+                <a href="{{ route('profile') }}" class="mt-1 block truncate text-xs font-medium text-gray-300 hover:text-blue-400">
                     {{ auth()->user()->email }}
                 </a>
             </div>
         </div>
         <div class="py-1">
             @if($showSkillmatchingAppLinks ?? false)
-            <a href="{{ route('dashboard') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" role="menuitem">
+            <a href="{{ route('dashboard') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
                 Dashboard
             </a>
             @endif
-            <a href="{{ route('profile') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" role="menuitem">
+            <a href="{{ route('profile') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
                 Mijn Profiel
             </a>
             @if($showSkillmatchingAppLinks ?? false)
-            <a href="{{ route('agenda') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" role="menuitem">
+            <a href="{{ route('agenda') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
                 Agenda
             </a>
-            <a href="{{ route('applications') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" role="menuitem">
+            <a href="{{ route('applications') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
                 Mijn Sollicitaties
             </a>
-            <a href="{{ route('settings') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700" role="menuitem">
+            <a href="{{ route('settings') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
                 Instellingen
             </a>
             @endif
         </div>
-        <div class="border-t border-gray-200 px-4 py-3 dark:border-gray-600">
+        <div class="border-t border-gray-700 px-4 py-3">
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" class="btn btn-outline w-full justify-center text-sm font-medium">
+                <button
+                    type="submit"
+                    class="w-full cursor-pointer select-none justify-center rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-100 transition-colors hover:border-gray-500 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#111827]"
+                >
                     Uitloggen
                 </button>
             </form>

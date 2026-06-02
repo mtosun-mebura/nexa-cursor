@@ -19,6 +19,7 @@ class ApplicationEssentialDataSeeder extends Seeder
             FrontendThemeSeeder::class,
             InfoRequestFormFieldSeeder::class,
             PaymentProviderSeeder::class,
+            TaxiRideAcceptedEmailTemplateSeeder::class,
         ]);
     }
 }
