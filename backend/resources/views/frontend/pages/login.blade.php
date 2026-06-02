@@ -22,7 +22,7 @@
 
             <!-- Login Form -->
             <div class="card p-8 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
-                <form class="space-y-6" action="{{ route('login.post') }}" method="POST">
+                <form class="space-y-6" action="{{ request()->query('code_login') ? route('login.code') : route('login.post') }}" method="POST">
                     @csrf
                     @if(!empty($intendedUrl))
                         <input type="hidden" name="intended" value="{{ $intendedUrl }}">
@@ -56,32 +56,41 @@
                                value="{{ old('email') }}">
                     </div>
 
-                    <!-- Password Field -->
-                    <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Wachtwoord
-                        </label>
-                        <input id="password" name="password" type="password" autocomplete="current-password" required 
-                               class="input w-full" 
-                               placeholder="Je wachtwoord">
-                    </div>
-
-                    <!-- Remember Me & Forgot Password -->
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <input id="remember-me" name="remember-me" type="checkbox" 
-                                   class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600 rounded">
-                            <label for="remember-me" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                                Onthoud mij
+                    @if(request()->query('code_login'))
+                        <div>
+                            <label for="code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eenmalige code</label>
+                            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" required class="input w-full" placeholder="6-cijferige code" value="{{ request()->query('code') }}">
+                        </div>
+                    @else
+                        <!-- Password Field -->
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Wachtwoord
                             </label>
+                            <input id="password" name="password" type="password" autocomplete="current-password" required 
+                                   class="input w-full" 
+                                   placeholder="Je wachtwoord">
                         </div>
+                    @endif
 
-                        <div class="text-sm">
-                            <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
-                                Wachtwoord vergeten?
-                            </a>
+                    @if(!request()->query('code_login'))
+                        <!-- Remember Me & Forgot Password -->
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <input id="remember-me" name="remember-me" type="checkbox" 
+                                       class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600 rounded">
+                                <label for="remember-me" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                                    Onthoud mij
+                                </label>
+                            </div>
+
+                            <div class="text-sm">
+                                <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
+                                    Wachtwoord vergeten?
+                                </a>
+                            </div>
                         </div>
-                    </div>
+                    @endif
 
                     <!-- Submit Button -->
                     <div>
@@ -89,7 +98,7 @@
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
                             </svg>
-                            Inloggen
+                            {{ request()->query('code_login') ? 'Inloggen met code' : 'Inloggen' }}
                         </button>
                     </div>
                 </form>

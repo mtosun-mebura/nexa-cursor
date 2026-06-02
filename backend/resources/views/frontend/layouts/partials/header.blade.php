@@ -8,10 +8,19 @@
     $showSkillmatchingNav = ($showSkillmatchingAppLinks ?? false) && ! request()->routeIs('taxi.portal.*');
     $isFrontendAppPage = request()->routeIs('dashboard', 'profile', 'matches', 'agenda', 'applications', 'applications.*', 'settings', 'taxi.portal.*');
     $isPublicWebsitePage = ! $isFrontendAppPage;
+    $isTaxiPortalPage = request()->routeIs('taxi.portal.*');
 @endphp
 <!-- Header -->
-<header class="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50" 
-        x-data="{ mobileMenuOpen: false }">
+<header
+    @class([
+        'bg-white dark:bg-gray-900 border-b border-gray-200 sticky top-0 z-50',
+        'dark:border-gray-800' => $isTaxiPortalPage,
+        'dark:border-gray-600' => ! $isTaxiPortalPage,
+        'shadow-none' => $isTaxiPortalPage,
+        'shadow-sm' => ! $isTaxiPortalPage,
+    ])
+    x-data="{ mobileMenuOpen: false }"
+>
     <div class="container-custom">
         <div class="flex justify-between items-center h-16 md:h-20">
             <!-- Logo + Hamburger (hamburger alleen zichtbaar onder md) -->

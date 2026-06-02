@@ -795,6 +795,9 @@ Route::get('/verify-email/{user}', [App\Http\Controllers\Admin\AdminUserControll
 // Frontend login (kandidaten / portaal)
 Route::get('/login', [FrontendAuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [FrontendAuthController::class, 'login'])->middleware('throttle:6,1')->name('login.post');
+Route::post('/login/code', [FrontendAuthController::class, 'loginWithCode'])->middleware('throttle:12,1')->name('login.code');
+Route::get('/wachtwoord-instellen', [FrontendAuthController::class, 'showSetPasswordForm'])->middleware('auth')->name('frontend.set-password');
+Route::post('/wachtwoord-instellen', [FrontendAuthController::class, 'setPassword'])->middleware('auth')->name('frontend.set-password.post');
 Route::get('/register', fn () => redirect()->route('home'))->name('register');
 Route::post('/register', fn () => redirect()->route('home'))->name('register.post');
 Route::post('/logout', function () {
@@ -949,6 +952,7 @@ Route::get('/terms', function () {
 Route::prefix('nexa-taxi/booking')->group(function () {
     Route::get('address-search', [NexaTaxiBookingController::class, 'addressSearch'])->name('nexataxi.booking.address-search');
     Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
+    Route::get('pending', [NexaTaxiBookingController::class, 'pending'])->name('nexataxi.booking.pending');
     Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');
     Route::get('betaling/terug', [\App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController::class, 'returnPage'])
         ->name('nexataxi.booking.payment.return');

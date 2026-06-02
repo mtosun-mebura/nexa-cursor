@@ -174,8 +174,8 @@ class SkillmatchingPortalAccessTest extends TestCase
 
         config(['tenancy.dev_host_company_map' => ['localhost' => $company->id]]);
 
+        // Super-admin mag de portal altijd openen (EnsureTenantTaxiModule); gewone gebruiker niet.
         $user = User::factory()->create();
-        $user->assignRole('super-admin');
 
         $this->actingAs($user)
             ->get(route('taxi.portal.dashboard'))

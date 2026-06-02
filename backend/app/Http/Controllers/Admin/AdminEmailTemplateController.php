@@ -80,6 +80,7 @@ class AdminEmailTemplateController extends Controller
             'rejection' => 'skillmatching',
             'invoice' => 'taxi',
             'taxi_ride_accepted' => 'taxi',
+            'taxi_customer_login_code' => 'taxi',
         ];
     }
 
@@ -104,6 +105,7 @@ class AdminEmailTemplateController extends Controller
             'custom' => 'Aangepast',
             'invoice' => 'Factuur',
             'taxi_ride_accepted' => 'Taxi: rit geaccepteerd (klant)',
+            'taxi_customer_login_code' => 'Taxi: eenmalige inlogcode (klant)',
         ];
     }
 

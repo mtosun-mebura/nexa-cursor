@@ -377,6 +377,12 @@
                             </label>
                             <input id="booking-field-email" type="email" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="email" autocomplete="email" inputmode="email" @if($contactEmailRequired) aria-required="true" required @endif>
                             <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="email" role="alert"></p>
+                            <label class="mt-3 inline-flex items-center gap-3 select-none cursor-pointer">
+                                <input type="checkbox" class="h-5 w-5 rounded border border-default-medium bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-field="create_account">
+                                <span class="text-sm text-body">
+                                    Account aanmaken om je ritten en facturen in te zien
+                                </span>
+                            </label>
                         </div>
                     </div>
                     <p class="mt-6 text-sm text-body text-left" role="note"><span class="text-red-600 dark:text-red-400 font-medium" aria-hidden="true">*</span> Verplicht veld</p>
@@ -520,11 +526,12 @@
                     </svg>
                 </button>
             </div>
-            <h4 class="text-2xl font-bold mb-2">Boeking versturen</h4>
-            <p class="text-base text-slate-600 dark:text-slate-200">Weet u zeker dat u de boeking wilt versturen?</p>
+            <h4 class="text-2xl font-bold mb-2" data-confirm-modal-title>Boeking versturen</h4>
+            <p class="text-base text-slate-600 dark:text-slate-200" data-confirm-modal-text>Weet u zeker dat u de boeking wilt versturen?</p>
             <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap">
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-400 text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-confirm-submit>Bevestigen</button>
+                <a class="hidden inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-login-btn href="#">Inloggen</a>
             </div>
             </div>
         </div>
@@ -1281,6 +1288,7 @@ body.booking-modal-open {
     var config = @json($bookingConfig);
     var quoteUrl = @json(route('nexataxi.booking.quote'));
     var submitUrl = @json(route('nexataxi.booking.submit'));
+    var pendingUrl = @json(route('nexataxi.booking.pending'));
     var pageId = @json($bookingPageId);
     var sectionKey = @json($sectionKey ?? 'component:taxi.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
@@ -1322,6 +1330,7 @@ body.booking-modal-open {
         last_name: '',
         phone: '',
         email: '',
+        create_account: false,
         pickup_lat: null,
         pickup_lng: null,
         stopovers_geo: [],
@@ -1341,6 +1350,8 @@ body.booking-modal-open {
     var baggageVanUpgradeMessage = (config.texts && config.texts.baggage_van_upgrade_message)
         ? String(config.texts.baggage_van_upgrade_message)
         : 'Vanwege de hoeveelheid bagage tonen we bus- of van-aanbiedingen.';
+
+    restorePendingBookingFromSession();
 
     function formatEuro(value) {
         var num = (typeof value === 'number' ? value : parseFloat(value || 0));
@@ -2980,6 +2991,9 @@ body.booking-modal-open {
         } else if ((config.contact && config.contact.email_required) && !em) {
             setFieldError('email', 'E-mailadres is verplicht.');
             fail = true;
+        } else if (!!state.create_account && !em) {
+            setFieldError('email', 'E-mailadres is verplicht om een account aan te maken.');
+            fail = true;
         }
         return !fail;
     }
@@ -3077,6 +3091,14 @@ body.booking-modal-open {
     function showConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        var title = modal.querySelector('[data-confirm-modal-title]');
+        var text = modal.querySelector('[data-confirm-modal-text]');
+        var loginBtn = modal.querySelector('[data-booking-login-btn]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        if (title) title.textContent = 'Boeking versturen';
+        if (text) text.textContent = 'Weet u zeker dat u de boeking wilt versturen?';
+        if (confirmBtn) confirmBtn.classList.remove('hidden');
+        if (loginBtn) loginBtn.classList.add('hidden');
         modal.classList.remove('hidden');
         document.documentElement.classList.add('booking-modal-open');
         document.body.classList.add('booking-modal-open');
@@ -3086,6 +3108,10 @@ body.booking-modal-open {
     function closeConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        var loginBtn = modal.querySelector('[data-booking-login-btn]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        if (confirmBtn) confirmBtn.classList.remove('hidden');
+        if (loginBtn) loginBtn.classList.add('hidden');
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
@@ -3109,10 +3135,13 @@ body.booking-modal-open {
         bookingSubmitInFlight = true;
         clearError();
         var paymentMethod = getSelectedPaymentMethod();
+        var returnUrl = window.location.href || '';
+        if (returnUrl.indexOf('#') !== -1) returnUrl = returnUrl.split('#')[0];
         var payload = {
             page_id: pageId,
             section_key: sectionKey,
             module: bookingModuleName || undefined,
+            return_url: returnUrl,
             selected_offer_id: state.selected_offer_id,
             distance_meters: parseInt(state.distance_meters || 0, 10),
             duration_seconds: parseInt(state.duration_seconds || 0, 10),
@@ -3133,6 +3162,7 @@ body.booking-modal-open {
             last_name: state.last_name || '',
             phone: state.phone || '',
             email: state.email || '',
+            create_account: !!state.create_account,
             baggage: state.baggage || {},
             special_baggage: state.special_baggage || {}
         };
@@ -3150,7 +3180,18 @@ body.booking-modal-open {
             body: JSON.stringify(payload)
         })
         .then(function(response) {
-            if (!response.ok) return response.json().then(function(data) { throw new Error(data.message || 'Boeking versturen mislukt'); });
+            if (!response.ok) {
+                if (response.status === 409) {
+                    return response.json().then(function(data) {
+                        if (data && data.requires_login && data.login_url) {
+                            showLoginRequiredModal(String(data.message || 'Log in om verder te gaan.'), String(data.login_url));
+                            throw new Error('__handled__');
+                        }
+                        throw new Error((data && data.message) ? data.message : 'Boeking versturen mislukt');
+                    });
+                }
+                return response.json().then(function(data) { throw new Error(data.message || 'Boeking versturen mislukt'); });
+            }
             return response.json();
         })
         .then(function(data) {
@@ -3168,11 +3209,51 @@ body.booking-modal-open {
             showSuccess(successMessage);
         })
         .catch(function(error) {
+            if (error && error.message === '__handled__') return;
             showError(error.message || 'Boeking versturen mislukt');
         })
         .finally(function() {
             bookingSubmitInFlight = false;
         });
+    }
+
+    function showLoginRequiredModal(message, loginUrl) {
+        var modal = root.querySelector('[data-booking-confirm-modal]');
+        if (!modal) return;
+        var title = modal.querySelector('[data-confirm-modal-title]');
+        var text = modal.querySelector('[data-confirm-modal-text]');
+        var loginBtn = modal.querySelector('[data-booking-login-btn]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        if (title) title.textContent = 'Inloggen vereist';
+        if (text) text.textContent = String(message || 'Log in om verder te gaan.');
+        if (confirmBtn) confirmBtn.classList.add('hidden');
+        if (loginBtn) {
+            loginBtn.classList.remove('hidden');
+            loginBtn.setAttribute('href', loginUrl);
+        }
+        showConfirmModal();
+    }
+
+    function restorePendingBookingFromSession() {
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            if (!params.has('resume_booking')) return;
+            fetch(pendingUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function(res) { return res.ok ? res.json() : null; })
+                .then(function(data) {
+                    if (!data || !data.pending || !data.payload) return;
+                    Object.keys(data.payload).forEach(function(k) {
+                        if (k === 'page_id' || k === 'section_key' || k === 'module' || k === 'return_url') return;
+                        if (state[k] !== undefined) state[k] = data.payload[k];
+                    });
+                    state.maxStep = 5;
+                    applyStateToFields();
+                    updateSummary();
+                    setStepByKey('confirm', { skipScroll: true });
+                    showSuccess('Je was niet ingelogd. Controleer je gegevens en bevestig je boeking.');
+                })
+                .catch(function() {});
+        } catch (e) {}
     }
 
     function initGoogleMaps() {

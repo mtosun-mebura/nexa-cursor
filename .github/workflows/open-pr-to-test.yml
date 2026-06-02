@@ -58,8 +58,8 @@ jobs:
                 body: [
                   'Automatisch aangemaakt bij push op `' + head + '`.',
                   '',
-                  'Na groene CI wordt deze PR automatisch gemerged (auto-merge workflow).',
-                  'Merge naar `release/test` start de TEST-deploy pipeline.',
+                  'Na groene CI wordt deze PR automatisch gemerged.',
+                  'Pas daarna start de TEST-deploy (push naar `release/test`).',
                 ].join('\n'),
               });
               core.info(`PR aangemaakt: #${pr.number}`);

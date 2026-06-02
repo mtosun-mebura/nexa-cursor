@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\WebsitePage;
+use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
+use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 class NexaTaxiBookingController extends Controller
 {
@@ -67,6 +71,7 @@ class NexaTaxiBookingController extends Controller
             'page_id' => 'nullable|integer',
             'section_key' => 'nullable|string|max:120',
             'module' => 'nullable|string|max:64',
+            'return_url' => 'nullable|string|max:2000',
             'selected_offer_id' => 'required|string|max:120',
             'distance_meters' => 'required|integer|min:0',
             'duration_seconds' => 'required|integer|min:0',
@@ -83,6 +88,7 @@ class NexaTaxiBookingController extends Controller
             'first_name' => 'required|string|min:2|max:100',
             'last_name' => 'required|string|min:2|max:100',
             'email' => 'nullable|email|max:255',
+            'create_account' => 'nullable|boolean',
             'phone' => [
                 'required',
                 'string',
@@ -144,12 +150,91 @@ class NexaTaxiBookingController extends Controller
         }
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
-        if ($dispatchSettings->customerEmailRequiredForBooking($companyId) && trim((string) ($data['email'] ?? '')) === '') {
+        $email = trim((string) ($data['email'] ?? ''));
+        if ($dispatchSettings->customerEmailRequiredForBooking($companyId) && $email === '' && ! auth()->check()) {
             return response()->json([
                 'success' => false,
                 'message' => 'E-mailadres is verplicht.',
                 'errors' => ['email' => ['E-mailadres is verplicht.']],
             ], 422);
+        }
+
+        // Als de gebruiker al is ingelogd, gebruiken we diens e-mail voor koppeling/validatie.
+        if (auth()->check()) {
+            $authEmail = trim((string) (auth()->user()->email ?? ''));
+            if ($authEmail !== '') {
+                $email = $authEmail;
+            }
+        }
+
+        $existingUser = null;
+        if ($email !== '') {
+            $existingUser = User::query()
+                ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
+                ->first();
+        }
+
+        // E-mail mag maar 1x bestaan: als het al bestaat en je bent niet (juist) ingelogd, dwing login af.
+        if ($existingUser && (! auth()->check() || (int) auth()->id() !== (int) $existingUser->id)) {
+            if (! auth()->check()) {
+                $returnUrl = trim((string) ($data['return_url'] ?? ''));
+                if ($returnUrl === '') {
+                    // JSON call: fallback naar home
+                    $returnUrl = url('/');
+                }
+                $resumeUrl = Str::contains($returnUrl, '?')
+                    ? ($returnUrl.'&resume_booking=1')
+                    : ($returnUrl.'?resume_booking=1');
+
+                $request->session()->put('nexataxi.pending_booking', [
+                    'created_at' => now()->toISOString(),
+                    'email' => $email,
+                    'company_id' => $companyId,
+                    'payload' => $data,
+                    'resume_url' => $resumeUrl,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'requires_login' => true,
+                    'message' => 'Dit e-mailadres is al bekend. Log in om je boeking te bevestigen.',
+                    'login_url' => route('login', ['intended' => $resumeUrl]),
+                ], 409);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Dit e-mailadres is al in gebruik. Log in met dat account om te boeken.',
+                'errors' => ['email' => ['Dit e-mailadres is al in gebruik. Log in met dat account om te boeken.']],
+            ], 422);
+        }
+
+        $createdCustomer = null;
+        if (! auth()->check() && ! $existingUser && ! empty($data['create_account']) && $email !== '') {
+            $createdCustomer = User::query()->create([
+                'first_name' => (string) ($data['first_name'] ?? ''),
+                'last_name' => (string) ($data['last_name'] ?? ''),
+                'email' => $email,
+                'phone' => (string) ($data['phone'] ?? ''),
+                'company_id' => $companyId,
+                'password' => Str::random(40),
+                'email_verified_at' => null,
+                'is_active' => true,
+            ]);
+
+            $role = Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
+            $createdCustomer->assignRole($role, $companyId);
+
+            $resumeUrl = trim((string) ($data['return_url'] ?? ''));
+            if ($resumeUrl !== '') {
+                $resumeUrl = Str::contains($resumeUrl, '?') ? ($resumeUrl.'&code_login=1') : ($resumeUrl.'?code_login=1');
+            } else {
+                $resumeUrl = url('/login?code_login=1');
+            }
+
+            // Link naar login met code (email alvast ingevuld)
+            $loginUrl = route('login', ['code_login' => 1, 'email' => $email, 'intended' => $resumeUrl]);
+            app(TaxiCustomerLoginCodeService::class)->issueAndSend($createdCustomer, $companyId, $loginUrl);
         }
 
         $paymentService = app(TaxiRidePaymentService::class);
@@ -206,13 +291,19 @@ class NexaTaxiBookingController extends Controller
             'pickup_at' => $data['pickup_at'],
             'quoted_price' => $selected['price'] ?? null,
             'customer_name' => $customerName,
-            'customer_email' => $data['email'] ?? null,
+            'customer_email' => $email !== '' ? $email : null,
+            'customer_user_id' => auth()->check()
+                ? (int) auth()->id()
+                : ($existingUser ? (int) $existingUser->id : ($createdCustomer ? (int) $createdCustomer->id : null)),
             'customer_phone' => $data['phone'],
             'customer_note' => $data['remarks'] ?? null,
             'quote_expires_at' => now()->addHours(12),
             'booking_payload' => $payload,
             'selected_offer_payload' => $selected,
         ]);
+
+        // Succes: eventuele bewaarde boeking opruimen.
+        $request->session()->forget('nexataxi.pending_booking');
 
         if ($companyId && $companyId > 0 && ! $payAtBooking) {
             try {
@@ -274,6 +365,30 @@ class NexaTaxiBookingController extends Controller
             'ride_request_id' => $ride->id,
             'payment_required' => $payAtBooking,
             'checkout_url' => $checkoutUrl,
+        ]);
+    }
+
+    public function pending(Request $request): JsonResponse
+    {
+        $pending = $request->session()->get('nexataxi.pending_booking');
+        if (! is_array($pending)) {
+            return response()->json(['pending' => false]);
+        }
+
+        if (! auth()->check()) {
+            return response()->json(['pending' => false], 401);
+        }
+
+        $pendingEmail = trim((string) ($pending['email'] ?? ''));
+        $authEmail = trim((string) (auth()->user()->email ?? ''));
+        if ($pendingEmail !== '' && $authEmail !== '' && mb_strtolower($pendingEmail) !== mb_strtolower($authEmail)) {
+            return response()->json(['pending' => false], 403);
+        }
+
+        return response()->json([
+            'pending' => true,
+            'payload' => $pending['payload'] ?? null,
+            'resume_url' => $pending['resume_url'] ?? null,
         ]);
     }
 
