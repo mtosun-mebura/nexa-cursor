@@ -383,6 +383,7 @@
                     @include('frontend.layouts.partials.brand-logo', [
                         'branding' => $branding,
                         'logoHref' => $logoHref,
+                        'logoHrefTenantAware' => empty($isStaging),
                     ])
                 </div>
                 {{-- Desktop: nav verborgen onder 1025px via CSS media query; dan hamburger --}}

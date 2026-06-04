@@ -168,6 +168,88 @@ class RideRequest extends Model
         return $this->distance_meters !== null ? round($this->distance_meters / 1000, 2) : null;
     }
 
+    /**
+     * Tussenstop-adressen uit booking_payload (A = ophalen, B… = stops, laatste letter = afzetten).
+     *
+     * @return list<string>
+     */
+    public function getStopoverAddressesAttribute(): array
+    {
+        return $this->resolveStopoverAddresses();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function resolveStopoverAddresses(): array
+    {
+        $payload = $this->booking_payload;
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        $step = is_array($payload['step_data'] ?? null) ? $payload['step_data'] : [];
+
+        foreach ([
+            $payload['stopovers'] ?? null,
+            $step['stopovers'] ?? null,
+            $payload['route']['stopovers'] ?? null,
+        ] as $raw) {
+            $parsed = self::normalizeStopoverList($raw);
+            if ($parsed !== []) {
+                return $parsed;
+            }
+        }
+
+        foreach ([
+            $payload['route_addresses'] ?? null,
+            $step['route_addresses'] ?? null,
+        ] as $route) {
+            $fromRoute = self::stopoversFromRouteAddresses($route);
+            if ($fromRoute !== []) {
+                return $fromRoute;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function normalizeStopoverList(mixed $raw): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($s) => is_string($s) ? trim($s) : '',
+            $raw
+        )));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function stopoversFromRouteAddresses(mixed $route): array
+    {
+        if (! is_array($route)) {
+            return [];
+        }
+
+        $addresses = array_values(array_filter(array_map(
+            static fn ($s) => is_string($s) ? trim($s) : '',
+            $route
+        )));
+
+        if (count($addresses) < 3) {
+            return [];
+        }
+
+        return array_slice($addresses, 1, -1);
+    }
+
     public function chargeableAmount(): ?float
     {
         $amount = $this->final_price ?? $this->quoted_price;

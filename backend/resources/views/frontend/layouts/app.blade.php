@@ -6,28 +6,23 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="auth-check" content="{{ auth()->check() ? 'true' : 'false' }}">
     
-    <title>@yield('title', 'Nexa Skillmatching - Vind je droombaan')</title>
-    <meta name="description" content="@yield('description', 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures. Ons AI-platform helpt je de ideale baan te vinden.')">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:title" content="@yield('title', 'Nexa Skillmatching - Vind je droombaan')">
-    <meta property="og:description" content="@yield('description', 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures.')">
-    <meta property="og:image" content="{{ asset('images/og-image.jpg') }}">
-    
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="{{ url()->current() }}">
-    <meta property="twitter:title" content="@yield('title', 'Nexa Skillmatching - Vind je droombaan')">
-    <meta property="twitter:description" content="@yield('description', 'Ontdek de perfecte match tussen jouw vaardigheden en vacatures.')">
-    <meta property="twitter:image" content="{{ asset('images/og-image.jpg') }}">
-    
     @php
         $websiteBuilder = app(\App\Services\WebsiteBuilderService::class);
-        $layoutHideFooter = request()->routeIs('taxi.portal.*');
-        $layoutPortalModule = $layoutHideFooter ? 'taxi' : null;
+        $layoutResolvedModule = $frontendResolvedModuleName ?? $websiteBuilder->resolvePublicFrontendModuleName();
+        $layoutIsTaxiContext = $layoutResolvedModule === 'taxi';
+        $layoutIsTaxiAuthPage = $layoutIsTaxiContext && request()->routeIs(
+            'login',
+            'login.post',
+            'login.code',
+            'login.code.request',
+            'frontend.set-password',
+            'frontend.set-password.post'
+        );
+        $layoutHideFooter = request()->routeIs('taxi.portal.*') || $layoutIsTaxiAuthPage;
+        $layoutPortalModule = request()->routeIs('taxi.portal.*') || $layoutIsTaxiContext ? 'taxi' : null;
         $layoutBranding = $branding ?? $websiteBuilder->getSiteBranding($layoutPortalModule);
+        $layoutSiteName = trim((string) ($layoutBranding['site_name'] ?? config('app.name', 'Nexa')));
+        $layoutSiteDescription = trim((string) ($layoutBranding['site_description'] ?? ''));
         $layoutUseWebsiteFooter = false;
         $layoutHomeSections = [];
         $layoutThemeSettings = [];
@@ -35,9 +30,8 @@
         $layoutPortalCopyright = null;
         if ($layoutHideFooter) {
             $layoutHomeSections = $websiteBuilder->getHomeFooterSections($layoutPortalModule);
-            if (! empty($layoutHomeSections['copyright'])) {
-                $layoutPortalCopyright = str_replace('{year}', date('Y'), (string) $layoutHomeSections['copyright']);
-            } else {
+            $layoutPortalCopyright = $websiteBuilder->resolvePortalCopyright($layoutPortalModule);
+            if ($layoutPortalCopyright === null) {
                 $footerBrandName = trim((string) ($layoutBranding['site_name'] ?? config('app.name')));
                 if (strcasecmp($footerBrandName, 'NEXA Taxi') === 0) {
                     $footerBrandName = 'NEXA';
@@ -46,6 +40,24 @@
             }
         }
     @endphp
+    
+    <title>@yield('title', $layoutSiteName)</title>
+    <meta name="description" content="@yield('description', $layoutSiteDescription !== '' ? $layoutSiteDescription : 'Log in op je account.')">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:title" content="@yield('title', $layoutSiteName)">
+    <meta property="og:description" content="@yield('description', $layoutSiteDescription !== '' ? $layoutSiteDescription : 'Log in op je account.')">
+    <meta property="og:image" content="{{ asset('images/og-image.jpg') }}">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="{{ url()->current() }}">
+    <meta property="twitter:title" content="@yield('title', $layoutSiteName)">
+    <meta property="twitter:description" content="@yield('description', $layoutSiteDescription !== '' ? $layoutSiteDescription : 'Log in op je account.')">
+    <meta property="twitter:image" content="{{ asset('images/og-image.jpg') }}">
+    
     <!-- Favicon -->
     @if(!empty($layoutBranding['favicon_url']))
     <link rel="icon" href="{{ $layoutBranding['favicon_url'] }}">
@@ -149,8 +161,8 @@
     @endunless
 
     @if(($layoutHideFooter ?? false) && filled($layoutPortalCopyright ?? null))
-    <footer class="relative z-30 mt-auto border-t border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-900">
-        <div class="container-custom py-3">
+    <footer class="taxi-portal-site-footer relative z-30 mt-auto w-full border-t border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-900">
+        <div class="w-full py-3 container-custom">
             <p class="text-sm text-gray-600 dark:text-gray-200">
                 {{ $layoutPortalCopyright }}
             </p>

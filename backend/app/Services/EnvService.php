@@ -13,8 +13,8 @@ class EnvService
     /** @var array<string, string>|null */
     private ?array $envFileCache = null;
 
-    /** @var array<string, string|null>|null */
-    private ?array $mailOverlayCache = null;
+    /** @var array<int, array<string, string|null>> */
+    private array $mailOverlayCacheByScope = [];
 
     /** Keys that are stored in GeneralSetting (admin settings); EnvService::get() prefers DB over .env */
     private const GENERAL_SETTING_KEYS = [
@@ -101,10 +101,15 @@ class EnvService
      *
      * @return array<string, string|null>
      */
-    public function getMailOverlayValues(): array
+    /**
+     * @param  int|null  $forCompanyId  Expliciete tenant; null = huidige scope (host/admin)
+     * @return array<string, string|null>
+     */
+    public function getMailOverlayValues(?int $forCompanyId = null): array
     {
-        if ($this->mailOverlayCache !== null) {
-            return $this->mailOverlayCache;
+        $cacheKey = $forCompanyId !== null && $forCompanyId > 0 ? $forCompanyId : 0;
+        if (isset($this->mailOverlayCacheByScope[$cacheKey])) {
+            return $this->mailOverlayCacheByScope[$cacheKey];
         }
 
         $keys = [
@@ -112,7 +117,9 @@ class EnvService
             'MAIL_FROM_ADDRESS', 'MAIL_FROM_NAME',
         ];
 
-        $fromDb = GeneralSetting::getMany($keys);
+        $fromDb = $forCompanyId !== null && $forCompanyId > 0
+            ? GeneralSetting::getMany($keys, $forCompanyId)
+            : GeneralSetting::getMany($keys);
         $fromEnv = $this->getAll();
         $merged = [];
 
@@ -124,28 +131,29 @@ class EnvService
             $merged[$key] = $value !== null && $value !== '' ? (string) $value : null;
         }
 
-        return $this->mailOverlayCache = $merged;
+        return $this->mailOverlayCacheByScope[$cacheKey] = $merged;
     }
 
     /**
      * Pas mailconfiguratie uit admin (#mail) toe op de runtime (SMTP-auth + From).
      */
-    public function applyMailConfigToRuntime(): void
+    public function applyMailConfigToRuntime(?int $forCompanyId = null): void
     {
-        $mailer = $this->get('MAIL_MAILER', 'log');
-        $encryption = $this->get('MAIL_ENCRYPTION', 'tls');
-        $fromAddress = $this->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@example.com'));
-        $fromName = $this->get('MAIL_FROM_NAME', config('mail.from.name', config('app.name', 'NEXA')));
+        $mail = $this->getMailOverlayValues($forCompanyId);
+        $mailer = $mail['MAIL_MAILER'] ?? 'log';
+        $encryption = $mail['MAIL_ENCRYPTION'] ?? 'tls';
+        $fromAddress = $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address', 'noreply@example.com');
+        $fromName = $mail['MAIL_FROM_NAME'] ?? config('mail.from.name', config('app.name', 'NEXA'));
 
         Config::set('mail.default', $mailer);
         Config::set('mail.from.address', $fromAddress);
         Config::set('mail.from.name', $fromName);
 
         if ($mailer === 'smtp') {
-            Config::set('mail.mailers.smtp.host', $this->get('MAIL_HOST', ''));
-            Config::set('mail.mailers.smtp.port', $this->get('MAIL_PORT', '587'));
-            Config::set('mail.mailers.smtp.username', $this->get('MAIL_USERNAME', ''));
-            Config::set('mail.mailers.smtp.password', $this->get('MAIL_PASSWORD', ''));
+            Config::set('mail.mailers.smtp.host', $mail['MAIL_HOST'] ?? '');
+            Config::set('mail.mailers.smtp.port', $mail['MAIL_PORT'] ?? '587');
+            Config::set('mail.mailers.smtp.username', $mail['MAIL_USERNAME'] ?? '');
+            Config::set('mail.mailers.smtp.password', $mail['MAIL_PASSWORD'] ?? '');
             Config::set('mail.mailers.smtp.encryption', $encryption === 'null' ? null : $encryption);
         }
 
@@ -153,12 +161,33 @@ class EnvService
     }
 
     /**
+     * Of uitgaande mail daadwerkelijk naar een inbox kan (niet alleen log/array).
+     */
+    public function isMailDeliverableToInbox(?int $forCompanyId = null): bool
+    {
+        $mail = $this->getMailOverlayValues($forCompanyId);
+        $this->applyMailConfigToRuntime($forCompanyId);
+        $mailer = (string) ($mail['MAIL_MAILER'] ?? config('mail.default', 'log'));
+
+        if (in_array($mailer, ['log', 'array'], true)) {
+            return false;
+        }
+
+        if ($mailer === 'smtp') {
+            return trim((string) ($mail['MAIL_HOST'] ?? '')) !== '';
+        }
+
+        return true;
+    }
+
+    /**
      * @return array{from_address: string, from_name: string, smtp_username: string}
      */
-    public function resolveMailFromHeaders(): array
+    public function resolveMailFromHeaders(?int $forCompanyId = null): array
     {
-        $configuredFrom = $this->get('MAIL_FROM_ADDRESS', config('mail.from.address', 'noreply@example.com'));
-        $smtpUsername = trim((string) $this->get('MAIL_USERNAME', ''));
+        $mail = $this->getMailOverlayValues($forCompanyId);
+        $configuredFrom = $mail['MAIL_FROM_ADDRESS'] ?? config('mail.from.address', 'noreply@example.com');
+        $smtpUsername = trim((string) ($mail['MAIL_USERNAME'] ?? ''));
 
         // Envelope/From moet overeenkomen met SMTP-gebruiker als de server dat vereist
         $fromAddress = ($smtpUsername !== '' && $smtpUsername !== $configuredFrom)
@@ -167,7 +196,7 @@ class EnvService
 
         return [
             'from_address' => $fromAddress,
-            'from_name' => $this->get('MAIL_FROM_NAME', config('mail.from.name', config('app.name', 'NEXA'))),
+            'from_name' => $mail['MAIL_FROM_NAME'] ?? config('mail.from.name', config('app.name', 'NEXA')),
             'smtp_username' => $smtpUsername,
         ];
     }

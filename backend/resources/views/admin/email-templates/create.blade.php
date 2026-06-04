@@ -203,6 +203,12 @@
                         <p class="text-xs text-muted-foreground mt-3">
                             <strong>Tip:</strong> Gebruik variabelen met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }}VOORNAAM{{ '}' }}{{ '}' }}</code>
                         </p>
+                        @if(old('type') === 'taxi_customer_login_code')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-0 text-foreground font-medium">Taxi eenmalige inlogcode</p>
+                            <p class="mb-0 mt-1">Kies type <strong>Taxi: eenmalige inlogcode (klant)</strong> en pas onderwerp/HTML aan. Bij verzenden worden {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }} en {{ '{' }}{{ '{' }} LOGIN_URL {{ '}' }}{{ '}' }} automatisch ingevuld.</p>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -280,6 +286,7 @@
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 window.defaultTemplateInformatieaanvraag = @json($defaultHtmlTemplateInformatieaanvraag ?? '');
+window.defaultTemplateLoginCode = @json($defaultHtmlTemplateLoginCode ?? '');
 document.addEventListener('DOMContentLoaded', function() {
     // Toggle ontvanger in Basis Informatie (main form)
     var mainForm = document.querySelector('form[action*="email-templates/store"]');
@@ -301,21 +308,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var typeSelect = document.getElementById('type');
-    if (typeSelect && window.defaultTemplateInformatieaanvraag) {
-        function applyInformatieaanvraagTemplate() {
-            if (typeSelect.value === 'informatieaanvraag') {
-                var html = window.defaultTemplateInformatieaanvraag;
-                var textarea = document.getElementById('html_content');
-                if (textarea) {
-                    textarea.value = html;
-                    if (typeof tinymce !== 'undefined') {
-                        var ed = tinymce.get('html_content');
-                        if (ed) ed.setContent(html);
-                    }
+    if (typeSelect) {
+        function applyTypeDefaultTemplate() {
+            var html = null;
+            if (typeSelect.value === 'informatieaanvraag' && window.defaultTemplateInformatieaanvraag) {
+                html = window.defaultTemplateInformatieaanvraag;
+            } else if (typeSelect.value === 'taxi_customer_login_code' && window.defaultTemplateLoginCode) {
+                html = window.defaultTemplateLoginCode;
+            }
+            if (!html) return;
+            var textarea = document.getElementById('html_content');
+            if (textarea) {
+                textarea.value = html;
+                if (typeof tinymce !== 'undefined') {
+                    var ed = tinymce.get('html_content');
+                    if (ed) ed.setContent(html);
                 }
             }
         }
-        typeSelect.addEventListener('change', applyInformatieaanvraagTemplate);
+        typeSelect.addEventListener('change', applyTypeDefaultTemplate);
     }
 });
 </script>

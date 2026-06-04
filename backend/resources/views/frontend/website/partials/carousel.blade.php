@@ -38,55 +38,44 @@
     #{{ $carouselId }} .carousel-inner-fill {
         width: 100%;
         height: auto;
-        aspect-ratio: 4 / 3;
-        min-height: 11rem;
-        max-height: min(42vh, 22rem);
+        aspect-ratio: auto;
+        min-height: 0;
+        max-height: none;
+        background: transparent;
     }
-    /* Mobiel: toon de afbeelding volledig (geen bijgesneden zijkanten); hoogte volgt de actieve slide. */
-    @media (max-width: 639px) {
-        #{{ $carouselId }} .carousel-inner-fill {
-            aspect-ratio: auto !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-        }
-        #{{ $carouselId }} [data-carousel-item] {
-            position: absolute !important;
-        }
-        #{{ $carouselId }} [data-carousel-item="active"] {
-            position: relative !important;
-        }
-        #{{ $carouselId }} [data-carousel-item] > img {
-            object-fit: contain !important;
-        }
-        #{{ $carouselId }} [data-carousel-item="active"] > img {
-            position: relative !important;
-            height: auto !important;
-        }
+    #{{ $carouselId }} [data-carousel-item] {
+        position: absolute !important;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        transition: opacity 0.7s ease-in-out;
+        will-change: opacity;
     }
-    @media (min-width: 640px) {
-        #{{ $carouselId }} .carousel-inner-fill {
-            aspect-ratio: 16 / 9;
-            min-height: 14rem;
-            max-height: min(48vh, 28rem);
-        }
+    #{{ $carouselId }} [data-carousel-item="active"] {
+        position: relative !important;
+        height: auto;
     }
-    @media (min-width: 1024px) {
-        #{{ $carouselId }} .carousel-inner-fill {
-            aspect-ratio: 21 / 9;
-            min-height: 18rem;
-            max-height: min(56vh, 36rem);
-        }
+    #{{ $carouselId }} [data-carousel-item="active"] > img {
+        display: block;
+        width: 100% !important;
+        height: auto !important;
+        max-height: none;
+        position: relative !important;
+        inset: auto !important;
+    }
+    #{{ $carouselId }} [data-carousel-item]:not([data-carousel-item="active"]) > img {
+        position: absolute !important;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+        object-position: center center;
     }
     #{{ $carouselId }} .carousel-caption-text-block {
         max-width: min(36rem, 92vw);
     }
     #{{ $carouselId }} .carousel-caption-text-block p {
         line-height: 1.35;
-    }
-    #{{ $carouselId }} [data-carousel-item] {
-        transition: opacity 0.7s ease-in-out;
-        will-change: opacity;
     }
     #{{ $carouselId }} .carousel-caption-pos-top,
     #{{ $carouselId }} .carousel-caption-pos-bottom {
@@ -136,7 +125,7 @@
     }
 </style>
 <div id="{{ $carouselId }}" class="relative w-full overflow-visible" data-carousel="slide" data-carousel-interval="{{ $intervalSeconds }}">
-    <div class="carousel-inner-fill relative z-0 w-full overflow-hidden bg-gray-200 dark:bg-gray-700">
+    <div class="carousel-inner-fill relative z-0 w-full overflow-hidden">
         @foreach($items as $index => $item)
             @php
                 $uuid = $item['uuid'] ?? $item['UUID'] ?? '';
@@ -163,7 +152,7 @@
             @endphp
             @if($imgSrc)
             <div class="absolute top-0 left-0 right-0 bottom-0 w-full h-full {{ $index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none' }}" data-carousel-item="{{ $index === 0 ? 'active' : '' }}" style="inset: 0;">
-                <img src="{{ $imgSrc }}" alt="{{ $alt }}" loading="{{ $index === 0 ? 'eager' : 'lazy' }}" decoding="async" referrerpolicy="no-referrer" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;">
+                <img src="{{ $imgSrc }}" alt="{{ $alt }}" loading="{{ $index === 0 ? 'eager' : 'lazy' }}" decoding="async" referrerpolicy="no-referrer" style="display: block; width: 100%; height: auto;">
                 @if(count($captionWords) > 0)
                 <div class="carousel-slide-caption pointer-events-none absolute z-20 px-6 md:px-12 {{ $positionClass }} carousel-anim-{{ $textAnimation }}" data-carousel-caption data-carousel-animation="{{ $textAnimation }}" style="--caption-anim-duration: {{ $animDurationMs }}ms; --caption-anim-stagger: {{ $animStaggerMs }}ms;">
                     <div class="carousel-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md" style="background-color: {{ $captionBgColor }};">

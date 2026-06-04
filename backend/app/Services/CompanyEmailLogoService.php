@@ -12,11 +12,27 @@ use Illuminate\Support\Str;
 /**
  * Tenant-specifiek logo voor e-mailtemplates ({{ COMPANY_LOGO }}).
  *
- * Algemene templates (company_id null) krijgen het logo van de tenant in de verzendcontext
- * (bijv. ride.company_id), niet van het template-record.
+ * Algemene templates (company_id null) gebruiken altijd het logo van de tenant in de
+ * verzendcontext (rit, boeking, factuur), niet van het template-record.
  */
 class CompanyEmailLogoService
 {
+    /**
+     * Bepaal welk bedrijf het logo levert: template-bedrijf heeft voorrang, anders verzend-context.
+     */
+    public function resolveLogoCompanyId(?int $templateCompanyId, ?int $sendContextCompanyId): ?int
+    {
+        if ($templateCompanyId !== null && $templateCompanyId > 0) {
+            return $templateCompanyId;
+        }
+
+        if ($sendContextCompanyId !== null && $sendContextCompanyId > 0) {
+            return $sendContextCompanyId;
+        }
+
+        return null;
+    }
+
     /** Vervangen in Mail::send vóór verzending door ingesloten afbeelding of tekstfallback. */
     public const HTML_PLACEHOLDER = '<!--NEXA_COMPANY_LOGO-->';
 
@@ -60,7 +76,7 @@ class CompanyEmailLogoService
     }
 
     /**
-     * Publieke HTTPS-URL voor admin-preview (geen localhost indien tenant-domein bekend).
+     * Publieke HTTPS-URL voor e-mailclients (tenant-domein indien bekend).
      */
     public function publicLogoUrl(?int $companyId): ?string
     {
@@ -77,14 +93,82 @@ class CompanyEmailLogoService
         return rtrim($base, '/').$path;
     }
 
-    public function previewImgHtml(?int $companyId, ?string $fallbackName = null): string
+    /**
+     * Logo-URL op het huidige host (admin-preview op localhost of admin-domein).
+     */
+    public function adminPreviewLogoUrl(?int $companyId): ?string
     {
-        $url = $this->publicLogoUrl($companyId);
+        if ($companyId === null || $companyId <= 0 || ! $this->hasLogoSource($companyId)) {
+            return null;
+        }
+
+        return url(route('email.company-logo', ['company' => $companyId], false));
+    }
+
+    public function resolveEmailLogoMaxHeightPx(?int $companyId): int
+    {
+        $raw = GeneralSetting::get('logo_size', '56', $companyId && $companyId > 0 ? $companyId : null);
+        $px = (int) $raw;
+
+        return max(24, min(100, $px > 0 ? $px : 56));
+    }
+
+    public function previewImgHtml(?int $companyId, ?string $fallbackName = null, bool $forAdminPreview = false): string
+    {
+        $url = $forAdminPreview
+            ? $this->adminPreviewLogoUrl($companyId)
+            : $this->publicLogoUrl($companyId);
+
         if ($url !== null) {
-            return $this->imgHtmlWithSrc($url, 'Logo');
+            return $this->imgHtmlWithSrc($url, 'Logo', $this->resolveEmailLogoMaxHeightPx($companyId ?? 0));
         }
 
         return $this->fallbackNameHtml($fallbackName);
+    }
+
+    /**
+     * Vervang logo-placeholders in admin-preview HTML.
+     */
+    public function injectPreviewLogoIntoHtml(
+        string $html,
+        ?int $companyId,
+        ?string $fallbackName = null,
+        bool $forAdminPreview = true
+    ): string {
+        if ($html === '') {
+            return $html;
+        }
+
+        $hasPlaceholder = str_contains($html, 'COMPANY_LOGO')
+            || str_contains($html, self::HTML_PLACEHOLDER);
+
+        if (! $hasPlaceholder && ! ($companyId && preg_match('#/email-logo/'.$companyId.'#', $html))) {
+            return $html;
+        }
+
+        $logoHtml = $this->previewImgHtml($companyId, $fallbackName, $forAdminPreview);
+
+        foreach (['{{ COMPANY_LOGO }}', '{{COMPANY_LOGO}}', '{ COMPANY_LOGO }', '{COMPANY_LOGO}'] as $placeholder) {
+            $html = str_replace($placeholder, $logoHtml, $html);
+        }
+
+        $html = str_replace(self::HTML_PLACEHOLDER, $logoHtml, $html);
+
+        if ($companyId && $companyId > 0) {
+            $freshUrl = $forAdminPreview
+                ? $this->adminPreviewLogoUrl($companyId)
+                : $this->publicLogoUrl($companyId);
+            if (is_string($freshUrl) && $freshUrl !== '') {
+                $maxH = $this->resolveEmailLogoMaxHeightPx($companyId);
+                $html = preg_replace(
+                    '#<img[^>]+src=["\'][^"\']*email-logo/'.$companyId.'[^"\']*["\'][^>]*>#i',
+                    $this->imgHtmlWithSrc($freshUrl, 'Logo', $maxH),
+                    $html
+                ) ?? $html;
+            }
+        }
+
+        return $html;
     }
 
     public function hasLogoSource(?int $companyId): bool
@@ -98,11 +182,6 @@ class CompanyEmailLogoService
     public function resolveLogoPayload(?int $companyId): ?array
     {
         if ($companyId !== null && $companyId > 0) {
-            $fromSettings = $this->payloadFromGeneralSettings($companyId);
-            if ($fromSettings !== null) {
-                return $fromSettings;
-            }
-
             $company = Company::query()->find($companyId);
             if ($company) {
                 $fromBlob = $this->payloadFromCompanyBlob($company);
@@ -117,6 +196,11 @@ class CompanyEmailLogoService
                         return $fromPath;
                     }
                 }
+            }
+
+            $fromSettings = $this->payloadFromGeneralSettings($companyId);
+            if ($fromSettings !== null) {
+                return $fromSettings;
             }
 
             return null;
@@ -135,11 +219,13 @@ class CompanyEmailLogoService
         return '<strong>'.e($name).'</strong>';
     }
 
-    public function imgHtmlWithSrc(string $src, ?string $alt = null): string
+    public function imgHtmlWithSrc(string $src, ?string $alt = null, ?int $maxHeightPx = null): string
     {
         $altText = trim((string) ($alt ?? 'Logo'));
+        $maxH = max(24, min(100, $maxHeightPx ?? 56));
+        $maxW = (int) round($maxH * 4.5);
 
-        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:56px;max-width:180px;height:auto;display:block;">';
+        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;">';
     }
 
     /**

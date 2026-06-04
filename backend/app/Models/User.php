@@ -283,6 +283,7 @@ class User extends Authenticatable
         'last_name',
         'email',
         'password',
+        'password_must_be_set',
         'date_of_birth',
         'email_verified_at',
         'phone_verified_at',
@@ -331,6 +332,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
+            'password_must_be_set' => 'boolean',
             'is_active' => 'boolean',
         ];
     }

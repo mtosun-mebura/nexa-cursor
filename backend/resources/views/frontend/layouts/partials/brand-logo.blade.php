@@ -1,6 +1,9 @@
 @php
     $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
-    $logoHref = $logoHref ?? route('home');
+    $logoHrefRaw = $logoHref ?? route('home');
+    $logoHref = ($logoHrefTenantAware ?? true)
+        ? \App\Support\Tenancy\TenantFrontendUrl::for($logoHrefRaw)
+        : $logoHrefRaw;
     $logoAlt = $branding['site_name'] ?? config('app.name', 'Nexa');
     $logoSizePx = isset($logoSizePx)
         ? max(10, min(100, (int) $logoSizePx))

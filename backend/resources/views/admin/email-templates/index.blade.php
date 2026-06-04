@@ -120,10 +120,11 @@
                                     data-kt-select-placeholder="Type"
                                     id="type-filter">
                                 <option value="">Alle types</option>
-                                <option value="welcome" {{ request('type') == 'welcome' ? 'selected' : '' }}>Welkom</option>
-                                <option value="notification" {{ request('type') == 'notification' ? 'selected' : '' }}>Notificatie</option>
-                                <option value="reminder" {{ request('type') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                <option value="confirmation" {{ request('type') == 'confirmation' ? 'selected' : '' }}>Bevestiging</option>
+                                @foreach(($allowedTypes ?? []) as $typeKey)
+                                    <option value="{{ $typeKey }}" {{ request('type') == $typeKey ? 'selected' : '' }}>
+                                        {{ ($typeLabels ?? [])[$typeKey] ?? $typeKey }}
+                                    </option>
+                                @endforeach
                             </select>
                             
                             @if(auth()->user()->hasRole('super-admin') && $companies->count() > 0)
@@ -268,7 +269,7 @@
                                         </td>
                                         <td class="text-foreground font-normal email-template-cell-link">
                                             <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
-                                                <span class="text-sm">{{ ucfirst($template->type) }}</span>
+                                                <span class="text-sm">{{ ($typeLabels ?? [])[$template->type] ?? $template->type }}</span>
                                             </a>
                                         </td>
                                         <td class="text-foreground font-normal email-template-cell-link">
@@ -321,7 +322,20 @@
                                                             </a>
                                                         </div>
                                                         @endcan
-                                                        @if(auth()->user()->can('view-email-templates') || auth()->user()->can('edit-email-templates'))
+                                                        @can('create-email-templates')
+                                                        <div class="kt-menu-item">
+                                                            <form action="{{ route('admin.email-templates.duplicate', $template) }}" method="POST" style="display: inline;">
+                                                                @csrf
+                                                                <button type="submit" class="kt-menu-link w-full text-left">
+                                                                    <span class="kt-menu-icon">
+                                                                        <i class="ki-filled ki-copy"></i>
+                                                                    </span>
+                                                                    <span class="kt-menu-title">Dupliceren</span>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                        @endcan
+                                                        @if(auth()->user()->can('view-email-templates') || auth()->user()->can('edit-email-templates') || auth()->user()->can('create-email-templates'))
                                                         <div class="kt-menu-separator"></div>
                                                         @endif
                                                         @can('delete-email-templates')

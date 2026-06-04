@@ -35,6 +35,14 @@
 
         <p style="margin-top: 20px;">U ontvangt een aparte melding zodra een chauffeur uw rit heeft geaccepteerd.</p>
 
+        @if(!empty($portal_login_url))
+        <p style="margin-top: 16px;">
+            Heeft u al een account bij Mijn Taxi?
+            <a href="{{ $portal_login_url }}" style="color: #2563eb;">Log in</a>
+            om al uw ritten en facturen op één plek te bekijken.
+        </p>
+        @endif
+
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
             <p>Dit bericht is automatisch verzonden door {{ config('app.name', 'NEXA') }}.</p>
         </div>

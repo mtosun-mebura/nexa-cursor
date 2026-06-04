@@ -179,8 +179,9 @@ class NexaTaxiBookingPricingService
         $section['logic']['skip_baggage_step'] = ! empty($logic['skip_baggage_step']);
         $section['logic']['max_stopovers'] = max(0, min(6, (int) ($logic['max_stopovers'] ?? $defaults['logic']['max_stopovers'])));
         $section['logic']['return_price_multiplier'] = max(1, min(3, (float) ($logic['return_price_multiplier'] ?? $defaults['logic']['return_price_multiplier'])));
-        $offerDisplayMode = trim((string) ($logic['offer_display_mode'] ?? $defaults['logic']['offer_display_mode']));
-        $section['logic']['offer_display_mode'] = in_array($offerDisplayMode, ['vehicle', 'person_range'], true) ? $offerDisplayMode : $defaults['logic']['offer_display_mode'];
+        $section['logic']['offer_display_mode'] = $this->normalizeOfferDisplayMode(
+            $logic['offer_display_mode'] ?? $defaults['logic']['offer_display_mode']
+        );
         $section['logic']['use_evening_night_tariff'] = ! empty($logic['use_evening_night_tariff']);
         $section['logic']['person_range_base_price_multiplier'] = max(0.1, min(5, (float) ($logic['person_range_base_price_multiplier'] ?? $defaults['logic']['person_range_base_price_multiplier'])));
         $section['logic']['person_range_base_old_price_multiplier'] = max(1, min(5, (float) ($logic['person_range_base_old_price_multiplier'] ?? $defaults['logic']['person_range_base_old_price_multiplier'])));
@@ -290,11 +291,18 @@ class NexaTaxiBookingPricingService
             if (empty($offers)) {
                 $offers = $this->buildDefaultOffersFromVehicles(array_values($vehicleMap));
             }
+            $seenVehicleIds = [];
             foreach ($offers as $idx => $offer) {
                 if (! $this->offerMatchesPersonRange($offer, $range)) {
                     continue;
                 }
                 $vehicleId = isset($offer['vehicle_id']) && is_numeric($offer['vehicle_id']) ? (int) $offer['vehicle_id'] : null;
+                if ($vehicleId !== null) {
+                    if (isset($seenVehicleIds[$vehicleId])) {
+                        continue;
+                    }
+                    $seenVehicleIds[$vehicleId] = true;
+                }
                 if ($tenantCompanyId !== null && $tenantCompanyId > 0 && $vehicleId !== null && ! isset($allVehicleMap[$vehicleId])) {
                     continue;
                 }
@@ -509,6 +517,25 @@ class NexaTaxiBookingPricingService
         }
 
         return $out;
+    }
+
+    /**
+     * @param  mixed  $value
+     */
+    public function normalizeOfferDisplayMode($value): string
+    {
+        $raw = strtolower(trim((string) $value));
+        if (in_array($raw, ['person_range', 'person-range', 'persons', 'passengers'], true)) {
+            return 'person_range';
+        }
+        if (str_contains($raw, 'personen') || str_contains($raw, 'aantal personen')) {
+            return 'person_range';
+        }
+        if (in_array($raw, ['vehicle', 'auto', 'car'], true) || str_contains($raw, 'per auto')) {
+            return 'vehicle';
+        }
+
+        return 'vehicle';
     }
 
     private function normalizePersonRange(mixed $value): ?string

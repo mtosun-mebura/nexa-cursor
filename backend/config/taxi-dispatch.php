@@ -12,6 +12,12 @@ return [
      */
     'offer_ttl_seconds' => (int) env('TAXI_DISPATCH_OFFER_TTL', 300),
 
+    /**
+     * Geldigheid eenmalige inlogcode Mijn Taxi (minuten) als er geen waarde in admin staat.
+     * Per tenant: GeneralSetting `taxi_dispatch_customer_login_code_expires_minutes`.
+     */
+    'customer_login_code_expires_minutes' => (int) env('TAXI_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES', 15),
+
     /** Max chauffeurs per golf. */
     'offer_batch_size' => (int) env('TAXI_DISPATCH_BATCH_SIZE', 8),
 
