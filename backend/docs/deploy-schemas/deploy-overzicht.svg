@@ -92,7 +92,7 @@
 
   <rect class="deploy" x="920" y="1060" width="330" height="92"/>
   <text class="text" x="950" y="1100">Create PROD tag</text>
-  <text class="small" x="950" y="1130">Run workflow op main</text>
+  <text class="small" x="950" y="1130">automatisch na merge</text>
 
   <rect class="warn" x="1330" y="1045" width="300" height="120"/>
   <text class="text" x="1360" y="1085">Valideer tag</text>
@@ -104,8 +104,8 @@
   <text class="small" x="1360" y="1320">bijv. v1.2.0</text>
 
   <rect class="deploy" x="920" y="1250" width="330" height="92"/>
-  <text class="text" x="950" y="1290">Dispatch Deploy PROD</text>
-  <text class="small" x="950" y="1320">version + expected_sha</text>
+  <text class="text" x="950" y="1290">Handmatig Deploy PROD</text>
+  <text class="small" x="950" y="1320">version = nieuwe tag</text>
 
   <rect class="warn" x="520" y="1250" width="300" height="120"/>
   <text class="text" x="550" y="1290">PROD preflight</text>
@@ -140,16 +140,16 @@
   <text class="section" x="100" y="1875">3. Wat is gefixt in Create PROD tag (main only)</text>
 
   <rect class="deploy" x="120" y="1940" width="310" height="92"/>
-  <text class="text" x="150" y="1980">Handmatige run</text>
-  <text class="small" x="150" y="2010">Create PROD tag</text>
+  <text class="text" x="150" y="1980">Merge of handmatig</text>
+  <text class="small" x="150" y="2010">release/test naar main</text>
 
   <rect class="warn" x="520" y="1940" width="310" height="92"/>
-  <text class="text" x="550" y="1980">Moet op main</text>
-  <text class="small" x="550" y="2010">anders directe fout</text>
+  <text class="text" x="550" y="1980">Bron check</text>
+  <text class="small" x="550" y="2010">release/test of main</text>
 
   <rect class="warn" x="920" y="1940" width="330" height="92"/>
-  <text class="text" x="950" y="1980">Tag normaliseren</text>
-  <text class="small" x="950" y="2010">V1.2.3 wordt v1.2.3</text>
+  <text class="text" x="950" y="1980">Tag bepalen</text>
+  <text class="small" x="950" y="2010">auto patch of input</text>
 
   <rect class="warn" x="1330" y="1940" width="300" height="92"/>
   <text class="text" x="1360" y="1980">Semver check</text>
@@ -168,12 +168,12 @@
   <text class="small" x="550" y="2230">poll tot tag bestaat</text>
 
   <rect class="deploy" x="120" y="2160" width="310" height="92"/>
-  <text class="text" x="150" y="2200">Deploy PROD starten</text>
-  <text class="small" x="150" y="2230">met expected_sha</text>
+  <text class="text" x="150" y="2200">Deploy klaarzetten</text>
+  <text class="small" x="150" y="2230">handmatig starten</text>
 
   <rect class="ok" x="120" y="2390" width="1510" height="92"/>
-  <text class="text" x="150" y="2430">Resultaat: PROD-deploy start alleen als de tag exact klopt en op de main-historie staat.</text>
-  <text class="small" x="150" y="2460">Dit voorkomt tags vanaf de verkeerde workflow-branch, stale refs, dubbele tags en deploys van onverwachte commits.</text>
+  <text class="text" x="150" y="2430">Resultaat: merge release/test naar main maakt automatisch een PROD-tag klaar.</text>
+  <text class="small" x="150" y="2460">Productie start pas wanneer Deploy PROD handmatig wordt gestart met die tag.</text>
 
   <path class="arrow" d="M430 1986 H520"/>
   <path class="arrow" d="M830 1986 H920"/>

@@ -1,16 +1,21 @@
-# PROD-only: maakt tag vX.Y.Z op main HEAD en start daarna Deploy PROD.
+# PROD-only: maakt tag vX.Y.Z op main HEAD.
 # Test: branch release/test (Proxmox). Prod: tag + deploy (AWS Lightsail).
 #
-# Let op: tag-push triggert Deploy PROD alleen als deploy-prod.yml op de getagde
-# main-commit staat. Daarom starten we Deploy PROD hier expliciet via workflow_dispatch.
+# Automatisch: na merge van PR release/test -> main wordt de volgende patch-tag
+# aangemaakt. Daarna start Deploy PROD bewust handmatig met die tag.
 
 name: Create PROD tag (main only)
 
 on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
   workflow_dispatch:
     inputs:
       version:
-        description: 'Tag op main, bijv. v1.2.0 (V1.2.0 wordt automatisch kleine v)'
+        description: 'Tag op main, bijv. v1.2.0 (leeg is niet toegestaan bij handmatige run)'
         required: true
         type: string
 
@@ -24,12 +29,14 @@ concurrency:
 
 jobs:
   create-tag:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'release/test')
     runs-on: ubuntu-latest
     outputs:
       ref: ${{ steps.meta.outputs.ref }}
       sha: ${{ steps.meta.outputs.sha }}
     steps:
       - name: Ensure workflow ref is main
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
@@ -48,17 +55,38 @@ jobs:
         id: meta
         run: |
           set -euo pipefail
-          ref="${{ github.event.inputs.version }}"
-          ref="${ref#"${ref%%[![:space:]]*}"}"
-          ref="${ref%"${ref##*[![:space:]]}"}"
-          if [[ "$ref" =~ ^[Vv][0-9] ]]; then
-            ref="v${ref:1}"
+
+          git fetch origin main:refs/remotes/origin/main --tags --force
+
+          ref="${{ github.event.inputs.version || '' }}"
+          if [[ -n "$ref" ]]; then
+            ref="${ref#"${ref%%[![:space:]]*}"}"
+            ref="${ref%"${ref##*[![:space:]]}"}"
+            if [[ "$ref" =~ ^[Vv][0-9] ]]; then
+              ref="v${ref:1}"
+            fi
+          else
+            latest="$(
+              git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+                | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                | head -n 1 \
+                || true
+            )"
+            if [[ -z "$latest" ]]; then
+              ref="v1.0.0"
+            else
+              version="${latest#v}"
+              IFS=. read -r major minor patch <<< "$version"
+              patch=$((patch + 1))
+              ref="v${major}.${minor}.${patch}"
+            fi
           fi
+
           if [[ ! "$ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
             echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0" >&2
             exit 1
           fi
-          git fetch origin main:refs/remotes/origin/main --tags --force
+
           if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1 \
             || git ls-remote --exit-code --tags origin "refs/tags/${ref}" >/dev/null 2>&1; then
             echo "ERROR: Tag ${ref} bestaat al" >&2
@@ -95,22 +123,20 @@ jobs:
           echo "ERROR: Remote tag ${ref} niet zichtbaar na wachten." >&2
           exit 1
 
-  start-prod-deploy:
-    needs: create-tag
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Deploy PROD workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Manual deploy instructions
         run: |
           set -euo pipefail
-          ref="${{ needs.create-tag.outputs.ref }}"
-          sha="${{ needs.create-tag.outputs.sha }}"
-          echo "Start Deploy PROD voor tag ${ref}..."
-          gh workflow run deploy-prod.yml \
-            --repo "${{ github.repository }}" \
-            --ref main \
-            -f "version=${ref}" \
-            -f "expected_sha=${sha}"
-          echo "Deploy PROD workflow_dispatch is in de wachtrij."
-          echo "Zie Actions → Deploy PROD (event: workflow_dispatch)."
+          ref="${{ steps.meta.outputs.ref }}"
+          sha="${{ steps.meta.outputs.sha }}"
+          {
+            echo "## PROD tag aangemaakt"
+            echo ""
+            echo "- Tag: \`${ref}\`"
+            echo "- Commit: \`${sha}\`"
+            echo ""
+            echo "Handmatig deployen:"
+            echo "1. Ga naar Actions -> Deploy PROD."
+            echo "2. Klik Run workflow."
+            echo "3. Vul version in: \`${ref}\`."
+            echo "4. Laat expected_sha leeg of vul in: \`${sha}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
