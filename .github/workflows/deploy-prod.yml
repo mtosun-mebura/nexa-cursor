@@ -122,6 +122,7 @@ jobs:
           # Relatief pad in workspace (scp-action vindt absolute /tmp-paden op de runner niet betrouwbaar).
           upload_name="nexa-deploy-tenant-ci.sh"
           cp "$src" "$upload_name"
+          sed -i 's/\r$//' "$upload_name"
           chmod 755 "$upload_name"
           echo "upload_source=$upload_name" >> "$GITHUB_OUTPUT"
           echo "remote_path=/tmp/nexa-deploy-tenant-ci.sh" >> "$GITHUB_OUTPUT"
@@ -165,7 +166,8 @@ jobs:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.AWS_SSH_KEY }}
-          script_stop: true
+          # script_stop=false: anders stopt drone-ssh bij eerste deploy-fout vóór log/tail hieronder.
+          script_stop: false
           envs: GIT_REF,APP_DIR,AWS_USER,DEPLOY_SCRIPT
           script: |
             set -euo pipefail
@@ -177,7 +179,7 @@ jobs:
             export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
             export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
             export REQUIRE_COMPOSE_V2=1
-            export DEBUG_DEPLOY="${DEBUG_DEPLOY:-1}"
+            export DEPLOY_DEBUG="${DEPLOY_DEBUG:-1}"
             export DEPLOY_NO_TEE=1
 
             echo "=== PROD deploy ==="
@@ -248,34 +250,39 @@ jobs:
               exit 1
             fi
             echo "==> Start deploy-tenant.sh (user=$(id -un), tag=$GIT_REF)"
+            TRACE_LOG="/tmp/nexa-deploy-trace-${GIT_REF//[^a-zA-Z0-9_.-]/_}.log"
+            DEPLOY_ENV=(
+              TENANT_DIR="$TENANT_DIR"
+              GIT_REF="$GIT_REF"
+              GIT_REMOTE="$GIT_REMOTE"
+              COMPOSE_FILE="$COMPOSE_FILE"
+              LARAVEL_SERVICE="$LARAVEL_SERVICE"
+              DEPLOY_USER="$DEPLOY_USER"
+              REQUIRE_COMPOSE_V2=1
+              DEPLOY_DEBUG=1
+              DEPLOY_NO_TEE=1
+            )
 
-            _run_deploy() {
-              if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
-                echo "==> SSH-user is $(id -un); deploy als $DEPLOY_USER"
-                sudo -u "$DEPLOY_USER" -H env \
-                  TENANT_DIR="$TENANT_DIR" \
-                  GIT_REF="$GIT_REF" \
-                  GIT_REMOTE="$GIT_REMOTE" \
-                  COMPOSE_FILE="$COMPOSE_FILE" \
-                  LARAVEL_SERVICE="$LARAVEL_SERVICE" \
-                  DEPLOY_USER="$DEPLOY_USER" \
-                  REQUIRE_COMPOSE_V2=1 \
-                  DEBUG_DEPLOY="${DEBUG_DEPLOY:-}" \
-                  DEPLOY_NO_TEE=1 \
-                  bash -x "$SCRIPT"
-              else
-                bash -x "$SCRIPT"
-              fi
-            }
+            set +e
+            if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
+              echo "==> SSH-user is $(id -un); deploy als $DEPLOY_USER"
+              sudo -u "$DEPLOY_USER" -H env "${DEPLOY_ENV[@]}" bash -x "$SCRIPT" 2>&1 | tee "$TRACE_LOG"
+            else
+              env "${DEPLOY_ENV[@]}" bash -x "$SCRIPT" 2>&1 | tee "$TRACE_LOG"
+            fi
+            code="${PIPESTATUS[0]}"
+            set -e
 
-            if ! _run_deploy; then
-              code=$?
-              echo "ERROR: deploy-tenant.sh exit ${code}" >&2
-              log="$TENANT_DIR/storage/logs/deploy-latest.log"
-              if [[ -f "$log" ]]; then
-                echo "=== deploy-latest.log (tail) ==="
-                tail -n 80 "$log" || true
-              fi
+            if [[ "$code" != "0" ]]; then
+              echo "ERROR: deploy-tenant.sh exit ${code}"
+              echo "=== deploy trace (tail ${TRACE_LOG}) ==="
+              tail -n 120 "$TRACE_LOG" 2>/dev/null || true
+              for log in "$TENANT_DIR/backend/storage/logs/deploy-latest.log" "$TENANT_DIR/storage/logs/deploy-latest.log"; do
+                if [[ -f "$log" ]]; then
+                  echo "=== deploy-latest.log (tail ${log}) ==="
+                  tail -n 80 "$log" || true
+                fi
+              done
               exit "$code"
             fi
 

@@ -21,6 +21,9 @@
 #
 set -euo pipefail
 
+# GitHub Actions zet DEBUG_DEPLOY; lokaal vaak DEPLOY_DEBUG.
+DEPLOY_DEBUG="${DEPLOY_DEBUG:-${DEBUG_DEPLOY:-}}"
+
 _on_deploy_err() {
   local code=$1 line=$2
   echo "" >&2
@@ -44,6 +47,8 @@ COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
 DEPLOY_USER="${DEPLOY_USER:-mtosun}"
 LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
 BACKEND_DIR="${BACKEND_DIR:-$TENANT_DIR/backend}"
+
+echo "==> deploy-tenant.sh gestart $(date -Iseconds) user=$(id -un) TENANT_DIR=$TENANT_DIR GIT_REF=${GIT_REF:-${GIT_BRANCH}}"
 
 # Oude deploys / GitHub-variabele COMPOSE_FILE=docker-compose.prod.yml → nieuwe bestandsnaam.
 _resolve_compose_file() {
@@ -202,7 +207,7 @@ fi
 
 cd "$TENANT_DIR"
 
-DEPLOY_LOG="${DEPLOY_LOG:-$TENANT_DIR/storage/logs/deploy-latest.log}"
+DEPLOY_LOG="${DEPLOY_LOG:-$BACKEND_DIR/storage/logs/deploy-latest.log}"
 # In CI/SSH geen process-substitution tee: output blijft dan zichtbaar in GitHub Actions.
 if [[ "${DEPLOY_NO_TEE:-}" != "1" ]] && mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
   : >"$DEPLOY_LOG"
@@ -223,6 +228,68 @@ _ensure_compose_env_mount
 
 _git() {
   git -c "safe.directory=$TENANT_DIR" "$@"
+}
+
+_git_sync_code() {
+  if [[ -n "$GIT_REF" ]]; then
+    echo "==> Git fetch (tags) + checkout ${GIT_REF}"
+    _git fetch "$GIT_REMOTE" --tags --force
+    if ! _git rev-parse --verify "${GIT_REF}^{commit}" >/dev/null 2>&1; then
+      echo "ERROR: Git-ref niet gevonden na fetch: ${GIT_REF}" >&2
+      echo "TIP: push de tag naar ${GIT_REMOTE} (git push origin ${GIT_REF})" >&2
+      exit 1
+    fi
+    _git checkout --force "$GIT_REF"
+  else
+    echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
+    _git fetch "$GIT_REMOTE"
+    _git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
+  fi
+
+  if [[ ! -d "$BACKEND_DIR" ]]; then
+    echo "ERROR: Backend directory niet gevonden na git sync: $BACKEND_DIR" >&2
+    echo "TIP: controleer GIT_REF/GIT_BRANCH en of origin de volledige monorepo bevat (map backend/)." >&2
+    exit 1
+  fi
+}
+
+_require_compose_file() {
+  _resolve_compose_file
+  if [[ ! -f "$TENANT_DIR/$COMPOSE_FILE" ]]; then
+    echo "ERROR: Compose-bestand ontbreekt: $TENANT_DIR/$COMPOSE_FILE" >&2
+    echo "TIP: voer eerst git sync uit (tag/branch) of clone de volledige repo." >&2
+    exit 1
+  fi
+}
+
+_build_frontend_assets() {
+  if [[ ! -f "$BACKEND_DIR/package.json" ]]; then
+    echo "==> Geen package.json in $BACKEND_DIR, frontend build wordt overgeslagen"
+    return 0
+  fi
+
+  echo "==> Frontend build (Vite in backend/)"
+  if command -v npm >/dev/null 2>&1; then
+    (
+      cd "$BACKEND_DIR"
+      if [[ -f package-lock.json ]]; then
+        npm ci
+      else
+        npm install
+      fi
+      npm run build
+    )
+    return 0
+  fi
+
+  echo "==> Geen host-npm; Vite build via Node Docker image (geschikt voor PROD/Lightsail)"
+  local node_image="${DEPLOY_NODE_IMAGE:-node:24-bookworm-slim}"
+  docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "${BACKEND_DIR}:/app:rw" \
+    -w /app \
+    "$node_image" \
+    bash -lc 'if [[ -f package-lock.json ]]; then npm ci; else npm install; fi && npm run build'
 }
 
 # Draaiende backend + restart-loop: entrypoint.sh chown't storage naar www-data bij elke start.
@@ -294,9 +361,6 @@ _fix_backend_tree_for_git_reset() {
   exit 1
 }
 
-_stop_backend_for_git_reset
-_fix_backend_tree_for_git_reset
-
 # fetch schrijft naar .git/objects; pack-bestanden kunnen root zijn terwijl .git/objects zelf van mtosun is.
 _fix_git_dir_ownership() {
   local uid gid test_file alien
@@ -351,46 +415,11 @@ _fix_git_dir_ownership() {
 }
 
 _fix_git_dir_ownership
-
-if [[ -n "$GIT_REF" ]]; then
-  echo "==> Git fetch (tags) + checkout ${GIT_REF}"
-  _git fetch "$GIT_REMOTE" --tags --force
-  if ! _git rev-parse --verify "${GIT_REF}^{commit}" >/dev/null 2>&1; then
-    echo "ERROR: Git-ref niet gevonden na fetch: ${GIT_REF}" >&2
-    echo "TIP: push de tag naar ${GIT_REMOTE} (git push origin ${GIT_REF})" >&2
-    exit 1
-  fi
-  _git checkout --force "$GIT_REF"
-else
-  echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
-  _git fetch "$GIT_REMOTE"
-  _git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
-fi
-
-if [[ ! -d "$BACKEND_DIR" ]]; then
-  echo "ERROR: Backend directory niet gevonden na git checkout: $BACKEND_DIR" >&2
-  echo "TIP: controleer GIT_REF/GIT_BRANCH en of origin de volledige monorepo bevat (map backend/)." >&2
-  exit 1
-fi
-
-echo "==> Frontend build (Vite in backend/)"
-if [[ -f "$BACKEND_DIR/package.json" ]]; then
-  if command -v npm >/dev/null 2>&1; then
-    (
-      cd "$BACKEND_DIR"
-      if [[ -f package-lock.json ]]; then
-        npm ci
-      else
-        npm install
-      fi
-      npm run build
-    )
-  else
-    bash -lic "set -e; cd $(printf %q "$BACKEND_DIR"); if [[ -f package-lock.json ]]; then npm ci; else npm install; fi; npm run build"
-  fi
-else
-  echo "==> Geen package.json in $BACKEND_DIR, frontend build wordt overgeslagen"
-fi
+_git_sync_code
+_require_compose_file
+_stop_backend_for_git_reset
+_fix_backend_tree_for_git_reset
+_build_frontend_assets
 
 echo "==> Docker Compose pull/build/up"
 cd "$TENANT_DIR"
