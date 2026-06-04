@@ -1,0 +1,21 @@
+flowchart TD
+    A[Developer pusht commit naar nexa-saas] --> B[Workflow: Test and Build]
+    A --> C[Workflow: Open PR to release/test]
+    C --> D{Bestaat er al een open PR?}
+    D -- Ja --> E[PR hergebruiken]
+    D -- Nee --> F[Maak PR: nexa-saas naar release/test]
+    E --> G[Pull request naar release/test]
+    F --> G
+    G --> H[Workflow: Test and Build op PR]
+    G --> I[Workflow: Auto-merge naar release/test]
+    I --> J[Wacht op check test]
+    H --> K{Check test succesvol?}
+    J --> K
+    K -- Nee --> L[Auto-merge stopt; geen TEST-deploy]
+    K -- Ja --> M[Merge PR naar release/test]
+    M --> N[Push-event op release/test]
+    N --> O[Workflow: Deploy TEST Proxmox]
+    O --> P[deploy/deploy-tenant.sh reset naar origin/release/test]
+    P --> Q[Vite build, Docker Compose build/up]
+    Q --> R[Laravel migrate, seed, cache optimize]
+    R --> S[TEST staat live]

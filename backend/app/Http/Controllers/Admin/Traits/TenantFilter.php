@@ -77,6 +77,15 @@ trait TenantFilter
             return $resource->company_id === $user->company_id;
         }
         
+        // E-mailtemplates zonder bedrijf zijn systeem-brede defaults; alleen super-admin mag die bewerken
+        if ($tableName === 'email_templates') {
+            if ($resource->company_id === null) {
+                return false;
+            }
+
+            return (int) $resource->company_id === (int) $user->company_id;
+        }
+
         // Andere gebruikers kunnen alleen hun eigen bedrijfsresources benaderen
         if ($tableName === 'companies') {
             return $resource->id === $user->company_id;

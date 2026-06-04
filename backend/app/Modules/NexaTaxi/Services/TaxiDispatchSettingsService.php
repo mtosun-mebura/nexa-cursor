@@ -43,6 +43,12 @@ class TaxiDispatchSettingsService
 
     public const KEY_CUSTOMER_ACCEPT_WHATSAPP_TEMPLATE_LANG = 'taxi_dispatch_customer_accept_whatsapp_template_lang';
 
+    public const KEY_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES = 'taxi_dispatch_customer_login_code_expires_minutes';
+
+    public const MIN_LOGIN_CODE_EXPIRES_MINUTES = 5;
+
+    public const MAX_LOGIN_CODE_EXPIRES_MINUTES = 1440;
+
     public const SMS_PROVIDER_OFF = 'off';
 
     public const SMS_PROVIDER_DEMO = 'demo';
@@ -369,5 +375,31 @@ class TaxiDispatchSettingsService
             self::SMS_PROVIDER_VONAGE => 'Vonage (betaald, via server .env)',
             default => 'Uit',
         };
+    }
+
+    public function customerLoginCodeExpiresMinutes(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.customer_login_code_expires_minutes', 15);
+        $raw = GeneralSetting::get(self::KEY_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES, null, $companyId);
+
+        if ($raw === null || $raw === '') {
+            return $this->clampLoginCodeExpiresMinutes($default);
+        }
+
+        return $this->clampLoginCodeExpiresMinutes((int) $raw);
+    }
+
+    public function setCustomerLoginCodeExpiresMinutes(int $minutes, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_CUSTOMER_LOGIN_CODE_EXPIRES_MINUTES,
+            (string) $this->clampLoginCodeExpiresMinutes($minutes),
+            $companyId
+        );
+    }
+
+    public function clampLoginCodeExpiresMinutes(int $minutes): int
+    {
+        return max(self::MIN_LOGIN_CODE_EXPIRES_MINUTES, min(self::MAX_LOGIN_CODE_EXPIRES_MINUTES, $minutes));
     }
 }

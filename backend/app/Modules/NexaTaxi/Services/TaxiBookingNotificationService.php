@@ -301,6 +301,10 @@ class TaxiBookingNotificationService
                 'dropoff_address' => $ride->dropoff_address,
                 'quoted_price' => $ride->quoted_price,
                 'summary_text' => $summary,
+                'portal_login_url' => route('login', [
+                    'code_login' => 1,
+                    'intended' => route('taxi.portal.dashboard'),
+                ]),
             ], function ($mailMessage) use ($email, $customerName, $subject, $fromAddress, $fromName, $smtpUsername) {
                 $mailMessage->to($email, $customerName !== '' ? $customerName : null)
                     ->subject($subject)

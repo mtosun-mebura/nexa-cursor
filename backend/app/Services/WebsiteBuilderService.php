@@ -8,8 +8,10 @@ use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -480,6 +482,78 @@ class WebsiteBuilderService
     }
 
     /**
+     * Bepaal welke frontend-module leidend is (taxi, skillmatching, …) op basis van route, intended URL en tenant.
+     */
+    public function resolvePublicFrontendModuleName(?Request $request = null): ?string
+    {
+        $request = $request ?? request();
+        if ($request === null) {
+            return null;
+        }
+
+        if ($request->routeIs('taxi.portal.*')) {
+            return 'taxi';
+        }
+
+        foreach ($this->collectFrontendIntendedUrls($request) as $intended) {
+            $path = parse_url($intended, PHP_URL_PATH) ?? '';
+            if ($path !== '' && Str::startsWith($path, '/mijn-taxi')) {
+                return 'taxi';
+            }
+            if ($path !== '' && $this->isSkillmatchingFrontendPath($path)) {
+                return 'skillmatching';
+            }
+        }
+
+        $brandingModule = $this->getBrandingModule();
+        if ($brandingModule && filled($brandingModule->name)) {
+            return strtolower((string) $brandingModule->name);
+        }
+
+        return null;
+    }
+
+    /**
+     * Of Skillmatching-app-links (dashboard, vacatures, matches, …) getoond mogen worden.
+     */
+    public function shouldShowSkillmatchingFrontendAppLinks(?string $moduleName = null): bool
+    {
+        $moduleName = $moduleName ?? $this->resolvePublicFrontendModuleName();
+
+        $tenant = $this->resolveBrandingCompany();
+
+        return $this->moduleManager->isActive('skillmatching')
+            && $moduleName === 'skillmatching'
+            && ($tenant === null || $tenant->hasSkillmatchingModule());
+    }
+
+    /**
+     * View-data voor frontend-layouts (website + app): module-context en zichtbaarheid nav-links.
+     *
+     * @param  array<string, mixed>  $existingData
+     * @return array{showSkillmatchingAppLinks: bool, showGuestSkillmatchingLinks: bool, frontendResolvedModuleName: ?string}
+     */
+    public function frontendPortalViewData(array $existingData = []): array
+    {
+        $moduleName = null;
+        if (! empty($existingData['brandingModuleName'])) {
+            $moduleName = strtolower(trim((string) $existingData['brandingModuleName']));
+        } elseif (request()->routeIs('taxi.portal.*')) {
+            $moduleName = 'taxi';
+        } elseif (isset($existingData['page']) && filled($existingData['page']->module_name ?? null)) {
+            $moduleName = strtolower(trim((string) $existingData['page']->module_name));
+        } else {
+            $moduleName = $this->resolvePublicFrontendModuleName();
+        }
+
+        return [
+            'showSkillmatchingAppLinks' => $this->shouldShowSkillmatchingFrontendAppLinks($moduleName),
+            'showGuestSkillmatchingLinks' => $moduleName !== 'taxi',
+            'frontendResolvedModuleName' => $moduleName,
+        ];
+    }
+
+    /**
      * Frontend-portaal-URL per module (Skillmatching-dashboard of Mijn Taxi).
      */
     public function portalDashboardUrlForModuleName(string $moduleName): string
@@ -502,6 +576,40 @@ class WebsiteBuilderService
         }
 
         return $company->hasModuleNamed($moduleName);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collectFrontendIntendedUrls(Request $request): array
+    {
+        $urls = [];
+
+        foreach ([$request->query('intended'), $request->input('intended')] as $candidate) {
+            if (is_string($candidate) && $candidate !== '') {
+                $urls[] = $candidate;
+            }
+        }
+
+        if ($request->hasSession()) {
+            $fromSession = $request->session()->get('url.intended');
+            if (is_string($fromSession) && $fromSession !== '') {
+                $urls[] = $fromSession;
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
+    private function isSkillmatchingFrontendPath(string $path): bool
+    {
+        foreach (['/dashboard', '/matches', '/agenda', '/applications', '/profile', '/settings', '/jobs'] as $prefix) {
+            if ($path === $prefix || Str::startsWith($path, $prefix.'/')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -960,6 +1068,148 @@ class WebsiteBuilderService
     }
 
     /**
+     * Boekingsmodule-config van de tenant-home (zelfde aanbiedingen/logica als op de website).
+     *
+     * @return array{config: array, tenant_company_id: ?int, page: ?\App\Models\WebsitePage}
+     */
+    public function resolveBookingModuleSection(
+        string $sectionKey = 'component:taxi.boekingsmodule',
+        ?string $moduleName = 'taxi'
+    ): array {
+        $pricing = app(NexaTaxiBookingPricingService::class);
+        $fallback = [
+            'config' => $pricing->getDefaultSectionConfig(),
+            'tenant_company_id' => $this->resolvedPublicTenantCompanyId(),
+            'page' => null,
+        ];
+
+        $page = $this->getHomePageForModule($moduleName);
+        if ($page === null) {
+            return $fallback;
+        }
+
+        $homeSections = $page->getHomeSections();
+        $raw = $homeSections[$sectionKey] ?? [];
+        if (! is_array($raw) || $raw === []) {
+            $raw = $homeSections['component:taxiroyaal.boekingsmodule'] ?? [];
+        }
+
+        $tenantCompanyId = $page->company_id !== null && (int) $page->company_id > 0
+            ? (int) $page->company_id
+            : $this->resolvedPublicTenantCompanyId();
+
+        return [
+            'config' => $pricing->mergeSectionConfig(is_array($raw) ? $raw : []),
+            'tenant_company_id' => $tenantCompanyId,
+            'page' => $page,
+        ];
+    }
+
+    /**
+     * Copyrightregel van de tenant-home (zelfde tekst als website-footer op de homepage).
+     */
+    public function resolvePortalCopyright(?string $moduleName = null): ?string
+    {
+        $moduleName = $moduleName !== null && $moduleName !== '' ? $moduleName : 'taxi';
+
+        $companyId = $this->resolvedPublicTenantCompanyId();
+        if (($companyId === null || $companyId <= 0) && auth()->check()) {
+            $userCompanyId = auth()->user()->company_id;
+            if ($userCompanyId) {
+                $companyId = (int) $userCompanyId;
+            }
+        }
+
+        if ($companyId !== null && $companyId > 0) {
+            $copyright = $this->withResolvedTenant($companyId, function () use ($moduleName) {
+                return $this->copyrightFromPortalHomePageSources($moduleName);
+            });
+            if ($copyright !== null) {
+                return $copyright;
+            }
+        }
+
+        return $this->copyrightFromPortalHomePageSources($moduleName);
+    }
+
+    protected function copyrightFromPortalHomePageSources(string $moduleName): ?string
+    {
+        $booking = $this->resolveBookingModuleSection('component:taxi.boekingsmodule', $moduleName);
+        $pages = [];
+        if (! empty($booking['page']) && $booking['page'] instanceof WebsitePage) {
+            $pages[] = $booking['page'];
+        }
+
+        foreach ($this->homePageModuleCandidatesForPortal($moduleName) as $candidateModule) {
+            $homePage = $this->getHomePageForModule($candidateModule);
+            if ($homePage !== null) {
+                $pages[] = $homePage;
+            }
+        }
+
+        $seen = [];
+        foreach ($pages as $homePage) {
+            $id = (int) $homePage->id;
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+
+            $copyright = $this->copyrightTextFromHomePage($homePage);
+            if ($copyright !== null) {
+                return $copyright;
+            }
+        }
+
+        return null;
+    }
+
+    protected function copyrightTextFromHomePage(WebsitePage $homePage): ?string
+    {
+        $copyright = trim((string) ($homePage->getHomeSections()['copyright'] ?? ''));
+        if ($copyright === '') {
+            return null;
+        }
+
+        return str_replace('{year}', date('Y'), $copyright);
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    protected function withResolvedTenant(int $companyId, callable $callback): mixed
+    {
+        $hadTenant = app()->bound('resolved_tenant');
+        $hadTenantId = app()->bound('resolved_tenant_id');
+        $prevTenant = $hadTenant ? app('resolved_tenant') : null;
+        $prevTenantId = $hadTenantId ? app('resolved_tenant_id') : null;
+
+        $company = Company::query()->find($companyId);
+        if ($company !== null) {
+            app()->instance('resolved_tenant', $company);
+            app()->instance('resolved_tenant_id', $companyId);
+        }
+
+        try {
+            return $callback();
+        } finally {
+            if ($hadTenant) {
+                app()->instance('resolved_tenant', $prevTenant);
+            } else {
+                app()->forgetInstance('resolved_tenant');
+            }
+            if ($hadTenantId) {
+                app()->instance('resolved_tenant_id', $prevTenantId);
+            } else {
+                app()->forgetInstance('resolved_tenant_id');
+            }
+        }
+    }
+
+    /**
      * Footer-secties van de tenant-home (zelfde bron als frontend home).
      */
     public function getHomeFooterSections(?string $moduleName = null): array
@@ -969,19 +1219,38 @@ class WebsiteBuilderService
             return [];
         }
 
+        $sections = $homePage->getHomeSections();
+        $footerVisible = (bool) ($sections['visibility']['footer'] ?? true);
+        $copyright = trim((string) ($sections['copyright'] ?? ''));
+
+        if ($footerVisible && $copyright !== '') {
+            return $sections;
+        }
+
         $theme = $this->getThemeForPage($homePage);
         $themeSlug = $theme ? $theme->slug : 'modern';
         if (! in_array($themeSlug, ['modern', 'atom-v2', 'nextly-template', 'next-landing-vpn'], true)) {
             return [];
         }
 
-        $sections = $homePage->getHomeSections();
-        $footerVisible = (bool) ($sections['visibility']['footer'] ?? true);
-        if ($footerVisible && (! empty($sections['footer']) || ! empty($sections['copyright']))) {
+        if ($footerVisible && ! empty($sections['footer'])) {
             return $sections;
         }
 
         return [];
+    }
+
+    /**
+     * @return list<string|null>
+     */
+    protected function homePageModuleCandidatesForPortal(?string $moduleName): array
+    {
+        $candidates = [null];
+        if ($moduleName !== null && $moduleName !== '') {
+            $candidates[] = $moduleName;
+        }
+
+        return array_values(array_unique($candidates, SORT_REGULAR));
     }
 
     /**

@@ -24,6 +24,7 @@ use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
 use App\Http\Controllers\Frontend\FrontendAuthController;
 use App\Http\Controllers\Frontend\MatchController;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalApiController;
 use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\ProfileController;
@@ -576,6 +577,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
 
     Route::resource('email-templates', AdminEmailTemplateController::class);
     Route::post('email-templates/{emailTemplate}/toggle-status', [AdminEmailTemplateController::class, 'toggleStatus'])->name('email-templates.toggle-status');
+    Route::post('email-templates/{emailTemplate}/duplicate', [AdminEmailTemplateController::class, 'duplicate'])->name('email-templates.duplicate');
     Route::post('email-templates/{emailTemplate}/send-test', [AdminEmailTemplateController::class, 'sendTest'])->name('email-templates.send-test');
 
     // Candidates (Super Admin only)
@@ -796,6 +798,7 @@ Route::get('/verify-email/{user}', [App\Http\Controllers\Admin\AdminUserControll
 Route::get('/login', [FrontendAuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [FrontendAuthController::class, 'login'])->middleware('throttle:6,1')->name('login.post');
 Route::post('/login/code', [FrontendAuthController::class, 'loginWithCode'])->middleware('throttle:12,1')->name('login.code');
+Route::post('/login/code/aanvragen', [FrontendAuthController::class, 'requestLoginCode'])->middleware('throttle:6,1')->name('login.code.request');
 Route::get('/wachtwoord-instellen', [FrontendAuthController::class, 'showSetPasswordForm'])->middleware('auth')->name('frontend.set-password');
 Route::post('/wachtwoord-instellen', [FrontendAuthController::class, 'setPassword'])->middleware('auth')->name('frontend.set-password.post');
 Route::get('/register', fn () => redirect()->route('home'))->name('register');
@@ -902,8 +905,22 @@ Route::middleware(['auth:web'])->group(function () {
 });
 
 // Nexa Taxi frontend-portaal (Mijn Taxi)
-Route::middleware(['taxi.portal'])->group(function () {
+Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(function () {
     Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
+
+    Route::prefix('mijn-taxi/api')->name('taxi.portal.api.')->group(function () {
+        Route::get('dashboard', [TaxiPortalApiController::class, 'dashboard'])->name('dashboard');
+        Route::get('rides', [TaxiPortalApiController::class, 'rides'])->name('rides');
+        Route::get('rides/{ride}', [TaxiPortalApiController::class, 'showRide'])
+            ->name('rides.show')
+            ->whereNumber('ride');
+        Route::get('invoices', [TaxiPortalApiController::class, 'invoices'])->name('invoices');
+        Route::get('profile', [TaxiPortalApiController::class, 'profile'])->name('profile');
+        Route::put('profile', [TaxiPortalApiController::class, 'updateProfile'])->name('profile.update');
+        Route::get('invoices/{invoice}/pdf', [TaxiPortalApiController::class, 'downloadInvoicePdf'])
+            ->name('invoices.pdf')
+            ->whereNumber('invoice');
+    });
 });
 
 // Language switching

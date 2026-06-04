@@ -18,14 +18,28 @@ permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: create-prod-tag-main
+  cancel-in-progress: false
+
 jobs:
   create-tag:
     runs-on: ubuntu-latest
     outputs:
       ref: ${{ steps.meta.outputs.ref }}
+      sha: ${{ steps.meta.outputs.sha }}
     steps:
+      - name: Ensure workflow ref is main
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "ERROR: Start deze workflow vanaf branch 'main' (Run workflow -> Branch: main)." >&2
+            echo "Deze workflow maakt PROD-tags alleen vanaf origin/main." >&2
+            exit 1
+          fi
+
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -44,22 +58,42 @@ jobs:
             echo "ERROR: Gebruik semver vX.Y.Z (optioneel -rc.1), bijv. v1.2.0" >&2
             exit 1
           fi
-          if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1; then
+          git fetch origin main:refs/remotes/origin/main --tags --force
+          if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1 \
+            || git ls-remote --exit-code --tags origin "refs/tags/${ref}" >/dev/null 2>&1; then
             echo "ERROR: Tag ${ref} bestaat al" >&2
             exit 1
           fi
+          sha="$(git rev-parse refs/remotes/origin/main^{commit})"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          echo "Tag wordt gezet op main HEAD: $(git rev-parse --short HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Tag wordt gezet op origin/main: ${sha}"
 
       - name: Create and push annotated tag
         run: |
           set -euo pipefail
           ref="${{ steps.meta.outputs.ref }}"
+          sha="${{ steps.meta.outputs.sha }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$ref" -m "Release $ref (main @ $(git rev-parse --short HEAD))"
+          git tag -a "$ref" "$sha" -m "Release $ref (main @ ${sha:0:7})"
           git push origin "$ref"
           echo "Tag $ref gepusht."
+
+      - name: Wait until remote tag is visible
+        run: |
+          set -euo pipefail
+          ref="${{ steps.meta.outputs.ref }}"
+          for attempt in {1..12}; do
+            if git ls-remote --exit-code --tags origin "refs/tags/${ref}" >/dev/null 2>&1; then
+              echo "Remote tag ${ref} is zichtbaar."
+              exit 0
+            fi
+            echo "Remote tag ${ref} nog niet zichtbaar, poging ${attempt}/12..."
+            sleep 5
+          done
+          echo "ERROR: Remote tag ${ref} niet zichtbaar na wachten." >&2
+          exit 1
 
   start-prod-deploy:
     needs: create-tag
@@ -71,10 +105,12 @@ jobs:
         run: |
           set -euo pipefail
           ref="${{ needs.create-tag.outputs.ref }}"
+          sha="${{ needs.create-tag.outputs.sha }}"
           echo "Start Deploy PROD voor tag ${ref}..."
           gh workflow run deploy-prod.yml \
             --repo "${{ github.repository }}" \
             --ref main \
-            -f "version=${ref}"
+            -f "version=${ref}" \
+            -f "expected_sha=${sha}"
           echo "Deploy PROD workflow_dispatch is in de wachtrij."
           echo "Zie Actions → Deploy PROD (event: workflow_dispatch)."

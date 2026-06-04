@@ -38,6 +38,14 @@
                         @error('pickup_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
+                @foreach($ride->stopover_addresses as $stopIndex => $stopAddress)
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">Tussenstop {{ chr(66 + $stopIndex) }}</td>
+                    <td class="min-w-48 w-full">
+                        <input type="text" class="kt-input w-full" value="{{ $stopAddress }}" readonly>
+                    </td>
+                </tr>
+                @endforeach
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Afzetadres *</td>
                     <td class="min-w-48 w-full">

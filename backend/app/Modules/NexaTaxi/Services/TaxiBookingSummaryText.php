@@ -22,6 +22,9 @@ class TaxiBookingSummaryText
             fn ($s) => is_string($s) ? trim($s) : '',
             $context['stopovers'] ?? []
         )));
+        if ($stopovers === []) {
+            $stopovers = $ride->resolveStopoverAddresses();
+        }
 
         $lines = [
             'Nieuwe taxiboeking',

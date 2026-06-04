@@ -1,0 +1,23 @@
+flowchart TD
+    A[Release/test is akkoord] --> B[PR of merge naar main]
+    B --> C[Start workflow: Create PROD tag main only]
+    C --> D{Workflow gestart vanaf branch main?}
+    D -- Nee --> E[Fail-fast met instructie: kies Branch main]
+    D -- Ja --> F[Checkout en fetch origin/main + tags]
+    F --> G[Valideer semver tag vX.Y.Z]
+    G --> H{Tag bestaat al lokaal of remote?}
+    H -- Ja --> I[Stop; tagnaam moet uniek zijn]
+    H -- Nee --> J[Maak annotated tag op origin/main SHA]
+    J --> K[Push tag naar origin]
+    K --> L[Wacht tot remote tag zichtbaar is]
+    L --> M[Dispatch workflow: Deploy PROD met version + expected_sha]
+    M --> N[Workflow: Deploy PROD]
+    N --> O[Valideer tagnaam en expected_sha]
+    O --> P[Checkout repo en fetch main + tags]
+    P --> Q{Tag wijst naar expected_sha en zit op main-historie?}
+    Q -- Nee --> R[Stop; verkeerde of onveilige tag]
+    Q -- Ja --> S[SSH naar AWS Lightsail]
+    S --> T[deploy/deploy-tenant.sh checkout tag]
+    T --> U[Vite build, Docker Compose build/up]
+    U --> V[Laravel migrate, seed, cache optimize]
+    V --> W[PROD staat live]

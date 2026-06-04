@@ -76,6 +76,11 @@ class DispatchSettingsController extends Controller
             'canEditEmailTemplatesModule' => auth()->user()->hasRole('super-admin')
                 || auth()->user()->can('edit-email-templates'),
             'emailTemplateIndexUrl' => route('admin.email-templates.index', ['type' => 'taxi_ride_accepted']),
+            'customerLoginCodeExpiresMinutes' => $this->dispatchSettings->customerLoginCodeExpiresMinutes($companyId),
+            'minLoginCodeExpiresMinutes' => TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES,
+            'maxLoginCodeExpiresMinutes' => TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES,
+            'envDefaultLoginCodeExpiresMinutes' => (int) config('taxi-dispatch.customer_login_code_expires_minutes', 15),
+            'customerLoginCodeEmailTemplateUrl' => route('admin.email-templates.index', ['type' => 'taxi_customer_login_code']),
         ]);
     }
 
@@ -130,9 +135,12 @@ class DispatchSettingsController extends Controller
 
         $minMinutes = (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60);
         $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
+        $minLoginCodeMinutes = TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES;
+        $maxLoginCodeMinutes = TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES;
 
         $validated = $request->validate([
             'offer_ttl_minutes' => ['required', 'integer', 'min:'.$minMinutes, 'max:'.$maxMinutes],
+            'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
             'booking_whatsapp_enabled' => ['nullable', 'in:0,1'],
             'booking_whatsapp_click_to_chat' => ['nullable', 'in:0,1'],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
@@ -153,6 +161,9 @@ class DispatchSettingsController extends Controller
             'offer_ttl_minutes.integer' => 'Acceptatietijd moet een heel getal zijn.',
             'offer_ttl_minutes.min' => 'Acceptatietijd moet minimaal '.$minMinutes.' minuut zijn.',
             'offer_ttl_minutes.max' => 'Acceptatietijd mag maximaal '.$maxMinutes.' minuten zijn.',
+            'customer_login_code_expires_minutes.required' => 'Vul de geldigheid van de inlogcode in.',
+            'customer_login_code_expires_minutes.min' => 'Geldigheid moet minimaal '.$minLoginCodeMinutes.' minuten zijn.',
+            'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
         ]);
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
@@ -171,6 +182,10 @@ class DispatchSettingsController extends Controller
 
         $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
         $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
+        $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(
+            (int) $validated['customer_login_code_expires_minutes'],
+            $companyId
+        );
         $this->dispatchSettings->setBookingWhatsappEnabled($request->boolean('booking_whatsapp_enabled'), $companyId);
         $this->dispatchSettings->setBookingWhatsappClickToChatEnabled($request->boolean('booking_whatsapp_click_to_chat'), $companyId);
         $this->dispatchSettings->setBookingDriverEmailEnabled($request->boolean('booking_driver_email_enabled'), $companyId);

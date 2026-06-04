@@ -15,18 +15,22 @@ use Illuminate\Support\Facades\Log;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\ModuleDatabaseService;
 use App\Services\NexaTaxiBookingPricingService;
+use App\Services\WebsiteBuilderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class NexaTaxiBookingController extends Controller
 {
     public function __construct(
         protected NexaTaxiBookingPricingService $pricing,
-        protected ModuleDatabaseService $moduleDb
+        protected ModuleDatabaseService $moduleDb,
+        protected WebsiteBuilderService $websiteBuilder
     ) {}
 
     public function quote(Request $request): JsonResponse
@@ -151,11 +155,21 @@ class NexaTaxiBookingController extends Controller
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
         $email = trim((string) ($data['email'] ?? ''));
+        $wantsAccount = $request->boolean('create_account');
+
         if ($dispatchSettings->customerEmailRequiredForBooking($companyId) && $email === '' && ! auth()->check()) {
             return response()->json([
                 'success' => false,
                 'message' => 'E-mailadres is verplicht.',
                 'errors' => ['email' => ['E-mailadres is verplicht.']],
+            ], 422);
+        }
+
+        if ($wantsAccount && $email === '' && ! auth()->check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'E-mailadres is verplicht om een account aan te maken.',
+                'errors' => ['email' => ['E-mailadres is verplicht om een account aan te maken.']],
             ], 422);
         }
 
@@ -167,74 +181,42 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
-        $existingUser = null;
-        if ($email !== '') {
-            $existingUser = User::query()
-                ->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])
-                ->first();
-        }
-
-        // E-mail mag maar 1x bestaan: als het al bestaat en je bent niet (juist) ingelogd, dwing login af.
-        if ($existingUser && (! auth()->check() || (int) auth()->id() !== (int) $existingUser->id)) {
-            if (! auth()->check()) {
-                $returnUrl = trim((string) ($data['return_url'] ?? ''));
-                if ($returnUrl === '') {
-                    // JSON call: fallback naar home
-                    $returnUrl = url('/');
-                }
-                $resumeUrl = Str::contains($returnUrl, '?')
-                    ? ($returnUrl.'&resume_booking=1')
-                    : ($returnUrl.'?resume_booking=1');
-
-                $request->session()->put('nexataxi.pending_booking', [
-                    'created_at' => now()->toISOString(),
-                    'email' => $email,
-                    'company_id' => $companyId,
-                    'payload' => $data,
-                    'resume_url' => $resumeUrl,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'requires_login' => true,
-                    'message' => 'Dit e-mailadres is al bekend. Log in om je boeking te bevestigen.',
-                    'login_url' => route('login', ['intended' => $resumeUrl]),
-                ], 409);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Dit e-mailadres is al in gebruik. Log in met dat account om te boeken.',
-                'errors' => ['email' => ['Dit e-mailadres is al in gebruik. Log in met dat account om te boeken.']],
-            ], 422);
-        }
+        $existingUser = $this->findExistingCustomerByEmail($email, $companyId);
 
         $createdCustomer = null;
-        if (! auth()->check() && ! $existingUser && ! empty($data['create_account']) && $email !== '') {
+        $loginCodeEmailSent = false;
+        $pendingLoginCodeSend = null;
+        if (! auth()->check() && ! $existingUser && $wantsAccount && $email !== '') {
             $createdCustomer = User::query()->create([
                 'first_name' => (string) ($data['first_name'] ?? ''),
                 'last_name' => (string) ($data['last_name'] ?? ''),
                 'email' => $email,
                 'phone' => (string) ($data['phone'] ?? ''),
-                'company_id' => $companyId,
-                'password' => Str::random(40),
+                'company_id' => $companyId > 0 ? $companyId : null,
+                'password' => Str::password(64),
+                'password_must_be_set' => true,
                 'email_verified_at' => null,
                 'is_active' => true,
             ]);
 
             $role = Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
-            $createdCustomer->assignRole($role, $companyId);
+            $registrar = app(PermissionRegistrar::class);
+            $previousTeamId = $registrar->getPermissionsTeamId();
+            $registrar->setPermissionsTeamId($companyId > 0 ? $companyId : null);
+            $createdCustomer->assignRole($role);
+            $createdCustomer->unsetRelation('roles');
+            $registrar->setPermissionsTeamId($previousTeamId);
+            $registrar->forgetCachedPermissions();
 
-            $resumeUrl = trim((string) ($data['return_url'] ?? ''));
-            if ($resumeUrl !== '') {
-                $resumeUrl = Str::contains($resumeUrl, '?') ? ($resumeUrl.'&code_login=1') : ($resumeUrl.'?code_login=1');
-            } else {
-                $resumeUrl = url('/login?code_login=1');
-            }
-
-            // Link naar login met code (email alvast ingevuld)
-            $loginUrl = route('login', ['code_login' => 1, 'email' => $email, 'intended' => $resumeUrl]);
-            app(TaxiCustomerLoginCodeService::class)->issueAndSend($createdCustomer, $companyId, $loginUrl);
+            $pendingLoginCodeSend = [
+                'user' => $createdCustomer,
+                'company_id' => $companyId > 0 ? $companyId : null,
+                'login_url' => route('login', [
+                    'code_login' => 1,
+                    'email' => $email,
+                    'intended' => route('taxi.portal.dashboard'),
+                ]),
+            ];
         }
 
         $paymentService = app(TaxiRidePaymentService::class);
@@ -260,7 +242,20 @@ class NexaTaxiBookingController extends Controller
             : ($paymentMethod === RideRequest::PAYMENT_METHOD_DRIVER
                 ? RideRequest::PAYMENT_STATUS_NOT_REQUIRED
                 : null);
+        $stopovers = array_values(array_filter(array_map(
+            fn ($s) => is_string($s) ? trim($s) : '',
+            $data['stopovers'] ?? []
+        )));
+
+        $routeAddresses = array_values(array_filter([
+            trim((string) ($data['pickup_address'] ?? '')),
+            ...$stopovers,
+            trim((string) ($data['dropoff_address'] ?? '')),
+        ]));
+
         $payload = [
+            'stopovers' => $stopovers,
+            'route_addresses' => $routeAddresses,
             'step_data' => [
                 'distance_meters' => $data['distance_meters'],
                 'duration_seconds' => $data['duration_seconds'],
@@ -268,11 +263,13 @@ class NexaTaxiBookingController extends Controller
                 'baggage' => $data['baggage'] ?? [],
                 'special_baggage' => $data['special_baggage'] ?? [],
                 'remarks' => $data['remarks'] ?? '',
+                'stopovers' => $stopovers,
+                'route_addresses' => $routeAddresses,
             ],
             'pricing' => $quotes,
         ];
 
-        $ride = RideRequest::on($conn)->create([
+        $rideData = [
             'company_id' => $companyId,
             'vehicle_id' => $vehicleId,
             'driver_id' => null,
@@ -292,15 +289,18 @@ class NexaTaxiBookingController extends Controller
             'quoted_price' => $selected['price'] ?? null,
             'customer_name' => $customerName,
             'customer_email' => $email !== '' ? $email : null,
-            'customer_user_id' => auth()->check()
-                ? (int) auth()->id()
-                : ($existingUser ? (int) $existingUser->id : ($createdCustomer ? (int) $createdCustomer->id : null)),
             'customer_phone' => $data['phone'],
             'customer_note' => $data['remarks'] ?? null,
             'quote_expires_at' => now()->addHours(12),
             'booking_payload' => $payload,
             'selected_offer_payload' => $selected,
-        ]);
+        ];
+        if (Schema::connection($conn)->hasColumn('ride_requests', 'customer_user_id')) {
+            $rideData['customer_user_id'] = auth()->check()
+                ? (int) auth()->id()
+                : ($createdCustomer ? (int) $createdCustomer->id : null);
+        }
+        $ride = RideRequest::on($conn)->create($rideData);
 
         // Succes: eventuele bewaarde boeking opruimen.
         $request->session()->forget('nexataxi.pending_booking');
@@ -339,13 +339,37 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
+        if ($pendingLoginCodeSend !== null) {
+            $loginCompanyId = $pendingLoginCodeSend['company_id'];
+            if (! $loginCompanyId && $companyId && $companyId > 0) {
+                $loginCompanyId = $companyId;
+            }
+            if (! $loginCompanyId && app()->bound('resolved_tenant_id')) {
+                $resolved = (int) app('resolved_tenant_id');
+                if ($resolved > 0) {
+                    $loginCompanyId = $resolved;
+                }
+            }
+            try {
+                $loginCodeEmailSent = app(TaxiCustomerLoginCodeService::class)->issueAndSend(
+                    $pendingLoginCodeSend['user'],
+                    $loginCompanyId,
+                    $pendingLoginCodeSend['login_url']
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt.', [
+                    'ride_request_id' => $ride->id,
+                    'user_id' => $pendingLoginCodeSend['user']->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $loginCodeEmailSent = false;
+            }
+        }
+
         if ($companyId && $companyId > 0 && ! $payAtBooking) {
             try {
                 app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $ride, [
-                'stopovers' => array_values(array_filter(array_map(
-                    fn ($s) => is_string($s) ? trim($s) : '',
-                    $data['stopovers'] ?? []
-                ))),
+                'stopovers' => $stopovers,
                 'return_at' => $data['return_at'] ?? null,
                 'section_config' => $sectionConfig,
             ]);
@@ -357,15 +381,48 @@ class NexaTaxiBookingController extends Controller
             }
         }
 
-        return response()->json([
+        $successMessage = $payAtBooking
+            ? 'Je wordt doorgestuurd naar de betaling.'
+            : ($sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.');
+        if ($createdCustomer) {
+            if ($loginCodeEmailSent) {
+                $successMessage .= ' We hebben een account voor u aangemaakt. Controleer uw e-mail voor een eenmalige inlogcode van '.TaxiCustomerLoginCodeService::CODE_LENGTH.' cijfers om Mijn Taxi te gebruiken.';
+            } else {
+                $successMessage .= ' We hebben een account voor u aangemaakt. De inlogcode kon niet per e-mail worden verstuurd — vraag op de inlogpagina een nieuwe code aan of neem contact op met de taxi.';
+            }
+        }
+
+        $response = [
             'success' => true,
-            'message' => $payAtBooking
-                ? 'Je wordt doorgestuurd naar de betaling.'
-                : ($sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.'),
+            'message' => $successMessage,
             'ride_request_id' => $ride->id,
             'payment_required' => $payAtBooking,
             'checkout_url' => $checkoutUrl,
-        ]);
+            'account_created' => $createdCustomer !== null,
+            'login_code_email_sent' => $loginCodeEmailSent,
+        ];
+
+        if (! auth()->check()) {
+            $response['portal_login_url'] = route('login', [
+                'intended' => route('taxi.portal.dashboard'),
+            ]);
+        }
+
+        return response()->json($response);
+    }
+
+    protected function findExistingCustomerByEmail(string $email, ?int $companyId): ?User
+    {
+        if ($email === '') {
+            return null;
+        }
+
+        $query = User::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($email)]);
+        if ($companyId !== null && $companyId > 0) {
+            $query->where('company_id', $companyId);
+        }
+
+        return $query->first();
     }
 
     public function pending(Request $request): JsonResponse
@@ -402,6 +459,7 @@ class NexaTaxiBookingController extends Controller
         if ($q === '') {
             return response()->json([]);
         }
+        $q = $this->normalizeAddressSearchQuery($q);
         // Leeg of een wildcard (*/all/worldwide) = geen landbeperking -> wereldwijd zoeken (ook buiten NL).
         $countrycodes = $request->input('countrycodes', '');
         $countrycodes = is_string($countrycodes) ? strtolower(trim($countrycodes)) : '';
@@ -445,34 +503,77 @@ class NexaTaxiBookingController extends Controller
     }
 
     /**
+     * Normaliseer gangbare NL-zoektermen zodat Nominatim POI's (station, winkels) vindt.
+     */
+    private function normalizeAddressSearchQuery(string $query): string
+    {
+        $normalized = trim($query);
+        if ($normalized === '') {
+            return $normalized;
+        }
+
+        $replacements = [
+            '/\btreinstations?\b/ui' => 'station',
+            '/\btrein\s+station\b/ui' => 'station',
+            '/\bns\s+station\b/ui' => 'station',
+            '/\bcentraal\s+station\b/ui' => 'station',
+        ];
+
+        foreach ($replacements as $pattern => $replacement) {
+            $normalized = preg_replace($pattern, $replacement, $normalized) ?? $normalized;
+        }
+
+        $normalized = preg_replace('/\s+/u', ' ', trim($normalized)) ?? $normalized;
+
+        return $normalized !== '' ? $normalized : $query;
+    }
+
+    /**
      * @return array{config: array, tenant_company_id: ?int}
      */
     private function resolveSectionConfig(?int $pageId, string $sectionKey, ?string $moduleName = null): array
     {
         $default = $this->pricing->getDefaultSectionConfig();
-        if (! $pageId) {
-            return ['config' => $default, 'tenant_company_id' => null];
-        }
-        $query = $moduleName && $this->moduleDb->supportsModuleDatabases()
-            ? WebsitePage::on($this->moduleDb->getModuleConnectionName($moduleName))
-            : WebsitePage::query();
-        $page = $query->find($pageId);
-        if (! $page) {
-            return ['config' => $default, 'tenant_company_id' => null];
-        }
-        $tenantCompanyId = $page->company_id !== null && (int) $page->company_id > 0
-            ? (int) $page->company_id
-            : null;
-        $homeSections = $page->getHomeSections();
-        $raw = $homeSections[$sectionKey] ?? [];
-        if (! is_array($raw)) {
-            return ['config' => $default, 'tenant_company_id' => $tenantCompanyId];
+
+        if ($this->isTaxiBookingModuleSectionKey($sectionKey)) {
+            $module = ($moduleName !== null && trim($moduleName) !== '') ? trim($moduleName) : 'taxi';
+            $resolved = $this->websiteBuilder->resolveBookingModuleSection($sectionKey, $module);
+
+            return [
+                'config' => $resolved['config'],
+                'tenant_company_id' => $resolved['tenant_company_id'],
+            ];
         }
 
-        return [
-            'config' => $this->pricing->mergeSectionConfig($raw),
-            'tenant_company_id' => $tenantCompanyId,
-        ];
+        if ($pageId) {
+            $query = $moduleName && $this->moduleDb->supportsModuleDatabases()
+                ? WebsitePage::on($this->moduleDb->getModuleConnectionName($moduleName))
+                : WebsitePage::query();
+            $page = $query->find($pageId);
+            if ($page) {
+                $tenantCompanyId = $page->company_id !== null && (int) $page->company_id > 0
+                    ? (int) $page->company_id
+                    : null;
+                $homeSections = $page->getHomeSections();
+                $raw = $homeSections[$sectionKey] ?? [];
+                if (is_array($raw)) {
+                    return [
+                        'config' => $this->pricing->mergeSectionConfig($raw),
+                        'tenant_company_id' => $tenantCompanyId,
+                    ];
+                }
+
+                return ['config' => $default, 'tenant_company_id' => $tenantCompanyId];
+            }
+        }
+
+        return ['config' => $default, 'tenant_company_id' => null];
+    }
+
+    private function isTaxiBookingModuleSectionKey(string $sectionKey): bool
+    {
+        return in_array($sectionKey, ['component:taxi.boekingsmodule', 'component:taxiroyaal.boekingsmodule'], true)
+            || (str_contains($sectionKey, 'taxi') && str_contains($sectionKey, 'boekingsmodule'));
     }
 
     private function isBookingPhoneValid(string $value): bool

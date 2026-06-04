@@ -216,6 +216,12 @@
                             <p class="mb-0">Gebruik o.a. {{ '{' }}{{ '{' }} CUSTOMER_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} DRIVER_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} PICKUP_AT {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} PICKUP_ADDRESS {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} DROPOFF_ADDRESS {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_PHONE {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }}. Ingeschakeld via <strong>Chauffeur dispatch → Klantmelding bij acceptatie</strong>.</p>
                         </div>
                         @endif
+                        @if($emailTemplate->type === 'taxi_customer_login_code')
+                        <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
+                            <p class="mb-2 text-foreground font-medium">Taxi eenmalige inlogcode (klant)</p>
+                            <p class="mb-0">Verstuurd na boeking met &quot;Account aanmaken&quot; of wanneer een klant op de loginpagina een nieuwe code aanvraagt. Belangrijkste variabelen: {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }} (6 cijfers), {{ '{' }}{{ '{' }} LOGIN_URL {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} CODE_EXPIRES_MINUTES {{ '}' }}{{ '}' }} (ingevuld vanuit <a href="{{ route('admin.taxi.dispatch_settings.edit') }}" class="text-primary underline">Chauffeur dispatch → Mijn Taxi – klant inlogcode</a>), {{ '{' }}{{ '{' }} USER_NAME {{ '}' }}{{ '}' }}, {{ '{' }}{{ '{' }} COMPANY_LOGO {{ '}' }}{{ '}' }} (bij algemeen template: logo van de tenant waarvoor de mail wordt verstuurd). Maak per tenant een eigen versie door een template met uw bedrijf te koppelen; die heeft voorrang op het algemene template.</p>
+                        </div>
+                        @endif
                         @if($emailTemplate->type === 'invoice')
                         <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
                             <p class="mb-2 text-foreground font-medium">Factuur: <code>{{ '{' }}{{ '{' }} INVOICE_AMOUNTS_HTML {{ '}' }}{{ '}' }}</code></p>

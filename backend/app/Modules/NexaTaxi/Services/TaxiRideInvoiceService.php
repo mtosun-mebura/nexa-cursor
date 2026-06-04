@@ -63,6 +63,54 @@ class TaxiRideInvoiceService
         });
     }
 
+    /**
+     * Factuur voor klantportaal: aanmaken wanneer er nog geen is (geen betaalstatus vereist).
+     */
+    public function ensureInvoiceForCustomerPortal(string $conn, RideRequest $ride, bool $generatePdf = true): Invoice
+    {
+        if ($ride->status === RideRequest::STATUS_CANCELLED) {
+            throw ValidationException::withMessages([
+                'invoice' => ['Voor een geannuleerde rit kan geen factuur worden gemaakt.'],
+            ]);
+        }
+
+        $existing = $this->findInvoiceForRide($ride);
+        if ($existing) {
+            if (! $ride->invoice_id) {
+                RideRequest::on($conn)->whereKey($ride->id)->update(['invoice_id' => $existing->id]);
+            }
+            if ($generatePdf) {
+                $this->pdf->generateAndStore($existing->fresh());
+            }
+
+            return $existing->fresh();
+        }
+
+        return DB::transaction(function () use ($conn, $ride, $generatePdf) {
+            $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
+            $existing = $this->findInvoiceForRide($ride);
+            if ($existing) {
+                return $existing;
+            }
+
+            $companyId = (int) ($ride->company_id ?? 0);
+            if ($companyId <= 0) {
+                throw ValidationException::withMessages([
+                    'invoice' => ['Rit heeft geen gekoppeld bedrijf.'],
+                ]);
+            }
+
+            $invoice = $this->createInvoiceFromRide($ride, $companyId);
+            $ride->update(['invoice_id' => $invoice->id]);
+
+            if ($generatePdf) {
+                $this->pdf->generateAndStore($invoice->fresh());
+            }
+
+            return $invoice->fresh();
+        });
+    }
+
     public function findInvoiceForRide(RideRequest $ride): ?Invoice
     {
         if ($ride->invoice_id) {

@@ -1,8 +1,11 @@
+# Legacy self-hosted deploy. De huidige PROD-route is tag-gestuurd:
+# Create PROD tag (main only) -> Deploy PROD.
+# Deze workflow blijft alleen handmatig beschikbaar om te voorkomen dat een merge
+# naar main per ongeluk naar /var/www/nexa probeert te deployen.
+
 name: Deploy to Production
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
