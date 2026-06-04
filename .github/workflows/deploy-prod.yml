@@ -1,8 +1,9 @@
-# PROD (AWS Lightsail): deploy alleen op git-tags v* (nooit op branch-push).
+# PROD (AWS Lightsail): deploy alleen handmatig op een bestaande git-tag v*.
 # Test (Proxmox): deploy-saas.yml bij push naar release/test.
-# Na merge naar main: tag zetten (Create PROD tag of handmatig) → deze workflow.
+# Na merge release/test -> main: Create PROD tag maakt de tag klaar.
+# Daarna deze workflow handmatig starten met die tag.
 #
-# Triggers: workflow_dispatch (handmatig of na "Create PROD tag") | push tag v* (als dit bestand op die commit staat)
+# Trigger: workflow_dispatch.
 #
 # GitHub → Settings → Secrets and variables → Actions:
 #   Secrets:  AWS_HOST, AWS_USER, AWS_SSH_KEY
@@ -16,9 +17,6 @@
 name: Deploy PROD
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:

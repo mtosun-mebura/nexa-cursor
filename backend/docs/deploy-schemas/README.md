@@ -43,9 +43,9 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Release/test is akkoord] --> B[PR of merge naar main]
-    B --> C[Start workflow: Create PROD tag main only]
-    C --> D{Workflow gestart vanaf branch main?}
-    D -- Nee --> E[Fail-fast met instructie: kies Branch main]
+    B --> C[Workflow: Create PROD tag main only]
+    C --> D{PR kwam van release/test en is gemerged?}
+    D -- Nee --> E[Geen PROD-tag]
     D -- Ja --> F[Checkout en fetch origin/main + tags]
     F --> G[Valideer semver tag vX.Y.Z]
     G --> H{Tag bestaat al lokaal of remote?}
@@ -53,8 +53,8 @@ flowchart TD
     H -- Nee --> J[Maak annotated tag op origin/main SHA]
     J --> K[Push tag naar origin]
     K --> L[Wacht tot remote tag zichtbaar is]
-    L --> M[Dispatch workflow: Deploy PROD met version + expected_sha]
-    M --> N[Workflow: Deploy PROD]
+    L --> M[Tag klaar voor handmatige deploy]
+    M --> N[Handmatig: Workflow Deploy PROD]
     N --> O[Valideer tagnaam en expected_sha]
     O --> P[Checkout repo en fetch main + tags]
     P --> Q{Tag wijst naar expected_sha en zit op main-historie?}
@@ -70,11 +70,11 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Handmatige run: Create PROD tag] --> B[Controleer GITHUB_REF]
-    B --> C{GITHUB_REF is refs/heads/main?}
-    C -- Nee --> D[Stop met duidelijke foutmelding]
+    A[PR release/test naar main gemerged of handmatige run] --> B[Controleer bron]
+    B --> C{Automatisch: release/test merge? Handmatig: branch main?}
+    C -- Nee --> D[Stop of overslaan]
     C -- Ja --> E[Checkout main met volledige history]
-    E --> F[Normaliseer versie: V1.2.3 naar v1.2.3]
+    E --> F[Automatisch: volgende patch-tag. Handmatig: ingevulde tag]
     F --> G{Semver vX.Y.Z geldig?}
     G -- Nee --> H[Stop; ongeldige tagnaam]
     G -- Ja --> I[Fetch origin/main en tags]
@@ -84,8 +84,8 @@ flowchart TD
     L --> M[Maak annotated tag op die SHA]
     M --> N[Push tag]
     N --> O[Poll remote tot tag zichtbaar is]
-    O --> P[Start Deploy PROD met version en expected_sha]
-    P --> Q[Deploy PROD verifieert tag-SHA en main-historie]
+    O --> P[Toon handmatige deploy-instructies]
+    P --> Q[Deploy PROD wordt handmatig gestart met tag]
 ```
 
 ## Belangrijke workflows

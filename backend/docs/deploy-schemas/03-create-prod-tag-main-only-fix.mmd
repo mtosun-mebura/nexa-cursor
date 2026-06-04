@@ -1,9 +1,9 @@
 flowchart TD
-    A[Handmatige run: Create PROD tag] --> B[Controleer GITHUB_REF]
-    B --> C{GITHUB_REF is refs/heads/main?}
-    C -- Nee --> D[Stop met duidelijke foutmelding]
+    A[PR release/test naar main gemerged of handmatige run] --> B[Controleer bron]
+    B --> C{Automatisch: release/test merge? Handmatig: branch main?}
+    C -- Nee --> D[Stop of overslaan]
     C -- Ja --> E[Checkout main met volledige history]
-    E --> F[Normaliseer versie: V1.2.3 naar v1.2.3]
+    E --> F[Automatisch: volgende patch-tag. Handmatig: ingevulde tag]
     F --> G{Semver vX.Y.Z geldig?}
     G -- Nee --> H[Stop; ongeldige tagnaam]
     G -- Ja --> I[Fetch origin/main en tags]
@@ -13,5 +13,5 @@ flowchart TD
     L --> M[Maak annotated tag op die SHA]
     M --> N[Push tag]
     N --> O[Poll remote tot tag zichtbaar is]
-    O --> P[Start Deploy PROD met version en expected_sha]
-    P --> Q[Deploy PROD verifieert tag-SHA en main-historie]
+    O --> P[Toon handmatige deploy-instructies]
+    P --> Q[Deploy PROD wordt handmatig gestart met tag]
