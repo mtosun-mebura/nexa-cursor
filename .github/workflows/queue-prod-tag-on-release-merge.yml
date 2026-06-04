@@ -1,0 +1,31 @@
+# Start Create PROD tag op branch main zodra release/test via PR naar main is gemerged.
+# Daardoor staat de daadwerkelijke tag-run in GitHub Actions op branch main.
+
+name: Queue PROD tag after release/test merge
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  queue-prod-tag:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'release/test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Create PROD tag on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "release/test is gemerged naar main; start Create PROD tag op ref main..."
+          gh workflow run create-prod-tag.yml \
+            --repo "${{ github.repository }}" \
+            --ref main
+          echo "Create PROD tag (main only) is gestart op branch main."
