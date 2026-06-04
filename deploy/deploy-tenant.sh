@@ -203,7 +203,8 @@ fi
 cd "$TENANT_DIR"
 
 DEPLOY_LOG="${DEPLOY_LOG:-$TENANT_DIR/storage/logs/deploy-latest.log}"
-if mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
+# In CI/SSH geen process-substitution tee: output blijft dan zichtbaar in GitHub Actions.
+if [[ "${DEPLOY_NO_TEE:-}" != "1" ]] && mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
   : >"$DEPLOY_LOG"
   exec > >(tee -a "$DEPLOY_LOG") 2>&1
 fi
