@@ -169,6 +169,7 @@ jobs:
           envs: GIT_REF,APP_DIR,AWS_USER,DEPLOY_SCRIPT
           script: |
             set -euo pipefail
+            exec 2>&1
             TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
             DEPLOY_USER="${AWS_USER:-ubuntu}"
             GIT_REMOTE="origin"
@@ -177,6 +178,7 @@ jobs:
             export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
             export REQUIRE_COMPOSE_V2=1
             export DEBUG_DEPLOY="${DEBUG_DEPLOY:-1}"
+            export DEPLOY_NO_TEE=1
 
             echo "=== PROD deploy ==="
             echo "Host: $(hostname)"
@@ -190,31 +192,25 @@ jobs:
               exit 1
             fi
 
-            _resolve_deploy_script() {
-              if [[ -n "${DEPLOY_SCRIPT:-}" && -f "$DEPLOY_SCRIPT" ]]; then
-                echo "$DEPLOY_SCRIPT"
-                return 0
-              fi
-              if [[ -f "$TENANT_DIR/deploy/deploy-tenant.sh" ]]; then
-                echo "$TENANT_DIR/deploy/deploy-tenant.sh"
-                return 0
-              fi
-              echo ""
-            }
-
             if [[ -n "${DEPLOY_SCRIPT:-}" ]]; then
               if [[ -f "$DEPLOY_SCRIPT" ]]; then
                 echo "==> CI-upload script aanwezig: $DEPLOY_SCRIPT ($(wc -c < "$DEPLOY_SCRIPT") bytes)"
               else
-                echo "ERROR: CI-upload script ontbreekt op server: $DEPLOY_SCRIPT" >&2
+                echo "ERROR: CI-upload script ontbreekt op server: $DEPLOY_SCRIPT"
                 ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
                 exit 1
               fi
             fi
 
-            SCRIPT="$(_resolve_deploy_script)"
+            SCRIPT=""
+            if [[ -n "${DEPLOY_SCRIPT:-}" && -f "$DEPLOY_SCRIPT" ]]; then
+              SCRIPT="$DEPLOY_SCRIPT"
+            elif [[ -f "$TENANT_DIR/deploy/deploy-tenant.sh" ]]; then
+              SCRIPT="$TENANT_DIR/deploy/deploy-tenant.sh"
+            fi
+
             if [[ -z "$SCRIPT" ]]; then
-              echo "ERROR: Geen deploy-script gevonden (DEPLOY_SCRIPT=${DEPLOY_SCRIPT:-})" >&2
+              echo "ERROR: Geen deploy-script gevonden (DEPLOY_SCRIPT=${DEPLOY_SCRIPT:-})"
               ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
               echo "==> fallback: git show uit tag $GIT_REF"
               TMP_SCRIPT="/tmp/nexa-deploy-tenant-${GIT_REF//[^a-zA-Z0-9_.-]/_}.sh"
@@ -243,9 +239,15 @@ jobs:
               fi
               chmod 755 "$TMP_SCRIPT"
               SCRIPT="$TMP_SCRIPT"
-            else
-              echo "==> Deploy-script: $SCRIPT"
             fi
+
+            echo "==> Gekozen deploy-script: $SCRIPT"
+
+            if ! bash -n "$SCRIPT"; then
+              echo "ERROR: deploy-script syntax check mislukt: $SCRIPT"
+              exit 1
+            fi
+            echo "==> Start deploy-tenant.sh (user=$(id -un), tag=$GIT_REF)"
 
             _run_deploy() {
               if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
@@ -259,9 +261,10 @@ jobs:
                   DEPLOY_USER="$DEPLOY_USER" \
                   REQUIRE_COMPOSE_V2=1 \
                   DEBUG_DEPLOY="${DEBUG_DEPLOY:-}" \
-                  bash "$SCRIPT"
+                  DEPLOY_NO_TEE=1 \
+                  bash -x "$SCRIPT"
               else
-                bash "$SCRIPT"
+                bash -x "$SCRIPT"
               fi
             }
 
