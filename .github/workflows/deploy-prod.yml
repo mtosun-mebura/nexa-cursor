@@ -101,18 +101,52 @@ jobs:
 
           echo "Tag ${ref} bevestigd op main (${tag_sha})."
 
+      - name: Checkout deploy tag (deploy script)
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.version.outputs.ref }}
+          fetch-depth: 1
+
+      - name: Prepare deploy script for upload
+        id: deploy_script
+        run: |
+          set -euo pipefail
+          ref="${{ steps.version.outputs.ref }}"
+          safe="${ref//[^a-zA-Z0-9_.-]/_}"
+          src="deploy/deploy-tenant.sh"
+          if [[ ! -f "$src" ]]; then
+            echo "ERROR: $src ontbreekt in tag ${ref}" >&2
+            exit 1
+          fi
+          dest="/tmp/nexa-deploy-tenant-${safe}.sh"
+          cp "$src" "$dest"
+          chmod 755 "$dest"
+          echo "remote_path=$dest" >> "$GITHUB_OUTPUT"
+          echo "Deploy-script klaar: $dest ($(wc -c < "$dest") bytes)"
+
+      - name: Upload deploy script to PROD
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          source: ${{ steps.deploy_script.outputs.remote_path }}
+          target: /tmp/
+          overwrite: true
+
       - name: Deploy to PROD (deploy-tenant.sh)
         uses: appleboy/ssh-action@v1.2.0
         env:
           GIT_REF: ${{ steps.version.outputs.ref }}
           APP_DIR: ${{ vars.APP_DIR }}
           AWS_USER: ${{ secrets.AWS_USER }}
+          DEPLOY_SCRIPT: ${{ steps.deploy_script.outputs.remote_path }}
         with:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.AWS_SSH_KEY }}
           script_stop: true
-          envs: GIT_REF,APP_DIR,AWS_USER
+          envs: GIT_REF,APP_DIR,AWS_USER,DEPLOY_SCRIPT
           script: |
             set -euo pipefail
             TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
@@ -134,19 +168,49 @@ jobs:
               exit 1
             fi
 
-            SCRIPT="$TENANT_DIR/deploy/deploy-tenant.sh"
-            if [[ ! -f "$SCRIPT" ]]; then
-              echo "==> $SCRIPT ontbreekt in huidige server-checkout; laad deploy-script uit tag $GIT_REF"
+            _resolve_deploy_script() {
+              if [[ -n "${DEPLOY_SCRIPT:-}" && -f "$DEPLOY_SCRIPT" ]]; then
+                echo "$DEPLOY_SCRIPT"
+                return 0
+              fi
+              if [[ -f "$TENANT_DIR/deploy/deploy-tenant.sh" ]]; then
+                echo "$TENANT_DIR/deploy/deploy-tenant.sh"
+                return 0
+              fi
+              echo ""
+            }
+
+            SCRIPT="$(_resolve_deploy_script)"
+            if [[ -z "$SCRIPT" ]]; then
+              echo "==> deploy-tenant.sh ontbreekt; fallback: git show uit tag $GIT_REF"
               TMP_SCRIPT="/tmp/nexa-deploy-tenant-${GIT_REF//[^a-zA-Z0-9_.-]/_}.sh"
               if [[ "$(id -un)" != "$DEPLOY_USER" ]] && sudo -n -u "$DEPLOY_USER" true 2>/dev/null; then
-                sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" --tags --force
-                sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"
+                if ! sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" "refs/tags/${GIT_REF}:refs/tags/${GIT_REF}" --force; then
+                  echo "ERROR: git fetch tag ${GIT_REF} mislukt in $TENANT_DIR" >&2
+                  exit 1
+                fi
+                if ! sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"; then
+                  echo "ERROR: git show ${GIT_REF}:deploy/deploy-tenant.sh mislukt" >&2
+                  sudo -n -u "$DEPLOY_USER" -H git -C "$TENANT_DIR" remote -v >&2 || true
+                  sudo -n -u "$DEPLOY_USER" -H git -C "$TENANT_DIR" tag -l "${GIT_REF}" >&2 || true
+                  exit 1
+                fi
               else
-                git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" --tags --force
-                git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"
+                if ! git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" "refs/tags/${GIT_REF}:refs/tags/${GIT_REF}" --force; then
+                  echo "ERROR: git fetch tag ${GIT_REF} mislukt in $TENANT_DIR" >&2
+                  exit 1
+                fi
+                if ! git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"; then
+                  echo "ERROR: git show ${GIT_REF}:deploy/deploy-tenant.sh mislukt" >&2
+                  git -C "$TENANT_DIR" remote -v >&2 || true
+                  git -C "$TENANT_DIR" tag -l "${GIT_REF}" >&2 || true
+                  exit 1
+                fi
               fi
               chmod 755 "$TMP_SCRIPT"
               SCRIPT="$TMP_SCRIPT"
+            else
+              echo "==> Deploy-script: $SCRIPT"
             fi
 
             if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
