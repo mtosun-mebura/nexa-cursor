@@ -24,10 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     @if(!empty($footerMapEarlyLoad))
-    <link rel="preconnect" href="https://maps.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://maps.googleapis.com">
-    <link rel="dns-prefetch" href="https://maps.gstatic.com">
+    @include('frontend.layouts.partials.website-footer-map-scripts')
     @endif
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Georgia&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-cookieconsent@3.1.0/dist/cookieconsent.css">
@@ -46,111 +43,7 @@
         body.theme-classic { --theme-primary: {{ $themeSettings['primary_color'] ?? '#1e40af' }}; }
         body.theme-minimal { --theme-primary: {{ $themeSettings['primary_color'] ?? '#0f172a' }}; }
     </style>
-    @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
-    @if(!empty($footerMapEarlyLoad))
-    <script>
-    (function() {
-        window.initFooterMap = function() {
-            var mapEl = document.getElementById('footer-google-map');
-            if (!mapEl || mapEl.getAttribute('data-footer-map-initialized') === '1') return;
-            if (typeof google === 'undefined' || !google.maps || !google.maps.Map) return;
-            var mapId = (mapEl.getAttribute('data-map-id') || '').trim();
-            if (!mapId) mapId = 'DEMO_MAP_ID';
-            var useAdvancedMarker = true;
-            var latStr = (mapEl.getAttribute('data-lat') || '').trim();
-            var lngStr = (mapEl.getAttribute('data-lng') || '').trim();
-            var address = (mapEl.getAttribute('data-address') || '').trim();
-            var zoomStr = (mapEl.getAttribute('data-zoom') || '').trim();
-            var showAddressBalloon = (mapEl.getAttribute('data-show-address-balloon') || '') === '1';
-            var lat = parseFloat(latStr);
-            var lng = parseFloat(lngStr);
-            var zoom = (zoomStr !== '' && !isNaN(parseInt(zoomStr, 10))) ? parseInt(zoomStr, 10) : 17;
-            if (zoom < 1 || zoom > 20) zoom = 17;
-            var hasCoords = latStr !== '' && lngStr !== '' && !isNaN(lat) && !isNaN(lng);
-            var center = { lat: 52.3676, lng: 4.9041 };
-            if (hasCoords) center = { lat: lat, lng: lng };
-            var useAdvanced = useAdvancedMarker && mapId && mapId.length > 0;
-            var mapOptions = {
-                center: center,
-                zoom: zoom,
-                scrollwheel: false,
-                mapTypeControl: true,
-                streetViewControl: false,
-                fullscreenControl: true,
-                zoomControl: true
-            };
-            if (useAdvanced) mapOptions.mapId = mapId;
-            var map;
-            try {
-                map = new google.maps.Map(mapEl, mapOptions);
-            } catch (e) {
-                delete mapOptions.mapId;
-                useAdvanced = false;
-                map = new google.maps.Map(mapEl, mapOptions);
-            }
-            mapEl.setAttribute('data-footer-map-initialized', '1');
-            window._footerGoogleMap = map;
-            function addMarkerSafe(m, pos) {
-                if (useAdvanced && google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-                    try {
-                        return new google.maps.marker.AdvancedMarkerElement({ map: m, position: pos });
-                    } catch (err) {
-                        return new google.maps.Marker({ position: pos, map: m });
-                    }
-                }
-                return new google.maps.Marker({ position: pos, map: m });
-            }
-            function openAddressBalloon(marker, addr) {
-                addr = (addr != null) ? String(addr).trim() : '';
-                if (!addr || !showAddressBalloon || !google.maps.InfoWindow) return;
-                var infoWindow = new google.maps.InfoWindow({ content: '<div style="padding: 4px 8px 6px; font-size: 14px; color: #000; line-height: 1.25; margin: 0;">' + addr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' });
-                infoWindow.open(map, marker);
-            }
-            if (hasCoords) {
-                var marker = addMarkerSafe(map, center);
-                openAddressBalloon(marker, address);
-            } else if (address && google.maps.Geocoder) {
-                var geocoder = new google.maps.Geocoder();
-                geocoder.geocode({ address: address }, function(results, status) {
-                    if (status === 'OK' && results && results[0]) {
-                        var loc = results[0].geometry.location;
-                        map.setCenter(loc);
-                        map.setZoom(zoom);
-                        var marker = addMarkerSafe(map, loc);
-                        openAddressBalloon(marker, address);
-                    } else {
-                        addMarkerSafe(map, center);
-                    }
-                });
-            } else {
-                addMarkerSafe(map, center);
-            }
-            function triggerResize() {
-                if (google.maps && google.maps.event && map) google.maps.event.trigger(map, 'resize');
-            }
-            setTimeout(triggerResize, 100);
-            setTimeout(triggerResize, 300);
-            setTimeout(triggerResize, 600);
-            window.addEventListener('load', triggerResize);
-            if (typeof ResizeObserver !== 'undefined' && mapEl.parentElement) {
-                var ro = new ResizeObserver(function() { setTimeout(triggerResize, 50); });
-                ro.observe(mapEl.parentElement);
-            }
-        };
-        window.resizeFooterMap = function() {
-            var map = window._footerGoogleMap;
-            if (map && typeof google !== 'undefined' && google.maps && google.maps.event) {
-                google.maps.event.trigger(map, 'resize');
-                var center = map.getCenter && map.getCenter();
-                if (center) map.setCenter(center);
-                return;
-            }
-            if (typeof window.initFooterMap === 'function') window.initFooterMap();
-        };
-    })();
-    </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ rawurlencode($googleMapsKeyTrimmed) }}&amp;libraries=marker&amp;callback=initFooterMap&amp;loading=async"></script>
-    @endif
+    @include('frontend.layouts.partials.vite-frontend-assets')
     <style>
         /* Eén grootte voor alle paginatitels (h1) */
         .kt-page-title { font-size: 1.875rem; font-weight: 700; line-height: 1.2; }
@@ -532,20 +425,28 @@
                     </button>
                     @endif
                     @if($branding['dashboard_link_visible'] ?? false)
+                    @php
+                        $portalUrl = $branding['dashboard_link_url'] ?? route('dashboard');
+                        $portalLabel = $branding['dashboard_link_label'] ?? 'Mijn Nexa';
+                    @endphp
                     @guest
-                    <a href="{{ route('login') }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">Inloggen</a>
+                    <a href="{{ route('login', ['intended' => $portalUrl]) }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $portalLabel }}</a>
                     @else
-                    <a href="{{ route('dashboard') }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
+                    <a href="{{ $portalUrl }}" class="px-4 py-2 rounded-lg text-base font-medium text-white transition-colors shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">{{ $portalLabel }}</a>
                     @endguest
                     @endif
                 </div>
                 {{-- Smalle viewport: desktop-kolom met Mijn Nexa is verborgen; knop hier tonen zodat hij niet alleen in het dichte hamburgerpaneel zit --}}
                 <div id="website-hamburger-row" class="hidden items-center gap-2 ml-auto flex-shrink-0">
                     @if($branding['dashboard_link_visible'] ?? false)
+                    @php
+                        $portalUrlMobile = $branding['dashboard_link_url'] ?? route('dashboard');
+                        $portalLabelMobile = $branding['dashboard_link_label'] ?? 'Mijn Nexa';
+                    @endphp
                     @guest
-                    <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">Inloggen</a>
+                    <a href="{{ route('login', ['intended' => $portalUrlMobile]) }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">{{ $portalLabelMobile }}</a>
                     @else
-                    <a href="{{ route('dashboard') }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">{{ $branding['dashboard_link_label'] ?? 'Mijn Nexa' }}</a>
+                    <a href="{{ $portalUrlMobile }}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white shrink-0 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 sm:px-4 sm:py-2 sm:text-base">{{ $portalLabelMobile }}</a>
                     @endguest
                     @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
@@ -597,282 +498,21 @@
         @yield('content')
     </main>
 
-    <footer class="{{ !empty($homeSections) ? 'bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' }} border-t border-gray-200 dark:border-gray-600">
-        @if(!empty($homeSections) && ($homeSections['visibility']['footer'] ?? true) && (!empty($homeSections['footer']) || !empty($homeSections['copyright'])))
-            @php
-                $footerData = $homeSections['footer'] ?? [];
-                $footerLogoUrl = !empty($footerData['logo_url']) ? $footerData['logo_url'] : ($branding['logo_url'] ?? null);
-                $footerLogoDarkUrl = (empty($footerData['logo_url']) && !empty($branding['logo_dark_url'])) ? $branding['logo_dark_url'] : null;
-                if (!empty($footerLogoUrl) && (str_contains($footerLogoUrl, '/storage/') || str_contains($footerLogoUrl, 'storage/'))) {
-                    $storagePath = preg_replace('#^.*?/storage/#', '', $footerLogoUrl);
-                    $storagePath = strtok($storagePath, '?');
-                    if ($storagePath !== '') {
-                        $footerLogoUrl = app(\App\Services\WebsiteBuilderService::class)->publicFileUrl($storagePath);
-                    }
-                }
-                $footerLogoAlt = !empty($footerData['logo_alt']) ? $footerData['logo_alt'] : ($branding['site_name'] ?? config('app.name'));
-                $footerUsesCustomLogo = !empty($footerData['logo_url']);
-                if ($footerUsesCustomLogo) {
-                    $footerLogoTw = max(12, min(30, (int) ($footerData['logo_height'] ?? 12)));
-                    $footerLogoImgClass = 'w-auto h-'.$footerLogoTw.' object-contain';
-                    $footerLogoImgStyle = '';
-                } else {
-                    $footerLogoPx = (int) ($branding['logo_size_px'] ?? app(\App\Services\WebsiteBuilderService::class)->resolveLogoSizePx());
-                    $footerLogoImgClass = 'w-auto max-w-[350px] object-contain';
-                    $footerLogoImgStyle = 'height: '.$footerLogoPx.'px';
-                }
-                $footerLinkUrl = function($u) {
-                    if (empty($u)) return url('/');
-                    $u = trim($u);
-                    return (strpos($u, 'http') === 0 || strpos($u, '//') === 0) ? $u : url($u);
-                };
-            @endphp
-            <div class="w-full">
-                <div class="py-8 container-custom site-footer-reveal scroll-reveal-section" data-scroll-reveal>
-                    @php
-                        $footVis = $homeSections['visibility'] ?? [];
-                        $footerMapVisible = (bool) ($footVis['footer_map'] ?? true);
-                        $googleMapsKeyForView = trim((string)($googleMapsApiKey ?? ''));
-                        $showFooterMap = $footerMapVisible && $googleMapsKeyForView !== '';
-                        $footerMapSize = $footerData['map_size'] ?? 'normal';
-                        $footerMapHeightPx = $footerMapSize === 'small' ? 200 : ($footerMapSize === 'large' ? 400 : 300);
-                        $footerMapWidthClass = 'w-full';
-                        $footerMapCityOnly = !empty($footerData['map_city_only']);
-                        $footerMapAddressStr = $footerMapCityOnly
-                            ? trim((string) ($footerData['map_city'] ?? ''))
-                            : trim(($footerData['map_street'] ?? '') . ' ' . ($footerData['map_huisnummer'] ?? '') . ', ' . ($footerData['map_postcode'] ?? '') . ' ' . ($footerData['map_city'] ?? ''), ' ,');
-                        $footerLogoAlign = isset($footerData['logo_align']) && in_array($footerData['logo_align'], ['left', 'center', 'right'], true) ? $footerData['logo_align'] : 'left';
-                        $footerLogoAlignWrapper = $footerLogoAlign === 'center' ? 'flex flex-col items-center' : ($footerLogoAlign === 'right' ? 'flex flex-col items-end' : 'flex flex-col items-start');
-                        $footerLogoAlignText = $footerLogoAlign === 'center' ? 'text-center' : ($footerLogoAlign === 'right' ? 'text-right' : 'text-left');
-                        $footerQuickLinksAlign = isset($footerData['quick_links_align']) && in_array($footerData['quick_links_align'], ['left', 'center', 'right'], true) ? $footerData['quick_links_align'] : 'left';
-                        $footerSupportLinksAlign = isset($footerData['support_links_align']) && in_array($footerData['support_links_align'], ['left', 'center', 'right'], true) ? $footerData['support_links_align'] : 'left';
-                        $footerQuickLinksAlignClass = $footerQuickLinksAlign === 'center' ? 'text-center' : ($footerQuickLinksAlign === 'right' ? 'text-right' : 'text-left');
-                        $footerSupportLinksAlignClass = $footerSupportLinksAlign === 'center' ? 'text-center' : ($footerSupportLinksAlign === 'right' ? 'text-right' : 'text-left');
-                        $showQuickLinks = ($footVis['footer_quick_links'] ?? true) && !empty($footerData['quick_links']);
-                        $showSupportLinks = ($footVis['footer_support_links'] ?? true) && !empty($footerData['support_links']);
-                        $footerLinkColumnsCount = ($showQuickLinks ? 1 : 0) + ($showSupportLinks ? 1 : 0);
-                        $footerShowMapRight = $footerMapVisible;
-                        $footerGridCols = $footerShowMapRight ? 'md:grid-cols-2' : ($footerLinkColumnsCount === 2 ? 'md:grid-cols-4' : ($footerLinkColumnsCount === 1 ? 'md:grid-cols-3' : 'md:grid-cols-1'));
-                        $footerGridWithMapClass = $footerShowMapRight ? ' footer-grid-with-map' : '';
-                        $footerFirstColSpan = $footerLinkColumnsCount === 2 ? 'md:col-span-2' : ($footerLinkColumnsCount === 1 ? 'md:col-span-2' : 'md:col-span-1');
-                        $footerQuickLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-3' : 'md:col-start-3';
-                        $footerSupportLinksCol = $footerLinkColumnsCount === 2 ? 'md:col-start-4' : 'md:col-start-3';
-                        $footerSocialLinks = [];
-                        $footerSocialBases = ['social_facebook' => 'https://www.facebook.com/', 'social_instagram' => 'https://www.instagram.com/', 'social_x' => 'https://x.com/', 'social_linkedin' => 'https://www.linkedin.com/', 'social_youtube' => 'https://www.youtube.com/', 'social_tiktok' => 'https://www.tiktok.com/@'];
-                        foreach (['facebook' => 'social_facebook', 'instagram' => 'social_instagram', 'x' => 'social_x', 'linkedin' => 'social_linkedin', 'youtube' => 'social_youtube', 'tiktok' => 'social_tiktok'] as $key => $field) {
-                            $u = trim((string)($footerData[$field] ?? ''));
-                            if ($u === '') continue;
-                            if (strpos($u, 'http') === 0 || strpos($u, '//') === 0) {
-                                $footerSocialLinks[$key] = $footerLinkUrl($u);
-                            } else {
-                                $base = $footerSocialBases[$field];
-                                $id = $field === 'social_tiktok' ? ltrim($u, '@') : $u;
-                                $footerSocialLinks[$key] = $base . $id;
-                            }
-                        }
-                        $footerAnimStepMs = 115;
-                        $footerQuickVisible = 0;
-                        foreach (($footerData['quick_links'] ?? []) as $_ql) {
-                            if (!empty($_ql['label'])) { $footerQuickVisible++; }
-                        }
-                        $footerSupportVisible = 0;
-                        foreach (($footerData['support_links'] ?? []) as $_sl) {
-                            if (!empty($_sl['label'])) { $footerSupportVisible++; }
-                        }
-                        $footerDelayQuickH3 = 1320;
-                        $footerDelayQuickLi0 = 1390;
-                        $footerDelaySupH3 = $footerQuickVisible > 0
-                            ? ($footerDelayQuickLi0 + $footerQuickVisible * $footerAnimStepMs + 80)
-                            : $footerDelayQuickH3;
-                        $footerDelaySupLi0 = $footerDelaySupH3 + 70;
-                        $footerDelayMap = $footerSupportVisible > 0
-                            ? ($footerDelaySupLi0 + $footerSupportVisible * $footerAnimStepMs + 140)
-                            : ($footerQuickVisible > 0
-                                ? ($footerDelayQuickLi0 + $footerQuickVisible * $footerAnimStepMs + 200)
-                                : 1680);
-                        /* Kaart eerder zichtbaar / tegelijk met inhoud: cap op animatie-delay */
-                        $footerDelayMap = min($footerDelayMap, 420);
-                    @endphp
-                    <div class="footer-reveal-soft">
-                    <div class="grid grid-cols-1 {{ $footerGridCols }} gap-6 {{ $footerShowMapRight ? 'md:grid-rows-[auto]' : '' }}{{ $footerGridWithMapClass }}">
-                        @if($footerShowMapRight)
-                        {{-- Linkerkant (50%): logo + tagline, daaronder Snelle Links (links) en Ondersteuning (rechts) naast elkaar --}}
-                        <div class="flex flex-col min-w-0">
-                            <div class="{{ $footerLogoAlignWrapper }} w-full max-w-full min-w-0">
-                                @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                    @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @endif
-                                    </div>
-                                @elseif($footVis['footer_logo'] ?? true)
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                        @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
-                                    </div>
-                                @endif
-                                @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full max-w-full min-w-0 leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
-                                        {!! $homeSections['footer']['tagline'] !!}
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-0 w-full max-w-full min-w-0">
-                                @if($showQuickLinks)
-                                <div class="{{ $footerQuickLinksAlignClass }} min-w-0">
-                                    <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
-                                    @php $footerQlAnim = 0; @endphp
-                                    <ul class="footer-quick-links-list space-y-3">
-                                        @foreach($footerData['quick_links'] as $link)
-                                            @if(!empty($link['label']))
-                                        @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
-                                        <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                            @endif
-                                        @endforeach
-                                    </ul>
-                                </div>
-                                @endif
-                                @if($showSupportLinks)
-                                <div class="{{ $footerSupportLinksAlignClass }} min-w-0">
-                                    <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-4" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
-                                    @php $footerSlAnim = 0; @endphp
-                                    <ul class="footer-support-links-list space-y-3">
-                                        @foreach($footerData['support_links'] as $link)
-                                            @if(!empty($link['label']))
-                                        @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
-                                        <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                            @endif
-                                        @endforeach
-                                    </ul>
-                                </div>
-                                @endif
-                            </div>
-                        </div>
-                        {{-- Rechterkant (50%): kaart over volle breedte van de rechterhelft --}}
-                        <div class="w-full min-w-0 flex flex-col">
-                            <div class="footer-map-reveal w-full min-w-0 flex-1 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2 md:mt-0" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
-                                @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-[200px] block min-w-0 box-border" style="width: 100%; height: 100%; min-height: 200px; min-width: 0;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
-                                @else
-                                <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
-                                    Stel de Google Maps API-sleutel in via <strong>Admin → Instellingen → Maps</strong> om de kaart te tonen.
-                                </div>
-                                @endif
-                            </div>
-                        </div>
-                        @else
-                        {{-- Geen map of geen linkkolommen: één kolom logo+tagline+kaart --}}
-                        <div class="col-span-1 {{ $footerFirstColSpan }}">
-                            <div class="{{ $footerLogoAlignWrapper }}">
-                                @if(($footVis['footer_logo'] ?? true) && !empty($footerLogoUrl))
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                    @if(!empty($footerLogoDarkUrl))
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-light {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                        <img src="{{ $footerLogoDarkUrl }}" alt="{{ $footerLogoAlt }}" class="fe-logo-dark {{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @else
-                                        <img src="{{ $footerLogoUrl }}" alt="{{ $footerLogoAlt }}" class="{{ $footerLogoImgClass }}" @if($footerLogoImgStyle !== '') style="{{ $footerLogoImgStyle }}" @endif>
-                                    @endif
-                                    </div>
-                                @elseif($footVis['footer_logo'] ?? true)
-                                    <div class="footer-animate-brand inline-block mb-4">
-                                        @include('frontend.layouts.partials.brand-logo', ['branding' => $branding, 'logoHref' => route('home')])
-                                    </div>
-                                @endif
-                                @if(($footVis['footer_tagline'] ?? true) && !empty($homeSections['footer']['tagline']))
-                                    <div class="footer-animate-tagline text-gray-700 dark:text-gray-200 mb-4 w-full leading-relaxed prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 max-w-none [&_*]:!text-gray-900 dark:[&_*]:!text-gray-200 {{ $footerLogoAlignText }}">
-                                        {!! $homeSections['footer']['tagline'] !!}
-                                    </div>
-                                @endif
-                            </div>
-                            @if($footerMapVisible)
-                            <div class="footer-map-reveal w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 mt-2" style="height: {{ $footerMapHeightPx }}px; animation-delay: {{ $footerDelayMap }}ms;">
-                                @if($showFooterMap)
-                                <div id="footer-google-map" class="w-full h-full min-h-full block" style="width: 100%; height: 100%; min-height: 100%;" data-api-key="{{ $googleMapsKeyForView }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-lat="{{ $footerData['map_lat'] ?? '' }}" data-lng="{{ $footerData['map_lng'] ?? '' }}" data-zoom="{{ $footerData['map_zoom'] ?? 17 }}" data-address="{{ $footerMapAddressStr }}" data-show-address-balloon="{{ !empty($footerData['map_show_address_balloon']) ? '1' : '0' }}"></div>
-                                @else
-                                <div class="w-full h-full min-h-[8rem] flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 px-4 text-center">
-                                    Stel de Google Maps API-sleutel in via <strong>Admin → Instellingen → Maps</strong> om de kaart te tonen.
-                                </div>
-                                @endif
-                            </div>
-                            @endif
-                        </div>
-                        @endif
-                        @if(!$footerShowMapRight)
-                        @if($showQuickLinks)
-                        <div class="{{ $footerQuickLinksCol }} {{ $footerQuickLinksAlignClass }}">
-                            <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-3" style="animation-delay: {{ $footerDelayQuickH3 }}ms;">{{ $footerData['quick_links_title'] ?? 'Snelle Links' }}</h3>
-                            @php $footerQlAnim = 0; @endphp
-                            <ul class="footer-quick-links-list space-y-3">
-                                @foreach($footerData['quick_links'] as $link)
-                                    @if(!empty($link['label']))
-                                @php $footerQlDelayMs = $footerDelayQuickLi0 + $footerQlAnim * $footerAnimStepMs; $footerQlAnim++; @endphp
-                                <li class="footer-quick-link-item footer-footer-anim-left" style="animation-delay: {{ $footerQlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                    @endif
-                                @endforeach
-                            </ul>
-                        </div>
-                        @endif
-                        @if($showSupportLinks)
-                        <div class="{{ $footerSupportLinksCol }} {{ $footerSupportLinksAlignClass }}">
-                            <h3 class="footer-footer-anim-left text-lg font-semibold text-gray-900 dark:text-white mb-4" style="animation-delay: {{ $footerDelaySupH3 }}ms;">{{ $footerData['support_links_title'] ?? 'Ondersteuning' }}</h3>
-                            @php $footerSlAnim = 0; @endphp
-                            <ul class="footer-support-links-list space-y-3">
-                                @foreach($footerData['support_links'] as $link)
-                                    @if(!empty($link['label']))
-                                @php $footerSlDelayMs = $footerDelaySupLi0 + $footerSlAnim * $footerAnimStepMs; $footerSlAnim++; @endphp
-                                <li class="footer-support-link-item footer-footer-anim-left" style="animation-delay: {{ $footerSlDelayMs }}ms;">@if(!empty(trim($link['url'] ?? '')))<a href="{{ $footerLinkUrl($link['url']) }}" class="text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors duration-200">{{ $link['label'] }}</a>@else<span class="text-gray-800 dark:text-gray-200">{{ $link['label'] }}</span>@endif</li>
-                                    @endif
-                                @endforeach
-                            </ul>
-                        </div>
-                        @endif
-                        @endif
-                    </div>
-                    @if(($footVis['footer_social'] ?? true) && count($footerSocialLinks) > 0)
-                        <div class="w-full mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
-                            @include('frontend.layouts.partials.footer-social-icons', ['footerSocialLinks' => $footerSocialLinks, 'footerLogoAlign' => 'center'])
-                        </div>
-                    @endif
-                    </div>
-                </div>
-                @if(!empty($homeSections['copyright']))
-                    <div class="border-t border-gray-300 dark:border-gray-600 py-4 container-custom">
-                        <p class="text-gray-700 dark:text-gray-200 text-sm">
-                            {{ str_replace('{year}', date('Y'), $homeSections['copyright']) }}
-                        </p>
-                    </div>
-                @endif
-            </div>
-        @else
-            <div class="container-custom py-8">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                    @include('frontend.layouts.partials.brand-logo', [
-                        'branding' => $branding,
-                        'logoHref' => route('home'),
-                        'logoImgClassExtra' => 'opacity-80',
-                    ])
-                    @php
-                        $footerBrandName = trim((string) ($branding['site_name'] ?? config('app.name')));
-                        if (strcasecmp($footerBrandName, 'NEXA Taxi') === 0) {
-                            $footerBrandName = 'NEXA';
-                        }
-                    @endphp
-                    <p class="text-sm">
-                        {{ !empty($themeSettings['footer_text']) ? $themeSettings['footer_text'] : '© ' . date('Y') . ' ' . $footerBrandName }}
-                    </p>
-                </div>
-            </div>
-        @endif
-    </footer>
+    @include('frontend.layouts.partials.website-footer', [
+        'homeSections' => $homeSections,
+        'branding' => $branding,
+        'themeSettings' => $themeSettings ?? [],
+    ])
+
 
     @php
-        $frontendEnv = app(\App\Services\EnvService::class);
-        $whatsappWidgetEnabled = (string) $frontendEnv->get('WHATSAPP_WIDGET_ENABLED', '0') === '1';
-        $whatsappWidgetPhoneRaw = trim((string) $frontendEnv->get('WHATSAPP_WIDGET_PHONE', ''));
-        $whatsappWidgetPhoneDigits = preg_replace('/\D+/', '', $whatsappWidgetPhoneRaw);
-        $whatsappWidgetMessage = trim((string) $frontendEnv->get('WHATSAPP_WIDGET_DEFAULT_MESSAGE', 'Hallo, ik heb een vraag over jullie diensten.'));
+        // WhatsApp-widget uitsluitend op basis van de (tenant-)instelling (general_settings), niet uit .env.
+        // De controller geeft $whatsappWidget door; voor pagina's die deze layout zonder die variabele gebruiken
+        // valt de widget terug op "uit" (geen .env-afhankelijkheid).
+        $whatsappWidget = $whatsappWidget ?? ['enabled' => false, 'phone' => '', 'message' => ''];
+        $whatsappWidgetEnabled = (bool) ($whatsappWidget['enabled'] ?? false);
+        $whatsappWidgetPhoneDigits = preg_replace('/\D+/', '', (string) ($whatsappWidget['phone'] ?? ''));
+        $whatsappWidgetMessage = trim((string) ($whatsappWidget['message'] ?? ''));
         if ($whatsappWidgetMessage === '') {
             $whatsappWidgetMessage = 'Hallo, ik heb een vraag over jullie diensten.';
         }
@@ -901,7 +541,7 @@
                    class="inline-flex h-14 w-14 items-center justify-center text-white shadow-xl hover:brightness-110 transition-all"
                    style="background-color: #25D366; border-radius: 9999px;">
                     <span class="pointer-events-none inline-flex h-9 w-9 items-center justify-center" aria-hidden="true">
-                        <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9 max-h-full max-w-full object-contain" width="36" height="36" decoding="async" draggable="false">
+                        <svg class="h-9 w-9 max-h-full max-w-full" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.881 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                     </span>
                 </a>
             </div>
@@ -912,7 +552,7 @@
                     class="relative z-[1] inline-flex h-14 w-14 cursor-pointer touch-manipulation items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-all">
                 <span id="frontend-whatsapp-widget-icon-open" class="inline-flex" style="display: inline-flex;">
                     <span class="pointer-events-none inline-flex h-9 w-9 items-center justify-center" aria-hidden="true">
-                        <img src="{{ asset('assets/media/app/whatsapp-icon.svg') }}" alt="" class="h-9 w-9 max-h-full max-w-full object-contain" width="36" height="36" decoding="async" draggable="false">
+                        <svg class="h-9 w-9 max-h-full max-w-full" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.881 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                     </span>
                 </span>
                 <span id="frontend-whatsapp-widget-icon-close" class="inline-flex" style="display: none;">

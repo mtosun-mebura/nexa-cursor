@@ -26,6 +26,17 @@
         <div class="kt-alert kt-alert-success mb-5">{{ session('success') }}</div>
     @endif
 
+    @if($errors->has('tenant'))
+        <div class="kt-alert kt-alert-warning mb-5">{{ $errors->first('tenant') }}</div>
+    @endif
+
+    @if(!empty($noTenantSelected))
+        <div class="kt-alert kt-alert-warning mb-5">
+            Selecteer eerst een tenant (bedrijf) in de zijbalk. Dispatch-instellingen worden per bedrijf opgeslagen;
+            zonder geselecteerde tenant kunt u niet opslaan.
+        </div>
+    @endif
+
     <form action="{{ route('admin.taxi.dispatch_settings.update') }}" method="POST" class="kt-card min-w-full">
         @csrf
         @method('PUT')
@@ -145,6 +156,23 @@
                         </p>
                     </td>
                 </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar klant</td>
+                    <td class="min-w-48 w-full">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="hidden" name="booking_customer_email_enabled" value="0">
+                            <input type="checkbox"
+                                   class="kt-checkbox"
+                                   name="booking_customer_email_enabled"
+                                   value="1"
+                                   {{ old('booking_customer_email_enabled', $bookingCustomerEmailEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
+                            <span class="text-sm text-secondary-foreground">Stuur de klant een bevestigingsmail direct na de boeking</span>
+                        </label>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Vereist een geldig e-mailadres in het boekingsformulier.
+                        </p>
+                    </td>
+                </tr>
             </table>
             </div>
             </div>
@@ -182,7 +210,7 @@
                             <input type="hidden" name="customer_accept_email_enabled" value="0">
                             <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_email_enabled" value="1"
                                    {{ old('customer_accept_email_enabled', $customerAcceptEmailEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Verstuur e-mail (vereist klant-e-mail op de rit)</span>
+                            <span class="text-sm text-secondary-foreground">Verstuur e-mail na chauffeursacceptatie (vereist klant-e-mail op de rit)</span>
                         </label>
                     </td>
                 </tr>

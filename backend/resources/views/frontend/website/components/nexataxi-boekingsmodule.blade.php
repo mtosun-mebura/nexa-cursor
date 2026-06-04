@@ -1,7 +1,7 @@
 @php
     $sectionConfigRaw = (isset($sectionKey) && isset($homeSections) ? ($homeSections[$sectionKey] ?? []) : []);
     $bookingConfig = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig(is_array($sectionConfigRaw) ? $sectionConfigRaw : []);
-    $bookingPageId = $page->id ?? null;
+    $bookingPageId = isset($page) ? ($page->id ?? null) : null;
     $mapsApiKey = trim((string) ($googleMapsApiKey ?? ''));
     $sectionStyle = $bookingConfig['style'] ?? [];
     $bookingDefaultAccent = \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX;
@@ -41,13 +41,27 @@
             $bookingTenantCompanyId = (int) $rtid;
         }
     }
-    $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
-    $bookingNotifications = app(\App\Modules\NexaTaxi\Services\TaxiBookingNotificationService::class);
-    $whatsappClickToChatNumber = $dispatchSettings->bookingWhatsappNumber($bookingTenantCompanyId);
-    $whatsappServerAutoSend = $bookingNotifications->whatsappAutoSendEnabled($bookingTenantCompanyId);
-    $whatsappClientClickToChat = $bookingNotifications->whatsappClientClickToChatEnabled($bookingTenantCompanyId);
-    $bookingConfig['address_search_url'] = url()->route('nexataxi.booking.address-search');
-    $bookingConfig['payment'] = $dispatchSettings->paymentOptionsForTenant($bookingTenantCompanyId);
+    $whatsappClickToChatNumber = '';
+    $whatsappServerAutoSend = false;
+    $whatsappClientClickToChat = false;
+    $bookingConfig['address_search_url'] = url('/nexa-taxi/booking/address-search');
+    $bookingConfig['payment'] = ['booking' => false, 'driver' => false, 'mollie_configured' => false];
+    $bookingConfig['contact'] = ['email_required' => false];
+    try {
+        $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        $bookingNotifications = app(\App\Modules\NexaTaxi\Services\TaxiBookingNotificationService::class);
+        $whatsappClickToChatNumber = $dispatchSettings->bookingWhatsappNumber($bookingTenantCompanyId);
+        $whatsappServerAutoSend = $bookingNotifications->whatsappAutoSendEnabled($bookingTenantCompanyId);
+        $whatsappClientClickToChat = $bookingNotifications->whatsappClientClickToChatEnabled($bookingTenantCompanyId);
+        $bookingConfig['address_search_url'] = url()->route('nexataxi.booking.address-search');
+        $bookingConfig['payment'] = $dispatchSettings->paymentOptionsForTenant($bookingTenantCompanyId);
+        $bookingConfig['contact'] = [
+            'email_required' => $dispatchSettings->customerEmailRequiredForBooking($bookingTenantCompanyId),
+        ];
+    } catch (\Throwable $e) {
+        report($e);
+    }
+    $contactEmailRequired = ! empty($bookingConfig['contact']['email_required']);
     $tabFontPxVal = (int) ($sectionStyle['tab_font_size_px'] ?? 14);
     $titleFontPxVal = (int) ($sectionStyle['title_font_size_px'] ?? 36);
     $titleFontPxVal = max(16, min(72, $titleFontPxVal));
@@ -187,6 +201,7 @@
                         <h3 class="booking-module-step-heading font-semibold" style="{{ $stepHeadingStyle }}">{{ e($stepLabelByLogical['offers'] ?? 'Aanbiedingen') }}</h3>
                         <div class="text-sm text-slate-600 dark:text-slate-300">Passagiers: <span data-summary-passengers>1</span></div>
                     </div>
+                    <p class="hidden mb-4 text-sm font-bold text-yellow-400 dark:text-yellow-300" data-baggage-van-upgrade-notice role="status"></p>
                     <div class="space-y-4" data-offers-list></div>
                     <p class="text-sm mt-3 text-slate-600 dark:text-slate-300 hidden" data-offers-empty>Geen aanbiedingen beschikbaar voor de huidige invoer.</p>
                 </div>
@@ -354,9 +369,20 @@
                             <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="phone" role="alert"></p>
                         </div>
                         <div>
-                            <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-email">E-mailadres</label>
-                            <input id="booking-field-email" type="email" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="email" autocomplete="email" inputmode="email">
+                            <label class="block mb-2.5 text-sm font-medium text-heading" for="booking-field-email">
+                                E-mailadres
+                                @if($contactEmailRequired)
+                                    <span class="text-red-600 dark:text-red-400" aria-hidden="true">*</span>
+                                @endif
+                            </label>
+                            <input id="booking-field-email" type="email" class="mt-1 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-lg focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body" data-field="email" autocomplete="email" inputmode="email" @if($contactEmailRequired) aria-required="true" required @endif>
                             <p class="hidden mt-1.5 text-sm font-medium text-red-600 dark:text-red-300" data-booking-field-error="email" role="alert"></p>
+                            <label class="mt-3 inline-flex items-center gap-3 select-none cursor-pointer">
+                                <input type="checkbox" class="h-5 w-5 rounded border border-default-medium bg-neutral-secondary-medium text-fg-brand focus:ring-2 focus:ring-brand-soft" data-field="create_account">
+                                <span class="text-sm text-body">
+                                    Account aanmaken om je ritten en facturen in te zien
+                                </span>
+                            </label>
                         </div>
                     </div>
                     <p class="mt-6 text-sm text-body text-left" role="note"><span class="text-red-600 dark:text-red-400 font-medium" aria-hidden="true">*</span> Verplicht veld</p>
@@ -500,11 +526,12 @@
                     </svg>
                 </button>
             </div>
-            <h4 class="text-2xl font-bold mb-2">Boeking versturen</h4>
-            <p class="text-base text-slate-600 dark:text-slate-200">Weet u zeker dat u de boeking wilt versturen?</p>
+            <h4 class="text-2xl font-bold mb-2" data-confirm-modal-title>Boeking versturen</h4>
+            <p class="text-base text-slate-600 dark:text-slate-200" data-confirm-modal-text>Weet u zeker dat u de boeking wilt versturen?</p>
             <div class="mt-6 flex items-center justify-center gap-2.5 flex-wrap">
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold border rounded-lg transition-colors border-slate-400 text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800/80" data-booking-confirm-close>Annuleren</button>
                 <button type="button" class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-confirm-submit>Bevestigen</button>
+                <a class="hidden inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-500" data-booking-login-btn href="#">Inloggen</a>
             </div>
             </div>
         </div>
@@ -599,6 +626,21 @@ html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final
 .dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final:hover,
 html.dark [data-nexataxi-booking-module] [data-booking-next].booking-next--final:hover {
     background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+[data-nexataxi-booking-module] [data-booking-prev].booking-nav--submitted,
+[data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted {
+    border-color: color-mix(in srgb, rgb(148 163 184) 50%, transparent) !important;
+    color: rgb(148 163 184) !important;
+    opacity: 0.85;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none !important;
+    box-shadow: none !important;
+}
+[data-nexataxi-booking-module] [data-booking-prev].booking-nav--submitted:hover,
+[data-nexataxi-booking-module] [data-booking-next].booking-nav--submitted:hover {
+    background-color: transparent !important;
 }
 
 [data-nexataxi-booking-module] .booking-confirm-route-stack {
@@ -1246,6 +1288,7 @@ body.booking-modal-open {
     var config = @json($bookingConfig);
     var quoteUrl = @json(route('nexataxi.booking.quote'));
     var submitUrl = @json(route('nexataxi.booking.submit'));
+    var pendingUrl = @json(route('nexataxi.booking.pending'));
     var pageId = @json($bookingPageId);
     var sectionKey = @json($sectionKey ?? 'component:taxi.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
@@ -1254,7 +1297,8 @@ body.booking-modal-open {
     var bookingPrimaryHex = @json($sectionStyle['primary_color'] ?? $bookingDefaultAccent);
     var whatsappClickToChatEnabled = @json($whatsappClientClickToChat);
     var whatsappClickToChatNumber = @json($whatsappClickToChatNumber);
-    var whatsappDraftWindow = null;
+    var bookingSubmitInFlight = false;
+    var bookingSubmitted = false;
     var maxStopovers = parseInt(config.logic && config.logic.max_stopovers != null ? config.logic.max_stopovers : 3, 10);
     if (isNaN(maxStopovers)) maxStopovers = 3;
     maxStopovers = Math.max(0, Math.min(6, maxStopovers));
@@ -1286,6 +1330,7 @@ body.booking-modal-open {
         last_name: '',
         phone: '',
         email: '',
+        create_account: false,
         pickup_lat: null,
         pickup_lng: null,
         stopovers_geo: [],
@@ -1299,8 +1344,14 @@ body.booking-modal-open {
         offers: [],
         selected_offer_id: null,
         offer_display_mode: (config.logic && config.logic.offer_display_mode ? config.logic.offer_display_mode : 'vehicle'),
-        person_range: '1-4'
+        person_range: '1-4',
+        baggage_van_upgrade: false
     };
+    var baggageVanUpgradeMessage = (config.texts && config.texts.baggage_van_upgrade_message)
+        ? String(config.texts.baggage_van_upgrade_message)
+        : 'Vanwege de hoeveelheid bagage tonen we bus- of van-aanbiedingen.';
+
+    restorePendingBookingFromSession();
 
     function formatEuro(value) {
         var num = (typeof value === 'number' ? value : parseFloat(value || 0));
@@ -1500,39 +1551,19 @@ body.booking-modal-open {
         return lines.join('\n');
     }
 
-    function prepareWhatsappWindow() {
-        if (!whatsappClickToChatEnabled) return;
-        var phone = normalizeWhatsappPhone(whatsappClickToChatNumber);
-        if (!phone) return;
-        if (whatsappDraftWindow && !whatsappDraftWindow.closed) return;
-        try {
-            whatsappDraftWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
-        } catch (e) {
-            whatsappDraftWindow = null;
-        }
-    }
-
-    function closePreparedWhatsappWindow() {
-        if (whatsappDraftWindow && !whatsappDraftWindow.closed) {
-            whatsappDraftWindow.close();
-        }
-        whatsappDraftWindow = null;
-    }
-
     function openWhatsappWithSummary(rideRequestId) {
-        if (!whatsappClickToChatEnabled) return;
+        if (!whatsappClickToChatEnabled) return false;
         var phone = normalizeWhatsappPhone(whatsappClickToChatNumber);
-        if (!phone) return;
+        if (!phone) return false;
         var url = 'https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(buildWhatsappSummaryMessage(rideRequestId));
-        if (whatsappDraftWindow && !whatsappDraftWindow.closed) {
-            whatsappDraftWindow.location.href = url;
-            whatsappDraftWindow = null;
-            return;
+        // Geen 'noopener' in window.open: daarmee geeft de browser null terug terwijl het tabblad wél opent.
+        // De oude fallback (window.location.href) stuurde dan ook dit scherm naar WhatsApp → 2x WhatsApp, boeking weg.
+        var popup = window.open(url, '_blank');
+        if (popup) {
+            try { popup.opener = null; } catch (e) {}
+            return true;
         }
-        var popup = window.open(url, '_blank', 'noopener,noreferrer');
-        if (!popup) {
-            window.location.href = url;
-        }
+        return false;
     }
 
     function clearAllFieldErrors() {
@@ -1597,14 +1628,39 @@ body.booking-modal-open {
             document.documentElement.classList.add('booking-modal-open');
             document.body.classList.add('booking-modal-open');
         }
+        bookingSubmitted = true;
     }
 
     function closeSuccessModal() {
         var modal = root.querySelector('[data-booking-success-modal]');
-        if (!modal) return;
+        if (!modal || modal.classList.contains('hidden')) return;
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
+        if (bookingSubmitted) {
+            applyBookingSubmittedNavState();
+        }
+    }
+
+    function applyBookingSubmittedNavState() {
+        var prevBtn = root.querySelector('[data-booking-prev]');
+        var nextBtn = root.querySelector('[data-booking-next]');
+        [prevBtn, nextBtn].forEach(function(btn) {
+            if (!btn) return;
+            btn.disabled = true;
+            btn.setAttribute('aria-disabled', 'true');
+            btn.classList.add('booking-nav--submitted');
+        });
+        if (nextBtn) {
+            nextBtn.textContent = 'Boeking verstuurd';
+            nextBtn.classList.remove('booking-next--final', 'booking-next-default');
+            nextBtn.style.borderColor = '';
+            nextBtn.style.color = '';
+        }
+        if (prevBtn) {
+            prevBtn.style.borderColor = '';
+            prevBtn.style.color = '';
+        }
     }
 
     function getCurrentStepKey() {
@@ -1807,7 +1863,7 @@ body.booking-modal-open {
         });
         updateBookingStepSelectOptions();
         var nextBtn = root.querySelector('[data-booking-next]');
-        if (nextBtn) {
+        if (nextBtn && !bookingSubmitted) {
             nextBtn.textContent = currentStepKey === 'confirm'
                 ? (config.texts && config.texts.submit_button_text ? config.texts.submit_button_text : 'Boeking versturen')
                 : 'Verder';
@@ -1822,9 +1878,11 @@ body.booking-modal-open {
                 nextBtn.style.borderColor = 'color-mix(in srgb, ' + bookingPrimaryHex + ' 45%, transparent)';
                 nextBtn.style.color = bookingPrimaryHex;
             }
+        } else if (nextBtn && bookingSubmitted) {
+            applyBookingSubmittedNavState();
         }
         var prevBtn = root.querySelector('[data-booking-prev]');
-        if (prevBtn) prevBtn.style.visibility = state.step === 1 ? 'hidden' : 'visible';
+        if (prevBtn && !bookingSubmitted) prevBtn.style.visibility = state.step === 1 ? 'hidden' : 'visible';
         if (currentStepKey === 'trip') {
             window.requestAnimationFrame(function() {
                 syncRouteIconAlignment();
@@ -2185,6 +2243,16 @@ body.booking-modal-open {
     function renderOffers() {
         var list = root.querySelector('[data-offers-list]');
         var empty = root.querySelector('[data-offers-empty]');
+        var upgradeNotice = root.querySelector('[data-baggage-van-upgrade-notice]');
+        if (upgradeNotice) {
+            if (state.baggage_van_upgrade) {
+                upgradeNotice.textContent = baggageVanUpgradeMessage;
+                upgradeNotice.classList.remove('hidden');
+            } else {
+                upgradeNotice.textContent = '';
+                upgradeNotice.classList.add('hidden');
+            }
+        }
         if (!list) return;
         list.innerHTML = '';
         var visibleOffers = offersForDisplayMode();
@@ -2466,13 +2534,16 @@ body.booking-modal-open {
 
         if (mapsApiKey) {
             var mapLang = (config.maps && config.maps.language) ? config.maps.language : 'nl';
+            /* region biast de geocoder; alleen meesturen als er een land is ingesteld, anders wereldwijd. */
+            var mapRegion = (config.maps && config.maps.country ? String(config.maps.country).split(',')[0].trim() : '');
+            if (mapRegion.toLowerCase() === 'nl') mapRegion = '';
             /* Embed directions: geen zoom-parameter — Google past het zicht aan de volledige route aan. */
             var embed = 'https://www.google.com/maps/embed/v1/directions?key=' + encodeURIComponent(mapsApiKey)
                 + '&origin=' + encodeURIComponent(pickup)
                 + '&destination=' + encodeURIComponent(dropoff)
                 + '&mode=driving'
                 + '&units=metric'
-                + '&region=nl'
+                + (mapRegion ? '&region=' + encodeURIComponent(mapRegion) : '')
                 + '&language=' + encodeURIComponent(mapLang);
             if (stops.length) {
                 embed += '&waypoints=' + encodeURIComponent(stops.join('|'));
@@ -2676,6 +2747,7 @@ body.booking-modal-open {
             state.offers = Array.isArray(data.offers) ? data.offers : [];
             state.offer_display_mode = data.offer_display_mode || state.offer_display_mode || 'vehicle';
             state.person_range = data.person_range || (state.passengers <= 4 ? '1-4' : '5-8');
+            state.baggage_van_upgrade = !!data.baggage_van_upgrade;
             var visible = offersForDisplayMode();
             if (!visible.some(function(offer) { return offer.id === state.selected_offer_id; })) {
                 state.selected_offer_id = visible[0] ? visible[0].id : null;
@@ -2714,8 +2786,12 @@ body.booking-modal-open {
         var key = String(address || '').trim().toLowerCase();
         if (!key) return Promise.resolve(null);
         if (geocodeCache.has(key)) return Promise.resolve(geocodeCache.get(key));
-        var country = (config.maps && config.maps.country ? String(config.maps.country) : 'nl').toLowerCase();
-        var params = { format: 'jsonv2', limit: 1, countrycodes: country, q: address };
+        // Leeg = wereldwijd geocoden (geen landbeperking), zodat routes van/naar het buitenland berekend kunnen worden.
+        // 'nl' (oude geforceerde standaard) ook als wereldwijd behandelen.
+        var country = (config.maps && config.maps.country ? String(config.maps.country) : '').toLowerCase();
+        if (country === 'nl') country = '';
+        var params = { format: 'jsonv2', limit: 1, q: address };
+        if (country) { params.countrycodes = country; }
         var base = (config.address_search_url || '').trim();
         var url = base
             ? base + (base.indexOf('?') >= 0 ? '&' : '?') + new URLSearchParams(params).toString()
@@ -2912,6 +2988,12 @@ body.booking-modal-open {
         if (em && !isValidBookingEmail(em)) {
             setFieldError('email', 'Vul een geldig e-mailadres in.');
             fail = true;
+        } else if ((config.contact && config.contact.email_required) && !em) {
+            setFieldError('email', 'E-mailadres is verplicht.');
+            fail = true;
+        } else if (!!state.create_account && !em) {
+            setFieldError('email', 'E-mailadres is verplicht om een account aan te maken.');
+            fail = true;
         }
         return !fail;
     }
@@ -3009,6 +3091,14 @@ body.booking-modal-open {
     function showConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        var title = modal.querySelector('[data-confirm-modal-title]');
+        var text = modal.querySelector('[data-confirm-modal-text]');
+        var loginBtn = modal.querySelector('[data-booking-login-btn]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        if (title) title.textContent = 'Boeking versturen';
+        if (text) text.textContent = 'Weet u zeker dat u de boeking wilt versturen?';
+        if (confirmBtn) confirmBtn.classList.remove('hidden');
+        if (loginBtn) loginBtn.classList.add('hidden');
         modal.classList.remove('hidden');
         document.documentElement.classList.add('booking-modal-open');
         document.body.classList.add('booking-modal-open');
@@ -3018,6 +3108,10 @@ body.booking-modal-open {
     function closeConfirmModal() {
         var modal = root.querySelector('[data-booking-confirm-modal]');
         if (!modal) return;
+        var loginBtn = modal.querySelector('[data-booking-login-btn]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        if (confirmBtn) confirmBtn.classList.remove('hidden');
+        if (loginBtn) loginBtn.classList.add('hidden');
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
@@ -3037,12 +3131,17 @@ body.booking-modal-open {
     }
 
     function submitBooking(sendToWhatsapp) {
+        if (bookingSubmitInFlight || bookingSubmitted) return;
+        bookingSubmitInFlight = true;
         clearError();
         var paymentMethod = getSelectedPaymentMethod();
+        var returnUrl = window.location.href || '';
+        if (returnUrl.indexOf('#') !== -1) returnUrl = returnUrl.split('#')[0];
         var payload = {
             page_id: pageId,
             section_key: sectionKey,
             module: bookingModuleName || undefined,
+            return_url: returnUrl,
             selected_offer_id: state.selected_offer_id,
             distance_meters: parseInt(state.distance_meters || 0, 10),
             duration_seconds: parseInt(state.duration_seconds || 0, 10),
@@ -3063,6 +3162,7 @@ body.booking-modal-open {
             last_name: state.last_name || '',
             phone: state.phone || '',
             email: state.email || '',
+            create_account: !!state.create_account,
             baggage: state.baggage || {},
             special_baggage: state.special_baggage || {}
         };
@@ -3080,7 +3180,18 @@ body.booking-modal-open {
             body: JSON.stringify(payload)
         })
         .then(function(response) {
-            if (!response.ok) return response.json().then(function(data) { throw new Error(data.message || 'Boeking versturen mislukt'); });
+            if (!response.ok) {
+                if (response.status === 409) {
+                    return response.json().then(function(data) {
+                        if (data && data.requires_login && data.login_url) {
+                            showLoginRequiredModal(String(data.message || 'Log in om verder te gaan.'), String(data.login_url));
+                            throw new Error('__handled__');
+                        }
+                        throw new Error((data && data.message) ? data.message : 'Boeking versturen mislukt');
+                    });
+                }
+                return response.json().then(function(data) { throw new Error(data.message || 'Boeking versturen mislukt'); });
+            }
             return response.json();
         })
         .then(function(data) {
@@ -3088,17 +3199,61 @@ body.booking-modal-open {
                 window.location.href = data.checkout_url;
                 return;
             }
+            var successMessage = data.message || (config.texts && config.texts.success_message ? config.texts.success_message : 'Bedankt! Je boeking is ontvangen.');
             if (sendToWhatsapp) {
-                openWhatsappWithSummary(data && data.ride_request_id ? data.ride_request_id : null);
+                var whatsappOpened = openWhatsappWithSummary(data && data.ride_request_id ? data.ride_request_id : null);
+                if (!whatsappOpened) {
+                    successMessage += ' Kon WhatsApp niet automatisch openen; sta pop-ups toe of open WhatsApp handmatig.';
+                }
             }
-            showSuccess(data.message || (config.texts && config.texts.success_message ? config.texts.success_message : 'Bedankt! Je boeking is ontvangen.'));
+            showSuccess(successMessage);
         })
         .catch(function(error) {
-            if (sendToWhatsapp) {
-                closePreparedWhatsappWindow();
-            }
+            if (error && error.message === '__handled__') return;
             showError(error.message || 'Boeking versturen mislukt');
+        })
+        .finally(function() {
+            bookingSubmitInFlight = false;
         });
+    }
+
+    function showLoginRequiredModal(message, loginUrl) {
+        var modal = root.querySelector('[data-booking-confirm-modal]');
+        if (!modal) return;
+        var title = modal.querySelector('[data-confirm-modal-title]');
+        var text = modal.querySelector('[data-confirm-modal-text]');
+        var loginBtn = modal.querySelector('[data-booking-login-btn]');
+        var confirmBtn = modal.querySelector('[data-booking-confirm-submit]');
+        if (title) title.textContent = 'Inloggen vereist';
+        if (text) text.textContent = String(message || 'Log in om verder te gaan.');
+        if (confirmBtn) confirmBtn.classList.add('hidden');
+        if (loginBtn) {
+            loginBtn.classList.remove('hidden');
+            loginBtn.setAttribute('href', loginUrl);
+        }
+        showConfirmModal();
+    }
+
+    function restorePendingBookingFromSession() {
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            if (!params.has('resume_booking')) return;
+            fetch(pendingUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function(res) { return res.ok ? res.json() : null; })
+                .then(function(data) {
+                    if (!data || !data.pending || !data.payload) return;
+                    Object.keys(data.payload).forEach(function(k) {
+                        if (k === 'page_id' || k === 'section_key' || k === 'module' || k === 'return_url') return;
+                        if (state[k] !== undefined) state[k] = data.payload[k];
+                    });
+                    state.maxStep = 5;
+                    applyStateToFields();
+                    updateSummary();
+                    setStepByKey('confirm', { skipScroll: true });
+                    showSuccess('Je was niet ingelogd. Controleer je gegevens en bevestig je boeking.');
+                })
+                .catch(function() {});
+        } catch (e) {}
     }
 
     function initGoogleMaps() {
@@ -3138,10 +3293,13 @@ body.booking-modal-open {
                     origin: state.pickup_address,
                     destination: state.dropoff_address,
                     travelMode: 'DRIVING',
-                    regionCode: 'nl',
                     computeAlternativeRoutes: false,
                     routingPreference: 'TRAFFIC_AWARE_OPTIMAL'
                 };
+                // regionCode alleen meesturen als er een land is ingesteld; anders niet biasen op NL (routes buiten NL).
+                var routeRegion = (config.maps && config.maps.country ? String(config.maps.country).split(',')[0].trim() : '');
+                if (routeRegion.toLowerCase() === 'nl') routeRegion = '';
+                if (routeRegion) { request.regionCode = routeRegion; }
                 var stopovers = (state.stopovers || []).filter(function(s) { return String(s || '').trim() !== ''; });
                 if (stopovers.length > 0) request.intermediates = stopovers;
 
@@ -3217,7 +3375,11 @@ body.booking-modal-open {
     function setupAddressTypeaheadFallback() {
         var pickupInput = root.querySelector('[data-field="pickup_address"]');
         var dropoffInput = root.querySelector('[data-field="dropoff_address"]');
-        var countryCode = (config.maps && config.maps.country ? String(config.maps.country) : 'nl').toLowerCase();
+        // Leeg = wereldwijd zoeken (geen landbeperking), zodat ook adressen buiten NL gevonden worden.
+        // 'nl' was de oude (geforceerde) standaard en is geen bewuste keuze (er is geen admin-instelling
+        // voor land), dus die behandelen we ook als wereldwijd.
+        var countryCode = (config.maps && config.maps.country ? String(config.maps.country) : '').toLowerCase();
+        if (countryCode === 'nl') countryCode = '';
         if (!pickupInput || !dropoffInput) return;
         var listIdPrefix = 'booking-address-suggestions-' + Math.floor(Math.random() * 1000000);
         var useCustomSuggestionPanel = true;
@@ -3262,6 +3424,7 @@ body.booking-modal-open {
 
         function positionPanelUnderInput(panel, input) {
             if (!panel || !input) return;
+            panel._anchorInput = input;
             var rect = input.getBoundingClientRect();
             panel.style.position = 'fixed';
             panel.style.top = (rect.bottom + 6) + 'px';
@@ -3270,6 +3433,31 @@ body.booking-modal-open {
             panel.style.minWidth = '280px';
             panel.style.zIndex = '99999';
         }
+
+        // Houd de suggestiepanelen vast aan hun inputveld terwijl de gebruiker scrollt/het venster
+        // verandert. Anders blijft het 'fixed' paneel op de oude plek staan en lijkt het los te zweven.
+        function repositionOpenPanels() {
+            Object.keys(panelByKey).forEach(function(k) {
+                var p = panelByKey[k];
+                if (p && p.isConnected && p._anchorInput &&
+                    p.style.display !== 'none' && !p.classList.contains('hidden')) {
+                    positionPanelUnderInput(p, p._anchorInput);
+                }
+            });
+        }
+        if (!window.__nexataxiPanelReposition) {
+            window.__nexataxiPanelReposition = [];
+            var fireReposition = function() {
+                var fns = window.__nexataxiPanelReposition || [];
+                for (var i = 0; i < fns.length; i++) {
+                    try { fns[i](); } catch (e) {}
+                }
+            };
+            // capture=true zodat ook scrollen binnen scrollbare containers wordt opgevangen.
+            window.addEventListener('scroll', fireReposition, true);
+            window.addEventListener('resize', fireReposition);
+        }
+        window.__nexataxiPanelReposition.push(repositionOpenPanels);
 
         function hideSuggestionPanel(key) {
             if (hidePanelTimeoutByKey[key]) {
@@ -3368,21 +3556,40 @@ body.booking-modal-open {
         function formatNominatimAddress(row) {
             if (!row) return null;
             var displayName = (row.display_name && String(row.display_name).trim()) ? compactAddress(row.display_name) : '';
+            // Naam van de plek (POI), bv. "Düsseldorf Airport", "Centraal Station". Nominatim levert dit in jsonv2.
+            var poiName = (row.name && String(row.name).trim()) ? String(row.name).trim() : '';
             if (!row.address) {
-                return displayName ? { label: displayName, value: displayName } : null;
+                var fallback = poiName || displayName;
+                return fallback ? { label: fallback, value: fallback } : null;
             }
             var a = row.address;
-            var street = a.road || a.pedestrian || a.footway || a.cycleway || '';
+            var street = a.road || a.pedestrian || a.footway || a.cycleway || a.path || '';
             var number = a.house_number || '';
             var city = a.city || a.town || a.village || a.hamlet || a.city_district || a.suburb || a.county || a.municipality || '';
             var postcode = a.postcode || '';
-            var first = [street, number].filter(Boolean).join(' ').trim();
+
+            // Straat/huisadres of een benoemd punt (POI: luchthaven, station, hotel, ...)?
+            var addressType = String(row.addresstype || '').toLowerCase();
+            var category = String(row.category || row.class || '').toLowerCase();
+            var isStreetAddress = !!number || addressType === 'road' || addressType === 'house' ||
+                addressType === 'house_number' || category === 'highway' || category === 'place';
+
+            var streetPart = [street, number].filter(Boolean).join(' ').trim();
+            var lead;
+            if (poiName && !isStreetAddress && poiName.toLowerCase() !== street.toLowerCase()) {
+                // POI: de 'road' is hier slechts de dichtstbijzijnde straat; toon de naam van de plek.
+                lead = poiName;
+            } else {
+                lead = streetPart;
+            }
+
             var second = [postcode, city].filter(Boolean).join(' ').trim();
-            var compact = [first, second].filter(Boolean).join(', ').trim();
-            var value = compact || displayName || '';
+            // Niet opnieuw door compactAddress halen: die is NL-postcode-gericht en zou buitenlandse steden
+            // (bv. Duitse 5-cijferige postcodes) wegfilteren. We bouwen het label hier al netjes op.
+            var value = [lead, second].filter(Boolean).join(', ').trim();
+            if (!value) { value = poiName || displayName || ''; }
             if (!value) return null;
-            var compactValue = compactAddress(value);
-            return { label: compactValue, value: compactValue };
+            return { label: value, value: value };
         }
 
         function buildNominatimUrl(params) {
@@ -3409,7 +3616,9 @@ body.booking-modal-open {
             if (controller) {
                 nominatimAbortByKey[key] = controller;
             }
-            var url = buildNominatimUrl({ format: 'jsonv2', addressdetails: 1, limit: 8, dedupe: 1, countrycodes: countryCode, 'accept-language': 'nl', q: q });
+            var searchParams = { format: 'jsonv2', addressdetails: 1, limit: 8, dedupe: 1, 'accept-language': 'nl', q: q };
+            if (countryCode) { searchParams.countrycodes = countryCode; }
+            var url = buildNominatimUrl(searchParams);
             var fetchPromise = fetch(url, controller ? { signal: controller.signal } : undefined)
                 .then(function(res) { return res.ok ? res.json() : []; })
                 .then(function(rows) {
@@ -3745,6 +3954,7 @@ body.booking-modal-open {
         var prevBtn = e.target.closest('[data-booking-prev]');
         if (prevBtn) {
             e.preventDefault();
+            if (bookingSubmitted) return;
             clearError();
             var prevStepKey = getPrevStepKey(getCurrentStepKey());
             if (prevStepKey) {
@@ -3755,6 +3965,7 @@ body.booking-modal-open {
         var nextBtn = e.target.closest('[data-booking-next]');
         if (nextBtn) {
             e.preventDefault();
+            if (bookingSubmitted) return;
             syncStateFromFields();
             if (!validateCurrentStep()) return;
             var currentStepKey = getCurrentStepKey();
@@ -3783,7 +3994,6 @@ body.booking-modal-open {
     if (confirmSubmitBtn) {
         confirmSubmitBtn.addEventListener('click', function() {
             closeConfirmModal();
-            prepareWhatsappWindow();
             submitBooking(whatsappClickToChatEnabled);
         });
     }

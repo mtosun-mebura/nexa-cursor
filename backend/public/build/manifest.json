@@ -1,4 +1,8 @@
 {
+  "_runtime-dom.esm-bundler-DLe3Rwn-.js": {
+    "file": "assets/runtime-dom.esm-bundler-DLe3Rwn-.js",
+    "name": "runtime-dom.esm-bundler"
+  },
   "node_modules/flag-icons/flags/1x1/ad.svg": {
     "file": "assets/ad-Blhdm5jl.svg",
     "src": "node_modules/flag-icons/flags/1x1/ad.svg"
@@ -2168,7 +2172,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CLAF9wV0.css",
+    "file": "assets/app-kwsiZ4EK.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2192,5 +2196,23 @@
     "name": "frontend-app",
     "src": "resources/js/frontend-app.js",
     "isEntry": true
+  },
+  "resources/js/metronic-vue-demo1.ts": {
+    "file": "assets/metronic-vue-demo1-CPzouvSH.js",
+    "name": "metronic-vue-demo1",
+    "src": "resources/js/metronic-vue-demo1.ts",
+    "isEntry": true,
+    "imports": [
+      "_runtime-dom.esm-bundler-DLe3Rwn-.js"
+    ]
+  },
+  "resources/js/taxi-portal-app.ts": {
+    "file": "assets/taxi-portal-app-DrQjqowS.js",
+    "name": "taxi-portal-app",
+    "src": "resources/js/taxi-portal-app.ts",
+    "isEntry": true,
+    "imports": [
+      "_runtime-dom.esm-bundler-DLe3Rwn-.js"
+    ]
   }
 }

@@ -43,17 +43,25 @@ class DriverDispatchController extends Controller
         $offers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
             ->inboxForDriver($user->id)
-            ->orderByDesc('offered_at')
-            ->get();
+            ->get()
+            ->sortBy(function (RideDispatchOffer $offer) {
+                $pickupAt = $offer->rideRequest?->pickup_at;
+
+                return $pickupAt ? $pickupAt->timestamp : PHP_INT_MAX;
+            })
+            ->values();
 
         $activeRide = RideRequest::on($conn)
             ->where('driver_id', $user->id)
-            ->whereIn('status', [
-                RideRequest::STATUS_ASSIGNED,
-                RideRequest::STATUS_ACCEPTED,
-            ])
-            ->orderByDesc('updated_at')
+            ->where('status', RideRequest::STATUS_ASSIGNED)
+            ->orderBy('pickup_at')
             ->first();
+
+        $scheduledRides = RideRequest::on($conn)
+            ->where('driver_id', $user->id)
+            ->where('status', RideRequest::STATUS_ACCEPTED)
+            ->orderBy('pickup_at')
+            ->get();
 
         return response()->json([
             'data' => [
@@ -63,6 +71,9 @@ class DriverDispatchController extends Controller
                 'active_ride' => $activeRide
                     ? TaxiDispatchOfferResource::rideSummary($activeRide)
                     : null,
+                'scheduled_rides' => $scheduledRides
+                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
+                    ->values(),
             ],
             'meta' => array_merge(
                 [
@@ -98,6 +109,53 @@ class DriverDispatchController extends Controller
                 'ride' => TaxiDispatchOfferResource::rideSummary($result['ride']),
                 'offer_id' => $result['offer']->id,
             ],
+        ]);
+    }
+
+    public function start(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $started = $claim->startRide($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Rit gestart.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($started),
+            ],
+        ]);
+    }
+
+    public function release(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $claim->releaseAcceptedRide($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet vrijgeven.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Rit vrijgegeven. Andere chauffeurs kunnen deze nu overnemen.',
         ]);
     }
 

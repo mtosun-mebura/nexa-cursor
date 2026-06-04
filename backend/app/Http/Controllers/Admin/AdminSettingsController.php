@@ -10,6 +10,7 @@ use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
+use App\Services\TenantSyncSettingsService;
 use App\Services\TenantWebsiteBundleService;
 use App\Services\WebsiteBuilderService;
 use App\Support\DutchPhoneNumber;
@@ -28,16 +29,20 @@ class AdminSettingsController extends Controller
 
     protected TenantStorageBundleService $tenantStorageBundle;
 
+    protected TenantSyncSettingsService $tenantSyncSettings;
+
     public function __construct(
         EnvService $envService,
         TenantWebsiteBundleService $tenantWebsiteBundle,
         TenantCompanyDataPushService $tenantCompanyDataPush,
-        TenantStorageBundleService $tenantStorageBundle
+        TenantStorageBundleService $tenantStorageBundle,
+        TenantSyncSettingsService $tenantSyncSettings
     ) {
         $this->envService = $envService;
         $this->tenantWebsiteBundle = $tenantWebsiteBundle;
         $this->tenantCompanyDataPush = $tenantCompanyDataPush;
         $this->tenantStorageBundle = $tenantStorageBundle;
+        $this->tenantSyncSettings = $tenantSyncSettings;
     }
 
     /**
@@ -185,10 +190,9 @@ class AdminSettingsController extends Controller
 
         $tenantSyncScope = $this->tenantCompanyDataPush->describeSyncScope();
 
-        $tenantSyncSettings = [
-            'tenant_sync_target_database_url' => (string) GeneralSetting::get('tenant_sync_target_database_url', ''),
-            'tenant_sync_push_enabled' => GeneralSetting::get('tenant_sync_push_enabled', '0') === '1',
-        ];
+        $tenantSyncSettings = $this->tenantSyncSettings->formSettings();
+
+        $tenantSyncTargetDatabaseUrlPrefill = $this->tenantWebsiteBundle->suggestedTargetDatabaseUrl();
 
         return view('admin.settings.index', compact(
             'mailSettings',
@@ -203,6 +207,7 @@ class AdminSettingsController extends Controller
             'googleReviewsSectionTitle',
             'googleReviewsSectionBackground',
             'tenantSyncSettings',
+            'tenantSyncTargetDatabaseUrlPrefill',
             'companiesForSync',
             'tenantSyncScope',
             'settingsCompanyId',
@@ -217,21 +222,33 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        $request->validate([
-            'tenant_sync_target_database_url' => ['nullable', 'string', 'max:2000'],
-            'tenant_sync_push_enabled' => ['nullable', 'boolean'],
-        ]);
+        $this->mergeTenantSyncDefaults($request);
+
+        $redirectBase = route('admin.settings.index');
+        $redirectTo = $redirectBase.'#tenant-sync';
 
         try {
-            GeneralSetting::set('tenant_sync_target_database_url', trim((string) $request->input('tenant_sync_target_database_url', '')));
-            GeneralSetting::set('tenant_sync_push_enabled', $request->boolean('tenant_sync_push_enabled') ? '1' : '0');
+            $this->tenantSyncSettings->validateRequest($request);
+            $this->tenantSyncSettings->saveFromRequest($request);
 
-            return redirect()->route('admin.settings.index')
+            return redirect()->to($redirectBase.'?saved=1#tenant-sync')
                 ->with('success', 'Omgeving-sync (doel-database) opgeslagen.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e->redirectTo($redirectTo);
         } catch (\Throwable $e) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->to($redirectTo)
                 ->with('error', 'Opslaan mislukt: '.$e->getMessage())
                 ->withInput();
+        }
+    }
+
+    private function mergeTenantSyncDefaults(Request $request): void
+    {
+        foreach (['tenant_sync_ssh_port' => '22', 'tenant_sync_ssh_remote_db_port' => '5432'] as $field => $default) {
+            $value = $request->input($field);
+            if ($value === null || $value === '') {
+                $request->merge([$field => $default]);
+            }
         }
     }
 
@@ -242,24 +259,28 @@ class AdminSettingsController extends Controller
     {
         $this->ensureSuperAdmin();
 
-        $url = trim((string) $request->input('tenant_sync_target_database_url', ''));
-        if ($url === '') {
-            $url = trim((string) GeneralSetting::get('tenant_sync_target_database_url', ''));
-        }
-        if ($url === '') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vul eerst een database-URL in.',
-            ], 422);
-        }
-
         try {
-            $this->tenantWebsiteBundle->testSyncConnection($url);
+            $config = $this->tenantSyncSettings->connectionConfig($request);
+            $this->tenantSyncSettings->validateConfig($config);
+            $this->tenantWebsiteBundle->testSyncConnection(
+                trim((string) $request->input('tenant_sync_target_database_url', '')),
+                $config
+            );
+
+            $message = 'Verbinding met doel-database OK.';
+            if ($config->sshEnabled) {
+                $message .= ' (via SSH-tunnel naar '.$config->sshHost.')';
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Verbinding met doel-database OK.',
+                'message' => $message,
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
@@ -374,12 +395,14 @@ class AdminSettingsController extends Controller
     public function importTenantStorageBundle(Request $request)
     {
         $this->ensureSuperAdmin();
+        $maxKb = (int) config('upload.tenant_bundle_max_kb', 512000);
         $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
-            'bundle' => ['required', 'file', 'mimes:zip', 'max:512000'],
+            'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
             'bundle.required' => 'Selecteer een ZIP-bestand.',
             'bundle.mimes' => 'Alleen ZIP is toegestaan.',
+            'bundle.max' => 'ZIP is te groot (max. '.(int) floor($maxKb / 1024).' MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).',
         ]);
 
         try {
@@ -395,7 +418,8 @@ class AdminSettingsController extends Controller
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
             ->with('success', 'Tenant-export geïmporteerd: '.$result['copied_files'].' bestand(en), '
-                .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en).');
+                .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en), '
+                .($result['imported_photos'] ?? 0).' profielfoto(\'s).');
     }
 
     /**
@@ -419,12 +443,14 @@ class AdminSettingsController extends Controller
     public function importTenantWebsiteBundle(Request $request)
     {
         $this->ensureSuperAdmin();
+        $maxKb = (int) config('upload.tenant_bundle_max_kb', 512000);
         $request->validate([
             'company_id' => ['required', 'integer', 'exists:companies,id'],
-            'bundle' => ['required', 'file', 'mimes:zip', 'max:512000'],
+            'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
             'bundle.required' => 'Selecteer een ZIP-bestand.',
             'bundle.mimes' => 'Alleen ZIP is toegestaan.',
+            'bundle.max' => 'ZIP is te groot (max. '.(int) floor($maxKb / 1024).' MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).',
         ]);
 
         try {

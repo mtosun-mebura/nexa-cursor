@@ -599,10 +599,17 @@ class AdminWebsitePageController extends Controller
         $emailTemplateBySectionKey = WebsitePage::emailTemplatesBySectionKeyForHomeSections($homeSections, $templateConnection);
         // Atom v2: laad thema-styles op alle paginatypes (preview) voor dezelfde weergave als home
         $loadAtomV2Styles = ($themeSlug === 'atom-v2');
-        // Footer-kaart: expliciet Maps API-key en map-id doorgeven (zelfde bron als frontend)
+        // Footer-kaart: Maps API-key/map-id en WhatsApp-widget per tenant uit de instellingen (zelfde bron als frontend)
         $env = app(\App\Services\EnvService::class);
-        $googleMapsApiKey = trim((string) ($env->getGoogleMapsApiKey() ?? ''));
-        $googleMapsMapId = $env->getGoogleMapsMapId() ?? '';
+        $googleMapsApiKey = $this->websiteBuilder->resolveGoogleMapsApiKeyForPage($website_page);
+        if ($googleMapsApiKey === '') {
+            $googleMapsApiKey = trim((string) ($env->getGoogleMapsApiKey() ?? ''));
+        }
+        $googleMapsMapId = $this->websiteBuilder->resolveGoogleMapsMapIdForPage($website_page);
+        if ($googleMapsMapId === '') {
+            $googleMapsMapId = $env->getGoogleMapsMapId() ?? '';
+        }
+        $whatsappWidget = $this->websiteBuilder->resolveWhatsappWidgetForPage($website_page);
 
         $previewEditUrl = route('admin.website-pages.edit', $website_page);
         if ($website_page->module_name) {
@@ -632,6 +639,7 @@ class AdminWebsitePageController extends Controller
             'googleMapsApiKey' => $googleMapsApiKey,
             'googleMapsMapId' => $googleMapsMapId,
             'googleReviews' => $googleReviews,
+            'whatsappWidget' => $whatsappWidget,
         ]);
     }
 

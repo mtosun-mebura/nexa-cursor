@@ -3,10 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
+use App\Models\FrontendTheme;
 use App\Models\User;
+use App\Models\WebsiteMedia;
+use App\Models\WebsitePage;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -146,6 +151,115 @@ class AdminTenantStorageBundleExportTest extends TestCase
         } finally {
             @unlink($tmp);
         }
+    }
+
+    #[Test]
+    public function tenant_storage_bundle_roundtrips_carousel_media_decrypted_and_user_photo(): void
+    {
+        $theme = FrontendTheme::query()->create([
+            'slug' => 'storage-roundtrip',
+            'name' => 'Roundtrip',
+            'is_active' => true,
+        ]);
+
+        $source = Company::query()->create([
+            'name' => 'Storage Roundtrip Source',
+            'frontend_theme_id' => $theme->id,
+            'is_active' => true,
+        ]);
+
+        $imageBytes = "\xFF\xD8\xFFreal-jpeg-bytes";
+        $uuid = '11111111-2222-3333-4444-555555555555';
+        $encryptedPath = 'website_media/'.$uuid.'.enc';
+        Storage::disk('local')->put($encryptedPath, Crypt::encrypt($imageBytes));
+
+        WebsiteMedia::query()->create([
+            'uuid' => $uuid,
+            'original_filename' => 'slide.jpg',
+            'mime_type' => 'image/jpeg',
+            'encrypted_path' => $encryptedPath,
+            'size' => strlen($imageBytes),
+        ]);
+
+        WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'company_id' => $source->id,
+            'is_active' => true,
+            'home_sections' => [
+                'section_order' => ['carousel'],
+                'visibility' => ['carousel' => true],
+                'carousel' => ['items' => [['uuid' => $uuid, 'alt' => 'Slide 1']]],
+            ],
+        ]);
+
+        $sourceUser = User::factory()->create([
+            'company_id' => $source->id,
+            'email' => 'admin@roundtrip.test',
+            'photo_blob' => base64_encode("\x89PNG\r\n\x1a\nphoto"),
+            'photo_mime_type' => 'image/png',
+        ]);
+
+        $service = app(TenantStorageBundleService::class);
+
+        $superAdmin = User::factory()->create();
+        $superAdmin->assignRole('super-admin');
+        $response = $this->actingAs($superAdmin)->get(
+            route('admin.settings.tenant-storage-bundle.export', ['company_id' => $source->id])
+        );
+        $response->assertOk();
+        $binary = $response->streamedContent();
+        $this->assertSame('PK', substr($binary, 0, 2));
+
+        $tmp = tempnam(sys_get_temp_dir(), 'nexa_ts_rt_');
+        file_put_contents($tmp, $binary);
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tmp) === true);
+        $this->assertNotFalse($zip->locateName('media-plain/'.$encryptedPath), 'media-plain entry ontbreekt');
+        $this->assertSame($imageBytes, $zip->getFromName('media-plain/'.$encryptedPath), 'media-plain bevat de ontsleutelde bytes');
+        $manifestJson = $zip->getFromName('manifest.json');
+        $zip->close();
+        $manifest = json_decode((string) $manifestJson, true);
+        $this->assertNotEmpty($manifest['website_media'] ?? []);
+        $this->assertNotEmpty($manifest['user_photos'] ?? []);
+
+        WebsiteMedia::query()->where('uuid', $uuid)->delete();
+        Storage::disk('local')->delete($encryptedPath);
+        // Bij een cross-omgeving-sync bestaat dezelfde gebruiker (zelfde e-mail) op het doel; verwijder de bron-rij.
+        $sourceUser->delete();
+        // Bron-pagina weg: in deze test deelt het doel dezelfde theme (globale unique op theme+slug).
+        WebsitePage::query()->where('company_id', $source->id)->delete();
+
+        $target = Company::query()->create([
+            'name' => 'Storage Roundtrip Target',
+            'frontend_theme_id' => $theme->id,
+            'is_active' => true,
+        ]);
+        $targetUser = User::factory()->create([
+            'company_id' => $target->id,
+            'email' => 'admin@roundtrip.test',
+            'photo_blob' => null,
+            'photo_mime_type' => null,
+        ]);
+
+        $upload = new UploadedFile($tmp, 'tenant.zip', 'application/zip', null, true);
+        $result = $service->importZip($target, $upload);
+
+        $this->assertDatabaseHas('website_media', ['uuid' => $uuid, 'encrypted_path' => $encryptedPath]);
+        $this->assertTrue(Storage::disk('local')->exists($encryptedPath));
+        $reEncrypted = Storage::disk('local')->get($encryptedPath);
+        $this->assertSame($imageBytes, Crypt::decrypt($reEncrypted), 'Her-versleuteld bestand decrypt naar de originele bytes');
+
+        $this->assertSame(1, $result['imported_photos'] ?? 0);
+        $targetUser->refresh();
+        $this->assertSame(base64_encode("\x89PNG\r\n\x1a\nphoto"), $targetUser->photo_blob);
+        $this->assertSame('image/png', $targetUser->photo_mime_type);
+
+        @unlink($tmp);
+        Storage::disk('local')->delete($encryptedPath);
     }
 
     #[Test]

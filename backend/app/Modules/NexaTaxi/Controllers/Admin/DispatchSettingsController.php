@@ -41,6 +41,7 @@ class DispatchSettingsController extends Controller
             : $this->dispatchSettings->envFallbackWhatsappNumber();
 
         return view('taxi::admin.dispatch-settings.edit', [
+            'noTenantSelected' => $companyId === null,
             'offerTtlSeconds' => $ttlSeconds,
             'offerTtlMinutes' => (int) round($ttlSeconds / 60),
             'envDefaultSeconds' => $envDefault,
@@ -49,6 +50,7 @@ class DispatchSettingsController extends Controller
             'bookingWhatsappEnabled' => $this->dispatchSettings->bookingWhatsappEnabled($companyId),
             'bookingWhatsappClickToChat' => $this->dispatchSettings->bookingWhatsappClickToChatEnabled($companyId),
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
+            'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
             'bookingWhatsappNumber' => $displayWhatsappNumber,
             'hasStoredWhatsappNumber' => $storedWhatsappNumber !== '',
             'whatsappApiConfigured' => $this->whatsapp->isConfigured(),
@@ -110,6 +112,9 @@ class DispatchSettingsController extends Controller
         ]);
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
+        if ($companyId === null) {
+            return $this->redirectNoTenant('admin.taxi.dispatch_settings.customer_accept_email.edit');
+        }
         $usesGlobalFallback = $request->input('uses_global_fallback') === '1';
 
         $this->customerAcceptEmailTemplate->saveForCompany($companyId, $validated, $usesGlobalFallback);
@@ -131,6 +136,7 @@ class DispatchSettingsController extends Controller
             'booking_whatsapp_enabled' => ['nullable', 'in:0,1'],
             'booking_whatsapp_click_to_chat' => ['nullable', 'in:0,1'],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
+            'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
             'booking_whatsapp_number' => ['nullable', 'string', 'max:50'],
             'payment_booking_enabled' => ['nullable', 'in:0,1'],
             'payment_driver_enabled' => ['nullable', 'in:0,1'],
@@ -150,6 +156,9 @@ class DispatchSettingsController extends Controller
         ]);
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
+        if ($companyId === null) {
+            return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
+        }
         $normalizedWhatsappNumber = DutchPhoneNumber::normalizeOptionalNlToInternational(
             trim((string) ($validated['booking_whatsapp_number'] ?? ''))
         );
@@ -165,6 +174,7 @@ class DispatchSettingsController extends Controller
         $this->dispatchSettings->setBookingWhatsappEnabled($request->boolean('booking_whatsapp_enabled'), $companyId);
         $this->dispatchSettings->setBookingWhatsappClickToChatEnabled($request->boolean('booking_whatsapp_click_to_chat'), $companyId);
         $this->dispatchSettings->setBookingDriverEmailEnabled($request->boolean('booking_driver_email_enabled'), $companyId);
+        $this->dispatchSettings->setBookingCustomerEmailEnabled($request->boolean('booking_customer_email_enabled'), $companyId);
         $this->dispatchSettings->setBookingWhatsappNumber((string) $normalizedWhatsappNumber, $companyId);
         $this->dispatchSettings->setPaymentBookingEnabled($request->boolean('payment_booking_enabled'), $companyId);
         $this->dispatchSettings->setPaymentDriverEnabled($request->boolean('payment_driver_enabled'), $companyId);
@@ -193,6 +203,20 @@ class DispatchSettingsController extends Controller
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
             ->with('success', 'Dispatch-instellingen zijn opgeslagen.');
+    }
+
+    /**
+     * Dispatch-instellingen worden per tenant (company_id) opgeslagen. Zonder tenant-context
+     * (bijv. super-admin op het hoofddomein zonder geselecteerde tenant) kan er niet worden
+     * opgeslagen: redirect met een duidelijke melding i.p.v. een 500-fout.
+     */
+    private function redirectNoTenant(string $route): RedirectResponse
+    {
+        $message = auth()->user()?->hasRole('super-admin')
+            ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk om de dispatch-instellingen te bewerken.'
+            : 'Geen bedrijf gekoppeld aan dit account.';
+
+        return redirect()->route($route)->withErrors(['tenant' => $message])->withInput();
     }
 
     private function authorizeOrPermissionAny(array $abilities): void

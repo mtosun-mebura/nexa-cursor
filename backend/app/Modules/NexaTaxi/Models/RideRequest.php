@@ -33,6 +33,7 @@ class RideRequest extends Model
         'invoice_id',
         'customer_name',
         'customer_email',
+        'customer_user_id',
         'customer_phone',
         'customer_note',
         'quote_expires_at',
@@ -126,6 +127,11 @@ class RideRequest extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'customer_user_id');
     }
 
     public function getStatusLabelAttribute(): string

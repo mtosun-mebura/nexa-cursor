@@ -24,7 +24,27 @@
     <meta property="twitter:image" content="{{ asset('images/og-image.jpg') }}">
     
     @php
-        $layoutBranding = app(\App\Services\WebsiteBuilderService::class)->getSiteBranding();
+        $websiteBuilder = app(\App\Services\WebsiteBuilderService::class);
+        $layoutHideFooter = request()->routeIs('taxi.portal.*');
+        $layoutPortalModule = $layoutHideFooter ? 'taxi' : null;
+        $layoutBranding = $branding ?? $websiteBuilder->getSiteBranding($layoutPortalModule);
+        $layoutUseWebsiteFooter = false;
+        $layoutHomeSections = [];
+        $layoutThemeSettings = [];
+        $layoutFooterMapEarlyLoad = false;
+        $layoutPortalCopyright = null;
+        if ($layoutHideFooter) {
+            $layoutHomeSections = $websiteBuilder->getHomeFooterSections($layoutPortalModule);
+            if (! empty($layoutHomeSections['copyright'])) {
+                $layoutPortalCopyright = str_replace('{year}', date('Y'), (string) $layoutHomeSections['copyright']);
+            } else {
+                $footerBrandName = trim((string) ($layoutBranding['site_name'] ?? config('app.name')));
+                if (strcasecmp($footerBrandName, 'NEXA Taxi') === 0) {
+                    $footerBrandName = 'NEXA';
+                }
+                $layoutPortalCopyright = '© '.date('Y').' '.$footerBrandName;
+            }
+        }
     @endphp
     <!-- Favicon -->
     @if(!empty($layoutBranding['favicon_url']))
@@ -72,12 +92,16 @@
     
     <!-- Styles -->
     @vite(['resources/css/app.css', 'resources/js/frontend-app.js'])
+    @if($layoutFooterMapEarlyLoad ?? false)
+    @include('frontend.layouts.partials.website-footer-map-scripts')
+    @endif
     <style>
         /* Dark mode: donkere achtergronden forceren (fallback) */
         html.dark body,
         html.dark body #main-content,
         html.dark header,
         html.dark footer { background-color: #111827 !important; }
+        html.dark header { border-bottom-color: #4b5563 !important; }
         html.dark body { color: #f3f4f6; }
         /* Dark mode: footertekst leesbaar */
         html.dark footer,
@@ -105,14 +129,34 @@
     @include('frontend.layouts.partials.header', ['branding' => $layoutBranding])
     
     <!-- Main Content -->
-    <main id="main-content" class="flex-1">
-        <div class="w-full">
+    <main id="main-content" class="flex flex-1 flex-col">
+        <div class="flex w-full flex-1 flex-col">
             @yield('content')
         </div>
     </main>
     
     <!-- Footer -->
-    @include('frontend.layouts.partials.footer', ['branding' => $layoutBranding])
+    @unless($layoutHideFooter ?? false)
+        @if($layoutUseWebsiteFooter ?? false)
+            @include('frontend.layouts.partials.website-footer', [
+                'homeSections' => $layoutHomeSections,
+                'branding' => $layoutBranding,
+                'themeSettings' => $layoutThemeSettings,
+            ])
+        @else
+            @include('frontend.layouts.partials.footer', ['branding' => $layoutBranding])
+        @endif
+    @endunless
+
+    @if(($layoutHideFooter ?? false) && filled($layoutPortalCopyright ?? null))
+    <footer class="relative z-30 mt-auto border-t border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-900">
+        <div class="container-custom py-3">
+            <p class="text-sm text-gray-600 dark:text-gray-200">
+                {{ $layoutPortalCopyright }}
+            </p>
+        </div>
+    </footer>
+    @endif
     
     <!-- AI Chatbot (alleen tonen als ingeschakeld in Instellingen > Algemene configuraties) -->
     @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')
@@ -201,5 +245,6 @@
     </script>
     
     @stack('scripts')
+    @include('partials.password-toggle')
 </body>
 </html>

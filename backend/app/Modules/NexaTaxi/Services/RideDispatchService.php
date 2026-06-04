@@ -17,7 +17,7 @@ class RideDispatchService
         protected TaxiDispatchSettingsService $dispatchSettings
     ) {}
 
-    public function startDispatch(string $conn, RideRequest $ride, int $companyId): void
+    public function startDispatch(string $conn, RideRequest $ride, int $companyId, array $excludeDriverIds = []): void
     {
         if ($companyId <= 0) {
             return;
@@ -34,7 +34,11 @@ class RideDispatchService
 
         $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
         $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
-        $driverIds = $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
+        $exclude = array_values(array_unique(array_map('intval', $excludeDriverIds)));
+        $driverIds = array_values(array_filter(
+            $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch),
+            fn (int $driverId) => ! in_array($driverId, $exclude, true)
+        ));
 
         if ($driverIds === []) {
             return;
@@ -78,6 +82,10 @@ class RideDispatchService
 
     public function expireStaleOffers(string $conn, ?int $rideId = null): int
     {
+        if (! TaxiDispatchSchema::tablesExist($conn)) {
+            return 0;
+        }
+
         $query = RideDispatchOffer::on($conn)
             ->where('status', RideDispatchOffer::STATUS_PENDING)
             ->where('expires_at', '<=', now());
@@ -186,7 +194,7 @@ class RideDispatchService
             ->where('company_id', $companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
-            ->orderByDesc('id')
+            ->orderBy('pickup_at')
             ->limit(20)
             ->get();
 

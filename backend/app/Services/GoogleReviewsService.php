@@ -394,8 +394,15 @@ class GoogleReviewsService
             return '';
         }
 
+        // Place ID-resolutie op bedrijfsnaam (Text Search) cachen: anders doet elke paginaweergave
+        // een extra trage HTTP-call naar Google bovenop het ophalen van de reviews.
+        $cacheHours = (int) ($settings['cache_hours'] ?? 24);
+        $cacheKey = 'google_reviews_placeid_'.md5($businessName);
+
         try {
-            return $this->resolvePlaceIdFromBusinessName($businessName);
+            return (string) Cache::remember($cacheKey, max(1, $cacheHours) * 3600, function () use ($businessName) {
+                return $this->resolvePlaceIdFromBusinessName($businessName);
+            });
         } catch (Throwable $e) {
             $this->logPlacesRequestFailure('Text Search', $e, ['business_name' => $businessName]);
 
@@ -412,19 +419,57 @@ class GoogleReviewsService
         $cacheKey = 'google_reviews_'.md5($settings['place_id'].'|'.$settings['business_name'].'|'.($forCompanyId ?? 'global'));
 
         try {
-            return Cache::remember($cacheKey, $settings['cache_hours'] * 3600, function () use ($resolvedPlaceId) {
-                return $this->fetchPlaceAndReviews($resolvedPlaceId);
-            });
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        } catch (Throwable) {
+            // Cache niet beschikbaar: val terug op een directe (eenmalige) fetch hieronder.
+        }
+
+        // Single-flight: voorkom dat meerdere gelijktijdige cold-cache requests allemaal de (trage) Places API
+        // aanroepen en zo alle PHP-FPM workers blokkeren. Alleen de eerste request haalt op; de rest toont
+        // voorlopig geen reviews tot de cache gevuld is.
+        $inflightKey = $cacheKey.':inflight';
+        $gotSlot = true;
+        try {
+            $gotSlot = Cache::add($inflightKey, 1, 30);
+        } catch (Throwable) {
+            $gotSlot = true;
+        }
+
+        if (! $gotSlot) {
+            return null;
+        }
+
+        try {
+            $data = $this->fetchPlaceAndReviews($resolvedPlaceId);
+
+            try {
+                Cache::put($cacheKey, $data, $settings['cache_hours'] * 3600);
+            } catch (Throwable) {
+                // Negeer cache-schrijffouten.
+            }
+
+            return $data;
         } catch (Throwable $e) {
             $this->logPlacesRequestFailure('Places details', $e, ['place_id' => $resolvedPlaceId]);
 
             return null;
+        } finally {
+            try {
+                Cache::forget($inflightKey);
+            } catch (Throwable) {
+                // Negeer.
+            }
         }
     }
 
     protected function placesHttpClient(): \Illuminate\Http\Client\PendingRequest
     {
-        return Http::timeout(15)->connectTimeout(10);
+        // Korte timeouts: de publieke pagina mag NOOIT lang blokkeren op een trage/onbereikbare Places API.
+        // Lukt het ophalen niet binnen deze tijd, dan toont de pagina (voorlopig) geen reviews en proberen we later opnieuw.
+        return Http::timeout(6)->connectTimeout(4);
     }
 
     /**

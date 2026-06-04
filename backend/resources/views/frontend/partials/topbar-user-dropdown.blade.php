@@ -1,101 +1,92 @@
 <!-- User -->
 @auth
 @if(auth()->check() && auth()->user())
-<div class="shrink-0 user-dropdown-container" data-kt-dropdown="true" data-kt-dropdown-offset="10px, 10px" data-kt-dropdown-offset-rtl="-20px, 10px"
-    data-kt-dropdown-placement="bottom-end" data-kt-dropdown-placement-rtl="bottom-start" data-kt-dropdown-trigger="click">
-    <div class="shrink-0 cursor-pointer rounded-full border-2 border-green-500 overflow-hidden" data-kt-dropdown-toggle="true" style="width: 36px; height: 36px;">
+<div class="relative shrink-0 user-dropdown-container" x-data="{ userMenuOpen: false }" @keydown.escape.window="userMenuOpen = false">
+    <button type="button"
+            class="flex shrink-0 cursor-pointer rounded-full border-2 border-green-500 overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+            style="width: 36px; height: 36px;"
+            @click="userMenuOpen = !userMenuOpen"
+            :aria-expanded="userMenuOpen"
+            aria-haspopup="true"
+            aria-label="Gebruikersmenu">
         @if(auth()->user()->photo_blob)
-            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                 class="w-full h-full object-cover"
                 src="{{ route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) }}" />
         @else
-            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                 @class([
                     'w-full h-full object-contain bg-black',
                     'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                 ])
                 src="{{ asset(config('nexa.default_user_avatar')) }}" />
         @endif
-    </div>
-    <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
-        <div class="flex items-start gap-2 px-2.5 py-1.5">
+    </button>
+    <div x-show="userMenuOpen"
+         x-cloak
+         @click.outside="userMenuOpen = false"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-1"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-1"
+         class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-lg border border-gray-700 !bg-[#111827] py-2 shadow-lg text-gray-100"
+         role="menu">
+        <div class="flex items-start gap-3 border-b border-gray-700 px-4 py-3">
             @if(auth()->user()->photo_blob)
-                <div class="shrink-0 rounded-full border-2 border-green-500 overflow-hidden" style="width: 36px; height: 36px;">
-                    <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                        class="w-full h-full object-cover"
+                <div class="shrink-0 overflow-hidden rounded-full border-2 border-green-500" style="width: 40px; height: 40px;">
+                    <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
+                        class="h-full w-full object-cover"
                         src="{{ route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) }}" />
                 </div>
             @else
-                <div class="shrink-0 rounded-full border-2 border-green-500 overflow-hidden" style="width: 36px; height: 36px;">
-                    <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+                <div class="shrink-0 overflow-hidden rounded-full border-2 border-green-500" style="width: 40px; height: 40px;">
+                    <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
                         @class([
-                            'w-full h-full object-contain bg-black',
+                            'h-full w-full object-contain bg-black',
                             'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                         ])
                         src="{{ asset(config('nexa.default_user_avatar')) }}" />
                 </div>
             @endif
-            <div class="flex flex-col gap-1.5">
-                <span class="text-sm font-semibold leading-none text-foreground">
+            <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-gray-100">
                     {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
-                </span>
-                <a class="hover:text-primary text-xs font-medium leading-none text-secondary-foreground"
-                    href="{{ route('profile') }}">
+                </p>
+                <a href="{{ route('profile') }}" class="mt-1 block truncate text-xs font-medium text-gray-300 hover:text-blue-400">
                     {{ auth()->user()->email }}
                 </a>
             </div>
         </div>
-        <ul class="kt-dropdown-menu-sub">
-            <li>
-                <div class="kt-dropdown-menu-separator">
-                </div>
-            </li>
-            <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('dashboard') }}">
-                    <i class="ki-filled ki-element-11">
-                    </i>
-                    Dashboard
-                </a>
-            </li>
-            <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('profile') }}">
-                    <i class="ki-filled ki-profile-circle">
-                    </i>
-                    Mijn Profiel
-                </a>
-            </li>
-            @if(auth()->user() && auth()->user()->can('view-agenda'))
-            <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('agenda') }}">
-                    <i class="ki-filled ki-calendar">
-                    </i>
-                    Agenda
-                </a>
-            </li>
+        <div class="py-1">
+            @if($showSkillmatchingAppLinks ?? false)
+            <a href="{{ route('dashboard') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
+                Dashboard
+            </a>
             @endif
-            <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('applications') }}">
-                    <i class="ki-filled ki-document">
-                    </i>
-                    Mijn Sollicitaties
-                </a>
-            </li>
-            <li>
-                <a class="kt-dropdown-menu-link" href="{{ route('settings') }}">
-                    <i class="ki-filled ki-setting">
-                    </i>
-                    Instellingen
-                </a>
-            </li>
-            <li>
-                <div class="kt-dropdown-menu-separator">
-                </div>
-            </li>
-        </ul>
-        <div class="mb-2.5 flex flex-col gap-3.5 px-2.5 pt-1.5">
+            <a href="{{ route('profile') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
+                Mijn Profiel
+            </a>
+            @if($showSkillmatchingAppLinks ?? false)
+            <a href="{{ route('agenda') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
+                Agenda
+            </a>
+            <a href="{{ route('applications') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
+                Mijn Sollicitaties
+            </a>
+            <a href="{{ route('settings') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
+                Instellingen
+            </a>
+            @endif
+        </div>
+        <div class="border-t border-gray-700 px-4 py-3">
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" class="kt-btn kt-btn-outline w-full justify-center">
+                <button
+                    type="submit"
+                    class="w-full cursor-pointer select-none justify-center rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-100 transition-colors hover:border-gray-500 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#111827]"
+                >
                     Uitloggen
                 </button>
             </form>
@@ -105,4 +96,3 @@
 @endif
 @endauth
 <!-- End of User -->
-

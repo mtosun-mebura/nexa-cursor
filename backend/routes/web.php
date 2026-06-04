@@ -22,7 +22,9 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Frontend\CompanyBrandLogoController;
 use App\Http\Controllers\Frontend\DashboardController;
+use App\Http\Controllers\Frontend\FrontendAuthController;
 use App\Http\Controllers\Frontend\MatchController;
+use App\Modules\NexaTaxi\Controllers\TaxiPortalController;
 use App\Http\Controllers\Frontend\NexaTaxiBookingController;
 use App\Http\Controllers\Frontend\ProfileController;
 use App\Http\Controllers\Frontend\WebsitePageController;
@@ -382,6 +384,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
     Route::post('companies/{company}/domains/{domain}/primary', [AdminCompanyDomainController::class, 'setPrimary'])->name('companies.domains.primary');
 
     Route::middleware('role:super-admin')->group(function () {
+        Route::view('playground/metronic-demo1', 'admin.metronic-vue-demo1')->name('playground.metronic-demo1');
         Route::get('companies/{company}/website-bundle/export', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'export'])->name('companies.website-bundle.export');
         Route::post('companies/{company}/website-bundle/import', [App\Http\Controllers\Admin\AdminTenantWebsiteBundleController::class, 'import'])->name('companies.website-bundle.import');
     });
@@ -789,9 +792,12 @@ Route::middleware('auth')->group(function () {
 // Email verification route (public, no auth required)
 Route::get('/verify-email/{user}', [App\Http\Controllers\Admin\AdminUserController::class, 'verifyEmail'])->name('verify-email');
 
-// Legacy Skillmatching auth-routes uitgefaseerd (gebruik alleen /admin/login).
-Route::get('/login', fn () => redirect()->route('home'))->name('login');
-Route::post('/login', fn () => redirect()->route('home'))->name('login.post');
+// Frontend login (kandidaten / portaal)
+Route::get('/login', [FrontendAuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [FrontendAuthController::class, 'login'])->middleware('throttle:6,1')->name('login.post');
+Route::post('/login/code', [FrontendAuthController::class, 'loginWithCode'])->middleware('throttle:12,1')->name('login.code');
+Route::get('/wachtwoord-instellen', [FrontendAuthController::class, 'showSetPasswordForm'])->middleware('auth')->name('frontend.set-password');
+Route::post('/wachtwoord-instellen', [FrontendAuthController::class, 'setPassword'])->middleware('auth')->name('frontend.set-password.post');
 Route::get('/register', fn () => redirect()->route('home'))->name('register');
 Route::post('/register', fn () => redirect()->route('home'))->name('register.post');
 Route::post('/logout', function () {
@@ -823,8 +829,6 @@ if (app()->environment('local', 'development')) {
 
 // User dashboard routes
 Route::middleware(['auth:web'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
     // Frontend chat routes
     Route::get('/chat/active', [App\Http\Controllers\Frontend\ChatController::class, 'getActiveChats'])->name('frontend.chat.active');
     Route::get('/chat/{chat}/messages', [App\Http\Controllers\Frontend\ChatController::class, 'getChatMessages'])->name('frontend.chat.messages');
@@ -865,32 +869,41 @@ Route::middleware(['auth:web'])->group(function () {
     Route::post('/notifications/{notification}/mark-read', [App\Http\Controllers\Admin\AdminNotificationController::class, 'markAsRead'])->name('frontend.notifications.mark-read');
     Route::post('/notifications/{notification}/respond-interview', [App\Http\Controllers\Admin\AdminNotificationController::class, 'respondToInterview'])->name('frontend.notifications.respond-interview');
 
-    Route::get('/matches', [MatchController::class, 'index'])->name('matches');
+    // Nexa Skillmatching frontend-portaal (niet voor Nexa Taxi)
+    Route::middleware(['skillmatching.portal'])->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/agenda', [App\Http\Controllers\Frontend\AgendaController::class, 'index'])->name('agenda');
-    Route::get('/agenda/events', [App\Http\Controllers\Frontend\AgendaController::class, 'events'])->name('agenda.events');
+        Route::get('/matches', [MatchController::class, 'index'])->name('matches');
 
-    // Test route for agenda
-    Route::get('/test-agenda', function () {
-        return view('frontend.pages.agenda');
+        Route::get('/agenda', [App\Http\Controllers\Frontend\AgendaController::class, 'index'])->name('agenda');
+        Route::get('/agenda/events', [App\Http\Controllers\Frontend\AgendaController::class, 'events'])->name('agenda.events');
+
+        Route::get('/test-agenda', function () {
+            return view('frontend.pages.agenda');
+        });
+
+        Route::get('/applications', [App\Http\Controllers\Frontend\ApplicationController::class, 'index'])->name('applications');
+        Route::get('/applications/{id}', [App\Http\Controllers\Frontend\ApplicationController::class, 'show'])->name('applications.show');
+        Route::get('/applications/{id}/status', [App\Http\Controllers\Frontend\ApplicationController::class, 'status'])->name('applications.status');
+
+        Route::get('/settings', [App\Http\Controllers\Frontend\SettingsController::class, 'index'])->name('settings');
+        Route::post('/settings/password', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePassword'])->name('settings.password');
+        Route::post('/settings/email', [App\Http\Controllers\Frontend\SettingsController::class, 'updateEmail'])->name('settings.email');
+        Route::post('/settings/job-preferences', [App\Http\Controllers\Frontend\SettingsController::class, 'updateJobPreferences'])->name('settings.job-preferences');
+        Route::post('/settings/notifications', [App\Http\Controllers\Frontend\SettingsController::class, 'updateNotificationPreferences'])->name('settings.notifications');
+        Route::post('/settings/privacy', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePrivacyPreferences'])->name('settings.privacy');
+        Route::post('/settings/export-data', [App\Http\Controllers\Frontend\SettingsController::class, 'exportData'])->name('settings.export-data');
+        Route::delete('/settings/delete-account', [App\Http\Controllers\Frontend\SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
+
+        Route::post('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'uploadCV'])->name('profile.cv');
+        Route::delete('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'removeCV'])->name('profile.cv.remove');
     });
 
-    Route::get('/applications', [App\Http\Controllers\Frontend\ApplicationController::class, 'index'])->name('applications');
-    Route::get('/applications/{id}', [App\Http\Controllers\Frontend\ApplicationController::class, 'show'])->name('applications.show');
-    Route::get('/applications/{id}/status', [App\Http\Controllers\Frontend\ApplicationController::class, 'status'])->name('applications.status');
+});
 
-    Route::get('/settings', [App\Http\Controllers\Frontend\SettingsController::class, 'index'])->name('settings');
-    Route::post('/settings/password', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePassword'])->name('settings.password');
-    Route::post('/settings/email', [App\Http\Controllers\Frontend\SettingsController::class, 'updateEmail'])->name('settings.email');
-    Route::post('/settings/job-preferences', [App\Http\Controllers\Frontend\SettingsController::class, 'updateJobPreferences'])->name('settings.job-preferences');
-    Route::post('/settings/notifications', [App\Http\Controllers\Frontend\SettingsController::class, 'updateNotificationPreferences'])->name('settings.notifications');
-    Route::post('/settings/privacy', [App\Http\Controllers\Frontend\SettingsController::class, 'updatePrivacyPreferences'])->name('settings.privacy');
-    Route::post('/settings/export-data', [App\Http\Controllers\Frontend\SettingsController::class, 'exportData'])->name('settings.export-data');
-    Route::delete('/settings/delete-account', [App\Http\Controllers\Frontend\SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
-
-    // CV routes
-    Route::post('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'uploadCV'])->name('profile.cv');
-    Route::delete('/profile/cv', [App\Http\Controllers\Frontend\ProfileController::class, 'removeCV'])->name('profile.cv.remove');
+// Nexa Taxi frontend-portaal (Mijn Taxi)
+Route::middleware(['taxi.portal'])->group(function () {
+    Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
 });
 
 // Language switching
@@ -939,6 +952,7 @@ Route::get('/terms', function () {
 Route::prefix('nexa-taxi/booking')->group(function () {
     Route::get('address-search', [NexaTaxiBookingController::class, 'addressSearch'])->name('nexataxi.booking.address-search');
     Route::post('quote', [NexaTaxiBookingController::class, 'quote'])->name('nexataxi.booking.quote');
+    Route::get('pending', [NexaTaxiBookingController::class, 'pending'])->name('nexataxi.booking.pending');
     Route::post('submit', [NexaTaxiBookingController::class, 'submit'])->name('nexataxi.booking.submit');
     Route::get('betaling/terug', [\App\Modules\NexaTaxi\Controllers\TaxiBookingPaymentController::class, 'returnPage'])
         ->name('nexataxi.booking.payment.return');

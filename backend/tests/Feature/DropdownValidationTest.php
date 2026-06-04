@@ -41,10 +41,10 @@ class DropdownValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => '', // Lege waarde voor verplicht veld
+            'roles' => [],
         ]);
 
-        $response->assertSessionHasErrors(['role']);
+        $response->assertSessionHasErrors(['roles']);
         $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
     }
 
@@ -65,7 +65,7 @@ class DropdownValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => 'admin',
+            'roles' => ['admin'],
             'company_id' => '', // Lege waarde voor optioneel veld
         ]);
 
@@ -93,7 +93,7 @@ class DropdownValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => 'admin', // Geldige waarde
+            'roles' => ['admin'], // Geldige waarde
         ]);
 
         $response->assertRedirect();
@@ -120,7 +120,7 @@ class DropdownValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => 'admin',
+            'roles' => ['admin'],
             'company_id' => $company->id, // Optionele waarde ingevuld
         ]);
 

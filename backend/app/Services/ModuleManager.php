@@ -589,7 +589,7 @@ class ModuleManager
 
     /**
      * Voer module-migraties opnieuw uit (incrementeel waar mogelijk; geen volledige Pre2026-baseline op module-DB).
-     * Gebruik na wijziging van MODULE_USE_SINGLE_DATABASE in .env (cache legen: php artisan config:clear).
+     * Gebruik na wijziging van MODULE_DATABASE_STRATEGY in .env (cache legen: php artisan config:clear).
      *
      * @return string|null  Informatieve melding voor de UI (bijv. geen incrementele migraties); null bij succes zonder extra tekst.
      */
@@ -670,7 +670,7 @@ class ModuleManager
 
     /**
      * Run alleen de module-migraties (database/migrations/modules/{slug}) op de standaard-DB.
-     * Gebruikt bij MODULE_USE_SINGLE_DATABASE: alle tabellen in één database.
+     * Gebruikt bij MODULE_DATABASE_STRATEGY=single: alle tabellen in één database (public).
      */
     protected function runModuleMigrationsOnDefaultConnection(string $moduleName): void
     {

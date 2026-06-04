@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Verwijdert tabellen op de hoofd-DB die alleen bij module-sets horen (taxiroyaal, skillmatching)
- * wanneer MODULE_USE_SINGLE_DATABASE=false. Die data hoort in nexa_taxi / nexa_skillmatching.
+ * bij MODULE_DATABASE_STRATEGY=database. Bij schema horen module-tabellen in nexa_* schema's.
  *
  * Niet droppen: tabellen die ook door aparte migraties of door shared op de hoofd-DB blijven
  * (o.a. job_titles via 2025_12_11).
@@ -20,7 +20,8 @@ class MainDatabaseModuleTablePruner
      */
     public function prune(): int
     {
-        if (config('module_database.use_single_database', false)) {
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->usesSingleStrategy() || $dbService->usesSchemaStrategy()) {
             return 0;
         }
 

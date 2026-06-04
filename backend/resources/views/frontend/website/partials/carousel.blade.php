@@ -42,6 +42,28 @@
         min-height: 11rem;
         max-height: min(42vh, 22rem);
     }
+    /* Mobiel: toon de afbeelding volledig (geen bijgesneden zijkanten); hoogte volgt de actieve slide. */
+    @media (max-width: 639px) {
+        #{{ $carouselId }} .carousel-inner-fill {
+            aspect-ratio: auto !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+        }
+        #{{ $carouselId }} [data-carousel-item] {
+            position: absolute !important;
+        }
+        #{{ $carouselId }} [data-carousel-item="active"] {
+            position: relative !important;
+        }
+        #{{ $carouselId }} [data-carousel-item] > img {
+            object-fit: contain !important;
+        }
+        #{{ $carouselId }} [data-carousel-item="active"] > img {
+            position: relative !important;
+            height: auto !important;
+        }
+    }
     @media (min-width: 640px) {
         #{{ $carouselId }} .carousel-inner-fill {
             aspect-ratio: 16 / 9;

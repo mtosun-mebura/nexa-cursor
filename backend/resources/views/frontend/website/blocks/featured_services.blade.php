@@ -28,6 +28,9 @@
         'large' => 40,
         default => 30,
     };
+    // justify-content lijnt de kaarten binnen de rij uit; data-block-align plaatst (via de stylesheet
+    // hieronder) het kaartenblok zelf met auto-marges zodra blocks_row_width_percent < 100 de rij
+    // smaller maakt dan de sectie.
     $alignClass = match($blockAlign) {
         'left' => 'justify-start',
         'right' => 'justify-end',
@@ -75,6 +78,7 @@
             <div
                 class="featured-services-cards flex flex-col md:flex-row md:flex-wrap {{ $alignClass }} gap-3 md:gap-6 lg:gap-8 w-full max-w-full box-border px-3 md:px-0"
                 data-blocks-per-row="{{ $blocksPerRow }}"
+                data-block-align="{{ $blockAlign }}"
                 @if($blocksRowWidthPct < 100) style="--featured-services-row-max: {{ $blocksRowWidthPct }}%;" @endif
             >
                 @foreach($items as $index => $item)
@@ -163,6 +167,19 @@
         .website-block-featured-services .featured-services-cards[style*="--featured-services-row-max"] {
             max-width: var(--featured-services-row-max);
         }
+        /* Positioneer het (eventueel smallere) kaartenblok binnen de sectie volgens block_align. */
+        .website-block-featured-services .featured-services-cards[data-block-align="left"] {
+            margin-left: 0;
+            margin-right: auto;
+        }
+        .website-block-featured-services .featured-services-cards[data-block-align="center"] {
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .website-block-featured-services .featured-services-cards[data-block-align="right"] {
+            margin-left: auto;
+            margin-right: 0;
+        }
     }
     /* 2 kolommen vanaf sm */
     @media (min-width: 640px) and (max-width: 1023px) {
@@ -180,7 +197,7 @@
     }
     @media (min-width: 1280px) {
         .website-block-featured-services .featured-services-cards[data-blocks-per-row="3"] > .featured-service-item {
-            flex: 1 1 calc((100% - 4rem) / 3);
+            flex: 0 1 calc((100% - 4rem) / 3);
             max-width: calc((100% - 4rem) / 3);
             min-width: min(100%, 22rem);
         }
@@ -188,7 +205,7 @@
     /* 2 per rij: bredere kaarten op desktop */
     @media (min-width: 1024px) {
         .website-block-featured-services .featured-services-cards[data-blocks-per-row="2"] > .featured-service-item {
-            flex: 1 1 calc((100% - 2rem) / 2);
+            flex: 0 1 calc((100% - 2rem) / 2);
             max-width: calc((100% - 2rem) / 2);
             min-width: min(100%, 28rem);
         }

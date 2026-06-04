@@ -187,6 +187,14 @@ class Company extends Model
     }
 
     /**
+     * Nexa Taxi (boekingen, ritten, chauffeurs).
+     */
+    public function hasTaxiModule(): bool
+    {
+        return $this->hasModuleNamed('taxi');
+    }
+
+    /**
      * Vaste illustratie voor “gebouw” (wizard keuze 1–3), voor o.a. hoofdkantoor op het profiel.
      */
     public function buildingImageAssetUrl(): ?string

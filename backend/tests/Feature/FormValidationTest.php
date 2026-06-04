@@ -52,7 +52,7 @@ class FormValidationTest extends TestCase
         $this->assertArrayHasKey('last_name', $validator->errors()->toArray());
         $this->assertArrayHasKey('email', $validator->errors()->toArray());
         $this->assertArrayHasKey('password', $validator->errors()->toArray());
-        $this->assertArrayHasKey('role', $validator->errors()->toArray());
+        $this->assertArrayHasKey('roles', $validator->errors()->toArray());
     }
 
     #[Test]
@@ -79,7 +79,7 @@ class FormValidationTest extends TestCase
                 'last_name' => 'Doe',
                 'email' => $email,
                 'password' => 'Password123',
-                'role' => 'admin',
+                'roles' => ['admin'],
             ], $rules);
 
             $this->assertTrue($validator->fails(), "Email '{$email}' should be invalid");
@@ -111,7 +111,7 @@ class FormValidationTest extends TestCase
                 'last_name' => 'Doe',
                 'email' => 'test@example.com',
                 'password' => $password,
-                'role' => 'admin',
+                'roles' => ['admin'],
             ], $rules);
 
             $this->assertTrue($validator->fails(), "Password '{$password}' should be invalid");
@@ -124,7 +124,7 @@ class FormValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'StrongPassword123',
-            'role' => 'admin',
+            'roles' => ['admin'],
         ], $rules);
 
         $this->assertFalse($validator->fails(), 'Strong password should be valid');
@@ -154,7 +154,7 @@ class FormValidationTest extends TestCase
                 'last_name' => 'Doe',
                 'email' => 'test@example.com',
                 'password' => 'Password123',
-                'role' => 'admin',
+                'roles' => ['admin'],
                 'phone' => $phone,
             ], $rules);
 
@@ -174,7 +174,7 @@ class FormValidationTest extends TestCase
                 'last_name' => 'Doe',
                 'email' => 'test@example.com',
                 'password' => 'Password123',
-                'role' => 'admin',
+                'roles' => ['admin'],
                 'phone' => $phone,
             ], $rules);
 
@@ -207,7 +207,7 @@ class FormValidationTest extends TestCase
                 'last_name' => 'Doe',
                 'email' => 'test@example.com',
                 'password' => 'Password123',
-                'role' => 'admin',
+                'roles' => ['admin'],
             ], $rules);
 
             $this->assertTrue($validator->fails(), "Name '{$name}' should be invalid (XSS/SQL injection attempt)");
@@ -229,7 +229,7 @@ class FormValidationTest extends TestCase
                 'last_name' => 'Doe',
                 'email' => 'test@example.com',
                 'password' => 'Password123',
-                'role' => 'admin',
+                'roles' => ['admin'],
             ], $rules);
 
             $this->assertFalse($validator->fails(), "Name '{$name}' should be valid");
@@ -249,7 +249,7 @@ class FormValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => 'admin',
+            'roles' => ['admin'],
         ]);
 
         // The prepareForValidation (protected) should sanitize the input
@@ -275,7 +275,7 @@ class FormValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => 'admin',
+            'roles' => ['admin'],
         ]);
 
         $method = (new \ReflectionClass($request))->getMethod('prepareForValidation');
@@ -298,7 +298,7 @@ class FormValidationTest extends TestCase
             'last_name' => 'Doe',
             'email' => 'test@example.com',
             'password' => 'Password123',
-            'role' => 'admin',
+            'roles' => ['admin'],
             'nested' => [
                 'field1' => "Value\0With\0Nulls",
                 'field2' => ['nested' => "Another\0Value"],
@@ -330,7 +330,7 @@ class FormValidationTest extends TestCase
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'existing@example.com',
-            'role' => 'admin',
+            'roles' => ['admin'],
         ], $rules);
 
         // Should fail because email is not unique (but we need to set the user in route)
@@ -350,7 +350,7 @@ class FormValidationTest extends TestCase
             'last_name' => '',
             'email' => 'invalid-email',
             'password' => 'weak',
-            'role' => 'admin',
+            'roles' => ['admin'],
         ]);
 
         $response->assertStatus(422);

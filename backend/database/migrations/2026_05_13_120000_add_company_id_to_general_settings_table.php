@@ -10,7 +10,17 @@ return new class extends Migration
     /** Instellingen die platform-breed blijven (niet per tenant). */
     private const GLOBAL_PLATFORM_KEYS = [
         'tenant_sync_target_database_url',
+        'tenant_sync_target_database_password_enc',
         'tenant_sync_push_enabled',
+        'tenant_sync_ssh_enabled',
+        'tenant_sync_ssh_host',
+        'tenant_sync_ssh_port',
+        'tenant_sync_ssh_username',
+        'tenant_sync_ssh_password_enc',
+        'tenant_sync_ssh_remote_db_host',
+        'tenant_sync_ssh_remote_db_port',
+        'tenant_sync_ssh_db_username',
+        'tenant_sync_ssh_db_database',
     ];
 
     public function up(): void

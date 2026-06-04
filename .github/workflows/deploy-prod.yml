@@ -2,7 +2,7 @@
 # Test (Proxmox): deploy-saas.yml bij push naar release/test.
 # Na merge naar main: tag zetten (Create PROD tag of handmatig) → deze workflow.
 #
-# Triggers: push tag v* (o.a. na "Create PROD tag") | workflow_dispatch (bestaande tag)
+# Triggers: workflow_dispatch (handmatig of na "Create PROD tag") | push tag v* (als dit bestand op die commit staat)
 #
 # GitHub → Settings → Secrets and variables → Actions:
 #   Secrets:  AWS_HOST, AWS_USER, AWS_SSH_KEY
@@ -91,7 +91,7 @@ jobs:
             DEPLOY_USER="${AWS_USER:-ubuntu}"
             GIT_REMOTE="origin"
             export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER
-            export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+            export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
             export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
             export REQUIRE_COMPOSE_V2=1
 

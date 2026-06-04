@@ -717,7 +717,7 @@
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business Configuratie'])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <div class="px-5 pb-3 text-xs text-muted-foreground">
+                <div class="px-5 pb-3 text-xs text-muted-foreground" style="padding-top: 10px;">
                     Server-brede WhatsApp Business API (token en Phone Number ID). Per bedrijf: ontvangernummer, aan/uit en chauffeur-e-mails instellen onder <strong>Taxi → Chauffeur dispatch</strong>.
                 </div>
                 <form method="POST" action="{{ route('admin.settings.whatsapp.update') }}" data-validate="true">
@@ -734,7 +734,10 @@
                                            value="{{ old('WHATSAPP_API_TOKEN', $whatsappSettings['WHATSAPP_API_TOKEN'] ?? '') }}" 
                                            placeholder="EAAxxxxxxxxxxxx">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">WhatsApp Business API access token</div>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    WhatsApp Business API access token (begint meestal met <code class="text-xs">EAA</code>).
+                                    <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started#get-access-token" target="_blank" rel="noopener" class="underline">Token aanmaken in Meta for Developers</a>
+                                </div>
                                 @error('WHATSAPP_API_TOKEN')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -956,6 +959,16 @@
                             <span class="text-destructive">Geen tabellen gevonden (controleer database).</span>
                         @endforelse
                     </div>
+                    @php $prerequisiteSyncTables = $tenantSyncScope['prerequisite_tables'] ?? []; @endphp
+                    @if ($prerequisiteSyncTables !== [])
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Globale vereisten vóór tenant-data</span> (FK-parents zoals <code class="font-mono">modules</code>):</p>
+                        <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $prerequisiteSyncTables) }}</p>
+                    @endif
+                    @php $taxiModuleSyncTables = $tenantSyncScope['taxi_module_tables'] ?? []; @endphp
+                    @if ($taxiModuleSyncTables !== [])
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Nexa Taxi</span> (schema <code class="font-mono">nexa_taxi</code>, alleen als module aan tenant gekoppeld is):</p>
+                        <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $taxiModuleSyncTables) }}</p>
+                    @endif
                     @php $paymentSyncTables = $tenantSyncScope['payment_company_scoped_tables'] ?? []; @endphp
                     @if ($paymentSyncTables !== [])
                         <p class="mt-2 mb-1"><span class="text-foreground font-medium">Betaling &amp; facturatie</span> (altijd mee bij sync als tabel bestaat):</p>
@@ -965,15 +978,142 @@
                     <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
                 </div>
 
-                <form method="POST" action="{{ route('admin.settings.tenant-sync.update') }}" class="space-y-4">
+                <form method="POST" action="{{ route('admin.settings.tenant-sync.update') }}" id="tenant-sync-settings-form" class="space-y-4" enctype="multipart/form-data">
                     @csrf
-                    <div>
+                    @if ($errors->any())
+                        <div class="rounded-md border border-destructive/60 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                            <p class="font-medium mb-1">Opslaan mislukt — controleer de velden:</p>
+                            <ul class="list-disc ps-5 space-y-0.5">
+                                @foreach ($errors->all() as $message)
+                                    <li>{{ $message }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                    @php
+                        $tenantSyncUrlPrefill = trim((string) ($tenantSyncTargetDatabaseUrlPrefill ?? ''));
+                        $tenantSyncSshEnabled = old('tenant_sync_ssh_enabled', ($tenantSyncSettings['tenant_sync_ssh_enabled'] ?? false) ? '1' : '0') === '1';
+                    @endphp
+                    <div id="tenant-sync-direct-fields" class="space-y-3 {{ $tenantSyncSshEnabled ? 'hidden' : '' }}">
                         <label for="tenant_sync_target_database_url" class="text-sm text-secondary-foreground block mb-1">Database-URL (doel)</label>
-                        <input type="text" name="tenant_sync_target_database_url" id="tenant_sync_target_database_url"
-                               class="kt-input w-full font-mono text-xs"
-                               value="{{ old('tenant_sync_target_database_url', $tenantSyncSettings['tenant_sync_target_database_url'] ?? '') }}"
-                               placeholder="pgsql://user:pass@host:5432/database_of_mysql_url">
-                        <p class="text-xs text-muted-foreground mt-1">Ook via .env: <code class="text-xs">TENANT_SYNC_TARGET_DATABASE_URL</code>. Speciale tekens in gebruikersnaam of wachtwoord (zoals <code class="text-xs">@</code>, <code class="text-xs">:</code>, <code class="text-xs">/</code>) moeten <strong>URL-encoded</strong> zijn, bijv. <code class="text-xs">@</code> → <code class="text-xs">%40</code>, anders wordt de host verkeerd geparsed.</p>
+                        <div class="relative">
+                            <input type="text" name="tenant_sync_target_database_url" id="tenant_sync_target_database_url"
+                                   class="kt-input w-full font-mono text-xs pe-10"
+                                   value="{{ old('tenant_sync_target_database_url', $tenantSyncSettings['tenant_sync_target_database_url'] ?? '') }}"
+                                   placeholder="pgsql://gebruiker@192.168.2.41:5432/nexa"
+                                   autocomplete="off"
+                                   data-prefill-url="{{ $tenantSyncUrlPrefill }}"
+                                   @disabled($tenantSyncSshEnabled)>
+                            <button type="button"
+                                    id="tenant-sync-url-prefill-btn"
+                                    class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-1 top-1/2 z-[2] -translate-y-1/2 {{ $tenantSyncUrlPrefill === '' ? 'opacity-40 pointer-events-none' : '' }}"
+                                    aria-label="Vul voorgestelde database-URL in"
+                                    title="{{ $tenantSyncUrlPrefill !== '' ? 'Vul in vanuit TENANT_SYNC_TARGET_DATABASE_URL, DB_URL of database-configuratie' : 'Geen voorgestelde URL (.env TENANT_SYNC_TARGET_DATABASE_URL of DB_* leeg)' }}"
+                                    @if($tenantSyncUrlPrefill === '') disabled @endif>
+                                <i class="ki-filled ki-notepad-edit text-sm"></i>
+                            </button>
+                        </div>
+                        @include('admin.settings.partials.tenant-sync-password-field', [
+                            'name' => 'tenant_sync_target_database_password',
+                            'id' => 'tenant_sync_target_database_password',
+                            'clearFlagName' => 'tenant_sync_target_database_password_clear',
+                            'label' => 'Database-wachtwoord',
+                            'inputClass' => 'kt-input w-full font-mono text-xs',
+                            'hasStored' => $tenantSyncSettings['tenant_sync_has_database_password'] ?? false,
+                            'placeholder' => ($tenantSyncSettings['tenant_sync_has_database_password'] ?? false) ? '•••••••• (opgeslagen — laat leeg om te behouden)' : 'Wachtwoord van de database-gebruiker',
+                            'hint' => 'Speciale tekens worden automatisch URL-encoded (bijv. <code class="text-xs">Welkom01!</code> → <code class="text-xs">Welkom01%21</code>).',
+                        ])
+                        <p class="text-xs text-muted-foreground">Directe verbinding zonder SSH. Vul de volledige database-URL en het wachtwoord apart in.</p>
+                    </div>
+
+                    <div class="rounded-md border border-border p-4 space-y-3" id="tenant-sync-ssh-panel">
+                        <label class="inline-flex items-center gap-2">
+                            <input type="hidden" name="tenant_sync_ssh_enabled" value="0">
+                            <input type="checkbox" name="tenant_sync_ssh_enabled" value="1" id="tenant_sync_ssh_enabled" class="kt-checkbox"
+                                   @checked($tenantSyncSshEnabled)>
+                            <span class="text-sm font-medium text-foreground">Via SSH-tunnel verbinden</span>
+                        </label>
+                        <p class="text-xs text-muted-foreground mb-0">Voor servers waar Postgres alleen op <code class="text-xs">127.0.0.1</code> luistert. De backend opent SSH en bouwt daarna zelf de database-verbinding (velden hieronder).</p>
+                        <div id="tenant-sync-ssh-fields" class="space-y-3 {{ $tenantSyncSshEnabled ? '' : 'hidden' }}">
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label for="tenant_sync_ssh_host" class="text-sm text-secondary-foreground block mb-1">SSH-host</label>
+                                    <input type="text" name="tenant_sync_ssh_host" id="tenant_sync_ssh_host" class="kt-input w-full text-sm"
+                                           value="{{ old('tenant_sync_ssh_host', $tenantSyncSettings['tenant_sync_ssh_host'] ?? '') }}"
+                                           placeholder="192.168.2.41" autocomplete="off">
+                                </div>
+                                <div>
+                                    <label for="tenant_sync_ssh_port" class="text-sm text-secondary-foreground block mb-1">SSH-poort</label>
+                                    <input type="number" name="tenant_sync_ssh_port" id="tenant_sync_ssh_port" class="kt-input w-full text-sm" min="1" max="65535"
+                                           value="{{ old('tenant_sync_ssh_port', $tenantSyncSettings['tenant_sync_ssh_port'] ?? '22') }}">
+                                </div>
+                            </div>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label for="tenant_sync_ssh_username" class="text-sm text-secondary-foreground block mb-1">SSH-gebruiker</label>
+                                    <input type="text" name="tenant_sync_ssh_username" id="tenant_sync_ssh_username" class="kt-input w-full text-sm"
+                                           value="{{ old('tenant_sync_ssh_username', $tenantSyncSettings['tenant_sync_ssh_username'] ?? '') }}"
+                                           placeholder="ubuntu" autocomplete="username">
+                                </div>
+                                @include('admin.settings.partials.tenant-sync-password-field', [
+                                    'name' => 'tenant_sync_ssh_password',
+                                    'id' => 'tenant_sync_ssh_password',
+                                    'clearFlagName' => 'tenant_sync_ssh_password_clear',
+                                    'label' => 'SSH-wachtwoord',
+                                    'hasStored' => $tenantSyncSettings['tenant_sync_has_ssh_password'] ?? false,
+                                    'placeholder' => ($tenantSyncSettings['tenant_sync_has_ssh_password'] ?? false) ? '•••••••• (opgeslagen — laat leeg om te behouden)' : 'SSH-wachtwoord',
+                                    'hint' => 'Speciale tekens worden automatisch URL-encoded (bijv. <code class="text-xs">Welkom01!</code> → <code class="text-xs">Welkom01%21</code>).',
+                                ])
+                            </div>
+
+                            <div id="tenant-sync-ssh-db-fields" class="rounded-md border border-border/80 bg-muted/30 p-3 space-y-3">
+                                <p class="text-sm font-medium text-foreground mb-0">Postgres op de server (via tunnel)</p>
+                                <p class="text-xs text-muted-foreground mt-0">De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding.</p>
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label for="tenant_sync_ssh_db_username" class="text-sm text-secondary-foreground block mb-1">Database-gebruiker</label>
+                                        <input type="text" name="tenant_sync_ssh_db_username" id="tenant_sync_ssh_db_username"
+                                               class="kt-input w-full font-mono text-xs"
+                                               value="{{ old('tenant_sync_ssh_db_username', $tenantSyncSettings['tenant_sync_ssh_db_username'] ?? '') }}"
+                                               placeholder="nexa" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label for="tenant_sync_ssh_db_database" class="text-sm text-secondary-foreground block mb-1">Database-naam</label>
+                                        <input type="text" name="tenant_sync_ssh_db_database" id="tenant_sync_ssh_db_database"
+                                               class="kt-input w-full font-mono text-xs"
+                                               value="{{ old('tenant_sync_ssh_db_database', $tenantSyncSettings['tenant_sync_ssh_db_database'] ?? '') }}"
+                                               placeholder="nexa" autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        @include('admin.settings.partials.tenant-sync-password-field', [
+                                            'name' => 'tenant_sync_ssh_db_password',
+                                            'id' => 'tenant_sync_ssh_db_password',
+                                            'clearFlagName' => 'tenant_sync_ssh_db_password_clear',
+                                            'label' => 'Database-wachtwoord',
+                                            'inputClass' => 'kt-input w-full font-mono text-xs',
+                                            'hasStored' => $tenantSyncSettings['tenant_sync_has_ssh_db_password'] ?? false,
+                                            'placeholder' => ($tenantSyncSettings['tenant_sync_has_ssh_db_password'] ?? false) ? '•••••••• (opgeslagen — laat leeg om te behouden)' : 'Postgres-wachtwoord op de server',
+                                            'hint' => 'Speciale tekens worden automatisch URL-encoded (bijv. <code class="text-xs">Welkom01!</code> → <code class="text-xs">Welkom01%21</code>).',
+                                        ])
+                                    </div>
+                                </div>
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label for="tenant_sync_ssh_remote_db_host" class="text-sm text-secondary-foreground block mb-1">Postgres-host op server</label>
+                                        <input type="text" name="tenant_sync_ssh_remote_db_host" id="tenant_sync_ssh_remote_db_host" class="kt-input w-full font-mono text-xs"
+                                               value="{{ old('tenant_sync_ssh_remote_db_host', $tenantSyncSettings['tenant_sync_ssh_remote_db_host'] ?? '127.0.0.1') }}"
+                                               placeholder="127.0.0.1">
+                                    </div>
+                                    <div>
+                                        <label for="tenant_sync_ssh_remote_db_port" class="text-sm text-secondary-foreground block mb-1">Postgres-poort op server</label>
+                                        <input type="number" name="tenant_sync_ssh_remote_db_port" id="tenant_sync_ssh_remote_db_port" class="kt-input w-full text-sm" min="1" max="65535"
+                                               value="{{ old('tenant_sync_ssh_remote_db_port', $tenantSyncSettings['tenant_sync_ssh_remote_db_port'] ?? '5432') }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <label class="inline-flex items-center gap-2">
                         <input type="hidden" name="tenant_sync_push_enabled" value="0">
@@ -1075,7 +1215,7 @@
                                 <div>
                                     <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">Tenant-ZIP importeren</label>
                                     <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
-                                    <p class="text-xs text-muted-foreground mt-1">Max. 500 MB per upload. Bestaande bestanden met dezelfde relatieve padnaam worden overschreven.</p>
+                                    <p class="text-xs text-muted-foreground mt-1">Max. {{ (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) }} MB per upload. Bij <strong class="text-foreground">413 Request Entity Too Large</strong>: zet op de server in nginx <code class="font-mono text-[11px]">client_max_body_size 512M;</code> (zie <code class="font-mono text-[11px]">deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.</p>
                                 </div>
                                 <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
                                         @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>
@@ -1172,8 +1312,153 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const tenantSyncTestBtn = document.getElementById('tenant-sync-test-btn');
+    const tenantSyncSettingsForm = document.getElementById('tenant-sync-settings-form');
     const tenantSyncUrlInput = document.getElementById('tenant_sync_target_database_url');
+    const tenantSyncUrlPrefillBtn = document.getElementById('tenant-sync-url-prefill-btn');
     const tenantSyncTestResult = document.getElementById('tenant-sync-test-result');
+    const tenantSyncSshEnabled = document.getElementById('tenant_sync_ssh_enabled');
+    const tenantSyncSshFields = document.getElementById('tenant-sync-ssh-fields');
+    const tenantSyncDirectFields = document.getElementById('tenant-sync-direct-fields');
+    function syncTenantSyncConnectionMode() {
+        var sshOn = tenantSyncSshEnabled && tenantSyncSshEnabled.checked;
+        if (tenantSyncSshFields) {
+            tenantSyncSshFields.classList.toggle('hidden', !sshOn);
+        }
+        if (tenantSyncDirectFields) {
+            tenantSyncDirectFields.classList.toggle('hidden', !!sshOn);
+            tenantSyncDirectFields.querySelectorAll('input, button, select, textarea').forEach(function(el) {
+                if (el.id === 'tenant-sync-url-prefill-btn') {
+                    return;
+                }
+                el.disabled = !!sshOn;
+            });
+        }
+        if (tenantSyncUrlInput) {
+            tenantSyncUrlInput.disabled = !!sshOn;
+        }
+        if (tenantSyncUrlPrefillBtn) {
+            tenantSyncUrlPrefillBtn.disabled = !!sshOn || tenantSyncUrlPrefillBtn.classList.contains('opacity-40');
+        }
+    }
+    if (tenantSyncSshEnabled) {
+        tenantSyncSshEnabled.addEventListener('change', syncTenantSyncConnectionMode);
+        syncTenantSyncConnectionMode();
+    }
+    function updateTenantSyncPasswordClearVisibility(wrap) {
+        if (!wrap) {
+            return;
+        }
+        var input = wrap.querySelector('.tenant-sync-password-input');
+        var btn = wrap.querySelector('.tenant-sync-password-clear');
+        if (!input || !btn) {
+            return;
+        }
+        var hasStored = wrap.getAttribute('data-has-stored') === '1';
+        var hasValue = String(input.value || '').trim() !== '';
+        var cleared = wrap.getAttribute('data-cleared') === '1';
+        btn.classList.toggle('hidden', !(hasValue || (hasStored && !cleared)));
+    }
+    function bindTenantSyncPasswordClear(wrap) {
+        if (!wrap) {
+            return;
+        }
+        var input = wrap.querySelector('.tenant-sync-password-input');
+        var btn = wrap.querySelector('.tenant-sync-password-clear');
+        var clearFlag = btn ? document.getElementById(btn.getAttribute('data-clear-flag')) : null;
+        if (!input || !btn || !clearFlag) {
+            return;
+        }
+        function refresh() {
+            updateTenantSyncPasswordClearVisibility(wrap);
+        }
+        input.addEventListener('input', refresh);
+        btn.addEventListener('click', function() {
+            input.value = '';
+            clearFlag.value = '1';
+            wrap.setAttribute('data-has-stored', '0');
+            wrap.setAttribute('data-cleared', '1');
+            refresh();
+            input.focus();
+        });
+        refresh();
+    }
+    document.querySelectorAll('.tenant-sync-password-field').forEach(bindTenantSyncPasswordClear);
+    function encodeTenantSyncPasswordValue(value) {
+        if (!value || !String(value).trim()) {
+            return value;
+        }
+        var decoded = String(value);
+        try {
+            if (/%[0-9A-Fa-f]{2}/.test(decoded)) {
+                decoded = decodeURIComponent(decoded);
+            }
+        } catch (e) {
+            decoded = String(value);
+        }
+        if (!/[^A-Za-z0-9\-._~]/.test(decoded)) {
+            return decoded;
+        }
+        return encodeURIComponent(decoded);
+    }
+    function applyTenantSyncPasswordEncoding(inputEl) {
+        if (!inputEl || !inputEl.value || !String(inputEl.value).trim()) {
+            return;
+        }
+        var encoded = encodeTenantSyncPasswordValue(inputEl.value);
+        if (encoded !== inputEl.value) {
+            inputEl.value = encoded;
+        }
+    }
+    function bindTenantSyncPasswordAutoEncode(inputId) {
+        var el = document.getElementById(inputId);
+        if (!el) {
+            return;
+        }
+        el.addEventListener('blur', function() {
+            applyTenantSyncPasswordEncoding(el);
+        });
+    }
+    ['tenant_sync_target_database_password', 'tenant_sync_ssh_password', 'tenant_sync_ssh_db_password'].forEach(bindTenantSyncPasswordAutoEncode);
+    if (tenantSyncSettingsForm) {
+        tenantSyncSettingsForm.addEventListener('submit', function() {
+            document.querySelectorAll('.tenant-sync-password-field[data-cleared="1"]').forEach(function(wrap) {
+                var input = wrap.querySelector('.tenant-sync-password-input');
+                var flag = wrap.querySelector('.tenant-sync-password-clear');
+                if (input) {
+                    input.value = '';
+                }
+                if (flag) {
+                    var clearInput = document.getElementById(flag.getAttribute('data-clear-flag'));
+                    if (clearInput) {
+                        clearInput.value = '1';
+                    }
+                }
+            });
+        });
+    }
+    function appendTenantSyncSettingsToFormData(fd) {
+        if (!tenantSyncSettingsForm) {
+            return;
+        }
+        var syncFd = new FormData(tenantSyncSettingsForm);
+        syncFd.forEach(function(value, key) {
+            if (key === '_token') {
+                return;
+            }
+            fd.append(key, value);
+        });
+    }
+    if (tenantSyncUrlPrefillBtn && tenantSyncUrlInput) {
+        tenantSyncUrlPrefillBtn.addEventListener('click', function() {
+            const prefill = (tenantSyncUrlInput.getAttribute('data-prefill-url') || '').trim();
+            if (!prefill) {
+                return;
+            }
+            tenantSyncUrlInput.value = prefill;
+            tenantSyncUrlInput.dispatchEvent(new Event('input', { bubbles: true }));
+            tenantSyncUrlInput.focus();
+        });
+    }
     function showTenantSyncTestMessage(ok, text) {
         if (!tenantSyncTestResult) {
             window.alert((ok ? '✓ ' : '✗ ') + text);
@@ -1201,8 +1486,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             const fd = new FormData();
-            fd.append('tenant_sync_target_database_url', url);
             fd.append('_token', token);
+            appendTenantSyncSettingsToFormData(fd);
             tenantSyncTestBtn.disabled = true;
             const label = tenantSyncTestBtn.innerHTML;
             tenantSyncTestBtn.innerHTML = '<i class="ki-filled ki-arrows-circle me-2"></i> Bezig…';

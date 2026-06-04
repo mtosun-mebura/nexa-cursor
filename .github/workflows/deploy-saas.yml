@@ -1,5 +1,5 @@
 # TEST (Proxmox Ubuntu): deploy bij push naar release/test (self-hosted runner).
-# Gebruikt docker-compose v1 op de VM is OK — docker-compose.prod.yml heeft geen `include:`.
+# Gebruikt docker-compose v1 op de VM is OK — docker-compose.deploy.yml heeft geen `include:`.
 # PROD (AWS Lightsail): alleen via git-tag — deploy-prod.yml + create-prod-tag.yml
 
 name: Deploy TEST (Proxmox)
@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 90
     env:
       TENANT_DIR: /home/nexasuite.nl/apps/saas/current
+      COMPOSE_FILE: docker-compose.deploy.yml
       GIT_BRANCH: release/test
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
       EXTRA_DEPLOY_USERS: ${{ vars.EXTRA_DEPLOY_USERS }}
@@ -62,6 +63,27 @@ jobs:
             echo "Sudo naar $TARGET: OK"
           else
             echo "Sudo naar $TARGET: MISLUKT — zie deploy/github-runner-sudoers.example"
+          fi
+
+          OBJ="$TENANT_DIR/.git/objects"
+          TARGET_UID="$(id -u "$TARGET" 2>/dev/null || echo "")"
+          ALIEN=""
+          if [[ -n "$TARGET_UID" ]] && command -v find >/dev/null 2>&1; then
+            ALIEN="$(find "$TENANT_DIR/.git" ! -uid "$TARGET_UID" -print -quit 2>/dev/null || true)"
+          fi
+          if [[ -n "$ALIEN" ]]; then
+            echo "WAARSCHUWING: .git bevat vreemde eigenaar: $ALIEN"
+            if sudo -n chown -R "$TARGET:$TARGET" "$TENANT_DIR/.git" 2>/dev/null; then
+              echo ".git: gefixt via sudo chown → $TARGET"
+            else
+              echo "Eenmalig op de server: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
+            fi
+          elif [[ -w "$OBJ" ]] && touch "$OBJ/.preflight-write-test" 2>/dev/null; then
+            rm -f "$OBJ/.preflight-write-test"
+            echo ".git/objects schrijfbaar als $U: OK"
+          else
+            echo "WAARSCHUWING: $OBJ niet schrijfbaar voor $TARGET"
+            echo "Eenmalig: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
           fi
 
       - name: Deploy

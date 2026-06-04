@@ -21,6 +21,8 @@ class TaxiDispatchSettingsService
 
     public const KEY_BOOKING_DRIVER_EMAIL_ENABLED = 'taxi_dispatch_booking_driver_email_enabled';
 
+    public const KEY_BOOKING_CUSTOMER_EMAIL_ENABLED = 'taxi_dispatch_booking_customer_email_enabled';
+
     public const KEY_PAYMENT_BOOKING_ENABLED = 'taxi_dispatch_payment_booking_enabled';
 
     public const KEY_PAYMENT_DRIVER_ENABLED = 'taxi_dispatch_payment_driver_enabled';
@@ -140,6 +142,27 @@ class TaxiDispatchSettingsService
     public function setBookingDriverEmailEnabled(bool $enabled, ?int $companyId = null): void
     {
         GeneralSetting::set(self::KEY_BOOKING_DRIVER_EMAIL_ENABLED, $enabled ? '1' : '0', $companyId);
+    }
+
+    public function bookingCustomerEmailEnabled(?int $companyId = null): bool
+    {
+        $stored = GeneralSetting::get(self::KEY_BOOKING_CUSTOMER_EMAIL_ENABLED, null, $companyId);
+        if ($stored !== null && $stored !== '') {
+            return $stored === '1';
+        }
+
+        return true;
+    }
+
+    public function setBookingCustomerEmailEnabled(bool $enabled, ?int $companyId = null): void
+    {
+        GeneralSetting::set(self::KEY_BOOKING_CUSTOMER_EMAIL_ENABLED, $enabled ? '1' : '0', $companyId);
+    }
+
+    public function customerEmailRequiredForBooking(?int $companyId = null): bool
+    {
+        return $this->bookingCustomerEmailEnabled($companyId)
+            || $this->customerAcceptEmailEnabled($companyId);
     }
 
     public function defaultBookingWhatsappEnabled(): bool

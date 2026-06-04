@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Modules\NexaTaxi\Support\NexaTaxiSchema;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,8 @@ final class TenantCompanyDataPushService
      * @return array{
      *     company_row: string,
      *     tables_with_company_id: list<string>,
+     *     prerequisite_tables: list<string>,
+     *     taxi_module_tables: list<string>,
      *     payment_company_scoped_tables: list<string>,
      *     excluded_tables: list<string>,
      *     driver: string
@@ -52,6 +55,8 @@ final class TenantCompanyDataPushService
         return [
             'company_row' => 'companies (één rij per tenant; op doel hergebruikt op slug of nieuw id)',
             'tables_with_company_id' => $tables,
+            'prerequisite_tables' => $this->discoverPrerequisiteTables($connection, $tables),
+            'taxi_module_tables' => $this->taxiModuleSyncTableNames(),
             'payment_company_scoped_tables' => $paymentTables,
             'excluded_tables' => array_values(config('tenant_sync.excluded_tables', [])),
             'driver' => $driver,
@@ -62,6 +67,16 @@ final class TenantCompanyDataPushService
      * @return array{remote_company_id: int, inserted: int, skipped: int, tables: list<string>, messages: list<string>}
      */
     public function pushFullTenant(int $sourceCompanyId): array
+    {
+        return $this->websiteBundle->runWithSyncTarget(function () use ($sourceCompanyId) {
+            return $this->pushFullTenantThroughTunnel($sourceCompanyId);
+        });
+    }
+
+    /**
+     * @return array{remote_company_id: int, inserted: int, skipped: int, tables: list<string>, messages: list<string>}
+     */
+    private function pushFullTenantThroughTunnel(int $sourceCompanyId): array
     {
         $sourceConn = (string) config('database.default');
         $targetConn = TenantWebsiteBundleService::SYNC_CONNECTION;
@@ -83,11 +98,40 @@ final class TenantCompanyDataPushService
                 throw new RuntimeException('Geen tabellen met company_id gevonden op de bron-database.');
             }
 
-            $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
-            $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
+            $prerequisiteTables = $this->discoverPrerequisiteTables($sourceConn, $tables);
+            $prerequisiteFkEdges = $this->discoverPrerequisiteForeignKeys($sourceConn, $tables, $prerequisiteTables);
+            $intraPrerequisiteFkEdges = $prerequisiteTables !== []
+                ? $this->discoverForeignKeysToParentId($sourceConn, $prerequisiteTables)
+                : [];
 
             $idMaps = [];
-            $remoteCompanyId = $this->resolveOrCreateRemoteCompany($targetConn, $company, $messages);
+            if ($prerequisiteTables !== []) {
+                $preStats = $this->pushPrerequisiteTables(
+                    $sourceConn,
+                    $targetConn,
+                    $prerequisiteTables,
+                    $intraPrerequisiteFkEdges,
+                    $idMaps
+                );
+                $inserted += $preStats['inserted'];
+                $skipped += $preStats['skipped'];
+                $messages[] = sprintf(
+                    'Globale vereiste tabellen (%s): %d rijen toegevoegd, %d overgeslagen.',
+                    implode(', ', $prerequisiteTables),
+                    $preStats['inserted'],
+                    $preStats['skipped']
+                );
+            }
+
+            foreach ($this->ensureInstalledModuleSchemasOnSyncTarget($sourceConn) as $schemaMessage) {
+                $messages[] = $schemaMessage;
+            }
+
+            $fkEdges = $this->discoverForeignKeysToParentId($sourceConn, $tables);
+            $allFkEdges = array_merge($fkEdges, $prerequisiteFkEdges);
+            $orderedTables = $this->orderTablesForInsert($tables, $fkEdges);
+
+            $remoteCompanyId = $this->resolveOrCreateRemoteCompany($targetConn, $company, $messages, $idMaps);
             $sameDatabase = $this->connectionsPointToSameDatabase($sourceConn, $targetConn);
             if ($sameDatabase) {
                 $messages[] = 'Bron en doel zijn dezelfde database: gebruikers worden bijgewerkt (company_id), niet dubbel ingevoegd.';
@@ -135,7 +179,7 @@ final class TenantCompanyDataPushService
                     $row = (array) $rowObj;
                     $oldId = isset($row['id']) ? (int) $row['id'] : null;
 
-                    $payload = $this->prepareInsertPayload($table, $row, $remoteCompanyId, $idMaps, $fkEdges);
+                    $payload = $this->prepareInsertPayload($table, $row, $remoteCompanyId, $idMaps, $allFkEdges);
 
                     if ($payload === null) {
                         $skipped++;
@@ -179,6 +223,29 @@ final class TenantCompanyDataPushService
                 }
             }
 
+            $globalSettingsStats = $this->pushGlobalGeneralSettings($sourceConn, $targetConn);
+            $inserted += $globalSettingsStats['inserted'];
+            $skipped += $globalSettingsStats['skipped'];
+            if (($globalSettingsStats['message'] ?? '') !== '') {
+                $messages[] = $globalSettingsStats['message'];
+            }
+
+            $taxiStats = $this->pushTaxiModuleForTenant(
+                $sourceConn,
+                $sourceCompanyId,
+                $remoteCompanyId,
+                $idMaps
+            );
+            $inserted += $taxiStats['inserted'];
+            $skipped += $taxiStats['skipped'];
+            $updated = $taxiStats['updated'];
+            if ($updated > 0) {
+                $inserted += $updated;
+            }
+            if (($taxiStats['message'] ?? '') !== '') {
+                $messages[] = $taxiStats['message'];
+            }
+
             Log::info('tenant_full_push', [
                 'source_company_id' => $sourceCompanyId,
                 'remote_company_id' => $remoteCompanyId,
@@ -196,7 +263,414 @@ final class TenantCompanyDataPushService
             ];
         } finally {
             DB::purge($targetConn);
+            foreach (array_keys((array) config('database.connections')) as $connName) {
+                if (is_string($connName) && str_starts_with($connName, 'tenant_sync_module_')) {
+                    DB::purge($connName);
+                }
+            }
+            DB::purge(TenantWebsiteBundleService::SYNC_MODULE_TAXI_CONNECTION);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function taxiModuleSyncTableNames(): array
+    {
+        $cfg = config('tenant_sync.taxi_module', []);
+        if (! is_array($cfg)) {
+            return [];
+        }
+
+        $tables = [];
+        foreach (['company_scoped_tables', 'global_tables'] as $key) {
+            $list = $cfg[$key] ?? [];
+            if (is_array($list)) {
+                foreach ($list as $t) {
+                    if (is_string($t) && $t !== '') {
+                        $tables[] = $t;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($tables));
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, skipped: int, updated: int, message: string}
+     */
+    private function pushTaxiModuleForTenant(
+        string $mainSourceConn,
+        int $sourceCompanyId,
+        int $remoteCompanyId,
+        array &$idMaps
+    ): array {
+        if (! $this->tenantHasTaxiModuleOnSource($mainSourceConn, $sourceCompanyId)) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-module niet gekoppeld aan deze tenant; voertuigen/tarieven overgeslagen.',
+            ];
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->usesDatabaseStrategy()) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-sync: strategy=database (losse module-DB) wordt niet ondersteund bij omgeving-sync.',
+            ];
+        }
+
+        $dbService->registerConnection('taxi');
+        $dbService->ensureModuleStorageReady('taxi');
+        $sourceModuleConn = $dbService->getModuleConnectionName('taxi');
+
+        if (! NexaTaxiSchema::coreTablesExist($sourceModuleConn)) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-tabellen ontbreken op bron; voertuigen/tarieven overgeslagen.',
+            ];
+        }
+
+        $targetModuleConn = $this->websiteBundle->registerSyncModuleTaxiConnection();
+
+        try {
+            $dbService->ensureModuleStorageReadyOnConnection('taxi', $targetModuleConn);
+        } catch (Throwable $e) {
+            Log::warning('tenant_sync_taxi_schema_setup_failed', ['error' => $e->getMessage()]);
+
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-schema/tabellen op doel konden niet worden aangemaakt: '.$e->getMessage(),
+            ];
+        }
+
+        if (! NexaTaxiSchema::coreTablesExist($targetModuleConn)) {
+            return [
+                'inserted' => 0,
+                'skipped' => 0,
+                'updated' => 0,
+                'message' => 'Taxi-tabellen ontbreken op doel na schema-setup.',
+            ];
+        }
+
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+
+        $globalStats = $this->syncTaxiGlobalTables($sourceModuleConn, $targetModuleConn);
+        $inserted += $globalStats['inserted'];
+        $skipped += $globalStats['skipped'];
+        $updated += $globalStats['updated'];
+
+        if (Schema::connection($sourceModuleConn)->hasTable('vehicles')
+            && Schema::connection($sourceModuleConn)->hasColumn('vehicles', 'company_id')) {
+            $rows = DB::connection($sourceModuleConn)->table('vehicles')
+                ->where('company_id', $sourceCompanyId)
+                ->orderBy('id')
+                ->get();
+
+            foreach ($rows as $rowObj) {
+                $row = (array) $rowObj;
+                $oldId = isset($row['id']) ? (int) $row['id'] : null;
+                unset($row['id']);
+                $row['company_id'] = $remoteCompanyId;
+                $payload = $this->stripUnsupportedColumns('vehicles', $row, $targetModuleConn);
+                if ($payload === []) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, 'vehicles', $payload);
+                if ($existingId !== null && $existingId > 0) {
+                    $updatePayload = $payload;
+                    unset($updatePayload['created_at'], $updatePayload['company_id']);
+                    if ($updatePayload !== []) {
+                        DB::connection($targetModuleConn)->table('vehicles')
+                            ->where('id', $existingId)
+                            ->update($updatePayload);
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                    if ($oldId !== null) {
+                        $idMaps['vehicles'][$oldId] = $existingId;
+                    }
+
+                    continue;
+                }
+
+                $outcome = $this->insertRowOnTarget(
+                    $sourceModuleConn,
+                    $targetModuleConn,
+                    'vehicles',
+                    $payload,
+                    $oldId,
+                    $remoteCompanyId,
+                    $idMaps
+                );
+                if ($outcome === 'inserted') {
+                    $inserted++;
+                } else {
+                    $skipped++;
+                }
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'skipped' => $skipped,
+            'updated' => $updated,
+            'message' => sprintf(
+                'Taxi-module (schema %s): %d voertuigen/tarieven toegevoegd, %d bijgewerkt, %d overgeslagen.',
+                app(ModuleDatabaseService::class)->getModuleSchemaName('taxi'),
+                $inserted,
+                $updated,
+                $skipped
+            ),
+        ];
+    }
+
+    /**
+     * Globale (company_id IS NULL) general_settings voor geconfigureerde frontend-keys naar het doel,
+     * zodat o.a. de WhatsApp-widget ook werkt als die niet per tenant is opgeslagen.
+     *
+     * @return array{inserted: int, skipped: int, message: string}
+     */
+    private function pushGlobalGeneralSettings(string $sourceConn, string $targetConn): array
+    {
+        $keys = config('tenant_sync.global_general_setting_keys', []);
+        if (! is_array($keys) || $keys === []
+            || ! Schema::connection($sourceConn)->hasTable('general_settings')
+            || ! Schema::connection($targetConn)->hasTable('general_settings')) {
+            return ['inserted' => 0, 'skipped' => 0, 'message' => ''];
+        }
+
+        $keys = array_values(array_filter($keys, fn ($k) => is_string($k) && $k !== ''));
+        if ($keys === []) {
+            return ['inserted' => 0, 'skipped' => 0, 'message' => ''];
+        }
+
+        $rows = DB::connection($sourceConn)->table('general_settings')
+            ->whereNull('company_id')
+            ->whereIn('key', $keys)
+            ->get();
+
+        $inserted = 0;
+        $skipped = 0;
+        foreach ($rows as $rowObj) {
+            $row = (array) $rowObj;
+            $key = (string) ($row['key'] ?? '');
+            if ($key === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $existing = DB::connection($targetConn)->table('general_settings')
+                ->whereNull('company_id')
+                ->where('key', $key)
+                ->first();
+
+            $payload = $this->stripUnsupportedColumns('general_settings', $row, $targetConn);
+            unset($payload['id']);
+            $payload['company_id'] = null;
+
+            if ($existing !== null) {
+                $update = $payload;
+                unset($update['created_at']);
+                if ($update !== []) {
+                    DB::connection($targetConn)->table('general_settings')
+                        ->where('id', $existing->id)
+                        ->update($update);
+                }
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                DB::connection($targetConn)->table('general_settings')->insert($payload);
+                $inserted++;
+            } catch (UniqueConstraintViolationException) {
+                $skipped++;
+            } catch (Throwable $e) {
+                if ($this->isDuplicateKeyException($e)) {
+                    $skipped++;
+                } else {
+                    throw $e;
+                }
+            }
+        }
+
+        return [
+            'inserted' => $inserted,
+            'skipped' => $skipped,
+            'message' => sprintf(
+                'Globale frontend-instellingen (o.a. WhatsApp-widget): %d toegevoegd, %d bijgewerkt/overgeslagen.',
+                $inserted,
+                $skipped
+            ),
+        ];
+    }
+
+    private function tenantHasTaxiModuleOnSource(string $mainConn, int $companyId): bool
+    {
+        return in_array('taxi', $this->linkedInstalledModuleNamesForTenant($mainConn, $companyId), true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function linkedInstalledModuleNamesForTenant(string $mainConn, int $companyId): array
+    {
+        if (! Schema::connection($mainConn)->hasTable('company_module')
+            || ! Schema::connection($mainConn)->hasTable('modules')) {
+            return [];
+        }
+
+        return DB::connection($mainConn)->table('company_module')
+            ->join('modules', 'modules.id', '=', 'company_module.module_id')
+            ->where('company_module.company_id', $companyId)
+            ->where('modules.installed', true)
+            ->pluck('modules.name')
+            ->map(fn ($name) => strtolower(trim((string) $name)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Maak op het sync-doel schema + tabellen aan voor alle geïnstalleerde modules (modules.installed).
+     *
+     * @return list<string>
+     */
+    private function ensureInstalledModuleSchemasOnSyncTarget(string $sourceMainConn): array
+    {
+        $messages = [];
+        if (! Schema::connection($sourceMainConn)->hasTable('modules')) {
+            return $messages;
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->usesDatabaseStrategy()) {
+            $messages[] = 'Module-schema sync: strategy=database (losse module-DB) wordt niet ondersteund bij omgeving-sync.';
+
+            return $messages;
+        }
+
+        $moduleNames = DB::connection($sourceMainConn)->table('modules')
+            ->where('installed', true)
+            ->pluck('name')
+            ->map(fn ($name) => strtolower(trim((string) $name)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        foreach ($moduleNames as $moduleName) {
+            $requiredTables = config("module_migrations.required_tables.{$moduleName}", []);
+            if (! is_array($requiredTables) || $requiredTables === []) {
+                continue;
+            }
+
+            try {
+                $targetModuleConn = $this->websiteBundle->registerSyncModuleConnection($moduleName);
+                $dbService->ensureModuleStorageReadyOnConnection($moduleName, $targetModuleConn);
+                $messages[] = 'Module-schema op doel gereed: '.$moduleName.'.';
+            } catch (Throwable $e) {
+                Log::warning('tenant_sync_module_schema_failed', [
+                    'module' => $moduleName,
+                    'error' => $e->getMessage(),
+                ]);
+                $messages[] = 'Module-schema op doel mislukt ('.$moduleName.'): '.$e->getMessage();
+            }
+        }
+
+        return $messages;
+    }
+
+    /**
+     * @return array{inserted: int, skipped: int, updated: int}
+     */
+    private function syncTaxiGlobalTables(string $sourceModuleConn, string $targetModuleConn): array
+    {
+        $inserted = 0;
+        $skipped = 0;
+        $updated = 0;
+        $globalTables = config('tenant_sync.taxi_module.global_tables', ['default_rates']);
+        if (! is_array($globalTables)) {
+            return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
+        }
+
+        foreach ($globalTables as $table) {
+            if (! is_string($table) || $table === ''
+                || ! Schema::connection($sourceModuleConn)->hasTable($table)
+                || ! Schema::connection($targetModuleConn)->hasTable($table)) {
+                continue;
+            }
+
+            $rows = DB::connection($sourceModuleConn)->table($table)->orderBy('id')->get();
+            foreach ($rows as $rowObj) {
+                $row = (array) $rowObj;
+                $oldId = isset($row['id']) ? (int) $row['id'] : null;
+                unset($row['id']);
+                $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
+                if ($payload === []) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $existingId = $this->findExistingRowIdOnTarget($targetModuleConn, $table, $payload);
+                if ($existingId !== null && $existingId > 0) {
+                    $updatePayload = $payload;
+                    unset($updatePayload['created_at']);
+                    if ($updatePayload !== []) {
+                        DB::connection($targetModuleConn)->table($table)
+                            ->where('id', $existingId)
+                            ->update($updatePayload);
+                        $updated++;
+                    } else {
+                        $skipped++;
+                    }
+                    if ($oldId !== null) {
+                        $idMaps[$table][$oldId] = $existingId;
+                    }
+
+                    continue;
+                }
+
+                try {
+                    $newId = (int) DB::connection($targetModuleConn)->table($table)->insertGetId($payload);
+                    if ($oldId !== null) {
+                        $idMaps[$table][$oldId] = $newId;
+                    }
+                    $inserted++;
+                } catch (UniqueConstraintViolationException) {
+                    $skipped++;
+                } catch (Throwable $e) {
+                    if ($this->isDuplicateKeyException($e)) {
+                        $skipped++;
+                    } else {
+                        throw $e;
+                    }
+                }
+            }
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped, 'updated' => $updated];
     }
 
     /**
@@ -212,7 +686,21 @@ final class TenantCompanyDataPushService
     ): ?array {
         unset($row['id']);
         $row['company_id'] = $remoteCompanyId;
+        $row = $this->remapRowForeignKeys($table, $row, $fkEdges, $idMaps);
+        if ($row === null) {
+            return null;
+        }
 
+        return $this->stripUnsupportedColumns($table, $row, TenantWebsiteBundleService::SYNC_CONNECTION);
+    }
+
+    /**
+     * @param  list<array{child:string, child_column:string, parent:string}>  $fkEdges
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array<string, mixed>|null
+     */
+    private function remapRowForeignKeys(string $table, array $row, array $fkEdges, array $idMaps): ?array
+    {
         foreach ($fkEdges as $edge) {
             if ($edge['child'] !== $table) {
                 continue;
@@ -232,12 +720,12 @@ final class TenantCompanyDataPushService
             $row[$col] = $idMaps[$parent][$oldFk];
         }
 
-        return $this->stripUnsupportedColumns($table, $row);
+        return $row;
     }
 
-    private function stripUnsupportedColumns(string $table, array $row): array
+    private function stripUnsupportedColumns(string $table, array $row, ?string $connection = null): array
     {
-        $conn = TenantWebsiteBundleService::SYNC_CONNECTION;
+        $conn = $connection ?? TenantWebsiteBundleService::SYNC_CONNECTION;
         $cols = Schema::connection($conn)->getColumnListing($table);
         $allowed = array_flip($cols);
         $out = [];
@@ -247,7 +735,35 @@ final class TenantCompanyDataPushService
             }
         }
 
-        return $out;
+        return $this->normalizeBinaryColumns($table, $out);
+    }
+
+    /**
+     * Binaire kolommen (bytea/blob) als ruwe bytes klaarzetten: PostgreSQL levert bytea soms als stream-resource,
+     * die anders leeg/corrupt op het doel belandt (o.a. users.photo_blob → profielfoto verdwijnt).
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function normalizeBinaryColumns(string $table, array $row): array
+    {
+        $binaryColumns = config("tenant_sync.binary_columns.{$table}", []);
+        if (! is_array($binaryColumns) || $binaryColumns === []) {
+            return $row;
+        }
+
+        foreach ($binaryColumns as $column) {
+            if (! is_string($column) || ! array_key_exists($column, $row)) {
+                continue;
+            }
+            $value = $row[$column];
+            if (is_resource($value)) {
+                $contents = stream_get_contents($value);
+                $row[$column] = $contents === false ? null : $contents;
+            }
+        }
+
+        return $row;
     }
 
     /**
@@ -298,6 +814,10 @@ final class TenantCompanyDataPushService
             $q->where('host', $payload['host']);
         } elseif ($table === 'company_module' && isset($payload['module_id'])) {
             $q->where('module_id', $payload['module_id']);
+        } elseif ($table === 'vehicles' && isset($payload['company_id'], $payload['name'])) {
+            $q->where('company_id', $payload['company_id'])->where('name', $payload['name']);
+        } elseif ($table === 'default_rates' && isset($payload['person_range'])) {
+            $q->where('person_range', $payload['person_range']);
         } elseif ($table === 'payment_providers' && isset($payload['provider_type'])) {
             $q->where('provider_type', $payload['provider_type']);
         } elseif ($table === 'invoice_settings') {
@@ -339,16 +859,72 @@ final class TenantCompanyDataPushService
             || str_contains($msg, 'UNIQUE constraint failed');
     }
 
-    private function resolveOrCreateRemoteCompany(string $targetConn, Company $source, array &$messages): int
+    /**
+     * @param  array<string, mixed>  $attrs
+     * @return array{created_at?: mixed, updated_at?: mixed}
+     */
+    private function timestampsPayloadFromAttributes(array $attrs): array
+    {
+        $out = [];
+        foreach (['created_at', 'updated_at'] as $column) {
+            if (array_key_exists($column, $attrs) && $attrs[$column] !== null && $attrs[$column] !== '') {
+                $out[$column] = $attrs[$column];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Vult ontbrekende created_at/updated_at op doel aan (bijv. na eerdere sync zonder timestamps).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function backfillTimestampsIfMissingOnTarget(string $targetConn, string $table, int $rowId, array $payload): void
+    {
+        if ($rowId <= 0 || ! Schema::connection($targetConn)->hasTable($table)) {
+            return;
+        }
+
+        $existing = DB::connection($targetConn)->table($table)->where('id', $rowId)->first();
+        if ($existing === null) {
+            return;
+        }
+
+        $update = [];
+        foreach (['created_at', 'updated_at'] as $column) {
+            if (! Schema::connection($targetConn)->hasColumn($table, $column)) {
+                continue;
+            }
+            if (! array_key_exists($column, $payload) || $payload[$column] === null || $payload[$column] === '') {
+                continue;
+            }
+            $current = $existing->{$column} ?? null;
+            if ($current === null || $current === '') {
+                $update[$column] = $payload[$column];
+            }
+        }
+
+        if ($update !== []) {
+            DB::connection($targetConn)->table($table)->where('id', $rowId)->update($update);
+        }
+    }
+
+    /**
+     * @param  array<string, array<int, int>>  $idMaps
+     */
+    private function resolveOrCreateRemoteCompany(string $targetConn, Company $source, array &$messages, array $idMaps = []): int
     {
         $attrs = $source->getAttributes();
-        unset($attrs['id'], $attrs['created_at'], $attrs['updated_at']);
+        unset($attrs['id']);
         $slug = $attrs['slug'] ?? null;
+        $sourceTimestamps = $this->timestampsPayloadFromAttributes($attrs);
 
         if (is_string($slug) && $slug !== '') {
             $existing = DB::connection($targetConn)->table('companies')->where('slug', $slug)->value('id');
             if ($existing !== null) {
                 $messages[] = 'Bedrijf met dezelfde slug bestond al op doel; bestaande company_id '.$existing.' wordt aangevuld (geen tweede company aangemaakt).';
+                $this->backfillTimestampsIfMissingOnTarget($targetConn, 'companies', (int) $existing, $sourceTimestamps);
 
                 return (int) $existing;
             }
@@ -356,6 +932,14 @@ final class TenantCompanyDataPushService
 
         $payload = $this->stripUnsupportedColumns('companies', $attrs);
         unset($payload['id']);
+        if (isset($payload['frontend_theme_id']) && $payload['frontend_theme_id'] !== null) {
+            $oldThemeId = (int) $payload['frontend_theme_id'];
+            if (isset($idMaps['frontend_themes'][$oldThemeId])) {
+                $payload['frontend_theme_id'] = $idMaps['frontend_themes'][$oldThemeId];
+            } else {
+                unset($payload['frontend_theme_id']);
+            }
+        }
 
         return (int) DB::connection($targetConn)->table('companies')->insertGetId($payload);
     }
@@ -420,6 +1004,91 @@ final class TenantCompanyDataPushService
     private function discoverForeignKeysToParentId(string $connection, array $tables): array
     {
         $set = array_flip($tables);
+        $edges = [];
+        foreach ($this->discoverForeignKeyEdgesForChildren($connection, $tables) as $edge) {
+            if (isset($set[$edge['parent']])) {
+                $edges[] = $edge;
+            }
+        }
+
+        return $edges;
+    }
+
+    /**
+     * FK's van company-scoped tabellen naar globale prerequisite-tabellen (bijv. company_module → modules).
+     *
+     * @param  list<string>  $companyTables
+     * @param  list<string>  $prerequisiteTables
+     * @return list<array{child:string, child_column:string, parent:string}>
+     */
+    private function discoverPrerequisiteForeignKeys(string $connection, array $companyTables, array $prerequisiteTables): array
+    {
+        if ($prerequisiteTables === []) {
+            return [];
+        }
+
+        $prereqSet = array_flip($prerequisiteTables);
+        $edges = [];
+        foreach ($this->discoverForeignKeyEdgesForChildren($connection, $companyTables) as $edge) {
+            if (isset($prereqSet[$edge['parent']])) {
+                $edges[] = $edge;
+            }
+        }
+
+        return $edges;
+    }
+
+    /**
+     * @param  list<string>  $companyTables
+     * @return list<string>
+     */
+    private function discoverPrerequisiteTables(string $connection, array $companyTables): array
+    {
+        $excluded = array_flip(config('tenant_sync.excluded_tables', []));
+        $companySet = array_flip($companyTables);
+        $discovered = [];
+
+        foreach ($this->discoverForeignKeyEdgesForChildren($connection, $companyTables) as $edge) {
+            $parent = $edge['parent'];
+            if (! isset($companySet[$parent], $excluded[$parent])
+                && Schema::connection($connection)->hasTable($parent)) {
+                $discovered[$parent] = true;
+            }
+        }
+
+        $configured = config('tenant_sync.prerequisite_tables', []);
+        if (is_array($configured)) {
+            foreach ($configured as $table) {
+                if (! is_string($table) || $table === '' || isset($excluded[$table])) {
+                    continue;
+                }
+                if (Schema::connection($connection)->hasTable($table)) {
+                    $discovered[$table] = true;
+                }
+            }
+        }
+
+        $names = array_keys($discovered);
+        if ($names === []) {
+            return [];
+        }
+
+        $intraEdges = $this->discoverForeignKeysToParentId($connection, $names);
+
+        return $this->orderTablesForInsert($names, $intraEdges);
+    }
+
+    /**
+     * @param  list<string>  $childTables
+     * @return list<array{child:string, child_column:string, parent:string}>
+     */
+    private function discoverForeignKeyEdgesForChildren(string $connection, array $childTables): array
+    {
+        if ($childTables === []) {
+            return [];
+        }
+
+        $childSet = array_flip($childTables);
         $driver = Schema::connection($connection)->getConnection()->getDriverName();
         $edges = [];
 
@@ -437,14 +1106,14 @@ final class TenantCompanyDataPushService
             );
             foreach ($rows as $r) {
                 $child = (string) $r->child_table;
-                $parent = (string) $r->parent_table;
-                if (isset($set[$child], $set[$parent])) {
-                    $edges[] = [
-                        'child' => $child,
-                        'child_column' => (string) $r->child_column,
-                        'parent' => $parent,
-                    ];
+                if (! isset($childSet[$child])) {
+                    continue;
                 }
+                $edges[] = [
+                    'child' => $child,
+                    'child_column' => (string) $r->child_column,
+                    'parent' => (string) $r->parent_table,
+                ];
             }
         } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
             $db = (string) config("database.connections.{$connection}.database");
@@ -457,18 +1126,77 @@ final class TenantCompanyDataPushService
             );
             foreach ($rows as $r) {
                 $child = (string) $r->child_table;
-                $parent = (string) $r->parent_table;
-                if (isset($set[$child], $set[$parent])) {
-                    $edges[] = [
-                        'child' => $child,
-                        'child_column' => (string) $r->child_column,
-                        'parent' => $parent,
-                    ];
+                if (! isset($childSet[$child])) {
+                    continue;
                 }
+                $edges[] = [
+                    'child' => $child,
+                    'child_column' => (string) $r->child_column,
+                    'parent' => (string) $r->parent_table,
+                ];
             }
         }
 
         return $edges;
+    }
+
+    /**
+     * @param  list<string>  $prerequisiteTables
+     * @param  list<array{child:string, child_column:string, parent:string}>  $intraFkEdges
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array{inserted: int, skipped: int}
+     */
+    private function pushPrerequisiteTables(
+        string $sourceConn,
+        string $targetConn,
+        array $prerequisiteTables,
+        array $intraFkEdges,
+        array &$idMaps
+    ): array {
+        $inserted = 0;
+        $skipped = 0;
+
+        foreach ($prerequisiteTables as $table) {
+            if (! Schema::connection($sourceConn)->hasTable($table)) {
+                continue;
+            }
+
+            $query = DB::connection($sourceConn)->table($table);
+            if (Schema::connection($sourceConn)->hasColumn($table, 'id')) {
+                $query->orderBy('id');
+            }
+            $rows = $query->get();
+
+            foreach ($rows as $rowObj) {
+                $row = (array) $rowObj;
+                $oldId = isset($row['id']) ? (int) $row['id'] : null;
+                $payload = $this->remapRowForeignKeys($table, $row, $intraFkEdges, $idMaps);
+                if ($payload === null) {
+                    $skipped++;
+
+                    continue;
+                }
+                unset($payload['id']);
+                $payload = $this->stripUnsupportedColumns($table, $payload);
+
+                $outcome = $this->insertRowOnTarget(
+                    $sourceConn,
+                    $targetConn,
+                    $table,
+                    $payload,
+                    $oldId,
+                    0,
+                    $idMaps
+                );
+                if ($outcome === 'inserted') {
+                    $inserted++;
+                } else {
+                    $skipped++;
+                }
+            }
+        }
+
+        return ['inserted' => $inserted, 'skipped' => $skipped];
     }
 
     /**
@@ -769,9 +1497,17 @@ final class TenantCompanyDataPushService
                 $existing = DB::connection($targetConn)->table('users')->where('id', $existingId)->first();
                 $existingCompanyId = $existing->company_id ?? null;
                 if ($existingCompanyId === null || (int) $existingCompanyId === $remoteCompanyId) {
+                    $userUpdate = ['company_id' => $remoteCompanyId];
+                    if (array_key_exists('updated_at', $payload) && $payload['updated_at'] !== null && $payload['updated_at'] !== '') {
+                        $userUpdate['updated_at'] = $payload['updated_at'];
+                    } else {
+                        $userUpdate['updated_at'] = now();
+                    }
+                    $userUpdate += $this->avatarUpdateForExistingTargetUser($existing, $payload);
                     DB::connection($targetConn)->table('users')
                         ->where('id', $existingId)
-                        ->update(['company_id' => $remoteCompanyId, 'updated_at' => now()]);
+                        ->update($userUpdate);
+                    $this->backfillTimestampsIfMissingOnTarget($targetConn, 'users', $existingId, $payload);
                     $updated++;
                 } else {
                     $skipped++;
@@ -954,6 +1690,7 @@ final class TenantCompanyDataPushService
         if ($existingId !== null) {
             if ($existingId > 0 && $oldId !== null && Schema::connection($targetConn)->hasColumn($table, 'id')) {
                 $idMaps[$table][$oldId] = $existingId;
+                $this->backfillTimestampsIfMissingOnTarget($targetConn, $table, $existingId, $payload);
             }
 
             return 'skipped';
@@ -1025,6 +1762,31 @@ final class TenantCompanyDataPushService
         $this->tryLearnIdFromUniqueHit($targetConn, $table, $payload, $oldId, $idMaps);
 
         return 'skipped';
+    }
+
+    /**
+     * Profielfoto-velden voor de update van een bestaande doel-gebruiker: alleen aanvullen
+     * als het doel nog geen foto heeft, zodat de bron-avatar verschijnt zonder een doel-avatar te overschrijven.
+     *
+     * @param  object  $existing  Huidige rij op doel
+     * @param  array<string, mixed>  $payload  Genormaliseerde bron-rij (photo_blob al als bytes)
+     * @return array<string, mixed>
+     */
+    private function avatarUpdateForExistingTargetUser(object $existing, array $payload): array
+    {
+        $targetHasPhoto = ! empty($existing->photo_blob ?? null) || ! empty($existing->photo ?? null);
+        if ($targetHasPhoto) {
+            return [];
+        }
+
+        $update = [];
+        foreach (['photo_blob', 'photo_mime_type', 'photo'] as $column) {
+            if (array_key_exists($column, $payload) && $payload[$column] !== null && $payload[$column] !== '') {
+                $update[$column] = $payload[$column];
+            }
+        }
+
+        return $update;
     }
 
     /**

@@ -1,0 +1,76 @@
+# Opent automatisch een PR naar release/test bij push op nexa-saas.
+# Na merge triggert deploy-saas.yml via push op release/test.
+
+name: Open PR to release/test
+
+on:
+  push:
+    branches:
+      - nexa-saas
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    if: github.ref != 'refs/heads/release/test'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or skip PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const base = 'release/test';
+            const head = context.ref.replace('refs/heads/', '');
+
+            const { data: existing } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${head}`,
+              base,
+            });
+
+            if (existing.length > 0) {
+              core.info(`Open PR bestaat al: #${existing[0].number}`);
+              return;
+            }
+
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${base}...${head}`,
+            });
+
+            if ((comparison.ahead_by ?? 0) === 0) {
+              core.info('Geen commits tussen release/test en ' + head + '; geen PR nodig.');
+              return;
+            }
+
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Deploy test: ${head} → ${base}`,
+                head,
+                base,
+                body: [
+                  'Automatisch aangemaakt bij push op `' + head + '`.',
+                  '',
+                  'Na groene CI wordt deze PR automatisch gemerged.',
+                  'Pas daarna start de TEST-deploy (push naar `release/test`).',
+                ].join('\n'),
+              });
+              core.info(`PR aangemaakt: #${pr.number}`);
+            } catch (error) {
+              const message = [
+                error?.message,
+                error?.response?.data?.message,
+              ].filter(Boolean).join(' ');
+              if (/No commits between|already exists|Nothing to compare/i.test(message)) {
+                core.info(`Geen nieuwe PR nodig: ${message}`);
+                return;
+              }
+              throw error;
+            }

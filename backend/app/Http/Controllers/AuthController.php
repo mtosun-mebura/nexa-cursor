@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Auth\Events\PasswordReset;
+use Spatie\Permission\Models\Role;
 
 class AuthController extends Controller
 {
@@ -37,6 +38,11 @@ class AuthController extends Controller
             'middle_name' => $request->middle_name,
             'last_name' => $request->last_name,
         ]);
+
+        // Frontend-registraties zijn klant-accounts (voor Mijn Taxi).
+        // We gebruiken een vaste rolnaam zodat admin hierop kan filteren.
+        $klantRole = Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
+        $user->assignRole($klantRole);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 

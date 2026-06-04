@@ -2,14 +2,15 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Company;
 use App\Services\ModuleManager;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Redirect naar home wanneer de Skillmatching-module niet actief is.
- * Gebruikt voor frontend-routes die alleen bij actieve Nexa Skillmatching horen (dashboard, jobs, matches, agenda).
+ * Frontend-portaal (dashboard, matches, agenda, …) alleen voor Nexa Skillmatching.
+ * Gebruikt voor frontend-routes die niet bij Nexa Taxi horen.
  */
 class EnsureSkillmatchingModule
 {
@@ -22,8 +23,16 @@ class EnsureSkillmatchingModule
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$this->moduleManager->isActive('skillmatching')) {
+        if (! $this->moduleManager->isActive('skillmatching')) {
             return redirect()->route('home');
+        }
+
+        if (app()->bound('resolved_tenant') && app('resolved_tenant') instanceof Company) {
+            /** @var Company $tenant */
+            $tenant = app('resolved_tenant');
+            if (! $tenant->hasSkillmatchingModule()) {
+                return redirect()->route('home');
+            }
         }
 
         return $next($request);

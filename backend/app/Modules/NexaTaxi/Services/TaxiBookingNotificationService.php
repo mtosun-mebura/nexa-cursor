@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\RideRequestNotificationLog;
 use App\Services\EnvService;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Mail;
 
 class TaxiBookingNotificationService
 {
+    public const LOG_CONTEXT_CUSTOMER_BOOKING = 'customer_booking';
+
     public function __construct(
         protected EnvService $env,
         protected WhatsAppBusinessService $whatsapp,
@@ -30,6 +33,7 @@ class TaxiBookingNotificationService
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
         $this->sendDispatchWhatsapp($conn, $ride, $settingsCompanyId, $summary);
         $this->sendDriverEmails($conn, $companyId, $ride, $summary, $settingsCompanyId);
+        $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
     }
 
     public function whatsappAutoSendEnabled(?int $companyId = null): bool
@@ -235,6 +239,109 @@ class TaxiBookingNotificationService
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+    }
+
+    private function sendCustomerBookingEmail(
+        string $conn,
+        RideRequest $ride,
+        string $summary,
+        ?int $settingsCompanyId
+    ): void {
+        $rideId = (int) $ride->id;
+
+        if (! $this->dispatchSettings->bookingCustomerEmailEnabled($settingsCompanyId)) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_EMAIL,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                'Klant',
+                null,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': E-mail naar klant bij boeking staat uit in chauffeur-dispatch.'
+            );
+
+            return;
+        }
+
+        $email = trim((string) ($ride->customer_email ?? ''));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_EMAIL,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                (string) ($ride->customer_name ?: 'Klant'),
+                $email !== '' ? $email : null,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': Geen geldig klant-e-mailadres op de rit.'
+            );
+
+            return;
+        }
+
+        $this->env->applyMailConfigToRuntime();
+        $from = $this->env->resolveMailFromHeaders();
+        $fromAddress = $from['from_address'];
+        $fromName = $from['from_name'];
+        $smtpUsername = $from['smtp_username'];
+        $subject = 'Bevestiging van uw taxiboeking #'.$ride->id;
+        $pickupAt = $ride->pickup_at
+            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+            : '—';
+        $customerName = trim((string) ($ride->customer_name ?: ''));
+
+        try {
+            Mail::send('emails.taxi-ride-booking-customer', [
+                'customer_name' => $customerName,
+                'ride_id' => $ride->id,
+                'pickup_at' => $pickupAt,
+                'pickup_address' => $ride->pickup_address,
+                'dropoff_address' => $ride->dropoff_address,
+                'quoted_price' => $ride->quoted_price,
+                'summary_text' => $summary,
+            ], function ($mailMessage) use ($email, $customerName, $subject, $fromAddress, $fromName, $smtpUsername) {
+                $mailMessage->to($email, $customerName !== '' ? $customerName : null)
+                    ->subject($subject)
+                    ->from($fromAddress, $fromName);
+
+                if ($smtpUsername !== '') {
+                    try {
+                        $symfonyMessage = $mailMessage->getSymfonyMessage();
+                        $symfonyMessage->getHeaders()->remove('Sender');
+                        $symfonyMessage->getHeaders()->addMailboxHeader('Sender', $smtpUsername);
+                    } catch (\Throwable) {
+                        // Sender header is optioneel
+                    }
+                }
+            });
+
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_EMAIL,
+                RideRequestNotificationLog::STATUS_SENT,
+                $customerName !== '' ? $customerName : 'Klant',
+                $email,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING
+            );
+        } catch (\Throwable $e) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_EMAIL,
+                RideRequestNotificationLog::STATUS_FAILED,
+                $customerName !== '' ? $customerName : 'Klant',
+                $email,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': '.$e->getMessage()
+            );
+            Log::warning('Klant-e-mail boeking niet verzonden.', [
+                'ride_request_id' => $rideId,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

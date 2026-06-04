@@ -12,6 +12,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
     "@tailwindcss/vite": "^4.1.13",
+    "@vitejs/plugin-vue": "^6.0.1",
     "autoprefixer": "^10.4.21",
     "axios": "^1.11.0",
     "concurrently": "^9.0.1",
@@ -23,6 +24,7 @@
   "dependencies": {
     "alpinejs": "^3.15.0",
     "flag-icons": "^7.5.0",
-    "flowbite-typography": "^1.0.5"
+    "flowbite-typography": "^1.0.5",
+    "vue": "^3.5.0"
   }
 }

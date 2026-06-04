@@ -120,7 +120,6 @@ class DriverRidePaymentController extends Controller
             ->where('driver_id', $request->user()->id)
             ->whereIn('status', [
                 RideRequest::STATUS_ASSIGNED,
-                RideRequest::STATUS_ACCEPTED,
             ])
             ->first();
 

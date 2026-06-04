@@ -5,13 +5,17 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
+use App\Support\TenantSync\TenantSyncConnectionConfig;
+use App\Support\TenantSync\TenantSyncDatabaseUrl;
 use App\Models\WebsiteMedia;
 use App\Models\WebsitePage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\ConfigurationUrlParser;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -27,18 +31,94 @@ final class TenantWebsiteBundleService
 
     public const SYNC_CONNECTION = 'tenant_website_sync_target';
 
+    public const SYNC_MODULE_TAXI_CONNECTION = 'tenant_sync_module_taxi';
+
+    /** Schijf waarop versleutelde website_media staan (root: storage/app/private). */
+    private const MEDIA_DISK = 'local';
+
     public function __construct(
-        protected WebsiteBuilderService $websiteBuilder
+        protected WebsiteBuilderService $websiteBuilder,
+        protected TenantSyncSettingsService $tenantSyncSettings,
+        protected TenantSyncSshTunnelService $sshTunnel,
     ) {}
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function runWithSyncTarget(callable $callback): mixed
+    {
+        return $this->sshTunnel->runIsolated($callback);
+    }
 
     public function syncTargetDatabaseUrl(): ?string
     {
-        $u = trim((string) GeneralSetting::get('tenant_sync_target_database_url', ''));
-        if ($u === '') {
-            $u = trim((string) env('TENANT_SYNC_TARGET_DATABASE_URL', ''));
+        $url = $this->tenantSyncSettings->connectionConfig()->resolvedDatabaseUrl();
+
+        return $url !== '' ? $url : null;
+    }
+
+    /**
+     * Voorgestelde doel-URL voor het admin-veld (prefill-knop).
+     * Volgorde: TENANT_SYNC_TARGET_DATABASE_URL → DB_URL → huidige default database-connection.
+     */
+    public function suggestedTargetDatabaseUrl(): ?string
+    {
+        $fromEnv = trim((string) env('TENANT_SYNC_TARGET_DATABASE_URL', ''));
+        if ($fromEnv !== '') {
+            return $fromEnv;
         }
 
-        return $u !== '' ? $u : null;
+        $dbUrl = trim((string) env('DB_URL', ''));
+        if ($dbUrl !== '') {
+            return $dbUrl;
+        }
+
+        $built = $this->buildDatabaseUrlFromConfig();
+
+        return $built !== null ? TenantSyncDatabaseUrl::stripPassword($built) : null;
+    }
+
+    private function buildDatabaseUrlFromConfig(): ?string
+    {
+        $connection = (string) config('database.default');
+        $config = config("database.connections.{$connection}");
+
+        if (! is_array($config)) {
+            return null;
+        }
+
+        if (! empty($config['url'])) {
+            return trim((string) $config['url']);
+        }
+
+        $driver = (string) ($config['driver'] ?? $connection);
+        if (! in_array($driver, ['pgsql', 'mysql', 'mariadb'], true)) {
+            return null;
+        }
+
+        $host = (string) ($config['host'] ?? '');
+        $database = (string) ($config['database'] ?? '');
+        if ($host === '' || $database === '') {
+            return null;
+        }
+
+        $port = $config['port'] ?? null;
+        $portPart = $port !== null && $port !== '' ? ':'.(int) $port : '';
+
+        $username = rawurlencode((string) ($config['username'] ?? ''));
+        $password = rawurlencode((string) ($config['password'] ?? ''));
+        $authority = $username;
+        if ($password !== '') {
+            $authority .= ':'.$password;
+        }
+        if ($authority !== '') {
+            $authority .= '@';
+        }
+
+        return "{$driver}://{$authority}{$host}{$portPart}/{$database}";
     }
 
     public function isPushEnabledInSettings(): bool
@@ -61,27 +141,43 @@ final class TenantWebsiteBundleService
         return filter_var(env('TENANT_SYNC_ALLOW_PRODUCTION_PUSH', false), FILTER_VALIDATE_BOOLEAN);
     }
 
-    public function testSyncConnection(?string $url = null): void
+    public function testSyncConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
     {
-        $this->registerSyncConnection($url);
-        try {
-            DB::connection(self::SYNC_CONNECTION)->getPdo();
-        } finally {
-            DB::purge(self::SYNC_CONNECTION);
-        }
+        $this->sshTunnel->runIsolated(function () use ($url, $config) {
+            $this->registerSyncConnection($url, $config);
+            try {
+                DB::connection(self::SYNC_CONNECTION)->getPdo();
+            } finally {
+                DB::purge(self::SYNC_CONNECTION);
+            }
+        }, $config);
     }
 
-    public function registerSyncConnection(?string $url = null): void
+    public function registerSyncConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
     {
-        $url ??= $this->syncTargetDatabaseUrl();
-        if ($url === null || $url === '') {
+        $config ??= $this->tenantSyncSettings->connectionConfig();
+        $url = $this->resolveTargetUrl($url, $config);
+        if ($url === '') {
             throw new RuntimeException('Geen doel-database-URL geconfigureerd (Instellingen → Omgeving-sync of TENANT_SYNC_TARGET_DATABASE_URL).');
         }
 
+        $url = $this->sshTunnel->applyTunnelToDatabaseUrl($url, $config);
+
+        $plainPassword = $config->databasePassword;
+        if ($plainPassword === null || $plainPassword === '') {
+            $plainPassword = TenantSyncDatabaseUrl::extractPassword($url);
+        }
+
+        $urlWithoutPassword = TenantSyncDatabaseUrl::stripPassword($url);
+
         $parser = new ConfigurationUrlParser;
-        $parsed = $parser->parseConfiguration(['url' => $url]);
+        $parsed = $parser->parseConfiguration(['url' => $urlWithoutPassword]);
         if (empty($parsed['driver'])) {
             throw new RuntimeException('Database-URL kon niet worden geïnterpreteerd (driver ontbreekt).');
+        }
+
+        if ($plainPassword !== null && $plainPassword !== '') {
+            $parsed['password'] = $plainPassword;
         }
 
         $defaultConn = (string) config('database.default');
@@ -97,6 +193,67 @@ final class TenantWebsiteBundleService
 
         config(['database.connections.'.self::SYNC_CONNECTION => $merged]);
         DB::purge(self::SYNC_CONNECTION);
+    }
+
+    /**
+     * Module-connection naar het sync-doel (zelfde host/DB als SYNC_CONNECTION, schema/search_path van de module).
+     */
+    public function registerSyncModuleConnection(string $moduleName): string
+    {
+        $sync = config('database.connections.'.self::SYNC_CONNECTION);
+        if (! is_array($sync)) {
+            throw new RuntimeException('Sync-connection niet geregistreerd; roep eerst registerSyncConnection() aan.');
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        $moduleName = strtolower(trim($moduleName));
+        $connName = 'tenant_sync_module_'.$moduleName;
+        $merged = $sync;
+
+        if ($dbService->usesSchemaStrategy()) {
+            $schema = $dbService->getModuleSchemaName($moduleName);
+            $merged['search_path'] = $schema.',public';
+        } elseif ($dbService->usesDatabaseStrategy()) {
+            $merged['database'] = $dbService->getModuleDatabaseName($moduleName);
+        } else {
+            $sourceModule = config('database.connections.'.$dbService->getModuleConnectionName($moduleName));
+            if (is_array($sourceModule) && ! empty($sourceModule['search_path'])) {
+                $merged['search_path'] = $sourceModule['search_path'];
+            }
+        }
+
+        config(['database.connections.'.$connName => $merged]);
+        DB::purge($connName);
+
+        return $connName;
+    }
+
+    /**
+     * @deprecated gebruik registerSyncModuleConnection('taxi')
+     */
+    public function registerSyncModuleTaxiConnection(): string
+    {
+        $moduleName = (string) (config('tenant_sync.taxi_module.module_name') ?? 'taxi');
+
+        return $this->registerSyncModuleConnection($moduleName);
+    }
+
+    private function resolveTargetUrl(?string $url, TenantSyncConnectionConfig $config): string
+    {
+        if ($url !== null && trim($url) !== '') {
+            $plain = trim($url);
+            $password = $config->databasePassword;
+            if ($password !== null && $password !== '') {
+                return TenantSyncDatabaseUrl::injectPassword(
+                    TenantSyncDatabaseUrl::stripPassword($plain),
+                    $password
+                );
+            }
+
+            return $plain;
+        }
+
+        return $config->resolvedDatabaseUrl();
     }
 
     /**
@@ -219,11 +376,83 @@ final class TenantWebsiteBundleService
         return $imported;
     }
 
+    /**
+     * Manifest-payload voor carousel/slider-media (website_media) van dit bedrijf.
+     *
+     * @return list<array{uuid: string, original_filename: ?string, mime_type: ?string, encrypted_path: string, size: ?int}>
+     */
+    public function buildWebsiteMediaExportPayloads(Company $company): array
+    {
+        return $this->collectWebsiteMediaRecordsForCompany($company)
+            ->map(fn (WebsiteMedia $m) => [
+                'uuid' => (string) $m->uuid,
+                'original_filename' => $m->original_filename,
+                'mime_type' => $m->mime_type,
+                'encrypted_path' => str_replace('\\', '/', trim((string) $m->encrypted_path, '/')),
+                'size' => $m->size !== null ? (int) $m->size : null,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Versleutelde carousel/slider-media in de ZIP zetten. Standaard ontsleuteld onder media-plain/
+     * (doel-omgeving her-versleutelt met eigen APP_KEY → cross-key veilig). Lukt ontsleutelen niet,
+     * dan de ruwe bytes onder media-local/ als legacy fallback (zelfde-APP_KEY-import).
+     *
+     * @param  list<array<string, mixed>>  $mediaPayloads
+     */
+    public function addWebsiteMediaFilesToZip(ZipArchive $zip, array $mediaPayloads): void
+    {
+        $disk = Storage::disk(self::MEDIA_DISK);
+        foreach ($mediaPayloads as $media) {
+            $rel = str_replace('\\', '/', trim((string) ($media['encrypted_path'] ?? ''), '/'));
+            if ($rel === '' || str_contains($rel, '..') || ! $disk->exists($rel)) {
+                continue;
+            }
+
+            $encrypted = $disk->get($rel);
+            $plain = null;
+            if (is_string($encrypted) && $encrypted !== '') {
+                try {
+                    $decrypted = Crypt::decrypt($encrypted);
+                    $plain = is_string($decrypted) ? $decrypted : null;
+                } catch (\Throwable) {
+                    $plain = null;
+                }
+            }
+
+            if ($plain !== null) {
+                $zip->addFromString('media-plain/'.$rel, $plain);
+            } elseif (is_string($encrypted)) {
+                $zip->addFromString('media-local/'.$rel, $encrypted);
+            }
+        }
+    }
+
+    /**
+     * Volledig herstel van carousel/slider-media uit een ZIP: bestanden terugschrijven
+     * (media-plain/ her-versleuteld met de APP_KEY van deze omgeving, media-local/ ruw als legacy)
+     * en de website_media-rijen upserten op uuid. Retourneert het aantal teruggeschreven bestanden.
+     *
+     * @param  list<array<string, mixed>>  $mediaEntries
+     */
+    public function restoreWebsiteMediaFromZip(string $zipRealPath, array $mediaEntries): int
+    {
+        $written = $this->restoreMediaPlainFilesFromZip($zipRealPath);
+        $written += $this->copyMediaLocalFilesFromZip($zipRealPath);
+        $this->importWebsiteMediaRecords($mediaEntries);
+
+        return $written;
+    }
+
     public function exportZip(Company $company): StreamedResponse
     {
         $allPaths = $this->collectWebsiteMediaPathsForCompany($company);
 
         $pagePayloads = $this->buildPageExportPayloads($company);
+
+        $mediaPayloads = $this->buildWebsiteMediaExportPayloads($company);
 
         $manifest = [
             'bundle_version' => self::BUNDLE_VERSION,
@@ -232,13 +461,14 @@ final class TenantWebsiteBundleService
             'source_company_name' => (string) $company->name,
             'pages' => $pagePayloads,
             'storage_paths' => $allPaths,
-            'note' => 'Import overschrijft website_pages per slug/module_name/company_id op de doelomgeving. Bestanden onder storage/app/public worden toegevoegd.',
+            'website_media' => $mediaPayloads,
+            'note' => 'Import overschrijft website_pages per slug/module_name/company_id op de doelomgeving. Bestanden onder storage/app/public worden toegevoegd; carousel/slider-media (website_media) worden hersteld onder media-local/.',
         ];
 
         $safeSlug = Str::slug($company->name) ?: 'company';
         $filename = 'website-bundle-'.$company->id.'-'.$safeSlug.'-'.now()->format('Y-m-d-His').'.zip';
 
-        return response()->streamDownload(function () use ($manifest, $allPaths) {
+        return response()->streamDownload(function () use ($manifest, $allPaths, $mediaPayloads) {
             $zipPath = tempnam(sys_get_temp_dir(), 'nexa_wb_');
             if ($zipPath === false) {
                 throw new RuntimeException('Kon geen tijdelijk bestand aanmaken.');
@@ -262,6 +492,10 @@ final class TenantWebsiteBundleService
                     $zip->addFile($abs, 'files/'.$rel);
                 }
             }
+
+            // Versleutelde carousel/slider-media: ontsleuteld onder media-plain/ (cross-key veilig),
+            // anders ruwe bytes onder media-local/.
+            $this->addWebsiteMediaFilesToZip($zip, $mediaPayloads);
 
             $zip->close();
 
@@ -314,7 +548,117 @@ final class TenantWebsiteBundleService
 
         $copied = $this->copyFilesFromZipToPublicDisk($tmp);
 
+        $mediaEntries = is_array($manifest['website_media'] ?? null) ? $manifest['website_media'] : [];
+        $copied += $this->restoreWebsiteMediaFromZip($tmp, $mediaEntries);
+
         return ['imported_pages' => $imported, 'copied_files' => $copied];
+    }
+
+    /**
+     * Ontsleutelde carousel/slider-bestanden uit de ZIP (media-plain/) her-versleutelen met de
+     * APP_KEY van deze omgeving en wegschrijven op schijf "local" (storage/app/...), zodat
+     * /website-media/{uuid} ze kan ontsleutelen — ook als de bron een andere APP_KEY had.
+     */
+    private function restoreMediaPlainFilesFromZip(string $zipRealPath): int
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($zipRealPath) !== true) {
+            return 0;
+        }
+
+        $copied = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (! is_string($name) || ! str_starts_with($name, 'media-plain/')) {
+                continue;
+            }
+            $rel = substr($name, strlen('media-plain/'));
+            $rel = str_replace('\\', '/', trim($rel, '/'));
+            if ($rel === '' || str_contains($rel, '..')) {
+                continue;
+            }
+
+            $plain = $zip->getFromIndex($i);
+            if (! is_string($plain)) {
+                continue;
+            }
+
+            Storage::disk(self::MEDIA_DISK)->put($rel, Crypt::encrypt($plain));
+            $copied++;
+        }
+        $zip->close();
+
+        return $copied;
+    }
+
+    /**
+     * Legacy: ruwe (nog versleutelde) carousel/slider-bestanden uit de ZIP (media-local/)
+     * terugschrijven op schijf "local". Werkt alleen als bron en doel dezelfde APP_KEY hebben.
+     */
+    private function copyMediaLocalFilesFromZip(string $zipRealPath): int
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($zipRealPath) !== true) {
+            return 0;
+        }
+
+        $copied = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (! is_string($name) || ! str_starts_with($name, 'media-local/')) {
+                continue;
+            }
+            $rel = substr($name, strlen('media-local/'));
+            $rel = str_replace('\\', '/', trim($rel, '/'));
+            if ($rel === '' || str_contains($rel, '..')) {
+                continue;
+            }
+
+            $content = $zip->getFromIndex($i);
+            if (is_string($content)) {
+                Storage::disk(self::MEDIA_DISK)->put($rel, $content);
+                $copied++;
+            }
+        }
+        $zip->close();
+
+        return $copied;
+    }
+
+    /**
+     * website_media-rijen herstellen (upsert op uuid) zodat /website-media/{uuid} op het doel werkt.
+     *
+     * @param  list<array<string, mixed>>  $entries
+     */
+    private function importWebsiteMediaRecords(array $entries): int
+    {
+        if ($entries === [] || ! Schema::hasTable('website_media')) {
+            return 0;
+        }
+
+        $imported = 0;
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $uuid = trim((string) ($entry['uuid'] ?? ''));
+            $encryptedPath = str_replace('\\', '/', trim((string) ($entry['encrypted_path'] ?? ''), '/'));
+            if ($uuid === '' || $encryptedPath === '' || str_contains($encryptedPath, '..')) {
+                continue;
+            }
+
+            $attrs = [
+                'original_filename' => $entry['original_filename'] ?? null,
+                'mime_type' => $entry['mime_type'] ?? null,
+                'encrypted_path' => $encryptedPath,
+                'size' => isset($entry['size']) && $entry['size'] !== null ? (int) $entry['size'] : null,
+            ];
+
+            WebsiteMedia::query()->updateOrCreate(['uuid' => $uuid], $attrs);
+            $imported++;
+        }
+
+        return $imported;
     }
 
     private function copyFilesFromZipToPublicDisk(string $zipRealPath): int
@@ -410,16 +754,12 @@ final class TenantWebsiteBundleService
     }
 
     /**
-     * Versleutelde carousel-/website-media op schijf "local" (storage/app/…), gerefereerd vanuit pagina’s van dit bedrijf.
+     * UUID's van website-media (carousel/slider) gerefereerd vanuit pagina's van dit bedrijf.
      *
-     * @return list<string> paden relatief t.o.v. storage/app (niet public)
+     * @return list<string>
      */
-    public function collectEncryptedWebsiteMediaAppPathsForCompany(Company $company): array
+    public function collectReferencedWebsiteMediaUuids(Company $company): array
     {
-        if (! Schema::hasTable('website_media')) {
-            return [];
-        }
-
         $pages = $this->websiteBuilder->loadAllPagesForAdminIndex((int) $company->id, true)
             ->reject(fn (WebsitePage $p) => WebsitePage::isCentralMarketingWelcomeSlug($p->slug));
 
@@ -431,29 +771,46 @@ final class TenantWebsiteBundleService
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).' ';
         }
 
-        if ($blob === '') {
+        if ($blob === '' || ! preg_match_all('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i', $blob, $mu)) {
             return [];
         }
 
-        if (! preg_match_all('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i', $blob, $mu)) {
-            return [];
+        return array_values(array_unique(array_slice($mu[0], 0, 500)));
+    }
+
+    /**
+     * Versleutelde website-media-records (carousel/slider) gerefereerd vanuit pagina's van dit bedrijf.
+     *
+     * @return \Illuminate\Support\Collection<int, WebsiteMedia>
+     */
+    public function collectWebsiteMediaRecordsForCompany(Company $company): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('website_media')) {
+            return collect();
         }
 
-        $uuids = array_values(array_unique(array_slice($mu[0], 0, 500)));
+        $uuids = $this->collectReferencedWebsiteMediaUuids($company);
         if ($uuids === []) {
-            return [];
+            return collect();
         }
 
-        $paths = WebsiteMedia::query()
-            ->whereIn('uuid', $uuids)
+        return WebsiteMedia::query()->whereIn('uuid', $uuids)->get();
+    }
+
+    /**
+     * Versleutelde carousel-/website-media op schijf "local" (storage/app/…), gerefereerd vanuit pagina’s van dit bedrijf.
+     *
+     * @return list<string> paden relatief t.o.v. storage/app (niet public)
+     */
+    public function collectEncryptedWebsiteMediaAppPathsForCompany(Company $company): array
+    {
+        return $this->collectWebsiteMediaRecordsForCompany($company)
             ->pluck('encrypted_path')
             ->filter(fn ($p) => is_string($p) && trim($p) !== '' && ! str_contains((string) $p, '..'))
             ->map(fn ($p) => str_replace('\\', '/', trim((string) $p, '/')))
             ->unique()
             ->values()
             ->all();
-
-        return array_values($paths);
     }
 
     public function normalizeStorageRelativePath(string $path): string
