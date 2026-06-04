@@ -14,6 +14,15 @@ on:
         required: false
         default: ''
         type: string
+      bump_type:
+        description: 'Versiebump als version leeg is'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -50,7 +59,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          git fetch origin main:refs/remotes/origin/main --tags --force
+          git fetch --no-tags origin main
+          sha="$(git rev-parse --verify FETCH_HEAD^{commit})"
+          previous=""
+          bump="${{ github.event.inputs.bump_type || 'patch' }}"
+          case "$bump" in
+            patch|minor|major) ;;
+            *)
+              echo "ERROR: bump_type moet patch, minor of major zijn" >&2
+              exit 1
+              ;;
+          esac
 
           ref="${{ github.event.inputs.version || '' }}"
           if [[ -n "$ref" ]]; then
@@ -61,7 +80,8 @@ jobs:
             fi
           else
             latest="$(
-              git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+              git ls-remote --tags --refs --sort=-v:refname origin 'v[0-9]*.[0-9]*.[0-9]*' \
+                | sed 's#^.*refs/tags/##' \
                 | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
                 | head -n 1 \
                 || true
@@ -69,9 +89,23 @@ jobs:
             if [[ -z "$latest" ]]; then
               ref="v1.0.0"
             else
+              previous="$latest"
               version="${latest#v}"
               IFS=. read -r major minor patch <<< "$version"
-              patch=$((patch + 1))
+              case "$bump" in
+                patch)
+                  patch=$((patch + 1))
+                  ;;
+                minor)
+                  minor=$((minor + 1))
+                  patch=0
+                  ;;
+                major)
+                  major=$((major + 1))
+                  minor=0
+                  patch=0
+                  ;;
+              esac
               ref="v${major}.${minor}.${patch}"
             fi
           fi
@@ -81,15 +115,16 @@ jobs:
             exit 1
           fi
 
-          if git rev-parse "refs/tags/${ref}" >/dev/null 2>&1 \
-            || git ls-remote --exit-code --tags origin "refs/tags/${ref}" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --tags origin "refs/tags/${ref}" >/dev/null 2>&1; then
             echo "ERROR: Tag ${ref} bestaat al" >&2
             exit 1
           fi
-          sha="$(git rev-parse refs/remotes/origin/main^{commit})"
+
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "Tag wordt gezet op origin/main: ${sha}"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "Tag wordt gezet op origin/main FETCH_HEAD: ${sha}"
 
       - name: Create and push annotated tag
         run: |
@@ -98,7 +133,13 @@ jobs:
           sha="${{ steps.meta.outputs.sha }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$ref" "$sha" -m "Release $ref (main @ ${sha:0:7})"
+          previous="${{ steps.meta.outputs.previous }}"
+          bump="${{ steps.meta.outputs.bump }}"
+          message="$(printf 'Release %s\nMain commit: %s\nBump: %s' "$ref" "$sha" "$bump")"
+          if [[ -n "$previous" ]]; then
+            message="$(printf '%s\nPrevious: %s' "$message" "$previous")"
+          fi
+          git tag -a "$ref" "$sha" -m "$message"
           git push origin "$ref"
           echo "Tag $ref gepusht."
 
@@ -122,11 +163,30 @@ jobs:
           set -euo pipefail
           ref="${{ steps.meta.outputs.ref }}"
           sha="${{ steps.meta.outputs.sha }}"
+          previous="${{ steps.meta.outputs.previous }}"
+          bump="${{ steps.meta.outputs.bump }}"
+          compare_url=""
+          commits_since=""
+          if [[ -n "$previous" ]]; then
+            compare_url="${{ github.server_url }}/${{ github.repository }}/compare/${previous}...${ref}"
+            git fetch --no-tags origin "refs/tags/${previous}:refs/tags/${previous}" || true
+            commits_since="$(git rev-list --count "${previous}..${sha}" 2>/dev/null || echo "?")"
+          fi
           {
             echo "## PROD tag aangemaakt"
             echo ""
+            if [[ -n "$previous" ]]; then
+              echo "- Vorige PROD versie: \`${previous}\`"
+            else
+              echo "- Vorige PROD versie: geen bestaande semver tag gevonden"
+            fi
             echo "- Tag: \`${ref}\`"
+            echo "- Type: \`${bump}\`"
             echo "- Commit: \`${sha}\`"
+            if [[ -n "$compare_url" ]]; then
+              echo "- Wijzigingen sinds vorige tag: \`${commits_since}\` commits"
+              echo "- Compare: ${compare_url}"
+            fi
             echo ""
             echo "Handmatig deployen:"
             echo "1. Ga naar Actions -> Deploy PROD."
