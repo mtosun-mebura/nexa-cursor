@@ -112,17 +112,18 @@ jobs:
         run: |
           set -euo pipefail
           ref="${{ steps.version.outputs.ref }}"
-          safe="${ref//[^a-zA-Z0-9_.-]/_}"
           src="deploy/deploy-tenant.sh"
           if [[ ! -f "$src" ]]; then
             echo "ERROR: $src ontbreekt in tag ${ref}" >&2
             exit 1
           fi
-          dest="/tmp/nexa-deploy-tenant-${safe}.sh"
-          cp "$src" "$dest"
-          chmod 755 "$dest"
-          echo "remote_path=$dest" >> "$GITHUB_OUTPUT"
-          echo "Deploy-script klaar: $dest ($(wc -c < "$dest") bytes)"
+          # Relatief pad in workspace (scp-action vindt absolute /tmp-paden op de runner niet betrouwbaar).
+          upload_name="nexa-deploy-tenant-ci.sh"
+          cp "$src" "$upload_name"
+          chmod 755 "$upload_name"
+          echo "upload_source=$upload_name" >> "$GITHUB_OUTPUT"
+          echo "remote_path=/tmp/nexa-deploy-tenant-ci.sh" >> "$GITHUB_OUTPUT"
+          echo "Deploy-script klaar: $upload_name ($(wc -c < "$upload_name") bytes) → remote /tmp/nexa-deploy-tenant-ci.sh"
 
       - name: Upload deploy script to PROD
         uses: appleboy/scp-action@v1.0.0
@@ -130,9 +131,26 @@ jobs:
           host: ${{ secrets.AWS_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.AWS_SSH_KEY }}
-          source: ${{ steps.deploy_script.outputs.remote_path }}
+          source: ${{ steps.deploy_script.outputs.upload_source }}
           target: /tmp/
           overwrite: true
+
+      - name: Verify deploy script on PROD
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            path="/tmp/nexa-deploy-tenant-ci.sh"
+            if [[ ! -f "$path" ]]; then
+              echo "ERROR: Upload ontbreekt op server: $path" >&2
+              ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || ls -la /tmp >&2
+              exit 1
+            fi
+            echo "OK: $path ($(wc -c < "$path") bytes, uitvoerbaar: $([ -x "$path" ] && echo ja || echo nee))"
 
       - name: Deploy to PROD (deploy-tenant.sh)
         uses: appleboy/ssh-action@v1.2.0
@@ -162,6 +180,7 @@ jobs:
             echo "TENANT_DIR: $TENANT_DIR"
             echo "GIT_REF: $GIT_REF"
             echo "DEPLOY_USER: $DEPLOY_USER"
+            echo "DEPLOY_SCRIPT: ${DEPLOY_SCRIPT:-<unset>}"
 
             if [[ ! -d "$TENANT_DIR/.git" ]]; then
               echo "ERROR: Geen git-repo in TENANT_DIR ($TENANT_DIR)" >&2
@@ -182,7 +201,9 @@ jobs:
 
             SCRIPT="$(_resolve_deploy_script)"
             if [[ -z "$SCRIPT" ]]; then
-              echo "==> deploy-tenant.sh ontbreekt; fallback: git show uit tag $GIT_REF"
+              echo "WARN: Geen deploy-script gevonden (DEPLOY_SCRIPT=${DEPLOY_SCRIPT:-})" >&2
+              ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
+              echo "==> fallback: git show uit tag $GIT_REF"
               TMP_SCRIPT="/tmp/nexa-deploy-tenant-${GIT_REF//[^a-zA-Z0-9_.-]/_}.sh"
               if [[ "$(id -un)" != "$DEPLOY_USER" ]] && sudo -n -u "$DEPLOY_USER" true 2>/dev/null; then
                 if ! sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" "refs/tags/${GIT_REF}:refs/tags/${GIT_REF}" --force; then
