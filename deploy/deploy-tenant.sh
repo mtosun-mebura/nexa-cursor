@@ -200,11 +200,6 @@ if [[ ! -d "$TENANT_DIR/.git" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$BACKEND_DIR" ]]; then
-  echo "ERROR: Backend directory niet gevonden: $BACKEND_DIR" >&2
-  exit 1
-fi
-
 cd "$TENANT_DIR"
 
 DEPLOY_LOG="${DEPLOY_LOG:-$TENANT_DIR/storage/logs/deploy-latest.log}"
@@ -369,6 +364,12 @@ else
   echo "==> Git fetch + reset naar ${GIT_REMOTE}/${GIT_BRANCH}"
   _git fetch "$GIT_REMOTE"
   _git reset --hard "${GIT_REMOTE}/${GIT_BRANCH}"
+fi
+
+if [[ ! -d "$BACKEND_DIR" ]]; then
+  echo "ERROR: Backend directory niet gevonden na git checkout: $BACKEND_DIR" >&2
+  echo "TIP: controleer GIT_REF/GIT_BRANCH en of origin de volledige monorepo bevat (map backend/)." >&2
+  exit 1
 fi
 
 echo "==> Frontend build (Vite in backend/)"

@@ -101,22 +101,24 @@ jobs:
 
           echo "Tag ${ref} bevestigd op main (${tag_sha})."
 
-      - name: Checkout deploy tag (deploy script)
+      - name: Checkout main (laatste deploy-tenant.sh)
         uses: actions/checkout@v5
         with:
-          ref: ${{ steps.version.outputs.ref }}
+          ref: main
           fetch-depth: 1
+          path: deploy-main
 
       - name: Prepare deploy script for upload
         id: deploy_script
         run: |
           set -euo pipefail
           ref="${{ steps.version.outputs.ref }}"
-          src="deploy/deploy-tenant.sh"
+          src="deploy-main/deploy/deploy-tenant.sh"
           if [[ ! -f "$src" ]]; then
-            echo "ERROR: $src ontbreekt in tag ${ref}" >&2
+            echo "ERROR: $src ontbreekt op main" >&2
             exit 1
           fi
+          echo "Deploy-script van main; app-code wordt op server uitgecheckt naar tag ${ref}."
           # Relatief pad in workspace (scp-action vindt absolute /tmp-paden op de runner niet betrouwbaar).
           upload_name="nexa-deploy-tenant-ci.sh"
           cp "$src" "$upload_name"
@@ -170,10 +172,11 @@ jobs:
             TENANT_DIR="${APP_DIR:-/home/ubuntu/nexasuite}"
             DEPLOY_USER="${AWS_USER:-ubuntu}"
             GIT_REMOTE="origin"
-            export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER
+            export TENANT_DIR GIT_REF GIT_REMOTE DEPLOY_USER DEPLOY_SCRIPT
             export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.deploy.yml}"
             export LARAVEL_SERVICE="${LARAVEL_SERVICE:-backend}"
             export REQUIRE_COMPOSE_V2=1
+            export DEBUG_DEPLOY="${DEBUG_DEPLOY:-1}"
 
             echo "=== PROD deploy ==="
             echo "Host: $(hostname)"
@@ -199,9 +202,19 @@ jobs:
               echo ""
             }
 
+            if [[ -n "${DEPLOY_SCRIPT:-}" ]]; then
+              if [[ -f "$DEPLOY_SCRIPT" ]]; then
+                echo "==> CI-upload script aanwezig: $DEPLOY_SCRIPT ($(wc -c < "$DEPLOY_SCRIPT") bytes)"
+              else
+                echo "ERROR: CI-upload script ontbreekt op server: $DEPLOY_SCRIPT" >&2
+                ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
+                exit 1
+              fi
+            fi
+
             SCRIPT="$(_resolve_deploy_script)"
             if [[ -z "$SCRIPT" ]]; then
-              echo "WARN: Geen deploy-script gevonden (DEPLOY_SCRIPT=${DEPLOY_SCRIPT:-})" >&2
+              echo "ERROR: Geen deploy-script gevonden (DEPLOY_SCRIPT=${DEPLOY_SCRIPT:-})" >&2
               ls -la /tmp/nexa* /tmp/deploy* 2>/dev/null || true
               echo "==> fallback: git show uit tag $GIT_REF"
               TMP_SCRIPT="/tmp/nexa-deploy-tenant-${GIT_REF//[^a-zA-Z0-9_.-]/_}.sh"
@@ -234,19 +247,33 @@ jobs:
               echo "==> Deploy-script: $SCRIPT"
             fi
 
-            if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
-              echo "==> SSH-user is $(id -un); deploy als $DEPLOY_USER"
-              sudo -u "$DEPLOY_USER" -H env \
-                TENANT_DIR="$TENANT_DIR" \
-                GIT_REF="$GIT_REF" \
-                GIT_REMOTE="$GIT_REMOTE" \
-                COMPOSE_FILE="$COMPOSE_FILE" \
-                LARAVEL_SERVICE="$LARAVEL_SERVICE" \
-                DEPLOY_USER="$DEPLOY_USER" \
-                REQUIRE_COMPOSE_V2=1 \
+            _run_deploy() {
+              if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
+                echo "==> SSH-user is $(id -un); deploy als $DEPLOY_USER"
+                sudo -u "$DEPLOY_USER" -H env \
+                  TENANT_DIR="$TENANT_DIR" \
+                  GIT_REF="$GIT_REF" \
+                  GIT_REMOTE="$GIT_REMOTE" \
+                  COMPOSE_FILE="$COMPOSE_FILE" \
+                  LARAVEL_SERVICE="$LARAVEL_SERVICE" \
+                  DEPLOY_USER="$DEPLOY_USER" \
+                  REQUIRE_COMPOSE_V2=1 \
+                  DEBUG_DEPLOY="${DEBUG_DEPLOY:-}" \
+                  bash "$SCRIPT"
+              else
                 bash "$SCRIPT"
-            else
-              bash "$SCRIPT"
+              fi
+            }
+
+            if ! _run_deploy; then
+              code=$?
+              echo "ERROR: deploy-tenant.sh exit ${code}" >&2
+              log="$TENANT_DIR/storage/logs/deploy-latest.log"
+              if [[ -f "$log" ]]; then
+                echo "=== deploy-latest.log (tail) ==="
+                tail -n 80 "$log" || true
+              fi
+              exit "$code"
             fi
 
             echo "=== PROD deploy afgerond ==="
