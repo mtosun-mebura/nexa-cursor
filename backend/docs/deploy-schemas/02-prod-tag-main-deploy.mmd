@@ -1,10 +1,10 @@
 flowchart TD
     A[Release/test is akkoord] --> B[PR of merge naar main]
-    B --> C[Workflow: Create PROD tag main only]
+    B --> C[Workflow: Queue PROD tag after release/test merge]
     C --> D{PR kwam van release/test en is gemerged?}
     D -- Nee --> E[Geen PROD-tag]
-    D -- Ja --> F[Checkout en fetch origin/main + tags]
-    F --> G[Valideer semver tag vX.Y.Z]
+    D -- Ja --> F[Dispatch Create PROD tag op branch main]
+    F --> G[Checkout en fetch origin/main + tags]
     G --> H{Tag bestaat al lokaal of remote?}
     H -- Ja --> I[Stop; tagnaam moet uniek zijn]
     H -- Nee --> J[Maak annotated tag op origin/main SHA]
