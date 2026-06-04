@@ -43,11 +43,11 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Release/test is akkoord] --> B[PR of merge naar main]
-    B --> C[Workflow: Create PROD tag main only]
+    B --> C[Workflow: Queue PROD tag after release/test merge]
     C --> D{PR kwam van release/test en is gemerged?}
     D -- Nee --> E[Geen PROD-tag]
-    D -- Ja --> F[Checkout en fetch origin/main + tags]
-    F --> G[Valideer semver tag vX.Y.Z]
+    D -- Ja --> F[Dispatch Create PROD tag op branch main]
+    F --> G[Checkout en fetch origin/main + tags]
     G --> H{Tag bestaat al lokaal of remote?}
     H -- Ja --> I[Stop; tagnaam moet uniek zijn]
     H -- Nee --> J[Maak annotated tag op origin/main SHA]
@@ -94,5 +94,6 @@ flowchart TD
 - `.github/workflows/open-pr-to-test.yml`: opent automatisch een PR van elke werkbranch naar `release/test`.
 - `.github/workflows/auto-merge-test-pr.yml`: wacht op check `test` en merget de PR naar `release/test`.
 - `.github/workflows/deploy-saas.yml`: deployt TEST op push naar `release/test`.
-- `.github/workflows/create-prod-tag.yml`: maakt een PROD-tag op `origin/main` en start PROD-deploy.
+- `.github/workflows/queue-prod-tag-on-release-merge.yml`: start na merge `release/test` naar `main` de PROD-tag workflow op branch `main`.
+- `.github/workflows/create-prod-tag.yml`: maakt een PROD-tag op `origin/main` en geeft handmatige deploy-instructies.
 - `.github/workflows/deploy-prod.yml`: deployt een gevalideerde `v*` tag naar PROD.

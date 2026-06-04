@@ -1,22 +1,18 @@
 # PROD-only: maakt tag vX.Y.Z op main HEAD.
 # Test: branch release/test (Proxmox). Prod: tag + deploy (AWS Lightsail).
 #
-# Automatisch: na merge van PR release/test -> main wordt de volgende patch-tag
-# aangemaakt. Daarna start Deploy PROD bewust handmatig met die tag.
+# Automatisch gestart door queue-prod-tag-on-release-merge.yml op ref main.
+# Daarna start Deploy PROD bewust handmatig met die tag.
 
 name: Create PROD tag (main only)
 
 on:
-  pull_request:
-    branches:
-      - main
-    types:
-      - closed
   workflow_dispatch:
     inputs:
       version:
-        description: 'Tag op main, bijv. v1.2.0 (leeg is niet toegestaan bij handmatige run)'
-        required: true
+        description: 'Tag op main, bijv. v1.2.0 (leeg = volgende patch-tag)'
+        required: false
+        default: ''
         type: string
 
 permissions:
@@ -29,14 +25,12 @@ concurrency:
 
 jobs:
   create-tag:
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'release/test')
     runs-on: ubuntu-latest
     outputs:
       ref: ${{ steps.meta.outputs.ref }}
       sha: ${{ steps.meta.outputs.sha }}
     steps:
       - name: Ensure workflow ref is main
-        if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
           if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
