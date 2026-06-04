@@ -246,4 +246,48 @@ class SkillmatchingPortalAccessTest extends TestCase
             ->get(route('dashboard'))
             ->assertRedirect(route('home'));
     }
+
+    #[Test]
+    public function login_page_hides_skillmatching_content_for_taxi_tenant_with_mijn_taxi_intended(): void
+    {
+        Module::create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+            'configuration' => [
+                'app_name' => 'Taxi Royaal',
+                'dashboard_link_label' => 'Mijn Taxi',
+            ],
+        ]);
+
+        $company = Company::query()->create(['name' => 'Taxi Royaal', 'slug' => 'taxi-royaal-'.uniqid()]);
+        $company->modules()->attach(Module::where('name', 'taxi')->first()->id);
+
+        app()->instance('resolved_tenant', $company);
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $response = $this->get(route('login', [
+            'intended' => route('taxi.portal.dashboard'),
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('Taxi Royaal', false);
+        $response->assertDontSee('>Vacatures</a>', false);
+        $response->assertDontSee('Waarom inloggen?', false);
+        $response->assertDontSee('AI Matches', false);
+    }
+
+    #[Test]
+    public function resolve_public_frontend_module_name_uses_mijn_taxi_intended(): void
+    {
+        $request = \Illuminate\Http\Request::create('/login', 'GET', [
+            'intended' => 'http://localhost/mijn-taxi',
+        ]);
+
+        $this->assertSame('taxi', app(\App\Services\WebsiteBuilderService::class)->resolvePublicFrontendModuleName($request));
+    }
 }

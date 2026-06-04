@@ -31,15 +31,34 @@
         return false;
     }
 
+    function findInputWrap(input) {
+        var parent = input.parentNode;
+        if (!parent) return null;
+
+        // Form-validation.js zet het veld in een directe div.relative; hergebruik alleen die wrapper.
+        if (parent.classList && parent.classList.contains('relative')) {
+            return parent;
+        }
+
+        if (typeof input.closest === 'function') {
+            var candidate = input.closest('.relative');
+            if (candidate
+                && input.parentNode === candidate
+                && candidate.querySelector('.validation-icon-wrapper')) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     function enhance(input) {
         if (shouldSkip(input)) return;
         var parent = input.parentNode;
         if (!parent) return;
         input.dataset.pwToggle = 'done';
 
-        // Hergebruik een bestaande .relative wrapper (bijv. aangemaakt door form-validation.js),
-        // anders maken we zelf een wrapper. Zo voorkomen we dubbele wrappers en kapotte icoon-lookups.
-        var wrap = (typeof input.closest === 'function') ? input.closest('.relative') : null;
+        var wrap = findInputWrap(input);
         if (!wrap) {
             wrap = document.createElement('span');
             wrap.className = 'js-pw-toggle-wrap';

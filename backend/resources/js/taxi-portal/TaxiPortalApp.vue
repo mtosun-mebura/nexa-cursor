@@ -1,9 +1,138 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
-type TabKey = 'rides' | 'profile' | 'invoices'
+type TabKey = 'dashboard' | 'rides' | 'profile' | 'invoices'
 
-const tab = ref<TabKey>('rides')
+type PortalRide = {
+  id: number
+  from: string
+  to: string
+  route: string
+  at: string
+  pickup_at_iso?: string | null
+  status?: string
+  status_label: string
+  status_badge: string
+  amount: string
+  amount_raw?: number | null
+  invoice_id: number | null
+  has_invoice: boolean
+  can_view_invoice_pdf?: boolean
+}
+
+type RidesSortKey = 'route' | 'date' | 'status' | 'amount'
+type SortDir = 'asc' | 'desc'
+
+type PortalRideDetail = PortalRide & {
+  summary_text?: string
+  summary_lines?: string[]
+  customer_name?: string
+  customer_phone?: string
+  customer_email?: string
+  passengers?: number
+  payment_method?: string
+  payment_status?: string
+  distance_km?: number | null
+  duration_minutes?: number | null
+  customer_note?: string
+  invoice_number?: string | null
+}
+
+type ChartPeriod = 'day' | 'month' | 'year'
+
+type PortalDashboardStats = {
+  total_rides: number
+  completed_rides: number
+  upcoming_rides: number
+  total_spent: string
+  total_spent_raw: number
+  invoice_count: number
+}
+
+type PortalDashboard = {
+  stats: PortalDashboardStats
+  chart: {
+    labels: string[]
+    amounts: number[]
+    has_data: boolean
+    total: number
+    period: ChartPeriod
+    period_label: string
+  }
+}
+
+type PortalInvoice = {
+  id: number
+  invoice_number: string
+  ride_id: number | null
+  date: string
+  date_iso?: string | null
+  status_label: string
+  status_badge: string
+  amount: string
+  amount_raw?: number
+  route: string | null
+  from: string | null
+  to: string | null
+}
+
+type InvoicesSortKey = 'invoice_number' | 'route' | 'date' | 'status' | 'amount'
+
+type PortalProfile = {
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+}
+
+const VALID_TABS: TabKey[] = ['dashboard', 'rides', 'profile', 'invoices']
+
+declare global {
+  interface Window {
+    ApexCharts?: new (
+      el: HTMLElement,
+      options: Record<string, unknown>
+    ) => { render: () => void; destroy: () => void }
+  }
+}
+
+function readPortalStateFromUrl(): { tab: TabKey; showNewRide: boolean } {
+  const params = new URLSearchParams(window.location.search)
+  const tabParam = params.get('tab')
+  const hashTab = window.location.hash.replace(/^#/, '').trim()
+
+  let resolvedTab: TabKey = 'dashboard'
+  if (tabParam && (VALID_TABS as string[]).includes(tabParam)) {
+    resolvedTab = tabParam as TabKey
+  } else if (hashTab && (VALID_TABS as string[]).includes(hashTab)) {
+    resolvedTab = hashTab as TabKey
+  }
+
+  const showNewRide =
+    params.get('booking') === '1' || params.get('view') === 'new-ride'
+
+  return { tab: showNewRide ? 'rides' : resolvedTab, showNewRide }
+}
+
+function syncPortalUrl() {
+  const params = new URLSearchParams()
+  params.set('tab', tab.value)
+  if (showNewRide.value) {
+    params.set('booking', '1')
+  }
+  const query = params.toString()
+  const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname
+  if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+    history.replaceState(history.state, '', nextUrl)
+  }
+}
+
+const initialPortalState = readPortalStateFromUrl()
+
+const tab = ref<TabKey>(initialPortalState.tab)
+const showNewRide = ref(initialPortalState.showNewRide)
+const bookingSlot = ref<HTMLElement | null>(null)
+const bookingMounted = ref(false)
 
 const mountEl = document.getElementById('taxi-portal-app')
 const logoAlt = mountEl?.dataset.logoAlt || 'Nexa'
@@ -11,8 +140,56 @@ const logoHref = mountEl?.dataset.logoHref || '#'
 const logoLight = mountEl?.dataset.logoLight || '/metronic-v9.4.13/demo1/assets/media/app/default-logo.svg'
 const logoDark = mountEl?.dataset.logoDark || '/metronic-v9.4.13/demo1/assets/media/app/default-logo-dark.svg'
 
+const apiDashboardUrl = mountEl?.dataset.apiDashboard || '/mijn-taxi/api/dashboard'
+const apiRidesUrl = mountEl?.dataset.apiRides || '/mijn-taxi/api/rides'
+const apiRidesBase = (mountEl?.dataset.apiRidesBase || '/mijn-taxi/api/rides').replace(/\/$/, '')
+const apiInvoicesUrl = mountEl?.dataset.apiInvoices || '/mijn-taxi/api/invoices'
+const apiProfileUrl = mountEl?.dataset.apiProfile || '/mijn-taxi/api/profile'
+const apiProfileUpdateUrl = mountEl?.dataset.apiProfileUpdate || '/mijn-taxi/api/profile'
+const apiInvoicePdfBase = (mountEl?.dataset.apiInvoicePdf || '/mijn-taxi/api/invoices').replace(/\/$/, '')
+
+function csrfToken(): string {
+  return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || ''
+}
+
+async function portalFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+    ...(options.headers as Record<string, string> | undefined),
+  }
+  if (options.method && options.method !== 'GET') {
+    headers['X-CSRF-TOKEN'] = csrfToken()
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'
+    }
+  }
+
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    ...options,
+    headers,
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok || payload.success === false) {
+    const message =
+      payload.message ||
+      (payload.errors ? Object.values(payload.errors).flat().join(' ') : null) ||
+      'Er ging iets mis.'
+    throw new Error(message)
+  }
+
+  return payload as T
+}
+
 const title = computed(() => {
+  if (showNewRide.value) {
+    return 'Nieuwe rit'
+  }
   switch (tab.value) {
+    case 'dashboard':
+      return 'Dashboard'
     case 'rides':
       return 'Mijn ritten'
     case 'profile':
@@ -22,61 +199,646 @@ const title = computed(() => {
   }
 })
 
-const rides = ref([
-  {
-    id: 1024,
-    from: 'Schiphol',
-    to: 'Amsterdam',
-    at: '2026-06-02 10:30',
-    status: 'Gepland',
-    amount: '€ 52,00',
-  },
-  {
-    id: 1008,
-    from: 'Amsterdam',
-    to: 'Utrecht',
-    at: '2026-05-30 18:10',
-    status: 'Voltooid',
-    amount: '€ 84,50',
-  },
-])
+const chartSectionTitle = computed(() => {
+  switch (chartPeriod.value) {
+    case 'month':
+      return 'Kosten per maand'
+    case 'year':
+      return 'Kosten per jaar'
+    default:
+      return 'Kosten per dag'
+  }
+})
 
-const profile = ref({
-  first_name: 'Jan',
-  last_name: 'Jansen',
-  email: 'jan@voorbeeld.nl',
-  phone: '0612345678',
+function dashboardApiUrl(period: ChartPeriod = chartPeriod.value): string {
+  return `${apiDashboardUrl}?chart_period=${encodeURIComponent(period)}`
+}
+
+const dashboard = ref<PortalDashboard | null>(null)
+const dashboardLoading = ref(false)
+const dashboardError = ref<string | null>(null)
+const dashboardLoaded = ref(false)
+const chartPeriod = ref<ChartPeriod>('month')
+const chartLoading = ref(false)
+const costChartEl = ref<HTMLElement | null>(null)
+let costChartInstance: { destroy: () => void; render: () => void } | null = null
+const APEX_CHARTS_SRC = '/assets/vendors/apexcharts/apexcharts.min.js'
+
+const rides = ref<PortalRide[]>([])
+const ridesSortKey = ref<RidesSortKey>('date')
+const ridesSortDir = ref<SortDir>('desc')
+const ridesLoading = ref(false)
+const ridesError = ref<string | null>(null)
+const ridesLoaded = ref(false)
+
+const invoices = ref<PortalInvoice[]>([])
+const invoicesSortKey = ref<InvoicesSortKey>('date')
+const invoicesSortDir = ref<SortDir>('desc')
+const invoicesLoading = ref(false)
+const invoicesError = ref<string | null>(null)
+const invoicesLoaded = ref(false)
+
+const profile = ref<PortalProfile>({
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: '',
+})
+const profileLoading = ref(false)
+const profileSaving = ref(false)
+const profileError = ref<string | null>(null)
+const profileSuccess = ref<string | null>(null)
+const profileLoaded = ref(false)
+
+const rideDetailOpen = ref(false)
+const rideDetailLoading = ref(false)
+const rideDetailError = ref<string | null>(null)
+const rideDetail = ref<PortalRideDetail | null>(null)
+
+function rideBadgeClass(badge: string): string {
+  if (badge === 'success') return 'kt-badge-success'
+  if (badge === 'danger') return 'kt-badge-danger'
+  if (badge === 'warning') return 'kt-badge-warning'
+  if (badge === 'secondary') return 'kt-badge-outline'
+  return 'kt-badge-info'
+}
+
+function rideRouteSortValue(ride: PortalRide): string {
+  if (ride.from && ride.to) {
+    return `${ride.from} ${ride.to}`.toLowerCase()
+  }
+
+  return (ride.route || '').toLowerCase()
+}
+
+function ridesSortAria(key: RidesSortKey): 'asc' | 'desc' | 'none' {
+  return ridesSortKey.value === key ? ridesSortDir.value : 'none'
+}
+
+function toggleRidesSort(key: RidesSortKey): void {
+  if (ridesSortKey.value === key) {
+    ridesSortDir.value = ridesSortDir.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  ridesSortKey.value = key
+  ridesSortDir.value = key === 'date' || key === 'amount' ? 'desc' : 'asc'
+}
+
+const sortedRides = computed(() => {
+  const dir = ridesSortDir.value === 'asc' ? 1 : -1
+  const list = [...rides.value]
+
+  list.sort((a, b) => {
+    let cmp = 0
+
+    switch (ridesSortKey.value) {
+      case 'route':
+        cmp = rideRouteSortValue(a).localeCompare(rideRouteSortValue(b), 'nl', {
+          sensitivity: 'base',
+        })
+        break
+      case 'date': {
+        const aTime = a.pickup_at_iso ? Date.parse(a.pickup_at_iso) : Number.NaN
+        const bTime = b.pickup_at_iso ? Date.parse(b.pickup_at_iso) : Number.NaN
+        const aMissing = Number.isNaN(aTime)
+        const bMissing = Number.isNaN(bTime)
+        if (aMissing && bMissing) cmp = 0
+        else if (aMissing) cmp = 1
+        else if (bMissing) cmp = -1
+        else cmp = aTime - bTime
+        break
+      }
+      case 'status':
+        cmp = (a.status_label || '').localeCompare(b.status_label || '', 'nl', {
+          sensitivity: 'base',
+        })
+        break
+      case 'amount': {
+        const aAmount = a.amount_raw ?? Number.NEGATIVE_INFINITY
+        const bAmount = b.amount_raw ?? Number.NEGATIVE_INFINITY
+        cmp = aAmount - bAmount
+        break
+      }
+    }
+
+    if (cmp === 0) {
+      cmp = b.id - a.id
+    }
+
+    return cmp * dir
+  })
+
+  return list
+})
+
+function invoiceRouteSortValue(invoice: PortalInvoice): string {
+  if (invoice.from && invoice.to) {
+    return `${invoice.from} ${invoice.to}`.toLowerCase()
+  }
+
+  return (invoice.route || (invoice.ride_id ? `rit #${invoice.ride_id}` : '')).toLowerCase()
+}
+
+function invoicesSortAria(key: InvoicesSortKey): 'asc' | 'desc' | 'none' {
+  return invoicesSortKey.value === key ? invoicesSortDir.value : 'none'
+}
+
+function toggleInvoicesSort(key: InvoicesSortKey): void {
+  if (invoicesSortKey.value === key) {
+    invoicesSortDir.value = invoicesSortDir.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  invoicesSortKey.value = key
+  invoicesSortDir.value = key === 'date' || key === 'amount' ? 'desc' : 'asc'
+}
+
+const sortedInvoices = computed(() => {
+  const dir = invoicesSortDir.value === 'asc' ? 1 : -1
+  const list = [...invoices.value]
+
+  list.sort((a, b) => {
+    let cmp = 0
+
+    switch (invoicesSortKey.value) {
+      case 'invoice_number':
+        cmp = (a.invoice_number || '').localeCompare(b.invoice_number || '', 'nl', {
+          numeric: true,
+          sensitivity: 'base',
+        })
+        break
+      case 'route':
+        cmp = invoiceRouteSortValue(a).localeCompare(invoiceRouteSortValue(b), 'nl', {
+          sensitivity: 'base',
+        })
+        break
+      case 'date': {
+        const aTime = a.date_iso ? Date.parse(a.date_iso) : Number.NaN
+        const bTime = b.date_iso ? Date.parse(b.date_iso) : Number.NaN
+        const aMissing = Number.isNaN(aTime)
+        const bMissing = Number.isNaN(bTime)
+        if (aMissing && bMissing) cmp = 0
+        else if (aMissing) cmp = 1
+        else if (bMissing) cmp = -1
+        else cmp = aTime - bTime
+        break
+      }
+      case 'status':
+        cmp = (a.status_label || '').localeCompare(b.status_label || '', 'nl', {
+          sensitivity: 'base',
+        })
+        break
+      case 'amount': {
+        const aAmount = a.amount_raw ?? Number.NEGATIVE_INFINITY
+        const bAmount = b.amount_raw ?? Number.NEGATIVE_INFINITY
+        cmp = aAmount - bAmount
+        break
+      }
+    }
+
+    if (cmp === 0) {
+      cmp = b.id - a.id
+    }
+
+    return cmp * dir
+  })
+
+  return list
+})
+
+function invoicePdfUrl(invoiceId: number): string {
+  return `${apiInvoicePdfBase}/${invoiceId}/pdf`
+}
+
+function destroyCostChart() {
+  if (costChartInstance) {
+    costChartInstance.destroy()
+    costChartInstance = null
+  }
+  if (costChartEl.value) {
+    costChartEl.value.innerHTML = ''
+  }
+}
+
+function loadApexChartsScript(): Promise<void> {
+  if (typeof window.ApexCharts !== 'undefined') {
+    return Promise.resolve()
+  }
+
+  const existing = document.querySelector<HTMLScriptElement>(
+    'script[data-taxi-portal-apexcharts="1"]'
+  )
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Grafiek kon niet laden.')), {
+        once: true,
+      })
+    })
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = APEX_CHARTS_SRC
+    script.async = true
+    script.dataset.taxiPortalApexcharts = '1'
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Grafiek kon niet laden.'))
+    document.head.appendChild(script)
+  })
+}
+
+function renderCostChart() {
+  destroyCostChart()
+  const el = costChartEl.value
+  const chart = dashboard.value?.chart
+  if (
+    !el ||
+    !chart ||
+    typeof window.ApexCharts === 'undefined' ||
+    chart.labels.length === 0
+  ) {
+    return
+  }
+
+  const isDark =
+    document.documentElement.classList.contains('dark') ||
+    document.body.classList.contains('dark')
+
+  costChartInstance = new window.ApexCharts(el, {
+    series: [{ name: 'Kosten', data: chart.amounts }],
+    chart: {
+      type: 'area',
+      height: 280,
+      toolbar: { show: false },
+      fontFamily: 'inherit',
+    },
+    dataLabels: { enabled: false },
+    stroke: { curve: 'smooth', width: 2 },
+    xaxis: {
+      categories: chart.labels,
+      labels: {
+        rotate: -45,
+        rotateAlways: chart.labels.length > 14,
+        style: { fontSize: '11px' },
+      },
+    },
+    yaxis: {
+      min: 0,
+      labels: {
+        formatter: (val: number) => `€${val.toFixed(0)}`,
+      },
+    },
+    tooltip: {
+      y: {
+        formatter: (val: number) => `€${val.toFixed(2)}`,
+      },
+    },
+    colors: ['#2563eb'],
+    fill: {
+      type: 'gradient',
+      gradient: { shadeIntensity: 0.4, opacityFrom: 0.45, opacityTo: 0.05 },
+    },
+    grid: {
+      borderColor: isDark ? '#374151' : '#e5e7eb',
+    },
+    theme: { mode: isDark ? 'dark' : 'light' },
+    noData: {
+      text: 'Nog geen kosten in de laatste 30 dagen',
+      align: 'center',
+      verticalAlign: 'middle',
+      style: { fontSize: '14px' },
+    },
+  })
+  costChartInstance.render()
+}
+
+async function scheduleCostChartRender() {
+  if (tab.value !== 'dashboard' || showNewRide.value || !dashboard.value?.chart) {
+    return
+  }
+  await nextTick()
+  try {
+    await loadApexChartsScript()
+    renderCostChart()
+  } catch {
+    /* grafiek optioneel; stats blijven zichtbaar */
+  }
+}
+
+async function loadDashboard(force = false) {
+  if (dashboardLoaded.value && !force) {
+    await scheduleCostChartRender()
+    return
+  }
+  dashboardLoading.value = true
+  dashboardError.value = null
+  try {
+    const res = await portalFetch<{ data: PortalDashboard }>(dashboardApiUrl())
+    dashboard.value = res.data
+    dashboardLoaded.value = true
+  } catch (e) {
+    dashboardError.value = e instanceof Error ? e.message : 'Dashboard laden mislukt.'
+  } finally {
+    dashboardLoading.value = false
+  }
+  await nextTick()
+  await scheduleCostChartRender()
+}
+
+async function loadDashboardChart() {
+  if (!dashboard.value) {
+    await loadDashboard(true)
+    return
+  }
+
+  chartLoading.value = true
+  dashboardError.value = null
+  try {
+    const res = await portalFetch<{ data: PortalDashboard }>(dashboardApiUrl())
+    dashboard.value = {
+      ...dashboard.value,
+      chart: res.data.chart,
+    }
+    await scheduleCostChartRender()
+  } catch (e) {
+    dashboardError.value = e instanceof Error ? e.message : 'Grafiek laden mislukt.'
+  } finally {
+    chartLoading.value = false
+  }
+}
+
+async function loadRides(force = false) {
+  if (ridesLoaded.value && !force) return
+  ridesLoading.value = true
+  ridesError.value = null
+  try {
+    const res = await portalFetch<{ data: PortalRide[] }>(apiRidesUrl)
+    rides.value = res.data || []
+    ridesLoaded.value = true
+  } catch (e) {
+    ridesError.value = e instanceof Error ? e.message : 'Ritten laden mislukt.'
+  } finally {
+    ridesLoading.value = false
+  }
+}
+
+async function loadInvoices(force = false) {
+  if (invoicesLoaded.value && !force) return
+  invoicesLoading.value = true
+  invoicesError.value = null
+  try {
+    const res = await portalFetch<{ data: PortalInvoice[] }>(apiInvoicesUrl)
+    invoices.value = res.data || []
+    invoicesLoaded.value = true
+  } catch (e) {
+    invoicesError.value = e instanceof Error ? e.message : 'Facturen laden mislukt.'
+  } finally {
+    invoicesLoading.value = false
+  }
+}
+
+async function loadProfile(force = false) {
+  if (profileLoaded.value && !force) return
+  profileLoading.value = true
+  profileError.value = null
+  try {
+    const res = await portalFetch<{ data: PortalProfile }>(apiProfileUrl)
+    profile.value = res.data
+    profileLoaded.value = true
+  } catch (e) {
+    profileError.value = e instanceof Error ? e.message : 'Gegevens laden mislukt.'
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+async function saveProfile() {
+  profileSaving.value = true
+  profileError.value = null
+  profileSuccess.value = null
+  try {
+    const res = await portalFetch<{ data: PortalProfile; message?: string }>(apiProfileUpdateUrl, {
+      method: 'PUT',
+      body: JSON.stringify({
+        first_name: profile.value.first_name,
+        last_name: profile.value.last_name,
+        phone: profile.value.phone,
+      }),
+    })
+    profile.value = res.data
+    profileSuccess.value = res.message || 'Gegevens opgeslagen.'
+  } catch (e) {
+    profileError.value = e instanceof Error ? e.message : 'Opslaan mislukt.'
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+async function openRideDetails(ride: PortalRide) {
+  rideDetailOpen.value = true
+  rideDetailLoading.value = true
+  rideDetailError.value = null
+  rideDetail.value = null
+  try {
+    const res = await portalFetch<{ data: PortalRideDetail }>(`${apiRidesBase}/${ride.id}`)
+    rideDetail.value = res.data
+  } catch (e) {
+    rideDetailError.value = e instanceof Error ? e.message : 'Details laden mislukt.'
+  } finally {
+    rideDetailLoading.value = false
+  }
+}
+
+function closeRideDetails() {
+  rideDetailOpen.value = false
+  rideDetail.value = null
+  rideDetailError.value = null
+}
+
+function openRidePdf(ride: PortalRide) {
+  if (ride.can_view_invoice_pdf && ride.invoice_id) {
+    window.open(invoicePdfUrl(ride.invoice_id), '_blank', 'noopener')
+  }
+}
+
+function refreshTabData() {
+  if (tab.value === 'dashboard') {
+    void loadDashboard(true)
+  } else if (tab.value === 'rides') {
+    void loadRides(true)
+  } else if (tab.value === 'invoices') {
+    void loadInvoices(true)
+  } else if (tab.value === 'profile') {
+    void loadProfile(true)
+  }
+}
+
+const portalPrimaryBtnClass =
+  'kt-btn kt-btn-primary shrink-0 border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-500 dark:hover:border-blue-400 dark:hover:bg-blue-400'
+
+function scheduleBookingRouteIcons() {
+  const schedule = (
+    window as Window & { __nexataxiScheduleRouteIcons?: () => void }
+  ).__nexataxiScheduleRouteIcons
+  if (typeof schedule === 'function') {
+    schedule()
+    return
+  }
+  const sync = (window as Window & { __nexataxiSyncRouteIcons?: () => void }).__nexataxiSyncRouteIcons
+  if (typeof sync === 'function') {
+    requestAnimationFrame(() => requestAnimationFrame(sync))
+  }
+}
+
+function mountBookingModule() {
+  if (bookingMounted.value) {
+    return
+  }
+  const source = document.getElementById('taxi-portal-booking-source')
+  if (!source || !bookingSlot.value) {
+    return
+  }
+  bookingSlot.value.appendChild(source)
+  source.classList.remove('hidden')
+  bookingMounted.value = true
+}
+
+function openNewRide() {
+  showNewRide.value = true
+  tab.value = 'rides'
+  void nextTick(() => {
+    mountBookingModule()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    document.dispatchEvent(new CustomEvent('taxi-portal-booking-visible'))
+    scheduleBookingRouteIcons()
+  })
+}
+
+function closeNewRide() {
+  showNewRide.value = false
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function goToTab(next: TabKey) {
+  tab.value = next
+  showNewRide.value = false
+}
+
+function applyPortalStateFromUrl() {
+  const state = readPortalStateFromUrl()
+  tab.value = state.tab
+  showNewRide.value = state.showNewRide
+  if (state.showNewRide) {
+    void nextTick(() => {
+      mountBookingModule()
+      scheduleBookingRouteIcons()
+    })
+  } else {
+    refreshTabData()
+  }
+}
+
+function onPortalRefreshRides() {
+  dashboardLoaded.value = false
+  ridesLoaded.value = false
+  invoicesLoaded.value = false
+  destroyCostChart()
+  refreshTabData()
+}
+
+watch([tab, showNewRide], syncPortalUrl)
+
+watch(tab, (next) => {
+  if (showNewRide.value) return
+  if (next === 'dashboard') {
+    void loadDashboard()
+  } else {
+    destroyCostChart()
+    if (next === 'rides') void loadRides()
+    else if (next === 'invoices') void loadInvoices()
+    else if (next === 'profile') void loadProfile()
+  }
+})
+
+watch(
+  () => dashboard.value?.chart,
+  () => {
+    void scheduleCostChartRender()
+  }
+)
+
+watch(chartPeriod, (next, prev) => {
+  if (next === prev || tab.value !== 'dashboard' || showNewRide.value) {
+    return
+  }
+  void loadDashboardChart()
+})
+
+onMounted(() => {
+  ;(window as Window & { closeTaxiPortalBooking?: () => void }).closeTaxiPortalBooking = closeNewRide
+
+  if (!showNewRide.value) {
+    if (tab.value === 'dashboard') void loadDashboard()
+    else if (tab.value === 'rides') void loadRides()
+    else if (tab.value === 'invoices') void loadInvoices()
+    else if (tab.value === 'profile') void loadProfile()
+  }
+
+  document.addEventListener('taxi-portal-refresh-rides', onPortalRefreshRides)
+
+  if (showNewRide.value) {
+    void nextTick(() => {
+      mountBookingModule()
+      scheduleBookingRouteIcons()
+    })
+  }
+
+  syncPortalUrl()
+  window.addEventListener('popstate', applyPortalStateFromUrl)
+})
+
+onUnmounted(() => {
+  destroyCostChart()
+  window.removeEventListener('popstate', applyPortalStateFromUrl)
+  document.removeEventListener('taxi-portal-refresh-rides', onPortalRefreshRides)
 })
 </script>
 
 <template>
   <div
     class="flex grow min-h-[calc(100vh-(4rem+1px)-var(--portal-footer-h))] md:min-h-[calc(100vh-(5rem+1px)-var(--portal-footer-h))] w-full bg-white dark:!bg-[#111827]"
-    style="--portal-footer-h: 44px; --portal-sidebar-w: 188px;"
+    style="--portal-footer-h: 45px; --portal-sidebar-w: 188px;"
   >
     <!-- Sidebar -->
     <aside
       id="taxi_portal_sidebar"
-      class="kt-sidebar w-[var(--portal-sidebar-w)] bg-white dark:!bg-[#111827] border-e border-gray-200 dark:!border-gray-600 fixed top-[calc(4rem+1px)] md:top-[calc(5rem+1px)] z-20 hidden lg:flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
-      style="bottom: var(--portal-footer-h);"
+      class="kt-sidebar taxi-portal-sidebar w-[var(--portal-sidebar-w)] bg-white dark:!bg-[#111827] border-e border-gray-200 dark:!border-gray-600 fixed top-[calc(4rem+1px)] md:top-[calc(5rem+1px)] bottom-0 z-20 hidden lg:flex flex-col items-stretch shrink-0 [--kt-drawer-enable:true] lg:[--kt-drawer-enable:false]"
       data-kt-drawer="true"
       data-kt-drawer-class="kt-drawer kt-drawer-start top-0 bottom-0"
     >
-      <div class="kt-sidebar-content flex grow shrink-0 py-5 pe-2 bg-white dark:!bg-[#111827]" id="sidebar_content">
-        <div
-          id="sidebar_scrollable"
-          class="kt-scrollable-y-hover grow shrink-0 flex ps-2 lg:ps-5 pe-1 lg:pe-3 bg-white dark:!bg-[#111827]"
-          data-kt-scrollable="true"
-          data-kt-scrollable-height="auto"
-          data-kt-scrollable-offset="0px"
-          data-kt-scrollable-wrappers="#sidebar_content"
-        >
-          <nav class="kt-menu flex flex-col grow gap-1" data-kt-menu="true" data-kt-menu-accordion-expand-all="false" id="sidebar_menu">
-            <div class="kt-menu-item" :class="tab === 'rides' ? 'active' : ''">
+      <div
+        class="kt-sidebar-content flex grow flex-col min-h-full min-w-0 w-full py-5 px-2 lg:ps-5 lg:pe-3 bg-white dark:!bg-[#111827]"
+        id="sidebar_content"
+      >
+          <nav class="kt-menu flex flex-col grow gap-1 min-w-0 w-full" data-kt-menu="true" data-kt-menu-accordion-expand-all="false" id="sidebar_menu">
+            <div class="kt-menu-item" :class="tab === 'dashboard' && !showNewRide ? 'active' : ''">
               <button
                 type="button"
                 class="kt-menu-link flex items-center grow cursor-pointer border border-transparent gap-[10px] ps-[10px] pe-[10px] py-[6px]"
-                @click="tab = 'rides'"
+                @click="goToTab('dashboard')"
+              >
+                <span class="kt-menu-icon items-start text-muted-foreground w-[20px]"><i class="ki-filled ki-element-11 text-lg"></i></span>
+                <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
+                  Dashboard
+                </span>
+              </button>
+            </div>
+
+            <div class="kt-menu-item" :class="tab === 'rides' && !showNewRide ? 'active' : ''">
+              <button
+                type="button"
+                class="kt-menu-link flex items-center grow cursor-pointer border border-transparent gap-[10px] ps-[10px] pe-[10px] py-[6px]"
+                @click="goToTab('rides')"
               >
                 <span class="kt-menu-icon items-start text-muted-foreground w-[20px]"><i class="ki-filled ki-calendar text-lg"></i></span>
                 <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
@@ -85,11 +847,11 @@ const profile = ref({
               </button>
             </div>
 
-            <div class="kt-menu-item" :class="tab === 'invoices' ? 'active' : ''">
+            <div class="kt-menu-item" :class="tab === 'invoices' && !showNewRide ? 'active' : ''">
               <button
                 type="button"
                 class="kt-menu-link flex items-center grow cursor-pointer border border-transparent gap-[10px] ps-[10px] pe-[10px] py-[6px]"
-                @click="tab = 'invoices'"
+                @click="goToTab('invoices')"
               >
                 <span class="kt-menu-icon items-start text-muted-foreground w-[20px]"><i class="ki-filled ki-document text-lg"></i></span>
                 <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
@@ -98,11 +860,11 @@ const profile = ref({
               </button>
             </div>
 
-            <div class="kt-menu-item" :class="tab === 'profile' ? 'active' : ''">
+            <div class="kt-menu-item" :class="tab === 'profile' && !showNewRide ? 'active' : ''">
               <button
                 type="button"
                 class="kt-menu-link flex items-center grow cursor-pointer border border-transparent gap-[10px] ps-[10px] pe-[10px] py-[6px]"
-                @click="tab = 'profile'"
+                @click="goToTab('profile')"
               >
                 <span class="kt-menu-icon items-start text-muted-foreground w-[20px]"><i class="ki-filled ki-profile-circle text-lg"></i></span>
                 <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
@@ -111,7 +873,6 @@ const profile = ref({
               </button>
             </div>
           </nav>
-        </div>
       </div>
     </aside>
     <!-- /Sidebar -->
@@ -121,108 +882,509 @@ const profile = ref({
     >
       <main class="grow">
         <div class="container-custom pt-2.5 pb-10">
-          <div class="flex items-center justify-between mb-4 md:mb-6">
-            <div class="flex items-center gap-3">
-              <button class="kt-btn kt-btn-icon kt-btn-ghost lg:hidden" data-kt-drawer-toggle="#taxi_portal_sidebar" type="button" aria-label="Menu">
+          <header class="mb-4 md:mb-6">
+            <div class="flex w-full items-center gap-3 lg:hidden">
+              <button class="kt-btn kt-btn-icon kt-btn-ghost shrink-0" data-kt-drawer-toggle="#taxi_portal_sidebar" type="button" aria-label="Menu">
                 <i class="ki-filled ki-menu"></i>
               </button>
-              <h2 class="text-base font-semibold text-foreground">{{ title }}</h2>
             </div>
-            <button
-              type="button"
-              class="kt-btn kt-btn-primary border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-500 dark:hover:border-blue-400 dark:hover:bg-blue-400"
-            >
-              <i class="ki-filled ki-plus"></i> Nieuwe rit
-            </button>
-          </div>
+            <div class="mt-3 md:mt-4 min-w-0 flex flex-col items-center text-center">
+              <h1 class="text-xl md:text-2xl font-semibold text-foreground leading-tight">
+                {{ title }}
+              </h1>
+            </div>
+          </header>
 
-          <!-- Rides -->
-          <section v-if="tab === 'rides'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
-            <div class="kt-card-header">
-              <h3 class="kt-card-title">Ritten</h3>
-            </div>
-            <div class="kt-card-content">
-              <div class="kt-scrollable-x-auto">
-                <table class="kt-table table-auto kt-table-border">
-                  <thead>
-                    <tr>
-                      <th class="min-w-[80px]">#</th>
-                      <th class="min-w-[220px]">Van → Naar</th>
-                      <th class="min-w-[180px]">Datum</th>
-                      <th class="min-w-[140px]">Status</th>
-                      <th class="min-w-[120px] text-end">Bedrag</th>
-                      <th class="min-w-[160px]"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="r in rides" :key="r.id">
-                      <td>{{ r.id }}</td>
-                      <td>{{ r.from }} → {{ r.to }}</td>
-                      <td>{{ r.at }}</td>
-                      <td>
-                        <span class="kt-badge" :class="r.status === 'Voltooid' ? 'kt-badge-success' : 'kt-badge-info'">
-                          {{ r.status }}
-                        </span>
-                      </td>
-                      <td class="text-end">{{ r.amount }}</td>
-                      <td class="text-end">
-                        <button class="kt-btn kt-btn-sm kt-btn-outline kt-btn-primary" type="button">Details</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
+          <div v-show="showNewRide" ref="bookingSlot" class="taxi-portal-booking-slot w-full min-w-0" />
 
-          <!-- Invoices -->
-          <section v-else-if="tab === 'invoices'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
-            <div class="kt-card-header">
-              <h3 class="kt-card-title">Facturen</h3>
-            </div>
-            <div class="kt-card-content">
-              <div class="kt-alert kt-alert-info" role="alert">
-                <div class="kt-alert-title">Volgende stap</div>
-                <div class="kt-alert-description">
-                  Hier koppelen we straks de API: per rit de factuur openen en downloaden (PDF).
-                </div>
+          <template v-if="!showNewRide">
+            <!-- Dashboard -->
+            <div v-if="tab === 'dashboard'" class="flex flex-col gap-5">
+              <p v-if="dashboardLoading" class="text-sm text-muted-foreground">Dashboard laden…</p>
+              <div v-else-if="dashboardError" class="kt-alert kt-alert-danger" role="alert">
+                <div class="kt-alert-description">{{ dashboardError }}</div>
               </div>
-            </div>
-          </section>
+              <template v-else-if="dashboard">
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div class="kt-card border !border-gray-200 dark:!border-gray-600 bg-white dark:!bg-[#111827]">
+                    <div class="kt-card-content py-5">
+                      <p class="text-sm text-muted-foreground mb-1">Totaal ritten</p>
+                      <p class="text-2xl font-semibold text-foreground tabular-nums">{{ dashboard.stats.total_rides }}</p>
+                    </div>
+                  </div>
+                  <div class="kt-card border !border-gray-200 dark:!border-gray-600 bg-white dark:!bg-[#111827]">
+                    <div class="kt-card-content py-5">
+                      <p class="text-sm text-muted-foreground mb-1">Afgerond</p>
+                      <p class="text-2xl font-semibold text-foreground tabular-nums">{{ dashboard.stats.completed_rides }}</p>
+                    </div>
+                  </div>
+                  <div class="kt-card border !border-gray-200 dark:!border-gray-600 bg-white dark:!bg-[#111827]">
+                    <div class="kt-card-content py-5">
+                      <p class="text-sm text-muted-foreground mb-1">Gepland / actief</p>
+                      <p class="text-2xl font-semibold text-foreground tabular-nums">{{ dashboard.stats.upcoming_rides }}</p>
+                    </div>
+                  </div>
+                  <div class="kt-card border !border-gray-200 dark:!border-gray-600 bg-white dark:!bg-[#111827]">
+                    <div class="kt-card-content py-5">
+                      <p class="text-sm text-muted-foreground mb-1">Totaal kosten</p>
+                      <p class="text-2xl font-semibold text-foreground tabular-nums">{{ dashboard.stats.total_spent }}</p>
+                    </div>
+                  </div>
+                </div>
 
-          <!-- Profile -->
-          <section v-else class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
-            <div class="kt-card-header">
-              <h3 class="kt-card-title">Mijn gegevens</h3>
+                <section class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
+                  <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
+                    <h3 class="kt-card-title">{{ chartSectionTitle }}</h3>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <label class="sr-only" for="taxi-portal-chart-period">Periode</label>
+                      <select
+                        id="taxi-portal-chart-period"
+                        v-model="chartPeriod"
+                        class="taxi-portal-chart-period-select"
+                        :disabled="chartLoading"
+                      >
+                        <option value="month">Per maand</option>
+                        <option value="day">Per dag</option>
+                        <option value="year">Per jaar</option>
+                      </select>
+                      <span class="text-sm text-muted-foreground tabular-nums">
+                        {{ dashboard.chart.period_label }} · € {{ dashboard.chart.total.toFixed(2).replace('.', ',') }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="kt-card-content min-w-0 relative">
+                    <p
+                      v-if="chartLoading"
+                      class="absolute inset-0 z-10 flex items-center justify-center text-sm text-muted-foreground bg-white/70 dark:bg-[#111827]/70"
+                    >
+                      Grafiek laden…
+                    </p>
+                    <div
+                      ref="costChartEl"
+                      id="taxi-portal-cost-chart"
+                      class="min-h-[280px] w-full"
+                      :class="chartLoading ? 'opacity-40' : ''"
+                    />
+                  </div>
+                </section>
+              </template>
             </div>
-            <div class="kt-card-content">
-              <div class="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label class="kt-form-label">Voornaam</label>
-                  <input v-model="profile.first_name" class="kt-input" type="text" />
-                </div>
-                <div>
-                  <label class="kt-form-label">Achternaam</label>
-                  <input v-model="profile.last_name" class="kt-input" type="text" />
-                </div>
-                <div>
-                  <label class="kt-form-label">E-mail</label>
-                  <input v-model="profile.email" class="kt-input" type="email" />
-                </div>
-                <div>
-                  <label class="kt-form-label">Telefoon</label>
-                  <input v-model="profile.phone" class="kt-input" type="tel" />
-                </div>
-              </div>
 
-              <div class="mt-6 flex justify-end">
-                <button class="kt-btn kt-btn-primary" type="button">Opslaan</button>
+            <!-- Rides -->
+            <section v-else-if="tab === 'rides'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
+              <div class="kt-card-header flex items-center justify-between gap-3">
+                <h3 class="kt-card-title">Ritten</h3>
+                <button type="button" :class="portalPrimaryBtnClass" @click="openNewRide">
+                  <i class="ki-filled ki-plus"></i> Nieuwe rit
+                </button>
               </div>
-            </div>
-          </section>
+              <div class="kt-card-content min-w-0">
+                <p v-if="ridesLoading" class="text-sm text-muted-foreground">Ritten laden…</p>
+                <div v-else-if="ridesError" class="kt-alert kt-alert-danger" role="alert">
+                  <div class="kt-alert-description">{{ ridesError }}</div>
+                </div>
+                <p v-else-if="rides.length === 0" class="text-sm text-muted-foreground">Je hebt nog geen ritten.</p>
+                <div v-else class="kt-scrollable-x-auto">
+                  <table class="kt-table table-auto kt-table-border">
+                    <thead>
+                      <tr>
+                        <th
+                          class="taxi-portal-th-sort min-w-[220px]"
+                          :aria-sort="ridesSortAria('route')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleRidesSort('route')"
+                          @keydown.enter.prevent="toggleRidesSort('route')"
+                          @keydown.space.prevent="toggleRidesSort('route')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Van → Naar</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[180px]"
+                          :aria-sort="ridesSortAria('date')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleRidesSort('date')"
+                          @keydown.enter.prevent="toggleRidesSort('date')"
+                          @keydown.space.prevent="toggleRidesSort('date')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Datum</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[140px]"
+                          :aria-sort="ridesSortAria('status')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleRidesSort('status')"
+                          @keydown.enter.prevent="toggleRidesSort('status')"
+                          @keydown.space.prevent="toggleRidesSort('status')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Status</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[120px]"
+                          :aria-sort="ridesSortAria('amount')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleRidesSort('amount')"
+                          @keydown.enter.prevent="toggleRidesSort('amount')"
+                          @keydown.space.prevent="toggleRidesSort('amount')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Bedrag</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th class="min-w-[56px]"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="r in sortedRides" :key="r.id">
+                        <td class="align-top whitespace-normal leading-snug">
+                          <div
+                            v-if="r.from && r.to"
+                            class="taxi-portal-route-address inline-flex flex-col items-start text-left gap-0.5 font-medium"
+                          >
+                            <span>{{ r.from }}</span>
+                            <span class="leading-none self-center py-1" aria-hidden="true">
+                              <i class="ki-filled ki-arrow-down text-sm"></i>
+                            </span>
+                            <span>{{ r.to }}</span>
+                          </div>
+                          <span v-else>{{ r.route || '—' }}</span>
+                        </td>
+                        <td>{{ r.at }}</td>
+                        <td>
+                          <span class="kt-badge" :class="rideBadgeClass(r.status_badge)">
+                            {{ r.status_label }}
+                          </span>
+                        </td>
+                        <td class="tabular-nums">{{ r.amount }}</td>
+                        <td class="text-end">
+                          <button
+                            type="button"
+                            class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-ride-action-btn"
+                            title="Details bekijken"
+                            aria-label="Details bekijken"
+                            @click="openRideDetails(r)"
+                          >
+                            <i class="ki-filled ki-eye"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- Invoices -->
+            <section v-else-if="tab === 'invoices'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
+              <div class="kt-card-header">
+                <h3 class="kt-card-title">Facturen</h3>
+              </div>
+              <div class="kt-card-content min-w-0">
+                <p v-if="invoicesLoading" class="text-sm text-muted-foreground">Facturen laden…</p>
+                <div v-else-if="invoicesError" class="kt-alert kt-alert-danger" role="alert">
+                  <div class="kt-alert-description">{{ invoicesError }}</div>
+                </div>
+                <p v-else-if="invoices.length === 0" class="text-sm text-muted-foreground">
+                  Er zijn nog geen facturen voor jouw ritten.
+                </p>
+                <div v-else class="kt-scrollable-x-auto">
+                  <table class="kt-table table-auto kt-table-border">
+                    <thead>
+                      <tr>
+                        <th
+                          class="taxi-portal-th-sort min-w-[160px]"
+                          :aria-sort="invoicesSortAria('invoice_number')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleInvoicesSort('invoice_number')"
+                          @keydown.enter.prevent="toggleInvoicesSort('invoice_number')"
+                          @keydown.space.prevent="toggleInvoicesSort('invoice_number')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Factuurnr.</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[220px]"
+                          :aria-sort="invoicesSortAria('route')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleInvoicesSort('route')"
+                          @keydown.enter.prevent="toggleInvoicesSort('route')"
+                          @keydown.space.prevent="toggleInvoicesSort('route')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Rit</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[120px]"
+                          :aria-sort="invoicesSortAria('date')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleInvoicesSort('date')"
+                          @keydown.enter.prevent="toggleInvoicesSort('date')"
+                          @keydown.space.prevent="toggleInvoicesSort('date')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Datum</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[120px]"
+                          :aria-sort="invoicesSortAria('status')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleInvoicesSort('status')"
+                          @keydown.enter.prevent="toggleInvoicesSort('status')"
+                          @keydown.space.prevent="toggleInvoicesSort('status')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Status</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th
+                          class="taxi-portal-th-sort min-w-[120px]"
+                          :aria-sort="invoicesSortAria('amount')"
+                          tabindex="0"
+                          role="columnheader"
+                          @click="toggleInvoicesSort('amount')"
+                          @keydown.enter.prevent="toggleInvoicesSort('amount')"
+                          @keydown.space.prevent="toggleInvoicesSort('amount')"
+                        >
+                          <span class="taxi-portal-th-sort-inner">
+                            <span class="taxi-portal-th-sort-label">Bedrag</span>
+                            <span class="kt-table-col-sort" aria-hidden="true"></span>
+                          </span>
+                        </th>
+                        <th class="min-w-[80px] text-center"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="inv in sortedInvoices" :key="inv.id">
+                        <td class="font-medium whitespace-nowrap min-w-[160px]">{{ inv.invoice_number }}</td>
+                        <td class="align-top whitespace-normal leading-snug">
+                          <div
+                            v-if="inv.from && inv.to"
+                            class="taxi-portal-route-address inline-flex flex-col items-start text-left gap-0.5 font-medium"
+                          >
+                            <span>{{ inv.from }}</span>
+                            <span class="leading-none self-center py-1" aria-hidden="true">
+                              <i class="ki-filled ki-arrow-down text-sm"></i>
+                            </span>
+                            <span>{{ inv.to }}</span>
+                          </div>
+                          <template v-else>
+                            {{ inv.route || (inv.ride_id ? 'Rit #' + inv.ride_id : '—') }}
+                          </template>
+                        </td>
+                        <td>{{ inv.date }}</td>
+                        <td>
+                          <span class="kt-badge" :class="rideBadgeClass(inv.status_badge)">
+                            {{ inv.status_label }}
+                          </span>
+                        </td>
+                        <td class="tabular-nums">{{ inv.amount }}</td>
+                        <td class="text-center align-middle">
+                          <div class="inline-flex items-center justify-center">
+                            <a
+                              :href="invoicePdfUrl(inv.id)"
+                              class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-ride-action-btn"
+                              target="_blank"
+                              rel="noopener"
+                              title="Factuur PDF openen"
+                              aria-label="Factuur PDF openen"
+                            >
+                              <i class="ki-filled ki-file-down"></i>
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- Profile -->
+            <section v-else-if="tab === 'profile'" class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600">
+              <div class="kt-card-header">
+                <h3 class="kt-card-title">Mijn gegevens</h3>
+              </div>
+              <div class="kt-card-content min-w-0">
+                <p v-if="profileLoading && !profileLoaded" class="text-sm text-muted-foreground mb-4">Gegevens laden…</p>
+                <div v-if="profileError" class="kt-alert kt-alert-danger mb-4" role="alert">
+                  <div class="kt-alert-description">{{ profileError }}</div>
+                </div>
+                <div v-if="profileSuccess" class="kt-alert kt-alert-success mb-4" role="alert">
+                  <div class="kt-alert-description">{{ profileSuccess }}</div>
+                </div>
+                <div class="taxi-portal-profile-form grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-x-6 md:gap-y-5">
+                  <div class="taxi-portal-profile-field min-w-0">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-first_name">Voornaam</label>
+                    <input
+                      id="taxi-portal-first_name"
+                      v-model="profile.first_name"
+                      class="taxi-portal-profile-input"
+                      type="text"
+                      autocomplete="given-name"
+                    />
+                  </div>
+                  <div class="taxi-portal-profile-field min-w-0">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-last_name">Achternaam</label>
+                    <input
+                      id="taxi-portal-last_name"
+                      v-model="profile.last_name"
+                      class="taxi-portal-profile-input"
+                      type="text"
+                      autocomplete="family-name"
+                    />
+                  </div>
+                  <div class="taxi-portal-profile-field min-w-0">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-email">E-mail</label>
+                    <input
+                      id="taxi-portal-email"
+                      v-model="profile.email"
+                      class="taxi-portal-profile-input opacity-80"
+                      type="email"
+                      autocomplete="email"
+                      inputmode="email"
+                      readonly
+                    />
+                  </div>
+                  <div class="taxi-portal-profile-field min-w-0">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-phone">Telefoon</label>
+                    <input
+                      id="taxi-portal-phone"
+                      v-model="profile.phone"
+                      class="taxi-portal-profile-input"
+                      type="tel"
+                      autocomplete="tel"
+                      inputmode="tel"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div class="kt-card-footer flex justify-center">
+                <button
+                  class="kt-btn kt-btn-primary px-8 justify-center shrink-0"
+                  type="button"
+                  :disabled="profileSaving || profileLoading"
+                  @click="saveProfile"
+                >
+                  {{ profileSaving ? 'Opslaan…' : 'Opslaan' }}
+                </button>
+              </div>
+            </section>
+          </template>
         </div>
       </main>
     </div>
+
+    <!-- Ritdetails modal -->
+    <div
+      v-if="rideDetailOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="taxi-portal-ride-detail-title"
+    >
+      <div
+        class="taxi-portal-ride-detail-backdrop absolute inset-0"
+        aria-hidden="true"
+        @click="closeRideDetails"
+      />
+      <div
+        class="kt-card relative z-10 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600 shadow-xl"
+      >
+        <div class="kt-card-header flex items-center justify-between gap-3 shrink-0">
+          <h3 id="taxi-portal-ride-detail-title" class="kt-card-title">
+            Ritdetails<span v-if="rideDetail"> #{{ rideDetail.id }}</span>
+          </h3>
+          <button type="button" class="kt-btn kt-btn-icon kt-btn-ghost" aria-label="Sluiten" @click="closeRideDetails">
+            <i class="ki-filled ki-cross"></i>
+          </button>
+        </div>
+        <div class="kt-card-content min-w-0 overflow-y-auto grow">
+          <p v-if="rideDetailLoading" class="text-sm text-muted-foreground">Details laden…</p>
+          <div v-else-if="rideDetailError" class="kt-alert kt-alert-danger" role="alert">
+            <div class="kt-alert-description">{{ rideDetailError }}</div>
+          </div>
+          <template v-else-if="rideDetail">
+            <dl class="grid grid-cols-1 gap-3 text-sm mb-5">
+              <div>
+                <dt class="text-muted-foreground">Route</dt>
+                <dd class="text-foreground leading-snug">
+                  <div class="taxi-portal-route-address inline-flex flex-col items-start text-left gap-0.5 font-medium">
+                    <span>{{ rideDetail.from }}</span>
+                    <span class="leading-none self-center py-1" aria-hidden="true">
+                      <i class="ki-filled ki-arrow-down text-sm"></i>
+                    </span>
+                    <span>{{ rideDetail.to }}</span>
+                  </div>
+                </dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground">Datum</dt>
+                <dd>{{ rideDetail.at }}</dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground">Status</dt>
+                <dd>
+                  <span class="kt-badge" :class="rideBadgeClass(rideDetail.status_badge)">
+                    {{ rideDetail.status_label }}
+                  </span>
+                </dd>
+              </div>
+              <div>
+                <dt class="text-muted-foreground">Bedrag</dt>
+                <dd class="tabular-nums font-medium">{{ rideDetail.amount }}</dd>
+              </div>
+              <div v-if="rideDetail.invoice_number">
+                <dt class="text-muted-foreground">Factuur</dt>
+                <dd>{{ rideDetail.invoice_number }}</dd>
+              </div>
+            </dl>
+            <div v-if="rideDetail.summary_lines?.length" class="border-t border-gray-200 dark:border-gray-600 pt-4">
+              <p class="text-sm font-medium text-foreground mb-2">Samenvatting</p>
+              <ul class="text-sm text-muted-foreground space-y-1 list-disc ps-5">
+                <li v-for="(line, i) in rideDetail.summary_lines" :key="i">{{ line }}</li>
+              </ul>
+            </div>
+            <pre
+              v-else-if="rideDetail.summary_text"
+              class="text-xs whitespace-pre-wrap text-muted-foreground border-t border-gray-200 dark:border-gray-600 pt-4"
+            >{{ rideDetail.summary_text }}</pre>
+          </template>
+        </div>
+        <div v-if="rideDetail?.can_view_invoice_pdf && rideDetail.invoice_id" class="kt-card-footer shrink-0 flex justify-end gap-2">
+          <button
+            type="button"
+            class="kt-btn kt-btn-outline kt-btn-primary"
+            @click="openRidePdf(rideDetail)"
+          >
+            <i class="ki-filled ki-file-down"></i>
+            PDF openen
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
-

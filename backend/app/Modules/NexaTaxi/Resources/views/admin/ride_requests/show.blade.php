@@ -93,6 +93,9 @@
             <div class="kt-card-header"><h3 class="kt-card-title">Route &amp; datum</h3></div>
             <div class="kt-card-content space-y-3 text-sm">
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Ophalen:</span><span class="flex-1">{{ $ride->pickup_address }}</span></p>
+                @foreach(($stopoverAddresses ?? $ride->stopover_addresses) as $stopIndex => $stopAddress)
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Tussenstop {{ chr(66 + $stopIndex) }}:</span><span class="flex-1">{{ $stopAddress }}</span></p>
+                @endforeach
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Afzetten:</span><span class="flex-1">{{ $ride->dropoff_address }}</span></p>
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Datum/tijd:</span><span class="flex-1">{{ $ride->pickup_at->format('d-m-Y H:i') }}</span></p>
                 @if($ride->distance_km !== null)
@@ -161,6 +164,9 @@
             <p class="text-sm text-muted-foreground mb-2">Kopieer onderstaande tekst voor WhatsApp of e-mail naar de klant.</p>
             <textarea readonly class="kt-input w-full font-mono text-sm resize-y pt-1" rows="8" id="whatsapp-text" style="min-height: 12rem !important; height: auto !important; box-sizing: border-box;">Rit {{ $ride->pickup_at->format('d-m-Y H:i') }}
 Ophalen: {{ $ride->pickup_address }}
+@foreach(($stopoverAddresses ?? $ride->stopover_addresses) as $stopIndex => $stopAddress)
+Tussenstop {{ chr(66 + $stopIndex) }}: {{ $stopAddress }}
+@endforeach
 Afzetten: {{ $ride->dropoff_address }}
 @if($ride->quoted_price)Geschatte prijs: € {{ number_format($ride->quoted_price, 2, ',', '.') }}
 @endif

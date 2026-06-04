@@ -1,0 +1,188 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2700" height="2700" viewBox="0 0 2700 2700">
+  <defs>
+    <style>
+      .bg { fill: #f7f8fb; }
+      .panel { fill: #ffffff; stroke: #d4d9e5; stroke-width: 2; rx: 18; }
+      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 42px; font-weight: 700; fill: #172033; }
+      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 22px; fill: #5c667a; }
+      .section { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 30px; font-weight: 700; fill: #172033; }
+      .box { fill: #f9fbff; stroke: #94a3b8; stroke-width: 2; rx: 12; }
+      .ok { fill: #eefbf5; stroke: #3b9c6a; }
+      .warn { fill: #fff8e8; stroke: #d99a25; }
+      .fail { fill: #fff1f2; stroke: #d64a5f; }
+      .deploy { fill: #eff6ff; stroke: #3b82f6; }
+      .text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 24px; fill: #1f2937; }
+      .small { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 19px; fill: #4b5563; }
+      .arrow { stroke: #536178; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrow-ok { stroke: #2f855a; }
+      .arrow-fail { stroke: #be3144; }
+      .label { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 18px; font-weight: 700; fill: #536178; }
+    </style>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto">
+      <path d="M 0 0 L 14 7 L 0 14 z" fill="#536178"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2700" height="2700"/>
+  <text class="title" x="80" y="80">NEXA SaaS deployproces</text>
+  <text class="subtitle" x="80" y="120">Overzicht van commit naar TEST, PROD-tag naar productie, en de gefixte tag-validatie.</text>
+
+  <rect class="panel" x="60" y="170" width="1680" height="710"/>
+  <text class="section" x="100" y="225">1. Commit op branch naar PR, build, automerge en TEST</text>
+
+  <rect class="box" x="120" y="285" width="300" height="92"/>
+  <text class="text" x="150" y="325">Push commit</text>
+  <text class="small" x="150" y="355">willekeurige werkbranch</text>
+
+  <rect class="deploy" x="520" y="240" width="310" height="92"/>
+  <text class="text" x="550" y="280">Test and Build</text>
+  <text class="small" x="550" y="310">build assets + PHPUnit</text>
+
+  <rect class="deploy" x="520" y="390" width="310" height="92"/>
+  <text class="text" x="550" y="430">Open PR</text>
+  <text class="small" x="550" y="460">naar release/test</text>
+
+  <rect class="box" x="930" y="335" width="300" height="92"/>
+  <text class="text" x="960" y="375">PR release/test</text>
+  <text class="small" x="960" y="405">nieuw of bestaand</text>
+
+  <rect class="warn" x="1320" y="300" width="300" height="120"/>
+  <text class="text" x="1350" y="340">Wacht op check</text>
+  <text class="small" x="1350" y="370">checknaam: test</text>
+  <text class="small" x="1350" y="398">max. 30 minuten</text>
+
+  <rect class="fail" x="1320" y="500" width="300" height="92"/>
+  <text class="text" x="1350" y="540">Check faalt</text>
+  <text class="small" x="1350" y="570">geen auto-merge</text>
+
+  <rect class="ok" x="930" y="570" width="300" height="92"/>
+  <text class="text" x="960" y="610">Auto-merge PR</text>
+  <text class="small" x="960" y="640">naar release/test</text>
+
+  <rect class="deploy" x="520" y="690" width="310" height="92"/>
+  <text class="text" x="550" y="730">Deploy TEST</text>
+  <text class="small" x="550" y="760">Proxmox self-hosted</text>
+
+  <rect class="ok" x="120" y="690" width="300" height="92"/>
+  <text class="text" x="150" y="730">TEST live</text>
+  <text class="small" x="150" y="760">migrate, seed, cache</text>
+
+  <path class="arrow" d="M420 331 H520"/>
+  <path class="arrow" d="M420 331 C465 331 465 436 520 436"/>
+  <path class="arrow" d="M830 436 C875 436 875 381 930 381"/>
+  <path class="arrow" d="M830 286 C920 286 1010 300 1080 335"/>
+  <path class="arrow" d="M1230 381 H1320"/>
+  <path class="arrow arrow-fail" d="M1470 420 V500"/>
+  <path class="arrow arrow-ok" d="M1320 380 C1260 460 1200 530 1120 570"/>
+  <path class="arrow arrow-ok" d="M930 616 C850 640 760 670 700 690"/>
+  <path class="arrow arrow-ok" d="M520 736 H420"/>
+  <text class="label" x="1260" y="530">niet groen</text>
+  <text class="label" x="1170" y="525">groen</text>
+
+  <rect class="panel" x="60" y="940" width="1680" height="820"/>
+  <text class="section" x="100" y="995">2. PROD-tag vanaf main naar productie</text>
+
+  <rect class="box" x="120" y="1060" width="300" height="92"/>
+  <text class="text" x="150" y="1100">release/test akkoord</text>
+  <text class="small" x="150" y="1130">klaar voor release</text>
+
+  <rect class="box" x="520" y="1060" width="300" height="92"/>
+  <text class="text" x="550" y="1100">Merge naar main</text>
+  <text class="small" x="550" y="1130">release commit</text>
+
+  <rect class="deploy" x="920" y="1060" width="330" height="92"/>
+  <text class="text" x="950" y="1100">Create PROD tag</text>
+  <text class="small" x="950" y="1130">Run workflow op main</text>
+
+  <rect class="warn" x="1330" y="1045" width="300" height="120"/>
+  <text class="text" x="1360" y="1085">Valideer tag</text>
+  <text class="small" x="1360" y="1115">semver + uniek</text>
+  <text class="small" x="1360" y="1143">exact origin/main SHA</text>
+
+  <rect class="ok" x="1330" y="1250" width="300" height="92"/>
+  <text class="text" x="1360" y="1290">Push tag</text>
+  <text class="small" x="1360" y="1320">bijv. v1.2.0</text>
+
+  <rect class="deploy" x="920" y="1250" width="330" height="92"/>
+  <text class="text" x="950" y="1290">Dispatch Deploy PROD</text>
+  <text class="small" x="950" y="1320">version + expected_sha</text>
+
+  <rect class="warn" x="520" y="1250" width="300" height="120"/>
+  <text class="text" x="550" y="1290">PROD preflight</text>
+  <text class="small" x="550" y="1320">tag op main-historie</text>
+  <text class="small" x="550" y="1348">SHA klopt</text>
+
+  <rect class="deploy" x="120" y="1250" width="300" height="92"/>
+  <text class="text" x="150" y="1290">AWS deploy</text>
+  <text class="small" x="150" y="1320">checkout tag via SSH</text>
+
+  <rect class="ok" x="120" y="1480" width="300" height="92"/>
+  <text class="text" x="150" y="1520">PROD live</text>
+  <text class="small" x="150" y="1550">migrate, seed, cache</text>
+
+  <rect class="fail" x="520" y="1480" width="300" height="92"/>
+  <text class="text" x="550" y="1520">Stop deploy</text>
+  <text class="small" x="550" y="1550">verkeerde/onveilige tag</text>
+
+  <path class="arrow" d="M420 1106 H520"/>
+  <path class="arrow" d="M820 1106 H920"/>
+  <path class="arrow" d="M1250 1106 H1330"/>
+  <path class="arrow arrow-ok" d="M1480 1165 V1250"/>
+  <path class="arrow arrow-ok" d="M1330 1296 H1250"/>
+  <path class="arrow arrow-ok" d="M920 1296 H820"/>
+  <path class="arrow arrow-ok" d="M520 1296 H420"/>
+  <path class="arrow arrow-ok" d="M270 1342 V1480"/>
+  <path class="arrow arrow-fail" d="M670 1370 V1480"/>
+  <text class="label" x="700" y="1450">faalt</text>
+  <text class="label" x="285" y="1448">OK</text>
+
+  <rect class="panel" x="60" y="1820" width="1680" height="760"/>
+  <text class="section" x="100" y="1875">3. Wat is gefixt in Create PROD tag (main only)</text>
+
+  <rect class="deploy" x="120" y="1940" width="310" height="92"/>
+  <text class="text" x="150" y="1980">Handmatige run</text>
+  <text class="small" x="150" y="2010">Create PROD tag</text>
+
+  <rect class="warn" x="520" y="1940" width="310" height="92"/>
+  <text class="text" x="550" y="1980">Moet op main</text>
+  <text class="small" x="550" y="2010">anders directe fout</text>
+
+  <rect class="warn" x="920" y="1940" width="330" height="92"/>
+  <text class="text" x="950" y="1980">Tag normaliseren</text>
+  <text class="small" x="950" y="2010">V1.2.3 wordt v1.2.3</text>
+
+  <rect class="warn" x="1330" y="1940" width="300" height="92"/>
+  <text class="text" x="1360" y="1980">Semver check</text>
+  <text class="small" x="1360" y="2010">vX.Y.Z verplicht</text>
+
+  <rect class="warn" x="1330" y="2160" width="300" height="92"/>
+  <text class="text" x="1360" y="2200">Tag uniek?</text>
+  <text class="small" x="1360" y="2230">lokaal + remote</text>
+
+  <rect class="ok" x="920" y="2160" width="330" height="92"/>
+  <text class="text" x="950" y="2200">Tag op origin/main</text>
+  <text class="small" x="950" y="2230">exacte commit-SHA</text>
+
+  <rect class="ok" x="520" y="2160" width="310" height="92"/>
+  <text class="text" x="550" y="2200">Remote zichtbaar</text>
+  <text class="small" x="550" y="2230">poll tot tag bestaat</text>
+
+  <rect class="deploy" x="120" y="2160" width="310" height="92"/>
+  <text class="text" x="150" y="2200">Deploy PROD starten</text>
+  <text class="small" x="150" y="2230">met expected_sha</text>
+
+  <rect class="ok" x="120" y="2390" width="1510" height="92"/>
+  <text class="text" x="150" y="2430">Resultaat: PROD-deploy start alleen als de tag exact klopt en op de main-historie staat.</text>
+  <text class="small" x="150" y="2460">Dit voorkomt tags vanaf de verkeerde workflow-branch, stale refs, dubbele tags en deploys van onverwachte commits.</text>
+
+  <path class="arrow" d="M430 1986 H520"/>
+  <path class="arrow" d="M830 1986 H920"/>
+  <path class="arrow" d="M1250 1986 H1330"/>
+  <path class="arrow" d="M1480 2032 V2160"/>
+  <path class="arrow arrow-ok" d="M1330 2206 H1250"/>
+  <path class="arrow arrow-ok" d="M920 2206 H830"/>
+  <path class="arrow arrow-ok" d="M520 2206 H430"/>
+  <path class="arrow arrow-ok" d="M275 2252 V2390"/>
+
+  <text class="subtitle" x="80" y="2650">Bron: .github/workflows/*.yml en deploy/deploy-tenant.sh</text>
+</svg>

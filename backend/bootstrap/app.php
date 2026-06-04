@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'taxi.driver' => \App\Http\Middleware\EnsureTaxiDriver::class,
             'skillmatching.portal' => \App\Http\Middleware\EnsureSkillmatchingModule::class,
             'taxi.portal' => \App\Http\Middleware\EnsureTenantTaxiModule::class,
+            'taxi.portal.password' => \App\Http\Middleware\EnsureTaxiKlantPasswordIsSet::class,
             'auth.query.token' => \App\Http\Middleware\AppendBearerTokenFromQuery::class,
         ]);
 

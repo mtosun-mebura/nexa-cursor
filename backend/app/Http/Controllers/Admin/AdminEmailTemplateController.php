@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\EmailTemplate;
 use App\Models\Company;
 use App\Models\User;
+use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
+use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
 use App\Services\MenuService;
 use App\Models\InfoRequestFormField;
@@ -110,6 +112,61 @@ class AdminEmailTemplateController extends Controller
     }
 
     /**
+     * Algemene templatevariabelen (skillmatching, factuur, etc.).
+     *
+     * @return array<string, string>
+     */
+    protected static function genericTemplateVariables(): array
+    {
+        return [
+            'USER_NAME' => 'Gebruikersnaam',
+            'USER_EMAIL' => 'E-mailadres',
+            'COMPANY_NAME' => 'Bedrijfsnaam',
+            'NOTIFICATION_TITLE' => 'Notificatie titel',
+            'NOTIFICATION_MESSAGE' => 'Notificatie bericht',
+            'ACTION_URL' => 'Actie URL',
+            'VACANCY_TITLE' => 'Vacature titel',
+            'MATCH_SCORE' => 'Match score',
+            'INTERVIEW_DATE' => 'Interview datum',
+            'RESET_LINK' => 'Wachtwoord reset link',
+            'VERIFICATION_LINK' => 'E-mail verificatie link',
+            'VOORNAAM' => 'Voornaam (contact)',
+            'ACHTERNAAM' => 'Achternaam (contact)',
+            'TELEFOONNUMMER' => 'Telefoonnummer',
+            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
+            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
+            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
+            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
+            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
+            'INVOICE_NUMBER' => 'Factuurnummer',
+            'INVOICE_DATE' => 'Factuurdatum',
+            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
+            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
+            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
+            'INVOICE_TAX_RATE' => 'BTW-percentage',
+            'INVOICE_TOTAL' => 'Totaalbedrag',
+            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
+            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
+            'COMPANY_ADDRESS' => 'Bedrijfsadres',
+            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
+        ];
+    }
+
+    /**
+     * Variabelenlijst in admin, afgestemd op template-type.
+     *
+     * @return array<string, string>
+     */
+    protected static function templateVariablesForType(?string $type): array
+    {
+        return match ($type) {
+            TaxiCustomerLoginCodeEmailTemplateService::TYPE => TaxiCustomerLoginCodeEmailTemplateService::variableLabels(),
+            TaxiCustomerAcceptEmailTemplateService::TYPE => TaxiCustomerAcceptEmailTemplateService::variableLabels(),
+            default => static::genericTemplateVariables(),
+        };
+    }
+
+    /**
      * Get list of email template types that are allowed (core + types from active modules).
      */
     protected function getAllowedEmailTemplateTypes(MenuService $menuService): array
@@ -130,16 +187,63 @@ class AdminEmailTemplateController extends Controller
         }
         return $allowed;
     }
+
+    /**
+     * Lijst e-mailtemplates: tenant ziet eigen templates; super-admin met tenant ook globale defaults.
+     */
+    protected function applyEmailTemplateListFilter($query)
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('super-admin') && ! session('selected_tenant')) {
+            return $query;
+        }
+
+        $tenantId = $user->hasRole('super-admin')
+            ? (int) session('selected_tenant')
+            : (int) ($user->company_id ?? 0);
+
+        if ($tenantId <= 0) {
+            return $query->whereNull('company_id');
+        }
+
+        if ($user->hasRole('super-admin')) {
+            return $query->where(function ($q) use ($tenantId) {
+                $q->whereNull('company_id')->orWhere('company_id', $tenantId);
+            });
+        }
+
+        return $query->where('company_id', $tenantId);
+    }
+
+    protected function provisionTaxiEmailTemplatesIfNeeded(MenuService $menuService): void
+    {
+        $allowed = $this->getAllowedEmailTemplateTypes($menuService);
+        if (! in_array(TaxiCustomerLoginCodeEmailTemplateService::TYPE, $allowed, true)) {
+            return;
+        }
+
+        $service = app(TaxiCustomerLoginCodeEmailTemplateService::class);
+        $service->ensureGlobalTemplateExists();
+
+        $tenantId = $this->getTenantId();
+        if ($tenantId && (int) $tenantId > 0) {
+            $service->ensureTenantTemplateExists((int) $tenantId);
+        }
+    }
+
     public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-email-templates')) {
             abort(403, 'Je hebt geen rechten om e-mail templates te bekijken.');
         }
-        
+
+        $menuService = app(MenuService::class);
+        $this->provisionTaxiEmailTemplatesIfNeeded($menuService);
+
         $query = EmailTemplate::with('company');
-        
-        // Apply tenant filtering
-        $query = $this->applyTenantFilter($query);
+
+        $query = $this->applyEmailTemplateListFilter($query);
         
         // Filter op type
         if ($request->filled('type')) {
@@ -213,7 +317,7 @@ class AdminEmailTemplateController extends Controller
         
         // Calculate statistics
         $statsQuery = EmailTemplate::query();
-        $statsQuery = $this->applyTenantFilter($statsQuery);
+        $statsQuery = $this->applyEmailTemplateListFilter($statsQuery);
         
         $stats = [
             'total_templates' => (clone $statsQuery)->count(),
@@ -224,8 +328,11 @@ class AdminEmailTemplateController extends Controller
         
         // Get companies for filter (only for super-admin)
         $companies = auth()->user()->hasRole('super-admin') ? Company::orderBy('name')->get() : collect();
-        
-        return view('admin.email-templates.index', compact('emailTemplates', 'stats', 'companies'));
+
+        $allowedTypes = $this->getAllowedEmailTemplateTypes($menuService);
+        $typeLabels = static::emailTemplateTypeLabels();
+
+        return view('admin.email-templates.index', compact('emailTemplates', 'stats', 'companies', 'allowedTypes', 'typeLabels'));
     }
 
     public function create()
@@ -238,40 +345,8 @@ class AdminEmailTemplateController extends Controller
         $query = $this->applyTenantFilter($query);
         $companies = $query->get();
         
-        // Template variabelen voor de view
-        $templateVariables = [
-            'USER_NAME' => 'Gebruikersnaam',
-            'USER_EMAIL' => 'E-mailadres',
-            'COMPANY_NAME' => 'Bedrijfsnaam',
-            'NOTIFICATION_TITLE' => 'Notificatie titel',
-            'NOTIFICATION_MESSAGE' => 'Notificatie bericht',
-            'ACTION_URL' => 'Actie URL',
-            'VACANCY_TITLE' => 'Vacature titel',
-            'MATCH_SCORE' => 'Match score',
-            'INTERVIEW_DATE' => 'Interview datum',
-            'RESET_LINK' => 'Wachtwoord reset link',
-            'VERIFICATION_LINK' => 'E-mail verificatie link',
-            'VOORNAAM' => 'Voornaam (contact)',
-            'ACHTERNAAM' => 'Achternaam (contact)',
-            'TELEFOONNUMMER' => 'Telefoonnummer',
-            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
-            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
-            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
-            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
-            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
-            'INVOICE_NUMBER' => 'Factuurnummer',
-            'INVOICE_DATE' => 'Factuurdatum',
-            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
-            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
-            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
-            'INVOICE_TAX_RATE' => 'BTW-percentage',
-            'INVOICE_TOTAL' => 'Totaalbedrag',
-            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
-            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
-            'COMPANY_ADDRESS' => 'Bedrijfsadres',
-            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
-        ];
-        
+        $templateVariables = static::templateVariablesForType(old('type'));
+
         // Default HTML template
         $defaultHtmlTemplate = '<!DOCTYPE html>
 <html lang="nl">
@@ -381,7 +456,22 @@ class AdminEmailTemplateController extends Controller
         }
         $infoRequestVariables = static::buildInfoRequestVariablesFromFormFields($formFields);
 
-        return view('admin.email-templates.create', compact('companies', 'templateVariables', 'infoRequestVariables', 'formFields', 'defaultHtmlTemplate', 'defaultHtmlTemplateInformatieaanvraag', 'allowedTypes', 'typeLabels', 'users'));
+        $loginCodeTemplateService = app(TaxiCustomerLoginCodeEmailTemplateService::class);
+        $loginCodeTemplateService->ensureGlobalTemplateExists();
+        $defaultHtmlTemplateLoginCode = $loginCodeTemplateService->defaultHtmlContent();
+
+        return view('admin.email-templates.create', compact(
+            'companies',
+            'templateVariables',
+            'infoRequestVariables',
+            'formFields',
+            'defaultHtmlTemplate',
+            'defaultHtmlTemplateInformatieaanvraag',
+            'defaultHtmlTemplateLoginCode',
+            'allowedTypes',
+            'typeLabels',
+            'users'
+        ));
     }
 
     public function store(Request $request)
@@ -466,39 +556,7 @@ class AdminEmailTemplateController extends Controller
             abort(403, 'Je hebt geen toegang tot deze e-mail template.');
         }
         
-        // Template variabelen voor de view
-        $templateVariables = [
-            'USER_NAME' => 'Gebruikersnaam',
-            'USER_EMAIL' => 'E-mailadres',
-            'COMPANY_NAME' => 'Bedrijfsnaam',
-            'NOTIFICATION_TITLE' => 'Notificatie titel',
-            'NOTIFICATION_MESSAGE' => 'Notificatie bericht',
-            'ACTION_URL' => 'Actie URL',
-            'VACANCY_TITLE' => 'Vacature titel',
-            'MATCH_SCORE' => 'Match score',
-            'INTERVIEW_DATE' => 'Interview datum',
-            'RESET_LINK' => 'Wachtwoord reset link',
-            'VERIFICATION_LINK' => 'E-mail verificatie link',
-            'VOORNAAM' => 'Voornaam (contact)',
-            'ACHTERNAAM' => 'Achternaam (contact)',
-            'TELEFOONNUMMER' => 'Telefoonnummer',
-            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
-            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
-            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
-            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
-            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
-            'INVOICE_NUMBER' => 'Factuurnummer',
-            'INVOICE_DATE' => 'Factuurdatum',
-            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
-            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
-            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
-            'INVOICE_TAX_RATE' => 'BTW-percentage',
-            'INVOICE_TOTAL' => 'Totaalbedrag',
-            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
-            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
-            'COMPANY_ADDRESS' => 'Bedrijfsadres',
-            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
-        ];
+        $templateVariables = static::templateVariablesForType($emailTemplate->type);
 
         $tenantId = $this->getTenantId();
         $users = $tenantId
@@ -511,19 +569,8 @@ class AdminEmailTemplateController extends Controller
         if ($isInfoRequestType && $previewHtml !== '') {
             $previewHtml = str_replace('{{ DYNAMIC_FORM_FIELDS }}', $emailTemplate->renderDynamicFormFieldsHtml(), $previewHtml);
         }
-        if ($previewHtml !== '' && str_contains($previewHtml, 'COMPANY_LOGO')) {
-            $previewCompanyId = $emailTemplate->company_id ?? $tenantId;
-            $previewCompanyName = $emailTemplate->company?->name
-                ?? ($previewCompanyId ? Company::find($previewCompanyId)?->name : null)
-                ?? 'Ons bedrijf';
-            $logoHtml = app(\App\Services\CompanyEmailLogoService::class)->previewImgHtml(
-                $previewCompanyId ? (int) $previewCompanyId : null,
-                $previewCompanyName
-            );
-            foreach (['{{ COMPANY_LOGO }}', '{{COMPANY_LOGO}}', '{ COMPANY_LOGO }', '{COMPANY_LOGO}'] as $placeholder) {
-                $previewHtml = str_replace($placeholder, $logoHtml, $previewHtml);
-            }
-        }
+        $previewHtml = $this->injectEmailTemplatePreviewLogo($emailTemplate, $previewHtml);
+
         return view('admin.email-templates.show', compact('emailTemplate', 'templateVariables', 'users', 'formFields', 'previewHtml'));
     }
 
@@ -542,39 +589,7 @@ class AdminEmailTemplateController extends Controller
         $query = $this->applyTenantFilter($query);
         $companies = $query->get();
         
-        // Template variabelen voor de view
-        $templateVariables = [
-            'USER_NAME' => 'Gebruikersnaam',
-            'USER_EMAIL' => 'E-mailadres',
-            'COMPANY_NAME' => 'Bedrijfsnaam',
-            'NOTIFICATION_TITLE' => 'Notificatie titel',
-            'NOTIFICATION_MESSAGE' => 'Notificatie bericht',
-            'ACTION_URL' => 'Actie URL',
-            'VACANCY_TITLE' => 'Vacature titel',
-            'MATCH_SCORE' => 'Match score',
-            'INTERVIEW_DATE' => 'Interview datum',
-            'RESET_LINK' => 'Wachtwoord reset link',
-            'VERIFICATION_LINK' => 'E-mail verificatie link',
-            'VOORNAAM' => 'Voornaam (contact)',
-            'ACHTERNAAM' => 'Achternaam (contact)',
-            'TELEFOONNUMMER' => 'Telefoonnummer',
-            'OMSCHRIJVING' => 'Omschrijving (vrije tekst)',
-            'DATUM_AANVRAAG' => 'Datum/tijd van de aanvraag',
-            'EMAIL_AANVRAAG' => 'E-mailadres van de aanvrager',
-            'CUSTOMER_NAME' => 'Klantnaam (factuur)',
-            'CUSTOMER_EMAIL' => 'Klant e-mail (factuur)',
-            'INVOICE_NUMBER' => 'Factuurnummer',
-            'INVOICE_DATE' => 'Factuurdatum',
-            'INVOICE_AMOUNT_EXCL' => 'Bedrag excl. BTW',
-            'INVOICE_TAX_LABEL' => 'BTW-regel (bijv. BTW (21%))',
-            'INVOICE_TAX_AMOUNT' => 'BTW-bedrag',
-            'INVOICE_TAX_RATE' => 'BTW-percentage',
-            'INVOICE_TOTAL' => 'Totaalbedrag',
-            'INVOICE_AMOUNTS_HTML' => 'Bedragenblok (HTML-tabel)',
-            'INVOICE_AMOUNTS_TEXT' => 'Bedragenblok (platte tekst)',
-            'COMPANY_ADDRESS' => 'Bedrijfsadres',
-            'COMPANY_LOGO' => 'Bedrijfslogo (HTML)',
-        ];
+        $templateVariables = static::templateVariablesForType($emailTemplate->type);
 
         $tenantId = $this->getTenantId();
         $users = $tenantId
@@ -664,6 +679,102 @@ class AdminEmailTemplateController extends Controller
 
         $emailTemplate->update($emailTemplateData);
         return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', 'E-mail template succesvol bijgewerkt.');
+    }
+
+    public function duplicate(EmailTemplate $emailTemplate)
+    {
+        if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-email-templates')) {
+            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+        }
+
+        if (! $this->canAccessResource($emailTemplate)) {
+            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+        }
+
+        $user = auth()->user();
+        $companyId = $user->hasRole('super-admin') ? null : $user->company_id;
+
+        $copy = EmailTemplate::query()->create([
+            'name' => $this->buildDuplicateTemplateName($emailTemplate->name),
+            'subject' => $emailTemplate->subject,
+            'type' => $emailTemplate->type,
+            'html_content' => $emailTemplate->html_content,
+            'text_content' => $emailTemplate->text_content,
+            'description' => $emailTemplate->description,
+            'is_active' => false,
+            'company_id' => $companyId,
+            'recipient_type' => $emailTemplate->recipient_type,
+            'recipient_user_id' => $emailTemplate->recipient_user_id,
+            'recipient_email' => $emailTemplate->recipient_email,
+            'form_field_order' => $emailTemplate->form_field_order,
+        ]);
+
+        return redirect()
+            ->route('admin.email-templates.edit', $copy)
+            ->with('success', 'Template gedupliceerd. Pas de naam aan en koppel het template aan een bedrijf indien nodig.');
+    }
+
+    /**
+     * Tenant voor logo in preview/verzending bij algemeen template (company_id null).
+     * Volgorde: gekoppeld bedrijf → geselecteerde tenant (super-admin) → account-bedrijf → host-tenant.
+     */
+    protected function resolveEmailTemplatePreviewCompanyId(EmailTemplate $emailTemplate): ?int
+    {
+        if ($emailTemplate->company_id) {
+            return (int) $emailTemplate->company_id;
+        }
+
+        if (auth()->user()->hasRole('super-admin') && session('selected_tenant')) {
+            return (int) session('selected_tenant');
+        }
+
+        $tenantId = $this->getTenantId();
+        if ($tenantId) {
+            return (int) $tenantId;
+        }
+
+        if (app()->bound('resolved_tenant_id')) {
+            $resolved = app('resolved_tenant_id');
+            if ($resolved !== null && (int) $resolved > 0) {
+                return (int) $resolved;
+            }
+        }
+
+        return null;
+    }
+
+    protected function injectEmailTemplatePreviewLogo(EmailTemplate $emailTemplate, string $previewHtml): string
+    {
+        if ($previewHtml === '') {
+            return $previewHtml;
+        }
+
+        $previewCompanyId = $this->resolveEmailTemplatePreviewCompanyId($emailTemplate);
+        $previewCompanyName = $emailTemplate->company?->name
+            ?? ($previewCompanyId ? Company::find($previewCompanyId)?->name : null)
+            ?? 'Ons bedrijf';
+
+        return app(\App\Services\CompanyEmailLogoService::class)->injectPreviewLogoIntoHtml(
+            $previewHtml,
+            $previewCompanyId,
+            $previewCompanyName,
+            true
+        );
+    }
+
+    protected function buildDuplicateTemplateName(string $originalName): string
+    {
+        $base = trim(preg_replace('/ - kopie(?: \d+)?$/u', '', $originalName) ?? $originalName);
+        $suffix = ' - kopie';
+        $name = $base.$suffix;
+        $counter = 2;
+
+        while (EmailTemplate::query()->where('name', $name)->exists()) {
+            $name = $base.$suffix.' '.$counter;
+            $counter++;
+        }
+
+        return $name;
     }
 
     public function toggleStatus(EmailTemplate $emailTemplate)

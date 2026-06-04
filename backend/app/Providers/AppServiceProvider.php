@@ -55,52 +55,32 @@ class AppServiceProvider extends ServiceProvider
         $this->loadGoogleMapsApiKeyFromRootEnv();
         $this->forceLocalDevRootUrlFromRequest();
 
-        View::composer('frontend.layouts.website', function ($view) {
+        View::composer(['frontend.layouts.website', 'frontend.layouts.app', 'frontend.layouts.partials.header'], function ($view) {
             $data = $view->getData();
-            if (empty($data['isPreview']) && ($back = session('website_preview_admin_url'))) {
-                $view->with([
-                    'isPreview' => true,
-                    'previewEditUrl' => $back,
-                ]);
-            }
-            if (! isset($data['googleMapsApiKey']) || $data['googleMapsApiKey'] === '') {
-                $key = trim((string) (config('maps.api_key') ?? ''));
-                if ($key === '') {
-                    $key = app(EnvService::class)->getGoogleMapsApiKey();
+            if ($view->name() === 'frontend.layouts.website') {
+                if (empty($data['isPreview']) && ($back = session('website_preview_admin_url'))) {
+                    $view->with([
+                        'isPreview' => true,
+                        'previewEditUrl' => $back,
+                    ]);
                 }
-                $view->with('googleMapsApiKey', $key);
-            }
-            if (! array_key_exists('googleMapsMapId', $view->getData())) {
-                $view->with('googleMapsMapId', app(EnvService::class)->getGoogleMapsMapId());
-            }
-            if (! array_key_exists('showSkillmatchingAppLinks', $view->getData())) {
-                $moduleManager = app(ModuleManager::class);
-                $data = $view->getData();
-                $moduleName = null;
-                if (! empty($data['brandingModuleName'])) {
-                    $moduleName = strtolower(trim((string) $data['brandingModuleName']));
-                } elseif (request()->routeIs('taxi.portal.*')) {
-                    $moduleName = 'taxi';
-                } elseif (isset($data['page']) && filled($data['page']->module_name ?? null)) {
-                    $moduleName = strtolower(trim((string) $data['page']->module_name));
-                } else {
-                    $brandingModule = app(WebsiteBuilderService::class)->getBrandingModule();
-                    $moduleName = $brandingModule ? strtolower((string) $brandingModule->name) : null;
+                if (! isset($data['googleMapsApiKey']) || $data['googleMapsApiKey'] === '') {
+                    $key = trim((string) (config('maps.api_key') ?? ''));
+                    if ($key === '') {
+                        $key = app(EnvService::class)->getGoogleMapsApiKey();
+                    }
+                    $view->with('googleMapsApiKey', $key);
                 }
+                if (! array_key_exists('googleMapsMapId', $view->getData())) {
+                    $view->with('googleMapsMapId', app(EnvService::class)->getGoogleMapsMapId());
+                }
+            }
 
-                $tenant = null;
-                if (app()->bound('resolved_tenant') && app('resolved_tenant') instanceof \App\Models\Company) {
-                    $tenant = app('resolved_tenant');
-                } elseif (app()->bound('resolved_tenant_id')) {
-                    $tenant = \App\Models\Company::find(app('resolved_tenant_id'));
-                }
-
-                $view->with(
-                    'showSkillmatchingAppLinks',
-                    $moduleManager->isActive('skillmatching')
-                        && $moduleName === 'skillmatching'
-                        && ($tenant === null || $tenant->hasSkillmatchingModule())
-                );
+            if (! array_key_exists('showSkillmatchingAppLinks', $data)) {
+                $view->with(app(WebsiteBuilderService::class)->frontendPortalViewData($data));
+            } elseif (! array_key_exists('showGuestSkillmatchingLinks', $data)) {
+                $moduleName = app(WebsiteBuilderService::class)->resolvePublicFrontendModuleName();
+                $view->with('showGuestSkillmatchingLinks', $moduleName !== 'taxi');
             }
         });
 

@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">NEXA SaaS productoverzicht</title>
+  <desc id="desc">Marketinginfographic voor NEXA SaaS met backend admin, website builder, taxi module, chauffeur app en skillmatching module.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.55" stop-color="#eef7f4"/>
+      <stop offset="1" stop-color="#fff7ed"/>
+    </linearGradient>
+    <linearGradient id="admin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16324f"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="taxi" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#ef4444"/>
+    </linearGradient>
+    <linearGradient id="skill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+    <style>
+      .h1{font:700 42px Arial, Helvetica, sans-serif;fill:#0f172a}
+      .sub{font:400 20px Arial, Helvetica, sans-serif;fill:#475569}
+      .card-title{font:700 24px Arial, Helvetica, sans-serif;fill:#0f172a}
+      .card-title-white{font:700 24px Arial, Helvetica, sans-serif;fill:#fff}
+      .small{font:400 16px Arial, Helvetica, sans-serif;fill:#475569}
+      .small-white{font:400 16px Arial, Helvetica, sans-serif;fill:#e0f2fe}
+      .label{font:700 15px Arial, Helvetica, sans-serif;fill:#0f172a}
+      .pill{font:700 14px Arial, Helvetica, sans-serif;fill:#fff}
+      .mono{font:700 13px Arial, Helvetica, sans-serif;fill:#334155}
+      .line{stroke:#64748b;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .thin{stroke:#cbd5e1;stroke-width:2;fill:none}
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <circle cx="1380" cy="120" r="120" fill="#dbeafe" opacity="0.35"/>
+  <circle cx="130" cy="860" r="150" fill="#dcfce7" opacity="0.35"/>
+
+  <text x="80" y="72" class="h1">NEXA SaaS: modulair platform voor taxi en skillmatching</text>
+  <text x="80" y="108" class="sub">Backend admin, website builder, headless apps, rollen/rechten en betaal-/factuurflows in een verkoopbaar SaaS-product.</text>
+
+  <rect x="540" y="170" width="520" height="360" rx="18" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="562" y="196" width="476" height="54" rx="12" fill="url(#admin)"/>
+  <text x="586" y="231" class="card-title-white">Backend admin</text>
+  <rect x="582" y="280" width="132" height="34" rx="17" fill="#dbeafe"/>
+  <text x="604" y="303" class="mono">Modules</text>
+  <rect x="730" y="280" width="132" height="34" rx="17" fill="#dcfce7"/>
+  <text x="757" y="303" class="mono">Rollen</text>
+  <rect x="878" y="280" width="132" height="34" rx="17" fill="#fef3c7"/>
+  <text x="902" y="303" class="mono">Rechten</text>
+  <rect x="582" y="340" width="210" height="42" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="604" y="367" class="label">Taxi menu</text>
+  <rect x="810" y="340" width="210" height="42" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="832" y="367" class="label">Skillmatching menu</text>
+  <text x="604" y="416" class="small">Per actieve module verschijnen menu-items.</text>
+  <text x="604" y="444" class="small">Permissies worden gekoppeld aan rollen.</text>
+  <text x="604" y="472" class="small">Tenant-instellingen bepalen wat zichtbaar is.</text>
+
+  <rect x="85" y="180" width="380" height="430" rx="18" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="115" y="225" class="card-title">Website builder</text>
+  <text x="115" y="255" class="small">Frontend pagina's met visuele componenten</text>
+  <rect x="115" y="285" width="300" height="170" rx="12" fill="#eff6ff" stroke="#bfdbfe"/>
+  <rect x="140" y="315" width="250" height="36" rx="8" fill="#60a5fa"/>
+  <rect x="140" y="365" width="112" height="64" rx="8" fill="#f59e0b"/>
+  <rect x="278" y="365" width="112" height="64" rx="8" fill="#10b981"/>
+  <text x="157" y="340" class="pill">Carousel</text>
+  <text x="153" y="402" class="pill">Boeking</text>
+  <text x="293" y="402" class="pill">Vacatures</text>
+  <rect x="115" y="485" width="145" height="44" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="136" y="512" class="label">Contactformulier</text>
+  <rect x="270" y="485" width="145" height="44" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="292" y="512" class="label">Reviews</text>
+  <text x="115" y="558" class="small">Componenten verwijzen naar websiteblokken</text>
+  <text x="115" y="584" class="small">met lijnen tussen page-builder en website.</text>
+
+  <rect x="1160" y="160" width="340" height="500" rx="26" fill="#0f172a" filter="url(#shadow)"/>
+  <rect x="1190" y="205" width="280" height="410" rx="20" fill="#f8fafc"/>
+  <text x="1216" y="247" class="card-title">Chauffeur app</text>
+  <text x="1216" y="276" class="small">Headless via API's</text>
+  <rect x="1220" y="310" width="230" height="46" rx="10" fill="#dcfce7"/>
+  <text x="1242" y="339" class="label">Online + locatie</text>
+  <rect x="1220" y="370" width="230" height="46" rx="10" fill="#dbeafe"/>
+  <text x="1242" y="399" class="label">Ritten inbox</text>
+  <rect x="1220" y="430" width="230" height="46" rx="10" fill="#fef3c7"/>
+  <text x="1242" y="459" class="label">Accepteren / weigeren</text>
+  <rect x="1220" y="490" width="230" height="46" rx="10" fill="#fee2e2"/>
+  <text x="1242" y="519" class="label">Betaling + factuur</text>
+  <text x="1216" y="576" class="small">Facturen versturen vanuit de app</text>
+
+  <rect x="170" y="690" width="570" height="220" rx="18" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="190" y="715" width="190" height="44" rx="12" fill="url(#taxi)"/>
+  <text x="215" y="744" class="card-title-white">Nexa Taxi</text>
+  <text x="200" y="795" class="small">Ritten, voertuigen en tarieven.</text>
+  <text x="200" y="823" class="small">Dispatch, chauffeurs en betalingen.</text>
+  <text x="200" y="851" class="small">Facturen en notificaties.</text>
+  <rect x="470" y="735" width="230" height="42" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="494" y="762" class="label">Boekingsmodule</text>
+  <rect x="470" y="790" width="230" height="42" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="494" y="817" class="label">Mollie / cash betaling</text>
+  <rect x="470" y="845" width="230" height="42" rx="8" fill="#fff7ed" stroke="#fed7aa"/>
+  <text x="494" y="872" class="label">Factuur verzenden</text>
+
+  <rect x="860" y="690" width="570" height="220" rx="18" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="880" y="715" width="310" height="44" rx="12" fill="url(#skill)"/>
+  <text x="905" y="744" class="card-title-white">Nexa Skillmatching</text>
+  <text x="890" y="795" class="small">Vacatures, kandidaten en matches.</text>
+  <text x="890" y="823" class="small">AI-analyse, interviews en branches.</text>
+  <text x="890" y="851" class="small">Agenda en frontend portaal.</text>
+  <rect x="1230" y="735" width="165" height="42" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="1250" y="762" class="label">Vacaturekaarten</text>
+  <rect x="1230" y="790" width="165" height="42" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="1250" y="817" class="label">Matchscores</text>
+  <rect x="1230" y="845" width="165" height="42" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="1250" y="872" class="label">Interviews</text>
+
+  <path d="M465 395 C505 395 515 355 540 355" class="line"/>
+  <path d="M1060 365 C1102 365 1128 372 1160 398" class="line"/>
+  <path d="M800 530 C760 615 650 665 545 690" class="line"/>
+  <path d="M835 530 C890 620 1010 660 1120 690" class="line"/>
+  <path d="M315 610 C320 650 360 672 430 690" class="line"/>
+  <path d="M1325 660 C1325 682 1320 690 1310 690" class="line"/>
+
+  <rect x="560" y="575" width="520" height="82" rx="30" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="610" y="608" class="label">Multi-tenant: per bedrijf eigen modules,</text>
+  <text x="646" y="634" class="label">pagina's, gebruikers en instellingen</text>
+</svg>

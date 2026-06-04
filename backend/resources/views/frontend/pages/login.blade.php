@@ -1,28 +1,45 @@
 @extends('frontend.layouts.app')
 
-@section('title', 'Inloggen - NEXA Skillmatching')
+@section('title', 'Inloggen')
 
 @section('content')
+@php
+    $loginPortalData = app(\App\Services\WebsiteBuilderService::class)->frontendPortalViewData();
+    $showGuestSkillmatchingLinks = $showGuestSkillmatchingLinks ?? $loginPortalData['showGuestSkillmatchingLinks'];
+@endphp
 <!-- Hero Section with Login Form -->
 <section class="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900 relative overflow-hidden min-h-screen flex items-center">
     <div class="absolute inset-0 bg-black/10 dark:bg-black/20"></div>
     
     <div class="w-full px-4 sm:px-6 lg:px-8 relative z-10">
         <div class="max-w-md mx-auto">
-            <!-- Logo -->
             <div class="text-center mb-8">
-                <img src="{{ asset('images/nexa-logo.png') }}" alt="NEXA" class="h-16 w-auto mx-auto mb-6">
                 <h1 class="text-3xl md:text-4xl font-bold text-white mb-4">
-                    Welkom terug!
+                    Welkom!
                 </h1>
                 <p class="text-lg text-blue-100 dark:text-blue-200">
-                    Log in op je account om verder te gaan
+                    @if($showGuestSkillmatchingLinks)
+                        Log in op je account om verder te gaan
+                    @else
+                        Log in op Mijn Taxi om je ritten te bekijken
+                    @endif
                 </p>
             </div>
 
             <!-- Login Form -->
             <div class="card p-8 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm">
-                <form class="space-y-6" action="{{ request()->query('code_login') ? route('login.code') : route('login.post') }}" method="POST">
+                @if(session('success'))
+                    <div class="mb-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 p-4 rounded-lg text-sm text-green-800 dark:text-green-200">
+                        {{ session('success') }}
+                    </div>
+                @endif
+                @if(session('warning'))
+                    <div class="mb-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-lg text-sm text-amber-900 dark:text-amber-100">
+                        {{ session('warning') }}
+                    </div>
+                @endif
+
+                <form class="space-y-6" action="{{ ($codeLoginMode ?? false) ? route('login.code') : route('login.post') }}" method="POST">
                     @csrf
                     @if(!empty($intendedUrl))
                         <input type="hidden" name="intended" value="{{ $intendedUrl }}">
@@ -44,85 +61,81 @@
                             </div>
                         </div>
                     @enderror
-                    
+                    @error('code')
+                        <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg text-sm text-red-800 dark:text-red-200">
+                            {{ $message }}
+                        </div>
+                    @enderror
+
                     <!-- Email Field -->
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             E-mailadres
                         </label>
-                        <input id="email" name="email" type="email" autocomplete="email" required 
-                               class="input w-full" 
+                        <input id="email" name="email" type="email" autocomplete="email" required
+                               class="input w-full"
                                placeholder="je@email.com"
-                               value="{{ old('email') }}">
+                               value="{{ old('email', $prefillEmail ?? '') }}">
                     </div>
 
-                    @if(request()->query('code_login'))
+                    @if($codeLoginMode ?? false)
                         <div>
-                            <label for="code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eenmalige code</label>
-                            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" required class="input w-full" placeholder="6-cijferige code" value="{{ request()->query('code') }}">
+                            <label for="code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eenmalige code (6 cijfers)</label>
+                            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" required class="input w-full tracking-widest text-center" placeholder="000000" value="{{ old('code', request()->query('code')) }}">
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">De code staat in de e-mail die u na uw boeking heeft ontvangen.</p>
                         </div>
                     @else
-                        <!-- Password Field -->
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Wachtwoord
                             </label>
-                            <input id="password" name="password" type="password" autocomplete="current-password" required 
-                                   class="input w-full" 
+                            <input id="password" name="password" type="password" autocomplete="current-password" required
+                                   class="input w-full"
                                    placeholder="Je wachtwoord">
                         </div>
                     @endif
 
-                    @if(!request()->query('code_login'))
-                        <!-- Remember Me & Forgot Password -->
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <input id="remember-me" name="remember-me" type="checkbox" 
-                                       class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600 rounded">
-                                <label for="remember-me" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                                    Onthoud mij
-                                </label>
-                            </div>
-
-                            <div class="text-sm">
-                                <a href="#" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
-                                    Wachtwoord vergeten?
-                                </a>
-                            </div>
+                    @if(!($codeLoginMode ?? false))
+                        <div class="flex items-center">
+                            <input id="remember-me" name="remember-me" type="checkbox"
+                                   class="h-4 w-4 text-brand-600 focus:ring-brand-500 border-gray-300 dark:border-gray-600 rounded">
+                            <label for="remember-me" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                                Onthoud mij
+                            </label>
                         </div>
                     @endif
 
-                    <!-- Submit Button -->
                     <div>
-                        <button type="submit" class="btn btn-primary w-full btn-lg">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                            </svg>
-                            {{ request()->query('code_login') ? 'Inloggen met code' : 'Inloggen' }}
+                        <button type="submit" class="btn btn-primary w-full btn-lg justify-center">
+                            {{ ($codeLoginMode ?? false) ? 'Inloggen met code' : 'Inloggen' }}
                         </button>
                     </div>
                 </form>
 
-                <!-- Divider -->
-                <div class="mt-6">
-                    <div class="relative">
-                        <div class="absolute inset-0 flex items-center">
-                            <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
-                        </div>
-                        <div class="relative flex justify-center text-sm">
-                            <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">Of</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Register Link -->
-                <div class="mt-6 text-center">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Nog geen account?
-                        <a href="{{ route('register') }}" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
-                            Registreer je hier
-                        </a>
-                    </p>
+                <div class="mt-6 space-y-3 text-center text-sm">
+                    @if($codeLoginMode ?? false)
+                        <form action="{{ route('login.code.request') }}" method="POST" class="inline">
+                            @csrf
+                            <input type="hidden" name="email" value="{{ old('email', $prefillEmail ?? '') }}" id="request-code-email-hidden">
+                            @if(!empty($intendedUrl))
+                                <input type="hidden" name="intended" value="{{ $intendedUrl }}">
+                            @endif
+                            <button type="submit" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
+                                Nieuwe code aanvragen
+                            </button>
+                        </form>
+                        <p>
+                            <a href="{{ route('login', array_filter(['intended' => $intendedUrl ?? null])) }}" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
+                                Inloggen met wachtwoord
+                            </a>
+                        </p>
+                    @else
+                        <p>
+                            <a href="{{ route('login', array_filter(['code_login' => 1, 'email' => old('email', $prefillEmail ?? null), 'intended' => $intendedUrl ?? null])) }}" class="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
+                                Inloggen met eenmalige code (Mijn Taxi)
+                            </a>
+                        </p>
+                    @endif
                 </div>
             </div>
 
@@ -139,6 +152,7 @@
     </div>
 </section>
 
+@if($showGuestSkillmatchingLinks)
 <!-- Features Section -->
 <section class="py-16 bg-white dark:bg-gray-900">
     <div class="w-full px-4 sm:px-6 lg:px-8">
@@ -192,4 +206,18 @@
         </div>
     </div>
 </section>
+@endif
+@push('scripts')
+<script>
+(function () {
+    var emailInput = document.getElementById('email');
+    var codeRequestForm = document.querySelector('form[action="{{ route('login.code.request') }}"]');
+    if (!emailInput || !codeRequestForm) return;
+    codeRequestForm.addEventListener('submit', function () {
+        var hidden = document.getElementById('request-code-email-hidden');
+        if (hidden && emailInput.value) hidden.value = emailInput.value;
+    });
+})();
+</script>
+@endpush
 @endsection

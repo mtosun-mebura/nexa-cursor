@@ -160,6 +160,7 @@ class RideRequestController extends Controller
 
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
+            'stopoverAddresses' => $ride_request->resolveStopoverAddresses(),
             'statusLabels' => $statusLabels,
             'vehicles' => $vehicles,
             'drivers' => $drivers,
@@ -212,11 +213,7 @@ class RideRequestController extends Controller
             $customerCompanyId = (int) session('selected_tenant');
         }
         if (auth()->user()->hasRole('super-admin') && $customerCompanyId && $customerCompanyId > 0) {
-            $customers = User::query()
-                ->where('company_id', (int) $customerCompanyId)
-                ->orderBy('first_name')
-                ->orderBy('last_name')
-                ->get();
+            $customers = $this->buildKlantQuery((int) $customerCompanyId)->get();
         }
 
         return view('taxi::admin.ride_requests.edit', [
@@ -245,13 +242,20 @@ class RideRequestController extends Controller
             array_merge($this->rideRequestFormRules($conn), [
                 'customer_user_id' => [
                     'nullable',
-                    Rule::exists('users', 'id')->where(function ($q) use ($customerCompanyId) {
-                        if ($customerCompanyId) {
-                            $q->where('company_id', (int) $customerCompanyId);
-                        } else {
-                            $q->whereRaw('1 = 0');
+                    'integer',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($customerCompanyId): void {
+                        if ($value === null || $value === '') {
+                            return;
                         }
-                    }),
+                        if (! $customerCompanyId || $customerCompanyId <= 0) {
+                            $fail('Selecteer eerst een tenant om een klant te koppelen.');
+
+                            return;
+                        }
+                        if (! $this->buildKlantQuery((int) $customerCompanyId)->whereKey($value)->exists()) {
+                            $fail('De geselecteerde gebruiker is geen klant van deze tenant.');
+                        }
+                    },
                 ],
             ]),
             $this->rideRequestFormMessages()
@@ -470,7 +474,23 @@ class RideRequestController extends Controller
      */
     private function buildChauffeurQuery(?int $companyId)
     {
-        if ($companyId === null || $companyId <= 0) {
+        return $this->buildTenantRoleUserQuery($companyId, ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur']);
+    }
+
+    /**
+     * Gebruikers met klant-rol voor dit bedrijf (Mijn Taxi / boekingsportaal).
+     */
+    private function buildKlantQuery(?int $companyId)
+    {
+        return $this->buildTenantRoleUserQuery($companyId, ['klant']);
+    }
+
+    /**
+     * @param  list<string>  $roleNamesLower
+     */
+    private function buildTenantRoleUserQuery(?int $companyId, array $roleNamesLower)
+    {
+        if ($companyId === null || $companyId <= 0 || $roleNamesLower === []) {
             return User::query()->whereRaw('1 = 0');
         }
 
@@ -481,8 +501,6 @@ class RideRequestController extends Controller
             User::class,
             (new User)->getMorphClass(),
         ])));
-
-        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur'];
 
         return User::query()
             ->where('company_id', $companyId)

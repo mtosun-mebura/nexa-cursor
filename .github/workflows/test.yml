@@ -5,7 +5,9 @@ env:
 
 on:
   push:
-    branches: [ develop, release/test, nexa-saas ]
+    branches-ignore:
+      - main
+      - release/test
   pull_request:
     branches: [ develop, release/test ]
 

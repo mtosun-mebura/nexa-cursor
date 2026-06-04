@@ -54,7 +54,16 @@
         $allowedFontStyles = $allowedFontStyles ?? ['normal', 'bold', 'italic'];
         $allowedTextAligns = $allowedTextAligns ?? ['left', 'center', 'right'];
     @endphp
-    <style>.nexataxi-card-image-wrap.image-loaded .nexataxi-card-image-loader{opacity:0;pointer-events:none;}</style>
+    <style>
+    .nexataxi-card-image-wrap.image-loaded .nexataxi-card-image-loader{opacity:0;pointer-events:none;}
+    .nexataxi-pricing [data-nexataxi-card-wrapper].nexataxi-pricing-card-wrap--total-width {
+        flex-basis: 100%;
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    </style>
     <h2 id="nexataxi-tarieven-heading" class="text-2xl md:text-3xl text-gray-900 dark:text-white mb-8 md:mb-10 {{ $sectionTitleAlignClass }}" style="{{ $sectionTitleStyle }}">{{ e($sectionTitle) }}</h2>
     @if($hasRates || $hasSectionItemsWithContent)
         @if(!empty($sectionItems))
@@ -90,11 +99,14 @@
                             $isMaxWidth = $cardSize === 'max';
                             $isTotalWidth = $cardSize === 'total_width';
                             $exactWidthPx = $cardWidthPx[$cardSize] ?? 600;
-                            $wrapperClass = ($isMaxWidth ? 'basis-full w-full' : 'shrink-0') . ' nexataxi-pricing-card-wrap';
+                            $wrapperClass = ($isMaxWidth || $isTotalWidth ? 'basis-full w-full' : 'shrink-0') . ' nexataxi-pricing-card-wrap';
+                            if ($isTotalWidth) {
+                                $wrapperClass .= ' nexataxi-pricing-card-wrap--total-width';
+                            }
                             $wrapperStyle = $isMaxWidth
                                 ? 'width:100%;max-width:100%;'
                                 : ($isTotalWidth
-                                    ? 'width:100%;max-width:100%;'
+                                    ? ''
                                     : 'width:min(100%, ' . $exactWidthPx . 'px);max-width:' . $exactWidthPx . 'px;');
                             $fontStyle = $item['font_style'] ?? 'normal';
                             $textColor = !empty($item['text_color']) ? $item['text_color'] : '';
@@ -229,25 +241,51 @@
 
                 function syncTaxiroyaalTotalWidth(root) {
                     var wrappers = Array.prototype.slice.call(root.querySelectorAll('[data-nexataxi-card-wrapper]'));
-                    wrappers.forEach(function(w) {
-                        if ((w.getAttribute('data-card-size') || '') === 'total_width') {
-                            w.style.width = '100%';
-                            w.style.maxWidth = '100%';
-                        }
-                    });
 
                     wrappers.forEach(function(wrapper) {
-                        if ((wrapper.getAttribute('data-card-size') || '') !== 'total_width') return;
+                        var size = wrapper.getAttribute('data-card-size') || '';
+                        if (size !== 'total_width') {
+                            wrapper.style.width = '';
+                            wrapper.style.maxWidth = '';
+                            wrapper.style.marginLeft = '';
+                            wrapper.style.marginRight = '';
+                            return;
+                        }
+
+                        wrapper.style.flexBasis = '100%';
+                        wrapper.style.display = 'flex';
+                        wrapper.style.justifyContent = 'center';
 
                         var currentTop = wrapper.offsetTop;
-                        var previous = wrappers.filter(function(w) { return w.offsetTop < currentTop; });
-                        if (!previous.length) return;
+                        var previous = wrappers.filter(function(w) {
+                            var prevSize = w.getAttribute('data-card-size') || '';
+                            return prevSize !== 'total_width'
+                                && prevSize !== 'max'
+                                && w.offsetTop < (currentTop - 1);
+                        });
+
+                        if (!previous.length) {
+                            previous = wrappers.filter(function(w) {
+                                var prevSize = w.getAttribute('data-card-size') || '';
+                                return prevSize !== 'total_width' && prevSize !== 'max' && w !== wrapper;
+                            });
+                        }
+
+                        if (!previous.length) {
+                            wrapper.style.width = '100%';
+                            wrapper.style.maxWidth = '100%';
+                            wrapper.style.marginLeft = '';
+                            wrapper.style.marginRight = '';
+                            return;
+                        }
 
                         var prevRowTop = Math.max.apply(null, previous.map(function(w) { return w.offsetTop; }));
                         var prevRowItems = previous.filter(function(w) {
                             return Math.abs(w.offsetTop - prevRowTop) <= 2;
                         });
-                        if (!prevRowItems.length) return;
+                        if (!prevRowItems.length) {
+                            return;
+                        }
 
                         var minLeft = Math.min.apply(null, prevRowItems.map(function(w) { return w.offsetLeft; }));
                         var maxRight = Math.max.apply(null, prevRowItems.map(function(w) { return w.offsetLeft + w.offsetWidth; }));
@@ -255,6 +293,8 @@
                         if (rowWidth > 0) {
                             wrapper.style.width = rowWidth + 'px';
                             wrapper.style.maxWidth = rowWidth + 'px';
+                            wrapper.style.marginLeft = 'auto';
+                            wrapper.style.marginRight = 'auto';
                         }
                     });
                 }

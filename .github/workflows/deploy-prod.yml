@@ -25,6 +25,13 @@ on:
         description: 'Git tag om te deployen, bijv. v1.0.3'
         required: true
         type: string
+      expected_sha:
+        description: 'Optioneel: commit-SHA waar de tag exact naar moet wijzen'
+        required: false
+        type: string
+
+permissions:
+  contents: read
 
 concurrency:
   group: deploy-production
@@ -60,18 +67,41 @@ jobs:
             exit 1
           fi
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          expected_sha="${{ github.event.inputs.expected_sha || '' }}"
+          expected_sha="${expected_sha#"${expected_sha%%[![:space:]]*}"}"
+          expected_sha="${expected_sha%"${expected_sha##*[![:space:]]}"}"
+          if [[ -n "$expected_sha" && ! "$expected_sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "ERROR: expected_sha moet een volledige 40-karakter Git SHA zijn, got: $expected_sha" >&2
+            exit 1
+          fi
+          echo "expected_sha=$expected_sha" >> "$GITHUB_OUTPUT"
           echo "Deploy tag: $ref"
 
       - name: Verify tag exists in repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Confirm tag on remote
+      - name: Confirm tag is on main
         run: |
           set -euo pipefail
           ref="${{ steps.version.outputs.ref }}"
-          git rev-parse --verify "refs/tags/${ref}^{commit}"
+          expected_sha="${{ steps.version.outputs.expected_sha }}"
+          git fetch origin main:refs/remotes/origin/main --tags --force
+          tag_sha="$(git rev-parse --verify "refs/tags/${ref}^{commit}")"
+          main_sha="$(git rev-parse --verify "refs/remotes/origin/main^{commit}")"
+
+          if [[ -n "$expected_sha" && "$tag_sha" != "$expected_sha" ]]; then
+            echo "ERROR: Tag ${ref} wijst naar ${tag_sha}, verwacht ${expected_sha}." >&2
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$tag_sha" "$main_sha"; then
+            echo "ERROR: Tag ${ref} (${tag_sha}) staat niet op de main-historie (${main_sha})." >&2
+            exit 1
+          fi
+
+          echo "Tag ${ref} bevestigd op main (${tag_sha})."
 
       - name: Deploy to PROD (deploy-tenant.sh)
         uses: appleboy/ssh-action@v1.2.0

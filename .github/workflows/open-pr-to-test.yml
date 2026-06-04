@@ -1,20 +1,32 @@
-# Opent automatisch een PR naar release/test bij push op nexa-saas.
+# Opent automatisch een PR naar release/test bij push op elke werkbranch.
 # Na merge triggert deploy-saas.yml via push op release/test.
 
 name: Open PR to release/test
 
 on:
   push:
-    branches:
-      - nexa-saas
+    branches-ignore:
+      - main
+      - release/test
+  workflow_dispatch:
+    inputs:
+      head_branch:
+        description: 'Branch die naar release/test moet'
+        required: false
+        default: ''
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
+
+concurrency:
+  group: open-pr-to-release-test-${{ github.event.inputs.head_branch || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   open-pr:
-    if: github.ref != 'refs/heads/release/test'
+    if: github.event_name == 'workflow_dispatch' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/release/test')
     runs-on: ubuntu-latest
     steps:
       - name: Create or skip PR
@@ -22,7 +34,20 @@ jobs:
         with:
           script: |
             const base = 'release/test';
-            const head = context.ref.replace('refs/heads/', '');
+            const inputBranch = (context.payload.inputs?.head_branch || '').trim();
+            const head = inputBranch || context.ref.replace('refs/heads/', '');
+
+            if (!head || head === base || head === 'main') {
+              core.info(`Branch ${head || '<leeg>'} wordt niet naar ${base} gepromoot.`);
+              return;
+            }
+
+            const { data: headBranch } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: head,
+            });
+            const headSha = headBranch.commit.sha;
 
             const { data: existing } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -32,45 +57,157 @@ jobs:
               base,
             });
 
+            let pr;
             if (existing.length > 0) {
               core.info(`Open PR bestaat al: #${existing[0].number}`);
-              return;
-            }
-
-            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              basehead: `${base}...${head}`,
-            });
-
-            if ((comparison.ahead_by ?? 0) === 0) {
-              core.info('Geen commits tussen release/test en ' + head + '; geen PR nodig.');
-              return;
-            }
-
-            try {
-              const { data: pr } = await github.rest.pulls.create({
+              pr = existing[0];
+            } else {
+              const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: `Deploy test: ${head} → ${base}`,
-                head,
-                base,
-                body: [
-                  'Automatisch aangemaakt bij push op `' + head + '`.',
-                  '',
-                  'Na groene CI wordt deze PR automatisch gemerged.',
-                  'Pas daarna start de TEST-deploy (push naar `release/test`).',
-                ].join('\n'),
+                basehead: `${base}...${head}`,
               });
-              core.info(`PR aangemaakt: #${pr.number}`);
-            } catch (error) {
-              const message = [
-                error?.message,
-                error?.response?.data?.message,
-              ].filter(Boolean).join(' ');
-              if (/No commits between|already exists|Nothing to compare/i.test(message)) {
-                core.info(`Geen nieuwe PR nodig: ${message}`);
+
+              if ((comparison.ahead_by ?? 0) === 0) {
+                core.info('Geen commits tussen release/test en ' + head + '; geen PR nodig.');
                 return;
               }
-              throw error;
+
+              try {
+                const response = await github.rest.pulls.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `Deploy test: ${head} → ${base}`,
+                  head,
+                  base,
+                  body: [
+                    'Automatisch aangemaakt bij push op `' + head + '`.',
+                    '',
+                    'Na groene CI wordt deze PR automatisch gemerged.',
+                    'Pas daarna start de TEST-deploy (push naar `release/test`).',
+                  ].join('\n'),
+                });
+                pr = response.data;
+                core.info(`PR aangemaakt: #${pr.number}`);
+              } catch (error) {
+                const message = [
+                  error?.message,
+                  error?.response?.data?.message,
+                ].filter(Boolean).join(' ');
+                if (/already exists/i.test(message)) {
+                  const { data: retryExisting } = await github.rest.pulls.list({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    state: 'open',
+                    head: `${context.repo.owner}:${head}`,
+                    base,
+                  });
+                  if (retryExisting.length > 0) {
+                    pr = retryExisting[0];
+                    core.info(`PR bestond inmiddels al: #${pr.number}`);
+                  } else {
+                    throw error;
+                  }
+                } else if (/No commits between|Nothing to compare/i.test(message)) {
+                  core.info(`Geen nieuwe PR nodig: ${message}`);
+                  return;
+                } else {
+                  throw error;
+                }
+              }
             }
+
+            if (!pr) {
+              core.setFailed('Geen PR beschikbaar om automatisch te mergen.');
+              return;
+            }
+
+            const waitMs = 20000;
+            const maxWaitMs = 30 * 60 * 1000;
+            const started = Date.now();
+
+            core.info(`Wacht op check "test" voor ${headSha} (PR #${pr.number})`);
+            while (Date.now() - started < maxWaitMs) {
+              const { data } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: headSha,
+              });
+
+              const testRuns = data.check_runs.filter((c) => c.name === 'test');
+              if (testRuns.length === 0) {
+                core.info('Check "test" nog niet gestart, wacht...');
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                continue;
+              }
+
+              const pending = testRuns.filter((c) => c.status !== 'completed');
+              if (pending.length > 0) {
+                core.info(`Check "test" nog bezig (${pending.map((c) => c.status).join(', ')})`);
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+                continue;
+              }
+
+              const failed = testRuns.filter((c) => c.conclusion !== 'success');
+              if (failed.length > 0) {
+                core.setFailed(`Check "test" niet geslaagd: ${failed.map((c) => c.conclusion).join(', ')}`);
+                return;
+              }
+
+              core.info('Check "test" geslaagd.');
+              break;
+            }
+
+            if (Date.now() - started >= maxWaitMs) {
+              core.setFailed('Timeout: check "test" niet op tijd afgerond');
+              return;
+            }
+
+            for (let attempt = 1; attempt <= 12; attempt++) {
+              const { data: freshPr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              });
+
+              if (freshPr.merged) {
+                core.info(`PR #${pr.number} was al gemerged.`);
+                return;
+              }
+
+              if (freshPr.mergeable === false) {
+                core.setFailed(`PR #${pr.number} heeft merge-conflicts en kan niet automatisch gemerged worden.`);
+                return;
+              }
+
+              if (freshPr.mergeable === null) {
+                core.info(`Mergeability nog onbekend, poging ${attempt}/12...`);
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                continue;
+              }
+
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  merge_method: 'merge',
+                });
+                core.info(`PR #${pr.number} gemerged naar ${base}.`);
+                return;
+              } catch (error) {
+                const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
+                if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
+                  core.info(`Merge overgeslagen: ${msg}`);
+                  return;
+                }
+                if (/Base branch was modified|Head branch was modified|not clean|mergeable/i.test(msg) && attempt < 12) {
+                  core.info(`Merge nog niet mogelijk (${msg}), poging ${attempt}/12...`);
+                  await new Promise((resolve) => setTimeout(resolve, 5000));
+                  continue;
+                }
+                throw error;
+              }
+            }
+
+            core.setFailed(`PR #${pr.number} kon niet automatisch gemerged worden na meerdere pogingen.`);

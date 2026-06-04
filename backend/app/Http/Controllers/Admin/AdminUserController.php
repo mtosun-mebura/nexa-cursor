@@ -12,8 +12,10 @@ use App\Models\User;
 use App\Support\ModuleSchemaAvailability;
 use App\Services\EnvService;
 use App\Services\UserRoleAssignmentService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
@@ -36,10 +38,7 @@ class AdminUserController extends Controller
 
         // Filter super-admins: alleen super-admins kunnen andere super-admins zien
         if (! auth()->user()->hasRole('super-admin')) {
-            // Exclude alle gebruikers met de super-admin rol
-            $query->whereDoesntHave('roles', function ($q) {
-                $q->where('name', 'super-admin');
-            });
+            $query->whereNot(fn ($q) => $this->applyWebRoleNameFilter($q, 'super-admin'));
         }
 
         // Apply filters
@@ -61,9 +60,7 @@ class AdminUserController extends Controller
         }
 
         if ($request->filled('role')) {
-            $query->whereHas('roles', function ($q) use ($request) {
-                $q->where('name', $request->role);
-            });
+            $this->applyWebRoleNameFilter($query, (string) $request->role);
         }
 
         if ($request->filled('company')) {
@@ -116,13 +113,8 @@ class AdminUserController extends Controller
             'intermediaries' => $tenantId ? \App\Models\Company::where('id', $tenantId)->where('is_intermediary', true)->count() : \App\Models\Company::where('is_intermediary', true)->count(),
         ];
 
-        // Get unique roles for filter
-        // Exclude super-admin role from filter if current user is not a super-admin
-        $rolesQuery = Role::select('name')->where('guard_name', 'web')->distinct()->orderBy('name');
-        if (! auth()->user()->hasRole('super-admin')) {
-            $rolesQuery->where('name', '!=', 'super-admin');
-        }
-        $roles = $rolesQuery->pluck('name')->unique()->values();
+        // Rollen in filter = rollen die daadwerkelijk in dit overzicht voorkomen (zelfde bron als webRoleNames in de tabel)
+        $roles = $this->roleNamesForUserIndexFilter();
 
         // Get companies for filter
         $companies = Company::orderBy('name')->get();
@@ -752,5 +744,86 @@ class AdminUserController extends Controller
 
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Basisquery voor gebruikersoverzicht (tenant, zonder huidige gebruiker, zonder super-admin voor niet-super-admins).
+     */
+    private function baseUsersIndexQuery(): Builder
+    {
+        $query = User::query();
+        $this->applyTenantFilter($query);
+        $query->where('id', '!=', auth()->id());
+
+        if (! auth()->user()->hasRole('super-admin')) {
+            $query->whereNot(fn ($q) => $this->applyWebRoleNameFilter($q, 'super-admin'));
+        }
+
+        return $query;
+    }
+
+    /**
+     * Filter op web-rolnaam via model_has_roles (team-onafhankelijk), gelijk aan {@see User::webRoleNames()}.
+     */
+    private function applyWebRoleNameFilter(Builder $query, string $roleName): Builder
+    {
+        $pivot = config('permission.table_names.model_has_roles');
+        $rolesTable = config('permission.table_names.roles');
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $morphKey = config('permission.column_names.model_morph_key') ?: 'model_id';
+        $morphTypes = $this->userRoleMorphTypes();
+
+        return $query->whereExists(function ($sub) use ($roleName, $pivot, $rolesTable, $rolePivotKey, $morphKey, $morphTypes) {
+            $sub->select(DB::raw('1'))
+                ->from($pivot)
+                ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivot}.{$rolePivotKey}")
+                ->whereColumn("{$pivot}.{$morphKey}", 'users.id')
+                ->whereIn("{$pivot}.model_type", $morphTypes)
+                ->where("{$rolesTable}.guard_name", 'web')
+                ->where("{$rolesTable}.name", $roleName);
+        });
+    }
+
+    /**
+     * Unieke web-rolnamen van gebruikers in het huidige overzicht (voor filterdropdown).
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function roleNamesForUserIndexFilter(): \Illuminate\Support\Collection
+    {
+        $pivot = config('permission.table_names.model_has_roles');
+        $rolesTable = config('permission.table_names.roles');
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $morphKey = config('permission.column_names.model_morph_key') ?: 'model_id';
+        $morphTypes = $this->userRoleMorphTypes();
+
+        $query = DB::table($pivot)
+            ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivot}.{$rolePivotKey}")
+            ->whereIn("{$pivot}.model_type", $morphTypes)
+            ->where("{$rolesTable}.guard_name", 'web')
+            ->whereIn("{$pivot}.{$morphKey}", $this->baseUsersIndexQuery()->select('users.id'));
+
+        if (! auth()->user()->hasRole('super-admin')) {
+            $query->where("{$rolesTable}.name", '!=', 'super-admin');
+        }
+
+        return $query
+            ->distinct()
+            ->orderBy("{$rolesTable}.name")
+            ->pluck("{$rolesTable}.name")
+            ->map(fn ($name) => (string) $name)
+            ->values();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function userRoleMorphTypes(): array
+    {
+        return array_values(array_unique(array_filter([
+            (new User)->getMorphClass(),
+            User::class,
+            'App\\Models\\User',
+        ])));
     }
 }

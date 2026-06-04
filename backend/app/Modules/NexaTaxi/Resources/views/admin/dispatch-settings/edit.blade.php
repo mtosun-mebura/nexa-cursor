@@ -178,6 +178,50 @@
             </div>
         </div>
 
+        <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-mijn-taxi-login">
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Mijn Taxi – klant inlogcode'])
+            <div class="settings-collapsible-body">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <table class="kt-table kt-table-border-dashed text-sm text-muted-foreground">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Geldigheid inlogcode (minuten)</td>
+                    <td class="min-w-48 w-full align-top pt-4">
+                        <input
+                            type="number"
+                            name="customer_login_code_expires_minutes"
+                            id="customer_login_code_expires_minutes"
+                            class="kt-input w-full max-w-md @error('customer_login_code_expires_minutes') border-destructive @enderror"
+                            min="{{ $minLoginCodeExpiresMinutes }}"
+                            max="{{ $maxLoginCodeExpiresMinutes }}"
+                            step="1"
+                            required
+                            value="{{ old('customer_login_code_expires_minutes', $customerLoginCodeExpiresMinutes) }}"
+                        >
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Tussen {{ $minLoginCodeExpiresMinutes }} en {{ $maxLoginCodeExpiresMinutes }} minuten.
+                            Serverstandaard zonder tenant-waarde: {{ $envDefaultLoginCodeExpiresMinutes }} min.
+                            In de e-mail wordt <code class="text-xs">{{ '{' }}{{ '{' }} CODE_EXPIRES_MINUTES {{ '}' }}{{ '}' }}</code> automatisch met dit getal ingevuld;
+                            de code verloopt in de database na hetzelfde aantal minuten.
+                        </p>
+                        @error('customer_login_code_expires_minutes')
+                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                        @enderror
+                    </td>
+                </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">E-mailtekst inlogcode</td>
+                    <td class="min-w-48 w-full align-top pt-4">
+                        <p class="text-sm text-secondary-foreground mb-2">
+                            Onderwerp, opmaak en overige variabelen (naam, code, link) pas je aan in E-mail templates.
+                        </p>
+                        <a href="{{ $customerLoginCodeEmailTemplateUrl }}" class="kt-btn kt-btn-sm kt-btn-outline">E-mailtemplate inlogcode</a>
+                    </td>
+                </tr>
+            </table>
+            </div>
+            </div>
+        </div>
+
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-customer-accept">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Klantmelding bij acceptatie'])
             <div class="settings-collapsible-body">

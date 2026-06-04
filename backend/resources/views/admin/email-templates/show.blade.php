@@ -46,6 +46,13 @@
     .email-preview-content .prose a { color: #2563eb !important; }
     .dark .email-preview-content .prose { color: #e5e7eb !important; }
     .dark .email-preview-content .prose a { color: #93c5fd !important; }
+    .email-preview-content img {
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
+        display: block !important;
+    }
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
@@ -106,6 +113,15 @@
                        disabled/>
                 <span class="ms-2">Actief</span>
             </label>
+            @endcan
+            @can('create-email-templates')
+            <form action="{{ route('admin.email-templates.duplicate', $emailTemplate) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="kt-btn kt-btn-outline">
+                    <i class="ki-filled ki-copy me-2"></i>
+                    Dupliceren
+                </button>
+            </form>
             @endcan
             @can('edit-email-templates')
             <span class="text-muted-foreground">|</span>
@@ -193,6 +209,13 @@
                 @if($emailTemplate->html_content)
                 <div class="mb-4">
                     <h6 class="text-sm font-semibold text-foreground mb-2">HTML Inhoud:</h6>
+                    @if(!$emailTemplate->company_id)
+                    <p class="text-xs text-muted-foreground mb-3">
+                        Dit is een <strong>algemeen</strong> template. In de preview en bij verzenden wordt het logo (en bedrijfsnaam) van de
+                        <strong>ontvangende tenant</strong> gebruikt — bij een boeking of rit het bedrijf van die rit, in de admin-preview het geselecteerde of huidige tenant-domein.
+                        Zie je alleen tekst i.p.v. een logo? Upload dan een logo bij dat bedrijf (Algemene instellingen of bedrijfsprofiel).
+                    </p>
+                    @endif
                     <div class="border border-border rounded-xl p-4 bg-muted/30 email-preview-content">
                         <div class="prose prose-sm max-w-none dark:prose-invert text-left">
                             {!! $previewHtml ?? $emailTemplate->html_content !!}

@@ -1,14 +1,21 @@
 @php
     $branding = $branding ?? app(\App\Services\WebsiteBuilderService::class)->getSiteBranding(
-        request()->routeIs('taxi.portal.*') ? 'taxi' : null
+        request()->routeIs('taxi.portal.*') || (($frontendResolvedModuleName ?? null) === 'taxi') ? 'taxi' : null
     );
     $dashboardLinkLabel = $dashboardLinkLabel ?? ($branding['dashboard_link_label'] ?? \App\Models\GeneralSetting::get('dashboard_link_label', 'Mijn Nexa'));
     $dashboardLinkVisible = $dashboardLinkVisible ?? (bool) ($branding['dashboard_link_visible'] ?? (\App\Models\GeneralSetting::get('dashboard_link_visible', '1') === '1'));
     $dashboardLinkUrl = $dashboardLinkUrl ?? ($branding['dashboard_link_url'] ?? route('dashboard'));
     $showSkillmatchingNav = ($showSkillmatchingAppLinks ?? false) && ! request()->routeIs('taxi.portal.*');
+    $showGuestSkillmatchingLinks = $showGuestSkillmatchingLinks ?? ($frontendResolvedModuleName ?? null) !== 'taxi';
+    $hideGuestLoginButton = request()->routeIs('login', 'frontend.set-password') && ! $showGuestSkillmatchingLinks;
     $isFrontendAppPage = request()->routeIs('dashboard', 'profile', 'matches', 'agenda', 'applications', 'applications.*', 'settings', 'taxi.portal.*');
     $isPublicWebsitePage = ! $isFrontendAppPage;
     $isTaxiPortalPage = request()->routeIs('taxi.portal.*');
+    $isTaxiContext = $isTaxiPortalPage || (($frontendResolvedModuleName ?? null) === 'taxi');
+    $profileMenuLabel = $isTaxiContext ? 'Mijn gegevens' : 'Mijn Profiel';
+    $profileMenuUrl = $isTaxiContext
+        ? route('taxi.portal.dashboard', ['tab' => 'profile'])
+        : route('profile');
 @endphp
 <!-- Header -->
 <header
@@ -47,7 +54,7 @@
                 </div>
             </div>
 
-            <!-- Navigatie: Dashboard, Vacatures, Matches, Agenda (zichtbaar vanaf md) -->
+            <!-- Navigatie (desktop) -->
             <nav class="hidden md:flex items-center justify-center flex-1 px-4 gap-4 lg:gap-6" role="navigation" aria-label="Hoofdnavigatie">
                 @auth
                     <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
@@ -73,6 +80,7 @@
                     <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Home
                     </a>
+                    @if($showGuestSkillmatchingLinks)
                     <a href="{{ route('jobs.index') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('jobs.*') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Vacatures
                     </a>
@@ -82,6 +90,7 @@
                     <a href="{{ route('contact') }}" class="text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {{ request()->routeIs('contact') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '' }}">
                         Contact
                     </a>
+                    @endif
                 @endauth
             </nav>
             
@@ -109,7 +118,10 @@
                             @include('frontend.partials.topbar-notification-dropdown')
                             @include('frontend.partials.topbar-chat')
                             @endif
-                            @include('frontend.partials.topbar-user-dropdown')
+                            @include('frontend.partials.topbar-user-dropdown', [
+                                'profileMenuLabel' => $profileMenuLabel,
+                                'profileMenuUrl' => $profileMenuUrl,
+                            ])
                         @elseif($dashboardLinkVisible && $isPublicWebsitePage)
                             <a href="{{ $dashboardLinkUrl }}" class="btn btn-primary text-sm font-medium px-4 py-2 rounded-lg">
                                 {{ $dashboardLinkLabel }}
@@ -117,14 +129,18 @@
                         @endif
                     @endif
                 @else
-                    <!-- Inloggen rechtsboven – altijd zichtbaar -->
+                    <!-- Inloggen rechtsboven (niet op Mijn Taxi-login/wachtwoord-pagina) -->
                     <div class="flex items-center gap-2 md:gap-3">
+                        @unless($hideGuestLoginButton)
                         <a href="{{ route('login') }}" class="btn btn-primary text-sm font-medium px-3 py-2 md:px-4 md:py-2 rounded-lg shrink-0">
                             Inloggen
                         </a>
+                        @endunless
+                        @if($showGuestSkillmatchingLinks)
                         <a href="{{ route('register') }}" class="hidden sm:inline-flex items-center px-3 py-2 md:px-4 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                             Registreren
                         </a>
+                        @endif
                     </div>
                 @endauth
             </div>
@@ -165,6 +181,7 @@
                     <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('home') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
                         Home
                     </a>
+                    @if($showGuestSkillmatchingLinks)
                     <a href="{{ route('jobs.index') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('jobs.*') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
                         Vacatures
                     </a>
@@ -174,14 +191,19 @@
                     <a href="{{ route('contact') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors {{ request()->routeIs('contact') ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : '' }}">
                         Contact
                     </a>
+                    @endif
+                    @unless($hideGuestLoginButton)
                     <div class="pt-2 mt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
                         <a href="{{ route('login') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-center btn btn-primary">
                             Inloggen
                         </a>
+                        @if($showGuestSkillmatchingLinks)
                         <a href="{{ route('register') }}" class="block px-4 py-3 rounded-lg text-base font-medium text-center text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700">
                             Registreren
                         </a>
+                        @endif
                     </div>
+                    @endunless
                 @endauth
             </div>
         </div>

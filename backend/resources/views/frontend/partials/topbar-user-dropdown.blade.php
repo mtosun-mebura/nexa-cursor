@@ -1,5 +1,9 @@
 <!-- User -->
 @auth
+@php
+    $profileMenuLabel = $profileMenuLabel ?? 'Mijn Profiel';
+    $profileMenuUrl = $profileMenuUrl ?? route('profile');
+@endphp
 @if(auth()->check() && auth()->user())
 <div class="relative shrink-0 user-dropdown-container" x-data="{ userMenuOpen: false }" @keydown.escape.window="userMenuOpen = false">
     <button type="button"
@@ -54,9 +58,9 @@
                 <p class="truncate text-sm font-semibold text-gray-100">
                     {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}
                 </p>
-                <a href="{{ route('profile') }}" class="mt-1 block truncate text-xs font-medium text-gray-300 hover:text-blue-400">
+                <p class="mt-1 truncate text-xs font-medium text-gray-300">
                     {{ auth()->user()->email }}
-                </a>
+                </p>
             </div>
         </div>
         <div class="py-1">
@@ -65,8 +69,8 @@
                 Dashboard
             </a>
             @endif
-            <a href="{{ route('profile') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
-                Mijn Profiel
+            <a href="{{ $profileMenuUrl }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
+                {{ $profileMenuLabel }}
             </a>
             @if($showSkillmatchingAppLinks ?? false)
             <a href="{{ route('agenda') }}" class="flex w-full items-center px-4 py-2.5 text-sm font-medium text-gray-100 hover:bg-gray-800" role="menuitem">
