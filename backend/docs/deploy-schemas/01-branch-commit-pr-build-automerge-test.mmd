@@ -1,5 +1,5 @@
 flowchart TD
-    A[Developer pusht commit naar nexa-saas] --> B[Workflow: Test and Build]
+    A[Developer pusht commit naar willekeurige werkbranch] --> B[Workflow: Test and Build]
     A --> C[Workflow: Open PR to release/test]
     C --> D{Bestaat er al een open PR?}
     D -- Ja --> E[PR hergebruiken]

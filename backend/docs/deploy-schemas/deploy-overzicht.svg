@@ -32,7 +32,7 @@
 
   <rect class="box" x="120" y="285" width="300" height="92"/>
   <text class="text" x="150" y="325">Push commit</text>
-  <text class="small" x="150" y="355">branch: nexa-saas</text>
+  <text class="small" x="150" y="355">willekeurige werkbranch</text>
 
   <rect class="deploy" x="520" y="240" width="310" height="92"/>
   <text class="text" x="550" y="280">Test and Build</text>

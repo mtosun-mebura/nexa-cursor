@@ -16,7 +16,7 @@ GitHub rendert de Mermaid-blokken in dit document direct als diagram.
 
 ```mermaid
 flowchart TD
-    A[Developer pusht commit naar nexa-saas] --> B[Workflow: Test and Build]
+    A[Developer pusht commit naar willekeurige werkbranch] --> B[Workflow: Test and Build]
     A --> C[Workflow: Open PR to release/test]
     C --> D{Bestaat er al een open PR?}
     D -- Ja --> E[PR hergebruiken]
@@ -91,7 +91,7 @@ flowchart TD
 ## Belangrijke workflows
 
 - `.github/workflows/test.yml`: bouwt assets en draait PHPUnit-tests.
-- `.github/workflows/open-pr-to-test.yml`: opent automatisch een PR van `nexa-saas` naar `release/test`.
+- `.github/workflows/open-pr-to-test.yml`: opent automatisch een PR van elke werkbranch naar `release/test`.
 - `.github/workflows/auto-merge-test-pr.yml`: wacht op check `test` en merget de PR naar `release/test`.
 - `.github/workflows/deploy-saas.yml`: deployt TEST op push naar `release/test`.
 - `.github/workflows/create-prod-tag.yml`: maakt een PROD-tag op `origin/main` en start PROD-deploy.
