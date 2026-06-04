@@ -136,8 +136,17 @@ jobs:
 
             SCRIPT="$TENANT_DIR/deploy/deploy-tenant.sh"
             if [[ ! -f "$SCRIPT" ]]; then
-              echo "ERROR: $SCRIPT ontbreekt (clone repo eerst op de server)" >&2
-              exit 1
+              echo "==> $SCRIPT ontbreekt in huidige server-checkout; laad deploy-script uit tag $GIT_REF"
+              TMP_SCRIPT="/tmp/nexa-deploy-tenant-${GIT_REF//[^a-zA-Z0-9_.-]/_}.sh"
+              if [[ "$(id -un)" != "$DEPLOY_USER" ]] && sudo -n -u "$DEPLOY_USER" true 2>/dev/null; then
+                sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" --tags --force
+                sudo -n -u "$DEPLOY_USER" -H git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"
+              else
+                git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" fetch "$GIT_REMOTE" --tags --force
+                git -c "safe.directory=$TENANT_DIR" -C "$TENANT_DIR" show "${GIT_REF}:deploy/deploy-tenant.sh" > "$TMP_SCRIPT"
+              fi
+              chmod 755 "$TMP_SCRIPT"
+              SCRIPT="$TMP_SCRIPT"
             fi
 
             if [[ "$(id -un)" != "$DEPLOY_USER" ]]; then
