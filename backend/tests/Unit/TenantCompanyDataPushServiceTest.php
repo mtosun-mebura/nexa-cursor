@@ -50,6 +50,8 @@ class TenantCompanyDataPushServiceTest extends TestCase
 
         $this->assertContains('vehicles', $taxiTables);
         $this->assertContains('default_rates', $taxiTables);
+        $this->assertContains('knowledge_documents', $taxiTables);
+        $this->assertContains('knowledge_chunks', $taxiTables);
     }
 
     #[Test]

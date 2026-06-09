@@ -53,7 +53,7 @@
         @if($grCompanyId === null)
         <p class="text-sm text-amber-700 dark:text-amber-400">Zonder gekoppeld bedrijf kan Place ID niet worden opgeslagen.</p>
         @else
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4" data-panel-title="Google Reviews instellingen">
             <div>
                 <label class="block text-xs text-muted-foreground mb-1" for="gr-place-{{ $sectionKey }}">Place ID</label>
                 <input type="text" id="gr-place-{{ $sectionKey }}" name="home_sections[{{ $sectionKey }}][place_id]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.place_id', $grPlaceId) }}" maxlength="255" placeholder="ChIJ...">

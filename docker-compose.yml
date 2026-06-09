@@ -12,6 +12,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: nexa_backend
+    entrypoint: ["/var/www/html/docker-entrypoint.sh"]
     ports:
       - "8085:8000"
     depends_on:
@@ -31,6 +32,10 @@ services:
       N8N_PASSWORD: ${N8N_PASSWORD:-Memmo@N8N!}
 
       APP_KEY: ${APP_KEY:-}
+
+      # Meerdere PHP built-in server workers (vereist --no-reload in docker-entrypoint.sh).
+      # Zonder dit blokkeert de AI-chat: Laravel wacht op n8n terwijl n8n terugbelt naar Laravel.
+      PHP_CLI_SERVER_WORKERS: "8"
     volumes:
       - ./backend:/var/www/html
       - ./.env:/var/www/html/.env

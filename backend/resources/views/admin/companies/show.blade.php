@@ -428,55 +428,46 @@
 
 <!-- Container -->
 <div class="kt-container-fixed">
-    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
-        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
-            <h3 class="kt-card-title">
+    <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5">
+        <div class="kt-card-header items-center justify-between gap-3">
+            <h3 class="kt-card-title mb-0">
                 Gekoppelde modules
             </h3>
             @can('edit-companies')
-                <a href="{{ route('admin.companies.edit', $company) }}#company-modules" class="kt-btn kt-btn-sm kt-btn-outline">
+                <a href="{{ route('admin.companies.edit', $company) }}#company-modules" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
                     <i class="ki-filled ki-notepad-edit me-1"></i>
                     Aanpassen
                 </a>
             @endcan
         </div>
-        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Zelfde keuze als in de tenant-wizard (stap Modules). Alleen gekoppelde modules zijn beschikbaar voor dit bedrijf.
-        </p>
-        @if($company->modules->isEmpty())
-            <div class="kt-card-content pb-6">
-                <p class="text-sm text-muted-foreground mb-0">Geen modules gekoppeld.</p>
-            </div>
-        @else
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                    <thead>
-                        <tr>
-                            <th class="min-w-48 text-start">Module</th>
-                            <th class="min-w-32 text-start">Technische naam</th>
-                            <th class="min-w-32 text-start">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($company->modules->sortBy('display_name') as $mod)
-                            <tr>
-                                <td class="font-medium text-foreground">{{ $mod->display_name }}</td>
-                                <td><code class="text-xs">{{ $mod->name }}</code></td>
-                                <td>
-                                    @if($mod->installed && $mod->active)
-                                        <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
-                                    @elseif($mod->installed)
-                                        <span class="kt-badge kt-badge-sm kt-badge-warning">Geïnstalleerd</span>
-                                    @else
-                                        <span class="kt-badge kt-badge-sm kt-badge-outline">Niet geïnstalleerd</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
+        <div class="kt-card-content flex flex-col gap-4">
+            <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
+                Zelfde keuze als in de tenant-wizard (stap Modules). Alleen gekoppelde modules zijn beschikbaar voor dit bedrijf.
+            </p>
+            @if($company->modules->isEmpty())
+                <p class="text-sm text-muted-foreground mb-0 rounded-lg border border-dashed border-input px-4 py-3">
+                    Geen modules gekoppeld.
+                </p>
+            @else
+                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    @foreach($company->modules->sortBy('display_name') as $mod)
+                        <div class="flex flex-col gap-2 rounded-xl border border-input bg-muted/15 px-4 py-3.5 min-w-0">
+                            <div class="flex items-start justify-between gap-2 min-w-0">
+                                <span class="font-semibold text-sm text-foreground leading-snug">{{ $mod->display_name }}</span>
+                                @if($mod->installed && $mod->active)
+                                    <span class="kt-badge kt-badge-sm kt-badge-success shrink-0">Actief</span>
+                                @elseif($mod->installed)
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning shrink-0">Geïnstalleerd</span>
+                                @else
+                                    <span class="kt-badge kt-badge-sm kt-badge-outline shrink-0">Niet geïnstalleerd</span>
+                                @endif
+                            </div>
+                            <code class="text-xs text-secondary-foreground break-all">{{ $mod->name }}</code>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     </div>
 </div>
 <!-- End of Container -->
@@ -539,73 +530,70 @@
 
 <!-- Container -->
 <div class="kt-container-fixed">
-    <div class="kt-card min-w-full mt-5 lg:mt-7.5">
+    <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">
+            <h3 class="kt-card-title mb-0">
                 Tenant domeinen (SaaS)
             </h3>
         </div>
-        <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit <code class="text-xs">APP_URL</code> en domeinen in <code class="text-xs">TENANCY_CENTRAL_DOMAINS</code> worden niet als tenant opgelost.
-        </p>
+        <div class="kt-card-content flex flex-col gap-5">
+            <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
+                Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit <code class="text-xs">APP_URL</code> en domeinen in <code class="text-xs">TENANCY_CENTRAL_DOMAINS</code> worden niet als tenant opgelost.
+            </p>
 
-        <p id="company-domains-empty" class="text-sm text-secondary-foreground px-6 pb-4 mb-0 {{ $company->domains->isNotEmpty() ? 'hidden' : '' }}">Nog geen domeinen gekoppeld.</p>
+            <p id="company-domains-empty" class="text-sm text-muted-foreground mb-0 rounded-lg border border-dashed border-input px-4 py-3 {{ $company->domains->isNotEmpty() ? 'hidden' : '' }}">
+                Nog geen domeinen gekoppeld.
+            </p>
 
-        <div id="company-domains-table-wrap" class="kt-card-table kt-scrollable-x-auto pb-3 {{ $company->domains->isEmpty() ? 'hidden' : '' }}">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                <thead>
-                    <tr>
-                        <th class="min-w-48 text-start">Host</th>
-                        <th class="min-w-32 text-start">Primair</th>
-                        @can('edit-companies')
-                        <th class="w-[120px] text-end">Acties</th>
-                        @endcan
-                    </tr>
-                </thead>
-                <tbody id="company-domains-tbody">
+            <div id="company-domains-list-wrap" class="flex flex-col gap-2 {{ $company->domains->isEmpty() ? 'hidden' : '' }}">
+                <div id="company-domains-list" class="flex flex-col gap-2">
                     @include('admin.companies.partials.domain-table-rows', ['company' => $company])
-                </tbody>
-            </table>
-        </div>
-
-        @can('edit-companies')
-        <form id="company-domain-add-form" action="{{ route('admin.companies.domains.store', $company) }}" method="post" class="{{ $company->domains->isNotEmpty() ? 'border-t border-border' : 'pt-2' }}">
-            @csrf
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                    <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Hostnaam</td>
-                        <td class="min-w-48 w-full">
-                            <input type="text" name="host" id="domain_host" value="{{ old('host') }}" class="kt-input @error('host') border-destructive @enderror" placeholder="bijv. klant.jouwdomein.nl" required autocomplete="off" @error('host') data-server-error="1" @enderror>
-                            <div id="domain-host-error-ajax" class="text-xs text-destructive mt-1 hidden" role="alert"></div>
-                            @error('host')
-                                <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="host">{{ $message }}</div>
-                            @enderror
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Primair domein</td>
-                        <td class="min-w-48 w-full">
-                            <input type="hidden" name="is_primary" value="0">
-                            <label class="kt-label flex items-center gap-2 mb-0">
-                                <input type="checkbox" name="is_primary" value="1" class="kt-switch kt-switch-sm" {{ old('is_primary') ? 'checked' : '' }}>
-                                Instellen als primair domein
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top"></td>
-                        <td class="min-w-48 w-full">
-                            <button type="submit" class="kt-btn kt-btn-primary">
-                                <i class="ki-filled ki-plus me-2"></i>
-                                Domein toevoegen
-                            </button>
-                        </td>
-                    </tr>
-                </table>
+                </div>
             </div>
-        </form>
-        @endcan
+
+            @can('edit-companies')
+            <form
+                id="company-domain-add-form"
+                action="{{ route('admin.companies.domains.store', $company) }}"
+                method="post"
+                class="flex flex-col gap-4 {{ $company->domains->isNotEmpty() ? 'pt-5 border-t border-border' : 'rounded-xl border border-input bg-muted/15 p-4 sm:p-5' }}"
+            >
+                @csrf
+                <div class="flex flex-col gap-1.5">
+                    <label for="domain_host" class="text-sm font-medium text-foreground">Hostnaam</label>
+                    <input
+                        type="text"
+                        name="host"
+                        id="domain_host"
+                        value="{{ old('host') }}"
+                        class="kt-input w-full @error('host') border-destructive @enderror"
+                        placeholder="bijv. klant.jouwdomein.nl"
+                        required
+                        autocomplete="off"
+                        @error('host') data-server-error="1" @enderror
+                    >
+                    <div id="domain-host-error-ajax" class="text-xs text-destructive hidden" role="alert"></div>
+                    @error('host')
+                        <div class="text-xs text-destructive" data-validation-error="1" data-validation-error-for="host">{{ $message }}</div>
+                    @enderror
+                </div>
+                <div class="flex flex-col gap-2">
+                    <span class="text-sm font-medium text-foreground">Primair domein</span>
+                    <input type="hidden" name="is_primary" value="0">
+                    <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
+                        <input type="checkbox" name="is_primary" value="1" class="kt-switch kt-switch-sm shrink-0" {{ old('is_primary') ? 'checked' : '' }}>
+                        <span class="text-sm text-secondary-foreground">Instellen als primair domein</span>
+                    </label>
+                </div>
+                <div>
+                    <button type="submit" class="kt-btn kt-btn-primary w-full sm:w-auto">
+                        <i class="ki-filled ki-plus me-2"></i>
+                        Domein toevoegen
+                    </button>
+                </div>
+            </form>
+            @endcan
+        </div>
     </div>
 </div>
 <!-- End of Container -->
@@ -1085,26 +1073,26 @@
 
         // Tenant domeinen: tabel bijwerken zonder volledige pagina-refresh
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        const domainTbody = document.getElementById('company-domains-tbody');
+        const domainList = document.getElementById('company-domains-list');
         const domainEmptyMsg = document.getElementById('company-domains-empty');
-        const domainTableWrap = document.getElementById('company-domains-table-wrap');
+        const domainListWrap = document.getElementById('company-domains-list-wrap');
         const domainAddForm = document.getElementById('company-domain-add-form');
 
-        function applyCompanyDomainsTable(data) {
-            if (domainTbody && data.tbody_html !== undefined) {
-                domainTbody.innerHTML = data.tbody_html;
+        function applyCompanyDomainsList(data) {
+            if (domainList && data.tbody_html !== undefined) {
+                domainList.innerHTML = data.tbody_html;
             }
             const hasDomains = data.has_domains !== false;
             if (hasDomains) {
                 domainEmptyMsg?.classList.add('hidden');
-                domainTableWrap?.classList.remove('hidden');
-                domainAddForm?.classList.add('border-t', 'border-border');
-                domainAddForm?.classList.remove('pt-2');
+                domainListWrap?.classList.remove('hidden');
+                domainAddForm?.classList.add('pt-5', 'border-t', 'border-border');
+                domainAddForm?.classList.remove('rounded-xl', 'border', 'border-input', 'bg-muted/15', 'p-4', 'sm:p-5');
             } else {
                 domainEmptyMsg?.classList.remove('hidden');
-                domainTableWrap?.classList.add('hidden');
-                domainAddForm?.classList.remove('border-t', 'border-border');
-                domainAddForm?.classList.add('pt-2');
+                domainListWrap?.classList.add('hidden');
+                domainAddForm?.classList.remove('pt-5', 'border-t', 'border-border');
+                domainAddForm?.classList.add('rounded-xl', 'border', 'border-input', 'bg-muted/15', 'p-4', 'sm:p-5');
             }
         }
 
@@ -1145,7 +1133,7 @@
                     if (!result.ok) {
                         throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
                     }
-                    applyCompanyDomainsTable(result.data);
+                    applyCompanyDomainsList(result.data);
                 })
                 .catch(function(err) {
                     alert(err.message || 'Er is een fout opgetreden.');
@@ -1197,7 +1185,7 @@
                         }
                         throw new Error((result.data && result.data.message) ? result.data.message : 'Opslaan mislukt');
                     }
-                    applyCompanyDomainsTable(result.data);
+                    applyCompanyDomainsList(result.data);
                     domainAddForm.reset();
                 })
                 .catch(function(err) {

@@ -223,6 +223,15 @@
                             <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: ICO, PNG, JPG (max. 2MB)</p>
                         </td>
                     </tr>
+                    <tr>
+                        <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
+                            <div class="flex justify-end">
+                                <button type="submit" class="kt-btn kt-btn-primary">
+                                    <i class="ki-filled ki-check me-2"></i> Opslaan
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
             </div>
@@ -232,34 +241,54 @@
         <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Algemene opties'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-form-general-options-section">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                    <colgroup>
+                        <col class="admin-form-label-col">
+                        <col>
+                    </colgroup>
                     <tbody>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">Admin footertekst</td>
-                        <td class="min-w-48 w-full align-top">
+                        <td class="min-w-48 w-full min-w-0 align-top">
                             <input type="text" name="admin_footer_brand" id="admin_footer_brand" class="kt-input w-full max-w-xl" value="{{ old('admin_footer_brand', $adminFooterBrand ?? 'Nexa Skillmatching') }}" maxlength="255" placeholder="Nexa Skillmatching">
-                            <p class="text-xs text-muted-foreground mt-1">Tekst rechts van het jaartal in de footer van het admin-panel (bijv. <span class="font-mono">{{ date('Y') }}© Nexa Skillmatching</span>). Het jaar wordt automatisch bijgewerkt.</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-full">Tekst rechts van het jaartal in de footer van het admin-panel (bijv. <span class="font-mono">{{ date('Y') }}© Nexa Skillmatching</span>). Het jaar wordt automatisch bijgewerkt.</p>
                         </td>
                     </tr>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">AI-assistent tonen</td>
-                        <td class="min-w-48 w-full align-top">
-                            <div class="flex flex-wrap items-center gap-3">
-                                <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
-                                <span class="text-sm text-muted-foreground">Toon de zwevende AI-chatknop op de frontend (alle thema's).</span>
+                        <td class="min-w-48 w-full min-w-0 align-top">
+                            <div class="flex flex-wrap items-center gap-3 w-full min-w-0 max-w-full">
+                                <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm shrink-0" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
+                                <span class="text-sm text-muted-foreground min-w-0">Toon het AI-icoon rechtsboven in de header (naast licht/donker) op de publieke website en het portaal.</span>
                             </div>
                         </td>
                     </tr>
+                    @foreach($aiChatModules ?? [] as $aiChatModule)
                     <tr>
-                        <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
-                            <div class="flex justify-end">
-                                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
-                            </div>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                            {{ $aiChatModule->display_name ?: $aiChatModule->name }} — webhook (n8n)
+                        </td>
+                        <td class="min-w-48 w-full min-w-0 align-top">
+                            <input type="url"
+                                   name="ai_chat_webhooks[{{ $aiChatModule->name }}]"
+                                   id="ai_chat_webhook_{{ $aiChatModule->name }}"
+                                   class="kt-input w-full max-w-2xl"
+                                   value="{{ old('ai_chat_webhooks.'.$aiChatModule->name, $aiChatModuleWebhooks[$aiChatModule->name] ?? '') }}"
+                                   placeholder="{{ $aiChatModuleWebhookDefaults[$aiChatModule->name] ?? '' }}">
+                            @if($loop->first)
+                            <p class="text-xs text-muted-foreground mt-1 max-w-full">Per module de n8n-webhook waarmee de AI-chat praat op de frontend van die module. Leeg laten = standaard uit configuratie. Berichten gaan via de backend; het antwoord wordt in de chat getoond.</p>
+                            @endif
                         </td>
                     </tr>
+                    @endforeach
                     </tbody>
                 </table>
+            </div>
+            <div class="px-4 sm:px-6 pb-6 pt-2 flex justify-end">
+                <button type="submit" class="kt-btn kt-btn-primary">
+                    <i class="ki-filled ki-check me-2"></i> Opslaan
+                </button>
             </div>
             </div>
         </div>
@@ -268,12 +297,16 @@
         <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Formulier succesbericht'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
+            <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-form-success-section">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                    <colgroup>
+                        <col class="admin-form-label-col">
+                        <col>
+                    </colgroup>
                     <tbody>
-                    <tr>
+                    <tr class="admin-form-success-intro">
                         <td colspan="2" class="px-4 sm:px-6 pt-6 pb-2 align-top">
-                            <p class="text-sm text-muted-foreground mb-0">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
+                            <p class="text-sm text-muted-foreground mb-0 max-w-full">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
                         </td>
                     </tr>
                     <tr>
@@ -300,22 +333,22 @@
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">Teksten uitschakelen</td>
                         <td class="min-w-48 w-full align-top">
-                            <div class="flex items-center gap-3 flex-nowrap">
+                            <div class="flex flex-wrap items-center gap-3 w-full min-w-0">
                                 <input type="checkbox" name="info_request_success_texts_enabled" id="info_request_success_texts_enabled" class="kt-switch kt-switch-sm shrink-0" value="0" {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'checked' : '' }}>
-                                <span class="text-sm text-muted-foreground">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</span>
+                                <span class="text-sm text-muted-foreground min-w-0">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</span>
                             </div>
                         </td>
                     </tr>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">Plaatje of icoon</td>
-                        <td class="min-w-48 w-full align-top">
+                        <td class="min-w-48 w-full min-w-0 align-top">
                             <p class="text-sm text-muted-foreground mb-3">Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.</p>
-                        <div class="flex flex-wrap gap-6 items-start">
-                            <div class="flex flex-col gap-2">
+                        <div class="admin-success-media-row flex flex-wrap gap-6 items-start w-full min-w-0 max-w-full">
+                            <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0 max-w-full">
                                 <span class="text-xs font-medium text-secondary-foreground">Plaatje</span>
-                                <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-96 w-full items-start">
-                                    <div id="success-image-preview-wrap" class="flex flex-col items-center {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
-                                        <img alt="Success preview" class="h-[200px] w-auto object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
+                                <div class="flex flex-wrap gap-5 lg:gap-7.5 w-full max-w-full min-w-0 items-start">
+                                    <div id="success-image-preview-wrap" class="flex flex-col items-center max-w-full min-w-0 {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
+                                        <img alt="Success preview" class="h-[200px] max-w-full w-auto object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
                                         <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive mt-2" id="success-image-remove-btn" title="Plaatje verwijderen" aria-label="Plaatje verwijderen">
                                             <i class="ki-filled ki-trash text-lg"></i>
                                         </button>
@@ -342,13 +375,13 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="flex flex-col gap-2">
+                            <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0 max-w-full">
                                 <span class="text-xs font-medium text-secondary-foreground">Icoon (als geen plaatje)</span>
-                                <div class="flex items-start gap-3">
+                                <div class="flex flex-wrap items-start gap-3 w-full min-w-0">
                                     <div class="flex items-center justify-center w-16 h-16 rounded-lg border border-input bg-muted/30 shrink-0" id="success-icon-preview">
                                         <i class="ki-filled {{ old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-check-circle') }} text-3xl text-green-600"></i>
                                     </div>
-                                    <select name="info_request_success_icon" id="info_request_success_icon" class="kt-select w-56" data-kt-select="true">
+                                    <select name="info_request_success_icon" id="info_request_success_icon" class="kt-select w-full sm:w-56 max-w-full min-w-0" data-kt-select="true">
                                         @php
                                             $successIcons = [
                                                 'ki-filled ki-check-circle' => 'Vink in cirkel',
@@ -368,9 +401,9 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="flex flex-col gap-2">
+                            <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0">
                                 <span class="text-xs font-medium text-secondary-foreground">Grootte</span>
-                                <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-24">
+                                <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-full sm:w-24 max-w-full">
                                     @foreach([48, 64, 80, 96, 120] as $px)
                                         <option value="{{ $px }}" {{ (old('info_request_success_icon_size', $infoRequestSuccessSize ?? '80')) == (string)$px ? 'selected' : '' }}>{{ $px }}px</option>
                                     @endforeach
@@ -383,7 +416,9 @@
                     <tr>
                         <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
                             <div class="flex justify-end">
-                                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                                <button type="submit" class="kt-btn kt-btn-primary">
+                                    <i class="ki-filled ki-check me-2"></i> Opslaan
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -397,13 +432,6 @@
         </form>
     </div>
 </div>
-<style>
-    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
-    .wizard-onboarding-form-table tbody tr,
-    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
-    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
-    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
-</style>
 @endsection
 
 @push('scripts')

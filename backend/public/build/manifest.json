@@ -2172,7 +2172,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CVjmCzu-.css",
+    "file": "assets/app-TFZhpWPD.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2180,7 +2180,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-BG-OIJ7v.js",
+    "file": "assets/app-M-skGH_7.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2188,11 +2188,11 @@
       "resources/js/frontend-app.js"
     ],
     "css": [
-      "assets/app-fc39YiX3.css"
+      "assets/app-DHm6tByX.css"
     ]
   },
   "resources/js/frontend-app.js": {
-    "file": "assets/frontend-app-B6vhmd6y.js",
+    "file": "assets/frontend-app-_i4uJMVS.js",
     "name": "frontend-app",
     "src": "resources/js/frontend-app.js",
     "isEntry": true
@@ -2207,7 +2207,7 @@
     ]
   },
   "resources/js/taxi-portal-app.ts": {
-    "file": "assets/taxi-portal-app-DiHrtM_V.js",
+    "file": "assets/taxi-portal-app-CrzxOH2D.js",
     "name": "taxi-portal-app",
     "src": "resources/js/taxi-portal-app.ts",
     "isEntry": true,

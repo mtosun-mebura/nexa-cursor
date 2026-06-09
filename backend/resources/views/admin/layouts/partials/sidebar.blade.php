@@ -180,48 +180,108 @@
                 @endphp
                 @foreach($moduleMenuItems as $menuItem)
                     @php
-                        // Try to check if route exists
+                        $moduleMenuChildren = [];
+                        if (!empty($menuItem['children']) && is_array($menuItem['children'])) {
+                            foreach ($menuItem['children'] as $childItem) {
+                                $childPermissionOk = true;
+                                if (!empty($childItem['permission_any']) && is_array($childItem['permission_any']) && !auth()->user()?->hasRole('super-admin')) {
+                                    $childPermissionOk = false;
+                                    foreach ($childItem['permission_any'] as $childPerm) {
+                                        if (auth()->user()?->can($childPerm)) {
+                                            $childPermissionOk = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!$childPermissionOk || empty($childItem['route'])) {
+                                    continue;
+                                }
+                                if (!Route::has($childItem['route'])) {
+                                    continue;
+                                }
+                                $moduleMenuChildren[] = $childItem;
+                            }
+                        }
+
                         $routeExists = false;
                         $routeUrl = '#';
-                        
+
                         try {
-                            if (Route::has($menuItem['route'])) {
+                            if (!empty($menuItem['route']) && Route::has($menuItem['route'])) {
                                 $routeExists = true;
                                 $routeUrl = route($menuItem['route']);
                             }
                         } catch (\Exception $e) {
-                            // Route doesn't exist or can't be generated
                             $routeExists = false;
                         }
-                        
-                        // If route doesn't exist, try to construct URL manually
-                        if (!$routeExists) {
+
+                        if (!$routeExists && !empty($menuItem['route'])) {
                             try {
                                 $routeUrl = url('/admin/' . $menuItem['module'] . '/' . str_replace('admin.' . $menuItem['module'] . '.', '', $menuItem['route']));
-                                $routeExists = true; // Assume it exists if we can construct URL
+                                $routeExists = true;
                             } catch (\Exception $e) {
                                 $routeExists = false;
                             }
                         }
-                        
-                        // Alleen dit menuitem actief als de huidige route bij deze resource hoort (niet heel de module).
-                        $routePrefix = str_replace('.index', '', $menuItem['route']);
-                        $isActive = request()->routeIs($menuItem['route']) || request()->routeIs($routePrefix . '.*');
+
+                        $routePrefix = !empty($menuItem['route']) ? str_replace('.index', '', $menuItem['route']) : '';
+                        $isActive = (!empty($menuItem['route']) && (request()->routeIs($menuItem['route']) || request()->routeIs($routePrefix . '.*')));
+                        if (!$isActive && $moduleMenuChildren !== []) {
+                            foreach ($moduleMenuChildren as $childItem) {
+                                $childPrefix = str_replace('.index', '', $childItem['route']);
+                                if (request()->routeIs($childItem['route']) || request()->routeIs($childPrefix . '.*')) {
+                                    $isActive = true;
+                                    break;
+                                }
+                            }
+                        }
                     @endphp
-                    @if($routeExists)
+                    @if($routeExists || $moduleMenuChildren !== [])
+                        @if($moduleMenuChildren !== [])
+                        <div class="kt-menu-item {{ $isActive ? 'here show' : '' }}" data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
+                            <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" tabindex="0">
+                                <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                                    <i class="{{ $menuItem['icon'] }} text-lg"></i>
+                                </span>
+                                <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                                    {{ $menuItem['title'] }}
+                                </span>
+                                <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
+                                    <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
+                                    <span class="hidden kt-menu-item-show:inline-flex"><i class="ki-filled ki-minus text-[11px]"></i></span>
+                                </span>
+                            </div>
+                            <div class="kt-menu-accordion relative gap-1 ps-[10px] before:absolute before:bottom-0 before:start-[20px] before:top-0 before:border-s before:border-border">
+                                @foreach($moduleMenuChildren as $childItem)
+                                    @php
+                                        $childPrefix = str_replace('.index', '', $childItem['route']);
+                                        $childActive = request()->routeIs($childItem['route']) || request()->routeIs($childPrefix . '.*');
+                                    @endphp
+                                    <div class="kt-menu-item {{ $childActive ? 'active' : '' }}">
+                                        <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
+                                           href="{{ route($childItem['route']) }}" tabindex="0">
+                                            <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
+                                            <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
+                                                {{ $childItem['title'] }}
+                                            </span>
+                                        </a>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @elseif($routeExists)
                         <div class="kt-menu-item {{ $isActive ? 'active' : '' }}">
                             <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                                 href="{{ $routeUrl }}" tabindex="0">
                                 <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
-                                    <i class="{{ $menuItem['icon'] }} text-lg">
-                                    </i>
+                                    <i class="{{ $menuItem['icon'] }} text-lg"></i>
                                 </span>
-                                <span
-                                    class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                                <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
                                     {{ $menuItem['title'] }}
                                 </span>
                             </a>
                         </div>
+                        @endif
                     @endif
                 @endforeach
 

@@ -37,14 +37,7 @@
     @yield('wizard_content')
 </div>
 
-{{-- Zelfde rij-padding als stap 1 voor alle onboarding-tabellen met class wizard-onboarding-form-table --}}
 <style>
-    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
-    .wizard-onboarding-form-table tbody tr,
-    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
-    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
-    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
-    /* Ensure kt-switch checkboxes are clickable inside onboarding tables */
     .wizard-onboarding-form-table .kt-switch {
         pointer-events: auto !important;
         z-index: 1;

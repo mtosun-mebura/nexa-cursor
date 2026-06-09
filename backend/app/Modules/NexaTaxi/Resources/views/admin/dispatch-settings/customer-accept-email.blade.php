@@ -13,12 +13,12 @@
         field-sizing: fixed;
     }
 </style>
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center gap-5 pb-7.5">
-        <a href="{{ $dispatchSettingsUrl }}" class="kt-btn kt-btn-outline">
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">E-mail: rit geaccepteerd</h1>
+        <a href="{{ $dispatchSettingsUrl }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>Terug naar dispatch
         </a>
-        <h1 class="text-xl font-medium leading-none text-mono">E-mail: rit geaccepteerd</h1>
     </div>
 
     @if(session('success'))
@@ -38,16 +38,16 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.taxi.dispatch_settings.customer_accept_email.update') }}" method="POST" class="grid gap-5" data-validate="true" novalidate>
+    <form action="{{ route('admin.taxi.dispatch_settings.customer_accept_email.update') }}" method="POST" class="grid gap-5 lg:gap-7.5 w-full min-w-0" data-validate="true" novalidate>
         @csrf
         @method('PUT')
         <input type="hidden" name="uses_global_fallback" value="{{ $usesGlobalFallback ? '1' : '0' }}">
 
-        <div class="kt-card">
+        <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Onderwerp</h3>
+                <h3 class="kt-card-title mb-0">Onderwerp</h3>
             </div>
-            <div class="kt-card-content">
+            <div class="kt-card-content px-3 sm:px-5">
                 <input type="text" name="subject" class="kt-input w-full @error('subject') border-destructive @enderror"
                        value="{{ old('subject', $template->subject) }}" required>
                 @error('subject')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
@@ -55,23 +55,23 @@
             </div>
         </div>
 
-        <div class="kt-card">
+        <div class="kt-card w-full min-w-0">
             <div class="kt-card-header flex-wrap gap-2">
-                <h3 class="kt-card-title">HTML-inhoud</h3>
-                <p class="text-xs text-muted-foreground mb-0">Wordt verstuurd naar de klant wanneer een chauffeur de rit accepteert (e-mail aan staat bij dispatch).</p>
+                <h3 class="kt-card-title mb-0">HTML-inhoud</h3>
+                <p class="text-xs text-muted-foreground mb-0 w-full">Wordt verstuurd naar de klant wanneer een chauffeur de rit accepteert (e-mail aan staat bij dispatch).</p>
             </div>
-            <div class="kt-card-content">
+            <div class="kt-card-content px-3 sm:px-5">
                 <textarea name="html_content" id="html_content" class="kt-input w-full font-mono text-sm @error('html_content') border-destructive @enderror"
                           rows="18" required>{{ old('html_content', $template->html_content) }}</textarea>
                 @error('html_content')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
             </div>
         </div>
 
-        <div class="kt-card">
+        <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Platte tekst (optioneel)</h3>
+                <h3 class="kt-card-title mb-0">Platte tekst (optioneel)</h3>
             </div>
-            <div class="kt-card-content">
+            <div class="kt-card-content px-3 sm:px-5">
                 <textarea name="text_content" class="kt-input w-full font-mono text-sm dispatch-customer-email-plain-text @error('text_content') border-destructive @enderror"
                           rows="14" wrap="soft">{{ old('text_content', $template->text_content) }}</textarea>
                 @error('text_content')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
@@ -79,11 +79,11 @@
             </div>
         </div>
 
-        <div class="kt-card">
+        <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Beschikbare variabelen</h3>
+                <h3 class="kt-card-title mb-0">Beschikbare variabelen</h3>
             </div>
-            <div class="kt-card-content">
+            <div class="kt-card-content px-3 sm:px-5">
                 <div class="grid gap-2 sm:grid-cols-2">
                     @foreach($variableLabels as $key => $label)
                         <div class="flex items-start gap-2 text-sm">
@@ -101,7 +101,7 @@
             </div>
         </div>
 
-        <div class="flex justify-end gap-2.5">
+        <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
             <a href="{{ $dispatchSettingsUrl }}" class="kt-btn kt-btn-outline">Annuleren</a>
             <button type="submit" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-check me-2"></i>Opslaan

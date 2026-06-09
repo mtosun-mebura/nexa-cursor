@@ -113,7 +113,7 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 <h3 class="kt-card-title text-sm pb-3 w-full">
-                    <span data-kt-datatable-info="true">Toon 1 tot {{ $types->count() }} van {{ $types->count() }} types</span>
+                    <span data-admin-datatable-info="true">Toon 1 tot {{ $types->count() }} van {{ $types->count() }} types</span>
                 </h3>
                 <div class="flex flex-wrap gap-2 lg:gap-5 justify-end w-full">
                     <!-- Search -->
@@ -135,7 +135,7 @@
                                        name="search" 
                                        value="{{ request('search') }}"
                                        id="search-input"
-                                       data-kt-datatable-search="#types_table"/>
+/>
                             </label>
                         </form>
                     </div>
@@ -178,9 +178,9 @@
             
             <div class="kt-card-content">
                 @if($types->count() > 0)
-                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="types_table">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="types_table" data-admin-datatable-label="types">
                         <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                            <table class="kt-table table-auto kt-table-border">
                             <thead>
                                 <tr>
                                     <th class="min-w-[200px]">
@@ -346,10 +346,10 @@
                     </div>
                     
                     <!-- Pagination -->
-                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                        <div class="flex items-center gap-2 order-2 md:order-1">
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
+                        <div class="admin-datatable-footer__perpage flex items-center gap-2">
                             Toon
-                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                                 <option value="10" selected>10</option>
                                 <option value="25">25</option>
                                 <option value="50">50</option>
@@ -357,12 +357,10 @@
                             </select>
                             per pagina
                         </div>
-                        <div class="flex items-center gap-4 order-1 md:order-2">
-                            <span data-kt-datatable-info="true">
-                            </span>
-                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
-                            </div>
+                        <div class="admin-datatable-footer__pagination">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
                         </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
                     </div>
                 @else
                     <div class="p-5 text-center">
@@ -444,7 +442,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Replace "of" with "van" in pagination info
     function replaceOfWithVan() {
-        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
         if (infoSpan && infoSpan.textContent.includes(' of ')) {
             infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
         }

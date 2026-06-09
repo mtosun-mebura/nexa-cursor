@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Services\ModuleDatabaseService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -22,5 +24,55 @@ final class ModuleSchemaAvailability
         $conn = $connection ?? self::defaultConnectionName();
 
         return Schema::connection($conn)->hasTable('vacancies');
+    }
+
+    public static function matchesTableExists(?string $connection = null): bool
+    {
+        if (! self::vacanciesTableExists($connection)) {
+            return false;
+        }
+
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->supportsModuleDatabases()) {
+            try {
+                $dbService->ensureModuleStorageReady('skillmatching');
+                $conn = $dbService->getModuleConnectionName('skillmatching');
+
+                return Schema::connection($conn)->hasTable('matches');
+            } catch (\Throwable) {
+                return false;
+            }
+        }
+
+        $conn = $connection ?? self::defaultConnectionName();
+
+        try {
+            if (! Schema::connection($conn)->hasTable('matches')) {
+                return false;
+            }
+
+            DB::connection($conn)->table('matches')->selectRaw('1')->limit(1)->get();
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public static function rideRequestsTableExists(): bool
+    {
+        $dbService = app(ModuleDatabaseService::class);
+        if (! $dbService->supportsModuleDatabases()) {
+            return Schema::hasTable('ride_requests');
+        }
+
+        try {
+            $dbService->ensureModuleStorageReady('taxi');
+            $conn = $dbService->getModuleConnectionName('taxi');
+
+            return Schema::connection($conn)->hasTable('ride_requests');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

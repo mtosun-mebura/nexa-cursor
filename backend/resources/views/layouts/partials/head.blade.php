@@ -33,15 +33,12 @@
 
 <!-- Global custom styles -->
 <style>
-    /* Alle textarea's met kt-input: padding-top pt-1 voor betere leesbaarheid */
+    /* Textareas met kt-input: geen vaste input-hoogte; rows bepaalt de hoogte */
     textarea.kt-input {
+        height: auto !important;
+        min-height: calc(var(--spacing, 0.25rem) * 8.5);
         padding-top: 0.25rem !important;
-    }
-
-    /* Make textareas with 4 rows actually visible and add padding-top */
-    textarea.kt-input[rows="4"] {
-        min-height: 100px !important;
-        padding-top: 0.25rem !important;
+        resize: vertical;
     }
     
     /* Hide scrollbar corner (white line) in textareas when scrollbar is present */

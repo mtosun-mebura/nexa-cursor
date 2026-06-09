@@ -70,7 +70,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-middle">
                                 Naam *
@@ -186,7 +186,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-middle">
                                 Status

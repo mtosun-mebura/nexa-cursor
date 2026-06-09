@@ -1,17 +1,20 @@
 @php
-    $skillmatchingOnDefault = \App\Support\ModuleSchemaAvailability::vacanciesTableExists();
-    $totalVacancies = $skillmatchingOnDefault
-        ? $company->vacancies()->where('status', 'active')->count()
-        : 0;
+    $showSkillmatching = $showSkillmatching ?? false;
+    $showTaxi = $showTaxi ?? false;
+    $taxiStats = $taxiStats ?? [];
+    $recent_rides = $recent_rides ?? collect();
     $totalUsers = \App\Models\User::where('company_id', $company->id)->count();
     $totalRevenue = (float) ($financials['total_revenue'] ?? 0);
     $companyRank = \App\Models\Company::where('created_at', '<=', $company->created_at)->count();
     $locationsCount = $company->locations()->count();
-    $activeVacancies = $skillmatchingOnDefault
+    $totalVacancies = $showSkillmatching
+        ? $company->vacancies()->where('status', 'active')->count()
+        : 0;
+    $activeVacancies = $showSkillmatching
         ? $company->vacancies()->where('status', 'active')->get()
         : collect();
-    $totalMatches = $skillmatchingOnDefault
-        ? \App\Models\JobMatch::whereHas('vacancy', function ($q) use ($company) {
+    $totalMatches = $showSkillmatching
+        ? \App\Modules\Skillmatching\Models\JobMatch::whereHas('vacancy', function ($q) use ($company) {
             $q->where('company_id', $company->id);
         })->count()
         : 0;
@@ -87,32 +90,34 @@
 <div class="kt-container-fixed mb-5 lg:mb-7.5">
     <div class="kt-card">
         <div class="kt-card-content">
-            <div class="flex lg:px-10 py-1.5 gap-2">
-                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
-                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
-                        {{ $totalVacancies }}
-                    </span>
-                    <span class="text-secondary-foreground text-sm">
-                        Vacatures
-                    </span>
+            <div class="flex lg:px-10 py-1.5 gap-2 flex-wrap">
+                @if($showSkillmatching)
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ $totalVacancies }}</span>
+                    <span class="text-secondary-foreground text-sm">Vacatures</span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
-                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
-                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
-                        {{ number_format($totalUsers, 0, ',', '.') }}
-                    </span>
-                    <span class="text-secondary-foreground text-sm">
-                        Gebruikers
-                    </span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ $totalMatches }}</span>
+                    <span class="text-secondary-foreground text-sm">Matches</span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
-                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
-                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">
-                        {{ $totalMatches }}
-                    </span>
-                    <span class="text-secondary-foreground text-sm">
-                        Matches
-                    </span>
+                @endif
+                @if($showTaxi)
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ $taxiStats['total_rides'] ?? 0 }}</span>
+                    <span class="text-secondary-foreground text-sm">Ritten</span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ $taxiStats['pending_rides'] ?? 0 }}</span>
+                    <span class="text-secondary-foreground text-sm">Open</span>
+                </div>
+                <span class="not-last:border-e border-e-input my-1"></span>
+                @endif
+                <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
+                    <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ number_format($totalUsers, 0, ',', '.') }}</span>
+                    <span class="text-secondary-foreground text-sm">Gebruikers</span>
                 </div>
             </div>
         </div>
@@ -184,8 +189,32 @@
                     </div>
                 </div>
 
-                {{-- Open Jobs --}}
-                @if($activeVacancies->count() > 0)
+                @if($showTaxi && $recent_rides->isNotEmpty())
+                <div class="kt-card">
+                    <div class="kt-card-header flex items-center justify-between gap-2">
+                        <h3 class="kt-card-title">Recente ritten</h3>
+                        @if(Route::has('admin.taxi.ride_requests.index'))
+                            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">Alle ritten</a>
+                        @endif
+                    </div>
+                    <div class="kt-card-content">
+                        <div class="flex flex-col gap-3">
+                            @foreach($recent_rides as $ride)
+                                @php $statusLabels = \App\Modules\NexaTaxi\Models\RideRequest::statusLabels(); @endphp
+                                <div class="text-sm">
+                                    <div class="font-semibold text-foreground">{{ Str::limit($ride->pickup_address, 50) }}</div>
+                                    <div class="text-xs text-secondary-foreground">
+                                        → {{ Str::limit($ride->dropoff_address, 50) }} · {{ $statusLabels[$ride->status] ?? $ride->status }}
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Open Jobs (Skillmatching) --}}
+                @if($showSkillmatching && $activeVacancies->count() > 0)
                 <div class="kt-card">
                     <div class="kt-card-header">
                         <h3 class="kt-card-title">

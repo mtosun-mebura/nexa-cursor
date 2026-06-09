@@ -172,7 +172,7 @@
     
     <!-- AI Chatbot (alleen tonen als ingeschakeld in Instellingen > Algemene configuraties) -->
     @if(\App\Models\GeneralSetting::get('ai_chat_enabled', '0') === '1')
-        @include('frontend.components.ai-chatbot')
+        @include('frontend.layouts.partials.ai-chatbot-include')
     @endif
     
     <!-- Frontend Header Badges -->

@@ -33,7 +33,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Naam *
@@ -226,7 +226,7 @@
                             @endforeach
                         </div>
                         @if($heroicons->isEmpty())
-                            <div class="text-sm text-muted-foreground">Geen Heroicons gevonden.</div>
+                            <div class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Geen Heroicons gevonden.</div>
                         @endif
                     </div>
 
@@ -240,15 +240,6 @@
 
 @push('styles')
 <style>
-    .kt-table-border-dashed tbody tr { border-bottom: none !important; }
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td { height: auto; min-height: 48px; }
-    .kt-table-border-dashed tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: top; }
-    .kt-table-border-dashed tbody tr td:first-child { display: flex; vertical-align: middle; padding-top: 8px; padding-bottom: 0; line-height: 40px; height: 40px; }
-    .kt-table-border-dashed tbody tr td:last-child { vertical-align: top; padding-top: 12px; }
-    .kt-table-border-dashed tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
-    .kt-table-border-dashed tbody tr td.align-top:first-child { line-height: normal; height: auto; padding-top: 18px; }
-
     /* Icon picker search input: smaller + 10px side margins */
     #icon-picker-search-wrap {
         width: 520px !important;

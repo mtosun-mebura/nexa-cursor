@@ -9,6 +9,8 @@ use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
 use App\Services\ModuleDatabaseService;
 use App\Services\WebsiteBuilderService;
+use App\Services\WebsiteStructuredDataService;
+use App\Services\GoogleSeoSettingsService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -202,6 +204,15 @@ class WebsitePageController extends Controller
             $infoRequestFormFields = collect();
         }
 
+        $structuredDataGraph = app(WebsiteStructuredDataService::class)->buildForRenderedPage(
+            $page,
+            $branding,
+            is_array($homeSections) ? $homeSections : null,
+        );
+
+        $seoCompanyId = $page->company_id ? (int) $page->company_id : \App\Models\GeneralSetting::resolveScopeCompanyId();
+        $seoTracking = app(GoogleSeoSettingsService::class)->trackingConfigForCompany($seoCompanyId);
+
         return view('frontend.website.page', [
             'page' => $page,
             'theme' => $theme,
@@ -220,6 +231,8 @@ class WebsitePageController extends Controller
             'googleMapsMapId' => $googleMapsMapId,
             'googleReviews' => $googleReviews,
             'whatsappWidget' => $whatsappWidget,
+            'structuredDataGraph' => $structuredDataGraph,
+            'seoTracking' => $seoTracking,
         ]);
     }
 

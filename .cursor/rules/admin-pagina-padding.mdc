@@ -26,28 +26,29 @@ Nieuwe admin-pagina's moeten dezelfde witruimte hebben als bestaande schermen (c
 </div>
 ```
 
-## Formulierkaart — voorkeur (meerdere velden, zoals bedrijf/configuraties)
+## Formulierkaart — bewerk/aanmaak (meerdere velden)
+
+Gebruik het **responsive bewerk-patroon** (compacte veldafstand op mobiel, geen pagina-CSS voor tabel-padding). Zie **`admin-bewerk-formulier-responsive.mdc`**.
 
 ```html
-<div class="kt-card min-w-full">
+<div class="kt-card w-full min-w-0">
     <div class="kt-card-header">
-        <h3 class="kt-card-title">Sectietitel</h3>
+        <h3 class="kt-card-title mb-0">Sectietitel</h3>
     </div>
-    <div class="kt-card-table kt-scrollable-x-auto pb-3">
-        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-            <tr>
-                <td class="min-w-56 text-secondary-foreground font-normal">Label</td>
-                <td class="min-w-48 w-full"><!-- input --></td>
-            </tr>
-        </table>
-    </div>
-    <div class="kt-card-footer flex gap-2.5">
-        <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+    <div class="kt-card-content p-0">
+        <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">Label</td>
+                    <td class="min-w-48 w-full"><!-- input --></td>
+                </tr>
+            </table>
+        </div>
     </div>
 </div>
 ```
 
-`kt-card-header`, `kt-card-table` (cel-padding) en `kt-card-footer` hebben ingebouwde padding.
+Submit-knoppen onder het formulier in `admin-form-actions`, niet per kaart tenzij bewust anders.
 
 ## Formulierkaart — compact (weinig velden)
 
@@ -77,6 +78,10 @@ Gebruik **`kt-card-content`**, niet een kale `kt-card-body`:
 
 ```html
 <div class="grid gap-5 lg:gap-7.5">
-    <div class="kt-card min-w-full">...</div>
+    <div class="kt-card w-full min-w-0">...</div>
 </div>
 ```
+
+## Responsive
+
+Globale admin-responsive regels: `backend/resources/css/admin-responsive.css`. Bewerk-formulieren: **`admin-bewerk-formulier-responsive.mdc`**.

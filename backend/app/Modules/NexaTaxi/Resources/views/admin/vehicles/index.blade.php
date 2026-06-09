@@ -3,13 +3,13 @@
 @section('title', 'Voertuigen')
 
 @section('content')
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
             Voertuigen
         </h1>
         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('vehicles.create'))
-        <a href="{{ route('admin.taxi.vehicles.create') }}" class="kt-btn kt-btn-primary">
+        <a href="{{ route('admin.taxi.vehicles.create') }}" class="kt-btn kt-btn-primary shrink-0">
             <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
             </svg>
@@ -29,7 +29,7 @@
         </div>
     @endif
 
-    <div class="kt-card mb-5">
+    <div class="kt-card w-full min-w-0 mb-5">
         <div class="kt-card-content">
             <div class="flex flex-col sm:flex-row lg:px-10 py-1.5 gap-2">
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
@@ -51,7 +51,7 @@
     </div>
 
     <div class="grid gap-5 lg:gap-7.5">
-        <div class="kt-card kt-card-grid min-w-full">
+        <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 @php
                     $from = $vehicles->isEmpty() ? 0 : (($vehicles->currentPage() - 1) * $vehicles->perPage()) + 1;
@@ -200,8 +200,8 @@
                     </table>
                 </div>
                 </div>
-                <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium pt-5">
-                    <div class="flex items-center gap-2 order-2 md:order-1">
+                <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5">
+                    <div class="admin-datatable-footer__perpage flex items-center gap-2">
                         Toon
                         <form method="GET" action="{{ route('admin.taxi.vehicles.index') }}" class="inline" id="perpage-form">
                             @if(request('search'))<input type="hidden" name="search" value="{{ request('search') }}">@endif
@@ -218,10 +218,10 @@
                         </form>
                         per pagina
                     </div>
-                    <div class="flex items-center gap-4 order-1 md:order-2">
-                        <span>{{ $vehicles->firstItem() ?? 0 }}-{{ $vehicles->lastItem() ?? 0 }} van {{ $vehicles->total() }}</span>
-                        {{ $vehicles->links() }}
+                    <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
+                        {{ $vehicles->links('vendor.pagination.admin-datatable') }}
                     </div>
+                    <span class="admin-datatable-footer__info">{{ $vehicles->firstItem() ?? 0 }}-{{ $vehicles->lastItem() ?? 0 }} van {{ $vehicles->total() }}</span>
                 </div>
                 @else
                 <div class="flex flex-col items-center justify-center py-16">

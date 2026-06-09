@@ -41,4 +41,26 @@ return [
         'from' => env('VONAGE_FROM_NUMBER'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    ],
+
+    'ai_chat' => [
+        'webhook_url' => env('AI_CHAT_WEBHOOK_URL'),
+        'module_defaults' => [
+            'taxi' => env(
+                'NEXA_TAXI_ASSISTANT_WEBHOOK_URL',
+                'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+            ),
+        ],
+    ],
+
+    'nexa_taxi' => [
+        'assistant_webhook_url' => env(
+            'NEXA_TAXI_ASSISTANT_WEBHOOK_URL',
+            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+        ),
+    ],
+
 ];

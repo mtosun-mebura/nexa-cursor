@@ -122,6 +122,130 @@
     color: #94a3b8;
   }
 
+  .ai-chat-root {
+    z-index: 100200;
+  }
+
+  .ai-chat-panel {
+    width: min(32rem, calc(100vw - 1.5rem));
+    height: min(40rem, calc(100vh - 5.5rem));
+    transform-origin: top right;
+    transition:
+      width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+      height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.38s ease;
+    background-color: #ffffff;
+    color: #111827;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  }
+  .ai-chat-panel--expanded {
+    width: min(52rem, calc(100vw - 2rem));
+    height: min(58rem, calc(100vh - 4rem));
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.18), 0 12px 24px -8px rgb(0 0 0 / 0.12);
+  }
+  .dark .ai-chat-panel {
+    background-color: #1f2937;
+    color: #f3f4f6;
+    border-color: #4b5563;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.45), 0 8px 10px -6px rgb(0 0 0 / 0.35);
+  }
+  .dark .ai-chat-panel--expanded {
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.55), 0 12px 24px -8px rgb(0 0 0 / 0.4);
+  }
+  .ai-chat-panel__header {
+    background-color: var(--theme-primary, #2563eb);
+    color: #ffffff;
+  }
+  .ai-chat-panel__header-subtitle {
+    color: rgb(255 255 255 / 0.82);
+  }
+  .ai-chat-panel__icon-btn {
+    color: rgb(255 255 255 / 0.82);
+    border-radius: 0.375rem;
+    padding: 0.25rem;
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+  .ai-chat-panel__icon-btn .ki-duotone {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+  .ai-chat-panel__icon-btn:hover:not(:disabled) {
+    color: #ffffff;
+    background-color: rgb(255 255 255 / 0.12);
+  }
+  .ai-chat-panel__icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .ai-chat-panel__messages {
+    background-color: #ffffff;
+  }
+  .dark .ai-chat-panel__messages {
+    background-color: #1f2937;
+  }
+  .ai-chat-send-icon {
+    transform: rotate(90deg);
+  }
+  .ai-chat-panel__footer {
+    border-top: 1px solid #e5e7eb;
+    background-color: #ffffff;
+  }
+  .dark .ai-chat-panel__footer {
+    border-top-color: #4b5563;
+    background-color: #1f2937;
+  }
+  .ai-chat-bubble--expanded {
+    max-width: 92%;
+  }
+  .ai-chat-bubble--ai {
+    background-color: #f3f4f6;
+    color: #111827;
+  }
+  .dark .ai-chat-bubble--ai {
+    background-color: #374151;
+    color: #f9fafb;
+  }
+  .ai-chat-bubble--ai .ai-chat-link,
+  .ai-chat-bubble--ai a {
+    color: var(--theme-primary, #2563eb);
+    text-decoration: underline;
+    font-weight: 500;
+  }
+  .ai-chat-bubble--ai .ai-chat-link:hover,
+  .ai-chat-bubble--ai a:hover {
+    opacity: 0.9;
+  }
+  .dark .ai-chat-bubble--ai .ai-chat-link,
+  .dark .ai-chat-bubble--ai a {
+    color: #93c5fd;
+  }
+  .ai-chat-bubble--ai .ai-chat-bubble__time {
+    color: #6b7280;
+  }
+  .dark .ai-chat-bubble--ai .ai-chat-bubble__time {
+    color: #d1d5db;
+  }
+  .ai-chat-bubble--user {
+    background-color: var(--theme-primary, #2563eb);
+    color: #ffffff;
+  }
+  .ai-chat-bubble--user .ai-chat-bubble__time {
+    color: rgb(255 255 255 / 0.78);
+  }
+  .ai-chat-typing {
+    background-color: #f3f4f6;
+  }
+  .dark .ai-chat-typing {
+    background-color: #374151;
+  }
+  .ai-chat-typing__dot {
+    background-color: #9ca3af;
+  }
+  .dark .ai-chat-typing__dot {
+    background-color: #d1d5db;
+  }
+
   .select {
     width: 100%;
     border-radius: 0.5rem;
@@ -285,8 +409,8 @@
     margin-left: auto;
     margin-right: auto;
     box-sizing: border-box;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
   }
   @media (min-width: 768px) {
     .website-section-inner {
@@ -512,10 +636,10 @@
     border-color: #4b5563;
     background-color: #1f2937;
   }
-  .flowbite-wysiwyg-content {
+  .flowbite-wysiwyg-wrapper .flowbite-wysiwyg-content {
     background-color: #ffffff;
   }
-  .dark .flowbite-wysiwyg-content {
+  .dark .flowbite-wysiwyg-wrapper .flowbite-wysiwyg-content {
     background-color: #1f2937;
   }
   /* Hogere specificiteit dan flowbite .format { font-size: 1rem } zodat editor ≈ text-sm / prose-sm op de site */

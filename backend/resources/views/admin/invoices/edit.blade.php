@@ -35,7 +35,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Bedrijf <span class="text-destructive">*</span>
@@ -181,7 +181,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Bedrag (excl. BTW) <span class="text-destructive">*</span>
@@ -348,7 +348,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 Opmerkingen

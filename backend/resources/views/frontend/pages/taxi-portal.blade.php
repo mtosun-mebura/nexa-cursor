@@ -76,6 +76,20 @@
             box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
         }
 
+        #taxi-portal-app .taxi-portal-cost-chart {
+            background-color: #ffffff;
+        }
+
+        #taxi-portal-app .taxi-portal-cost-chart .apexcharts-canvas,
+        #taxi-portal-app .taxi-portal-cost-chart .apexcharts-svg {
+            background: transparent !important;
+        }
+
+        .dark #taxi-portal-app .taxi-portal-cost-chart,
+        html.dark #taxi-portal-app .taxi-portal-cost-chart {
+            background-color: #111827;
+        }
+
         .dark #taxi-portal-app .taxi-portal-chart-period-select,
         html.dark #taxi-portal-app .taxi-portal-chart-period-select {
             color: #f9fafb;

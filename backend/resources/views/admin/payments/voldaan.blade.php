@@ -14,8 +14,8 @@
                 Tenants met actieve betaalmodule — voldane betalingen, ritten en facturen (status betaald)
             </div>
         </div>
-        <div class="flex items-center gap-2.5">
-            <a class="kt-btn kt-btn-outline" href="{{ route('admin.payments.index') }}">
+        <div class="admin-page-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0 lg:w-auto">
+            <a class="kt-btn kt-btn-outline min-w-0" href="{{ route('admin.payments.index') }}">
                 <i class="ki-filled ki-arrow-left text-base me-2"></i>
                 Terug naar Overzicht
             </a>
