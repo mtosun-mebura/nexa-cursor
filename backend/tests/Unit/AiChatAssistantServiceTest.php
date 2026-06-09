@@ -207,19 +207,23 @@ class AiChatAssistantServiceTest extends TestCase
     {
         \Illuminate\Support\Facades\Http::fake();
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
-        config()->set('ai_chat.live_data_denied_message', 'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.');
-        \App\Models\GeneralSetting::set('ai_chat_taxi_live_data_denied_message', 'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.', 1);
+        $company = Company::query()->create([
+            'name' => 'Test Taxi Tenant',
+            'is_active' => true,
+        ]);
 
-        app()->instance('resolved_tenant_id', 2);
+        $deniedMessage = 'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.';
+
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('ai_chat.live_data_denied_message', $deniedMessage);
+        GeneralSetting::set('ai_chat_taxi_live_data_denied_message', $deniedMessage, $company->id);
+
+        app()->instance('resolved_tenant_id', $company->id);
 
         $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
         $reply = $service->send('Welke ritten staan morgen gepland?', [], 'taxi');
 
-        $this->assertSame(
-            'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.',
-            $reply
-        );
+        $this->assertSame($deniedMessage, $reply);
 
         \Illuminate\Support\Facades\Http::assertNothingSent();
     }
