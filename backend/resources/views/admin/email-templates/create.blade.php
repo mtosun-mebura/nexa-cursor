@@ -40,7 +40,7 @@
                     <h5 class="kt-card-title">Bedrijf</h5>
                 </div>
                 <div class="kt-card-content">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Bedrijf</td>
                             <td class="min-w-48 w-full">
@@ -73,7 +73,7 @@
                     <h5 class="kt-card-title">Basis Informatie</h5>
                 </div>
                 <div class="kt-card-content">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Naam *</td>
                             <td class="min-w-48 w-full">
@@ -233,7 +233,7 @@
                         ];
                         $defaultDummy = 'Testwaarde';
                     @endphp
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         @foreach($formFields ?? [] as $field)
                             <tr>
                                 <td class="text-secondary-foreground font-normal">{{ $field->label }}{{ $field->is_required ? ' *' : '' }}</td>

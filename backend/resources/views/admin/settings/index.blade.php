@@ -235,14 +235,54 @@
 
         <!-- Google SEO Instellingen -->
         <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed" id="seo">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-abstract-26 me-2"></i> Google SEO Account Gegevens'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-abstract-26 me-2"></i> Google SEO &amp; Search Console'])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                <form method="POST" action="{{ route('admin.settings.seo.update') }}" data-validate="true">
+                <p class="text-sm text-muted-foreground px-3 sm:px-5 pt-4 mb-0 max-w-3xl">
+                    Koppel uw betaalde Google SEO-stack: Search Console API (service account), Analytics (GA4), Tag Manager en site-verificatie.
+                    Sitemap: <a href="{{ route('sitemap') }}" target="_blank" rel="noopener" class="text-primary underline">{{ route('sitemap') }}</a>
+                </p>
+                <form method="POST" action="{{ route('admin.settings.seo.update') }}" data-validate="true" id="google-seo-settings-form">
                     @csrf
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Google Search Console Property ID</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Search Console API</td>
+                            <td class="min-w-48 w-full">
+                                <input type="hidden" name="GOOGLE_SEARCH_CONSOLE_ENABLED" value="0">
+                                <label class="kt-label flex items-center gap-2 mb-3" for="GOOGLE_SEARCH_CONSOLE_ENABLED">
+                                    <input type="checkbox"
+                                           class="kt-switch kt-switch-sm shrink-0"
+                                           id="GOOGLE_SEARCH_CONSOLE_ENABLED"
+                                           name="GOOGLE_SEARCH_CONSOLE_ENABLED"
+                                           value="1"
+                                           {{ old('GOOGLE_SEARCH_CONSOLE_ENABLED', $seoSettings['GOOGLE_SEARCH_CONSOLE_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-secondary-foreground">API-koppeling actief (service account)</span>
+                                </label>
+                                @if(!empty($seoSettings['service_account_configured']) && ($seoSettings['service_account_configured'] ?? '') === '1')
+                                    <p class="text-xs text-success mb-2">
+                                        Service account gekoppeld{{ !empty($seoSettings['service_account_client_email']) ? ': '.$seoSettings['service_account_client_email'] : '' }}
+                                    </p>
+                                @endif
+                                <label class="block text-sm font-medium text-secondary-foreground mb-1" for="GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON">Service account JSON</label>
+                                <textarea id="GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON"
+                                          name="GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON"
+                                          rows="4"
+                                          class="kt-input w-full font-mono text-xs"
+                                          placeholder='Plak hier het JSON-bestand uit Google Cloud (IAM → Service accounts → Keys). Laat leeg om de huidige sleutel te behouden.'></textarea>
+                                <p class="text-xs text-muted-foreground mt-1 mb-3">Voeg het service account e-mailadres toe als <strong>gebruiker</strong> in Google Search Console (property-instellingen).</p>
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="google-seo-test-btn">
+                                        Test koppeling
+                                    </button>
+                                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="google-seo-sitemap-btn">
+                                        Sitemap indienen
+                                    </button>
+                                </div>
+                                <p id="google-seo-api-feedback" class="text-xs mb-0 hidden" role="status" aria-live="polite"></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Google Search Console Property</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="text" 
@@ -252,10 +292,32 @@
                                            value="{{ old('GOOGLE_SEO_PROPERTY_ID', $seoSettings['GOOGLE_SEO_PROPERTY_ID'] ?? '') }}" 
                                            placeholder="sc-domain:example.com">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Google Search Console property ID (bijv. sc-domain:example.com)</div>
+                                <div class="text-xs text-muted-foreground mt-1">Property in Search Console: <code>sc-domain:example.com</code> of <code>https://www.example.com/</code></div>
                                 @error('GOOGLE_SEO_PROPERTY_ID')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal">Sitemap-pad</td>
+                            <td class="min-w-48 w-full">
+                                <input type="text"
+                                       class="kt-input @error('GOOGLE_SEARCH_CONSOLE_SITEMAP_PATH') border-destructive @enderror"
+                                       id="GOOGLE_SEARCH_CONSOLE_SITEMAP_PATH"
+                                       name="GOOGLE_SEARCH_CONSOLE_SITEMAP_PATH"
+                                       value="{{ old('GOOGLE_SEARCH_CONSOLE_SITEMAP_PATH', $seoSettings['GOOGLE_SEARCH_CONSOLE_SITEMAP_PATH'] ?? 'sitemap.xml') }}"
+                                       placeholder="sitemap.xml">
+                                <div class="text-xs text-muted-foreground mt-1">Publieke URL voor Google: {{ url('/sitemap.xml') }} (standaard)</div>
+                                <label class="kt-label flex items-center gap-2 mt-3 mb-0" for="GOOGLE_SEARCH_CONSOLE_AUTO_SITEMAP">
+                                    <input type="hidden" name="GOOGLE_SEARCH_CONSOLE_AUTO_SITEMAP" value="0">
+                                    <input type="checkbox"
+                                           class="kt-checkbox shrink-0"
+                                           id="GOOGLE_SEARCH_CONSOLE_AUTO_SITEMAP"
+                                           name="GOOGLE_SEARCH_CONSOLE_AUTO_SITEMAP"
+                                           value="1"
+                                           {{ old('GOOGLE_SEARCH_CONSOLE_AUTO_SITEMAP', $seoSettings['GOOGLE_SEARCH_CONSOLE_AUTO_SITEMAP'] ?? '1') === '1' ? 'checked' : '' }}>
+                                    <span class="text-sm text-muted-foreground">Sitemap automatisch indienen na opslaan</span>
+                                </label>
                             </td>
                         </tr>
                         <tr>
@@ -1729,6 +1791,53 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             clearTenantZipCompanyError();
             tenantFilesImportHid.value = id;
+        });
+    }
+
+    function googleSeoApiCall(url, feedbackEl, btn) {
+        var token = document.querySelector('meta[name="csrf-token"]');
+        if (!token) return;
+        var original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = 'Bezig…';
+        feedbackEl.classList.remove('hidden', 'text-destructive', 'text-success');
+        feedbackEl.textContent = 'Bezig met Google API…';
+        fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': token.getAttribute('content'),
+            },
+        })
+            .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+            .then(function(res) {
+                feedbackEl.textContent = (res.data && res.data.message) ? res.data.message : 'Klaar.';
+                feedbackEl.classList.toggle('text-success', res.ok);
+                feedbackEl.classList.toggle('text-destructive', !res.ok);
+            })
+            .catch(function() {
+                feedbackEl.textContent = 'Netwerkfout bij contact met de server.';
+                feedbackEl.classList.add('text-destructive');
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.innerHTML = original;
+            });
+    }
+
+    var seoTestBtn = document.getElementById('google-seo-test-btn');
+    var seoSitemapBtn = document.getElementById('google-seo-sitemap-btn');
+    var seoFeedback = document.getElementById('google-seo-api-feedback');
+    if (seoTestBtn && seoFeedback) {
+        seoTestBtn.addEventListener('click', function() {
+            googleSeoApiCall('{{ route('admin.settings.seo.test') }}', seoFeedback, seoTestBtn);
+        });
+    }
+    if (seoSitemapBtn && seoFeedback) {
+        seoSitemapBtn.addEventListener('click', function() {
+            googleSeoApiCall('{{ route('admin.settings.seo.submit-sitemap') }}', seoFeedback, seoSitemapBtn);
         });
     }
 });

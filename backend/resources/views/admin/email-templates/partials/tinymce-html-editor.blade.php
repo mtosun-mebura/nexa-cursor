@@ -13,6 +13,23 @@
     .dark .tox .tox-edit-area__iframe {
         background: #1f2937 !important;
     }
+    #html-content-card .tox-tinymce,
+    #html-content-card .tox-tinymce-aux {
+        max-width: 100%;
+        min-width: 0;
+    }
+    #html-content-card .tox-tinymce {
+        width: 100% !important;
+    }
+    @media (max-width: 1023px) {
+        #html-content-card .tox .tox-toolbar-overlord .tox-toolbar {
+            flex-wrap: wrap;
+        }
+        #html-content-card .tox .tox-edit-area {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
     /* Tweede toolbar-regel (link, tabel, code) visueel gescheiden */
     .tox .tox-toolbar-overlord > .tox-toolbar:not(:first-child) {
         border-top: 1px solid rgba(128, 128, 128, 0.25);
@@ -29,24 +46,30 @@ document.addEventListener('DOMContentLoaded', function() {
     var textarea = document.getElementById('html_content');
     if (!textarea) return;
 
-    var contentStyleLight = 'body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; text-align: left; padding: 1rem; color: #333; }' +
-        'body * { text-align: left; }' +
+    var editorContentResponsive =
+        'img { max-width: 100% !important; height: auto !important; }' +
+        'table { max-width: 100% !important; width: 100% !important; table-layout: fixed; }' +
+        'td, th { word-wrap: break-word; overflow-wrap: anywhere; }';
+    var contentStyleLight = 'body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; text-align: left; padding: 0.75rem; color: #333; max-width: 100%; overflow-x: auto; box-sizing: border-box; }' +
+        'body * { text-align: left; box-sizing: border-box; }' +
         'p { margin: 0 0 0.75em 0; }' +
         'h1 { font-size: 1.875em; font-weight: 700; margin: 0 0 0.5em 0; }' +
         'h2 { font-size: 1.5em; font-weight: 600; margin: 0 0 0.5em 0; }' +
         'h3 { font-size: 1.25em; font-weight: 600; margin: 0 0 0.5em 0; }' +
         'ul, ol { margin: 0 0 0.75em 0; padding-left: 1.5em; }' +
         'table { margin: 0; border-collapse: collapse; }' +
-        'a { color: #2563eb; }';
-    var contentStyleDark = 'body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; text-align: left; padding: 1rem; background: #1f2937; color: #f3f4f6; }' +
-        'body * { text-align: left; }' +
+        'a { color: #2563eb; }' +
+        editorContentResponsive;
+    var contentStyleDark = 'body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; text-align: left; padding: 0.75rem; background: #1f2937; color: #f3f4f6; max-width: 100%; overflow-x: auto; box-sizing: border-box; }' +
+        'body * { text-align: left; box-sizing: border-box; }' +
         'p { margin: 0 0 0.75em 0; }' +
         'h1 { font-size: 1.875em; font-weight: 700; margin: 0 0 0.5em 0; }' +
         'h2 { font-size: 1.5em; font-weight: 600; margin: 0 0 0.5em 0; }' +
         'h3 { font-size: 1.25em; font-weight: 600; margin: 0 0 0.5em 0; }' +
         'ul, ol { margin: 0 0 0.75em 0; padding-left: 1.5em; }' +
         'table { margin: 0; border-collapse: collapse; }' +
-        'a { color: #93c5fd; }';
+        'a { color: #93c5fd; }' +
+        editorContentResponsive;
 
     function isDarkMode() {
         return document.documentElement.classList.contains('dark');
@@ -54,12 +77,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getEmailTemplateTinymceConfig() {
         var isDark = isDarkMode();
+        var isCompact = window.matchMedia('(max-width: 1023px)').matches;
         return {
             selector: '#html_content',
             base_url: 'https://cdn.jsdelivr.net/npm/tinymce@6.8.2',
             suffix: '.min',
-            height: 840,
+            width: '100%',
+            height: isCompact ? 420 : 840,
             menubar: false,
+            toolbar_mode: 'wrap',
             plugins: 'lists link code charmap table',
             toolbar: [
                 'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent',

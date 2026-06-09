@@ -290,6 +290,36 @@
             width: auto !important;
         }
 
+        /* Select-dropdown: ondoorzichtige achtergrond (ook bij position:fixed) */
+        .kt-select-dropdown,
+        .kt-select-dropdown[data-kt-select-dropdown],
+        [data-kt-select-dropdown] {
+            background-color: var(--popover, #ffffff) !important;
+            color: var(--popover-foreground, var(--foreground)) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18) !important;
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+        }
+
+        .kt-select-options,
+        [data-kt-select-options] {
+            background-color: var(--popover, #ffffff) !important;
+            color: var(--popover-foreground, var(--foreground)) !important;
+        }
+
+        html.dark .kt-select-dropdown,
+        html.dark [data-kt-select-dropdown],
+        .dark .kt-select-dropdown,
+        .dark [data-kt-select-dropdown],
+        html.dark .kt-select-options,
+        html.dark [data-kt-select-options],
+        .dark .kt-select-options,
+        .dark [data-kt-select-options] {
+            background-color: #111827 !important;
+            color: #f3f4f6 !important;
+        }
+
         /* Fix for passive event listener warnings in responsive mode */
         /* Allow touch-action to be controlled for elements that need preventDefault */
         .kt-drawer,
@@ -331,10 +361,23 @@
             background-color: #000000 !important; /* Black in dark mode */
         }
         
-        /* Make kt-container-fixed full width */
-        .kt-container-fixed {
-            max-width: 100% !important;
+        /* Admin: volledige breedte; theme max-width/padding wordt in admin-responsive.css geregeld */
+        html, body.demo1 {
             width: 100% !important;
+            max-width: 100% !important;
+        }
+        body.demo1 > .flex.grow,
+        .demo1 .kt-wrapper,
+        main#content {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        #content .kt-container-fixed {
+            max-width: none !important;
+            width: 100% !important;
+            margin-inline: 0 !important;
         }
         /* Logo light/dark: toon juiste logo volgens thema (html of body kan .dark hebben) */
         .logo-light { display: block !important; }

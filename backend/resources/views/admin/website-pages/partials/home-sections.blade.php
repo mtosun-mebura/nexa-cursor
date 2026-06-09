@@ -1325,7 +1325,7 @@
                 </button>
             </div>
         </div>
-        <div class="home-section-card-body kt-card-table p-4 space-y-3">
+        <div class="home-section-card-body home-section-field-panels-skip kt-card-table p-4 space-y-3">
             @php
                 $carouselIntervalSeconds = (int) old('home_sections.'.$sectionKey.'.interval_seconds', $sectionData['interval_seconds'] ?? 5);
                 $carouselIntervalSeconds = max(0, min(120, $carouselIntervalSeconds));
@@ -1376,12 +1376,12 @@
                         }
                         $slideTextColorPicker = $slideTextColor !== '' ? $slideTextColor : '#ffffff';
                     @endphp
-                    <div class="carousel-slide-row flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 bg-muted/20" data-uuid="{{ $uuid }}">
-                        <span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 self-center p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+                    <div class="carousel-slide-row flex flex-wrap items-start gap-3 rounded-lg border border-border p-3 bg-muted/20" data-uuid="{{ $uuid }}">
+                        <span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
                         @include('admin.website-pages.partials.carousel-slide-image-preview', ['uuid' => $uuid])
-                        <div class="flex-1 min-w-[12rem] space-y-1">
+                        <div class="carousel-slide-row-fields flex-1 min-w-[12rem] space-y-1">
                             <label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">{{ $idx + 1 }}</span> · tekst op carousel</label>
-                            <div class="flex items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2">
                                 @include('admin.website-pages.partials.carousel-slide-alt-input', ['sectionKey' => $sectionKey, 'idx' => $idx, 'alt' => $alt])
                                 <input type="color"
                                        id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}_color"
@@ -1405,7 +1405,7 @@
                             @include('admin.website-pages.partials.carousel-slide-caption-fields', ['sectionKey' => $sectionKey, 'idx' => $idx, 'item' => $item])
                         </div>
                         <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][uuid]" value="{{ $uuid }}">
-                        <button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0 self-start" title="Slide verwijderen" aria-label="Slide verwijderen">
+                        <button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0" title="Slide verwijderen" aria-label="Slide verwijderen">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
@@ -1452,7 +1452,7 @@
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             <p class="text-sm text-muted-foreground">Per kaart: tarief, titel, afbeelding (voertuig of eigen upload), kaartgrootte, stijl en kleuren. Op de website verschijnt de titel en de prijzen voor het gekozen tarief.</p>
-            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg">
+            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg" data-panel-title="Blokinstellingen">
                 <div class="flex items-center gap-3">
                     <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input flex-1 max-w-md text-sm" value="{{ $tarievenBlockTitle }}" placeholder="Onze tarieven">
@@ -1496,7 +1496,7 @@
                     <input type="number" name="home_sections[{{ $sectionKey }}][image_fade_duration]" value="{{ old('home_sections.'.$sectionKey.'.image_fade_duration', $tarievenSectionData['image_fade_duration'] ?? 1200) }}" min="300" max="5000" step="100" class="kt-input w-28 text-sm">
                 </div>
             </div>
-            <div id="nexataxi-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
+            <div id="nexataxi-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-panel-title="Tarievenkaarten" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
                 @foreach($tarievenItems as $i => $item)
                 @php
                     $itemRateType = $item['rate_type'] ?? ($i === 1 ? '5-8' : '1-4');
@@ -1569,7 +1569,13 @@
                             <input type="number" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][cleaning_costs]" class="kt-input w-28 text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.cleaning_costs', $item['cleaning_costs'] ?? '') }}" placeholder="leeg = uit tarief" step="0.01" min="0">
                             <span class="text-xs text-muted-foreground">Optioneel; leeg = waarde uit gekozen tarief</span>
                         </div>
-                        <div class="flex flex-col gap-3 pt-2 border-t border-border">
+                        <div class="home-section-field-panel home-section-field-panel--nested home-section-field-panel--collapsed nexataxi-tarieven-styles-panel">
+                            <button type="button" class="home-section-field-panel-toggle" aria-expanded="false">
+                                <span class="home-section-field-panel-title">Stijl & opmaak</span>
+                                <svg class="home-section-field-panel-chevron w-5 h-5 shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
+                            </button>
+                            <div class="home-section-field-panel-body" hidden>
+                        <div class="flex flex-col gap-3">
                             <div class="flex items-center gap-3">
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][card_size]" class="kt-input w-36 text-sm">
@@ -1667,6 +1673,8 @@
                                 </div>
                             </div>
                         </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 @endforeach
@@ -1700,7 +1708,7 @@
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             <p class="text-sm text-muted-foreground">Meerstaps wizard voor bagage, aanbiedingen, reisgegevens en contactgegevens. Prijsberekening gebruikt route-afstand/tijd via Google Maps.</p>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg" data-panel-title="Uiterlijk & titel">
                 <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div>
                     <label class="text-sm text-muted-foreground">Tekstgrootte titel</label>
@@ -1776,7 +1784,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="Staplabels (tabs)">
                 @foreach(['step1','step2','step3','step4','step5'] as $stepKey)
                 <div>
                     <label class="text-xs text-muted-foreground">{{ strtoupper($stepKey) }} label</label>
@@ -1802,7 +1810,7 @@
                 $baggageStepNumber = $baggageStepNumber === false ? null : ($baggageStepNumber + 1);
                 $offersStepNumber = $offersStepNumber === false ? null : ($offersStepNumber + 1);
             @endphp
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="Stapvolgorde">
                 @for($stepPos = 0; $stepPos < 5; $stepPos++)
                     <div>
                         <label class="text-xs text-muted-foreground">Positie {{ $stepPos + 1 }}</label>
@@ -1815,7 +1823,7 @@
                 @endfor
             </div>
 
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="Logica & passagiers">
                 <div><label class="text-xs text-muted-foreground">Min passagiers</label><input type="number" min="1" max="8" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][min_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.min_passengers', $bookingData['logic']['min_passengers'] ?? 1) }}"></div>
                 <div><label class="text-xs text-muted-foreground">Max passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_passengers', $bookingData['logic']['max_passengers'] ?? 8) }}"></div>
                 <div><label class="text-xs text-muted-foreground">Default passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][default_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.default_passengers', $bookingData['logic']['default_passengers'] ?? 1) }}"></div>
@@ -1858,7 +1866,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 p-3 border border-border rounded-lg">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 p-3 border border-border rounded-lg" data-panel-title="Teksten & placeholders">
                 <div><label class="text-xs text-muted-foreground">Placeholder ophaaladres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][pickup_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.pickup_placeholder', $bookingData['texts']['pickup_placeholder'] ?? '') }}"></div>
                 <div><label class="text-xs text-muted-foreground">Placeholder afzetadres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][dropoff_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.dropoff_placeholder', $bookingData['texts']['dropoff_placeholder'] ?? '') }}"></div>
                 <div><label class="text-xs text-muted-foreground">Tekst personenkaart</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][person_range_feature_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.person_range_feature_text', $bookingData['texts']['person_range_feature_text'] ?? 'Tarief op basis van aantal personen') }}"></div>
@@ -2251,7 +2259,7 @@
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             @if($isNonHomePage ?? false)
-            <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 mb-4 flex-shrink-0" id="footer-inherit-from-home-row">
+            <div class="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 mb-4 flex-shrink-0" id="footer-inherit-from-home-row" data-field-panel-skip="1">
                 <input type="hidden" name="home_sections[footer][inherit_from_home]" value="0">
                 <input type="checkbox" name="home_sections[footer][inherit_from_home]" id="footer-inherit-from-home" value="1" class="kt-switch kt-switch-sm"
                     {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'checked' : '' }}
@@ -2260,13 +2268,14 @@
                 <span class="text-xs text-muted-foreground">Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.</span>
             </div>
             @endif
-            <div id="footer-config-content" class="space-y-6 {{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
+            <div id="footer-config-content" class="space-y-6 home-section-panelize-children {{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
             @php
                 $footerLogoUrl = old('home_sections.footer.logo_url', $footer['logo_url'] ?? '');
                 $footerLogoPreviewUrl = $footerLogoUrl ?: (app(\App\Services\WebsiteBuilderService::class)->getSiteBranding()['logo_url'] ?? '');
                 $footerLogoHeight = (int) old('home_sections.footer.logo_height', $footer['logo_height'] ?? 12);
                 if ($footerLogoHeight < 12 || $footerLogoHeight > 30) $footerLogoHeight = 12;
             @endphp
+            <div class="space-y-4" data-panel-title="Footer-logo">
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Footer-logo</label>
@@ -2274,13 +2283,13 @@
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_logo" aria-label="Logo tonen/verbergen">@if($visibility['footer_logo'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <p class="text-xs text-muted-foreground mb-2">Laat leeg om het logo uit Algemene instellingen te gebruiken.</p>
-                <div class="flex flex-wrap items-start gap-2">
+                <div class="flex flex-col w-full min-w-0 gap-2 sm:flex-row sm:flex-wrap sm:items-start">
                     <div class="shrink-0 flex flex-col items-center">
                         <img alt="Footer logo" id="footer-logo-preview" class="w-auto border border-border rounded object-contain {{ $footerLogoPreviewUrl ? '' : 'hidden' }}" style="max-height: 80px;"
                              src="{{ $footerLogoPreviewUrl ? $imagePreviewUrl($footerLogoPreviewUrl) : '' }}">
                         <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="footer-logo-url" data-preview-id="footer-logo-preview" title="Logo verwijderen" aria-label="Logo verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
-                    <div class="flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" id="footer-logo-upload-area" style="width: 500px; min-width: 500px; height: 130px;">
+                    <div class="flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 w-full min-w-0 max-w-full sm:max-w-[500px] min-h-[130px] flex-1" id="footer-logo-upload-area">
                         <div class="flex flex-col place-items-center place-content-center text-center w-full">
                             <div class="flex items-center mb-2.5">
                                 <div class="relative size-11 shrink-0">
@@ -2295,18 +2304,18 @@
                 </div>
                 <input type="hidden" name="home_sections[footer][logo_url]" id="footer-logo-url" value="{{ $footerLogoUrl }}">
             </div>
-            <div class="flex flex-wrap items-end gap-4">
-                <div>
+            <div class="flex flex-col w-full min-w-0 gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+                <div class="w-full min-w-0 sm:w-auto">
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-hoogte (px)</label>
-                    <select name="home_sections[footer][logo_height]" id="footer-logo-height" class="kt-input w-32">
+                    <select name="home_sections[footer][logo_height]" id="footer-logo-height" class="kt-input w-full sm:w-32">
                         @foreach([12, 14, 16, 18, 20, 22, 24, 26, 28, 30] as $px)
                             <option value="{{ $px }}" {{ $footerLogoHeight === $px ? 'selected' : '' }}>{{ $px }}px</option>
                         @endforeach
                     </select>
                 </div>
-                <div>
+                <div class="w-full min-w-0 sm:w-auto">
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-uitlijning</label>
-                    <select name="home_sections[footer][logo_align]" id="footer-logo-align" class="kt-input w-40">
+                    <select name="home_sections[footer][logo_align]" id="footer-logo-align" class="kt-input w-full sm:w-40">
                         @php $footerLogoAlign = old('home_sections.footer.logo_align', $footer['logo_align'] ?? 'left'); @endphp
                         <option value="left" {{ $footerLogoAlign === 'left' ? 'selected' : '' }}>Links</option>
                         <option value="center" {{ $footerLogoAlign === 'center' ? 'selected' : '' }}>Midden</option>
@@ -2318,7 +2327,8 @@
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo alt-tekst</label>
                 <input type="text" name="home_sections[footer][logo_alt]" class="kt-input home-section-input-400" value="{{ old('home_sections.footer.logo_alt', $footer['logo_alt'] ?? '') }}" placeholder="Bijv. Nexa Skillmatching">
             </div>
-            <div class="row-visibility-row">
+            </div>
+            <div class="row-visibility-row" data-panel-title="Footer-kaart (Google Maps)">
                 <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Footer-kaart (Google Maps)</label>
                     <input type="hidden" name="home_sections[visibility][footer_map]" id="visibility-footer_map" value="{{ ($visibility['footer_map'] ?? true) ? '1' : '0' }}">
@@ -2339,8 +2349,8 @@
                     <label for="footer-map-city-only" class="text-sm font-medium text-secondary-foreground cursor-pointer">Alleen plaats invoeren</label>
                 </div>
                 <div class="flex flex-wrap items-start gap-6 w-full">
-                    <div class="flex-1 min-w-0 space-y-2 min-w-[280px]">
-                        <div class="flex flex-wrap items-end gap-3 mb-2">
+                    <div class="flex-1 min-w-0 w-full space-y-2">
+                        <div class="flex flex-col w-full min-w-0 gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-2">
                             <div>
                                 <label class="block text-xs text-muted-foreground mb-1">Postcode</label>
                                 <input type="text" name="home_sections[footer][map_postcode]" id="footer-map-postcode" class="kt-input w-24" value="{{ old('home_sections.footer.map_postcode', $footer['map_postcode'] ?? '') }}" placeholder="1234AB" maxlength="7" style="text-transform: uppercase;" {{ $mapCityOnly ? 'disabled' : '' }}>
@@ -2351,12 +2361,12 @@
                             </div>
                             <button type="button" id="footer-map-lookup-btn" class="kt-btn kt-btn-sm kt-btn-outline" {{ $mapCityOnly ? 'disabled' : '' }}>Zoeken</button>
                         </div>
-                        <div class="flex flex-wrap gap-3 mb-2">
-                            <div class="min-w-[200px]">
+                        <div class="flex flex-col w-full min-w-0 gap-3 sm:flex-row sm:flex-wrap mb-2">
+                            <div class="w-full min-w-0 sm:flex-1">
                                 <label class="block text-xs text-muted-foreground mb-1">Straat</label>
                                 <input type="text" name="home_sections[footer][map_street]" id="footer-map-street" class="kt-input w-full" value="{{ old('home_sections.footer.map_street', $footer['map_street'] ?? '') }}" readonly>
                             </div>
-                            <div class="min-w-[160px]">
+                            <div class="w-full min-w-0 sm:flex-1">
                                 <label class="block text-xs text-muted-foreground mb-1">Plaats</label>
                                 <input type="text" name="home_sections[footer][map_city]" id="footer-map-city" class="kt-input w-full" value="{{ old('home_sections.footer.map_city', $footer['map_city'] ?? '') }}" {{ $mapCityOnly ? '' : 'readonly' }}>
                             </div>
@@ -2399,7 +2409,7 @@
                 <input type="hidden" name="home_sections[footer][map_lat]" id="footer-map-lat" value="{{ old('home_sections.footer.map_lat', $footer['map_lat'] ?? '') }}">
                 <input type="hidden" name="home_sections[footer][map_lng]" id="footer-map-lng" value="{{ old('home_sections.footer.map_lng', $footer['map_lng'] ?? '') }}">
             </div>
-            <div class="row-visibility-row">
+            <div class="row-visibility-row" data-panel-title="Tagline / korte omschrijving">
                 <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Tagline / korte omschrijving</label>
                     <input type="hidden" name="home_sections[visibility][footer_tagline]" id="visibility-footer_tagline" value="{{ ($visibility['footer_tagline'] ?? true) ? '1' : '0' }}">
@@ -2408,7 +2418,7 @@
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-footer-tagline', 'name' => 'home_sections[footer][tagline]', 'value' => old('home_sections.footer.tagline', $footer['tagline'] ?? ''), 'placeholder' => 'Ontdek de perfecte match...', 'textareaId' => 'home-footer-tagline'])
                 <p class="text-xs text-muted-foreground mt-1">Wordt onder het logo in de footer getoond. Gebruik de werkbalk voor bold, italic, lijsten, etc.</p>
             </div>
-            <div class="border border-border rounded-lg p-4 space-y-4">
+            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Snelle Links">
                 <div class="row-visibility-row">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="text-sm font-medium text-secondary-foreground">Titel kolom Snelle Links</span>
@@ -2416,7 +2426,7 @@
                         <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_quick_links" aria-label="Snelle links tonen/verbergen">@if($visibility['footer_quick_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                     </div>
                     <label class="block text-xs text-muted-foreground mb-1">Titel kolom</label>
-                    <input type="text" name="home_sections[footer][quick_links_title]" class="kt-input w-[300px] max-w-[300px] box-border" value="{{ old('home_sections.footer.quick_links_title', $footer['quick_links_title'] ?? 'Snelle Links') }}" placeholder="Snelle Links" style="width: 300px; max-width: 300px;">
+                    <input type="text" name="home_sections[footer][quick_links_title]" class="kt-input w-full max-w-[300px] box-border" value="{{ old('home_sections.footer.quick_links_title', $footer['quick_links_title'] ?? 'Snelle Links') }}" placeholder="Snelle Links">
                     <label class="block text-xs text-muted-foreground mt-2 mb-1">Uitlijning</label>
                     @php $quickLinksAlign = old('home_sections.footer.quick_links_align', $footer['quick_links_align'] ?? 'left'); @endphp
                     <select name="home_sections[footer][quick_links_align]" class="kt-input w-40">
@@ -2440,7 +2450,7 @@
                     <button type="button" id="footer-quick-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>Link toevoegen</button>
                 </div>
             </div>
-            <div class="border border-border rounded-lg p-4 space-y-4">
+            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Ondersteuning-links">
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-sm font-medium text-secondary-foreground">Ondersteuning-links</span>
@@ -2448,7 +2458,7 @@
                     <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_support_links" aria-label="Ondersteuning-links tonen/verbergen">@if($visibility['footer_support_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <label class="block text-xs text-muted-foreground mb-1">Titel kolom Ondersteuning</label>
-                <input type="text" name="home_sections[footer][support_links_title]" class="kt-input w-[300px] max-w-[300px] box-border" value="{{ old('home_sections.footer.support_links_title', $footer['support_links_title'] ?? 'Ondersteuning') }}" placeholder="Ondersteuning" style="width: 300px; max-width: 300px;">
+                <input type="text" name="home_sections[footer][support_links_title]" class="kt-input w-full max-w-[300px] box-border" value="{{ old('home_sections.footer.support_links_title', $footer['support_links_title'] ?? 'Ondersteuning') }}" placeholder="Ondersteuning">
                 <label class="block text-xs text-muted-foreground mt-2 mb-1">Uitlijning</label>
                 @php $supportLinksAlign = old('home_sections.footer.support_links_align', $footer['support_links_align'] ?? 'left'); @endphp
                 <select name="home_sections[footer][support_links_align]" class="kt-input w-40 mb-3">
@@ -2472,7 +2482,7 @@
             </div>
             </div>
             </div>
-            <div class="border border-border rounded-lg p-4 space-y-4">
+            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Social media">
                 <div class="row-visibility-row">
                     <div class="flex items-center gap-2 mb-2">
                         <span class="text-sm font-medium text-secondary-foreground">Social media</span>
@@ -2546,6 +2556,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (footerConfig) footerConfig.classList.toggle('hidden', !!on);
         if (copyrightNotice) copyrightNotice.classList.toggle('hidden', !on);
         if (copyrightEditable) copyrightEditable.classList.toggle('hidden', !!on);
+        if (!on && typeof window.ensureFooterConfigFieldPanels === 'function') {
+            window.ensureFooterConfigFieldPanels();
+        }
     }
     if (inheritCheck) {
         inheritCheck.addEventListener('change', syncFooterInheritUi);
@@ -3235,7 +3248,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     });
 
     // Carousel: drag-and-drop upload + slides (website-media); bindCarouselSlidesIn voor dynamisch toegevoegde secties
-    var carouselDragHandleHtml = '<span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 self-center p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>';
+    var carouselDragHandleHtml = '<span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>';
     var carouselSlideImageTrashHtml = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
     function getWebsiteMediaDeleteUrl(uuid) {
         var meta = document.getElementById('home-sections-meta');
@@ -3753,7 +3766,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     }
     function appendCarouselSlideRow(listEl, sectionKey, idx, uuid, url, alt, textColor) {
         var row = document.createElement('div');
-        row.className = 'carousel-slide-row flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 bg-muted/20';
+        row.className = 'carousel-slide-row flex flex-wrap items-start gap-3 rounded-lg border border-border p-3 bg-muted/20';
         row.setAttribute('data-uuid', uuid || '');
         var safeUrl = (url || '').replace(/"/g, '&quot;');
         var safeUuid = (uuid || '').replace(/"/g, '&quot;');
@@ -3763,9 +3776,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var textColorPickerVal = (safeTextColor && /^#/.test(safeTextColor)) ? safeTextColor : '#ffffff';
         row.innerHTML = carouselDragHandleHtml +
             carouselSlidePreviewHtml(uuid, url) +
-            '<div class="flex-1 min-w-[12rem] space-y-1">' +
+            '<div class="carousel-slide-row-fields flex-1 min-w-[12rem] space-y-1">' +
             '<label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">' + (idx + 1) + '</span> · tekst op carousel</label>' +
-            '<div class="flex items-center gap-2">' +
+            '<div class="flex flex-wrap items-center gap-2">' +
             carouselSlideAltInputHtml(sectionKey, idx, alt) +
             '<input type="color" id="' + textColorId + '_color" class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + textColorPickerVal + '" title="Tekstkleur op carousel" data-target-input="' + textColorId + '">' +
             carouselSlideHexInputHtml(sectionKey, idx, 'text_color', safeTextColor, textColorId, '#ffffff', 'carousel-slide-text-color-hex-input') +
@@ -3775,7 +3788,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, {}) +
             '</div>' +
             '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + idx + '][uuid]" value="' + safeUuid + '">' +
-            '<button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0 self-start" title="Slide verwijderen" aria-label="Slide verwijderen">' +
+            '<button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0" title="Slide verwijderen" aria-label="Slide verwijderen">' +
             '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>';
         listEl.appendChild(row);
         bindCarouselSlidePreviewUpload(row);
@@ -4133,6 +4146,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var willBeCollapsed = !card.classList.contains('home-section-card--collapsed');
         setSectionCollapsed(card, willBeCollapsed);
         updateCollapseAllButton();
+        if (typeof window.persistWebsitePageEditorState === 'function') {
+            window.persistWebsitePageEditorState();
+        }
     });
     var collapseAllBtn = document.getElementById('home-sections-collapse-all-btn');
     if (collapseAllBtn) {
@@ -4143,6 +4159,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             var allCollapsed = cards.length > 0 && [].slice.call(cards).every(function(c) { return c.classList.contains('home-section-card--collapsed'); });
             cards.forEach(function(card) { setSectionCollapsed(card, !allCollapsed); });
             updateCollapseAllButton();
+            if (typeof window.persistWebsitePageEditorState === 'function') {
+                window.persistWebsitePageEditorState();
+            }
         });
     }
     updateCollapseAllButton();
@@ -4767,6 +4786,14 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 updateNexaTaxiImageLabel(row);
             });
         }
+        function wrapNexataxiTarievenStylesPanel(innerHtml) {
+            return '<div class="home-section-field-panel home-section-field-panel--nested home-section-field-panel--collapsed nexataxi-tarieven-styles-panel">' +
+                '<button type="button" class="home-section-field-panel-toggle" aria-expanded="false">' +
+                '<span class="home-section-field-panel-title">Stijl & opmaak</span>' +
+                '<svg class="home-section-field-panel-chevron w-5 h-5 shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>' +
+                '</button>' +
+                '<div class="home-section-field-panel-body" hidden><div class="flex flex-col gap-3">' + innerHtml + '</div></div></div>';
+        }
         document.addEventListener('click', function(e) {
             var addBtn = e.target.closest('.nexataxi-tarieven-item-add');
             if (addBtn) {
@@ -4813,9 +4840,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     '<div class="nexataxi-upload-wrap hidden" id="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-' + field + '" value=""></div></div>' +
                     '<div class="flex flex-col gap-2 mt-3"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][rate_type]" class="kt-input w-48 text-sm"><option value="1-4" selected>' + rateOpt1 + '</option><option value="5-8">' + rateOpt2 + '</option><option value="overige_kosten">' + rateOpt3 + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input flex-1 max-w-md text-sm" value="" placeholder="bijv. t/m 4 personen"></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label><input type="number" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][cleaning_costs]" class="kt-input w-28 text-sm" value="" step="0.01" min="0" placeholder="leeg = uit tarief"><span class="text-xs text-muted-foreground">Optioneel</span></div>' +
-                    '<div class="flex flex-col gap-3 pt-2 border-t border-border"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div></div></div>';
+                    wrapNexataxiTarievenStylesPanel('<div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div>') + '</div>';
                 container.appendChild(div);
                 reindexNexaTaxiTarievenItems(container, sectionKey);
+                if (typeof window.panelizeRepeatableElement === 'function') window.panelizeRepeatableElement(div);
                 updateNexaTaxiImageLabel(div);
                 if (typeof window.bindColorSyncIn === 'function') window.bindColorSyncIn(div);
                 var newArea = div.querySelector('.hero-image-upload-area');
@@ -5256,6 +5284,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     cardBody.querySelectorAll('.nexataxi-booking-row[data-list="offers"]').forEach(function(row) {
                         syncNexaTaxiOfferVehicleOptions(row);
                     });
+                    if (typeof window.initHomeSectionFieldPanels === 'function') {
+                        cardBody.removeAttribute('data-field-panels-init');
+                        window.initHomeSectionFieldPanels(card);
+                    }
                 }
                 menu.classList.add('hidden');
                 addBtn.setAttribute('aria-expanded', 'false');
@@ -5318,6 +5350,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (wrap.firstElementChild) {
                     listEl.appendChild(wrap.firstElementChild);
                     syncNexaTaxiOfferVehicleOptions(wrap.firstElementChild);
+                    if (typeof window.panelizeRepeatableElement === 'function') window.panelizeRepeatableElement(wrap.firstElementChild);
                 }
                 reindexNexaTaxiBookingList(listEl);
                 return;
@@ -5506,10 +5539,120 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         }
     })();
+
+    function runWebsitePageEditorUiInit() {
+        if (typeof window.initHomeSectionFieldPanels === 'function') {
+            window.initHomeSectionFieldPanels(document.getElementById('website-page-form') || document);
+        } else if (typeof window.ensureFooterConfigFieldPanels === 'function') {
+            window.ensureFooterConfigFieldPanels();
+        }
+        if (typeof window.restoreWebsitePageEditorState === 'function') {
+            window.restoreWebsitePageEditorState();
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runWebsitePageEditorUiInit);
+    } else {
+        runWebsitePageEditorUiInit();
+    }
+    window.addEventListener('load', function() {
+        if (typeof window.restoreWebsitePageEditorState === 'function') {
+            window.restoreWebsitePageEditorState();
+        }
+    });
 </script>
 
 @push('styles')
 <style>
+    /* Field panels + tarievenkaarten: zelfde randkleur als sectiekaart (.kt-card) */
+    #website-page-form .home-section-field-panel,
+    #website-page-form .home-section-field-panel--nested {
+        border: 1px solid var(--border) !important;
+        border-style: solid !important;
+    }
+    .dark #website-page-form .home-section-field-panel,
+    .dark #website-page-form .home-section-field-panel--nested {
+        border-color: var(--border) !important;
+    }
+    #website-page-form .nexataxi-tarieven-item.border {
+        border-color: var(--border) !important;
+    }
+    @media (max-width: 1023px) {
+        #content > .kt-container-fixed:has(#website-page-form) {
+            padding-left: max(0.375rem, env(safe-area-inset-left, 0px));
+            padding-right: max(0.375rem, env(safe-area-inset-right, 0px));
+        }
+        #website-page-form > .kt-container-fixed.min-w-0 {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        #home_sections_card > .kt-card-content,
+        #home_sections_card > .kt-card-header.website-page-sections-header {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        #website-page-form #home-sections-sortable .home-section-card-body,
+        #website-page-form .space-y-6.mt-6 > .home-section-card .home-section-card-body {
+            padding-left: 0.625rem;
+            padding-right: 0.625rem;
+        }
+        .home-section-card-body > .grid[style*="grid-template-columns"] {
+            grid-template-columns: 1fr !important;
+        }
+        #website-page-form .hero-image-upload-area[style*="min-width"],
+        #website-page-form .cta-image-upload-area[style*="min-width"],
+        #website-page-form #footer-logo-upload-area {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+        .home-section-card[data-section*="tarieven"] .flex.items-center.gap-3,
+        .home-section-card[data-section*="tarieven"] .flex.items-start.gap-3,
+        .nexataxi-tarieven-item .flex.items-center.gap-3 {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .home-section-card[data-section*="tarieven"] label.text-sm.text-muted-foreground.shrink-0.w-40,
+        .home-section-card[data-section*="tarieven"] .flex.flex-col.text-sm.text-muted-foreground.shrink-0.w-40,
+        .nexataxi-tarieven-item label.text-sm.text-muted-foreground.shrink-0.w-40,
+        .nexataxi-tarieven-item .nexataxi-image-label.w-40 {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            white-space: normal !important;
+        }
+        .home-section-card[data-section*="tarieven"] .kt-input,
+        .home-section-card[data-section*="tarieven"] select,
+        .nexataxi-tarieven-item .kt-input,
+        .nexataxi-tarieven-item select {
+            flex: 0 0 auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        .home-section-card[data-section="footer"] #footer-logo-upload-area {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            height: auto !important;
+            min-height: 130px;
+        }
+        .home-section-card[data-section="footer"] .footer-link-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .home-section-card[data-section="footer"] .footer-link-row .kt-input {
+            width: 100% !important;
+            min-width: 0 !important;
+            flex: none !important;
+        }
+        #footer-inherit-from-home-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        #footer-inherit-from-home-row label[for="footer-inherit-from-home"] {
+            white-space: normal !important;
+        }
+    }
     /* TinyMCE: zichtbaar en klikbaar (geen overlay, geen visibility:hidden) */
     .home-section-card-body .tox,
     .home-section-card-body .tox-tinymce,
@@ -5586,7 +5729,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark .home-section-header--component { background-color: rgb(127 29 63 / 0.4); border-left-color: rgb(251 113 133); }
     .home-section-header--component .kt-card-title { color: rgb(159 18 57); }
     .dark .home-section-header--component .kt-card-title { color: rgb(253 164 175); }
-    .home-section-card--component.home-section-card--module .home-section-card-body:not(.home-section-component-hint) { padding-bottom: 0; }
+    .home-section-card--component.home-section-card--module .home-section-card-body:not(.home-section-component-hint) { padding-bottom: 1rem; }
     .home-section-card:has(.home-section-header--component) .home-section-card-body.home-section-component-hint {
         background-color: rgb(255 228 230 / 0.25);
         border-top: 1px solid rgb(254 205 211 / 0.6);

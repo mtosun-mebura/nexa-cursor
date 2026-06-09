@@ -29,6 +29,17 @@ Route::get('/matches/rule-based/{candidateId}', [MatchController::class, 'getRul
 Route::get('/matches/semantic/{candidateId}', [MatchController::class, 'getSemanticMatches']);
 Route::get('/matches/hybrid/{candidateId}', [MatchController::class, 'getHybridMatches']);
 
+Route::get('/ai-chat/live-query/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'endpoint' => 'POST /api/ai-chat/live-query',
+    ]);
+})->name('api.ai-chat.live-query.health');
+
+Route::post('/ai-chat/live-query', [App\Http\Controllers\Api\AiChatSqlController::class, 'execute'])
+    ->middleware('throttle:60,1')
+    ->name('api.ai-chat.live-query');
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

@@ -75,6 +75,26 @@ class Module extends BaseModule
                 'permission' => 'rides.view',
                 'order' => 25,
             ],
+            [
+                'key' => 'ai_chatbot',
+                'title' => 'AI-chatbot',
+                'route' => 'admin.taxi.knowledge_documents.index',
+                'icon' => 'ki-filled ki-technology-2',
+                'permission' => 'ai_chatbot.view',
+                'permission_any' => ['ai_chatbot.view', 'rides.view', 'vehicles.view'],
+                'order' => 30,
+                'children' => [
+                    [
+                        'title' => 'Kennisbank',
+                        'route' => 'admin.taxi.knowledge_documents.index',
+                    ],
+                    [
+                        'title' => 'Instellingen',
+                        'route' => 'admin.taxi.ai_chatbot.settings.edit',
+                        'permission_any' => ['ai_chatbot.update', 'rides.update', 'vehicles.update'],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -91,6 +111,10 @@ class Module extends BaseModule
             'rides.create',
             'rides.update',
             'rides.delete',
+            'ai_chatbot.view',
+            'ai_chatbot.create',
+            'ai_chatbot.update',
+            'ai_chatbot.delete',
         ];
     }
 }

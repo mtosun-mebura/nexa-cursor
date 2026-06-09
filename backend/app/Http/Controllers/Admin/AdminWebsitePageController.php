@@ -16,6 +16,9 @@ use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\NexaTaxiBookingPricingService;
 use App\Services\WebsiteBuilderService;
+use App\Services\WebsitePageSeoGeneratorService;
+use App\Services\WebsiteStructuredDataService;
+use App\Services\GoogleSeoSettingsService;
 use App\Support\ModuleSchemaAvailability;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\JsonResponse;
@@ -403,6 +406,62 @@ class AdminWebsitePageController extends Controller
     }
 
     /**
+     * Genereer SEO/GEO-teksten (Google + AI-zoekresultaten) voor pagina-informatie en optioneel hero-sectie.
+     */
+    public function generateSeoContent(Request $request, WebsitePageSeoGeneratorService $seoGenerator): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+        $valid = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'page_type' => 'nullable|string|in:home,about,contact,custom,module',
+            'module_name' => 'nullable|string|max:255',
+            'slug' => 'nullable|string|max:255',
+            'company_id' => 'nullable|integer',
+            'include_sections' => 'nullable|boolean',
+        ]);
+
+        $moduleName = isset($valid['module_name']) && $valid['module_name'] !== ''
+            ? $this->resolveCanonicalModuleName($valid['module_name'])
+            : null;
+        $branding = $this->websiteBuilder->getSiteBranding($moduleName);
+
+        $companyId = $valid['company_id']
+            ?? $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
+        $companyName = null;
+        if ($companyId !== null && is_numeric($companyId)) {
+            $company = Company::find((int) $companyId);
+            $companyName = $company?->name;
+        }
+
+        $moduleDisplayName = null;
+        if ($moduleName) {
+            foreach ($this->moduleManager->getInstalledModules() as $module) {
+                if ($module->getName() === $moduleName) {
+                    $moduleDisplayName = $module->getDisplayName();
+                    break;
+                }
+            }
+        }
+
+        $result = $seoGenerator->generate([
+            'title' => $valid['title'] ?? '',
+            'page_type' => $valid['page_type'] ?? 'custom',
+            'module_name' => $moduleName,
+            'module_display_name' => $moduleDisplayName,
+            'slug' => $valid['slug'] ?? '',
+            'site_name' => $branding['site_name'] ?? config('app.name'),
+            'site_description' => $branding['site_description'] ?? '',
+            'company_name' => $companyName,
+            'include_sections' => $request->boolean('include_sections', true),
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'data' => $result,
+        ]);
+    }
+
+    /**
      * HTML voor één sectiekaart (hero, stats, why_nexa, features, cta).
      * Gebruikt wanneer een sectie is verwijderd en opnieuw toegevoegd moet kunnen worden.
      */
@@ -620,6 +679,15 @@ class AdminWebsitePageController extends Controller
             ? app(GoogleReviewsService::class)->getReviews($previewReviewsCompanyId)
             : [];
 
+        $structuredDataGraph = app(WebsiteStructuredDataService::class)->buildForRenderedPage(
+            $website_page,
+            $branding,
+            is_array($homeSections) && $homeSections !== [] ? $homeSections : null,
+        );
+
+        $seoCompanyId = $website_page->company_id ? (int) $website_page->company_id : \App\Models\GeneralSetting::resolveScopeCompanyId();
+        $seoTracking = app(GoogleSeoSettingsService::class)->trackingConfigForCompany($seoCompanyId);
+
         return view('frontend.website.page', [
             'page' => $website_page,
             'theme' => $theme,
@@ -640,6 +708,8 @@ class AdminWebsitePageController extends Controller
             'googleMapsMapId' => $googleMapsMapId,
             'googleReviews' => $googleReviews,
             'whatsappWidget' => $whatsappWidget,
+            'structuredDataGraph' => $structuredDataGraph,
+            'seoTracking' => $seoTracking,
         ]);
     }
 

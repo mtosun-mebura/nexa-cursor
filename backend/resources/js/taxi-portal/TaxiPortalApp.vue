@@ -222,6 +222,7 @@ const chartPeriod = ref<ChartPeriod>('month')
 const chartLoading = ref(false)
 const costChartEl = ref<HTMLElement | null>(null)
 let costChartInstance: { destroy: () => void; render: () => void } | null = null
+let portalThemeObserver: MutationObserver | null = null
 const APEX_CHARTS_SRC = '/assets/vendors/apexcharts/apexcharts.min.js'
 
 const rides = ref<PortalRide[]>([])
@@ -409,6 +410,13 @@ function invoicePdfUrl(invoiceId: number): string {
   return `${apiInvoicePdfBase}/${invoiceId}/pdf`
 }
 
+function isPortalDarkMode(): boolean {
+  return (
+    document.documentElement.classList.contains('dark') ||
+    document.body.classList.contains('dark')
+  )
+}
+
 function destroyCostChart() {
   if (costChartInstance) {
     costChartInstance.destroy()
@@ -460,9 +468,10 @@ function renderCostChart() {
     return
   }
 
-  const isDark =
-    document.documentElement.classList.contains('dark') ||
-    document.body.classList.contains('dark')
+  const isDark = isPortalDarkMode()
+  const chartTextColor = isDark ? '#9ca3af' : '#6b7280'
+  const chartGridColor = isDark ? '#374151' : '#e5e7eb'
+  const chartBackground = isDark ? '#111827' : '#ffffff'
 
   costChartInstance = new window.ApexCharts(el, {
     series: [{ name: 'Kosten', data: chart.amounts }],
@@ -471,6 +480,8 @@ function renderCostChart() {
       height: 280,
       toolbar: { show: false },
       fontFamily: 'inherit',
+      background: chartBackground,
+      foreColor: chartTextColor,
     },
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth', width: 2 },
@@ -479,16 +490,30 @@ function renderCostChart() {
       labels: {
         rotate: -45,
         rotateAlways: chart.labels.length > 14,
-        style: { fontSize: '11px' },
+        style: {
+          fontSize: '11px',
+          colors: chartTextColor,
+        },
+      },
+      axisBorder: {
+        show: true,
+        color: chartGridColor,
+      },
+      axisTicks: {
+        color: chartGridColor,
       },
     },
     yaxis: {
       min: 0,
       labels: {
+        style: {
+          colors: chartTextColor,
+        },
         formatter: (val: number) => `€${val.toFixed(0)}`,
       },
     },
     tooltip: {
+      theme: isDark ? 'dark' : 'light',
       y: {
         formatter: (val: number) => `€${val.toFixed(2)}`,
       },
@@ -496,10 +521,16 @@ function renderCostChart() {
     colors: ['#2563eb'],
     fill: {
       type: 'gradient',
-      gradient: { shadeIntensity: 0.4, opacityFrom: 0.45, opacityTo: 0.05 },
+      gradient: {
+        shade: isDark ? 'dark' : 'light',
+        shadeIntensity: 0.35,
+        opacityFrom: isDark ? 0.5 : 0.35,
+        opacityTo: isDark ? 0.08 : 0.04,
+      },
     },
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: chartGridColor,
+      strokeDashArray: 4,
     },
     theme: { mode: isDark ? 'dark' : 'light' },
     noData: {
@@ -786,6 +817,16 @@ onMounted(() => {
 
   document.addEventListener('taxi-portal-refresh-rides', onPortalRefreshRides)
 
+  portalThemeObserver = new MutationObserver(() => {
+    if (tab.value === 'dashboard' && dashboard.value?.chart) {
+      void scheduleCostChartRender()
+    }
+  })
+  portalThemeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+
   if (showNewRide.value) {
     void nextTick(() => {
       mountBookingModule()
@@ -798,6 +839,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  portalThemeObserver?.disconnect()
+  portalThemeObserver = null
   destroyCostChart()
   window.removeEventListener('popstate', applyPortalStateFromUrl)
   document.removeEventListener('taxi-portal-refresh-rides', onPortalRefreshRides)
@@ -962,7 +1005,7 @@ onUnmounted(() => {
                     <div
                       ref="costChartEl"
                       id="taxi-portal-cost-chart"
-                      class="min-h-[280px] w-full"
+                      class="taxi-portal-cost-chart min-h-[280px] w-full rounded-md bg-white dark:!bg-[#111827]"
                       :class="chartLoading ? 'opacity-40' : ''"
                     />
                   </div>
@@ -1044,7 +1087,7 @@ onUnmounted(() => {
                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                           </span>
                         </th>
-                        <th class="min-w-[56px]"></th>
+                        <th class="min-w-[80px] text-center">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1069,16 +1112,18 @@ onUnmounted(() => {
                           </span>
                         </td>
                         <td class="tabular-nums">{{ r.amount }}</td>
-                        <td class="text-end">
-                          <button
-                            type="button"
-                            class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-ride-action-btn"
-                            title="Details bekijken"
-                            aria-label="Details bekijken"
-                            @click="openRideDetails(r)"
-                          >
-                            <i class="ki-filled ki-eye"></i>
-                          </button>
+                        <td class="text-center align-middle">
+                          <div class="inline-flex items-center justify-center">
+                            <button
+                              type="button"
+                              class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-ride-action-btn"
+                              title="Details bekijken"
+                              aria-label="Details bekijken"
+                              @click="openRideDetails(r)"
+                            >
+                              <i class="ki-filled ki-eye"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </tbody>
@@ -1174,7 +1219,7 @@ onUnmounted(() => {
                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                           </span>
                         </th>
-                        <th class="min-w-[80px] text-center"></th>
+                        <th class="min-w-[80px] text-center">Acties</th>
                       </tr>
                     </thead>
                     <tbody>

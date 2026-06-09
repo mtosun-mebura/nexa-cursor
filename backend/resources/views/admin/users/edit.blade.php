@@ -4,19 +4,15 @@
 
 @section('content')
 
-<div class="kt-container-fixed">
-    <div class="flex flex-col gap-5 pb-7.5">
-        <div class="flex flex-wrap items-center justify-between gap-5">
-            <h1 class="text-xl font-medium leading-none text-mono">
-                Gebruiker Bewerken
-            </h1>
-        </div>
-        <div class="flex items-center">
-            <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
-            </a>
-        </div>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Gebruiker Bewerken
+        </h1>
+        <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
     </div>
 
     <form action="{{ route('admin.users.update', $user) }}" method="POST"  data-validate="true" novalidate>
@@ -27,14 +23,15 @@
             <x-error-card :errors="$errors" />
 
             <!-- Algemene Informatie -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">
+                    <h3 class="kt-card-title mb-0">
                         Algemene Informatie
                     </h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0 sm:p-0">
+                    <div class="kt-card-table kt-scrollable-x-auto pb-3 px-3 sm:px-5">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Voornaam *
@@ -141,7 +138,7 @@
                             </td>
                             <td>
                                 <!--begin::Input with Calendar-->
-                                <div class="kt-input w-64 @error('date_of_birth') border-destructive @enderror">
+                                <div class="kt-input w-full max-w-64 @error('date_of_birth') border-destructive @enderror">
                                     <i class="ki-outline ki-calendar"></i>
                                     <input class="grow" 
                                            name="date_of_birth" 
@@ -162,18 +159,20 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
             <!-- Account Informatie -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">
+                    <h3 class="kt-card-title mb-0">
                         Account Informatie
                     </h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0 sm:p-0">
+                    <div class="kt-card-table kt-scrollable-x-auto pb-3 px-3 sm:px-5">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
                                 Rollen *
@@ -209,11 +208,12 @@
                             <input type="hidden" name="company_id" value="{{ auth()->user()->company_id }}">
                         @endif
                     </table>
+                    </div>
                 </div>
             </div>
 
             <!-- Actions -->
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
                 <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren
@@ -228,50 +228,6 @@
 </div>
 
 @endsection
-
-@push('styles')
-<style>
-    /* Remove all borders between table rows in edit forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
-    }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: top;
-    }
-    /* Label cellen: center alleen met input veld (40px hoogte), niet met feedback tekst */
-    .kt-table-border-dashed tbody tr td:first-child {
-        display: flex;
-        vertical-align: middle;
-        padding-top: 8px;
-        padding-bottom: 0;
-        line-height: 40px; /* Hoogte van kt-input */
-        height: 40px;
-    }
-    /* Input cellen: top alignment voor feedback tekst */
-    .kt-table-border-dashed tbody tr td:last-child {
-        vertical-align: top;
-        padding-top: 12px;
-    }
-    .kt-table-border-dashed tbody tr td.align-top {
-        vertical-align: top !important;
-        padding-top: 18px;
-    }
-    /* Wanneer align-top op label, reset line-height */
-    .kt-table-border-dashed tbody tr td.align-top:first-child {
-        line-height: normal;
-        height: auto;
-        padding-top: 18px;
-    }
-</style>
-@endpush
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>

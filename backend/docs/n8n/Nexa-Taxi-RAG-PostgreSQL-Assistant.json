@@ -1,0 +1,255 @@
+{
+  "name": "Nexa Taxi - Goedkope RAG + PostgreSQL Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexa-taxi-assistant",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7a0266e9-734b-46f3-917e-425a1e661547",
+      "name": "Webhook - Nexa Taxi Assistant",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-960, 160],
+      "webhookId": "6d3ccd74-c570-4def-8bb9-956022e4962e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nconst message = String(body.message || '').trim();\n\nfunction detectIntentFallback(text) {\n  const m = text.toLowerCase();\n  if (/tarief|tarieven|instaptarief|kilometertarief|wat kost|prijs per km|prijs per kilometer|nachttarief|wachttarief|minuuttarief|per km|per kilometer/.test(m)) {\n    return 'tarieven';\n  }\n  if (/open rit|open ritten|nog bevestig|wachten op bevestig/.test(m)) return 'open_ritten';\n  if (/chauffeur/.test(m) && /morgen|beschikbaar|vrij/.test(m)) return 'vrije_chauffeurs_morgen';\n  if (/morgen/.test(m) && /rit/.test(m)) return 'ritten_morgen';\n  if (/vandaag/.test(m) && /rit/.test(m)) return 'ritten_vandaag';\n  return 'faq';\n}\n\nfunction extractRagSearchKeyword(text) {\n  const cleaned = String(text || '').toLowerCase().replace(/[^\\p{L}\\p{N}\\s-]/gu, ' ');\n  const words = cleaned.split(/\\s+/).filter((w) => w.length >= 4);\n  const priority = ['contact', 'telefoon', 'email', 'mail', 'bereikbaar', 'ziekenhuis', 'luchthaven', 'rolstoel', 'schiphol', 'airport', 'vervoer', 'tarief', 'tarieven'];\n  for (const term of priority) {\n    if (cleaned.includes(term)) return term;\n  }\n  return words[0] || cleaned.trim().slice(0, 40) || String(text || '').trim();\n}\n\nfunction buildLiveQueryUrl() {\n  const fromLaravel = String(body.laravel_live_query_url || '').trim();\n  const isLocal = /localhost|127\\.0\\.0\\.1/i.test(fromLaravel);\n  if (fromLaravel && !isLocal) return fromLaravel;\n  const envBase = String($env.LARAVEL_API_URL || '').trim();\n  if (envBase) return envBase.replace(/\\/$/, '') + '/integrations/n8n/ai-chat/live-query';\n  return fromLaravel;\n}\n\nconst intent = body.intent || detectIntentFallback(message);\nconst allowPublicRates = body.allowPublicRates === true || intent === 'tarieven';\nconst allowLiveData = body.allowLiveData === true;\nconst companyId = Number(body.company_id || 1) || 1;\nconst laravelUrl = buildLiveQueryUrl();\nconst urlIsLocal = /localhost|127\\.0\\.0\\.1/i.test(laravelUrl);\n\nreturn [{\n  json: {\n    message,\n    rag_search_keyword: extractRagSearchKeyword(message),\n    company_id: companyId,\n    channel: body.channel || 'public',\n    module: body.module || 'taxi',\n    intent,\n    isAdmin: body.isAdmin === true,\n    allowLiveData,\n    allowPublicRates,\n    sql_token: body.sql_token || null,\n    laravel_live_query_url: laravelUrl,\n    laravel_url_warning: urlIsLocal\n      ? 'localhost is niet bereikbaar vanuit n8n. Zet AI_CHAT_LARAVEL_API_URL in Laravel of LARAVEL_API_URL in n8n Variables.'\n      : null,\n    payload_source: body.intent ? 'laravel' : 'n8n_fallback'\n  }\n}];"
+      },
+      "id": "b4a4b300-9ac3-4333-bb99-f50585ba7c48",
+      "name": "Normaliseer Laravel payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-720, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "intent_faq",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "faq",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e75a65c9-cf8d-4499-a903-224062983ad1",
+      "name": "Intent is FAQ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-480, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "intent_tarieven",
+              "leftValue": "={{ $json.intent }}",
+              "rightValue": "tarieven",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "allow_live_data",
+              "leftValue": "={{ $json.allowLiveData }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Tarieven of admin live SQL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-240, 304]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT d.title, d.category, d.content\nFROM nexa_taxi.knowledge_documents d\nWHERE $1::text <> ''\n  AND (\n    d.title ILIKE '%' || $1 || '%'\n    OR d.content ILIKE '%' || $1 || '%'\n    OR d.category ILIKE '%' || $1 || '%'\n    OR EXISTS (\n      SELECT 1\n      FROM nexa_taxi.knowledge_chunks c\n      WHERE c.document_id = d.id\n        AND c.chunk_text ILIKE '%' || $1 || '%'\n    )\n  )\nORDER BY d.created_at DESC NULLS LAST\nLIMIT 5;",
+        "options": {
+          "connectionTimeout": 10,
+          "queryReplacement": "={{ $('Normaliseer Laravel payload').item.json.rag_search_keyword }}"
+        }
+      },
+      "id": "47b59e3d-59b4-4aa0-8896-d27680687219",
+      "name": "Zoek in RAG kennisbank",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [32, 0],
+      "credentials": {
+        "postgres": {
+          "id": "4GFlpJ009GVIRKnk",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const htmlToChatText = (value) => {\n  let text = String(value || '');\n  text = text.replace(/<a\\s+[^>]*href=([\"'])([^\"']+)\\1[^>]*>(.*?)<\\/a>/gis, (_, __, url, label) => {\n    const cleanLabel = String(label).replace(/<[^>]+>/g, '').trim() || url;\n    return `[${cleanLabel}](${url.trim()})`;\n  });\n  return text\n    .replace(/<\\/p>\\s*<p[^>]*>/gi, '\\n\\n')\n    .replace(/<br\\s*\\/?>/gi, '\\n')\n    .replace(/<[^>]+>/g, '')\n    .replace(/[ \\t]+\\n/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n};\n\nfunction pick(row, ...keys) {\n  if (!row || typeof row !== 'object') return '';\n  for (const key of keys) {\n    const value = row[key];\n    if (typeof value === 'string' && value.trim() !== '') return value.trim();\n  }\n  const lower = {};\n  for (const [k, v] of Object.entries(row)) {\n    lower[String(k).toLowerCase()] = v;\n  }\n  for (const key of keys) {\n    const value = lower[key.toLowerCase()];\n    if (typeof value === 'string' && value.trim() !== '') return value.trim();\n  }\n  return '';\n}\n\nfunction normalizeDoc(item) {\n  const row = item?.json ?? item;\n  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;\n  if (row.object === 'list' || row?.data?.[0]?.embedding) return null;\n  const title = pick(row, 'title', 'name', 'heading');\n  const content = htmlToChatText(pick(row, 'content', 'chunk_text', 'body', 'text'));\n  if (!title && !content) return null;\n  return {\n    title: title || 'Kennisbank',\n    content,\n    category: pick(row, 'category'),\n  };\n}\n\nconst docs = [];\nconst seen = new Set();\nfor (const item of $('Zoek in RAG kennisbank').all()) {\n  const doc = normalizeDoc(item);\n  if (!doc) continue;\n  const key = doc.title + '|' + doc.content.slice(0, 120);\n  if (seen.has(key)) continue;\n  seen.add(key);\n  docs.push(doc);\n}\n\nif (!docs.length) {\n  return [{ json: { answer: 'Ik kon hierover niets vinden in de Nexa Taxi kennisbank.', source: 'rag' } }];\n}\n\nconst answer = docs.map((doc, index) => {\n  const lines = [`${index + 1}. ${doc.title}`];\n  if (doc.content) lines.push(doc.content);\n  return lines.join('\\n');\n}).join('\\n\\n');\n\nreturn [{\n  json: {\n    answer: `Ik heb dit gevonden in de Nexa Taxi kennisbank:\\n\\n${answer}`,\n    source: 'rag',\n    sources: docs,\n  },\n}];"
+      },
+      "id": "d156e1a5-3098-43d5-ac1b-bae5fac607d3",
+      "name": "Maak RAG antwoord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [288, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Normaliseer Laravel payload').item.json.laravel_live_query_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "ngrok-skip-browser-warning",
+              "value": "true"
+            },
+            {
+              "name": "User-Agent",
+              "value": "NexaN8n/1.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"intent\": {{ JSON.stringify($('Normaliseer Laravel payload').item.json.intent) }},\n  \"sql_token\": {{ JSON.stringify($('Normaliseer Laravel payload').item.json.sql_token) }},\n  \"company_id\": {{ $('Normaliseer Laravel payload').item.json.company_id }}\n}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "7f4dad32-fbfc-4595-8bd5-403526015294",
+      "name": "Laravel live query API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [0, 448],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Normaliseer Laravel payload').item.json;\nconst res = $json;\n\nfunction apiErrorMessage(payload) {\n  if (!payload || typeof payload !== 'object') return null;\n  if (typeof payload.error === 'string') return payload.error;\n  if (payload.error && typeof payload.error === 'object') {\n    return payload.error.message || payload.error.description || null;\n  }\n  if (typeof payload.message === 'string') return payload.message;\n  return null;\n}\n\nif (!ctx.sql_token) {\n  return [{ json: {\n    answer: 'Live tarieven vereisen een sql_token vanuit Laravel. Test via de website-chat of stuur de volledige Laravel webhook payload mee.',\n    source: 'blocked',\n    hint: 'payload_source=' + (ctx.payload_source || 'unknown')\n  }}];\n}\n\nconst apiError = apiErrorMessage(res);\nif (apiError && /timeout|ECONNABORTED|ETIMEDOUT/i.test(apiError)) {\n  return [{ json: {\n    answer: 'Laravel live-query API reageerde niet op tijd. Lokaal: herstart Docker backend met PHP_CLI_SERVER_WORKERS=8 en `php artisan serve --no-reload`. Controleer ngrok en AI_CHAT_LARAVEL_API_URL.',\n    source: 'blocked',\n    error: apiError\n  }}];\n}\n\nif (res.success === false || res.error) {\n  return [{ json: { answer: apiError || res.error || res.message || 'Kon geen databasegegevens ophalen.', source: 'blocked' } }];\n}\n\nif (typeof res === 'string' && res.trim().startsWith('<!DOCTYPE')) {\n  return [{ json: {\n    answer: 'Laravel API niet bereikbaar of niet gedeployed. Controleer GET https://nexasuite.nl/integrations/n8n/ai-chat/live-query/health',\n    source: 'blocked'\n  }}];\n}\n\nif (res.source === 'public_rates' && typeof res.answer === 'string' && res.answer.trim() !== '') {\n  return [{ json: { answer: res.answer.trim(), source: 'public_rates' } }];\n}\n\nconst rows = Array.isArray(res.rows) ? res.rows : [];\nif (!rows.length) {\n  return [{ json: { answer: 'Geen resultaten gevonden in de Nexa Taxi database.', source: res.source || 'sql', count: 0 } }];\n}\n\nconst mapped = rows.map((r) => ({\n  id: String(r.id ?? ''),\n  klant_naam: r.customer_name ?? r.klant_naam ?? 'Rit',\n  pickup_adres: r.pickup_address ?? r.pickup_adres ?? '',\n  dropoff_adres: r.dropoff_address ?? r.dropoff_adres ?? '',\n  pickup_tijd: r.pickup_at ?? r.pickup_tijd ?? '',\n  status: r.status ?? '',\n}));\n\nreturn [{ json: { answer: mapped, count: res.count ?? mapped.length, source: res.source || 'sql' } }];"
+      },
+      "id": "1e00dd19-6a8a-4d72-873b-a82f9f674d42",
+      "name": "Maak API antwoord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [288, 448]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    answer: 'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.',\n    source: 'denied'\n  }\n}];"
+      },
+      "id": "c0ffee00-dead-beef-cafe-001122334455",
+      "name": "Geen toegang",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 608]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "4397cde2-4357-47e4-8198-e92ca5eb1cb1",
+      "name": "Response naar website",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [560, 160]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Nexa Taxi Assistant": {
+      "main": [[{ "node": "Normaliseer Laravel payload", "type": "main", "index": 0 }]]
+    },
+    "Normaliseer Laravel payload": {
+      "main": [[{ "node": "Intent is FAQ?", "type": "main", "index": 0 }]]
+    },
+    "Intent is FAQ?": {
+      "main": [
+        [{ "node": "Zoek in RAG kennisbank", "type": "main", "index": 0 }],
+        [{ "node": "Tarieven of admin live SQL?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Tarieven of admin live SQL?": {
+      "main": [
+        [{ "node": "Laravel live query API", "type": "main", "index": 0 }],
+        [{ "node": "Geen toegang", "type": "main", "index": 0 }]
+      ]
+    },
+    "Zoek in RAG kennisbank": {
+      "main": [[{ "node": "Maak RAG antwoord", "type": "main", "index": 0 }]]
+    },
+    "Maak RAG antwoord": {
+      "main": [[{ "node": "Response naar website", "type": "main", "index": 0 }]]
+    },
+    "Laravel live query API": {
+      "main": [[{ "node": "Maak API antwoord", "type": "main", "index": 0 }]]
+    },
+    "Maak API antwoord": {
+      "main": [[{ "node": "Response naar website", "type": "main", "index": 0 }]]
+    },
+    "Geen toegang": {
+      "main": [[{ "node": "Response naar website", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6f735b8b-0600-4779-a05d-0e7ee070538f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dd86e0c72bc9519017f61c746068ad03ed94b1b1e0bec8dfe022007d366c8c72"
+  },
+  "nodeGroups": [],
+  "id": "KYfHTtqmDpnxJNo5",
+  "tags": []
+}

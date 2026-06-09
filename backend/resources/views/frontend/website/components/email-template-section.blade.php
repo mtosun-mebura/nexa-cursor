@@ -38,12 +38,12 @@
         }
     </style>
     <div class="{{ $embeddedInTextBlock ? 'w-full' : 'website-section-inner' }}">
-        <div class="{{ $embeddedInTextBlock ? 'w-full' : 'w-full max-w-3xl mx-auto' }}">
+        <div class="{{ $embeddedInTextBlock ? 'w-full' : 'w-full max-w-full sm:max-w-3xl mx-auto' }}">
             @if($sectionTitle)
             <h2 class="info-req-animate-left text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">{{ $sectionTitle }}</h2>
             @endif
             <p class="info-req-animate-right text-gray-600 dark:text-gray-300 mb-6 text-center">Vul het formulier in en wij nemen contact met u op.</p>
-            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
+            <form id="info-request-form-{{ $sectionKey }}" action="{{ $infoRequestAction }}" method="POST" class="info-req-animate-bottom space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 sm:p-6 shadow-sm {{ session('info_request_sent') ? 'hidden' : '' }}" novalidate>
                 @csrf
                 <input type="hidden" name="template_id" value="{{ $template->id }}">
                 {{-- Honeypot: verborgen voor bezoekers, bots vullen dit vaak in --}}

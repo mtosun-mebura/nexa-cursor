@@ -5,21 +5,21 @@
 @section('title', 'Chauffeur dispatch')
 
 @section('content')
-<div class="kt-container-fixed">
-    <div class="flex flex-col gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">
-            Chauffeur dispatch
-        </h1>
-        <p class="text-sm text-muted-foreground">
-            Instellingen voor de chauffeur-app en meldingen bij nieuwe boekingen. Geldt per bedrijf (tenant).
-            Zonder eigen acceptatietijd wordt de serverstandaard gebruikt (nu {{ (int) round($envDefaultSeconds / 60) }} min).
-        </p>
-        <div class="pt-3">
-            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug naar ritten
-            </a>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <div class="min-w-0 flex-1">
+            <h1 class="text-xl font-medium leading-none text-mono">
+                Chauffeur dispatch
+            </h1>
+            <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
+                Instellingen voor de chauffeur-app en meldingen bij nieuwe boekingen. Geldt per bedrijf (tenant).
+                Zonder eigen acceptatietijd wordt de serverstandaard gebruikt (nu {{ (int) round($envDefaultSeconds / 60) }} min).
+            </p>
         </div>
+        <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug naar ritten
+        </a>
     </div>
 
     @if(session('success'))
@@ -37,16 +37,17 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.taxi.dispatch_settings.update') }}" method="POST" class="kt-card min-w-full">
+    <form action="{{ route('admin.taxi.dispatch_settings.update') }}" method="POST" class="grid gap-5 lg:gap-7.5 w-full min-w-0">
         @csrf
         @method('PUT')
 
+        <div class="kt-card w-full min-w-0">
         <div id="dispatch-settings-collapsible-root">
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-accept-timer">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Acceptatietimer'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Acceptatietijd (minuten)</td>
                     <td class="min-w-48 w-full">
@@ -78,8 +79,8 @@
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-booking-notifications">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Boekingsmeldingen'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp bij boeking</td>
                     <td class="min-w-48 w-full pt-4">
@@ -181,8 +182,8 @@
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-mijn-taxi-login">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Mijn Taxi – klant inlogcode'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed text-sm text-muted-foreground">
+            <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Geldigheid inlogcode (minuten)</td>
                     <td class="min-w-48 w-full align-top pt-4">
@@ -225,8 +226,8 @@
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-customer-accept">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Klantmelding bij acceptatie'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Meldingen aan klant</td>
                     <td class="min-w-48 w-full pt-4">
@@ -331,8 +332,8 @@
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-payments">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Betalingen (Mollie)'])
             <div class="settings-collapsible-body">
-            <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+            <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Mollie (betalingsprovider)</td>
                     <td class="min-w-48 w-full pt-4">
@@ -413,10 +414,11 @@
             </div>
         </div>
         </div>
+        </div>
 
-        <div class="kt-card-footer flex gap-2.5">
-            <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+        <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
             <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline">Naar ritten</a>
+            <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
         </div>
     </form>
 </div>

@@ -1,0 +1,60 @@
+---
+description: Admin-lijstpagina's met datatabel altijd passend op de pagina (fluid table, filters, mobiel)
+globs: backend/**/views/admin/**/index.blade.php, backend/app/Modules/**/Resources/views/admin/**/index.blade.php
+alwaysApply: false
+---
+
+# Admin: datatables passend op de pagina
+
+Elke **admin-lijst/index** met een datatabel moet standaard binnen de pagina passen. Geen horizontale pagina-overflow; kolommen wrappen binnen de kaart. Styling in **`backend/resources/css/admin-responsive.css`** (via `npm run build`).
+
+## Verplicht markup-patroon
+
+```html
+<div class="kt-container-fixed min-w-0">
+    <div class="kt-card kt-card-grid w-full min-w-0">
+        <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
+            <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Toon … van …</h3>
+            <form method="GET" class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center">
+                <label class="kt-input w-full sm:w-64 min-w-0">…</label>
+                <select class="kt-select w-full sm:w-44">…</select>
+                <button type="submit" class="kt-btn kt-btn-outline w-full sm:w-auto shrink-0">Filteren</button>
+            </form>
+        </div>
+        <div class="kt-card-content p-0 min-w-0">
+            <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                    <thead>
+                        <tr>
+                            <th data-label="Kolom">Kolom</th>
+                        </tr>
+                    </thead>
+                    …
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+## Regels
+
+- **Tabel**: altijd class `admin-fluid-table` op `<table>` — **niet** `table-auto` met vaste `min-w-*` op kolommen (dat duwt de tabel buiten de kaart).
+- **Wrapper**: `kt-scrollable-x-auto admin-table-scroll-wrap` rond de tabel; kaart `kt-card-content p-0 min-w-0`.
+- **Geen** `admin-keep-table-layout` op lijst-tabellen (tenzij expliciet gevraagd).
+- **`data-label`** op elke `<th>` voor mobiele kaartweergave (admin-responsive.js).
+- **Filters**: GET-formulier in header met class **`admin-filter-panel`** (JS voegt die ook toe; expliciet zetten is oké).
+- **Filterknop**: `kt-btn kt-btn-outline` — **geen** `kt-btn-sm` (hoogte = select/input, zie CSS `.admin-filter-panel .kt-btn`). Optioneel; live filter werkt ook zonder klik.
+- **Live filter**: GET-formulier met `admin-filter-panel` filtert automatisch via `admin-responsive.js` — zoekveld (`name="search"`) debounced (~300ms) bij typen, `select` direct bij `change`. Uitzondering: `data-kt-datatable-search` (client-side datatable) of `data-admin-live-filter="off"`.
+- **Reset-knop**: `kt-btn kt-btn-outline kt-btn-icon` naast filterknop indien filters actief zijn.
+- Optioneel: mobiele kaarten via `admin-mobile-list` (zie bestaande index-pagina’s zoals ritten/voertuigen).
+
+## Kolombreedtes (alleen indien nodig)
+
+Alleen pagina-specifiek en **binnen** `#content #jouw-tabel-id` in een kleine `@push('styles')` of in `admin-responsive.css` — nooit globaal op alle tabellen.
+
+## Na wijziging
+
+```bash
+cd backend && npm run build
+```

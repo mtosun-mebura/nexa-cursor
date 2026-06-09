@@ -79,10 +79,10 @@
                                 <div class="mb-0">
                                     <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
                                     <div class="flex flex-col gap-2 mb-4">
-                                        <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                        <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Eén logo voor beide modi</span>
                                         <div class="flex flex-wrap items-center gap-3">
                                             <input type="checkbox" id="company-form-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $formLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
-                                            <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
+                                            <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Apart logo voor light en dark mode</span>
                                         </div>
                                     </div>
 
@@ -259,7 +259,7 @@
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 E-mail *
@@ -430,7 +430,7 @@
                                 </div>
                             </div>
                             <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                                     <tr>
                                         <td class="min-w-56 text-secondary-foreground font-normal">
                                             Naam *
@@ -583,7 +583,7 @@
                     Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij website-pagina's voor dit bedrijf.
                 </p>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">Thema</td>
                             <td class="min-w-48 w-full">
@@ -618,39 +618,14 @@
 
 @push('styles')
 <style>
-    /* Remove all borders between table rows in create forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
+    #company-modules label:has(.kt-switch) {
+        cursor: pointer;
     }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: middle;
-    }
-    .kt-table-border-dashed tbody tr td.align-top {
-        vertical-align: top !important;
-        padding-top: 18px;
-    }
-    /* Ensure kt-switch checkboxes are clickable */
-    .kt-switch {
+    #company-modules .kt-switch {
         pointer-events: auto !important;
         z-index: 1;
         position: relative;
     }
-    .kt-label {
-        cursor: pointer;
-    }
-    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
-    .wizard-onboarding-form-table tbody tr,
-    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
-    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
-    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
 </style>
 @endpush
 
@@ -866,7 +841,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </label>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Naam *

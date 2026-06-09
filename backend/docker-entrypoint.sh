@@ -74,5 +74,8 @@ if [ -n "${DB_CONNECTION:-}" ] && [ -n "${DB_HOST:-}" ]; then
   php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force || true
 fi
 
-echo "Start Laravel op 0.0.0.0:8000"
-exec php artisan serve --host=0.0.0.0 --port=8000
+echo "Start Laravel op 0.0.0.0:8000 (workers: ${PHP_CLI_SERVER_WORKERS})"
+# --no-reload is verplicht voor PHP_CLI_SERVER_WORKERS: zonder vlag forceert Laravel 1 worker (hot-reload).
+# Met meerdere workers kan n8n terugbellen naar /integrations/n8n/ai-chat/live-query terwijl de
+# website-chat nog op het n8n-webhook-antwoord wacht (anders 30s timeout / deadlock).
+exec php artisan serve --host=0.0.0.0 --port=8000 --no-reload

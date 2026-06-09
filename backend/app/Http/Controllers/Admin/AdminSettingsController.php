@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Frontend\ComingSoonController;
 use App\Models\Company;
 use App\Models\GeneralSetting;
+use App\Models\Module;
+use App\Services\AiChatAssistantService;
 use App\Services\EnvService;
 use App\Services\GoogleReviewsService;
+use App\Services\GoogleSearchConsoleService;
+use App\Services\GoogleSeoSettingsService;
 use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantSyncSettingsService;
@@ -31,18 +35,26 @@ class AdminSettingsController extends Controller
 
     protected TenantSyncSettingsService $tenantSyncSettings;
 
+    protected GoogleSeoSettingsService $googleSeoSettings;
+
+    protected GoogleSearchConsoleService $googleSearchConsole;
+
     public function __construct(
         EnvService $envService,
         TenantWebsiteBundleService $tenantWebsiteBundle,
         TenantCompanyDataPushService $tenantCompanyDataPush,
         TenantStorageBundleService $tenantStorageBundle,
-        TenantSyncSettingsService $tenantSyncSettings
+        TenantSyncSettingsService $tenantSyncSettings,
+        GoogleSeoSettingsService $googleSeoSettings,
+        GoogleSearchConsoleService $googleSearchConsole,
     ) {
         $this->envService = $envService;
         $this->tenantWebsiteBundle = $tenantWebsiteBundle;
         $this->tenantCompanyDataPush = $tenantCompanyDataPush;
         $this->tenantStorageBundle = $tenantStorageBundle;
         $this->tenantSyncSettings = $tenantSyncSettings;
+        $this->googleSeoSettings = $googleSeoSettings;
+        $this->googleSearchConsole = $googleSearchConsole;
     }
 
     /**
@@ -139,15 +151,8 @@ class AdminSettingsController extends Controller
             'MAIL_FROM_NAME' => $this->envService->get('MAIL_FROM_NAME', 'NEXA Skillmatching'),
         ];
 
-        // Get current SEO settings
-        $seoSettings = [
-            'GOOGLE_SEO_PROPERTY_ID' => $this->envService->get('GOOGLE_SEO_PROPERTY_ID', ''),
-            'GOOGLE_ANALYTICS_ID' => $this->envService->get('GOOGLE_ANALYTICS_ID', ''),
-            'GOOGLE_TAG_MANAGER_ID' => $this->envService->get('GOOGLE_TAG_MANAGER_ID', ''),
-            'META_DESCRIPTION' => $this->envService->get('META_DESCRIPTION', ''),
-            'META_KEYWORDS' => $this->envService->get('META_KEYWORDS', ''),
-            'GOOGLE_SITE_VERIFICATION' => $this->envService->get('GOOGLE_SITE_VERIFICATION', ''),
-        ];
+        // Get current SEO settings (tenant + platform fallback via GeneralSetting)
+        $seoSettings = $this->googleSeoSettings->formSettings($settingsCompanyId);
 
         // Get current Maps settings (zelfde bron als overal elders: Admin → Instellingen → Maps)
         $mapsSettings = [
@@ -605,41 +610,78 @@ class AdminSettingsController extends Controller
         $companyId = $this->settingsCompanyId();
 
         $validator = Validator::make($request->all(), [
-            'GOOGLE_SEO_PROPERTY_ID' => 'nullable|string|max:255',
-            'GOOGLE_ANALYTICS_ID' => 'nullable|string|max:255',
-            'GOOGLE_TAG_MANAGER_ID' => 'nullable|string|max:255',
-            'META_DESCRIPTION' => 'nullable|string|max:500',
-            'META_KEYWORDS' => 'nullable|string|max:500',
-            'GOOGLE_SITE_VERIFICATION' => 'nullable|string|max:255',
+            GoogleSeoSettingsService::KEY_PROPERTY_ID => 'nullable|string|max:255',
+            GoogleSeoSettingsService::KEY_ANALYTICS_ID => 'nullable|string|max:255',
+            GoogleSeoSettingsService::KEY_TAG_MANAGER_ID => 'nullable|string|max:255',
+            GoogleSeoSettingsService::KEY_META_DESCRIPTION => 'nullable|string|max:500',
+            GoogleSeoSettingsService::KEY_META_KEYWORDS => 'nullable|string|max:500',
+            GoogleSeoSettingsService::KEY_SITE_VERIFICATION => 'nullable|string|max:255',
+            GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_ENABLED => 'nullable|boolean',
+            GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_SERVICE_ACCOUNT => 'nullable|string|max:20000',
+            GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_SITEMAP_PATH => 'nullable|string|max:255',
+            GoogleSeoSettingsService::KEY_SEARCH_CONSOLE_AUTO_SITEMAP => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->route('admin.settings.index', [], 303)
                 ->withErrors($validator)
-                ->withInput();
+                ->withInput()
+                ->withFragment('seo');
         }
 
         try {
-            $seoSettings = [
-                'GOOGLE_SEO_PROPERTY_ID' => $request->input('GOOGLE_SEO_PROPERTY_ID', ''),
-                'GOOGLE_ANALYTICS_ID' => $request->input('GOOGLE_ANALYTICS_ID', ''),
-                'GOOGLE_TAG_MANAGER_ID' => $request->input('GOOGLE_TAG_MANAGER_ID', ''),
-                'META_DESCRIPTION' => $request->input('META_DESCRIPTION', ''),
-                'META_KEYWORDS' => $request->input('META_KEYWORDS', ''),
-                'GOOGLE_SITE_VERIFICATION' => $request->input('GOOGLE_SITE_VERIFICATION', ''),
-            ];
+            $this->googleSeoSettings->saveFromRequest($request->all(), $companyId);
 
-            foreach ($seoSettings as $key => $value) {
-                GeneralSetting::set($key, (string) $value, $companyId);
+            $message = 'SEO instellingen succesvol bijgewerkt!';
+            if ($this->googleSeoSettings->isSearchConsoleEnabled($companyId)
+                && $this->googleSeoSettings->shouldAutoSubmitSitemap($companyId)
+                && $this->googleSeoSettings->hasServiceAccount($companyId)) {
+                $submit = $this->googleSearchConsole->submitSitemap($companyId);
+                $message .= $submit['ok']
+                    ? ' '.$submit['message']
+                    : ' Let op: sitemap kon niet automatisch worden ingediend — '.$submit['message'];
             }
 
-            return redirect()->route('admin.settings.index')
-                ->with('success', 'SEO instellingen succesvol bijgewerkt!');
+            return redirect()->route('admin.settings.index', ['saved' => 1], 303)
+                ->with('success', $message)
+                ->withFragment('seo');
+        } catch (\InvalidArgumentException $e) {
+            return redirect()->route('admin.settings.index', [], 303)
+                ->with('error', $e->getMessage())
+                ->withInput()
+                ->withFragment('seo');
         } catch (\Exception $e) {
-            return redirect()->route('admin.settings.index')
+            return redirect()->route('admin.settings.index', [], 303)
                 ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
-                ->withInput();
+                ->withInput()
+                ->withFragment('seo');
         }
+    }
+
+    public function testSeoConnection(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+
+        $result = $this->googleSearchConsole->testConnection($this->settingsCompanyId());
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function submitSeoSitemap(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        if ($redirect = $this->requireSettingsTenantOrRedirect()) {
+            return $redirect;
+        }
+
+        $result = $this->googleSearchConsole->submitSitemap($this->settingsCompanyId());
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
     /**
@@ -966,7 +1008,23 @@ class AdminSettingsController extends Controller
         $logoSize = GeneralSetting::get('logo_size', '26');
         $siteName = GeneralSetting::get('site_name', config('app.name'));
         $siteDescription = GeneralSetting::get('site_description', '');
-        $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0');
+        $aiChatEnabled = GeneralSetting::get('ai_chat_enabled', '0', $settingsCompanyId);
+        $aiChatAssistant = app(AiChatAssistantService::class);
+        $aiChatModules = Module::query()
+            ->where('installed', true)
+            ->orderBy('display_name')
+            ->get(['name', 'display_name']);
+        $aiChatModuleWebhooks = [];
+        $aiChatModuleWebhookDefaults = [];
+        foreach ($aiChatModules as $module) {
+            $moduleName = (string) $module->name;
+            $stored = trim((string) GeneralSetting::get($aiChatAssistant->webhookSettingKey($moduleName), '', $settingsCompanyId));
+            if ($stored === '' && strtolower($moduleName) === 'taxi') {
+                $stored = trim((string) GeneralSetting::get('ai_chat_nexa_taxi_webhook_url', '', $settingsCompanyId));
+            }
+            $aiChatModuleWebhooks[$moduleName] = $stored;
+            $aiChatModuleWebhookDefaults[$moduleName] = $aiChatAssistant->defaultWebhookUrlForModule($moduleName);
+        }
         $infoRequestSuccessTitle = GeneralSetting::get('info_request_success_title', 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.');
         $infoRequestSuccessSubtitle = GeneralSetting::get('info_request_success_subtitle', 'Er wordt binnenkort contact met u opgenomen.');
         $infoRequestSuccessFooter = GeneralSetting::get('info_request_success_footer', 'Uw bericht is succesvol verzonden.');
@@ -1011,7 +1069,7 @@ class AdminSettingsController extends Controller
         $faviconMeta = app(WebsiteBuilderService::class)->publicFaviconMeta($settingsCompanyId);
         $faviconDisplayUrl = $faviconMeta['url'];
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'settingsCompanyId', 'tenantScopedSettingsActive'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'settingsCompanyId', 'tenantScopedSettingsActive'));
     }
 
     /**
@@ -1031,6 +1089,8 @@ class AdminSettingsController extends Controller
             'site_name' => 'nullable|string|max:255',
             'site_description' => 'nullable|string|max:1000',
             'ai_chat_enabled' => 'nullable',
+            'ai_chat_webhooks' => 'nullable|array',
+            'ai_chat_webhooks.*' => 'nullable|url|max:500',
             'info_request_success_title' => 'nullable|string|max:500',
             'info_request_success_subtitle' => 'nullable|string|max:500',
             'info_request_success_footer' => 'nullable|string|max:500',
@@ -1068,6 +1128,20 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set('site_description', $request->input('site_description', ''), $companyId);
             }
             GeneralSetting::set('ai_chat_enabled', $request->has('ai_chat_enabled') ? '1' : '0', $companyId);
+            if ($request->has('ai_chat_webhooks') && is_array($request->input('ai_chat_webhooks'))) {
+                $aiChatAssistant = app(AiChatAssistantService::class);
+                foreach ($request->input('ai_chat_webhooks') as $moduleName => $webhookUrl) {
+                    $moduleSlug = strtolower(trim((string) $moduleName));
+                    if ($moduleSlug === '') {
+                        continue;
+                    }
+                    GeneralSetting::set(
+                        $aiChatAssistant->webhookSettingKey($moduleSlug),
+                        trim((string) $webhookUrl),
+                        $companyId
+                    );
+                }
+            }
             if ($request->has('admin_footer_brand')) {
                 GeneralSetting::set('admin_footer_brand', $request->input('admin_footer_brand', ''), $companyId);
             }

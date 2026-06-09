@@ -3,16 +3,16 @@
 @section('title', 'Tarieven')
 
 @section('content')
-<div class="kt-container-fixed">
-    <div class="flex flex-col gap-5 pb-7.5">
-        <div class="flex flex-wrap items-center justify-between gap-5">
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <div class="min-w-0">
             <h1 class="text-xl font-medium leading-none text-mono">
                 Tarieven
             </h1>
+            <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
+                Algemene standaardtarieven. Worden gebruikt wanneer een voertuig geen eigen tarieven heeft ingesteld.
+            </p>
         </div>
-        <p class="text-sm text-muted-foreground">
-            Algemene standaardtarieven. Worden gebruikt wanneer een voertuig geen eigen tarieven heeft ingesteld.
-        </p>
     </div>
 
     @if(session('success'))
@@ -44,23 +44,24 @@
                 <div class="kt-alert kt-alert-danger">{{ $errors->first('rates') }}</div>
             @endif
 
-            <div class="flex items-center justify-end">
-                <button type="button" class="kt-btn kt-btn-primary" data-add-range>
+            <div class="flex flex-wrap items-center justify-end w-full min-w-0">
+                <button type="button" class="kt-btn kt-btn-primary shrink-0" data-add-range>
                     <i class="ki-filled ki-plus me-2"></i> Personenbereik toevoegen
                 </button>
             </div>
 
             <div class="grid gap-5 lg:gap-7.5" data-rates-list>
                 @foreach($ratesRows as $i => $row)
-                    <div class="kt-card min-w-full" data-rate-row>
-                        <div class="kt-card-header flex items-center justify-between gap-3">
-                            <h3 class="kt-card-title">Standaardtarieven</h3>
+                    <div class="kt-card w-full min-w-0" data-rate-row>
+                        <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
+                            <h3 class="kt-card-title mb-0">Standaardtarieven</h3>
                             <button type="button" class="kt-btn kt-btn-icon kt-btn-outline text-danger rates-remove-btn" data-remove-range title="Personenbereik verwijderen" aria-label="Personenbereik verwijderen">
                                 <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                             </button>
                         </div>
-                        <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <div class="kt-card-content p-0">
+                            <div class="px-3 sm:px-5 pb-3 min-w-0">
+                            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                                 <tr>
                                     <td class="min-w-56 text-secondary-foreground font-normal">Personenbereik *</td>
                                     <td class="min-w-48 w-full">
@@ -111,13 +112,14 @@
                                     </td>
                                 </tr>
                             </table>
+                            </div>
                         </div>
                     </div>
                 @endforeach
             </div>
 
             <!-- Actions -->
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
                 <a href="{{ route('admin.taxi.vehicles.index') }}" class="kt-btn kt-btn-outline">
                     <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                     Annuleren
@@ -133,12 +135,6 @@
 
 @push('styles')
 <style>
-    .kt-table-border-dashed tbody tr { border-bottom: none !important; }
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td { height: auto; min-height: 48px; }
-    .kt-table-border-dashed tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: top; }
-    .kt-table-border-dashed tbody tr td:first-child { display: flex; vertical-align: middle; padding-top: 8px; padding-bottom: 0; line-height: 40px; height: 40px; }
-    .kt-table-border-dashed tbody tr td:last-child { vertical-align: top; padding-top: 12px; }
     /* Prullenbak-knop even hoog als input (kt-input is doorgaans 40px), geen rand */
     .rates-remove-btn {
         height: 40px;
@@ -169,24 +165,23 @@
 
     function buildRow(index) {
         var wrapper = document.createElement('div');
-        wrapper.className = 'kt-card min-w-full';
+        wrapper.className = 'kt-card w-full min-w-0';
         wrapper.setAttribute('data-rate-row', '1');
         var trashSvg = '<svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
         wrapper.innerHTML =
             '<div class="kt-card-header flex items-center justify-between gap-3">' +
-                '<h3 class="kt-card-title">Standaardtarieven</h3>' +
+                '<h3 class="kt-card-title mb-0">Standaardtarieven</h3>' +
                 '<button type="button" class="kt-btn kt-btn-icon kt-btn-outline text-danger rates-remove-btn" data-remove-range title="Personenbereik verwijderen" aria-label="Personenbereik verwijderen">' + trashSvg + '</button>' +
             '</div>' +
-            '<div class="kt-card-table kt-scrollable-x-auto pb-3">' +
-                '<table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">' +
+            '<div class="kt-card-content p-0"><div class="px-3 sm:px-5 pb-3 min-w-0">' +
+                '<table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">' +
                     '<tr><td class="min-w-56 text-secondary-foreground font-normal">Personenbereik *</td><td class="min-w-48 w-full"><input type="text" name="rates[' + index + '][person_range]" class="kt-input" placeholder="bijv. 9-12" required></td></tr>' +
                     '<tr><td class="min-w-56 text-secondary-foreground font-normal">Instaptarief</td><td class="min-w-48 w-full"><input type="number" name="rates[' + index + '][base_fare]" class="kt-input" step="0.01" min="0" placeholder="0,00"></td></tr>' +
                     '<tr><td class="min-w-56 text-secondary-foreground font-normal">Wachttarief vooraf p/u</td><td class="min-w-48 w-full"><input type="number" name="rates[' + index + '][min_fare]" class="kt-input" step="0.01" min="0" placeholder="0,00"></td></tr>' +
                     '<tr><td class="min-w-56 text-secondary-foreground font-normal">Prijs per km (€)</td><td class="min-w-48 w-full"><input type="number" name="rates[' + index + '][price_per_km]" class="kt-input" step="0.01" min="0" placeholder="0,00"></td></tr>' +
                     '<tr><td class="min-w-56 text-secondary-foreground font-normal">Prijs per min (€)</td><td class="min-w-48 w-full"><input type="number" name="rates[' + index + '][price_per_min]" class="kt-input" step="0.01" min="0" placeholder="0,00"></td></tr>' +
                     '<tr><td class="min-w-56 text-secondary-foreground font-normal">Reinigingskosten</td><td class="min-w-48 w-full"><input type="number" name="rates[' + index + '][cleaning_costs]" class="kt-input" step="0.01" min="0" placeholder="0,00"></td></tr>' +
-                '</table>' +
-            '</div>';
+                '</table></div></div>';
         return wrapper;
     }
 

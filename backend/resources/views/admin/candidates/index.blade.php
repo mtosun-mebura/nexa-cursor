@@ -180,8 +180,8 @@
                     </div>
 
                     @if($candidates->count() > 0)
-                    <div class="kt-table-responsive">
-                        <kt-table class="kt-table material-kt-kt-table">
+                    <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                        <table class="kt-table table-auto kt-table-border">
                             <thead>
                                 <tr>
                                     <th>
@@ -353,7 +353,7 @@
                                     </tr>
                                 @endforeach
                             </tbody>
-                        </kt-table>
+                        </table>
                     </div>
 
                     <!-- Results Info -->

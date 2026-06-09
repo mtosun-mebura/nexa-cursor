@@ -3,10 +3,12 @@
 @section('title', 'Rit bewerken')
 
 @section('content')
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center gap-5 pb-7.5">
-        <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Rit bewerken #{{ $ride->id }}</h1>
+        <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>Terug
+        </a>
     </div>
 
     @if($errors->any())
@@ -15,11 +17,12 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.taxi.ride_requests.update', $ride) }}" method="POST" class="kt-card">
+    <form action="{{ route('admin.taxi.ride_requests.update', $ride) }}" method="POST" class="kt-card w-full min-w-0">
         @csrf
         @method('PUT')
-        <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+        <div class="kt-card-content p-0">
+            <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">Status *</td>
                     <td class="min-w-48 w-full">
@@ -147,8 +150,9 @@
                     </td>
                 </tr>
             </table>
+            </div>
         </div>
-        <div class="kt-card-footer flex justify-end gap-2">
+        <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 px-3 sm:px-5 pb-5 w-full min-w-0">
             <a href="{{ route('admin.taxi.ride_requests.show', $ride) }}" class="kt-btn kt-btn-outline">Annuleren</a>
             <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
         </div>

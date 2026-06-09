@@ -9,7 +9,7 @@
 @if($showSuccessMessage)
     <script>window.__websitePageSuccessMessage = @json($showSuccessMessage);</script>
 @endif
-<div class="kt-container-fixed">
+<div class="kt-container-fixed min-w-0">
     @if($errors->any())
     <script>
     (function(){
@@ -90,10 +90,9 @@
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
-            <div class="kt-card min-w-full">
-                {{-- Eén regel: titel | Menuitem (gecentreerd) | Actief rechts. !flex-nowrap overschrijft .kt-card-header { flex-wrap: wrap }. --}}
-                <div class="kt-card-header !flex-nowrap flex items-center justify-between gap-3 w-full min-w-0">
-                    <h3 class="kt-card-title shrink-0 truncate">
+            <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header website-page-info-header flex flex-wrap items-center justify-between gap-3 w-full min-w-0 pt-4 pb-4">
+                    <h3 class="kt-card-title w-full sm:w-auto shrink-0">
                         Pagina-informatie
                     </h3>
                     @php
@@ -107,8 +106,8 @@
                             $__menuOn = (bool) ($page->show_in_menu ?? true);
                         }
                     @endphp
-                    <div class="flex flex-1 flex-nowrap items-center justify-center gap-x-2 min-w-0 px-2">
-                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
+                    <div class="flex flex-wrap flex-1 items-center justify-start sm:justify-center gap-x-2 gap-y-2 min-w-0 sm:px-2 w-full sm:w-auto">
+                        <label class="kt-label inline-flex flex-wrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
                             <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
                             {{-- Wrapper: form-validation.js gebruikt .relative op het veld; niet op <label> (anders width:100% → links uitgelijnd). --}}
                             <div class="relative w-[120px] max-w-full shrink-0">
@@ -119,8 +118,9 @@
                             </div>
                         </label>
                     </div>
-                    <div class="flex flex-nowrap items-center gap-2 shrink-0">
-                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0" for="is_active">
+                    <div class="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-start sm:justify-end">
+                        @include('admin.website-pages.partials.website-page-seo-button')
+                        <label class="kt-label inline-flex flex-wrap items-center gap-2 shrink-0" for="is_active">
                             <input type="hidden" name="is_active" value="0">
                             <input type="checkbox"
                                    class="kt-switch kt-switch-sm shrink-0"
@@ -132,8 +132,13 @@
                         </label>
                     </div>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div id="website-page-seo-meta"
+                     class="hidden"
+                     data-generate-url="{{ route('admin.website-pages.generate-seo') }}"
+                     data-csrf="{{ csrf_token() }}"></div>
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         @if(!($isCentralMarketingWelcome ?? false))
                             <tr>
                                 <td class="min-w-56 text-secondary-foreground font-normal">
@@ -240,21 +245,7 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Meta-omschrijving
-                            </td>
-                            <td>
-                                <input type="text"
-                                       name="meta_description"
-                                       id="meta_description"
-                                       class="kt-input @error('meta_description') border-destructive @enderror"
-                                       value="{{ old('meta_description', $page->meta_description) }}">
-                                @error('meta_description')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
+                        @include('admin.website-pages.partials.website-page-seo-fields', ['metaDescriptionValue' => old('meta_description', $page->meta_description)])
                         <tr id="content_blocks_row" style="display: none;">
                             <td class="text-secondary-foreground font-normal align-top">
                                 Inhoud (blokken)
@@ -284,11 +275,12 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
-            <div id="home_sections_card" class="kt-card" data-theme-name="{{ $page->theme?->name ?? 'Metronic' }}">
-                <div class="kt-card-header flex items-center justify-between gap-2">
+            <div id="home_sections_card" class="kt-card w-full min-w-0" data-theme-name="{{ $page->theme?->name ?? 'Metronic' }}">
+                <div class="kt-card-header website-page-sections-header flex flex-wrap items-center justify-between gap-2 min-w-0">
                     <h3 class="kt-card-title" id="home_sections_card_title">Pagina-secties ({{ $page->theme?->name ?? 'Metronic' }} thema)</h3>
                     <div class="flex items-center gap-1 shrink-0">
                         <div class="relative" id="home-sections-add-wrap">
@@ -309,13 +301,13 @@
                         </button>
                     </div>
                 </div>
-                <div class="kt-card-table p-4">
+                <div class="kt-card-content p-3 sm:p-5 min-w-0">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
                     @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'collapseSectionsByDefault' => $collapseSectionsByDefault ?? false, 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null, 'emailTemplates' => $emailTemplates ?? collect(), 'emailTemplateSelectedIds' => $emailTemplateSelectedIds ?? [], 'websitePageCompanyId' => $page->company_id])
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren

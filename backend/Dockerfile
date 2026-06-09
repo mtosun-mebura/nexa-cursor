@@ -41,6 +41,7 @@ RUN mkdir -p storage/framework/{cache,views,sessions} \
 
 EXPOSE 8000
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Dev: gebruik gemount script zodat entrypoint-wijzigingen zonder image-rebuild gelden.
+ENTRYPOINT ["/var/www/html/docker-entrypoint.sh"]
 
 

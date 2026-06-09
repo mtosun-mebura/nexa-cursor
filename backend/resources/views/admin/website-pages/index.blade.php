@@ -3,7 +3,7 @@
 @section('title', "Website Pagina's")
 
 @section('content')
-<div class="kt-container-fixed">
+<div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <div class="min-w-0 flex-1">
             <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
@@ -63,22 +63,23 @@
         </div>
     @endif
 
-    <div class="kt-card">
-        <div class="kt-card-table kt-scrollable-x-auto">
-            <table class="kt-table">
+    <div class="kt-card w-full min-w-0">
+        <div class="kt-card-content p-0">
+            <div class="admin-table-scroll-wrap min-w-0">
+            <table class="kt-table kt-table-border w-full">
                 <thead>
                     <tr>
-                        <th>Volgorde</th>
-                        <th>Titel</th>
-                        <th>Slug</th>
-                        <th>Type</th>
-                        <th>Module (bij welke module)</th>
+                        <th data-label="Volgorde">Volgorde</th>
+                        <th data-label="Titel">Titel</th>
+                        <th data-label="Slug">Slug</th>
+                        <th data-label="Type">Type</th>
+                        <th data-label="Module">Module (bij welke module)</th>
                         @if(!empty($websiteTenantContext['visible'] ?? false))
-                            <th>Bedrijf</th>
+                            <th data-label="Bedrijf">Bedrijf</th>
                         @endif
-                        <th>Thema</th>
-                        <th>Status</th>
-                        <th class="text-end">Acties</th>
+                        <th data-label="Thema">Thema</th>
+                        <th data-label="Status">Status</th>
+                        <th class="text-end" data-label="Acties">Acties</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -178,6 +179,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </div>

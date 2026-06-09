@@ -5,12 +5,12 @@
     $sectionKey = 'preview';
 @endphp
 {{-- Zelfde structuur als frontend.website.components.email-template-section (1-op-1 weergave) --}}
-<div class="rounded-xl border border-border bg-muted/30 p-5">
-    <div class="max-w-2xl mx-auto py-6 md:py-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4">
-        <div class="max-w-2xl mx-auto">
+<div class="admin-form-preview-shell rounded-xl border border-border bg-muted/30 p-3 sm:p-5">
+    <div class="admin-form-preview-frame w-full max-w-full sm:max-w-2xl mx-auto py-4 sm:py-6 md:py-8 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-2 sm:px-4">
+    <div class="w-full">
             <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6 text-center">Informatie aanvragen</h2>
             <p class="text-gray-600 dark:text-gray-300 mb-6 text-center">Vul het formulier in en wij nemen contact met u op.</p>
-            <div class="space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-sm">
+            <div class="space-y-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 sm:p-6 shadow-sm">
                 <div id="frontend-preview-fields" class="space-y-4">
                     @if($hasFields)
                         @php

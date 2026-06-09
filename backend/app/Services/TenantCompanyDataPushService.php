@@ -367,7 +367,7 @@ final class TenantCompanyDataPushService
         $skipped = 0;
         $updated = 0;
 
-        $globalStats = $this->syncTaxiGlobalTables($sourceModuleConn, $targetModuleConn);
+        $globalStats = $this->syncTaxiGlobalTables($sourceModuleConn, $targetModuleConn, $idMaps);
         $inserted += $globalStats['inserted'];
         $skipped += $globalStats['skipped'];
         $updated += $globalStats['updated'];
@@ -432,7 +432,7 @@ final class TenantCompanyDataPushService
             'skipped' => $skipped,
             'updated' => $updated,
             'message' => sprintf(
-                'Taxi-module (schema %s): %d voertuigen/tarieven toegevoegd, %d bijgewerkt, %d overgeslagen.',
+                'Taxi-module (schema %s): %d rijen toegevoegd (voertuigen, tarieven, AI-kennis), %d bijgewerkt, %d overgeslagen.',
                 app(ModuleDatabaseService::class)->getModuleSchemaName('taxi'),
                 $inserted,
                 $updated,
@@ -602,9 +602,10 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * @param  array<string, array<int, int>>  $idMaps
      * @return array{inserted: int, skipped: int, updated: int}
      */
-    private function syncTaxiGlobalTables(string $sourceModuleConn, string $targetModuleConn): array
+    private function syncTaxiGlobalTables(string $sourceModuleConn, string $targetModuleConn, array &$idMaps): array
     {
         $inserted = 0;
         $skipped = 0;
@@ -627,7 +628,8 @@ final class TenantCompanyDataPushService
                 $oldId = isset($row['id']) ? (int) $row['id'] : null;
                 unset($row['id']);
                 $payload = $this->stripUnsupportedColumns($table, $row, $targetModuleConn);
-                if ($payload === []) {
+                $payload = $this->remapTaxiGlobalTableForeignKeys($table, $payload, $idMaps);
+                if ($payload === null || $payload === []) {
                     $skipped++;
 
                     continue;
@@ -671,6 +673,49 @@ final class TenantCompanyDataPushService
         }
 
         return ['inserted' => $inserted, 'skipped' => $skipped, 'updated' => $updated];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $payload
+     * @param  array<string, array<int, int>>  $idMaps
+     * @return array<string, mixed>|null
+     */
+    private function remapTaxiGlobalTableForeignKeys(string $table, ?array $payload, array $idMaps): ?array
+    {
+        if ($payload === null || $payload === []) {
+            return $payload;
+        }
+
+        $foreignKeys = config('tenant_sync.taxi_module.global_table_foreign_keys', []);
+        if (! is_array($foreignKeys)) {
+            return $payload;
+        }
+
+        $tableForeignKeys = $foreignKeys[$table] ?? null;
+        if (! is_array($tableForeignKeys)) {
+            return $payload;
+        }
+
+        foreach ($tableForeignKeys as $column => $parentTable) {
+            if (! is_string($column) || $column === '' || ! is_string($parentTable) || $parentTable === '') {
+                continue;
+            }
+            if (! array_key_exists($column, $payload) || $payload[$column] === null) {
+                continue;
+            }
+
+            $oldFk = (int) $payload[$column];
+            if ($oldFk === 0) {
+                continue;
+            }
+            if (! isset($idMaps[$parentTable][$oldFk])) {
+                return null;
+            }
+
+            $payload[$column] = $idMaps[$parentTable][$oldFk];
+        }
+
+        return $payload;
     }
 
     /**
@@ -818,6 +863,18 @@ final class TenantCompanyDataPushService
             $q->where('company_id', $payload['company_id'])->where('name', $payload['name']);
         } elseif ($table === 'default_rates' && isset($payload['person_range'])) {
             $q->where('person_range', $payload['person_range']);
+        } elseif ($table === 'knowledge_documents' && isset($payload['title'])) {
+            $q->where('title', $payload['title']);
+            if (array_key_exists('category', $payload)) {
+                if ($payload['category'] === null) {
+                    $q->whereNull('category');
+                } else {
+                    $q->where('category', $payload['category']);
+                }
+            }
+        } elseif ($table === 'knowledge_chunks' && isset($payload['document_id'], $payload['chunk_text'])) {
+            $q->where('document_id', $payload['document_id'])
+                ->where('chunk_text', $payload['chunk_text']);
         } elseif ($table === 'payment_providers' && isset($payload['provider_type'])) {
             $q->where('provider_type', $payload['provider_type']);
         } elseif ($table === 'invoice_settings') {
