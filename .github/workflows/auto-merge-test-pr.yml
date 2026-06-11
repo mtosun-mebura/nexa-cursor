@@ -1,5 +1,5 @@
 # Na groene Test and Build op PR naar release/test: direct mergen.
-# Deploy TEST (deploy-saas.yml) start daarna via push op release/test.
+# Deploy TEST (deploy-saas.yml) start daarna via PR-closed + expliciete workflow_dispatch.
 #
 # Let op: workflow_run luistert alleen op de default branch; daarom pull_request
 # + wachten tot check "test" bestaat en klaar is (geen lewagon race).
@@ -22,6 +22,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 concurrency:
   group: automerge-pr-${{ github.event.pull_request.number }}
@@ -36,6 +37,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            async function triggerTestDeploy() {
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'deploy-saas.yml',
+                  ref: 'release/test',
+                });
+                core.info('Deploy TEST (Proxmox) gestart via workflow_dispatch op release/test.');
+              } catch (error) {
+                core.warning(`Deploy TEST kon niet worden gestart: ${error.message}`);
+              }
+            }
+
             const pr = context.payload.pull_request;
             const headSha = pr.head.sha;
             const waitMs = 20000;
@@ -89,6 +104,7 @@ jobs:
 
               if (freshPr.merged) {
                 core.info(`PR #${pr.number} was al gemerged.`);
+                await triggerTestDeploy();
                 return;
               }
 
@@ -111,11 +127,13 @@ jobs:
                   merge_method: 'merge',
                 });
                 core.info(`PR #${pr.number} gemerged naar ${pr.base.ref}`);
+                await triggerTestDeploy();
                 return;
               } catch (error) {
                 const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
                 if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
                   core.info(`Merge overgeslagen: ${msg}`);
+                  await triggerTestDeploy();
                   return;
                 }
                 if (/merge already in progress/i.test(msg) && attempt < 12) {

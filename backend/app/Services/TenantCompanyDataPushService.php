@@ -196,6 +196,10 @@ final class TenantCompanyDataPushService
                     continue;
                 }
 
+                if ($table === 'website_pages') {
+                    continue;
+                }
+
                 $rows = $this->collectSourceRowsForCompanyTable($sourceConn, $table, $sourceCompanyId);
                 foreach ($rows as $rowObj) {
                     $row = (array) $rowObj;
@@ -261,6 +265,16 @@ final class TenantCompanyDataPushService
             $skipped += $globalSettingsStats['skipped'];
             if (($globalSettingsStats['message'] ?? '') !== '') {
                 $messages[] = $globalSettingsStats['message'];
+            }
+
+            $pageStats = $this->websiteBundle->pushWebsitePagesForTenantSync($company, $remoteCompanyId);
+            $inserted += $pageStats['inserted'];
+            $skipped += $pageStats['skipped'];
+            if (($pageStats['updated'] ?? 0) > 0) {
+                $inserted += (int) $pageStats['updated'];
+            }
+            if (($pageStats['message'] ?? '') !== '') {
+                $messages[] = $pageStats['message'];
             }
 
             $taxiStats = $this->pushTaxiModuleForTenant(
@@ -736,6 +750,31 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * Stabiele volgorde bij sync: id-kolom, anders natuurlijke sleutelkolommen uit config.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     */
+    private function applySyncRowOrdering($query, string $connection, string $table): void
+    {
+        if (Schema::connection($connection)->hasColumn($table, 'id')) {
+            $query->orderBy('id');
+
+            return;
+        }
+
+        $keys = config("tenant_sync.existing_row_keys.{$table}", []);
+        if (! is_array($keys)) {
+            return;
+        }
+
+        foreach ($keys as $column) {
+            if (is_string($column) && $column !== '' && Schema::connection($connection)->hasColumn($table, $column)) {
+                $query->orderBy($column);
+            }
+        }
+    }
+
+    /**
      * @param  array<string, array<int, int>>  $idMaps
      * @return array{inserted: int, skipped: int, updated: int}
      */
@@ -757,10 +796,14 @@ final class TenantCompanyDataPushService
             return ['inserted' => 0, 'skipped' => 0, 'updated' => 0];
         }
 
-        $rows = DB::connection($sourceModuleConn)->table($table)
-            ->where('company_id', $sourceCompanyId)
-            ->orderBy('id')
-            ->get();
+        if ($table === 'ride_requests') {
+            $rows = $this->collectTaxiRideRequestsForCompany($sourceModuleConn, $sourceCompanyId);
+        } else {
+            $query = DB::connection($sourceModuleConn)->table($table)
+                ->where('company_id', $sourceCompanyId);
+            $this->applySyncRowOrdering($query, $sourceModuleConn, $table);
+            $rows = $query->get();
+        }
 
         foreach ($rows as $rowObj) {
             $row = (array) $rowObj;
@@ -821,6 +864,44 @@ final class TenantCompanyDataPushService
     }
 
     /**
+     * Ritten van deze tenant + ritten die dispatch-offers van deze tenant refereren (ook bij company_id null).
+     *
+     * @return Collection<int, object>
+     */
+    private function collectTaxiRideRequestsForCompany(string $sourceModuleConn, int $sourceCompanyId): Collection
+    {
+        if (! Schema::connection($sourceModuleConn)->hasTable('ride_requests')) {
+            return collect();
+        }
+
+        $ids = DB::connection($sourceModuleConn)->table('ride_requests')
+            ->where('company_id', $sourceCompanyId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (Schema::connection($sourceModuleConn)->hasTable('ride_dispatch_offers')) {
+            $offerRideIds = DB::connection($sourceModuleConn)->table('ride_dispatch_offers')
+                ->where('company_id', $sourceCompanyId)
+                ->whereNotNull('ride_request_id')
+                ->distinct()
+                ->pluck('ride_request_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+            $ids = array_values(array_unique(array_merge($ids, $offerRideIds)));
+        }
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        return DB::connection($sourceModuleConn)->table('ride_requests')
+            ->whereIn('id', $ids)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * @param  array<string, array<int, int>>  $idMaps
      * @return array{inserted: int, skipped: int, updated: int}
      */
@@ -841,7 +922,9 @@ final class TenantCompanyDataPushService
                 continue;
             }
 
-            $rows = DB::connection($sourceModuleConn)->table($table)->orderBy('id')->get();
+            $query = DB::connection($sourceModuleConn)->table($table);
+            $this->applySyncRowOrdering($query, $sourceModuleConn, $table);
+            $rows = $query->get();
             foreach ($rows as $rowObj) {
                 $row = (array) $rowObj;
                 $oldId = isset($row['id']) ? (int) $row['id'] : null;
@@ -997,10 +1080,6 @@ final class TenantCompanyDataPushService
      * @param  array<string, array<int, int>>  $idMaps
      * @return array<string, mixed>|null
      */
-    /**
-     * @param  array<string, array<int, int>>  $idMaps
-     * @return array<string, mixed>|null
-     */
     private function remapConfiguredForeignKeys(string $configRoot, string $table, array $row, array $idMaps): ?array
     {
         $configured = config("{$configRoot}.{$table}", []);
@@ -1020,6 +1099,9 @@ final class TenantCompanyDataPushService
                 continue;
             }
             if (! isset($idMaps[$parentTable][$oldFk])) {
+                if ($this->isRequiredForeignKeyColumn($table, $column)) {
+                    return null;
+                }
                 $row[$column] = null;
 
                 continue;
@@ -1028,6 +1110,21 @@ final class TenantCompanyDataPushService
         }
 
         return $row;
+    }
+
+    private function isRequiredForeignKeyColumn(string $table, string $column): bool
+    {
+        $taxiRequired = config("tenant_sync.taxi_module.required_foreign_key_columns.{$table}", []);
+        if (is_array($taxiRequired) && in_array($column, $taxiRequired, true)) {
+            return true;
+        }
+
+        $globalRequired = config("tenant_sync.required_foreign_key_columns.{$table}", []);
+        if (is_array($globalRequired) && in_array($column, $globalRequired, true)) {
+            return true;
+        }
+
+        return false;
     }
 
     private function stripUnsupportedColumns(string $table, array $row, ?string $connection = null): array
@@ -1106,6 +1203,13 @@ final class TenantCompanyDataPushService
             $q->where('key', $payload['key']);
         } elseif ($table === 'website_pages' && isset($payload['slug'])) {
             $q->where('slug', $payload['slug']);
+            if (array_key_exists('module_name', $payload)) {
+                if ($payload['module_name'] === null || $payload['module_name'] === '') {
+                    $q->whereNull('module_name');
+                } else {
+                    $q->where('module_name', $payload['module_name']);
+                }
+            }
             if (array_key_exists('frontend_theme_id', $payload)) {
                 if ($payload['frontend_theme_id'] === null) {
                     $q->whereNull('frontend_theme_id');
@@ -1496,9 +1600,7 @@ final class TenantCompanyDataPushService
             }
 
             $query = DB::connection($sourceConn)->table($table);
-            if (Schema::connection($sourceConn)->hasColumn($table, 'id')) {
-                $query->orderBy('id');
-            }
+            $this->applySyncRowOrdering($query, $sourceConn, $table);
             $rows = $query->get();
 
             foreach ($rows as $rowObj) {

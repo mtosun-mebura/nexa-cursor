@@ -30,12 +30,11 @@ flowchart TD
     J --> K
     K -- Nee --> L[Auto-merge stopt; geen TEST-deploy]
     K -- Ja --> M[Merge PR naar release/test]
-    M --> N[Push-event op release/test]
-    N --> O[Workflow: Deploy TEST Proxmox]
-    O --> P[deploy/deploy-tenant.sh reset naar origin/release/test]
-    P --> Q[Vite build, Docker Compose build/up]
-    Q --> R[Laravel migrate, seed, cache optimize]
-    R --> S[TEST staat live]
+    M --> N[Workflow: Deploy TEST Proxmox via PR closed + workflow_dispatch]
+    N --> O[deploy/deploy-tenant.sh reset naar origin/release/test]
+    O --> P[Vite build, Docker Compose build/up]
+    P --> Q[Laravel migrate, seed, cache optimize]
+    Q --> R[TEST staat live]
 ```
 
 ## 2. PROD-tag vanaf main naar PROD-deploy
@@ -93,7 +92,7 @@ flowchart TD
 - `.github/workflows/test.yml`: bouwt assets en draait PHPUnit-tests.
 - `.github/workflows/open-pr-to-test.yml`: opent automatisch een PR van elke werkbranch naar `release/test`.
 - `.github/workflows/auto-merge-test-pr.yml`: wacht op check `test` en merget de PR naar `release/test`.
-- `.github/workflows/deploy-saas.yml`: deployt TEST op push naar `release/test`.
+- `.github/workflows/deploy-saas.yml`: deployt TEST na merge naar `release/test` (PR closed + push + workflow_dispatch).
 - `.github/workflows/queue-prod-tag-on-release-merge.yml`: start na merge `release/test` naar `main` de PROD-tag workflow op branch `main`.
 - `.github/workflows/create-prod-tag.yml`: maakt een PROD-tag op `origin/main` en geeft handmatige deploy-instructies.
 - `.github/workflows/deploy-prod.yml`: deployt een gevalideerde `v*` tag naar PROD.

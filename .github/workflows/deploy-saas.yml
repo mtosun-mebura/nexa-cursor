@@ -8,13 +8,27 @@ on:
   push:
     branches:
       - release/test
+  # Betrouwbaarder dan push alleen: start direct na merge van een PR naar release/test.
+  pull_request:
+    types:
+      - closed
+    branches:
+      - release/test
   workflow_dispatch:
+
+concurrency:
+  group: deploy-test-proxmox
+  cancel-in-progress: true
 
 # Geen actions/checkout: de app staat in TENANT_DIR (git reset in deploy-tenant.sh).
 # Checkout onder /home/mtosun/actions-runner/_work faalt vaak als de runner-service
 # niet als mtosun draait ("Access to the path /home is denied").
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: self-hosted
     timeout-minutes: 90
     env:
