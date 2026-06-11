@@ -259,12 +259,61 @@ class TenantCompanyDataPushServiceTest extends TestCase
     }
 
     #[Test]
+    public function remap_configured_foreign_keys_skips_row_when_required_parent_missing(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapConfiguredForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'tenant_sync.taxi_module.manual_foreign_keys',
+            'ride_dispatch_offers',
+            ['ride_request_id' => 99, 'driver_id' => 4, 'company_id' => 1],
+            ['users' => [4 => 4]]
+        );
+
+        $this->assertNull($result);
+    }
+
+    #[Test]
+    public function remap_configured_foreign_keys_nulls_optional_parent_when_missing(): void
+    {
+        $service = app(TenantCompanyDataPushService::class);
+        $method = new \ReflectionMethod(TenantCompanyDataPushService::class, 'remapConfiguredForeignKeys');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $service,
+            'tenant_sync.taxi_module.manual_foreign_keys',
+            'ride_requests',
+            ['vehicle_id' => 99, 'driver_id' => 4, 'company_id' => 1],
+            ['users' => [4 => 4]]
+        );
+
+        $this->assertIsArray($result);
+        $this->assertNull($result['vehicle_id']);
+        $this->assertSame(4, $result['driver_id']);
+    }
+
+    #[Test]
     public function global_general_setting_keys_include_whatsapp_widget(): void
     {
         $keys = config('tenant_sync.global_general_setting_keys', []);
 
         $this->assertContains('WHATSAPP_WIDGET_ENABLED', $keys);
         $this->assertContains('WHATSAPP_WIDGET_PHONE', $keys);
+    }
+
+    #[Test]
+    public function existing_row_keys_for_website_pages_include_module_and_theme(): void
+    {
+        $keys = config('tenant_sync.existing_row_keys.website_pages', []);
+
+        $this->assertContains('company_id', $keys);
+        $this->assertContains('slug', $keys);
+        $this->assertContains('module_name', $keys);
+        $this->assertContains('frontend_theme_id', $keys);
     }
 
     #[Test]

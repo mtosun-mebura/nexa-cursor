@@ -1,5 +1,5 @@
 # Opent automatisch een PR naar release/test bij push op elke werkbranch.
-# Na merge triggert deploy-saas.yml via push op release/test.
+# Na merge triggert deploy-saas.yml via PR-closed + expliciete workflow_dispatch.
 
 name: Open PR to release/test
 
@@ -19,6 +19,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 concurrency:
   group: open-pr-to-release-test-${{ github.event.inputs.head_branch || github.ref_name }}
@@ -33,6 +34,20 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            async function triggerTestDeploy() {
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'deploy-saas.yml',
+                  ref: 'release/test',
+                });
+                core.info('Deploy TEST (Proxmox) gestart via workflow_dispatch op release/test.');
+              } catch (error) {
+                core.warning(`Deploy TEST kon niet worden gestart: ${error.message}`);
+              }
+            }
+
             const base = 'release/test';
             const inputBranch = (context.payload.inputs?.head_branch || '').trim();
             const head = inputBranch || context.ref.replace('refs/heads/', '');
@@ -84,7 +99,7 @@ jobs:
                     'Automatisch aangemaakt bij push op `' + head + '`.',
                     '',
                     'Na groene CI wordt deze PR automatisch gemerged.',
-                    'Pas daarna start de TEST-deploy (push naar `release/test`).',
+                    'Pas daarna start de TEST-deploy (PR merge + workflow_dispatch).',
                   ].join('\n'),
                 });
                 pr = response.data;
@@ -172,6 +187,7 @@ jobs:
 
               if (freshPr.merged) {
                 core.info(`PR #${pr.number} was al gemerged.`);
+                await triggerTestDeploy();
                 return;
               }
 
@@ -194,11 +210,13 @@ jobs:
                   merge_method: 'merge',
                 });
                 core.info(`PR #${pr.number} gemerged naar ${base}.`);
+                await triggerTestDeploy();
                 return;
               } catch (error) {
                 const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
                 if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
                   core.info(`Merge overgeslagen: ${msg}`);
+                  await triggerTestDeploy();
                   return;
                 }
                 if (/merge already in progress/i.test(msg) && attempt < 12) {

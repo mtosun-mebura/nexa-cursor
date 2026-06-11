@@ -139,6 +139,11 @@ return [
                 'driver_id' => 'users',
             ],
         ],
+        // FK-kolommen die NOT NULL zijn: rij overslaan als parent-id niet hermapt kan worden.
+        'required_foreign_key_columns' => [
+            'ride_dispatch_offers' => ['ride_request_id', 'driver_id'],
+            'driver_availability' => ['driver_id'],
+        ],
         'natural_keys' => [
             'vehicles' => ['company_id', 'name'],
             'ride_requests' => ['company_id', 'pickup_at', 'customer_email', 'pickup_address'],
@@ -164,7 +169,7 @@ return [
         'frontend_themes' => ['slug'],
         'roles' => ['company_id', 'name', 'guard_name'],
         'payment_providers' => ['company_id', 'provider_type'],
-        'website_pages' => ['company_id', 'slug'],
+        'website_pages' => ['company_id', 'frontend_theme_id', 'module_name', 'slug'],
         'vacancies' => ['company_id', 'slug'],
         'notifications' => ['company_id', 'title'],
         'invoices' => ['company_id', 'invoice_number'],
