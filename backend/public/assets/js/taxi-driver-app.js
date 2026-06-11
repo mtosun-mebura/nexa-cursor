@@ -33,6 +33,10 @@
     const waitingRideIds = new Set();
     let configuredOfferTtlSeconds = 300;
     let driverPaymentEnabled = false;
+    let declinedOffers = [];
+    let overdueScheduledRides = [];
+    let unclaimedRides = [];
+    let inboxView = 'offers';
     let paymentPollTimer = null;
     let audioCtx = null;
     let screenWakeLock = null;
@@ -200,11 +204,247 @@
         }
         const activeStrip = $('#active-ride-strip');
         const hasActiveRide = currentActiveRide || (activeStrip && !activeStrip.hidden);
+        if (inboxView === 'declined' || inboxView === 'overdue') {
+            empty.hidden = true;
+            return;
+        }
         if (!currentOffer && !hasActiveRide && (!scheduledRides || !scheduledRides.length)) {
             empty.hidden = false;
             title.textContent = 'Geen openstaande ritten.';
-            hint.textContent = 'Nieuwe ritten verschijnen hier automatisch.';
+            const hints = [];
+            if (overdueScheduledRides.length) {
+                hints.push('bekijk verlopen geplande ritten via de knop hierboven');
+            }
+            if (declinedOffers.length) {
+                hints.push('bekijk afgewezen ritten via de knop hierboven');
+            }
+            hint.textContent = hints.length
+                ? 'Nieuwe ritten verschijnen hier automatisch. Je kunt ook ' + hints.join(' of ') + '.'
+                : 'Nieuwe ritten verschijnen hier automatisch.';
         }
+    }
+
+    function inboxViewTitle(view) {
+        if (view === 'declined') {
+            return 'Afgewezen';
+        }
+        if (view === 'overdue') {
+            return 'Verlopen';
+        }
+        return 'Ritten';
+    }
+
+    function updateSecondaryNavButtons() {
+        const btnDeclined = $('#btn-show-declined');
+        const btnOverdue = $('#btn-show-overdue');
+        const btnOffers = $('#btn-show-offers');
+        const declinedCount = $('#declined-count');
+        const overdueCount = $('#overdue-count');
+
+        if (declinedCount) {
+            declinedCount.textContent = '(' + declinedOffers.length + ')';
+        }
+        if (overdueCount) {
+            overdueCount.textContent = '(' + overdueScheduledRides.length + ')';
+        }
+        if (btnOffers) {
+            btnOffers.hidden = inboxView === 'offers';
+        }
+        if (btnDeclined) {
+            btnDeclined.hidden = inboxView === 'declined' || !declinedOffers.length;
+        }
+        if (btnOverdue) {
+            btnOverdue.hidden = inboxView === 'overdue' || !overdueScheduledRides.length;
+        }
+    }
+
+    function setInboxView(view) {
+        inboxView = view === 'declined' || view === 'overdue' ? view : 'offers';
+        const offerStrip = $('#offer-strip');
+        const declinedStrip = $('#declined-strip');
+        const overdueStrip = $('#overdue-strip');
+        const scheduledStrip = $('#scheduled-rides-strip');
+        const title = $('#dispatch-toolbar-title');
+        const empty = $('#inbox-empty');
+
+        updateSecondaryNavButtons();
+        if (title) {
+            title.textContent = inboxViewTitle(inboxView);
+        }
+
+        if (offerStrip) {
+            offerStrip.hidden = inboxView !== 'offers';
+        }
+        if (scheduledStrip) {
+            scheduledStrip.hidden = inboxView !== 'offers';
+        }
+        if (declinedStrip) {
+            declinedStrip.hidden = inboxView !== 'declined';
+        }
+        if (overdueStrip) {
+            overdueStrip.hidden = inboxView !== 'overdue';
+        }
+
+        if (inboxView === 'declined') {
+            renderDeclinedOffers(declinedOffers);
+            if (empty) {
+                empty.hidden = true;
+            }
+            return;
+        }
+
+        if (inboxView === 'overdue') {
+            renderOverdueScheduledRides(overdueScheduledRides);
+            if (empty) {
+                empty.hidden = true;
+            }
+            return;
+        }
+
+        if (scheduledRides.length && !isDriverInProgressRide(currentActiveRide)) {
+            renderScheduledRides(scheduledRides);
+        } else if (scheduledStrip) {
+            scheduledStrip.hidden = true;
+        }
+        if (currentOffer) {
+            setOfferUiVisible(true);
+            if (empty) {
+                empty.hidden = true;
+            }
+        } else {
+            setOfferUiVisible(false);
+            updateEmptyState();
+        }
+    }
+
+    function updateDeclinedNavButton() {
+        updateSecondaryNavButtons();
+    }
+
+    function updateOverdueNavButton() {
+        updateSecondaryNavButtons();
+    }
+
+    function updateUnclaimedBanner(rides) {
+        const banner = $('#unclaimed-rides-banner');
+        if (!banner) {
+            return;
+        }
+        const list = Array.isArray(rides) ? rides : [];
+        if (!list.length || inboxView !== 'offers') {
+            banner.hidden = true;
+            banner.innerHTML = '';
+            return;
+        }
+        banner.hidden = false;
+        banner.innerHTML =
+            '<strong>Let op:</strong> geen chauffeur heeft deze rit(ten) opgepakt. Iemand moet dit oppakken.' +
+            '<ul>' +
+            list
+                .map(function (ride) {
+                    const msg = ride.message || ('Rit #' + ride.ride_id);
+                    return '<li>' + escapeHtml(msg) + '</li>';
+                })
+                .join('') +
+            '</ul>';
+    }
+
+    function renderDeclinedOffers(offers) {
+        const strip = $('#declined-strip');
+        const list = $('#declined-rides-list');
+        const empty = $('#declined-empty');
+        if (!strip || !list) {
+            return;
+        }
+        const items = Array.isArray(offers) ? offers : [];
+        if (!items.length) {
+            list.innerHTML = '';
+            if (empty) {
+                empty.hidden = false;
+            }
+            return;
+        }
+        if (empty) {
+            empty.hidden = true;
+        }
+        list.innerHTML = items
+            .map(function (offer) {
+                const ride = offer.ride || {};
+                const rideId = ride.id != null ? String(ride.id) : '—';
+                const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
+                return (
+                    '<div class="card declined-ride-card">' +
+                    '<p class="offer-title">Rit #' +
+                    escapeHtml(rideId) +
+                    '<span class="declined-badge">Afgewezen</span></p>' +
+                    '<p class="offer-meta offer-pickup-at">' +
+                    escapeHtml(formatPickupAt(ride.pickup_at)) +
+                    '</p>' +
+                    addressLinkHtml(ride.pickup_address, '📍') +
+                    addressLinkHtml(ride.dropoff_address, '🏁') +
+                    customerHtml +
+                    '<p class="offer-price">' +
+                    formatEuro(ride.quoted_price) +
+                    '</p>' +
+                    '<div class="declined-ride-actions">' +
+                    '<button type="button" class="btn btn-accept btn-accept-declined" data-offer-id="' +
+                    escapeHtml(String(offer.id)) +
+                    '">Alsnog accepteren</button>' +
+                    '</div>' +
+                    '</div>'
+                );
+            })
+            .join('');
+    }
+
+    function renderOverdueScheduledRides(rides) {
+        const strip = $('#overdue-strip');
+        const list = $('#overdue-rides-list');
+        const empty = $('#overdue-empty');
+        overdueScheduledRides = Array.isArray(rides) ? rides.slice() : [];
+        if (!strip || !list) {
+            return;
+        }
+        if (!overdueScheduledRides.length) {
+            list.innerHTML = '';
+            if (empty) {
+                empty.hidden = false;
+            }
+            return;
+        }
+        if (empty) {
+            empty.hidden = true;
+        }
+        list.innerHTML = overdueScheduledRides
+            .map(function (ride) {
+                const rideId = ride.id != null ? String(ride.id) : '—';
+                const customerHtml = customerLineHtml(ride.customer_name, ride.customer_phone);
+                return (
+                    '<div class="card overdue-ride-card">' +
+                    '<p class="offer-title">Rit #' +
+                    escapeHtml(rideId) +
+                    '<span class="overdue-badge">Verlopen</span></p>' +
+                    '<p class="offer-meta offer-pickup-at">' +
+                    escapeHtml(formatPickupAt(ride.pickup_at)) +
+                    '</p>' +
+                    addressLinkHtml(ride.pickup_address, '📍') +
+                    addressLinkHtml(ride.dropoff_address, '🏁') +
+                    customerHtml +
+                    '<p class="offer-price">' +
+                    formatEuro(ride.quoted_price) +
+                    '</p>' +
+                    '<div class="overdue-ride-actions">' +
+                    '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
+                    escapeHtml(rideId) +
+                    '">Rit starten</button>' +
+                    '<button type="button" class="btn btn-release-ride" data-ride-id="' +
+                    escapeHtml(rideId) +
+                    '">Vrijgeven</button>' +
+                    '</div>' +
+                    '</div>'
+                );
+            })
+            .join('');
     }
 
     function showScreen(name) {
@@ -2471,12 +2711,18 @@
         try {
             const res = await api('/dispatch/inbox');
             const offers = (res.data && res.data.offers) || [];
+            declinedOffers = (res.data && res.data.declined_offers) || [];
+            overdueScheduledRides = (res.data && res.data.overdue_scheduled_rides) || [];
             if (res.meta) {
                 if (res.meta.offer_ttl_seconds) {
                     configuredOfferTtlSeconds = Math.max(15, parseInt(res.meta.offer_ttl_seconds, 10) || 300);
                 }
                 driverPaymentEnabled = !!res.meta.driver;
+                unclaimedRides = res.meta.unclaimed_rides || [];
             }
+            updateDeclinedNavButton();
+            updateOverdueNavButton();
+            updateUnclaimedBanner(unclaimedRides);
             syncWaitingRideIdsFromOffers(offers);
             const active = res.data && res.data.active_ride;
             const scheduled = (res.data && res.data.scheduled_rides) || [];
@@ -2487,9 +2733,20 @@
                 clearOfferTimer();
                 setOfferUiVisible(false);
                 $('#inbox-empty').hidden = true;
+                setInboxView('offers');
                 return;
             }
             renderActiveRide(null);
+            if (inboxView === 'declined') {
+                renderScheduledRides([]);
+                setInboxView('declined');
+                return;
+            }
+            if (inboxView === 'overdue') {
+                renderScheduledRides([]);
+                setInboxView('overdue');
+                return;
+            }
             renderScheduledRides(scheduled);
             pendingOffers = offers;
             syncAllPendingOffersWaitingState();
@@ -2657,6 +2914,7 @@
             const res = await api('/dispatch/offers/' + offerId + '/accept', { method: 'POST' });
             showNewRideAlert(false);
             vibrate(100);
+            inboxView = 'offers';
             await refreshInbox();
         } catch (e) {
             alert(e.message);
@@ -2675,9 +2933,15 @@
         setOfferActionButtonsDisabled(true, activeBtn);
         try {
             await api('/dispatch/offers/' + offerId + '/decline', { method: 'POST' });
+            vibrate(50);
+            offerQueueIndex = 0;
             await refreshInbox();
+            if (!pendingOffers.length && declinedOffers.length) {
+                setInboxView('declined');
+            }
         } catch (e) {
             alert(e.message);
+            await refreshInbox();
         } finally {
             setOfferActionButtonsDisabled(false);
         }
@@ -2694,6 +2958,7 @@
             const res = await api('/dispatch/rides/' + rideId + '/start', { method: 'POST' });
             activeRideAcceptedMessage = (res && res.message) || 'Rit gestart.';
             vibrate(100);
+            inboxView = 'offers';
             if (res && res.data && res.data.ride) {
                 renderActiveRide(res.data.ride);
             }
@@ -2892,7 +3157,7 @@
 
     if (screenDispatch) {
         screenDispatch.addEventListener('click', function (ev) {
-            if (ev.target.closest('#btn-accept')) {
+            if (ev.target.closest('#btn-accept') || ev.target.closest('.btn-accept-declined')) {
                 ev.preventDefault();
                 acceptOffer(ev);
                 return;
@@ -2900,6 +3165,22 @@
             if (ev.target.closest('#btn-decline')) {
                 ev.preventDefault();
                 declineOffer(ev);
+                return;
+            }
+            if (ev.target.closest('#btn-show-declined')) {
+                ev.preventDefault();
+                setInboxView('declined');
+                return;
+            }
+            if (ev.target.closest('#btn-show-overdue')) {
+                ev.preventDefault();
+                setInboxView('overdue');
+                return;
+            }
+            if (ev.target.closest('#btn-show-offers')) {
+                ev.preventDefault();
+                setInboxView('offers');
+                updateUnclaimedBanner(unclaimedRides);
                 return;
             }
             if (ev.target.closest('.btn-start-ride')) {

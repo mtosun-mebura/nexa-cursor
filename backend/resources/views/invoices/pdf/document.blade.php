@@ -49,8 +49,6 @@
     $taxRate = (float) ($details['tax_rate'] ?? 21);
     $taxRateLabel = 'BTW ('.(fmod(round($taxRate, 2), 1) === 0.0 ? (int) round($taxRate).'%' : number_format($taxRate, 2, ',', '.').'%').')';
     $fmt = fn (float $n) => number_format($n, 2, ',', '.');
-    $paymentTermsDays = max(1, (int) ($paymentTermsDays ?? 30));
-    $paymentTermsLabel = $paymentTermsDays === 1 ? 'dag' : 'dagen';
 @endphp
 <div class="page-body">
 <table class="header" cellpadding="0" cellspacing="0">
@@ -152,8 +150,10 @@
 @endif
 </div>
 
+@if(!empty($paymentTermsText))
 <div class="pdf-page-footer">
-    Betaaltermijn: deze factuur dient binnen {{ $paymentTermsDays }} {{ $paymentTermsLabel }} na factuurdatum te worden betaald.
+    {{ $paymentTermsText }}
 </div>
+@endif
 </body>
 </html>

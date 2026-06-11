@@ -13,6 +13,8 @@
     </div>
 @endif
 
+@include('taxi::admin.knowledge_documents.partials.content-list-styles')
+
 <style>
     .hero-bg {
         background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
@@ -74,25 +76,8 @@
             <h3 class="kt-card-title mb-0">Inhoud</h3>
         </div>
         <div class="kt-card-content px-3 sm:px-5 py-5 min-w-0">
-            <div class="knowledge-document-content text-foreground text-sm leading-relaxed break-words">{!! $document->content !!}</div>
+            <div class="knowledge-document-content text-foreground text-sm leading-relaxed break-words">{!! app(\App\Modules\NexaTaxi\Services\TaxiKnowledgeContentFormatterService::class)->normalizeDisplayHtml($document->content) !!}</div>
         </div>
     </div>
 </div>
 @endsection
-
-@push('styles')
-<style>
-    #content .knowledge-document-content {
-        background-color: transparent;
-    }
-
-    #content .knowledge-document-content :is(p, ul, ol) {
-        margin-bottom: 0.75rem;
-    }
-
-    #content .knowledge-document-content a {
-        color: var(--primary);
-        text-decoration: underline;
-    }
-</style>
-@endpush

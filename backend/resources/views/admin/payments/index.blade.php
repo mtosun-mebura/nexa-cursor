@@ -10,7 +10,11 @@
                 Betalingen Overzicht
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Per tenant met actieve betaalmodule (Nexa Taxi, Skillmatching), op basis van betalingsstatus
+                @if(!empty($tenantId) && count($tenantRows ?? []) === 1)
+                    Gegevens voor {{ $tenantRows[0]['company']->name ?? 'geselecteerde tenant' }}
+                @else
+                    Per tenant met actieve betaalmodule (Nexa Taxi, Skillmatching), op basis van betalingsstatus
+                @endif
             </div>
         </div>
         <div class="admin-page-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0 lg:w-auto">

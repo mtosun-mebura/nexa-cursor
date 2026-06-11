@@ -9,8 +9,10 @@ use App\Enums\AiChat\AiChatDataSource;
 use App\Enums\AiChat\AiChatIntent;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Services\AiChat\AiChatAdminSqlFormatter;
 use App\Services\AiChat\AiChatAuditLogger;
 use App\Services\AiChat\AiChatLiveQueryService;
+use App\Services\AiChat\AiChatOwnRideFormatter;
 use App\Services\AiChat\AiChatPublicRatesFormatter;
 use App\Services\AiChat\AiChatSqlGuardService;
 use App\Services\AiChat\AiChatSqlTokenService;
@@ -32,6 +34,8 @@ class AiChatSqlController extends Controller
         AiChatSqlGuardService $sqlGuard,
         AiChatLiveQueryService $liveQueryService,
         AiChatPublicRatesFormatter $ratesFormatter,
+        AiChatOwnRideFormatter $ownRideFormatter,
+        AiChatAdminSqlFormatter $adminSqlFormatter,
         AiChatAuditLogger $auditLogger,
     ): JsonResponse {
         $validated = $request->validate([
@@ -56,6 +60,12 @@ class AiChatSqlController extends Controller
 
             $result = $liveQueryService->execute($intent, $claims);
 
+            $auditChannel = match ($claims['channel'] ?? '') {
+                AiChatChannel::Admin->value => AiChatChannel::Admin,
+                AiChatChannel::MijnTaxi->value => AiChatChannel::MijnTaxi,
+                default => AiChatChannel::Public,
+            };
+
             $dataSource = $intent === AiChatIntent::Tarieven
                 ? AiChatDataSource::PublicRates
                 : AiChatDataSource::Sql;
@@ -63,12 +73,12 @@ class AiChatSqlController extends Controller
             $auditLogger->log(
                 new AiChatRequestContext(
                     companyId: (int) $claims['company_id'],
-                    channel: $claims['allow_live_data'] ? AiChatChannel::Admin : AiChatChannel::Public,
+                    channel: $auditChannel,
                     userId: $claims['user_id'],
                 ),
                 new AiChatIntentResult(
                     intent: $intent,
-                    isAdmin: $claims['allow_live_data'],
+                    isAdmin: $auditChannel === AiChatChannel::Admin,
                     allowLiveData: $claims['allow_live_data'],
                     allowPublicRates: $claims['allow_public_rates'],
                 ),
@@ -93,12 +103,50 @@ class AiChatSqlController extends Controller
                 ]);
             }
 
+            if ($intent === AiChatIntent::MijnRit) {
+                $answer = $ownRideFormatter->format(
+                    $result['rows'],
+                    $claims['query_hint'] ?? null,
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'intent' => $intent->value,
+                    'answer' => $answer,
+                    'source' => 'sql',
+                    'count' => $result['count'],
+                    'rows' => $result['rows'],
+                    'response_mode' => $result['response_mode'] ?? 'list',
+                ]);
+            }
+
+            if ($auditChannel === AiChatChannel::Admin && $intent->requiresLiveData()) {
+                $answer = $adminSqlFormatter->format(
+                    $intent,
+                    $result,
+                    is_string($claims['response_mode'] ?? null) ? $claims['response_mode'] : null,
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'intent' => $intent->value,
+                    'answer' => $answer,
+                    'source' => 'sql',
+                    'count' => $result['count'],
+                    'rows' => $result['rows'],
+                    'summary' => $result['summary'] ?? null,
+                    'response_mode' => $result['response_mode'] ?? 'list',
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
                 'intent' => $intent->value,
                 'source' => 'sql',
                 'count' => $result['count'],
                 'rows' => $result['rows'],
+                'summary' => $result['summary'] ?? null,
+                'response_mode' => $result['response_mode'] ?? 'list',
             ]);
         } catch (Throwable $e) {
             Log::warning('AI chat SQL gateway blocked request', [

@@ -43,6 +43,17 @@ class TenantFrontendUrlTest extends TestCase
         $this->assertStringStartsWith('http://localhost:8085', $url);
     }
 
+    public function test_after_logout_home_uses_stored_dev_host_when_company_unknown(): void
+    {
+        $request = Request::create('http://localhost:8085/mijn-taxi', 'GET');
+        $this->app->instance('request', $request);
+
+        $url = TenantFrontendUrl::afterLogoutHome(null, $request, 'taxiroyaal.nexasuite.nl');
+
+        $this->assertStringContainsString('_tenant_host=taxiroyaal.nexasuite.nl', $url);
+        $this->assertStringStartsWith('http://localhost:8085', $url);
+    }
+
     public function test_keeps_url_unchanged_when_already_on_tenant_host(): void
     {
         $company = Company::query()->create(['name' => 'Taxi BV', 'is_active' => true]);

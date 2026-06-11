@@ -122,6 +122,24 @@
     color: #94a3b8;
   }
 
+  .input.border-destructive,
+  .input.border-red-500 {
+    border-color: #ef4444;
+  }
+  .dark .input.border-destructive,
+  .dark .input.border-red-500 {
+    border-color: #f87171;
+  }
+
+  .text-destructive,
+  .field-feedback.text-destructive {
+    color: #ef4444;
+  }
+  .dark .text-destructive,
+  .dark .field-feedback.text-destructive {
+    color: #f87171;
+  }
+
   .ai-chat-root {
     z-index: 100200;
   }
@@ -144,6 +162,18 @@
     height: min(58rem, calc(100vh - 4rem));
     box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.18), 0 12px 24px -8px rgb(0 0 0 / 0.12);
   }
+  /* Frontend header: thema-toggle + AI-chat icoon wit in dark mode */
+  html.dark header [data-ai-chat-toggle] svg,
+  html.dark header button[onclick="toggleDarkMode()"] svg,
+  html.dark header #theme-toggle-btn svg,
+  html.dark header #theme-toggle-btn-mobile svg,
+  .dark header [data-ai-chat-toggle] svg,
+  .dark header button[onclick="toggleDarkMode()"] svg,
+  .dark header #theme-toggle-btn svg,
+  .dark header #theme-toggle-btn-mobile svg {
+    color: #fff;
+  }
+
   .dark .ai-chat-panel {
     background-color: #1f2937;
     color: #f3f4f6;
@@ -190,6 +220,13 @@
   .ai-chat-panel__footer {
     border-top: 1px solid #e5e7eb;
     background-color: #ffffff;
+    overflow: visible;
+    position: relative;
+    z-index: 20;
+  }
+  .ai-chat-address-field {
+    position: relative;
+    z-index: 30;
   }
   .dark .ai-chat-panel__footer {
     border-top-color: #4b5563;
@@ -226,6 +263,17 @@
   .dark .ai-chat-bubble--ai .ai-chat-bubble__time {
     color: #d1d5db;
   }
+  .ai-chat-bubble--ai .ai-chat-list,
+  .ai-chat-message ul {
+    list-style: disc;
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+  }
+  .ai-chat-bubble--ai .ai-chat-list li,
+  .ai-chat-message li {
+    margin: 0.2rem 0;
+    padding-left: 0.15rem;
+  }
   .ai-chat-bubble--user {
     background-color: var(--theme-primary, #2563eb);
     color: #ffffff;
@@ -244,6 +292,50 @@
   }
   .dark .ai-chat-typing__dot {
     background-color: #d1d5db;
+  }
+  .ai-chat-address-suggestions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 0.35rem);
+    top: auto;
+    z-index: 100252;
+    max-height: min(22rem, 50vh);
+    overflow-y: auto;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  }
+  .dark .ai-chat-address-suggestions {
+    border-color: #4b5563;
+    background: #1f2937;
+  }
+  .ai-chat-address-suggestion {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+  .ai-chat-address-suggestion:hover,
+  .ai-chat-address-suggestion:focus {
+    background: #f3f4f6;
+  }
+  .dark .ai-chat-address-suggestion:hover,
+  .dark .ai-chat-address-suggestion:focus {
+    background: #374151;
+  }
+  .ai-chat-datetime-input {
+    color-scheme: light;
+  }
+  .dark .ai-chat-datetime-input {
+    color-scheme: dark;
   }
 
   .select {
@@ -587,8 +679,107 @@
 
   /* Flowbite WYSIWYG – wrapper en content-gebied; typography via flowbite-typography (.format) */
   .flowbite-wysiwyg-wrapper {
+    position: relative;
     border-color: #e5e7eb;
     background-color: #ffffff;
+  }
+  .flowbite-wysiwyg-link-dialog {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 3rem;
+    border-radius: inherit;
+  }
+  .flowbite-wysiwyg-link-dialog.hidden {
+    display: none;
+  }
+  .flowbite-wysiwyg-link-dialog__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.45);
+    border-radius: inherit;
+  }
+  .flowbite-wysiwyg-link-dialog__panel {
+    position: relative;
+    z-index: 1;
+    width: min(100% - 2rem, 22rem);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+    background-color: #ffffff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+  .dark .flowbite-wysiwyg-link-dialog__panel {
+    border-color: #4b5563;
+    background-color: #1f2937;
+  }
+  .flowbite-wysiwyg-link-dialog__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #111827;
+  }
+  .dark .flowbite-wysiwyg-link-dialog__title {
+    color: #f3f4f6;
+  }
+  .flowbite-wysiwyg-link-dialog__label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+  .dark .flowbite-wysiwyg-link-dialog__label {
+    color: #9ca3af;
+  }
+  .flowbite-wysiwyg-link-dialog__input {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.875rem;
+    border-radius: 0.375rem;
+    border: 1px solid #d1d5db;
+    background-color: #ffffff;
+    color: #111827;
+  }
+  .dark .flowbite-wysiwyg-link-dialog__input {
+    border-color: #4b5563;
+    background-color: #111827;
+    color: #f3f4f6;
+  }
+  .flowbite-wysiwyg-link-dialog__actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+  }
+  .flowbite-wysiwyg-link-dialog__btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    border-radius: 0.375rem;
+    border: 1px solid #d1d5db;
+    background-color: #f9fafb;
+    color: #374151;
+    cursor: pointer;
+  }
+  .flowbite-wysiwyg-link-dialog__btn:hover {
+    background-color: #f3f4f6;
+  }
+  .dark .flowbite-wysiwyg-link-dialog__btn {
+    border-color: #4b5563;
+    background-color: #374151;
+    color: #f3f4f6;
+  }
+  .flowbite-wysiwyg-link-dialog__btn--primary {
+    border-color: #2563eb;
+    background-color: #2563eb;
+    color: #ffffff;
+  }
+  .flowbite-wysiwyg-link-dialog__btn--primary:hover {
+    background-color: #1d4ed8;
   }
   .flowbite-wysiwyg-toolbar {
     overflow: visible;
@@ -748,6 +939,46 @@
     line-height: 1.4;
     margin-top: 0.4em;
     margin-bottom: 0.25em;
+  }
+
+  /* Kennisbank AI-chatbot: opsommingen zichtbaar (Metronic reset zet list-style: none) */
+  .knowledge-document-content ul,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0.75rem 0;
+  }
+  .knowledge-document-content ol,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin: 0.75rem 0;
+  }
+  .knowledge-document-content ul > li,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ul > li {
+    position: relative;
+    display: list-item;
+    padding-left: 1.25rem;
+    margin: 0.35rem 0;
+  }
+  .knowledge-document-content ul > li::before,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ul > li::before {
+    content: '–';
+    position: absolute;
+    left: 0;
+    font-weight: 600;
+  }
+  .knowledge-document-content ol > li,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ol > li {
+    display: list-item;
+    margin: 0.35rem 0;
+    padding-left: 0.15rem;
+  }
+  .knowledge-document-content ul > li > p,
+  .knowledge-document-content ol > li > p,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ul > li > p,
+  .knowledge-document-form .flowbite-wysiwyg-content .ProseMirror ol > li > p {
+    margin: 0;
   }
 
   /* Cards ronde hoeken (frontend): lettergrootte en lettertype uit admin; H1/H2/H3/H4 schalen mee met --card-fs */

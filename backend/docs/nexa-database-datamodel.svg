@@ -1,0 +1,291 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" viewBox="0 0 2400 1600">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+    <style>
+      .title { font: 700 48px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 22px Arial, sans-serif; fill: #64748b; }
+      .panel-title { font: 700 30px Arial, sans-serif; fill: #ffffff; }
+      .panel-subtitle { font: 400 17px Arial, sans-serif; fill: #e2e8f0; }
+      .group-title { font: 700 20px Arial, sans-serif; fill: #0f172a; }
+      .table-title { font: 700 17px Arial, sans-serif; fill: #0f172a; }
+      .field { font: 400 14px Arial, sans-serif; fill: #475569; }
+      .small { font: 400 15px Arial, sans-serif; fill: #475569; }
+      .legend { font: 600 15px Arial, sans-serif; fill: #334155; }
+      .relation { fill: none; stroke: #64748b; stroke-width: 2.5; marker-end: url(#arrow); }
+      .relation-dashed { fill: none; stroke: #64748b; stroke-width: 2.5; stroke-dasharray: 10 8; marker-end: url(#arrow); }
+      .table { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 14; }
+    </style>
+  </defs>
+
+  <rect width="2400" height="1600" fill="#f8fafc"/>
+  <text x="90" y="86" class="title">Nexa database-datamodel</text>
+  <text x="90" y="125" class="subtitle">PostgreSQL: core in public, modules in nexa_taxi en nexa_skillmatching</text>
+
+  <!-- Cross-domain relations -->
+  <path d="M780 445 C845 445, 830 430, 895 430" class="relation-dashed"/>
+  <path d="M780 565 C845 565, 830 670, 895 670" class="relation-dashed"/>
+  <path d="M780 785 C845 785, 830 865, 895 865" class="relation-dashed"/>
+  <path d="M1605 470 C1665 470, 1650 430, 1715 430" class="relation-dashed"/>
+  <path d="M1605 595 C1665 595, 1650 655, 1715 655" class="relation-dashed"/>
+
+  <!-- Core panel -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="175" width="710" height="1260" rx="28" fill="#ffffff" stroke="#2563eb" stroke-width="3"/>
+    <path d="M98 175 H752 Q780 175 780 203 V300 H70 V203 Q70 175 98 175" fill="#2563eb"/>
+    <text x="110" y="225" class="panel-title">Nexa Core</text>
+    <text x="110" y="260" class="panel-subtitle">Schema: public · tenants, accounts en platformdiensten</text>
+  </g>
+
+  <!-- Core tables -->
+  <g>
+    <rect x="110" y="345" width="285" height="180" class="table"/>
+    <rect x="110" y="345" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="130" y="373" class="table-title">companies</text>
+    <text x="130" y="413" class="field">PK id · UK slug</text>
+    <text x="130" y="440" class="field">name · email · city</text>
+    <text x="130" y="467" class="field">frontend_theme_id</text>
+    <text x="130" y="494" class="field">Tenant-root</text>
+
+    <rect x="450" y="345" width="285" height="180" class="table"/>
+    <rect x="450" y="345" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="470" y="373" class="table-title">users</text>
+    <text x="470" y="413" class="field">PK id · FK company_id</text>
+    <text x="470" y="440" class="field">UK email · name</text>
+    <text x="470" y="467" class="field">password · is_active</text>
+    <text x="470" y="494" class="field">Rollen via RBAC-tabellen</text>
+
+    <path d="M395 435 H450" class="relation"/>
+
+    <rect x="110" y="570" width="285" height="155" class="table"/>
+    <rect x="110" y="570" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="130" y="598" class="table-title">company_locations</text>
+    <text x="130" y="638" class="field">FK company_id</text>
+    <text x="130" y="665" class="field">address · lat/lng</text>
+    <text x="130" y="692" class="field">is_main · is_active</text>
+
+    <rect x="450" y="570" width="285" height="155" class="table"/>
+    <rect x="450" y="570" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="470" y="598" class="table-title">company_domains</text>
+    <text x="470" y="638" class="field">FK company_id</text>
+    <text x="470" y="665" class="field">UK host</text>
+    <text x="470" y="692" class="field">is_primary</text>
+
+    <path d="M252 525 V570" class="relation"/>
+    <path d="M320 525 C390 545, 520 530, 575 570" class="relation"/>
+
+    <rect x="110" y="775" width="285" height="175" class="table"/>
+    <rect x="110" y="775" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="130" y="803" class="table-title">modules + company_module</text>
+    <text x="130" y="843" class="field">Module registry</text>
+    <text x="130" y="870" class="field">company_id + module_id</text>
+    <text x="130" y="897" class="field">settings · active · version</text>
+    <text x="130" y="924" class="field">N:M tenant-module</text>
+
+    <rect x="450" y="775" width="285" height="175" class="table"/>
+    <rect x="450" y="775" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="470" y="803" class="table-title">website + settings</text>
+    <text x="470" y="843" class="field">frontend_themes</text>
+    <text x="470" y="870" class="field">website_pages · media</text>
+    <text x="470" y="897" class="field">general_settings</text>
+    <text x="470" y="924" class="field">Scoped per company</text>
+
+    <path d="M260 525 C220 625, 220 680, 250 775" class="relation"/>
+    <path d="M395 435 C620 500, 630 650, 595 775" class="relation"/>
+
+    <rect x="110" y="1000" width="285" height="190" class="table"/>
+    <rect x="110" y="1000" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="130" y="1028" class="table-title">facturatie</text>
+    <text x="130" y="1068" class="field">invoices</text>
+    <text x="130" y="1095" class="field">payments · reminders</text>
+    <text x="130" y="1122" class="field">payment_providers</text>
+    <text x="130" y="1149" class="field">invoice_settings</text>
+
+    <rect x="450" y="1000" width="285" height="190" class="table"/>
+    <rect x="450" y="1000" width="285" height="42" rx="14" fill="#dbeafe"/>
+    <text x="470" y="1028" class="table-title">communicatie + audit</text>
+    <text x="470" y="1068" class="field">notifications</text>
+    <text x="470" y="1095" class="field">email_templates</text>
+    <text x="470" y="1122" class="field">chats · chat_messages</text>
+    <text x="470" y="1149" class="field">ai_chat_audit_logs</text>
+
+    <path d="M260 525 C155 690, 150 860, 245 1000" class="relation"/>
+    <path d="M595 525 C690 700, 690 850, 595 1000" class="relation"/>
+
+    <rect x="110" y="1240" width="625" height="135" rx="14" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+    <text x="135" y="1275" class="group-title">Technische basis</text>
+    <text x="135" y="1308" class="small">RBAC · sessions · cache · queues · tokens · login-codes</text>
+    <text x="135" y="1338" class="small">Core-relaties gebruiken echte foreign keys waar mogelijk.</text>
+  </g>
+
+  <!-- Taxi panel -->
+  <g filter="url(#shadow)">
+    <rect x="895" y="175" width="710" height="1260" rx="28" fill="#ffffff" stroke="#f59e0b" stroke-width="3"/>
+    <path d="M923 175 H1577 Q1605 175 1605 203 V300 H895 V203 Q895 175 923 175" fill="#f59e0b"/>
+    <text x="935" y="225" class="panel-title">Nexa Taxi</text>
+    <text x="935" y="260" class="panel-subtitle">Schema: nexa_taxi · reservering, dispatch en ritbetaling</text>
+  </g>
+
+  <g>
+    <rect x="935" y="345" width="285" height="175" class="table"/>
+    <rect x="935" y="345" width="285" height="42" rx="14" fill="#fef3c7"/>
+    <text x="955" y="373" class="table-title">vehicles</text>
+    <text x="955" y="413" class="field">REF company_id</text>
+    <text x="955" y="440" class="field">type · license_plate · seats</text>
+    <text x="955" y="467" class="field">base_fare · km/min rates</text>
+    <text x="955" y="494" class="field">active</text>
+
+    <rect x="1280" y="345" width="285" height="175" class="table"/>
+    <rect x="1280" y="345" width="285" height="42" rx="14" fill="#fef3c7"/>
+    <text x="1300" y="373" class="table-title">default_rates</text>
+    <text x="1300" y="413" class="field">person_range</text>
+    <text x="1300" y="440" class="field">base_fare · min_fare</text>
+    <text x="1300" y="467" class="field">price_per_km/min</text>
+    <text x="1300" y="494" class="field">cleaning_costs</text>
+
+    <rect x="1030" y="590" width="440" height="235" class="table"/>
+    <rect x="1030" y="590" width="440" height="46" rx="14" fill="#fde68a"/>
+    <text x="1055" y="620" class="table-title">ride_requests</text>
+    <text x="1055" y="665" class="field">FK vehicle_id · REF company_id</text>
+    <text x="1055" y="694" class="field">REF driver_id · customer_user_id · invoice_id</text>
+    <text x="1055" y="723" class="field">pickup/dropoff · pickup_at · route metrics</text>
+    <text x="1055" y="752" class="field">quoted_price · final_price · status</text>
+    <text x="1055" y="781" class="field">payment_method · payment_status</text>
+
+    <path d="M1077 520 C1077 555, 1150 555, 1150 590" class="relation"/>
+    <path d="M1422 520 C1422 555, 1350 555, 1350 590" class="relation"/>
+
+    <rect x="935" y="895" width="285" height="175" class="table"/>
+    <rect x="935" y="895" width="285" height="42" rx="14" fill="#fef3c7"/>
+    <text x="955" y="923" class="table-title">dispatch</text>
+    <text x="955" y="963" class="field">driver_availability</text>
+    <text x="955" y="990" class="field">ride_dispatch_offers</text>
+    <text x="955" y="1017" class="field">wave · expiry · response</text>
+    <text x="955" y="1044" class="field">REF core users</text>
+
+    <rect x="1280" y="895" width="285" height="175" class="table"/>
+    <rect x="1280" y="895" width="285" height="42" rx="14" fill="#fef3c7"/>
+    <text x="1300" y="923" class="table-title">betaling + notificatie</text>
+    <text x="1300" y="963" class="field">ride_payments</text>
+    <text x="1300" y="990" class="field">Mollie status + payload</text>
+    <text x="1300" y="1017" class="field">notification_logs</text>
+    <text x="1300" y="1044" class="field">REF core invoices</text>
+
+    <path d="M1170 825 C1170 855, 1080 860, 1080 895" class="relation"/>
+    <path d="M1330 825 C1330 855, 1420 860, 1420 895" class="relation"/>
+
+    <rect x="1030" y="1140" width="440" height="190" class="table"/>
+    <rect x="1030" y="1140" width="440" height="46" rx="14" fill="#fef3c7"/>
+    <text x="1055" y="1170" class="table-title">AI-kennisbank</text>
+    <text x="1055" y="1215" class="field">knowledge_documents 1:N knowledge_chunks</text>
+    <text x="1055" y="1244" class="field">content · category · chunk_text</text>
+    <text x="1055" y="1273" class="field">pgvector embedding vector(1536)</text>
+    <text x="1055" y="1302" class="field">Tekstfallback zonder pgvector</text>
+
+    <rect x="935" y="1360" width="630" height="45" rx="12" fill="#fffbeb"/>
+    <text x="955" y="1389" class="legend">Gestreepte lijnen = logische cross-schema-relatie zonder database-FK</text>
+  </g>
+
+  <!-- Skillmatching panel -->
+  <g filter="url(#shadow)">
+    <rect x="1720" y="175" width="610" height="1260" rx="28" fill="#ffffff" stroke="#7c3aed" stroke-width="3"/>
+    <path d="M1748 175 H2302 Q2330 175 2330 203 V300 H1720 V203 Q1720 175 1748 175" fill="#7c3aed"/>
+    <text x="1760" y="225" class="panel-title">Nexa Skillmatching</text>
+    <text x="1760" y="260" class="panel-subtitle">Schema: nexa_skillmatching · recruitment en AI-matching</text>
+  </g>
+
+  <g>
+    <rect x="1760" y="345" width="245" height="175" class="table"/>
+    <rect x="1760" y="345" width="245" height="42" rx="14" fill="#ede9fe"/>
+    <text x="1780" y="373" class="table-title">vacancies</text>
+    <text x="1780" y="413" class="field">FK company_id · branch_id</text>
+    <text x="1780" y="440" class="field">title · status · location</text>
+    <text x="1780" y="467" class="field">required_skills · tools</text>
+    <text x="1780" y="494" class="field">contact_user_id</text>
+
+    <rect x="2045" y="345" width="245" height="175" class="table"/>
+    <rect x="2045" y="345" width="245" height="42" rx="14" fill="#ede9fe"/>
+    <text x="2065" y="373" class="table-title">candidates</text>
+    <text x="2065" y="413" class="field">UK reference · email</text>
+    <text x="2065" y="440" class="field">profile · preferences</text>
+    <text x="2065" y="467" class="field">skills · experience</text>
+    <text x="2065" y="494" class="field">status · GDPR consent</text>
+
+    <rect x="1760" y="590" width="245" height="185" class="table"/>
+    <rect x="1760" y="590" width="245" height="42" rx="14" fill="#ddd6fe"/>
+    <text x="1780" y="618" class="table-title">matches</text>
+    <text x="1780" y="658" class="field">FK vacancy_id</text>
+    <text x="1780" y="685" class="field">FK candidate_id</text>
+    <text x="1780" y="712" class="field">match_score · status</text>
+    <text x="1780" y="739" class="field">ai_feedback</text>
+
+    <rect x="2045" y="590" width="245" height="185" class="table"/>
+    <rect x="2045" y="590" width="245" height="42" rx="14" fill="#ddd6fe"/>
+    <text x="2065" y="618" class="table-title">applications</text>
+    <text x="2065" y="658" class="field">FK vacancy_id</text>
+    <text x="2065" y="685" class="field">FK candidate_id</text>
+    <text x="2065" y="712" class="field">FK user_id</text>
+    <text x="2065" y="739" class="field">status · created_at</text>
+
+    <path d="M1880 520 V590" class="relation"/>
+    <path d="M2165 520 V590" class="relation"/>
+    <path d="M2005 435 C2040 490, 2095 520, 2150 590" class="relation"/>
+    <path d="M2045 435 C2010 490, 1955 520, 1900 590" class="relation"/>
+
+    <rect x="1760" y="845" width="245" height="185" class="table"/>
+    <rect x="1760" y="845" width="245" height="42" rx="14" fill="#ede9fe"/>
+    <text x="1780" y="873" class="table-title">pipeline</text>
+    <text x="1780" y="913" class="field">pipeline_templates</text>
+    <text x="1780" y="940" class="field">stage_types</text>
+    <text x="1780" y="967" class="field">stage_instances</text>
+    <text x="1780" y="994" class="field">status · outcome · artifacts</text>
+
+    <rect x="2045" y="845" width="245" height="185" class="table"/>
+    <rect x="2045" y="845" width="245" height="42" rx="14" fill="#ede9fe"/>
+    <text x="2065" y="873" class="table-title">interviews + activity</text>
+    <text x="2065" y="913" class="field">interviews → match</text>
+    <text x="2065" y="940" class="field">company/location/interviewer</text>
+    <text x="2065" y="967" class="field">candidate_activities</text>
+    <text x="2065" y="994" class="field">audit van processtappen</text>
+
+    <path d="M1880 775 V845" class="relation"/>
+    <path d="M2165 775 V845" class="relation"/>
+
+    <rect x="1760" y="1100" width="245" height="215" class="table"/>
+    <rect x="1760" y="1100" width="245" height="42" rx="14" fill="#ede9fe"/>
+    <text x="1780" y="1128" class="table-title">AI-verrijking</text>
+    <text x="1780" y="1168" class="field">candidate_texts</text>
+    <text x="1780" y="1195" class="field">candidate_embeddings</text>
+    <text x="1780" y="1222" class="field">vacancy_embeddings</text>
+    <text x="1780" y="1249" class="field">vector(1536) / JSON</text>
+    <text x="1780" y="1276" class="field">1:1 uitbreiding</text>
+
+    <rect x="2045" y="1100" width="245" height="215" class="table"/>
+    <rect x="2045" y="1100" width="245" height="42" rx="14" fill="#ede9fe"/>
+    <text x="2065" y="1128" class="table-title">taxonomie + profiel</text>
+    <text x="2065" y="1168" class="field">branches → functions → skills</text>
+    <text x="2065" y="1195" class="field">job_titles/configurations</text>
+    <text x="2065" y="1222" class="field">skills · experiences · CV</text>
+    <text x="2065" y="1249" class="field">favorites</text>
+    <text x="2065" y="1276" class="field">chats</text>
+
+    <path d="M1880 1030 V1100" class="relation"/>
+    <path d="M2165 1030 V1100" class="relation"/>
+
+    <rect x="1760" y="1360" width="530" height="45" rx="12" fill="#f5f3ff"/>
+    <text x="1780" y="1389" class="legend">Proces: vacature → kandidaat → match/sollicitatie → pipeline → gesprek</text>
+  </g>
+
+  <!-- Footer -->
+  <rect x="70" y="1480" width="2260" height="70" rx="16" fill="#0f172a"/>
+  <circle cx="110" cy="1515" r="8" fill="#60a5fa"/>
+  <text x="130" y="1521" class="panel-subtitle">Echte FK</text>
+  <line x1="245" y1="1515" x2="310" y2="1515" stroke="#94a3b8" stroke-width="3"/>
+  <circle cx="350" cy="1515" r="8" fill="#fbbf24"/>
+  <text x="370" y="1521" class="panel-subtitle">Logische REF tussen schema's/databases</text>
+  <text x="1770" y="1521" class="panel-subtitle">Bron: migraties t/m 8 juni 2026</text>
+</svg>

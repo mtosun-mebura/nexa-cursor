@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ApplyDevSimulatedTenantHost
 {
-    private const SESSION_DEV_EFFECTIVE_HOST = 'nexa.tenancy_dev_effective_host';
+    public const SESSION_DEV_EFFECTIVE_HOST = 'nexa.tenancy_dev_effective_host';
 
     public function handle(Request $request, Closure $next): Response
     {

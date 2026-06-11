@@ -40,6 +40,17 @@ Route::post('/ai-chat/live-query', [App\Http\Controllers\Api\AiChatSqlController
     ->middleware('throttle:60,1')
     ->name('api.ai-chat.live-query');
 
+Route::get('/ai-chat/rag-search/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'endpoint' => 'POST /api/ai-chat/rag-search',
+    ]);
+})->name('api.ai-chat.rag-search.health');
+
+Route::post('/ai-chat/rag-search', [App\Http\Controllers\Api\AiChatRagController::class, 'search'])
+    ->middleware('throttle:60,1')
+    ->name('api.ai-chat.rag-search');
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

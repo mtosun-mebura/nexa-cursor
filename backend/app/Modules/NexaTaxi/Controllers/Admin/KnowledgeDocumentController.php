@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Controllers\Admin;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Models\KnowledgeDocument;
+use App\Modules\NexaTaxi\Services\TaxiKnowledgeContentFormatterService;
 use App\Modules\NexaTaxi\Services\TaxiKnowledgeWebsiteImportService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
@@ -102,6 +103,34 @@ class KnowledgeDocumentController extends Controller
             ->with('success', 'Kennisdocument is verwijderd.');
     }
 
+    public function formatContent(Request $request, TaxiKnowledgeContentFormatterService $formatter)
+    {
+        $this->authorizeKnowledgeFormatting();
+
+        $categories = array_keys(KnowledgeDocument::categoryLabels());
+
+        $validated = $request->validate([
+            'content' => 'required|string|max:16000',
+            'shorten' => 'sometimes|boolean',
+            'title' => 'nullable|string|max:255',
+            'category' => ['nullable', 'string', Rule::in($categories)],
+        ]);
+
+        $result = $formatter->format(
+            $validated['content'],
+            (bool) ($validated['shorten'] ?? false),
+            $validated['title'] ?? null,
+            $validated['category'] ?? null,
+        );
+
+        return response()->json([
+            'success' => true,
+            'html' => $result['html'],
+            'mode' => $result['mode'],
+            'source' => $result['source'],
+        ]);
+    }
+
     public function generateFromWebsite(Request $request, TaxiKnowledgeWebsiteImportService $importService)
     {
         $this->authorizeOrPermission('ai_chatbot.create');
@@ -184,6 +213,23 @@ class KnowledgeDocumentController extends Controller
         if (! Schema::connection($connection)->hasTable('knowledge_documents')) {
             abort(503, 'AI-kennistabellen ontbreken. Voer uit: php artisan modules:migrate taxi');
         }
+    }
+
+    private function authorizeKnowledgeFormatting(): void
+    {
+        foreach (['ai_chatbot.update', 'ai_chatbot.create'] as $ability) {
+            try {
+                $this->authorizeOrPermission($ability);
+
+                return;
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
+                if ($exception->getStatusCode() !== 403) {
+                    throw $exception;
+                }
+            }
+        }
+
+        abort(403, 'Geen rechten voor deze actie.');
     }
 
     private function authorizeOrPermission(string $ability): void

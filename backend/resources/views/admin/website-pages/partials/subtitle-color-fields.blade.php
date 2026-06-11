@@ -18,13 +18,16 @@
                value="{{ $subtitleColorPicker }}"
                title="Kleur kiezen"
                data-target-input="hero-{{ $sectionKey }}-subtitle_color">
-        <input type="text"
-               name="home_sections[{{ $sectionKey }}][subtitle_color]"
-               id="hero-{{ $sectionKey }}-subtitle_color"
-               class="kt-input flex-1 font-mono text-sm hero-subtitle-color-hex-input"
-               value="{{ $subtitleColor }}"
-               placeholder="{{ $subtitleColorDefault }}"
-               maxlength="7">
+        <div class="home-section-hex-input-wrap shrink-0">
+            <input type="text"
+                   name="home_sections[{{ $sectionKey }}][subtitle_color]"
+                   id="hero-{{ $sectionKey }}-subtitle_color"
+                   class="kt-input w-full font-mono text-sm home-section-hex-input hero-subtitle-color-hex-input"
+                   value="{{ $subtitleColor }}"
+                   placeholder="{{ $subtitleColorDefault }}"
+                   maxlength="7"
+                   data-skip-validation-wrapper="1">
+        </div>
     </div>
     <p class="text-xs text-muted-foreground mt-1">Standaardkleur van de ondertitel op de website. Leeg = themakleur. Inline kleuren uit de editor blijven van kracht.</p>
 </div>

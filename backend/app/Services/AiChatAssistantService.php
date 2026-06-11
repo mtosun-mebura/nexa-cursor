@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\DTO\AiChat\AiChatWebhookPayload;
+use App\Models\GeneralSetting;
+use App\Models\User;
+use App\Models\WebsitePage;
+use App\Services\EnvService;
+use App\Services\AiChat\AiChatAccessService;
 use App\Services\AiChat\AiChatAssistantOrchestrator;
 use App\Services\AiChat\AiChatKnowledgeFallbackService;
 use App\Services\AiChat\AiChatMessageSettingsService;
-use App\Models\GeneralSetting;
-use App\Models\WebsitePage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -25,19 +28,110 @@ class AiChatAssistantService
      */
     public function frontendConfig(?string $moduleName = null): array
     {
+        if (request()->routeIs('taxi.portal.*') && auth()->check()) {
+            return $this->mijnTaxiConfig();
+        }
+
         $module = strtolower(trim((string) ($moduleName ?? $this->websiteBuilder->resolvePublicFrontendModuleName() ?? '')));
         $isTaxi = $module === 'taxi';
         $settingsModule = $isTaxi ? 'taxi' : 'default';
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $messages = app(AiChatMessageSettingsService::class);
 
-        return [
+        return array_merge([
             'module' => $isTaxi ? 'taxi' : 'default',
             'endpoint' => route('frontend.ai-chat.message'),
+            'channel' => 'public',
             'greeting' => $messages->greeting($companyId, $settingsModule),
             'title' => $messages->title($companyId, $settingsModule),
             'subtitle' => $messages->subtitle($companyId, $settingsModule),
             'storageKey' => $isTaxi ? 'ai-chat-messages-taxi' : 'ai-chat-messages',
+        ], $this->chatMapsConfig());
+    }
+
+    /**
+     * @return array{module: string, endpoint: string, channel: string, greeting: string, title: string, subtitle: string, storageKey: string}
+     */
+    public function mijnTaxiConfig(): array
+    {
+        $companyId = GeneralSetting::resolveScopeCompanyId();
+        $messages = app(AiChatMessageSettingsService::class);
+
+        return array_merge([
+            'module' => 'taxi',
+            'endpoint' => route('taxi.portal.api.ai-chat.message'),
+            'channel' => 'mijn_taxi',
+            'greeting' => $messages->greeting($companyId, 'taxi'),
+            'title' => 'Mijn Taxi assistent',
+            'subtitle' => 'Ingelogd · alleen jouw ritten',
+            'storageKey' => 'ai-chat-messages-mijn-taxi',
+        ], $this->chatMapsConfig());
+    }
+
+    public function canShowAdminChat(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        if (! app(ModuleManager::class)->isActive('taxi')) {
+            return false;
+        }
+
+        if (! app(AiChatAccessService::class)->userMayQueryLiveData($user)) {
+            return false;
+        }
+
+        return $this->webhookUrlForModule('taxi') !== null;
+    }
+
+    /**
+     * @return array{
+     *     module: string,
+     *     endpoint: string,
+     *     greeting: string,
+     *     title: string,
+     *     subtitle: string,
+     *     storageKey: string,
+     *     requiresTenant: bool,
+     *     tenantRequiredMessage: string,
+     *     channel: string
+     * }
+     */
+    public function adminConfig(?User $user = null): array
+    {
+        $companyId = GeneralSetting::resolveScopeCompanyId();
+        $requiresTenant = $companyId === null;
+        $tenantRequiredMessage = 'Selecteer eerst een bedrijf in de tenant-kiezer linksboven om de assistent te gebruiken.';
+
+        $greeting = $requiresTenant
+            ? $tenantRequiredMessage
+            : 'Hallo! Ik help je met vragen over ritten, voertuigen, tarieven en de kennisbank van je bedrijf.';
+
+        return array_merge([
+            'module' => 'taxi',
+            'endpoint' => route('admin.ai-chat.message'),
+            'greeting' => $greeting,
+            'title' => 'Taxi-assistent',
+            'subtitle' => 'Admin · alleen jouw tenant',
+            'storageKey' => 'ai-chat-messages-admin-taxi',
+            'requiresTenant' => $requiresTenant,
+            'tenantRequiredMessage' => $tenantRequiredMessage,
+            'channel' => 'admin',
+        ], $this->chatMapsConfig());
+    }
+
+    /**
+     * @return array{googleMapsApiKey: string, addressSearchUrl: string}
+     */
+    protected function chatMapsConfig(): array
+    {
+        $mapsKey = app(EnvService::class)->getGoogleMapsApiKey();
+
+        return [
+            'googleMapsApiKey' => $mapsKey,
+            'addressSearchUrl' => route('nexataxi.booking.address-search'),
         ];
     }
 
@@ -197,7 +291,7 @@ class AiChatAssistantService
 
         $context = $contextResolver->forPublicRequest($moduleName, $sessionId);
 
-        return $orchestrator->handle($context, $message);
+        return $orchestrator->handle($context, $message)->reply;
     }
 
     /**
@@ -213,10 +307,19 @@ class AiChatAssistantService
             return $this->plainBodyFallback($rawBody);
         }
 
+        if (isset($payload['summary']) && is_array($payload['summary']) && $payload['summary'] !== []) {
+            $summaryText = $this->formatLiveSummary($payload['summary'], $payload['intent'] ?? null);
+            if ($summaryText !== null && trim($summaryText) !== '') {
+                return trim($summaryText);
+            }
+        }
+
         if (array_key_exists('answer', $payload)) {
             $formatted = $this->formatWebhookAnswer(
                 $payload['answer'],
-                isset($payload['count']) && is_numeric($payload['count']) ? (int) $payload['count'] : null
+                isset($payload['count']) && is_numeric($payload['count']) ? (int) $payload['count'] : null,
+                is_string($payload['response_mode'] ?? null) ? $payload['response_mode'] : null,
+                is_string($payload['intent'] ?? null) ? $payload['intent'] : null,
             );
             if ($formatted !== null && trim($formatted) !== '') {
                 return $formatted;
@@ -258,7 +361,7 @@ class AiChatAssistantService
         return $this->plainBodyFallback($rawBody);
     }
 
-    private function formatWebhookAnswer(mixed $answer, ?int $count = null): ?string
+    private function formatWebhookAnswer(mixed $answer, ?int $count = null, ?string $responseMode = null, ?string $intent = null): ?string
     {
         if (is_string($answer) && trim($answer) !== '') {
             return trim($answer);
@@ -270,6 +373,18 @@ class AiChatAssistantService
 
         if ($answer === []) {
             return $count === 0 ? 'Er zijn geen resultaten gevonden.' : null;
+        }
+
+        if ($responseMode === 'count' && $count !== null) {
+            return $this->formatCountAnswer($count, $intent);
+        }
+
+        if ($this->looksLikeDriverStatsList($answer)) {
+            return $this->formatDriverStatsList($answer);
+        }
+
+        if ($this->looksLikeCustomerStatsList($answer)) {
+            return $this->formatCustomerStatsList($answer);
         }
 
         if ($this->looksLikeTaxiRideList($answer)) {
@@ -312,8 +427,16 @@ class AiChatAssistantService
                 continue;
             }
 
-            if (isset($item['pickup_adres']) || isset($item['dropoff_adres']) || isset($item['klant_naam'])) {
-                return true;
+            $rideKeys = [
+                'pickup_adres', 'pickup_address', 'dropoff_adres', 'dropoff_address',
+                'klant_naam', 'customer_name', 'driver_name', 'chauffeur_naam',
+                'vehicle_name', 'voertuig_naam', 'pickup_at', 'pickup_tijd', 'status',
+            ];
+
+            foreach ($rideKeys as $key) {
+                if (isset($item[$key])) {
+                    return true;
+                }
             }
         }
 
@@ -342,13 +465,35 @@ class AiChatAssistantService
                 continue;
             }
 
-            $label = trim((string) ($ride['klant_naam'] ?? 'Rit '.($index + 1)));
-            $pickup = trim((string) ($ride['pickup_adres'] ?? ''));
-            $dropoff = trim((string) ($ride['dropoff_adres'] ?? ''));
-            $pickupTime = $this->formatPickupTime(isset($ride['pickup_tijd']) ? (string) $ride['pickup_tijd'] : null);
-            $status = trim((string) ($ride['status'] ?? ''));
+            $rideId = trim((string) ($ride['id'] ?? ''));
+            $customer = $this->rideFieldValue($ride, 'klant_naam', 'customer_name');
+            $pickup = $this->rideFieldValue($ride, 'pickup_adres', 'pickup_address');
+            $dropoff = $this->rideFieldValue($ride, 'dropoff_adres', 'dropoff_address');
+            $pickupTime = $this->formatPickupTime($this->rideFieldValue(
+                $ride,
+                'pickup_tijd',
+                'pickup_at',
+            ) ?: null);
+            $status = $this->rideFieldValue($ride, 'status_label')
+                ?: $this->rideFieldValue($ride, 'status');
+            $driver = $this->rideFieldValue($ride, 'chauffeur_naam', 'driver_name');
+            $vehicle = $this->rideFieldValue($ride, 'voertuig_naam', 'vehicle_name');
+            $phone = $this->rideFieldValue($ride, 'klant_telefoon', 'customer_phone');
+
+            $label = $customer !== ''
+                ? $customer
+                : ($rideId !== '' ? "Rit #{$rideId}" : 'Rit '.($index + 1));
 
             $entry = ($index + 1).'. '.$label;
+            if ($rideId !== '' && $customer !== '') {
+                $entry .= " (#{$rideId})";
+            }
+            if ($driver !== '') {
+                $entry .= "\n   Chauffeur: {$driver}";
+            }
+            if ($vehicle !== '') {
+                $entry .= "\n   Voertuig: {$vehicle}";
+            }
             if ($pickup !== '') {
                 $entry .= "\n   Van: {$pickup}";
             }
@@ -361,11 +506,148 @@ class AiChatAssistantService
             if ($status !== '') {
                 $entry .= "\n   Status: {$status}";
             }
+            if ($phone !== '') {
+                $entry .= "\n   Telefoon: {$phone}";
+            }
 
             $lines[] = $entry;
         }
 
         return implode("\n\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $ride
+     */
+    /**
+     * @param  array<string, mixed>  $summary
+     */
+    private function formatLiveSummary(array $summary, ?string $intent): ?string
+    {
+        if (isset($summary['total_amount'])) {
+            $amount = number_format((float) $summary['total_amount'], 2, ',', '.');
+            $rideCount = (int) ($summary['ride_count'] ?? 0);
+            $date = (string) ($summary['date'] ?? '');
+
+            return "Verwachte omzet op {$date}: €{$amount} ({$rideCount} ritten).";
+        }
+
+        return null;
+    }
+
+    private function formatCountAnswer(int $count, ?string $intent): string
+    {
+        return match ($intent) {
+            'ritten_vandaag' => $count === 1
+                ? 'Er staat vandaag 1 rit gepland.'
+                : "Er staan vandaag {$count} ritten gepland.",
+            'ritten_morgen' => $count === 1
+                ? 'Er staat morgen 1 rit gepland.'
+                : "Er staan morgen {$count} ritten gepland.",
+            default => $count === 1
+                ? 'Er is 1 resultaat.'
+                : "Er zijn {$count} resultaten.",
+        };
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function looksLikeDriverStatsList(array $rows): bool
+    {
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $hasDriver = isset($row['driver_name']) || isset($row['chauffeur_naam']);
+            $isStats = isset($row['ride_count']) || array_key_exists('available', $row);
+            $isRide = isset($row['pickup_address']) || isset($row['pickup_adres']);
+
+            if ($hasDriver && $isStats && ! $isRide) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function formatDriverStatsList(array $rows): string
+    {
+        if ($rows === []) {
+            return 'Geen chauffeurs gevonden.';
+        }
+
+        $lines = ['Gevonden chauffeurs:'];
+        foreach ($rows as $index => $row) {
+            $name = trim((string) ($row['driver_name'] ?? $row['chauffeur_naam'] ?? 'Onbekend'));
+            $count = (int) ($row['ride_count'] ?? 0);
+            $available = $row['available'] ?? null;
+
+            $entry = ($index + 1).'. '.$name;
+            if ($count > 0) {
+                $entry .= " ({$count} ritten)";
+            }
+            if ($available === true) {
+                $entry .= ' — beschikbaar';
+            }
+
+            $lines[] = $entry;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function looksLikeCustomerStatsList(array $rows): bool
+    {
+        foreach ($rows as $row) {
+            if (is_array($row) && isset($row['customer_name']) && isset($row['ride_count'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function formatCustomerStatsList(array $rows): string
+    {
+        if ($rows === []) {
+            return 'Geen klanten gevonden.';
+        }
+
+        $lines = ['Gevonden klanten:'];
+        foreach ($rows as $index => $row) {
+            $name = trim((string) ($row['customer_name'] ?? 'Onbekend'));
+            $count = (int) ($row['ride_count'] ?? 0);
+            $lines[] = ($index + 1).'. '.$name.($count > 0 ? " ({$count} ritten)" : '');
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function rideFieldValue(array $ride, string ...$keys): string
+    {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $ride)) {
+                continue;
+            }
+
+            $value = trim((string) $ride[$key]);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
     }
 
     private function formatPickupTime(?string $value): ?string

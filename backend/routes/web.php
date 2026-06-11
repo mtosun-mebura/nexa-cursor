@@ -812,21 +812,8 @@ Route::get('/wachtwoord-instellen', [FrontendAuthController::class, 'showSetPass
 Route::post('/wachtwoord-instellen', [FrontendAuthController::class, 'setPassword'])->middleware('auth')->name('frontend.set-password.post');
 Route::get('/register', fn () => redirect()->route('home'))->name('register');
 Route::post('/register', fn () => redirect()->route('home'))->name('register.post');
-Route::post('/logout', function () {
-    Auth::guard('web')->logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
-
-    return redirect('/');
-})->name('logout');
-
-Route::get('/logout', function () {
-    Auth::guard('web')->logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
-
-    return redirect('/');
-})->name('logout.get');
+Route::post('/logout', [FrontendAuthController::class, 'logout'])->name('logout');
+Route::get('/logout', [FrontendAuthController::class, 'logout'])->name('logout.get');
 
 Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController::class, 'sendMessage'])
     ->middleware('throttle:30,1')
@@ -922,6 +909,8 @@ Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(functi
     Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
 
     Route::prefix('mijn-taxi/api')->name('taxi.portal.api.')->group(function () {
+        Route::post('ai-chat/message', [\App\Modules\NexaTaxi\Controllers\TaxiPortalAiChatController::class, 'sendMessage'])
+            ->name('ai-chat.message');
         Route::get('dashboard', [TaxiPortalApiController::class, 'dashboard'])->name('dashboard');
         Route::get('rides', [TaxiPortalApiController::class, 'rides'])->name('rides');
         Route::get('rides/{ride}', [TaxiPortalApiController::class, 'showRide'])
@@ -930,6 +919,7 @@ Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(functi
         Route::get('invoices', [TaxiPortalApiController::class, 'invoices'])->name('invoices');
         Route::get('profile', [TaxiPortalApiController::class, 'profile'])->name('profile');
         Route::put('profile', [TaxiPortalApiController::class, 'updateProfile'])->name('profile.update');
+        Route::put('profile/password', [TaxiPortalApiController::class, 'updatePassword'])->name('profile.password');
         Route::get('invoices/{invoice}/pdf', [TaxiPortalApiController::class, 'downloadInvoicePdf'])
             ->name('invoices.pdf')
             ->whereNumber('invoice');

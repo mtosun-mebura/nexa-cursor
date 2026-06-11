@@ -311,7 +311,7 @@ class WebsiteBuilderService
 
     /**
      * Bepaalt het thema waarmee een website-pagina wordt getoond.
-     * Volgorde: tenant-thema op bedrijf → opgeslagen pagina-thema (indien gepubliceerd) → module-thema → fallback.
+     * Volgorde: opgeslagen pagina-thema (indien gepubliceerd) → tenant-thema op bedrijf → module-thema → fallback.
      */
     public function getThemeForPage(WebsitePage $page): ?FrontendTheme
     {
@@ -321,16 +321,16 @@ class WebsiteBuilderService
             $companyId = $this->resolvedPublicTenantCompanyId();
         }
 
-        $companyTheme = $this->getThemeForCompany($companyId);
-        if ($companyTheme) {
-            return $companyTheme;
-        }
-
         if ($page->frontend_theme_id) {
             $pageTheme = FrontendTheme::find((int) $page->frontend_theme_id);
             if ($pageTheme?->is_active) {
                 return $pageTheme;
             }
+        }
+
+        $companyTheme = $this->getThemeForCompany($companyId);
+        if ($companyTheme) {
+            return $companyTheme;
         }
 
         if (filled($page->module_name)) {

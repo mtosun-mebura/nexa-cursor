@@ -292,7 +292,6 @@ class TaxiRideInvoiceService
                 'email' => $location->email ?? $settings->company_email ?? $company?->email,
                 'phone' => $location->phone ?? $settings->company_phone ?? $company?->phone,
                 'vat_number' => $settings->company_vat_number ?? $company?->kvk_number,
-                'footer_text' => $settings->invoice_footer_text,
                 'payment_terms_days' => (int) $settings->payment_terms_days,
             ];
         }
@@ -306,7 +305,6 @@ class TaxiRideInvoiceService
             'email' => $settings->company_email ?? $company?->email,
             'phone' => $settings->company_phone ?? $company?->phone,
             'vat_number' => $settings->company_vat_number ?? $company?->kvk_number,
-            'footer_text' => $settings->invoice_footer_text,
             'payment_terms_days' => (int) $settings->payment_terms_days,
         ];
     }

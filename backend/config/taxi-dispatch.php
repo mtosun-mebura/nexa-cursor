@@ -13,6 +13,12 @@ return [
     'offer_ttl_seconds' => (int) env('TAXI_DISPATCH_OFFER_TTL', 300),
 
     /**
+     * Uren na het ophaalmoment dat een rit nog in de chauffeur-wachtrij mag staan.
+     * Per tenant overschrijfbaar via GeneralSetting `taxi_dispatch_past_pickup_grace_hours`.
+     */
+    'past_pickup_grace_hours' => (int) env('TAXI_DISPATCH_PAST_PICKUP_GRACE_HOURS', 2),
+
+    /**
      * Geldigheid eenmalige inlogcode Mijn Taxi (minuten) als er geen waarde in admin staat.
      * Per tenant: GeneralSetting `taxi_dispatch_customer_login_code_expires_minutes`.
      */

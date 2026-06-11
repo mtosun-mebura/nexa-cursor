@@ -99,7 +99,7 @@
                 <!-- Light/Dark mode toggle – altijd zichtbaar -->
                 <div class="flex items-center gap-0.5">
                     <button onclick="toggleDarkMode()" 
-                            class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
+                            class="p-2 rounded-lg text-gray-700 dark:text-white hover:text-blue-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200"
                             aria-label="Schakel tussen licht en donker thema" title="Licht / Donker">
                         <svg id="dark-mode-icon-moon" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>

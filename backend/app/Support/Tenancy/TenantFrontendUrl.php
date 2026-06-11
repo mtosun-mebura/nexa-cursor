@@ -13,6 +13,25 @@ final class TenantFrontendUrl
      * Frontend-URL die op dev (localhost) de tenant via ?_tenant_host behoudt;
      * op productie het tenant-domein gebruikt wanneer je niet al op dat domein zit.
      */
+    public static function afterLogoutHome(?int $companyId = null, ?Request $request = null, ?string $storedDevHost = null): string
+    {
+        $request = $request ?? request();
+        $home = route('home');
+
+        if ($companyId !== null && $companyId > 0) {
+            return self::for($home, $companyId, $request);
+        }
+
+        if (! app()->isProduction() && is_string($storedDevHost) && $storedDevHost !== '') {
+            $param = (string) config('tenancy.dev_effective_host_query_param', '');
+            if ($param !== '') {
+                return self::appendQueryParam(self::toAbsoluteUrl($home, $request), $param, $storedDevHost);
+            }
+        }
+
+        return $home;
+    }
+
     public static function for(string $url, ?int $companyId = null, ?Request $request = null): string
     {
         $request = $request ?? request();

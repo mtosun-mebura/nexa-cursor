@@ -3,7 +3,9 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class TaxiMolliePaymentService
 {
@@ -30,13 +32,17 @@ class TaxiMolliePaymentService
             $payload['webhookUrl'] = $webhookUrl;
         }
 
-        $response = $client->post('https://api.mollie.com/v2/payments', [
-            'headers' => [
-                'Authorization' => 'Bearer '.$apiKey,
-                'Content-Type' => 'application/json',
-            ],
-            'json' => $payload,
-        ]);
+        try {
+            $response = $client->post('https://api.mollie.com/v2/payments', [
+                'headers' => [
+                    'Authorization' => 'Bearer '.trim($apiKey),
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $payload,
+            ]);
+        } catch (RequestException $e) {
+            $this->throwFriendlyMollieError($e, 'createPayment');
+        }
 
         $body = json_decode((string) $response->getBody(), true);
 
@@ -85,5 +91,26 @@ class TaxiMolliePaymentService
     public function formatAmount(float $amount): string
     {
         return number_format(max(0.01, round($amount, 2)), 2, '.', '');
+    }
+
+    protected function throwFriendlyMollieError(RequestException $e, string $context): void
+    {
+        $status = $e->getResponse()?->getStatusCode();
+        $body = $e->getResponse() ? (string) $e->getResponse()->getBody() : '';
+
+        Log::warning('Mollie API-aanroep mislukt', [
+            'context' => $context,
+            'status' => $status,
+            'body' => mb_substr($body, 0, 500),
+            'error' => $e->getMessage(),
+        ]);
+
+        if ($status === 401 || ($status === 400 && str_contains($body, 'Authorization'))) {
+            throw new RuntimeException(
+                'De Mollie API-sleutel is ongeldig. Controleer onder Admin → Betalingsproviders of je een geldige test_- of live_-sleutel hebt ingevuld.'
+            );
+        }
+
+        throw new RuntimeException('Betaling starten bij Mollie is mislukt. Probeer het later opnieuw.');
     }
 }

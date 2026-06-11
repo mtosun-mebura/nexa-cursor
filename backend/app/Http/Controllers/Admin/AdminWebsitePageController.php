@@ -80,7 +80,8 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $installedModules = $this->moduleManager->getInstalledModules();
         $themes = FrontendTheme::orderBy('slug')->get();
-        $defaultTheme = $this->resolveDefaultThemeForWebsiteAdmin($request, null);
+        $themeFormContext = $this->websitePageThemeFormContext($request, null);
+        $defaultTheme = $themeFormContext['defaultTheme'];
         $moduleThemes = $this->getModuleThemesForForm($installedModules);
         $env = app(\App\Services\EnvService::class);
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
@@ -105,7 +106,7 @@ class AdminWebsitePageController extends Controller
 
         $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, null);
 
-        return view('admin.website-pages.create', compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder', 'websiteDevPreviewUrl'));
+        return view('admin.website-pages.create', array_merge(compact('installedModules', 'themes', 'defaultTheme', 'moduleThemes', 'googleMapsApiKey', 'googleMapsMapId', 'emailTemplates', 'wizardBackUrl', 'wizardIndexQuery', 'moduleNameForComponents', 'websiteTenantContext', 'suggestedSortOrder', 'websiteDevPreviewUrl'), $themeFormContext));
     }
 
     public function store(Request $request)
@@ -163,7 +164,8 @@ class AdminWebsitePageController extends Controller
         $connForCompany = $connection ?? config('database.default');
         $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForCompany, null);
         $activeTheme = $this->resolveThemeModelForWebsitePageSave($request, $data, $moduleName);
-        $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
+        $resolvedThemeId = $activeTheme ? (int) $activeTheme->id : null;
+        $data['frontend_theme_id'] = $resolvedThemeId;
         $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         $input = $this->getHomeSectionsInput($request);
         if ($data['page_type'] === 'home') {
@@ -178,8 +180,17 @@ class AdminWebsitePageController extends Controller
             $request
         );
         if ($connection !== null) {
-            $data['frontend_theme_id'] = null;
-            WebsitePage::on($connection)->create($data);
+            if ($this->websitePagesTableHasColumn($connection, 'frontend_theme_id')) {
+                $data['frontend_theme_id'] = $resolvedThemeId;
+            } else {
+                $data['frontend_theme_id'] = null;
+            }
+            $page = WebsitePage::on($connection)->create($data);
+            if ($resolvedThemeId !== null) {
+                $mirrorSyncData = $data;
+                $mirrorSyncData['frontend_theme_id'] = $resolvedThemeId;
+                $this->syncWebsitePageMirrorConnection($page, $mirrorSyncData);
+            }
         } else {
             WebsitePage::create($data);
         }
@@ -216,7 +227,8 @@ class AdminWebsitePageController extends Controller
         }
         $installedModules = $this->moduleManager->getInstalledModules();
         $themes = FrontendTheme::orderBy('slug')->get();
-        $defaultTheme = $this->resolveDefaultThemeForWebsiteAdmin($request, $website_page);
+        $themeFormContext = $this->websitePageThemeFormContext($request, $website_page);
+        $defaultTheme = $themeFormContext['defaultTheme'];
         $moduleThemes = $this->getModuleThemesForForm($installedModules);
         $env = app(\App\Services\EnvService::class);
         $googleMapsApiKey = $env->getGoogleMapsApiKey();
@@ -269,7 +281,7 @@ class AdminWebsitePageController extends Controller
             (string) $request->userAgent()
         );
 
-        return view('admin.website-pages.edit', [
+        return view('admin.website-pages.edit', array_merge([
             'page' => $website_page,
             'installedModules' => $installedModules,
             'themes' => $themes,
@@ -286,7 +298,7 @@ class AdminWebsitePageController extends Controller
             'isCentralMarketingWelcome' => $isCentralMarketingWelcome,
             'websiteDevPreviewUrl' => $websiteDevPreviewUrl,
             'collapseSectionsByDefault' => $collapseSectionsByDefault,
-        ]);
+        ], $themeFormContext));
     }
 
     /**
@@ -781,8 +793,11 @@ class AdminWebsitePageController extends Controller
         }
         $this->mergeCompanyIdIntoWebsitePageSaveData($data, $request, $connForSchema, $website_page);
         $activeTheme = $this->resolveThemeModelForWebsitePageSave($request, $data, $moduleName);
-        if (! $usesModuleDatabase) {
-            $data['frontend_theme_id'] = $activeTheme ? (int) $activeTheme->id : null;
+        $resolvedThemeId = $activeTheme ? (int) $activeTheme->id : null;
+        if ($this->websitePagesTableHasColumn($connForSchema, 'frontend_theme_id')) {
+            $data['frontend_theme_id'] = $resolvedThemeId;
+        } else {
+            unset($data['frontend_theme_id']);
         }
         $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
         // home_sections niet meenemen in validate() om BadRequestException te voorkomen (ParameterBag verwacht array;
@@ -868,9 +883,6 @@ class AdminWebsitePageController extends Controller
             } else {
                 $data['home_sections'] = $this->normalizeHomeSections($input, $themeSlug, true, $existingSectionOrder, $removedSectionKeys, $rawStoredHomeSections);
             }
-            if ($usesModuleDatabase) {
-                $data['frontend_theme_id'] = null;
-            }
             $reviewsCompanyId = $this->resolveGoogleReviewsCompanyIdForSave(
                 $data,
                 $website_page,
@@ -878,7 +890,11 @@ class AdminWebsitePageController extends Controller
             );
             $this->persistGoogleReviewsSettingsFromHomeSectionsInput($input, $reviewsCompanyId, $request);
             $website_page->update($data);
-            $this->syncWebsitePageMirrorConnection($website_page->fresh(), $data);
+            $mirrorSyncData = $data;
+            if ($resolvedThemeId !== null) {
+                $mirrorSyncData['frontend_theme_id'] = $resolvedThemeId;
+            }
+            $this->syncWebsitePageMirrorConnection($website_page->fresh(), $mirrorSyncData);
         } catch (\Throwable $e) {
             \Log::error('Website page update failed', [
                 'page_id' => $website_page->id,
@@ -2100,10 +2116,15 @@ class AdminWebsitePageController extends Controller
 
                 $intervalSeconds = isset($raw['interval_seconds']) ? (int) $raw['interval_seconds'] : 5;
                 $intervalSeconds = max(0, min(120, $intervalSeconds));
+                $maxHeightPercent = isset($raw['max_height_percent']) && $raw['max_height_percent'] !== ''
+                    ? (int) $raw['max_height_percent']
+                    : 0;
+                $maxHeightPercent = max(0, min(100, $maxHeightPercent));
 
                 return [
                     'items' => $items,
                     'interval_seconds' => $intervalSeconds,
+                    'max_height_percent' => $maxHeightPercent,
                 ];
             case 'cards_ronde_hoeken':
                 $items = [];
@@ -2611,21 +2632,20 @@ class AdminWebsitePageController extends Controller
      */
     private function resolveFrontendThemeIdFromRequest(Request $request): ?int
     {
+        $selected = $this->resolveSelectedFrontendThemeFromRequest($request);
+        if ($selected !== null) {
+            return (int) $selected->id;
+        }
+
         $companyId = $this->resolveWebsitePageCompanyIdForPersistence($request, null)
             ?? $this->resolveWebsitePageCompanyIdFromImplicitContext($request)
-            ?? $this->resolveExplicitWizardCompanyId($request);
+            ?? $this->resolveExplicitWizardCompanyId($request)
+            ?? $this->resolveWizardCompanyIdFromOnboardingSession();
         $companyTheme = $this->websiteBuilder->getThemeForCompany($companyId);
         if ($companyTheme) {
             return (int) $companyTheme->id;
         }
 
-        $themeId = $request->input('frontend_theme_id');
-        if ($themeId !== null && $themeId !== '') {
-            $id = (int) $themeId;
-            if ($id > 0 && FrontendTheme::where('id', $id)->exists()) {
-                return $id;
-            }
-        }
         $moduleName = $request->input('module_name');
         if (empty($moduleName) || ! is_string($moduleName)) {
             return null;
@@ -2662,6 +2682,54 @@ class AdminWebsitePageController extends Controller
         }
 
         return $this->websiteBuilder->getActiveTheme($companyId);
+    }
+
+    /**
+     * @return array{
+     *     selectableThemes: \Illuminate\Database\Eloquent\Collection<int, FrontendTheme>,
+     *     defaultTheme: FrontendTheme|null,
+     *     companyThemeLocked: bool,
+     *     selectedThemeId: int|string|null
+     * }
+     */
+    private function websitePageThemeFormContext(Request $request, ?WebsitePage $page): array
+    {
+        $companyId = $this->resolveCompanyIdForWebsiteThemeAdmin($request, $page);
+        $companyTheme = $this->websiteBuilder->getThemeForCompany($companyId);
+        $defaultTheme = $this->resolveDefaultThemeForWebsiteAdmin($request, $page);
+        $pageThemeId = $page?->frontend_theme_id;
+        if (($pageThemeId === null || $pageThemeId === '') && $page !== null) {
+            $resolvedPageTheme = $this->websiteBuilder->getThemeForPage($page);
+            $pageThemeId = $resolvedPageTheme?->id;
+        }
+        $selectedThemeId = old('frontend_theme_id', $pageThemeId ?? $defaultTheme?->id);
+
+        return [
+            'selectableThemes' => FrontendTheme::getAllActive(),
+            'defaultTheme' => $defaultTheme,
+            'companyThemeLocked' => false,
+            'companyTheme' => $companyTheme,
+            'selectedThemeId' => $selectedThemeId,
+        ];
+    }
+
+    private function resolveSelectedFrontendThemeFromRequest(Request $request, array $data = []): ?FrontendTheme
+    {
+        $themeId = $request->input('frontend_theme_id');
+        if (($themeId === null || $themeId === '') && array_key_exists('frontend_theme_id', $data)) {
+            $themeId = $data['frontend_theme_id'];
+        }
+        if (($themeId === null || $themeId === '') && $request->getContent() !== '') {
+            parse_str($request->getContent(), $parsed);
+            $themeId = $parsed['frontend_theme_id'] ?? null;
+        }
+        if ($themeId === null || $themeId === '') {
+            return null;
+        }
+
+        $theme = FrontendTheme::find((int) $themeId);
+
+        return ($theme && $theme->is_active) ? $theme : null;
     }
 
     /**
@@ -2731,21 +2799,17 @@ class AdminWebsitePageController extends Controller
 
     private function resolveThemeModelForWebsitePageSave(Request $request, array $data, ?string $moduleName): ?FrontendTheme
     {
+        $selectedTheme = $this->resolveSelectedFrontendThemeFromRequest($request, $data);
+        if ($selectedTheme !== null) {
+            return $selectedTheme;
+        }
+
         $companyId = isset($data['company_id']) && $data['company_id'] !== null && $data['company_id'] !== ''
             ? (int) $data['company_id']
             : null;
         $companyTheme = $this->websiteBuilder->getThemeForCompany($companyId);
         if ($companyTheme) {
             return $companyTheme;
-        }
-
-        $themeId = $request->input('frontend_theme_id');
-        if ($themeId !== null && $themeId !== '') {
-            $id = (int) $themeId;
-            $theme = FrontendTheme::find($id);
-            if ($theme?->is_active) {
-                return $theme;
-            }
         }
 
         if ($moduleName !== null && trim($moduleName) !== '') {
@@ -3008,7 +3072,18 @@ class AdminWebsitePageController extends Controller
             return $implicit;
         }
 
-        return null;
+        return $this->resolveWizardCompanyIdFromOnboardingSession();
+    }
+
+    private function resolveWizardCompanyIdFromOnboardingSession(): ?int
+    {
+        $sid = session(AdminCompanyWizardController::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
+        if ($sid === null || $sid === '' || ! is_numeric($sid)) {
+            return null;
+        }
+        $id = (int) $sid;
+
+        return Company::whereKey($id)->exists() ? $id : null;
     }
 
     /**

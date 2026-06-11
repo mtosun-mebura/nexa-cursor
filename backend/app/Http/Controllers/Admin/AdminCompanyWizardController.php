@@ -122,7 +122,6 @@ class AdminCompanyWizardController extends AdminCompanyController
             5 => view('admin.companies.wizard.step5', array_merge($viewData, [
                 'companyUsers' => User::query()
                     ->where('company_id', $company->id)
-                    ->with('roles')
                     ->orderByDesc('created_at')
                     ->get(),
             ])),

@@ -18,6 +18,7 @@
         </div>
         <!-- Topbar -->
         <div class="flex items-center gap-2.5 shrink-0 ms-auto">
+            @include('admin.layouts.partials.ai-chatbot-trigger')
             @include('partials.topbar-notification-dropdown')
             @include('partials.topbar-chat')
             @include('partials.topbar-user-dropdown')

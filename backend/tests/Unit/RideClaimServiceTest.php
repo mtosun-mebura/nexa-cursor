@@ -196,4 +196,92 @@ class RideClaimServiceTest extends TestCase
             ->first();
         $this->assertSame(RideDispatchOffer::STATUS_DECLINED, $driverOffer->status);
     }
+
+    public function test_decline_pending_offer_marks_declined(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Test',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+            'offered_at' => now(),
+            'expires_at' => now()->addMinute(),
+        ]);
+
+        $claim = app(RideClaimService::class);
+        $declined = $claim->declineOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(RideDispatchOffer::STATUS_DECLINED, $declined->fresh()->status);
+    }
+
+    public function test_decline_expired_offer_marks_declined(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Test',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_EXPIRED,
+            'offered_at' => now()->subMinutes(10),
+            'expires_at' => now()->subMinute(),
+            'responded_at' => now()->subMinute(),
+        ]);
+
+        $claim = app(RideClaimService::class);
+        $declined = $claim->declineOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(RideDispatchOffer::STATUS_DECLINED, $declined->fresh()->status);
+    }
+
+    public function test_accept_declined_offer_assigns_driver(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_OFFERED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Test',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_DECLINED,
+            'offered_at' => now()->subMinutes(5),
+            'expires_at' => now()->subMinute(),
+            'responded_at' => now()->subMinute(),
+        ]);
+
+        $claim = app(RideClaimService::class);
+        $result = $claim->acceptOffer('module_taxi', $driver, $offer->id);
+
+        $this->assertSame(RideRequest::STATUS_ACCEPTED, $result['ride']->status);
+        $this->assertSame($driver->id, (int) $result['ride']->driver_id);
+        $this->assertSame(RideDispatchOffer::STATUS_ACCEPTED, $result['offer']->fresh()->status);
+    }
 }

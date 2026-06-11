@@ -18,14 +18,22 @@ final class AiChatSqlTokenService
 
         $ttl = max(30, (int) config('ai_chat.sql_token_ttl_seconds', 120));
 
-        return Crypt::encryptString(json_encode([
+        $payload = [
             'company_id' => $context->companyId,
+            'channel' => $context->channel->value,
             'user_id' => $context->userId,
             'intent' => $intent->intent->value,
             'allow_live_data' => $intent->allowLiveData,
             'allow_public_rates' => $intent->allowPublicRates,
+            'response_mode' => $intent->responseMode->value,
             'exp' => now()->addSeconds($ttl)->timestamp,
-        ], JSON_THROW_ON_ERROR));
+        ];
+
+        if ($intent->queryHint !== null && $intent->queryHint !== '') {
+            $payload['query_hint'] = $intent->queryHint;
+        }
+
+        return Crypt::encryptString(json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -50,7 +58,7 @@ final class AiChatSqlTokenService
             throw new RuntimeException('Ongeldig SQL-token.');
         }
 
-        foreach (['company_id', 'intent', 'allow_live_data', 'allow_public_rates', 'exp'] as $key) {
+        foreach (['company_id', 'channel', 'intent', 'allow_live_data', 'allow_public_rates', 'exp'] as $key) {
             if (! array_key_exists($key, $payload)) {
                 throw new RuntimeException('SQL-token mist verplichte claims.');
             }
@@ -77,11 +85,14 @@ final class AiChatSqlTokenService
 
         return [
             'company_id' => (int) $payload['company_id'],
+            'channel' => (string) $payload['channel'],
             'user_id' => isset($payload['user_id']) ? (int) $payload['user_id'] : null,
             'intent' => (string) $payload['intent'],
             'allow_live_data' => $allowLiveData,
             'allow_public_rates' => $allowPublicRates,
             'exp' => (int) $payload['exp'],
+            'query_hint' => isset($payload['query_hint']) ? (string) $payload['query_hint'] : null,
+            'response_mode' => isset($payload['response_mode']) ? (string) $payload['response_mode'] : 'list',
         ];
     }
 }

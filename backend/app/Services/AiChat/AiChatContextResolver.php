@@ -29,6 +29,26 @@ final class AiChatContextResolver
         );
     }
 
+    public function forMijnTaxiRequest(User $user, ?string $module = null, ?string $sessionId = null): AiChatRequestContext
+    {
+        $companyId = GeneralSetting::resolveScopeCompanyId();
+        if ($companyId === null && $user->company_id) {
+            $companyId = (int) $user->company_id;
+        }
+        if ($companyId === null) {
+            throw new RuntimeException('Bedrijfscontext ontbreekt voor de AI-assistent.');
+        }
+
+        return new AiChatRequestContext(
+            companyId: (int) $companyId,
+            channel: AiChatChannel::MijnTaxi,
+            userId: (int) $user->id,
+            user: $user,
+            sessionId: $sessionId,
+            module: strtolower(trim((string) ($module ?: 'taxi'))),
+        );
+    }
+
     public function forAdminRequest(User $user, ?string $module = null, ?string $sessionId = null): AiChatRequestContext
     {
         if (! $this->accessService->userMayQueryLiveData($user)) {

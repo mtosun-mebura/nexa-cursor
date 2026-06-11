@@ -28,4 +28,17 @@ class AiChatRichTextFormatterTest extends TestCase
 
         $this->assertSame('E-mail: [test@example.com](mailto:test@example.com)', $result);
     }
+
+    public function test_converts_html_list_to_bullet_lines(): void
+    {
+        $formatter = new AiChatRichTextFormatter();
+
+        $result = $formatter->htmlToChatText(
+            '<p>Intro</p><ul><li>Eerste punt</li><li>Tweede punt</li></ul>'
+        );
+
+        $this->assertStringContainsString('- Eerste punt', $result);
+        $this->assertStringContainsString('- Tweede punt', $result);
+        $this->assertStringNotContainsString('<li>', $result);
+    }
 }

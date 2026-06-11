@@ -11,6 +11,7 @@ use App\Services\ModuleDatabaseService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -79,7 +80,7 @@ class TaxiPortalDataService
         }
 
         return $query
-            ->orderByDesc('invoice_date')
+            ->orderByDesc('invoice_number')
             ->orderByDesc('id')
             ->limit(200)
             ->get()
@@ -150,6 +151,19 @@ class TaxiPortalDataService
         ])->save();
 
         return $user->fresh();
+    }
+
+    public function updatePassword(User $user, string $currentPassword, string $newPassword): void
+    {
+        if (! Hash::check($currentPassword, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Huidig wachtwoord is onjuist.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password' => $newPassword,
+        ])->save();
     }
 
     public function findRideForCustomer(User $user, int $rideId): ?RideRequest
@@ -421,10 +435,16 @@ class TaxiPortalDataService
     protected function rideStatusBadge(string $status): string
     {
         return match ($status) {
+            RideRequest::STATUS_DRAFT => 'secondary',
+            RideRequest::STATUS_QUOTED => 'mono',
+            RideRequest::STATUS_PENDING_PAYMENT => 'pending_payment',
+            RideRequest::STATUS_PENDING_DISPATCH => 'pending_dispatch',
+            RideRequest::STATUS_OFFERED => 'offered',
+            RideRequest::STATUS_ACCEPTED => 'accepted',
+            RideRequest::STATUS_ASSIGNED => 'assigned',
             RideRequest::STATUS_COMPLETED => 'success',
-            RideRequest::STATUS_CANCELLED => 'danger',
-            RideRequest::STATUS_PENDING_PAYMENT => 'warning',
-            default => 'info',
+            RideRequest::STATUS_CANCELLED => 'destructive',
+            default => 'secondary',
         };
     }
 
@@ -432,9 +452,10 @@ class TaxiPortalDataService
     {
         return match ($status) {
             'paid' => 'success',
-            'sent', 'in_progress' => 'info',
-            'overdue' => 'danger',
-            'cancelled' => 'danger',
+            'sent' => 'invoice_sent',
+            'in_progress' => 'invoice_progress',
+            'overdue', 'cancelled' => 'destructive',
+            'draft' => 'secondary',
             default => 'secondary',
         };
     }

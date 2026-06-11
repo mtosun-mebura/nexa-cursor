@@ -40,6 +40,11 @@ return [
         '/integrations/n8n/ai-chat/live-query'
     ),
 
+    'laravel_rag_search_path' => env(
+        'AI_CHAT_LARAVEL_RAG_SEARCH_PATH',
+        '/integrations/n8n/ai-chat/rag-search'
+    ),
+
     /*
     | Publieke tarieventabel in het Nexa Taxi schema (tenant via module-DB).
     */

@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\JobTitle;
 use App\Models\User;
 use App\Support\ModuleSchemaAvailability;
+use App\Support\WebRoleFormOptions;
 use App\Services\EnvService;
 use App\Services\UserRoleAssignmentService;
 use Illuminate\Database\Eloquent\Builder;
@@ -137,12 +138,7 @@ class AdminUserController extends Controller
             $companies = Company::where('id', $user->company_id)->get();
         }
 
-        // Filter rollen op basis van gebruiker rechten (alleen web-guard; anders dubbele api/web rijen)
-        if ($user->hasRole('super-admin')) {
-            $roles = Role::where('guard_name', 'web')->orderBy('name')->get();
-        } else {
-            $roles = Role::where('guard_name', 'web')->where('name', '!=', 'super-admin')->orderBy('name')->get();
-        }
+        $roles = $this->assignableWebRolesForForms($user->hasRole('super-admin'));
 
         $defaultRoleForForm = null;
         if ($user->hasRole('super-admin')) {
@@ -279,12 +275,7 @@ class AdminUserController extends Controller
             $companies = Company::where('id', $currentUser->company_id)->get();
         }
 
-        // Filter rollen op basis van gebruiker rechten (alleen web-guard; anders dubbele api/web rijen)
-        if ($currentUser->hasRole('super-admin')) {
-            $roles = Role::where('guard_name', 'web')->orderBy('name')->get();
-        } else {
-            $roles = Role::where('guard_name', 'web')->where('name', '!=', 'super-admin')->orderBy('name')->get();
-        }
+        $roles = $this->assignableWebRolesForForms($currentUser->hasRole('super-admin'));
 
         return view('admin.users.edit', compact('user', 'companies', 'roles'));
     }
@@ -782,6 +773,25 @@ class AdminUserController extends Controller
                 ->where("{$rolesTable}.guard_name", 'web')
                 ->where("{$rolesTable}.name", $roleName);
         });
+    }
+
+    /**
+     * Unieke web-rollen voor toewijzing in gebruikersformulieren.
+     * Met Spatie teams kan dezelfde rolnaam meerdere keren voorkomen (per company_id).
+     *
+     * @return \Illuminate\Support\Collection<int, Role>
+     */
+    private function assignableWebRolesForForms(bool $includeSuperAdmin): \Illuminate\Support\Collection
+    {
+        $query = Role::query()
+            ->where('guard_name', 'web')
+            ->orderBy('name');
+
+        if (! $includeSuperAdmin) {
+            $query->where('name', '!=', 'super-admin');
+        }
+
+        return WebRoleFormOptions::dedupe($query->get());
     }
 
     /**

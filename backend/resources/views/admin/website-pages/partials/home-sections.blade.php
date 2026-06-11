@@ -206,13 +206,16 @@
                                value="{{ $titleHighlightColorPicker }}"
                                title="Kleur kiezen"
                                data-target-input="hero-{{ $sectionKey }}-title_highlight_color">
+                        <div class="home-section-hex-input-wrap shrink-0">
                         <input type="text"
                                name="home_sections[{{ $sectionKey }}][title_highlight_color]"
                                id="hero-{{ $sectionKey }}-title_highlight_color"
-                               class="kt-input flex-1 font-mono text-sm hero-title-highlight-hex-input"
+                               class="kt-input w-full font-mono text-sm home-section-hex-input hero-title-highlight-hex-input"
                                value="{{ $titleHighlightColor }}"
                                placeholder="{{ $titleHighlightColorDefault }}"
-                               maxlength="7">
+                               maxlength="7"
+                               data-skip-validation-wrapper="1">
+                        </div>
                     </div>
                     <p class="text-xs text-muted-foreground mt-1">Het woord uit de titel dat in deze kleur wordt getoond. Leeg = standaard themakleur.</p>
                 </div>
@@ -316,7 +319,9 @@
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Overloop kleur van</label>
                     <div class="flex items-center gap-2">
                         <input type="color" id="hero-{{ $sectionKey }}-overlay_color_from_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-overlay_color_from">
-                        <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_from]" id="hero-{{ $sectionKey }}-overlay_color_from" class="kt-input flex-1 font-mono text-sm hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" placeholder="#1e3a8a" maxlength="7">
+                        <div class="home-section-hex-input-wrap shrink-0">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_from]" id="hero-{{ $sectionKey }}-overlay_color_from" class="kt-input w-full font-mono text-sm home-section-hex-input hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" placeholder="#1e3a8a" maxlength="7" data-skip-validation-wrapper="1">
+                        </div>
                     </div>
                     <p class="text-xs text-muted-foreground mt-1">Startkleur van de gradient over de afbeelding.</p>
                 </div>
@@ -324,7 +329,9 @@
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Overloop kleur naar</label>
                     <div class="flex items-center gap-2">
                         <input type="color" id="hero-{{ $sectionKey }}-overlay_color_to_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-overlay_color_to">
-                        <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_to]" id="hero-{{ $sectionKey }}-overlay_color_to" class="kt-input flex-1 font-mono text-sm hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" placeholder="#312e81" maxlength="7">
+                        <div class="home-section-hex-input-wrap shrink-0">
+                        <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_to]" id="hero-{{ $sectionKey }}-overlay_color_to" class="kt-input w-full font-mono text-sm home-section-hex-input hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" placeholder="#312e81" maxlength="7" data-skip-validation-wrapper="1">
+                        </div>
                     </div>
                     <p class="text-xs text-muted-foreground mt-1">Eindkleur van de gradient.</p>
                 </div>
@@ -402,7 +409,7 @@
                             <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
@@ -410,7 +417,7 @@
                             <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#1e3a8a' }}" title="Tekstkleur">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e3a8a"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
@@ -418,7 +425,7 @@
                             <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#1e40af' }}" title="Borderkleur">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
@@ -431,7 +438,7 @@
                             <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
@@ -439,7 +446,7 @@
                             <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#1e40af' }}" title="Tekstkleur">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
@@ -447,7 +454,7 @@
                             <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                             <div class="flex items-center gap-2">
                                 <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1e40af' }}" title="Borderkleur">
-                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
+                                <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
                                 <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
@@ -502,7 +509,7 @@
                                 <div class="flex items-center gap-1.5">
                                     <label class="text-xs text-muted-foreground shrink-0">Kleur waarde</label>
                                     <input type="color" id="stats_value_color_picker_{{ $sectionKey }}_{{ $i }}" class="h-8 w-10 cursor-pointer rounded border border-input bg-background p-0.5 shrink-0" value="{{ $statsPickerColor }}" title="Kleur waarde" aria-label="Kleur waarde">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][value_color]" class="kt-input text-xs font-mono w-20" value="{{ old("home_sections.{$sectionKey}.{$i}.value_color", $statsItems[$i]['value_color'] ?? '') }}" placeholder="#hex" maxlength="7">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][value_color]" class="kt-input text-xs font-mono home-section-hex-input" value="{{ old("home_sections.{$sectionKey}.{$i}.value_color", $statsItems[$i]['value_color'] ?? '') }}" placeholder="#hex" maxlength="7">
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     <label class="text-xs text-muted-foreground shrink-0">Grootte waarde</label>
@@ -562,7 +569,9 @@
                 <label class="block text-sm font-medium text-secondary-foreground">Achtergrondkleur sectie</label>
                 <div class="flex items-center gap-2 w-full">
                     <input type="color" id="stats_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ !empty($sectionData['background']) ? $sectionData['background'] : '#f3f4f6' }}" title="Kies kleur" aria-label="Achtergrondkleur">
-                    <input type="text" name="home_sections[{{ $sectionKey }}][background]" id="stats_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full flex-1 font-mono" value="{{ old('home_sections.'.$sectionKey.'.background', $sectionData['background'] ?? '') }}" placeholder="Leeg = standaard" maxlength="7">
+                    <div class="home-section-hex-input-wrap shrink-0">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][background]" id="stats_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.background', $sectionData['background'] ?? '') }}" placeholder="#f3f4f6" maxlength="7" data-skip-validation-wrapper="1">
+                    </div>
                     <button type="button" class="stats-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="stats_bg_picker_{{ $sectionKey }}" data-input-id="stats_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
@@ -830,7 +839,7 @@
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $cardItem['image_bg_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $cardItem['image_bg_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -838,7 +847,7 @@
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $cardItem['text_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-text-color">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $cardItem['text_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-text-color">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -940,7 +949,9 @@
                 <label class="text-sm font-medium text-secondary-foreground flex items-center">Achtergrondkleur kaarten</label>
                 <div class="flex items-center gap-2 w-full">
                     <input type="color" id="featured_services_card_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($sectionData['card_bg_color']) ? $sectionData['card_bg_color'] : '#ffffff' }}" title="Kies kleur" aria-label="Kies achtergrondkleur">
-                    <input type="text" name="home_sections[{{ $sectionKey }}][card_bg_color]" id="featured_services_card_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full flex-1 font-mono" value="{{ old('home_sections.'.$sectionKey.'.card_bg_color', $sectionData['card_bg_color'] ?? '') }}" placeholder="Leeg = standaard (bijv. #f3f4f6)" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
+                    <div class="home-section-hex-input-wrap shrink-0">
+                    <input type="text" name="home_sections[{{ $sectionKey }}][card_bg_color]" id="featured_services_card_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.card_bg_color', $sectionData['card_bg_color'] ?? '') }}" placeholder="#f3f4f6" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$" data-skip-validation-wrapper="1">
+                    </div>
                     <button type="button" class="featured-services-card-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="featured_services_card_bg_picker_{{ $sectionKey }}" data-input-id="featured_services_card_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
@@ -1012,7 +1023,7 @@
                         <label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label>
                         <div class="flex items-center gap-2">
                             <input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($fsItem['icon_color']) ? $fsItem['icon_color'] : '#2563eb' }}" title="Kies icoonkleur" aria-label="Icoonkleur">
-                            <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon_color]" class="kt-input text-sm w-24 font-mono" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.icon_color', $fsItem['icon_color'] ?? '') }}" placeholder="#hex" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
+                            <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon_color]" class="kt-input text-sm font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.icon_color', $fsItem['icon_color'] ?? '') }}" placeholder="#hex" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
                         </div>
                     </div>
                     <div>
@@ -1199,12 +1210,14 @@
                 <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image_url]" id="cta-{{ $sectionKey }}-background_image_url" value="{{ old('home_sections.'.$sectionKey.'.background_image_url', $sectionData['background_image_url'] ?? '') }}">
             </div>
             <div class="row-visibility-row">
-                <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Titel</label>
+                <div class="w-full min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <label class="text-sm font-medium text-secondary-foreground">Titel</label>
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
                 <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    </div>
+                    <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-4xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Klaar om je carrière te starten?') }}">
                 </div>
-                <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Klaar om je carrière te starten?') }}">
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
@@ -1247,7 +1260,7 @@
                                 <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#2563eb' }}" title="Achtergrond">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#2563eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1255,7 +1268,7 @@
                                 <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#ffffff' }}" title="Tekstkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1263,7 +1276,7 @@
                                 <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#ffffff' }}" title="Borderkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1276,7 +1289,7 @@
                                 <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1284,7 +1297,7 @@
                                 <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#ffffff' }}" title="Tekstkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1292,7 +1305,7 @@
                                 <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1f2937' }}" title="Borderkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1f2937"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1329,6 +1342,8 @@
             @php
                 $carouselIntervalSeconds = (int) old('home_sections.'.$sectionKey.'.interval_seconds', $sectionData['interval_seconds'] ?? 5);
                 $carouselIntervalSeconds = max(0, min(120, $carouselIntervalSeconds));
+                $carouselMaxHeightPercent = old('home_sections.'.$sectionKey.'.max_height_percent', $sectionData['max_height_percent'] ?? 0);
+                $carouselMaxHeightPercent = max(0, min(100, (int) $carouselMaxHeightPercent));
             @endphp
             <style>
                 .carousel-slide-caption-options,
@@ -1337,17 +1352,31 @@
                 .carousel-slide-caption-timing-options .carousel-slide-caption-field { flex: 0 0 auto !important; width: auto !important; max-width: none !important; }
             </style>
             <p class="text-sm text-muted-foreground mb-3">Carousel-slides (website media, versleuteld opgeslagen). Upload via de zone hieronder; per slide een omschrijving (alt-tekst). Sleep slides via het icoon links om de volgorde te wijzigen.</p>
-            <div class="max-w-xs">
-                <label for="carousel-interval-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">Wisselinterval (seconden)</label>
-                <input type="number"
-                       id="carousel-interval-{{ $sectionKey }}"
-                       name="home_sections[{{ $sectionKey }}][interval_seconds]"
-                       class="kt-input w-full"
-                       min="0"
-                       max="120"
-                       step="1"
-                       value="{{ $carouselIntervalSeconds }}">
-                <p class="text-xs text-muted-foreground mt-1">Tijd tussen slides op de website. 0 = geen automatisch wisselen (alleen pijltjes/indicators).</p>
+            <div class="flex flex-wrap gap-4 max-w-2xl">
+                <div class="max-w-xs flex-1 min-w-[10rem]">
+                    <label for="carousel-interval-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">Wisselinterval (seconden)</label>
+                    <input type="number"
+                           id="carousel-interval-{{ $sectionKey }}"
+                           name="home_sections[{{ $sectionKey }}][interval_seconds]"
+                           class="kt-input w-full"
+                           min="0"
+                           max="120"
+                           step="1"
+                           value="{{ $carouselIntervalSeconds }}">
+                    <p class="text-xs text-muted-foreground mt-1">Tijd tussen slides op de website. 0 = geen automatisch wisselen (alleen pijltjes/indicators).</p>
+                </div>
+                <div class="max-w-xs flex-1 min-w-[10rem]">
+                    <label for="carousel-max-height-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">Maximale hoogte (% scherm)</label>
+                    <input type="number"
+                           id="carousel-max-height-{{ $sectionKey }}"
+                           name="home_sections[{{ $sectionKey }}][max_height_percent]"
+                           class="kt-input w-full"
+                           min="0"
+                           max="100"
+                           step="1"
+                           value="{{ $carouselMaxHeightPercent }}">
+                    <p class="text-xs text-muted-foreground mt-1">Percentage van de schermhoogte (bijv. 45). Afbeeldingen schalen automatisch mee. 0 = geen limiet.</p>
+                </div>
             </div>
             <div class="carousel-upload-area hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 mb-3 cursor-pointer text-center"
                  data-section-key="{{ $sectionKey }}"
@@ -1393,7 +1422,7 @@
                                     <input type="text"
                                            name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_color]"
                                            id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}"
-                                           class="carousel-slide-text-color-hex-input kt-input w-full font-mono text-sm"
+                                           class="carousel-slide-text-color-hex-input kt-input w-full font-mono text-sm home-section-hex-input"
                                            value="{{ $slideTextColor }}"
                                            placeholder="#ffffff"
                                            maxlength="7"
@@ -1660,7 +1689,7 @@
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $item['image_bg_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $item['image_bg_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1668,7 +1697,7 @@
                                 <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input w-24 font-mono text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $item['text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $item['text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color">
                                     <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
@@ -1890,7 +1919,7 @@
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
                         <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}" title="Grote koffer telt bv. als 2"></div>
-                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
+                        <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
                     </div>
                     @endforeach
                 </div>
@@ -1912,7 +1941,7 @@
                         </div>
                         <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
                         <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}"></div>
-                        <div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
+                        <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
                     </div>
                     @endforeach
                 </div>
@@ -1931,7 +1960,7 @@
                         <label class="text-xs text-muted-foreground">Voertuig</label>
                         <label class="text-xs text-muted-foreground">x prijs</label>
                         <label class="text-xs text-muted-foreground">x oud</label>
-                        <div class="text-right shrink-0"></div>
+                        <div class="nexataxi-booking-item-remove-spacer" aria-hidden="true"></div>
                         <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][id]" value="{{ $row['id'] ?? '' }}"></div>
                         <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][badge]" value="{{ $row['badge'] ?? '' }}"></div>
@@ -1939,7 +1968,7 @@
                         <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">Automatisch</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" data-person-range="{{ e($vehicle['person_range'] ?? '') }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
                         <div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][price_multiplier]" value="{{ $row['price_multiplier'] ?? 1 }}"></div>
                         <div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][old_price_multiplier]" value="{{ $row['old_price_multiplier'] ?? 1.2 }}"></div>
-                        <div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>
+                        <div class="nexataxi-booking-item-remove-wrap self-end"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
                         <div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
                     </div>
                     </div>
@@ -3346,7 +3375,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     function carouselSlideHexInputHtml(sectionKey, idx, field, value, id, placeholder, inputClass) {
         var safeVal = (value || '').replace(/"/g, '&quot;');
         return '<div class="carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]">' +
-            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][' + field + ']" id="' + id + '" class="' + inputClass + ' kt-input w-full font-mono text-sm" value="' + safeVal + '" placeholder="' + placeholder + '" maxlength="7" data-skip-validation-wrapper="1">' +
+            '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][' + field + ']" id="' + id + '" class="' + inputClass + ' kt-input w-full font-mono text-sm home-section-hex-input" value="' + safeVal + '" placeholder="' + placeholder + '" maxlength="7" data-skip-validation-wrapper="1">' +
             '</div>';
     }
     function carouselSlideAltInputHtml(sectionKey, idx, alt) {
@@ -4525,7 +4554,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     '<input type="file" id="' + fileInputId + '" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="' + urlInputId + '" value="">' +
                     '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
-                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (600px)</option><option value="xlarge">Extra groot (800px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_size]" value="14"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input w-24 font-mono text-sm" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (600px)</option><option value="xlarge">Extra groot (800px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_size]" value="14"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
                     '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)', { minH: 200, maxH: 220 }) : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
                 container.appendChild(div);
                 var newArea = div.querySelector('.hero-image-upload-area');
@@ -4578,7 +4607,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 div.className = 'featured-services-item border border-border rounded-lg p-3 space-y-2';
                 div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Blok ' + (nextIndex + 1) + '</span><button type="button" class="featured-services-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Blok verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
                     '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input text-sm w-auto min-w-[10rem] max-w-full">' + iconSelect + '</select></div>' +
-                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label><div class="flex items-center gap-2"><input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="#2563eb" title="Kies icoonkleur" aria-label="Icoonkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_color]" class="kt-input text-sm w-24 font-mono" value="" placeholder="#hex" maxlength="7"></div></div>' +
+                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label><div class="flex items-center gap-2"><input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="#2563eb" title="Kies icoonkleur" aria-label="Icoonkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_color]" class="kt-input text-sm font-mono home-section-hex-input" value="" placeholder="#hex" maxlength="7"></div></div>' +
                     '<div><label class="text-sm text-muted-foreground block mb-1">Titel blok</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input w-full max-w-[50%] text-sm" value="" placeholder="Titel"></div>' +
                     '<div><label class="text-sm text-muted-foreground block mb-1">Beschrijving</label><textarea name="home_sections[' + sectionKey + '][items][' + nextIndex + '][description]" class="kt-input w-full max-w-[50%] text-sm min-h-[60px]" rows="2" placeholder="Beschrijving"></textarea></div>';
                 container.appendChild(div);
@@ -4840,7 +4869,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     '<div class="nexataxi-upload-wrap hidden" id="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-' + field + '" value=""></div></div>' +
                     '<div class="flex flex-col gap-2 mt-3"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][rate_type]" class="kt-input w-48 text-sm"><option value="1-4" selected>' + rateOpt1 + '</option><option value="5-8">' + rateOpt2 + '</option><option value="overige_kosten">' + rateOpt3 + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input flex-1 max-w-md text-sm" value="" placeholder="bijv. t/m 4 personen"></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label><input type="number" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][cleaning_costs]" class="kt-input w-28 text-sm" value="" step="0.01" min="0" placeholder="leeg = uit tarief"><span class="text-xs text-muted-foreground">Optioneel</span></div>' +
-                    wrapNexataxiTarievenStylesPanel('<div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input w-24 font-mono text-sm" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div>') + '</div>';
+                    wrapNexataxiTarievenStylesPanel('<div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input font-mono text-sm home-section-hex-input" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div>') + '</div>';
                 container.appendChild(div);
                 reindexNexaTaxiTarievenItems(container, sectionKey);
                 if (typeof window.panelizeRepeatableElement === 'function') window.panelizeRepeatableElement(div);
@@ -5122,6 +5151,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         }
 
+        var nexaTaxiBookingRemoveBtnInner = '<button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button>';
+        var nexaTaxiBookingRemoveBtnHtml = '<div class="nexataxi-booking-item-remove-wrap">' + nexaTaxiBookingRemoveBtnInner + '</div>';
+        var nexaTaxiBookingRemoveBtnHtmlOffers = '<div class="nexataxi-booking-item-remove-wrap self-end">' + nexaTaxiBookingRemoveBtnInner + '</div>';
+
         function buildNexaTaxiBookingRowHtml(listName, sectionKey, index) {
             if (listName === 'offers') {
                 var vehicleOptions = '<option value="">Automatisch</option>';
@@ -5142,7 +5175,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     + '<label class="text-xs text-muted-foreground">Voertuig</label>'
                     + '<label class="text-xs text-muted-foreground">x prijs</label>'
                     + '<label class="text-xs text-muted-foreground">x oud</label>'
-                    + '<div class="text-right shrink-0"></div>'
+                    + '<div class="nexataxi-booking-item-remove-spacer" aria-hidden="true"></div>'
                     + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][id]" value="offer_' + (index + 1) + '"></div>'
                     + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][title]" value=""></div>'
                     + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][badge]" value="Standaard taxi"></div>'
@@ -5150,7 +5183,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][vehicle_id]">' + vehicleOptions + '</select></div>'
                     + '<div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][price_multiplier]" value="1"></div>'
                     + '<div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][old_price_multiplier]" value="1.2"></div>'
-                    + '<div class="text-right shrink-0"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
+                    + nexaTaxiBookingRemoveBtnHtmlOffers
                     + '<div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
                     + '</div></div>';
             }
@@ -5162,7 +5195,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div></div>'
                     + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
                     + '<div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][baggage_units]" value="1"></div>'
-                    + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
+                    + nexaTaxiBookingRemoveBtnHtml
                     + '</div>';
             }
 
@@ -5173,7 +5206,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div></div>'
                 + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
                 + '<div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][baggage_units]" value="1"></div>'
-                + '<div class="text-right"><button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-destructive nexataxi-booking-item-remove">x</button></div>'
+                + nexaTaxiBookingRemoveBtnHtml
                 + '</div>';
         }
 
@@ -5574,8 +5607,54 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     .dark #website-page-form .home-section-field-panel--nested {
         border-color: var(--border) !important;
     }
+    /* Sectietitels (CTA, why_nexa, …): volle panelbreedte, niet inkrimpen op tekstlengte */
+    #website-page-form .home-section-field-panel-body .row-visibility-row .kt-input.w-full,
+    #website-page-form .home-section-field-panel-body .row-visibility-row .kt-input.max-w-4xl {
+        width: 100% !important;
+        max-width: min(100%, 56rem) !important;
+        box-sizing: border-box;
+    }
+    /* Hex-kleurvelden: compact (#RRGGBB) */
+    #website-page-form .home-section-hex-input-wrap,
+    #website-page-form .carousel-slide-hex-input-wrap {
+        flex: 0 0 auto;
+        width: 5.625rem;
+        min-width: 5.625rem;
+        max-width: 5.625rem;
+    }
+    #website-page-form .home-section-hex-input-wrap > .kt-input,
+    #website-page-form .carousel-slide-hex-input-wrap > .kt-input,
+    #website-page-form input.kt-input.home-section-hex-input {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        flex: 0 0 auto !important;
+        padding-right: 0.5rem !important;
+        box-sizing: border-box;
+    }
     #website-page-form .nexataxi-tarieven-item.border {
         border-color: var(--border) !important;
+    }
+
+    #website-page-form .nexataxi-booking-item-remove-wrap {
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
+        align-self: end;
+    }
+
+    #website-page-form .nexataxi-booking-item-remove {
+        width: 2.25rem;
+        height: 2.25rem;
+        min-width: 2.25rem;
+        min-height: 2.25rem;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    #website-page-form .nexataxi-booking-item-remove i {
+        font-size: 1.125rem;
+        line-height: 1;
     }
     @media (max-width: 1023px) {
         #content > .kt-container-fixed:has(#website-page-form) {
@@ -5885,7 +5964,7 @@ $flowbiteWysiwygTemplate = view('admin.website-pages.partials.flowbite-wysiwyg',
 <script type="importmap">
 {"imports":{"https://esm.sh/v135/prosemirror-model@1.22.3/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs","https://esm.sh/v135/prosemirror-model@1.22.1/es2022/prosemirror-model.mjs":"https://esm.sh/v135/prosemirror-model@1.19.3/es2022/prosemirror-model.mjs"}}
 </script>
-<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260516c"></script>
+<script src="{{ asset('js/flowbite-wysiwyg-init.js') }}?v=20260516d"></script>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 (function() {

@@ -759,4 +759,171 @@ class WebsitePageUpdateTest extends TestCase
         $page->refresh();
         $this->assertSame(77, (int) $page->sort_order);
     }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_persists_selected_frontend_theme_when_company_has_no_theme(): void
+    {
+        $metronic = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $vpn = FrontendTheme::firstOrCreate(
+            ['slug' => 'next-landing-vpn'],
+            ['name' => 'Next Landing VPN', 'is_active' => true]
+        );
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'thema-test',
+            'title' => 'Thema test',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $metronic->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = array_filter([
+            'slug' => 'thema-test',
+            'title' => 'Thema test',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'frontend_theme_id' => (string) $vpn->id,
+            'company_id' => $companyId !== null ? (string) $companyId : null,
+            'meta_description' => '',
+            'content' => '',
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+            ],
+        ], fn ($v) => $v !== null);
+
+        $response = $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $response->assertRedirect();
+        $page->refresh();
+        $this->assertSame($vpn->id, (int) $page->frontend_theme_id);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function update_persists_selected_frontend_theme_over_company_default(): void
+    {
+        $metronic = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $vpn = FrontendTheme::firstOrCreate(
+            ['slug' => 'next-landing-vpn'],
+            ['name' => 'Next Landing VPN', 'is_active' => true]
+        );
+        $company = Company::create([
+            'name' => 'Thema tenant BV',
+            'is_active' => true,
+            'frontend_theme_id' => $metronic->id,
+        ]);
+        $page = WebsitePage::create([
+            'slug' => 'thema-company-test',
+            'title' => 'Thema company test',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $metronic->id,
+            'module_name' => null,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $payload = [
+            'slug' => 'thema-company-test',
+            'title' => 'Thema company test',
+            'page_type' => 'custom',
+            'module_name' => '',
+            'frontend_theme_id' => (string) $vpn->id,
+            'company_id' => (string) $company->id,
+            'meta_description' => '',
+            'content' => '',
+            'is_active' => '1',
+            'show_in_menu' => '1',
+            '_section_order' => 'hero,footer,copyright',
+            'home_sections' => [
+                'section_order' => 'hero,footer,copyright',
+                'visibility' => ['hero' => '1', 'footer' => '1'],
+            ],
+        ];
+
+        $this->actingAs($user)->put(route('admin.website-pages.update', $page), $payload);
+
+        $page->refresh();
+        $this->assertSame($vpn->id, (int) $page->frontend_theme_id);
+        $this->assertSame($vpn->id, (int) app(\App\Services\WebsiteBuilderService::class)->getThemeForPage($page)?->id);
+    }
+
+    #[Test]
+    #[Group('website-pages')]
+    public function edit_form_renders_saved_frontend_theme_as_selected(): void
+    {
+        $metronic = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Metronic', 'is_active' => true]
+        );
+        $vpn = FrontendTheme::firstOrCreate(
+            ['slug' => 'next-landing-vpn'],
+            ['name' => 'Next Landing VPN', 'is_active' => true]
+        );
+        ['company_id' => $companyId] = $this->websitePageCompanyForTests();
+        $page = WebsitePage::create(array_filter([
+            'slug' => 'thema-render-test',
+            'title' => 'Thema render',
+            'page_type' => 'custom',
+            'frontend_theme_id' => $vpn->id,
+            'module_name' => null,
+            'company_id' => $companyId,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'section_order' => ['hero', 'footer', 'copyright'],
+                'visibility' => ['hero' => true, 'footer' => true],
+            ],
+        ], fn ($v) => $v !== null));
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(route('admin.website-pages.edit', $page));
+
+        $response->assertOk();
+        $response->assertSee('name="frontend_theme_id"', false);
+        $html = $response->getContent();
+        preg_match('/<select[^>]*name="frontend_theme_id"[^>]*>(.*?)<\/select>/s', $html, $themeSelectMatch);
+        $themeOptionsHtml = $themeSelectMatch[1] ?? '';
+        $this->assertNotSame('', $themeOptionsHtml, 'Theme select should be rendered.');
+        $this->assertMatchesRegularExpression(
+            '/value="' . preg_quote((string) $vpn->id, '/') . '"[^>]*\sselected/',
+            $themeOptionsHtml,
+            'Saved VPN theme should be selected in the edit form.'
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/value="' . preg_quote((string) $metronic->id, '/') . '"[^>]*\sselected/',
+            $themeOptionsHtml,
+            'Metronic should not be selected when page uses VPN theme.'
+        );
+    }
 }

@@ -5,6 +5,9 @@
     $carouselId = 'carousel-' . (isset($carouselId) ? $carouselId : str_replace(['.', ' '], '', uniqid('', true)));
     $intervalSeconds = isset($intervalSeconds) ? (int) $intervalSeconds : 5;
     $intervalSeconds = max(0, min(120, $intervalSeconds));
+    $maxHeightPercent = isset($maxHeightPercent) ? (int) $maxHeightPercent : 0;
+    $maxHeightPercent = max(0, min(100, $maxHeightPercent));
+    $hasMaxHeight = $maxHeightPercent > 0;
     $allowedCaptionAnimations = ['rise', 'fade', 'slide_left', 'zoom', 'blur'];
     $captionPositionClasses = [
         'top' => 'carousel-caption-pos-top top-0 pt-6 pb-4 sm:pt-10 sm:pb-6 md:pt-16 md:pb-10',
@@ -37,10 +40,17 @@
 <style>
     #{{ $carouselId }} .carousel-inner-fill {
         width: 100%;
+        @if($hasMaxHeight)
+        height: {{ $maxHeightPercent }}vh;
+        max-height: {{ $maxHeightPercent }}vh;
+        aspect-ratio: unset;
+        min-height: 0;
+        @else
         height: auto;
         aspect-ratio: auto;
         min-height: 0;
         max-height: none;
+        @endif
         background: transparent;
     }
     #{{ $carouselId }} [data-carousel-item] {
@@ -51,6 +61,22 @@
         transition: opacity 0.7s ease-in-out;
         will-change: opacity;
     }
+    @if($hasMaxHeight)
+    #{{ $carouselId }} [data-carousel-item="active"] {
+        position: absolute !important;
+        height: 100%;
+    }
+    #{{ $carouselId }} [data-carousel-item] > img {
+        position: absolute !important;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        max-height: none;
+        object-fit: cover;
+        object-position: center center;
+        display: block;
+    }
+    @else
     #{{ $carouselId }} [data-carousel-item="active"] {
         position: relative !important;
         height: auto;
@@ -71,6 +97,7 @@
         object-fit: cover;
         object-position: center center;
     }
+    @endif
     #{{ $carouselId }} .carousel-caption-text-block {
         max-width: min(36rem, 92vw);
     }
@@ -152,7 +179,7 @@
             @endphp
             @if($imgSrc)
             <div class="absolute top-0 left-0 right-0 bottom-0 w-full h-full {{ $index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none' }}" data-carousel-item="{{ $index === 0 ? 'active' : '' }}" style="inset: 0;">
-                <img src="{{ $imgSrc }}" alt="{{ $alt }}" loading="{{ $index === 0 ? 'eager' : 'lazy' }}" decoding="async" referrerpolicy="no-referrer" style="display: block; width: 100%; height: auto;">
+                <img src="{{ $imgSrc }}" alt="{{ $alt }}" loading="{{ $index === 0 ? 'eager' : 'lazy' }}" decoding="async" referrerpolicy="no-referrer"@if(!$hasMaxHeight) style="display: block; width: 100%; height: auto;"@endif>
                 @if(count($captionWords) > 0)
                 <div class="carousel-slide-caption pointer-events-none absolute z-20 px-6 md:px-12 {{ $positionClass }} carousel-anim-{{ $textAnimation }}" data-carousel-caption data-carousel-animation="{{ $textAnimation }}" style="--caption-anim-duration: {{ $animDurationMs }}ms; --caption-anim-stagger: {{ $animStaggerMs }}ms;">
                     <div class="carousel-caption-text-block inline-block rounded-lg px-3 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 shadow-md" style="background-color: {{ $captionBgColor }};">

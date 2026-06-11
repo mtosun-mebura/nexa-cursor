@@ -133,9 +133,7 @@
                                 Thema
                             </td>
                             <td>
-                                <input type="hidden" name="frontend_theme_id" id="frontend_theme_id_fixed" value="{{ $defaultTheme?->id ?? '' }}">
-                                <span class="inline-flex items-center rounded-md bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-900 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-100 dark:border-orange-400/40">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
-                                <div class="text-xs text-muted-foreground mt-1">Pagina's worden altijd getoond in het actieve thema. Wijzig het thema onder Frontend Thema's.</div>
+                                @include('admin.website-pages.partials.theme-field')
                             </td>
                         </tr>
                         <tr id="page_type_row">
@@ -329,17 +327,33 @@
     var homeSectionsCard = document.getElementById('home_sections_card');
     var contentBlocksRow = document.getElementById('content_blocks_row');
 
-    function updateForm() {
+    function syncThemeUiFromSelect() {
+        var themeSelect = document.getElementById('frontend_theme_id');
+        if (!themeSelect || themeSelect.tagName !== 'SELECT') return;
+        var opt = themeSelect.options[themeSelect.selectedIndex];
+        var themeName = opt ? opt.textContent.trim() : 'thema';
+        if (homeSectionsCard) {
+            homeSectionsCard.setAttribute('data-theme-name', themeName);
+        }
+        toggleHomeAndContentRows();
+    }
+
+    function syncModuleFieldsFromChoice(applyModuleThemeSuggestion) {
+        if (!moduleChoice) return;
         var choice = moduleChoice.value;
         var opt = moduleChoice.options[moduleChoice.selectedIndex];
         var themeId = opt ? opt.getAttribute('data-theme-id') : '';
         if (moduleNameHidden) moduleNameHidden.value = choice || '';
-        var themeSelect = document.getElementById('frontend_theme_id');
-        if (themeSelect && themeId) {
-            themeSelect.value = themeId;
+        if (applyModuleThemeSuggestion) {
+            var themeSelect = document.getElementById('frontend_theme_id');
+            if (themeSelect && themeSelect.tagName === 'SELECT' && themeId) {
+                themeSelect.value = themeId;
+            }
         }
+        syncThemeUiFromSelect();
         toggleHomeAndContentRows();
     }
+
     function toggleHomeAndContentRows() {
         var pt = pageTypeSelect ? pageTypeSelect.value : 'home';
         if (homeSectionsCard) homeSectionsCard.style.display = 'block';
@@ -353,9 +367,17 @@
             : 'Standaard tonen deze pagina\'s alleen een Hero-banner, footer en copyright. Voeg hieronder secties toe met de knop "Sectie toevoegen" of pas de Hero aan.';
     }
 
-    moduleChoice.addEventListener('change', updateForm);
+    if (moduleChoice) {
+        moduleChoice.addEventListener('change', function() {
+            syncModuleFieldsFromChoice(true);
+        });
+    }
     if (pageTypeSelect) pageTypeSelect.addEventListener('change', toggleHomeAndContentRows);
-    updateForm();
+    var themeSelectEl = document.getElementById('frontend_theme_id');
+    if (themeSelectEl && themeSelectEl.tagName === 'SELECT') {
+        themeSelectEl.addEventListener('change', syncThemeUiFromSelect);
+    }
+    syncModuleFieldsFromChoice(false);
 
     // Slug automatisch uit titel (bij intypen)
     var titleInput = document.getElementById('title');

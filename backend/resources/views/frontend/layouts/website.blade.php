@@ -6,6 +6,7 @@
         && ($homeSections['visibility']['footer'] ?? true)
         && ($homeSections['visibility']['footer_map'] ?? true)
         && $googleMapsKeyTrimmed !== '';
+    $websiteThemeStorageKey = \App\Support\Tenancy\WebsiteThemeStorage::storageKey();
 @endphp
 <head>
     <meta charset="utf-8">
@@ -270,7 +271,11 @@
     <script>
     (function(){
       var el = document.documentElement;
-      var stored = localStorage.getItem('website-theme') || localStorage.getItem('theme');
+      var storageKey = @json($websiteThemeStorageKey);
+      var stored = localStorage.getItem(storageKey);
+      if (stored !== 'dark' && stored !== 'light') {
+        stored = localStorage.getItem('website-theme') || localStorage.getItem('theme');
+      }
       if (stored === 'dark') { el.classList.add('dark'); }
       else if (stored === 'light') { el.classList.remove('dark'); }
       else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) { el.classList.add('dark'); }
@@ -426,7 +431,7 @@
                 <div id="website-desktop-right" class="flex items-center gap-2 lg:gap-4 ml-auto flex-shrink-0 pl-4">
                     @if($themeSettings['dark_mode_available'] ?? true)
                     <span class="sr-only">Weergave</span>
-                    <button type="button" id="theme-toggle-btn" class="p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white" aria-label="Wissel licht/donker thema" title="Wissel thema">
+                    <button type="button" id="theme-toggle-btn" class="p-2 rounded-md text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white" aria-label="Wissel licht/donker thema" title="Wissel thema">
                         <svg id="theme-icon-sun" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <svg id="theme-icon-moon" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>
@@ -460,7 +465,7 @@
                     @endguest
                     @endif
                     @if($themeSettings['dark_mode_available'] ?? true)
-                    <button type="button" id="theme-toggle-btn-mobile" class="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Wissel thema">
+                    <button type="button" id="theme-toggle-btn-mobile" class="p-2 rounded-lg text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-white" aria-label="Wissel thema">
                         <svg id="theme-icon-sun-mobile" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                         <svg id="theme-icon-moon-mobile" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
                     </button>
@@ -718,15 +723,19 @@
 
         (function() {
             var html = document.documentElement;
+            var storageKey = @json($websiteThemeStorageKey);
             function getStored() {
                 try {
+                    var scoped = localStorage.getItem(storageKey);
+                    if (scoped === 'dark' || scoped === 'light') {
+                        return scoped;
+                    }
                     return localStorage.getItem('website-theme') || localStorage.getItem('theme');
                 } catch (e) { return null; }
             }
             function setStored(v) {
                 try {
-                    localStorage.setItem('website-theme', v);
-                    localStorage.setItem('theme', v);
+                    localStorage.setItem(storageKey, v);
                 } catch (e) {}
             }
             function applyTheme(isDark) {

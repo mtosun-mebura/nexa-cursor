@@ -101,6 +101,38 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertStringContainsString('Vertrekhal, Schiphol', $reply);
     }
 
+    public function test_extract_reply_text_formats_ride_with_driver_vehicle_and_phone(): void
+    {
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+
+        $reply = $service->extractReplyText([
+            'answer' => [
+                [
+                    'id' => '42',
+                    'customer_name' => 'Jan Jansen',
+                    'customer_phone' => '06-12345678',
+                    'pickup_address' => 'Damrak 1, Amsterdam',
+                    'dropoff_address' => 'Schiphol',
+                    'pickup_at' => '2026-06-09T08:30:00.000Z',
+                    'status' => 'assigned',
+                    'status_label' => 'Toegewezen',
+                    'driver_name' => 'Piet de Vries',
+                    'vehicle_name' => 'Taxi 12',
+                ],
+            ],
+            'count' => 1,
+        ]);
+
+        $this->assertNotNull($reply);
+        $this->assertStringContainsString('Jan Jansen (#42)', $reply);
+        $this->assertStringContainsString('Chauffeur: Piet de Vries', $reply);
+        $this->assertStringContainsString('Voertuig: Taxi 12', $reply);
+        $this->assertStringContainsString('Damrak 1, Amsterdam', $reply);
+        $this->assertStringContainsString('Schiphol', $reply);
+        $this->assertStringContainsString('Status: Toegewezen', $reply);
+        $this->assertStringContainsString('06-12345678', $reply);
+    }
+
     public function test_send_uses_website_fallback_when_webhook_returns_empty_body(): void
     {
         \Illuminate\Support\Facades\Http::fake([
@@ -144,7 +176,7 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertStringContainsString('Schiphol', $reply);
     }
 
-    public function test_send_posts_configured_webhook_with_rbac_payload_for_faq(): void
+    public function test_send_posts_configured_webhook_with_rbac_payload_for_diensten(): void
     {
         \Illuminate\Support\Facades\Http::fake([
             'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response([
@@ -166,7 +198,8 @@ class AiChatAssistantServiceTest extends TestCase
                 && $request['company_id'] === 2
                 && $request['message'] === 'Hebben jullie luchthavenvervoer?'
                 && $request['channel'] === 'public'
-                && $request['intent'] === 'faq'
+                && $request['intent'] === 'diensten'
+                && $request['useRag'] === true
                 && $request['isAdmin'] === false
                 && $request['allowLiveData'] === false
                 && ! array_key_exists('sql_token', $request->data())

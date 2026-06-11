@@ -31,6 +31,8 @@ Route::put('ai-chatbot/instellingen', [AiChatbotSettingsController::class, 'upda
     ->name('ai_chatbot.settings.update');
 Route::post('ai-chatbot/genereer-van-website', [KnowledgeDocumentController::class, 'generateFromWebsite'])
     ->name('knowledge_documents.generate_from_website');
+Route::post('ai-chatbot/tekst-opmaken', [KnowledgeDocumentController::class, 'formatContent'])
+    ->name('knowledge_documents.format_content');
 Route::resource('ai-chatbot', KnowledgeDocumentController::class)
     ->parameters(['ai-chatbot' => 'knowledge_document'])
     ->names('knowledge_documents');

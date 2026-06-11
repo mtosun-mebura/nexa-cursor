@@ -270,19 +270,25 @@ class TaxiRidePaymentService
 
             $webhookUrl = $this->paymentProviders->mollieWebhookUrlForPayment($companyId);
 
-            $molliePayment = $this->mollie->createPayment(
-                $apiKey,
-                $amount,
-                $description,
-                $redirectUrl,
-                $webhookUrl,
-                [
-                    'ride_payment_id' => (string) $ridePayment->id,
-                    'ride_request_id' => (string) $ride->id,
-                    'conn' => $conn,
-                    'channel' => $channel,
-                ]
-            );
+            try {
+                $molliePayment = $this->mollie->createPayment(
+                    $apiKey,
+                    $amount,
+                    $description,
+                    $redirectUrl,
+                    $webhookUrl,
+                    [
+                        'ride_payment_id' => (string) $ridePayment->id,
+                        'ride_request_id' => (string) $ride->id,
+                        'conn' => $conn,
+                        'channel' => $channel,
+                    ]
+                );
+            } catch (\RuntimeException $e) {
+                throw ValidationException::withMessages([
+                    'payment' => [$e->getMessage()],
+                ]);
+            }
 
             $checkoutUrl = $this->mollie->checkoutUrl($molliePayment);
             if (! $checkoutUrl) {

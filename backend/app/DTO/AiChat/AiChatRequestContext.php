@@ -21,6 +21,16 @@ final readonly class AiChatRequestContext
         return $this->channel === AiChatChannel::Admin;
     }
 
+    public function isMijnTaxiChannel(): bool
+    {
+        return $this->channel === AiChatChannel::MijnTaxi;
+    }
+
+    public function isPublicChannel(): bool
+    {
+        return $this->channel === AiChatChannel::Public;
+    }
+
     /**
      * @return array{company_id: int, channel: string, user_id?: int, role?: string, module: string, session_id?: string}
      */
@@ -34,7 +44,11 @@ final readonly class AiChatRequestContext
 
         if ($this->userId !== null) {
             $payload['user_id'] = $this->userId;
-            $payload['role'] = 'admin';
+            $payload['role'] = match ($this->channel) {
+                AiChatChannel::Admin => 'admin',
+                AiChatChannel::MijnTaxi => 'klant',
+                default => 'guest',
+            };
         }
 
         if ($this->sessionId !== null && $this->sessionId !== '') {

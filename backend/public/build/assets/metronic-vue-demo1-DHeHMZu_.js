@@ -1,4 +1,4 @@
-import{c as a,d as e,r as s}from"./runtime-dom.esm-bundler-CBKIU5Fn.js";const l=e({name:"MetronicVueDemo1Playground",setup(){return{count:s(0)}},template:`
+import{c as a,d as e,r as s}from"./runtime-dom.esm-bundler-9gN9F5pV.js";const l=e({name:"MetronicVueDemo1Playground",setup(){return{count:s(0)}},template:`
     <div class="flex flex-col gap-6">
       <div class="kt-alert kt-alert-info" role="alert">
         <div class="kt-alert-title">Component catalog</div>

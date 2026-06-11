@@ -25,7 +25,10 @@ class RideClaimService
                 ]);
             }
 
-            if ($offer->status !== RideDispatchOffer::STATUS_PENDING || $offer->expires_at->isPast()) {
+            if (! in_array($offer->status, [
+                RideDispatchOffer::STATUS_PENDING,
+                RideDispatchOffer::STATUS_DECLINED,
+            ], true)) {
                 throw ValidationException::withMessages([
                     'offer' => ['Dit aanbod is verlopen of niet meer geldig.'],
                 ]);
@@ -197,7 +200,10 @@ class RideClaimService
             ->where('driver_id', $driver->id)
             ->firstOrFail();
 
-        if ($offer->status !== RideDispatchOffer::STATUS_PENDING) {
+        if (! in_array($offer->status, [
+            RideDispatchOffer::STATUS_PENDING,
+            RideDispatchOffer::STATUS_EXPIRED,
+        ], true)) {
             throw ValidationException::withMessages([
                 'offer' => ['Dit aanbod kan niet meer worden afgewezen.'],
             ]);

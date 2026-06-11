@@ -403,9 +403,14 @@ class NexaTaxiBookingController extends Controller
         ];
 
         if (! auth()->check()) {
-            $response['portal_login_url'] = route('login', [
+            $loginParams = [
                 'intended' => route('taxi.portal.dashboard'),
-            ]);
+            ];
+            if ($createdCustomer !== null && $email !== '') {
+                $loginParams['code_login'] = 1;
+                $loginParams['email'] = $email;
+            }
+            $response['portal_login_url'] = route('login', $loginParams);
         }
 
         return response()->json($response);
