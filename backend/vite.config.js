@@ -20,5 +20,7 @@ export default defineConfig({
   ],
   build: {
     sourcemap: false,
+    // Sneller op kleine deploy-servers; gzip-rapportage is alleen console-info.
+    reportCompressedSize: false,
   },
 })

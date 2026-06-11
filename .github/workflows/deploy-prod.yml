@@ -207,6 +207,8 @@ jobs:
           key: ${{ secrets.AWS_SSH_KEY }}
           port: ${{ secrets.AWS_SSH_PORT || 22 }}
           timeout: 60s
+          # Hele deploy (npm ci, vite, docker build, migrate) duurt op Lightsail >10m.
+          command_timeout: 90m
           # script_stop=false: anders stopt drone-ssh bij eerste deploy-fout vóór log/tail hieronder.
           script_stop: false
           envs: GIT_REF,APP_DIR,AWS_USER,DEPLOY_SCRIPT

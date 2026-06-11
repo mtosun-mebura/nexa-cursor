@@ -1036,6 +1036,20 @@
                         <p class="mt-2 mb-1"><span class="text-foreground font-medium">Betaling &amp; facturatie</span> (altijd mee bij sync als tabel bestaat):</p>
                         <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $paymentSyncTables) }}</p>
                     @endif
+                    @if (! empty($tenantSyncScope['company_domains_note'] ?? ''))
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">Tenant-domeinen</span></p>
+                        <p class="text-[11px] text-muted-foreground mt-0 mb-0">{{ $tenantSyncScope['company_domains_note'] }}</p>
+                    @endif
+                    @php $aiChatSyncTables = $tenantSyncScope['ai_chat_tables'] ?? []; @endphp
+                    @if ($aiChatSyncTables !== [] || ! empty($tenantSyncScope['ai_chat_settings_note'] ?? ''))
+                        <p class="mt-2 mb-1"><span class="text-foreground font-medium">AI-chatbot</span> (berichten + tenant-instellingen):</p>
+                        @if ($aiChatSyncTables !== [])
+                            <p class="font-mono text-[11px] text-foreground break-all">{{ implode(', ', $aiChatSyncTables) }}</p>
+                        @endif
+                        @if (! empty($tenantSyncScope['ai_chat_settings_note'] ?? ''))
+                            <p class="text-[11px] text-muted-foreground mt-1 mb-0">{{ $tenantSyncScope['ai_chat_settings_note'] }}</p>
+                        @endif
+                    @endif
                     <p class="mt-2 mb-0"><span class="text-foreground font-medium">Expliciet uitgesloten</span> (config <code class="font-mono">tenant_sync.excluded_tables</code>):</p>
                     <p class="mt-0.5 font-mono text-[11px] text-muted-foreground break-all">{{ implode(', ', $tenantSyncScope['excluded_tables'] ?? []) }}</p>
                 </div>
