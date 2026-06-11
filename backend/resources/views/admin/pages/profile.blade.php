@@ -5,12 +5,6 @@
 @section('content')
 
 <style>
-    .hero-bg {
-        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1.png') }}');
-    }
-    .dark .hero-bg {
-        background-image: url('{{ asset('assets/media/images/2600x1200/bg-1-dark.png') }}');
-    }
     /* Hide scrollbar in Google Maps InfoWindow */
     .gm-style-iw-c {
         overflow: hidden !important;
@@ -19,113 +13,124 @@
         overflow: hidden !important;
         max-height: none !important;
     }
-    /* Remove close button container */
     .gm-style-iw-chr {
         display: none !important;
     }
+    #admin-profile-fields-table {
+        width: 100% !important;
+        table-layout: fixed;
+    }
+    #admin-profile-fields-table td.min-w-56 {
+        width: 14rem;
+    }
+    #admin-profile-fields-table td:nth-child(2) {
+        min-width: 0;
+    }
+    #admin-profile-fields-table .profile-edit-wrap {
+        max-width: 100%;
+    }
 </style>
 
-<!-- Hero Section with Photo -->
-<div class="bg-center bg-cover bg-no-repeat hero-bg">
-    <div class="kt-container-fixed">
-        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
-            <!-- Profile Photo Container -->
-            <div class="relative" style="width: 300px; height: 300px;">
-                <div class="relative bg-gray-100 dark:bg-gray-800 rounded-full w-full h-full flex items-center justify-center overflow-hidden border-4 border-gray-300 dark:border-gray-600 shadow-lg"
-                     id="photo-container"
-                     style="display: flex; visibility: visible;"
-                     ondrop="handleDrop(event)"
-                     ondragover="handleDragOver(event)"
-                     ondragenter="handleDragEnter(event)"
-                     ondragleave="handleDragLeave(event)">
+<div class="min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <div>
+            <h1 class="text-xl font-medium leading-none text-mono">Mijn Profiel</h1>
+            <p class="text-sm text-muted-foreground mt-1">Beheer je persoonlijke gegevens en profielfoto.</p>
+        </div>
+        <span class="kt-badge kt-badge-sm kt-badge-primary profile-completeness-badge">{{ $profileCompleteness }}% compleet</span>
+    </div>
 
-                    <!-- Profile Image or Placeholder -->
-                    @if($user->photo_blob)
+    <div class="flex flex-col xl:flex-row gap-5 lg:gap-7.5 mb-5 lg:mb-7.5">
+        <div class="kt-card xl:w-auto xl:max-w-[380px] xl:shrink-0">
+            <div class="kt-card-content flex flex-col items-center py-6">
+                <div class="relative mx-auto flex-shrink-0" style="width: 300px; height: 300px; max-width: 300px; max-height: 300px;">
+                    <div class="relative bg-muted/30 rounded-full w-full h-full flex items-center justify-center overflow-hidden border-4 border-border shadow-sm"
+                         id="photo-container"
+                         style="display: flex; visibility: visible; width: 100%; height: 100%; box-sizing: border-box;"
+                         ondrop="handleDrop(event)"
+                         ondragover="handleDragOver(event)"
+                         ondragenter="handleDragEnter(event)"
+                         ondragleave="handleDragLeave(event)">
+
                         <img id="profile-image"
-                             src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"
-                             alt="Profile Photo"
+                             src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset(config('nexa.default_user_avatar')) }}"
+                             alt="Profielfoto"
                              class="absolute inset-0 w-full h-full object-contain cursor-move"
                              draggable="false"
                              style="transform: scale(1) translate(0px, 0px);">
-                    @else
-                        <div class="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 p-8">
-                            <img src="{{ asset(config('nexa.default_user_avatar')) }}"
-                                 alt=""
-                                 class="max-w-full max-h-full w-auto h-auto object-contain select-none"
-                                 draggable="false">
-                        </div>
-                    @endif
 
-                    <!-- Drag Overlay -->
-                    <div id="drag-overlay" class="absolute inset-0 bg-blue-500 bg-opacity-50 rounded-full flex items-center justify-center text-white font-semibold hidden">
-                        <div class="text-center">
-                            <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                            </svg>
-                            <div class="text-sm">Sleep foto hier</div>
+                        <div id="drag-overlay" class="absolute inset-0 bg-primary/40 rounded-full flex items-center justify-center text-white font-semibold hidden">
+                            <div class="text-center">
+                                <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                </svg>
+                                <div class="text-sm">Sleep foto hier</div>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="absolute -bottom-2 left-0 right-0 flex justify-center gap-1 px-1">
+                        <button type="button" onclick="resetPhotoTransform()"
+                                class="w-10 h-10 bg-background text-foreground border-2 border-border rounded-full flex items-center justify-center text-sm hover:bg-muted transition-colors z-10 shadow-lg"
+                                title="Reset foto">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                        </button>
+                        <button type="button" onclick="photoZoomOut()"
+                                class="w-10 h-10 bg-background text-foreground border-2 border-border rounded-full flex items-center justify-center text-sm hover:bg-muted transition-colors z-10 shadow-lg"
+                                title="Zoom uit">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                        </button>
+                        <input type="file" id="photo-upload" class="sr-only" accept="image/*,.svg" onchange="uploadPhoto(this)" aria-label="Foto kiezen">
+                        <button type="button"
+                                class="w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm hover:opacity-90 transition-colors z-10 shadow-lg"
+                                title="Foto aanpassen"
+                                onclick="document.getElementById('photo-upload').click()">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </button>
+                        <button type="button" onclick="photoZoomIn()"
+                                class="w-10 h-10 bg-background text-foreground border-2 border-border rounded-full flex items-center justify-center text-sm hover:bg-muted transition-colors z-10 shadow-lg"
+                                title="Zoom in">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Button Container -->
-                <div class="absolute -bottom-2 left-0 right-0 flex justify-between px-2">
-                    <!-- Reset Button -->
-                    <button onclick="resetPhotoTransform()"
-                            class="w-10 h-10 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10 shadow-lg"
-                            title="Reset foto">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                    </button>
-
-                    <!-- Upload Button -->
-                    <button onclick="document.getElementById('photo-upload').click()"
-                            class="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-blue-600 transition-colors z-10 shadow-lg"
-                            title="Foto aanpassen">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
-                    </button>
+                <div class="text-sm text-muted-foreground mt-6 mb-4 text-center">
+                    <div class="flex flex-col items-center gap-1">
+                        <span>Sleep om te verplaatsen</span>
+                        <span>Gebruik +/- of de knoppen om in/uit te zoomen</span>
+                    </div>
                 </div>
-            </div>
-            <input type="file" id="photo-upload" class="hidden" accept="image/*,.svg" onchange="uploadPhoto(this)">
 
-            <!-- Photo editor instructions -->
-            <div class="text-sm text-muted-foreground mb-2">
-                <div class="flex flex-col items-center space-y-1">
-                    <span>Sleep om te verplaatsen</span>
-                    <span>+/- = zoom in/uit</span>
-                </div>
-            </div>
+                <div class="w-full h-px bg-border mb-4"></div>
 
-            <!-- Name -->
-            <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
-                {{ $user->first_name }} {{ $user->last_name }}
-            </div>
-            <!-- Function and Role -->
-            <div class="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
-                @if($user->function)
-                    <span class="flex items-center gap-1">
-                        <i class="ki-filled ki-briefcase text-base"></i>
-                        {{ $user->function }}
-                    </span>
-                @endif
-                @if($user->roles->isNotEmpty())
+                <div class="text-lg font-semibold text-mono">{{ $user->first_name }} {{ $user->last_name }}</div>
+                <div class="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground mt-1">
                     @if($user->function)
-                        <span class="text-muted-foreground">•</span>
+                        <span class="flex items-center gap-1">
+                            <i class="ki-filled ki-briefcase text-base"></i>
+                            {{ $user->function }}
+                        </span>
                     @endif
-                    <span class="flex items-center gap-1">
-                        <i class="ki-filled ki-profile-user text-base"></i>
-                        {{ $user->roles->first()->name }}
-                    </span>
-                @endif
+                    @if($user->roles->isNotEmpty())
+                        @if($user->function)
+                            <span>•</span>
+                        @endif
+                        <span class="flex items-center gap-1">
+                            <i class="ki-filled ki-profile-user text-base"></i>
+                            {{ $user->roles->first()->name }}
+                        </span>
+                    @endif
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Profiel Card -->
-<div class="kt-card mb-5 lg:mb-7.5">
+        <!-- Profiel Card -->
+        <div class="kt-card flex-1 min-w-0 w-full mb-0">
         <div class="kt-card-header">
             <h3 class="kt-card-title">
                 Profiel
@@ -134,15 +139,18 @@
                 <i class="ki-filled ki-pencil"></i>
             </button>
         </div>
-        <div class="kt-card-table kt-scrollable-x-auto pb-3">
-            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+        <div class="kt-card-table kt-scrollable-x-auto pb-3 w-full">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full" data-admin-no-cards="true" id="admin-profile-fields-table">
+                <tbody>
                 <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal">
                         Voornaam
                     </td>
                     <td class="min-w-48 w-full text-foreground font-normal">
                         <span id="view-first_name">{{ $user->first_name }}</span>
-                        <input type="text" name="first_name" id="edit-first_name" class="kt-input hidden max-w-md" value="{{ $user->first_name }}" required>
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="first_name">
+                            <input type="text" name="first_name" id="edit-first_name" class="kt-input w-full" value="{{ $user->first_name }}" required>
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -151,7 +159,9 @@
                     </td>
                     <td class="text-foreground font-normal">
                         <span id="view-last_name">{{ $user->last_name }}</span>
-                        <input type="text" name="last_name" id="edit-last_name" class="kt-input hidden max-w-md" value="{{ $user->last_name }}" required>
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="last_name">
+                            <input type="text" name="last_name" id="edit-last_name" class="kt-input w-full" value="{{ $user->last_name }}" required>
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -160,7 +170,9 @@
                     </td>
                     <td class="text-foreground font-normal">
                         <span id="view-email">{{ $user->email }}</span>
-                        <input type="email" name="email" id="edit-email" class="kt-input hidden max-w-md" value="{{ $user->email }}" required>
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="email">
+                            <input type="email" name="email" id="edit-email" class="kt-input w-full" value="{{ $user->email }}" required>
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -169,7 +181,9 @@
                     </td>
                     <td class="text-foreground font-normal">
                         <span id="view-phone">{{ $user->phone ?? '-' }}</span>
-                        <input type="tel" name="phone" id="edit-phone" class="kt-input hidden max-w-md" value="{{ $user->phone }}">
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="phone">
+                            <input type="tel" name="phone" id="edit-phone" class="kt-input w-full" value="{{ $user->phone }}">
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -203,7 +217,8 @@
                             @endif
                         </span>
                         @if($user->company)
-                        <select name="location" id="edit-location" class="kt-input hidden max-w-md">
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="location">
+                        <select name="location" id="edit-location" class="kt-input w-full">
                             <option value="">-- Selecteer locatie --</option>
                             @php
                                 $mainLocationName = $user->company->name;
@@ -222,8 +237,11 @@
                                 @endif
                             @endforeach
                         </select>
+                        </div>
                         @else
-                        <input type="text" name="location" id="edit-location" class="kt-input hidden max-w-md" value="{{ $user->location }}">
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="location">
+                            <input type="text" name="location" id="edit-location" class="kt-input w-full" value="{{ $user->location }}">
+                        </div>
                         @endif
                     </td>
                 </tr>
@@ -233,7 +251,8 @@
                     </td>
                     <td class="text-foreground font-normal">
                         <span id="view-date_of_birth">{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '-' }}</span>
-                        <div class="kt-input hidden max-w-md" id="edit-date_of_birth-wrapper">
+                        <div class="hidden w-full profile-edit-wrap" id="edit-date_of_birth-wrapper" data-profile-field="date_of_birth">
+                            <div class="kt-input">
                             <i class="ki-outline ki-calendar"></i>
                             <input class="grow" 
                                    name="date_of_birth" 
@@ -246,9 +265,11 @@
                                    readonly 
                                    type="text"
                                    value="{{ $user->date_of_birth ? \Carbon\Carbon::parse($user->date_of_birth)->format('d-m-Y') : '' }}"/>
+                            </div>
                         </div>
                     </td>
                 </tr>
+                </tbody>
             </table>
         </div>
         <div id="edit-profile-actions" class="kt-card-footer hidden flex items-center justify-end gap-2.5">
@@ -259,6 +280,7 @@
                 Opslaan
             </button>
         </div>
+    </div>
     </div>
 
     @if($user->company)
@@ -410,6 +432,8 @@
         </div>
     </div>
     @endif
+
+</div>
 
 <!-- Add Skill Modal -->
 <div id="skill-modal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
@@ -625,6 +649,28 @@
 let isEditMode = false;
 let originalData = {};
 
+function getProfileEditWrap(field) {
+    if (field === 'date_of_birth') {
+        return document.getElementById('edit-date_of_birth-wrapper');
+    }
+    return document.querySelector('[data-profile-field="' + field + '"]');
+}
+
+function setProfileEditVisible(field, visible) {
+    const viewEl = document.getElementById('view-' + field);
+    const editWrap = getProfileEditWrap(field);
+    if (!viewEl || !editWrap) {
+        return;
+    }
+    if (visible) {
+        viewEl.classList.add('hidden');
+        editWrap.classList.remove('hidden');
+    } else {
+        viewEl.classList.remove('hidden');
+        editWrap.classList.add('hidden');
+    }
+}
+
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const editBtn = document.getElementById('edit-profile-btn');
@@ -647,26 +693,7 @@ function toggleEditMode() {
         
         // Show edit inputs, hide view spans
         fields.forEach(field => {
-            const viewEl = document.getElementById('view-' + field);
-            let editEl = document.getElementById('edit-' + field);
-            let editWrapper = null;
-            
-            // Special handling for date_of_birth
-            if (field === 'date_of_birth') {
-                editWrapper = document.getElementById('edit-date_of_birth-wrapper');
-                if (!editEl && editWrapper) {
-                    editEl = editWrapper.querySelector('input');
-                }
-            }
-            
-            if (viewEl && (editEl || editWrapper)) {
-                viewEl.classList.add('hidden');
-                if (editWrapper) {
-                    editWrapper.classList.remove('hidden');
-                } else if (editEl) {
-                    editEl.classList.remove('hidden');
-                }
-            }
+            setProfileEditVisible(field, true);
         });
         
         editActions.classList.remove('hidden');
@@ -731,26 +758,7 @@ function toggleEditMode() {
         
         // Show view spans, hide edit inputs
         fields.forEach(field => {
-            const viewEl = document.getElementById('view-' + field);
-            let editEl = document.getElementById('edit-' + field);
-            let editWrapper = null;
-            
-            // Special handling for date_of_birth
-            if (field === 'date_of_birth') {
-                editWrapper = document.getElementById('edit-date_of_birth-wrapper');
-                if (editWrapper) {
-                    editEl = editWrapper.querySelector('input');
-                }
-            }
-            
-            if (viewEl && (editEl || editWrapper)) {
-                viewEl.classList.remove('hidden');
-                if (editWrapper) {
-                    editWrapper.classList.add('hidden');
-                } else if (editEl) {
-                    editEl.classList.add('hidden');
-                }
-            }
+            setProfileEditVisible(field, false);
         });
         
         editActions.classList.add('hidden');
@@ -834,26 +842,7 @@ function cancelEdit() {
     
     // Show view spans, hide edit inputs
     fields.forEach(field => {
-        const viewEl = document.getElementById('view-' + field);
-        let editEl = document.getElementById('edit-' + field);
-        let editWrapper = null;
-        
-        // Special handling for date_of_birth
-        if (field === 'date_of_birth') {
-            editWrapper = document.getElementById('edit-date_of_birth-wrapper');
-            if (editWrapper) {
-                editEl = editWrapper.querySelector('input');
-            }
-        }
-        
-        if (viewEl && (editEl || editWrapper)) {
-            viewEl.classList.remove('hidden');
-            if (editWrapper) {
-                editWrapper.classList.add('hidden');
-            } else if (editEl) {
-                editEl.classList.add('hidden');
-            }
-        }
+        setProfileEditVisible(field, false);
     });
     
     // Hide edit actions and reset edit button
@@ -965,7 +954,7 @@ async function saveProfile() {
             // Update name in hero section
             const firstName = document.getElementById('edit-first_name').value;
             const lastName = document.getElementById('edit-last_name').value;
-            const nameElement = document.querySelector('.hero-bg .text-mono');
+            const nameElement = document.querySelector('.kt-card-content .text-lg.font-semibold.text-mono');
             if (nameElement) {
                 nameElement.textContent = `${firstName} ${lastName}`;
             }
@@ -979,26 +968,7 @@ async function saveProfile() {
             
             // Show view spans, hide edit inputs
             fields.forEach(field => {
-                const viewEl = document.getElementById('view-' + field);
-                let editEl = document.getElementById('edit-' + field);
-                let editWrapper = null;
-                
-                // Special handling for date_of_birth
-                if (field === 'date_of_birth') {
-                    editWrapper = document.getElementById('edit-date_of_birth-wrapper');
-                    if (editWrapper) {
-                        editEl = editWrapper.querySelector('input');
-                    }
-                }
-                
-                if (viewEl && (editEl || editWrapper)) {
-                    viewEl.classList.remove('hidden');
-                    if (editWrapper) {
-                        editWrapper.classList.add('hidden');
-                    } else if (editEl) {
-                        editEl.classList.add('hidden');
-                    }
-                }
+                setProfileEditVisible(field, false);
             });
             
             // Hide edit actions and reset edit button
@@ -1034,6 +1004,10 @@ let currentImage = null;
 let currentScale = 1;
 let currentTranslateX = 0;
 let currentTranslateY = 0;
+let pinchStartDistance = 0;
+let pinchStartScale = 1;
+let isPinching = false;
+let headerPhotoBaseUrl = @json($user->photo_blob ? route('user.photo', $user->id) : asset(config('nexa.default_user_avatar')));
 
 // Initialize photo editor when page loads
 document.addEventListener('DOMContentLoaded', function() {
@@ -1052,22 +1026,19 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add keyboard shortcuts
   document.addEventListener('keydown', function(e) {
     if (!currentImage) return;
-
-
-    // Zoom in with + key
-    if (e.key === '+' || e.key === '=') {
-      e.preventDefault();
-      currentScale = Math.min(3, currentScale + 0.1);
-      updateImageTransform();
-      savePhotoTransform();
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable)) {
+      return;
     }
 
-    // Zoom out with - key
-    if (e.key === '-') {
+    const zoomIn = e.key === '+' || e.key === '=' || e.code === 'NumpadAdd';
+    const zoomOut = e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract';
+
+    if (zoomIn) {
       e.preventDefault();
-      currentScale = Math.max(0.1, currentScale - 0.1);
-      updateImageTransform();
-      savePhotoTransform();
+      photoZoomIn();
+    } else if (zoomOut) {
+      e.preventDefault();
+      photoZoomOut();
     }
   });
 
@@ -1089,11 +1060,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Simple scroll zoom
       if (e.deltaY < 0) {
-        // Scrolling up - zoom in
         currentScale = Math.min(3, currentScale + 0.1);
       } else if (e.deltaY > 0) {
-        // Scrolling down - zoom out
-        currentScale = Math.max(0.1, currentScale - 0.1);
+        currentScale = Math.max(0.35, currentScale - 0.1);
       }
 
       updateImageTransform();
@@ -1118,12 +1087,15 @@ function initializePhotoEditor() {
 
 
   if (container) {
-    // Always show the container
     container.style.display = 'flex';
     container.style.visibility = 'visible';
     container.style.width = '300px';
     container.style.height = '300px';
+    container.style.maxWidth = '300px';
+    container.style.maxHeight = '300px';
     container.style.borderRadius = '50%';
+    container.style.overflow = 'hidden';
+    container.style.flexShrink = '0';
   }
 
   if (image) {
@@ -1132,6 +1104,7 @@ function initializePhotoEditor() {
 
     // Load saved transform or use default
     loadPhotoTransform();
+    updateHeaderPhotos();
   }
 
   // Add container-specific scroll zoom
@@ -1142,25 +1115,48 @@ function initializePhotoEditor() {
       e.preventDefault();
       e.stopPropagation();
 
-      // Simple scroll zoom
       if (e.deltaY < 0) {
-        // Scrolling up - zoom in
         currentScale = Math.min(3, currentScale + 0.1);
       } else if (e.deltaY > 0) {
-        // Scrolling down - zoom out
-        currentScale = Math.max(0.1, currentScale - 0.1);
+        currentScale = Math.max(0.35, currentScale - 0.1);
       }
 
       updateImageTransform();
       savePhotoTransform();
+    }, { passive: false });
 
-      console.log('Container scroll zoom:', {
-        deltaY: e.deltaY,
-        newScale: currentScale
-      });
-    });
+    container.addEventListener('touchstart', function(e) {
+      if (!currentImage || e.touches.length !== 2) return;
+      isPinching = true;
+      pinchStartDistance = getTouchDistance(e.touches);
+      pinchStartScale = currentScale;
+    }, { passive: true });
+
+    container.addEventListener('touchmove', function(e) {
+      if (!currentImage || !isPinching || e.touches.length !== 2) return;
+      e.preventDefault();
+      const distance = getTouchDistance(e.touches);
+      if (pinchStartDistance > 0) {
+        const scaleFactor = distance / pinchStartDistance;
+        currentScale = Math.max(0.35, Math.min(3, pinchStartScale * scaleFactor));
+        updateImageTransform();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', function() {
+      if (isPinching) {
+        isPinching = false;
+        savePhotoTransform();
+      }
+    }, { passive: true });
   }
 
+}
+
+function getTouchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
 }
 
 function setupImageInteractions() {
@@ -1197,7 +1193,20 @@ function resetPhotoTransform() {
   currentTranslateY = 0;
   updateImageTransform();
   savePhotoTransform();
-  console.log('Photo transform reset');
+}
+
+function photoZoomIn() {
+  if (!currentImage) return;
+  currentScale = Math.min(3, currentScale + 0.15);
+  updateImageTransform();
+  savePhotoTransform();
+}
+
+function photoZoomOut() {
+  if (!currentImage) return;
+  currentScale = Math.max(0.35, currentScale - 0.15);
+  updateImageTransform();
+  savePhotoTransform();
 }
 
 // DOM update functions for skills and experiences
@@ -1892,7 +1901,7 @@ function updateProfileCompleteness() {
   }
 
   // Update the pill in header
-  const pillElement = document.querySelector('.pill');
+  const pillElement = document.querySelector('.profile-completeness-badge');
   if (pillElement) {
     pillElement.textContent = percentage + '% compleet';
   }
@@ -1908,6 +1917,7 @@ function savePhotoTransform() {
     translateY: currentTranslateY
   };
   localStorage.setItem('photoTransform', JSON.stringify(transformData));
+  updateHeaderPhotos();
 }
 
 function loadPhotoTransform() {
@@ -1923,6 +1933,81 @@ function loadPhotoTransform() {
     } catch (e) {
       console.log('Could not load saved transform:', e);
     }
+  }
+}
+
+function updateHeaderPhotos(photoUrlOverride) {
+  if (photoUrlOverride) {
+    headerPhotoBaseUrl = @json(route('user.photo', auth()->id()));
+  }
+
+  const basePhotoUrl = photoUrlOverride || headerPhotoBaseUrl;
+  if (!basePhotoUrl) {
+    return;
+  }
+
+  const timestamp = Date.now();
+  const newPhotoUrl = basePhotoUrl + (basePhotoUrl.includes('?') ? '&' : '?') + 't=' + timestamp;
+
+  let transformData = { scale: 1, translateX: 0, translateY: 0 };
+  const savedTransform = localStorage.getItem('photoTransform');
+  if (savedTransform) {
+    try {
+      transformData = JSON.parse(savedTransform);
+    } catch (e) {
+      console.log('Could not load transform for header photos:', e);
+    }
+  }
+
+  const profileSize = 300;
+  const headerSize = 36;
+  const sizeRatio = headerSize / profileSize;
+  const scale = transformData.scale || 1;
+  const translateX = (transformData.translateX || 0) * sizeRatio;
+  const translateY = (transformData.translateY || 0) * sizeRatio;
+  const transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+
+  function syncHeaderAvatar(img) {
+    if (img.id === 'profile-image' || img.closest('#photo-container')) {
+      return;
+    }
+
+    const parent = img.parentElement;
+    if (parent) {
+      parent.style.overflow = 'hidden';
+      parent.style.width = '36px';
+      parent.style.height = '36px';
+      parent.style.borderRadius = '50%';
+    }
+
+    img.src = newPhotoUrl;
+    img.style.transform = transform;
+    img.style.objectFit = 'cover';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.classList.remove('object-contain', 'bg-black', 'opacity-50', 'size-9', 'shrink-0', 'rounded-full', 'border-2', 'border-green-500');
+    img.classList.add('object-cover');
+  }
+
+  document.querySelectorAll('[data-user-avatar]').forEach(syncHeaderAvatar);
+
+  const chatAvatar = document.getElementById('chat_user_avatar');
+  if (chatAvatar) {
+    const chatSize = 30;
+    const chatSizeRatio = chatSize / profileSize;
+    const chatTransform = `scale(${scale}) translate(${(transformData.translateX || 0) * chatSizeRatio}px, ${(transformData.translateY || 0) * chatSizeRatio}px)`;
+    const chatParent = chatAvatar.parentElement;
+    if (chatParent) {
+      chatParent.style.overflow = 'hidden';
+      chatParent.style.width = '30px';
+      chatParent.style.height = '30px';
+      chatParent.style.borderRadius = '50%';
+    }
+    chatAvatar.src = newPhotoUrl;
+    chatAvatar.style.transform = chatTransform;
+    chatAvatar.style.objectFit = 'cover';
+    chatAvatar.style.width = '100%';
+    chatAvatar.style.height = '100%';
   }
 }
 
@@ -2223,8 +2308,13 @@ function updatePhotoDisplay(photoUrl) {
     // Setup interactions for the new image
     setupImageInteractions();
 
+    if (photoUrl) {
+      headerPhotoBaseUrl = @json(route('user.photo', auth()->id()));
+    }
+
     // Load saved transform for new image
     loadPhotoTransform();
+    updateHeaderPhotos(photoUrl || null);
 
     console.log('Photo display updated successfully');
   } else {
@@ -2234,16 +2324,12 @@ function updatePhotoDisplay(photoUrl) {
 
 // Show default avatar when image fails to load
 function showDefaultAvatar() {
-  const photoContainer = document.getElementById('photo-container');
-  if (photoContainer) {
-    // Remove any existing image
-    const existingImage = photoContainer.querySelector('#profile-image');
-    if (existingImage) {
-      existingImage.remove();
-    }
-    
-    // Show default avatar (the fallback div should already be there)
-    console.log('Showing default avatar');
+  const image = document.getElementById('profile-image');
+  if (image) {
+    image.src = '{{ asset(config('nexa.default_user_avatar')) }}';
+    currentImage = image;
+    resetPhotoTransform();
+    setupImageInteractions();
   }
 }
 

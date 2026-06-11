@@ -2,7 +2,9 @@
 
 namespace App\Services\AiChat;
 
+use App\Enums\AiChat\AiChatChannel;
 use App\Models\GeneralSetting;
+use App\Models\User;
 
 /**
  * Configureerbare standaardteksten voor de AI-chat (per tenant).
@@ -33,6 +35,10 @@ final class AiChatMessageSettingsService
                 'ai_chat.live_data_denied_message',
                 'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.'
             ),
+            'own_ride_denied_guest_message' => 'Om de status van je reservering te bekijken, log in op Mijn Taxi met het e-mailadres waarmee je hebt geboekt.',
+            'own_ride_denied_logged_in_message' => 'Ik heb geen toegang tot je reserveringsgegevens. Log in op Mijn Taxi met hetzelfde e-mailadres als bij je boeking, of bekijk je ritten daar direct.',
+            'public_rates_denied_mijn_taxi_message' => 'Voor tarieven en prijsopgaves (bijvoorbeeld een rit naar Schiphol) kun je het beste onze website gebruiken — open daar de chat voor een directe offerte. In Mijn Taxi help ik je graag met de status van je reservering of andere vragen over je account.',
+            'public_rates_denied_admin_message' => 'Publieke tarieven en ritoffertes zijn alleen beschikbaar via de website-chat. In het adminpaneel kan ik je helpen met operationele vragen over ritten, chauffeurs en planning.',
         ];
     }
 
@@ -78,6 +84,29 @@ final class AiChatMessageSettingsService
     public function liveDataDeniedMessage(?int $companyId = null, string $module = 'taxi'): string
     {
         return $this->get('live_data_denied_message', $module, $companyId);
+    }
+
+    public function ownRideDeniedMessage(?User $user = null, ?int $companyId = null, string $module = 'taxi'): string
+    {
+        $key = $user === null
+            ? 'own_ride_denied_guest_message'
+            : 'own_ride_denied_logged_in_message';
+
+        return $this->get($key, $module, $companyId);
+    }
+
+    public function publicRatesDeniedMessage(
+        AiChatChannel $channel,
+        ?int $companyId = null,
+        string $module = 'taxi',
+    ): string {
+        $key = match ($channel) {
+            AiChatChannel::MijnTaxi => 'public_rates_denied_mijn_taxi_message',
+            AiChatChannel::Admin => 'public_rates_denied_admin_message',
+            default => 'public_rates_denied_mijn_taxi_message',
+        };
+
+        return $this->get($key, $module, $companyId);
     }
 
     /**

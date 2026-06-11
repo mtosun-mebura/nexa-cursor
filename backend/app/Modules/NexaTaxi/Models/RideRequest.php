@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Models;
 
 use App\Models\Company;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -137,6 +138,17 @@ class RideRequest extends Model
     public function getStatusLabelAttribute(): string
     {
         return self::statusLabels()[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Ophaalmoment ligt nog binnen het grace-venster voor de chauffeur-wachtrij.
+     */
+    public function scopeDispatchPickupWithinQueueWindow($query, CarbonInterface $pickupCutoff)
+    {
+        return $query->where(function ($q) use ($pickupCutoff) {
+            $q->whereNull('pickup_at')
+                ->orWhere('pickup_at', '>=', $pickupCutoff);
+        });
     }
 
     /**

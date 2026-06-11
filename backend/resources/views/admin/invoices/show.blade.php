@@ -206,11 +206,13 @@
                         </div>
                         @endif
                         
+                        @if(!empty($paymentTermsText))
                         <div class="border-t border-input pt-4">
                             <p class="text-xs text-secondary-foreground">
-                                <strong>Betaaltermijn:</strong> Deze factuur dient binnen {{ $paymentTermsDays }} {{ $paymentTermsDays == 1 ? 'dag' : 'dagen' }} na factuurdatum ({{ $invoice->due_date->format('d M Y') }}) te worden betaald.
+                                {{ $paymentTermsText }}
                             </p>
                         </div>
+                        @endif
                     </div>
                 </div>
             </div>

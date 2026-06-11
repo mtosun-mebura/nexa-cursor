@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Models;
 
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -53,15 +54,39 @@ class RideDispatchOffer extends Model
     }
 
     /**
-     * Inbox: alle openstaande aanbiedingen voor deze chauffeur (ook net verlopen — UI toont wacht-status).
+     * Rit hoort nog in de dispatch-wachtrij (pickup ontbreekt of ligt na het cutoff-moment).
      */
-    public function scopeInboxForDriver($query, int $driverId)
+    public function scopeRidePickupWithinQueueWindow($query, CarbonInterface $pickupCutoff)
+    {
+        return $query->whereHas('rideRequest', function ($q) use ($pickupCutoff) {
+            $q->where(function ($q2) use ($pickupCutoff) {
+                $q2->whereNull('pickup_at')
+                    ->orWhere('pickup_at', '>=', $pickupCutoff);
+            });
+        });
+    }
+
+    /**
+     * Inbox: openstaande aanbiedingen voor deze chauffeur binnen het pickup-grace-venster.
+     */
+    public function scopeInboxForDriver($query, int $driverId, CarbonInterface $pickupCutoff)
     {
         return $query
             ->where('driver_id', $driverId)
             ->where('status', self::STATUS_PENDING)
-            ->whereHas('rideRequest', function ($q) {
-                $q->whereNull('driver_id');
-            });
+            ->whereHas('rideRequest', fn ($q) => $q->whereNull('driver_id'))
+            ->ridePickupWithinQueueWindow($pickupCutoff);
+    }
+
+    /**
+     * Door deze chauffeur afgewezen ritten die nog geen chauffeur hebben.
+     */
+    public function scopeDeclinedForDriver($query, int $driverId, CarbonInterface $pickupCutoff)
+    {
+        return $query
+            ->where('driver_id', $driverId)
+            ->where('status', self::STATUS_DECLINED)
+            ->whereHas('rideRequest', fn ($q) => $q->whereNull('driver_id'))
+            ->ridePickupWithinQueueWindow($pickupCutoff);
     }
 }

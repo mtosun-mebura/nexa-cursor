@@ -26,11 +26,12 @@ class DriverDispatchController extends Controller
         $user = $request->user();
         $conn = $moduleDb->getModuleConnectionName('taxi');
 
-        $dispatch->expireStaleOffers($conn);
-
         $companyId = (int) $request->attributes->get('taxi_company_id');
 
+        $dispatch->expireStaleOffers($conn);
+
         if (TaxiDispatchSchema::tablesExist($conn)) {
+            $dispatch->expireOffersForPastPickups($conn, $companyId);
             $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
             if (TaxiDispatchSchema::driverAvailabilityExists($conn)) {
                 DriverAvailability::on($conn)->updateOrCreate(
@@ -40,9 +41,11 @@ class DriverDispatchController extends Controller
             }
         }
 
+        $pickupCutoff = app(TaxiDispatchSettingsService::class)->pickupQueueCutoffAt($companyId);
+
         $offers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
-            ->inboxForDriver($user->id)
+            ->inboxForDriver($user->id, $pickupCutoff)
             ->get()
             ->sortBy(function (RideDispatchOffer $offer) {
                 $pickupAt = $offer->rideRequest?->pickup_at;
@@ -51,21 +54,45 @@ class DriverDispatchController extends Controller
             })
             ->values();
 
+        $declinedOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->declinedForDriver($user->id, $pickupCutoff)
+            ->get()
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->responded_at?->timestamp ?? 0;
+            })
+            ->values();
+
+        $unclaimedRides = $dispatch->unclaimedRidesForCompany($conn, $companyId);
+
         $activeRide = RideRequest::on($conn)
             ->where('driver_id', $user->id)
             ->where('status', RideRequest::STATUS_ASSIGNED)
             ->orderBy('pickup_at')
             ->first();
 
-        $scheduledRides = RideRequest::on($conn)
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+
+        $acceptedRides = RideRequest::on($conn)
             ->where('driver_id', $user->id)
             ->where('status', RideRequest::STATUS_ACCEPTED)
             ->orderBy('pickup_at')
             ->get();
 
+        $scheduledRides = $acceptedRides
+            ->filter(fn (RideRequest $ride) => ! $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
+            ->values();
+
+        $overdueScheduledRides = $acceptedRides
+            ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
+            ->values();
+
         return response()->json([
             'data' => [
                 'offers' => $offers->map(
+                    fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest)
+                )->values(),
+                'declined_offers' => $declinedOffers->map(
                     fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest)
                 )->values(),
                 'active_ride' => $activeRide
@@ -74,12 +101,17 @@ class DriverDispatchController extends Controller
                 'scheduled_rides' => $scheduledRides
                     ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride))
                     ->values(),
+                'overdue_scheduled_rides' => $overdueScheduledRides
+                    ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true))
+                    ->values(),
             ],
             'meta' => array_merge(
                 [
                     'server_time' => now()->toIso8601String(),
                     'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
-                    'offer_ttl_seconds' => app(TaxiDispatchSettingsService::class)->offerTtlSeconds($companyId),
+                    'offer_ttl_seconds' => $dispatchSettings->offerTtlSeconds($companyId),
+                    'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
+                    'unclaimed_rides' => $unclaimedRides,
                 ],
                 app(TaxiDispatchSettingsService::class)->paymentOptionsForTenant($companyId)
             ),

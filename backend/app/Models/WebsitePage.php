@@ -285,6 +285,7 @@ class WebsitePage extends Model
             'carousel' => [
                 'items' => [],
                 'interval_seconds' => 5,
+                'max_height_percent' => 0,
             ],
             'cards_ronde_hoeken' => [
                 'cards_per_row' => 4,
@@ -980,10 +981,15 @@ class WebsitePage extends Model
                 }
                 $intervalSeconds = isset($raw['interval_seconds']) ? (int) $raw['interval_seconds'] : (int) ($defaults['carousel']['interval_seconds'] ?? 5);
                 $intervalSeconds = max(0, min(120, $intervalSeconds));
+                $maxHeightPercent = isset($raw['max_height_percent']) && $raw['max_height_percent'] !== ''
+                    ? (int) $raw['max_height_percent']
+                    : (int) ($defaults['carousel']['max_height_percent'] ?? 0);
+                $maxHeightPercent = max(0, min(100, $maxHeightPercent));
 
                 return [
                     'items' => array_values($items),
                     'interval_seconds' => $intervalSeconds,
+                    'max_height_percent' => $maxHeightPercent,
                 ];
             case 'cards_ronde_hoeken':
                 $items = $raw['items'] ?? [];

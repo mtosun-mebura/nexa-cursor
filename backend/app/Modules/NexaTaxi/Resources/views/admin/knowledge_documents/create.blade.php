@@ -23,6 +23,6 @@
             </div>
         </div>
     </form>
+    @include('taxi::admin.knowledge_documents.partials.form-wysiwyg-scripts')
 </div>
-@include('taxi::admin.knowledge_documents.partials.form-wysiwyg-scripts')
 @endsection

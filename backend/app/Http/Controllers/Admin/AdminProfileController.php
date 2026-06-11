@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\EnvService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Services\EnvService;
 
 class AdminProfileController extends Controller
 {
@@ -21,10 +23,23 @@ class AdminProfileController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $user->load(['skills', 'experiences', 'cvFiles', 'company.locations', 'company.mainLocation']);
-        
+        $candidateProfileEnabled = $this->candidateProfileEnabled();
+
+        $relations = ['company.locations', 'company.mainLocation'];
+        if ($candidateProfileEnabled) {
+            $relations = array_merge(['skills', 'experiences', 'cvFiles'], $relations);
+        }
+
+        $user->load($relations);
+
+        if (! $candidateProfileEnabled) {
+            $user->setRelation('skills', collect());
+            $user->setRelation('experiences', collect());
+            $user->setRelation('cvFiles', collect());
+        }
+
         // Calculate profile completeness percentage
-        $profileCompleteness = $this->calculateProfileCompleteness($user);
+        $profileCompleteness = $this->calculateProfileCompleteness($user, $candidateProfileEnabled);
         
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
         $googleMapsZoom = $this->envService->get('GOOGLE_MAPS_ZOOM', '12');
@@ -32,10 +47,34 @@ class AdminProfileController extends Controller
         $googleMapsCenterLng = $this->envService->get('GOOGLE_MAPS_CENTER_LNG', '4.9041');
         $googleMapsType = $this->envService->get('GOOGLE_MAPS_TYPE', 'roadmap');
         
-        return view('admin.pages.profile', compact('user', 'profileCompleteness', 'googleMapsApiKey', 'googleMapsZoom', 'googleMapsCenterLat', 'googleMapsCenterLng', 'googleMapsType'));
+        return view('admin.pages.profile', compact(
+            'user',
+            'profileCompleteness',
+            'candidateProfileEnabled',
+            'googleMapsApiKey',
+            'googleMapsZoom',
+            'googleMapsCenterLat',
+            'googleMapsCenterLng',
+            'googleMapsType'
+        ));
+    }
+
+    private function candidateProfileEnabled(): bool
+    {
+        return Schema::hasTable('skills')
+            && Schema::hasTable('experiences')
+            && Schema::hasTable('cv_files');
+    }
+
+    private function candidateProfileUnavailableResponse(): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Vaardigheden en werkervaring zijn niet beschikbaar op deze omgeving.',
+        ], 404);
     }
     
-    private function calculateProfileCompleteness($user)
+    private function calculateProfileCompleteness($user, bool $candidateProfileEnabled = true)
     {
         $totalFields = 0;
         $completedFields = 0;
@@ -57,20 +96,32 @@ class AdminProfileController extends Controller
             if ($isCompleted) $completedFields++;
         }
         
-        // Skills (30% of total)
-        $hasTechnicalSkills = $user->skills()->where('type', 'technical')->count() > 0;
-        $hasSoftSkills = $user->skills()->where('type', 'soft')->count() > 0;
-        
-        $totalFields += 2;
-        if ($hasTechnicalSkills) $completedFields++;
-        if ($hasSoftSkills) $completedFields++;
-        
-        // Work experience (30% of total)
-        $hasExperience = $user->experiences()->count() > 0;
-        
-        $totalFields++;
-        if ($hasExperience) $completedFields++;
-        
+        if ($candidateProfileEnabled) {
+            // Skills (30% of total)
+            $hasTechnicalSkills = $user->skills()->where('type', 'technical')->count() > 0;
+            $hasSoftSkills = $user->skills()->where('type', 'soft')->count() > 0;
+
+            $totalFields += 2;
+            if ($hasTechnicalSkills) {
+                $completedFields++;
+            }
+            if ($hasSoftSkills) {
+                $completedFields++;
+            }
+
+            // Work experience (30% of total)
+            $hasExperience = $user->experiences()->count() > 0;
+
+            $totalFields++;
+            if ($hasExperience) {
+                $completedFields++;
+            }
+        }
+
+        if ($totalFields === 0) {
+            return 0;
+        }
+
         return round(($completedFields / $totalFields) * 100);
     }
 
@@ -149,6 +200,10 @@ class AdminProfileController extends Controller
 
     public function uploadCV(Request $request)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $request->validate([
             'cv' => 'required|file|mimes:pdf,doc,docx|max:10240', // 10MB max
         ], [
@@ -184,6 +239,10 @@ class AdminProfileController extends Controller
 
     public function removeCV(Request $request)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $request->validate([
             'cv_id' => 'required|integer|exists:cv_files,id'
         ]);
@@ -337,6 +396,10 @@ class AdminProfileController extends Controller
 
     public function addSkill(Request $request)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:technical,soft'
@@ -363,6 +426,10 @@ class AdminProfileController extends Controller
 
     public function removeSkill(Request $request, $skillId)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $user = Auth::user();
         $skill = $user->skills()->findOrFail($skillId);
         $skill->delete();
@@ -375,6 +442,10 @@ class AdminProfileController extends Controller
 
     public function addExperience(Request $request)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $request->validate([
             'title' => 'required|string|max:255',
             'company' => 'required|string|max:255',
@@ -421,6 +492,10 @@ class AdminProfileController extends Controller
 
     public function showExperience(Request $request, $experienceId)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $user = Auth::user();
         $experience = $user->experiences()->findOrFail($experienceId);
 
@@ -442,6 +517,10 @@ class AdminProfileController extends Controller
 
     public function updateExperience(Request $request, $experienceId)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         // Debug: Log incoming request data
         \Log::info('Admin Update Experience Request Data', $request->all());
         \Log::info('Request method', ['method' => $request->method()]);
@@ -503,6 +582,10 @@ class AdminProfileController extends Controller
 
     public function removeExperience(Request $request, $experienceId)
     {
+        if (! $this->candidateProfileEnabled()) {
+            return $this->candidateProfileUnavailableResponse();
+        }
+
         $user = Auth::user();
         $experience = $user->experiences()->findOrFail($experienceId);
         $experience->delete();

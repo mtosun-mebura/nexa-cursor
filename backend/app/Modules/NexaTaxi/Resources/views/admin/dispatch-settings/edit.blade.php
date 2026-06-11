@@ -71,6 +71,30 @@
                         @enderror
                     </td>
                 </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Grace na ophaalmoment (uren)</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="past_pickup_grace_hours"
+                            id="past_pickup_grace_hours"
+                            class="kt-input w-full max-w-md @error('past_pickup_grace_hours') border-destructive @enderror"
+                            min="{{ $minPastPickupGraceHours }}"
+                            max="{{ $maxPastPickupGraceHours }}"
+                            step="1"
+                            required
+                            value="{{ old('past_pickup_grace_hours', $pastPickupGraceHours) }}"
+                        >
+                        <p class="text-xs text-muted-foreground mt-1">
+                            Ritten met een ophaalmoment in het verleden blijven nog zo lang in de chauffeur-wachtrij staan.
+                            Daarna verdwijnen ze automatisch uit de inbox (standaard server: {{ $envDefaultPastPickupGraceHours }} uur).
+                            Tussen {{ $minPastPickupGraceHours }} en {{ $maxPastPickupGraceHours }} uur.
+                        </p>
+                        @error('past_pickup_grace_hours')
+                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                        @enderror
+                    </td>
+                </tr>
             </table>
             </div>
             </div>

@@ -40,6 +40,7 @@ class AiChatKnowledgeFallbackServiceTest extends TestCase
         $moduleDb = $this->createMock(ModuleDatabaseService::class);
         $moduleDb->method('getModuleConnectionName')->with('taxi')->willReturn('module_taxi_test');
         $moduleDb->method('registerConnection')->with('taxi');
+        $moduleDb->method('ensureModuleStorageReady')->with('taxi');
 
         $this->app->instance(ModuleDatabaseService::class, $moduleDb);
         Config::set('database.connections.module_taxi_test', Config::get('database.connections.module_taxi_test'));
@@ -49,7 +50,7 @@ class AiChatKnowledgeFallbackServiceTest extends TestCase
     {
         $service = app(AiChatKnowledgeFallbackService::class);
 
-        $answer = $service->search('contact', 'taxi');
+        $answer = $service->search('Wat is jullie telefoonnummer?', 'taxi');
 
         $this->assertNotNull($answer);
         $this->assertStringContainsString('Contactgegevens', $answer);

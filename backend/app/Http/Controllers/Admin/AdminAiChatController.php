@@ -3,20 +3,21 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AiChatSendMessageRequest;
 use App\Models\GeneralSetting;
 use App\Services\AiChat\AiChatAccessService;
 use App\Services\AiChat\AiChatAssistantOrchestrator;
 use App\Services\AiChat\AiChatContextResolver;
 use App\Services\AiChat\AiChatMessageSettingsService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class AdminAiChatController extends Controller
 {
     public function sendMessage(
-        Request $request,
+        AiChatSendMessageRequest $request,
         AiChatAssistantOrchestrator $orchestrator,
         AiChatContextResolver $contextResolver,
         AiChatAccessService $accessService,
@@ -28,14 +29,9 @@ class AdminAiChatController extends Controller
             abort(403, 'Geen rechten voor de admin AI-assistent.');
         }
 
-        $validated = $request->validate([
-            'message' => 'required|string|max:4000',
-            'history' => 'nullable|array|max:20',
-            'history.*.role' => 'required_with:history|in:user,assistant,ai',
-            'history.*.text' => 'required_with:history|string|max:4000',
-            'module' => 'nullable|string|max:50',
-            'sessionId' => 'nullable|string|max:120',
-        ]);
+        $validated = $request->validated();
+        $quoteAddress = $request->quoteAddress();
+        $quoteBaggage = $request->quoteBaggage();
 
         try {
             $context = $contextResolver->forAdminRequest(
@@ -44,15 +40,19 @@ class AdminAiChatController extends Controller
                 $validated['sessionId'] ?? null,
             );
 
-            $reply = $orchestrator->handle(
+            $result = $orchestrator->handle(
                 $context,
                 $validated['message'],
+                $quoteAddress,
+                $quoteBaggage,
             );
 
+            return response()->json(array_merge(['success' => true], $result->toArray()));
+        } catch (RuntimeException $e) {
             return response()->json([
-                'success' => true,
-                'reply' => $reply,
-            ]);
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 422);
         } catch (Throwable $e) {
             Log::warning('Admin AI chat request failed', [
                 'user_id' => $user->id,

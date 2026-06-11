@@ -2,6 +2,8 @@
 
 namespace App\DTO\AiChat;
 
+use App\Enums\AiChat\AiChatIntent;
+
 final readonly class AiChatWebhookPayload
 {
     public function __construct(
@@ -18,12 +20,10 @@ final readonly class AiChatWebhookPayload
     {
         $payload = array_merge(
             $this->context->toIdentityArray(),
+            $this->intent->toArray(),
             [
                 'message' => $this->message,
-                'intent' => $this->intent->intent->value,
-                'isAdmin' => $this->intent->isAdmin,
-                'allowLiveData' => $this->intent->allowLiveData,
-                'allowPublicRates' => $this->intent->allowPublicRates,
+                'useRag' => $this->intent->intent->usesRag(),
             ]
         );
 
@@ -32,6 +32,7 @@ final readonly class AiChatWebhookPayload
         }
 
         $payload['laravel_live_query_url'] = self::resolveLiveQueryUrl();
+        $payload['laravel_rag_search_url'] = self::resolveRagSearchUrl();
 
         return $payload;
     }
@@ -40,6 +41,14 @@ final readonly class AiChatWebhookPayload
     {
         $base = rtrim((string) config('ai_chat.laravel_api_url', config('app.url')), '/');
         $path = (string) config('ai_chat.laravel_live_query_path', '/api/ai-chat/live-query');
+
+        return $base.$path;
+    }
+
+    public static function resolveRagSearchUrl(): string
+    {
+        $base = rtrim((string) config('ai_chat.laravel_api_url', config('app.url')), '/');
+        $path = (string) config('ai_chat.laravel_rag_search_path', '/integrations/n8n/ai-chat/rag-search');
 
         return $base.$path;
     }

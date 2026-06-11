@@ -69,7 +69,7 @@ class TaxiDispatchPaymentSettingsTest extends TestCase
             'provider_type' => 'mollie',
             'is_active' => true,
             'config' => [
-                'api_key' => Crypt::encryptString('test_key'),
+                'api_key' => Crypt::encryptString('test_1234567890abcdef'),
             ],
         ]);
 

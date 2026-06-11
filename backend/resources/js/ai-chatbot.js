@@ -15,6 +15,26 @@ export function registerAiChatbot(Alpine) {
         newMessage: '',
         messages: [],
         sessionId: '',
+        addressQuery: '',
+        addressSuggestions: [],
+        addressSuggestionsOpen: false,
+        addressLoading: false,
+        addressSelectedFromSuggestions: false,
+        addressSelectedPlaceId: '',
+        addressSelectedLat: null,
+        addressSelectedLng: null,
+        pendingQuoteAddress: null,
+        pendingQuoteBaggage: null,
+        baggageQty: {},
+        specialBaggageQty: {},
+        baggageShowSpecial: false,
+        remarksValue: '',
+        datetimeValue: '',
+        numberValue: '',
+        mapsReady: false,
+        mapsLoading: false,
+        _placesService: null,
+        _addressDebounce: null,
 
         init() {
             const greeting = this.config.greeting || 'Hallo! Hoe kan ik je helpen?';
@@ -50,6 +70,82 @@ export function registerAiChatbot(Alpine) {
             if (!Array.isArray(this.messages) || this.messages.length === 0) {
                 this.messages = [this.createGreetingMessage(greeting)];
             }
+
+            this.resetStructuredInputs();
+            this.$nextTick(() => {
+                this.applyStructuredInputPrefill(this.activeQuoteInput());
+            });
+        },
+
+        activeQuoteInput() {
+            for (let i = this.messages.length - 1; i >= 0; i -= 1) {
+                const message = this.messages[i];
+                if (message.sender === 'ai') {
+                    return message.input || null;
+                }
+            }
+
+            return null;
+        },
+
+        applyStructuredInputPrefill(input) {
+            if (!input) {
+                return;
+            }
+
+            if (input.type === 'address') {
+                this.addressQuery = String(input.prefill || '').trim();
+                this.addressSelectedFromSuggestions = false;
+                this.addressSelectedPlaceId = '';
+                this.addressSelectedLat = null;
+                this.addressSelectedLng = null;
+                if (this.addressQuery.length >= 2) {
+                    this.onAddressInput();
+                }
+                if (String(this.config.googleMapsApiKey || '').trim() !== '') {
+                    this.ensureGoogleMaps().catch(() => {});
+                }
+                return;
+            }
+
+            if (input.type === 'datetime') {
+                this.datetimeValue = '';
+                return;
+            }
+
+            if (input.type === 'number') {
+                this.numberValue = '';
+            }
+
+            if (input.type === 'baggage') {
+                this.resetBaggageInputs(input);
+            }
+
+            if (input.type === 'text') {
+                this.remarksValue = '';
+            }
+        },
+
+        resetStructuredInputs() {
+            this.clearStructuredInputFields();
+        },
+
+        clearStructuredInputFields() {
+            this.addressQuery = '';
+            this.addressSuggestions = [];
+            this.addressSuggestionsOpen = false;
+            this.addressLoading = false;
+            this.addressSelectedFromSuggestions = false;
+            this.addressSelectedPlaceId = '';
+            this.addressSelectedLat = null;
+            this.addressSelectedLng = null;
+            this.pendingQuoteBaggage = null;
+            this.baggageQty = {};
+            this.specialBaggageQty = {};
+            this.baggageShowSpecial = false;
+            this.remarksValue = '';
+            this.datetimeValue = '';
+            this.numberValue = '';
         },
 
         toggleChat() {
@@ -58,6 +154,10 @@ export function registerAiChatbot(Alpine) {
             if (this.isOpen) {
                 this.$nextTick(() => {
                     this.scrollToBottom();
+                    this.focusActiveInput();
+                    if (this.activeQuoteInput()?.type === 'address') {
+                        this.ensureGoogleMaps().catch(() => {});
+                    }
                 });
             }
         },
@@ -86,6 +186,7 @@ export function registerAiChatbot(Alpine) {
             const greeting = this.config.greeting || 'Hallo! Hoe kan ik je helpen?';
             this.messages = [this.createGreetingMessage(greeting)];
             this.newMessage = '';
+            this.resetStructuredInputs();
 
             const storageKey = this.config.storageKey || 'ai-chat-messages';
             const sessionStorageKey = `${storageKey}-session`;
@@ -121,34 +222,167 @@ export function registerAiChatbot(Alpine) {
             });
         },
 
+        focusActiveInput() {
+            const active = this.activeQuoteInput();
+            if (!active) {
+                this.$refs.messageInput?.focus();
+                return;
+            }
+
+            if (active.type === 'address') {
+                this.$refs.addressInput?.focus();
+            } else if (active.type === 'datetime') {
+                this.$refs.datetimeInput?.focus();
+            } else if (active.type === 'number') {
+                this.$refs.numberInput?.focus();
+            } else if (active.type === 'text') {
+                this.$refs.remarksInput?.focus();
+            }
+        },
+
+        canSubmitStructuredInput() {
+            const active = this.activeQuoteInput();
+            if (!active || this.isTyping) {
+                return false;
+            }
+
+            if (active.type === 'address') {
+                const query = this.addressQuery.trim();
+                if (query.length < 3) {
+                    return false;
+                }
+
+                if (String(this.config.googleMapsApiKey || '').trim() !== '') {
+                    return this.addressSelectedFromSuggestions;
+                }
+
+                return true;
+            }
+
+            if (active.type === 'datetime') {
+                return this.datetimeValue.trim() !== '';
+            }
+
+            if (active.type === 'number') {
+                return this.numberValue !== '' && this.numberValue !== null;
+            }
+
+            if (active.type === 'baggage') {
+                return true;
+            }
+
+            if (active.type === 'text') {
+                const value = this.remarksValue.trim();
+                if (active.required === false || active.step === 'remarks') {
+                    return true;
+                }
+
+                return value.length > 0;
+            }
+
+            return false;
+        },
+
+        canSubmitTextInput() {
+            return !this.activeQuoteInput() && this.newMessage.trim() !== '' && !this.isTyping;
+        },
+
+        async submitStructuredInput() {
+            const active = this.activeQuoteInput();
+            if (!active) {
+                return;
+            }
+
+            let outgoing = '';
+            if (active.type === 'address') {
+                outgoing = this.addressQuery.trim();
+            } else if (active.type === 'datetime') {
+                outgoing = this.datetimeValue.trim();
+            } else if (active.type === 'number') {
+                outgoing = String(this.numberValue);
+            } else if (active.type === 'baggage') {
+                outgoing = this.buildBaggageSummaryText(active);
+                this.pendingQuoteBaggage = this.buildBaggagePayload();
+            } else if (active.type === 'text') {
+                const textValue = this.remarksValue.trim();
+                if (active.step === 'remarks' || (active.required === false && textValue === '')) {
+                    outgoing = textValue !== '' ? textValue : 'geen';
+                } else {
+                    outgoing = textValue;
+                }
+            }
+
+            if (active.type !== 'baggage' && active.type !== 'text' && !outgoing) {
+                return;
+            }
+
+            if (active.type === 'address') {
+                this.pendingQuoteAddress = {
+                    label: outgoing,
+                    place_id: this.addressSelectedPlaceId || null,
+                    lat: this.addressSelectedLat,
+                    lng: this.addressSelectedLng,
+                };
+            } else {
+                this.pendingQuoteAddress = null;
+            }
+
+            if (active.type !== 'baggage') {
+                this.pendingQuoteBaggage = null;
+            }
+
+            await this.dispatchUserMessage(outgoing);
+        },
+
         async sendMessage() {
             if (!this.newMessage.trim()) {
+                return;
+            }
+
+            await this.dispatchUserMessage(this.newMessage.trim());
+            this.newMessage = '';
+        },
+
+        async dispatchUserMessage(outgoing) {
+            if (this.config.requiresTenant) {
+                this.messages.push({
+                    id: Date.now(),
+                    sender: 'ai',
+                    text: this.config.tenantRequiredMessage
+                        || 'Selecteer eerst een bedrijf in de tenant-kiezer.',
+                    time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+                });
+                this.saveMessages();
+                this.scrollToBottom();
                 return;
             }
 
             const userMessage = {
                 id: Date.now(),
                 sender: 'user',
-                text: this.newMessage,
+                text: outgoing,
                 time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
             };
 
             this.messages.push(userMessage);
-            const outgoing = this.newMessage;
-            this.newMessage = '';
             this.isTyping = true;
             this.syncHeaderTriggerState();
+            const quoteAddressPayload = this.pendingQuoteAddress;
+            const quoteBaggagePayload = this.pendingQuoteBaggage;
+            this.clearStructuredInputFields();
             this.saveMessages();
             this.scrollToBottom();
 
             try {
-                const response = await this.callAssistantAPI(outgoing);
+                const response = await this.callAssistantAPI(outgoing, quoteAddressPayload, quoteBaggagePayload);
                 this.messages.push({
                     id: Date.now() + 1,
                     sender: 'ai',
-                    text: response,
+                    text: response.reply,
+                    input: response.input || null,
                     time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
                 });
+                this.applyStructuredInputPrefill(response.input || null);
             } catch (error) {
                 const fallback = 'Sorry, er is een fout opgetreden. Probeer het later opnieuw.';
                 const detail = error instanceof Error && error.message && error.message !== 'Assistant request failed'
@@ -160,12 +394,297 @@ export function registerAiChatbot(Alpine) {
                     text: detail,
                     time: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
                 });
+            } finally {
+                this.isTyping = false;
+                this.pendingQuoteAddress = null;
+                this.pendingQuoteBaggage = null;
+                this.syncHeaderTriggerState();
+                this.saveMessages();
+                this.scrollToBottom();
+                this.$nextTick(() => {
+                    this.focusActiveInput();
+                    if (this.activeQuoteInput()?.type === 'address') {
+                        this.ensureGoogleMaps().catch(() => {});
+                    }
+                });
+            }
+        },
+
+        onAddressInput() {
+            const query = this.addressQuery.trim();
+            this.addressSelectedFromSuggestions = false;
+            this.addressSelectedPlaceId = '';
+            this.addressSelectedLat = null;
+            this.addressSelectedLng = null;
+            if (this._addressDebounce) {
+                clearTimeout(this._addressDebounce);
             }
 
-            this.isTyping = false;
-            this.syncHeaderTriggerState();
-            this.saveMessages();
-            this.scrollToBottom();
+            if (query.length < 2) {
+                this.addressSuggestions = [];
+                this.addressSuggestionsOpen = false;
+                this.addressLoading = false;
+                return;
+            }
+
+            this.addressLoading = true;
+            this._addressDebounce = setTimeout(() => {
+                this.fetchAddressSuggestions(query).finally(() => {
+                    this.addressLoading = false;
+                });
+            }, 220);
+        },
+
+        async fetchAddressSuggestions(query) {
+            let nominatimResults = [];
+            let googleSettled = false;
+
+            const nominatimTask = this.fetchNominatimSuggestions(query).then((results) => {
+                nominatimResults = Array.isArray(results) ? results : [];
+                if (!googleSettled && nominatimResults.length > 0) {
+                    this.addressSuggestions = nominatimResults;
+                    this.addressSuggestionsOpen = true;
+                }
+            });
+
+            const googleTask = this.fetchGoogleAddressSuggestions(query).then((results) => {
+                googleSettled = true;
+                const googleSuggestions = Array.isArray(results) ? results : [];
+                if (googleSuggestions.length > 0) {
+                    this.addressSuggestions = googleSuggestions;
+                    this.addressSuggestionsOpen = true;
+                    return;
+                }
+                if (nominatimResults.length === 0) {
+                    this.addressSuggestions = [];
+                    this.addressSuggestionsOpen = false;
+                }
+            });
+
+            await Promise.all([nominatimTask, googleTask]);
+        },
+
+        async fetchGoogleAddressSuggestions(query) {
+            const apiKey = String(this.config.googleMapsApiKey || '').trim();
+            if (!apiKey) {
+                return [];
+            }
+
+            try {
+                await this.ensureGoogleMaps();
+            } catch (error) {
+                return [];
+            }
+
+            const service = this.getPlacesService();
+            if (!service || !window.google?.maps?.places) {
+                return [];
+            }
+
+            return new Promise((resolve) => {
+                service.getPlacePredictions({ input: query }, (results, status) => {
+                    if (status !== window.google.maps.places.PlacesServiceStatus.OK || !Array.isArray(results)) {
+                        resolve([]);
+                        return;
+                    }
+
+                    resolve(results.slice(0, 8).map((item) => ({
+                        label: item.description || '',
+                        value: item.description || '',
+                        place_id: item.place_id || '',
+                    })).filter((item) => item.value));
+                });
+            });
+        },
+
+        async fetchNominatimSuggestions(query) {
+            const baseUrl = String(this.config.addressSearchUrl || '').trim();
+            if (!baseUrl) {
+                return [];
+            }
+
+            try {
+                const url = `${baseUrl}?${new URLSearchParams({ q: query, limit: '8' }).toString()}`;
+                const response = await fetch(url, { headers: { Accept: 'application/json' } });
+                if (!response.ok) {
+                    return [];
+                }
+
+                const rows = await response.json();
+                if (!Array.isArray(rows)) {
+                    return [];
+                }
+
+                return rows.slice(0, 8).map((row) => ({
+                    label: row.display_name || row.name || '',
+                    value: row.display_name || row.name || '',
+                })).filter((item) => item.value);
+            } catch (error) {
+                return [];
+            }
+        },
+
+        async selectAddressSuggestion(item) {
+            this.addressQuery = item.value;
+            this.addressSelectedFromSuggestions = true;
+            this.addressSelectedPlaceId = String(item.place_id || '').trim();
+            this.addressSelectedLat = null;
+            this.addressSelectedLng = null;
+            this.addressSuggestions = [];
+            this.addressSuggestionsOpen = false;
+
+            if (this.addressSelectedPlaceId) {
+                const coords = await this.fetchPlaceCoordinates(this.addressSelectedPlaceId);
+                if (coords) {
+                    this.addressSelectedLat = coords.lat;
+                    this.addressSelectedLng = coords.lng;
+                }
+            } else if (String(this.config.googleMapsApiKey || '').trim() !== '') {
+                const coords = await this.fetchAddressCoordinates(item.value);
+                if (coords) {
+                    this.addressSelectedLat = coords.lat;
+                    this.addressSelectedLng = coords.lng;
+                }
+            }
+
+            this.$nextTick(() => {
+                this.$refs.addressInput?.focus();
+            });
+        },
+
+        async fetchAddressCoordinates(address) {
+            const query = String(address || '').trim();
+            if (!query) {
+                return null;
+            }
+
+            try {
+                await this.ensureGoogleMaps();
+            } catch (error) {
+                return null;
+            }
+
+            if (!window.google?.maps?.Geocoder) {
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ address: query }, (results, status) => {
+                    if (status !== 'OK' || !Array.isArray(results) || !results[0]?.geometry?.location) {
+                        resolve(null);
+                        return;
+                    }
+
+                    const location = results[0].geometry.location;
+                    resolve({
+                        lat: typeof location.lat === 'function' ? location.lat() : parseFloat(location.lat),
+                        lng: typeof location.lng === 'function' ? location.lng() : parseFloat(location.lng),
+                    });
+                });
+            });
+        },
+
+        async fetchPlaceCoordinates(placeId) {
+            const normalizedPlaceId = String(placeId || '').trim();
+            if (!normalizedPlaceId) {
+                return null;
+            }
+
+            try {
+                await this.ensureGoogleMaps();
+            } catch (error) {
+                return null;
+            }
+
+            if (!window.google?.maps?.Geocoder) {
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode({ placeId: normalizedPlaceId }, (results, status) => {
+                    if (status !== 'OK' || !Array.isArray(results) || !results[0]?.geometry?.location) {
+                        resolve(null);
+                        return;
+                    }
+
+                    const location = results[0].geometry.location;
+                    resolve({
+                        lat: typeof location.lat === 'function' ? location.lat() : parseFloat(location.lat),
+                        lng: typeof location.lng === 'function' ? location.lng() : parseFloat(location.lng),
+                    });
+                });
+            });
+        },
+
+        ensureGoogleMaps() {
+            if (this.mapsReady && window.google?.maps?.places) {
+                return Promise.resolve();
+            }
+
+            if (this.mapsLoading) {
+                return new Promise((resolve, reject) => {
+                    const wait = setInterval(() => {
+                        if (this.mapsReady) {
+                            clearInterval(wait);
+                            resolve();
+                        }
+                    }, 50);
+                    setTimeout(() => {
+                        clearInterval(wait);
+                        reject(new Error('Google Maps timeout'));
+                    }, 10000);
+                });
+            }
+
+            const apiKey = String(this.config.googleMapsApiKey || '').trim();
+            if (!apiKey) {
+                return Promise.reject(new Error('Geen Google Maps API key'));
+            }
+
+            this.mapsLoading = true;
+
+            return new Promise((resolve, reject) => {
+                if (window.google?.maps?.places) {
+                    this.mapsReady = true;
+                    this.mapsLoading = false;
+                    resolve();
+                    return;
+                }
+
+                const callbackName = `aiChatMapsInit_${Date.now()}`;
+                window[callbackName] = () => {
+                    this.mapsReady = true;
+                    this.mapsLoading = false;
+                    delete window[callbackName];
+                    resolve();
+                };
+
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&callback=${callbackName}`;
+                script.async = true;
+                script.onerror = () => {
+                    this.mapsLoading = false;
+                    delete window[callbackName];
+                    reject(new Error('Google Maps laden mislukt'));
+                };
+                document.head.appendChild(script);
+            });
+        },
+
+        getPlacesService() {
+            if (this._placesService) {
+                return this._placesService;
+            }
+
+            if (!window.google?.maps?.places) {
+                return null;
+            }
+
+            this._placesService = new window.google.maps.places.AutocompleteService();
+
+            return this._placesService;
         },
 
         buildHistory() {
@@ -178,30 +697,149 @@ export function registerAiChatbot(Alpine) {
                 }));
         },
 
-        async callAssistantAPI(message) {
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-            const response = await fetch(this.config.endpoint || '/ai-chat/message', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': token,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify({
-                    message: message,
-                    history: this.buildHistory(),
-                    module: this.config.module || 'default',
-                    sessionId: this.sessionId,
-                }),
+        defaultBaggageItems() {
+            return [
+                { key: 'large', title: 'Grote ruimbagage', subtitle: '85cm x 55cm x 35cm', max: 6 },
+                { key: 'small', title: 'Kleine ruimbagage', subtitle: '55cm x 45cm x 25cm', max: 6 },
+                { key: 'hand', title: 'Handbagage', subtitle: 'Handtas, rugzak, etc.', max: 6 },
+            ];
+        },
+
+        baggageInputItems(input = null) {
+            const source = input ?? this.activeQuoteInput();
+            const items = source?.items;
+            if (Array.isArray(items) && items.length > 0) {
+                return items;
+            }
+            if (source?.type === 'baggage') {
+                return this.defaultBaggageItems();
+            }
+
+            return [];
+        },
+
+        baggageSpecialItems(input = null) {
+            const source = input ?? this.activeQuoteInput();
+            const items = source?.special_items;
+
+            return Array.isArray(items) ? items : [];
+        },
+
+        resetBaggageInputs(input) {
+            const baggage = {};
+            const special = {};
+            this.baggageInputItems(input).forEach((item) => {
+                if (item?.key) {
+                    baggage[item.key] = 0;
+                }
             });
+            this.baggageSpecialItems(input).forEach((item) => {
+                if (item?.key) {
+                    special[item.key] = 0;
+                }
+            });
+            this.baggageQty = baggage;
+            this.specialBaggageQty = special;
+            this.baggageShowSpecial = false;
+        },
+
+        adjustBaggageQty(key, delta, max = 6) {
+            const current = parseInt(this.baggageQty[key] || 0, 10);
+            const limit = parseInt(max || 6, 10);
+            this.baggageQty[key] = Math.max(0, Math.min(limit, current + delta));
+        },
+
+        adjustSpecialBaggageQty(key, delta, max = 6) {
+            const current = parseInt(this.specialBaggageQty[key] || 0, 10);
+            const limit = parseInt(max || 6, 10);
+            this.specialBaggageQty[key] = Math.max(0, Math.min(limit, current + delta));
+        },
+
+        buildBaggagePayload() {
+            const baggage = {};
+            const special = {};
+            Object.keys(this.baggageQty || {}).forEach((key) => {
+                const qty = parseInt(this.baggageQty[key] || 0, 10);
+                if (qty > 0) {
+                    baggage[key] = qty;
+                }
+            });
+            if (this.baggageShowSpecial) {
+                Object.keys(this.specialBaggageQty || {}).forEach((key) => {
+                    const qty = parseInt(this.specialBaggageQty[key] || 0, 10);
+                    if (qty > 0) {
+                        special[key] = qty;
+                    }
+                });
+            }
+
+            return { baggage, special_baggage: special };
+        },
+
+        buildBaggageSummaryText(input) {
+            const parts = [];
+            this.baggageInputItems(input).forEach((item) => {
+                const qty = parseInt(this.baggageQty[item.key] || 0, 10);
+                if (qty > 0) {
+                    parts.push(`${item.title}: ${qty}`);
+                }
+            });
+            if (this.baggageShowSpecial) {
+                this.baggageSpecialItems(input).forEach((item) => {
+                    const qty = parseInt(this.specialBaggageQty[item.key] || 0, 10);
+                    if (qty > 0) {
+                        parts.push(`${item.title}: ${qty}`);
+                    }
+                });
+            }
+
+            return parts.length > 0 ? parts.join(', ') : 'Geen bagage';
+        },
+
+        async callAssistantAPI(message, quoteAddress = null, quoteBaggage = null) {
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 60000);
+            let response;
+
+            try {
+                response = await fetch(this.config.endpoint || '/ai-chat/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        history: this.buildHistory(),
+                        module: this.config.module || 'default',
+                        sessionId: this.sessionId,
+                        quoteAddress: quoteAddress || undefined,
+                        quoteBaggage: quoteBaggage || undefined,
+                    }),
+                    signal: controller.signal,
+                });
+            } catch (error) {
+                if (error instanceof Error && error.name === 'AbortError') {
+                    throw new Error('Het antwoord duurde te lang. Probeer het opnieuw.');
+                }
+
+                throw error;
+            } finally {
+                window.clearTimeout(timeoutId);
+            }
 
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data.success || !data.reply) {
                 throw new Error(data.error || 'Assistant request failed');
             }
 
-            return data.reply;
+            return {
+                reply: data.reply,
+                input: data.input || null,
+            };
         },
 
         scrollToBottom() {
@@ -222,32 +860,73 @@ export function registerAiChatbot(Alpine) {
                 return '';
             }
 
+            return this.formatChatBlocks(this.applyChatLinks(text));
+        },
+
+        applyChatLinks(text) {
             const escaped = text
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
 
-            return escaped
-                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
-                    const safeUrl = this.sanitizeChatUrl(url);
-                    if (!safeUrl) {
-                        return label;
-                    }
+            return escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
+                const safeUrl = this.sanitizeChatUrl(url);
+                if (!safeUrl) {
+                    return label;
+                }
 
-                    const safeLabel = label
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;');
+                const safeLabel = label
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
 
-                    const external = safeUrl.startsWith('http') && !this.isSameOriginUrl(safeUrl);
-                    const attrs = external
-                        ? ' target="_blank" rel="noopener noreferrer"'
-                        : '';
+                const external = safeUrl.startsWith('http') && !this.isSameOriginUrl(safeUrl);
+                const attrs = external
+                    ? ' target="_blank" rel="noopener noreferrer"'
+                    : '';
 
-                    return `<a href="${safeUrl}" class="ai-chat-link"${attrs}>${safeLabel}</a>`;
-                })
-                .replace(/\n/g, '<br>');
+                return `<a href="${safeUrl}" class="ai-chat-link"${attrs}>${safeLabel}</a>`;
+            });
+        },
+
+        formatChatBlocks(text) {
+            const lines = text.split('\n');
+            const parts = [];
+            let bulletItems = [];
+
+            const flushBullets = () => {
+                if (bulletItems.length === 0) {
+                    return;
+                }
+
+                parts.push(
+                    `<ul class="ai-chat-list">${bulletItems.map((item) => `<li>${item}</li>`).join('')}</ul>`,
+                );
+                bulletItems = [];
+            };
+
+            for (const rawLine of lines) {
+                const line = rawLine.trimEnd();
+                const bulletMatch = line.match(/^[-*•–]\s+(.+)$/);
+
+                if (bulletMatch) {
+                    bulletItems.push(bulletMatch[1]);
+                    continue;
+                }
+
+                flushBullets();
+
+                if (line.trim() === '') {
+                    parts.push('');
+                } else {
+                    parts.push(line);
+                }
+            }
+
+            flushBullets();
+
+            return parts.join('<br>').replace(/(<br>){3,}/g, '<br><br>');
         },
 
         sanitizeChatUrl(url) {

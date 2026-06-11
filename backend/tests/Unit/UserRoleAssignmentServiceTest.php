@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\Company;
 use App\Models\User;
 use App\Services\UserRoleAssignmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,5 +31,17 @@ class UserRoleAssignmentServiceTest extends TestCase
         $names = collect($user->webRoleNames())->sort()->values()->all();
 
         $this->assertSame(['chauffeur', 'company-admin'], $names);
+    }
+
+    public function test_sync_web_roles_assigns_company_admin_for_tenant_user(): void
+    {
+        $company = Company::create(['name' => 'Tenant Test BV', 'is_active' => true]);
+        $user = User::factory()->create(['company_id' => $company->id]);
+
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['company-admin']);
+
+        $user->refresh();
+
+        $this->assertSame(['company-admin'], $user->webRoleNames());
     }
 }

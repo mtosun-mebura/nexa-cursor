@@ -1,12 +1,13 @@
 # Nexa Taxi AI-assistent — RBAC architectuur
 
-Rolgebaseerde toegangscontrole voor RAG (kennisbank) versus live database queries via n8n.
+Rolgebaseerde toegangscontrole voor RAG (kennisbank), publieke tarieven en live database queries via n8n.
 
 ## Overzicht
 
 | Kanaal | Gebruiker | Live data | Publieke tarieven | Datasource |
 |--------|-----------|-----------|-------------------|------------|
-| `public` | Websitebezoeker | Nee | Ja (intent `tarieven`) | RAG + `default_rates` |
+| `public` | Websitebezoeker (niet ingelogd) | Nee | Ja (intent `tarieven`) | RAG + `default_rates` |
+| `mijn_taxi` | Ingelogde klant in Mijn Taxi | Alleen eigen ritten (`mijn_rit`) | Ja | RAG + SQL (eigen ritten) |
 | `admin` | Ingelogde medewerker met rechten | Ja (bij live intent) | Ja | RAG + SQL gateway |
 
 De frontend stuurt **nooit** `role` of `isAdmin`. Laravel bepaalt dit server-side op basis van sessie, kanaal en Spatie-permissies.
@@ -17,16 +18,19 @@ De frontend stuurt **nooit** `role` of `isAdmin`. Laravel bepaalt dit server-sid
 app/
 ├── DTO/AiChat/
 │   ├── AiChatRequestContext.php      # company_id, channel, user, module
-│   ├── AiChatIntentResult.php        # intent, isAdmin, allowLiveData, allowPublicRates
-│   └── AiChatWebhookPayload.php      # payload naar n8n
+│   ├── AiChatIntentResult.php        # intent, isAdmin, allowLiveData, queryHint, responseMode
+│   └── AiChatWebhookPayload.php      # payload naar n8n (incl. useRag)
 ├── Enums/AiChat/
-│   ├── AiChatIntent.php              # faq, tarieven, ritten_morgen, …
-│   ├── AiChatChannel.php             # public, admin
-│   └── AiChatDataSource.php          # rag, sql, public_rates, denied
+│   ├── AiChatIntent.php              # faq, diensten, tarieven, ritten_morgen, …
+│   ├── AiChatChannel.php             # public, mijn_taxi, admin
+│   ├── AiChatDataSource.php          # rag, sql, public_rates, denied
+│   └── AiChatResponseMode.php        # list, count, summary
 ├── Services/AiChat/
 │   ├── AiChatContextResolver.php     # bouwt context uit request
+│   ├── AiChatIntentDetector.php      # keyword-classificatie
 │   ├── AiChatIntentService.php       # intent + toegang
-│   ├── AiChatAccessService.php       # permissie-checks
+│   ├── AiChatAccessService.php       # permissie-checks + mijn_rit
+│   ├── AiChatTaxiRoleQueryService.php # chauffeur-rol via Spatie
 │   ├── AiChatAssistantOrchestrator.php
 │   ├── AiChatSqlTokenService.php     # encrypted sql_token
 │   ├── AiChatSqlGuardService.php     # allowLiveData + company_id guard
@@ -35,8 +39,8 @@ app/
 │   └── AiChatAuditLogger.php
 ├── Http/Controllers/
 │   ├── Frontend/AiChatController.php       # POST /ai-chat/message
-│   ├── Admin/AdminAiChatController.php       # POST /admin/ai-chat/message
-│   └── Api/AiChatSqlController.php           # POST /api/ai-chat/live-query
+│   ├── Admin/AdminAiChatController.php     # POST /admin/ai-chat/message
+│   └── Api/AiChatSqlController.php       # POST /api/ai-chat/live-query
 └── Models/AiChatAuditLog.php
 ```
 
@@ -44,13 +48,67 @@ app/
 
 | Route | Auth | Beschrijving |
 |-------|------|--------------|
-| `POST /ai-chat/message` | Geen (throttle) | Publieke chatwidget |
+| `POST /ai-chat/message` | Geen (throttle) | Publieke chatwidget (geen user-context) |
+| `POST /mijn-taxi/api/ai-chat/message` | `auth` + `taxi.portal` | Mijn Taxi chat (eigen ritten) |
 | `POST /admin/ai-chat/message` | `admin` middleware + permissies | Admin chat |
 | `POST /api/ai-chat/live-query` | `sql_token` (n8n) | SQL gateway |
 
+## Intent-structuur
+
+### Publiek (websitebezoeker)
+
+| Intent | Voorbeeldvraag | Datasource |
+|--------|----------------|------------|
+| `diensten` | Hebben jullie luchthavenvervoer? Rijden jullie naar Duitsland? | RAG |
+| `tarieven` | Wat kost een rit? Instaptarief? Schiphol-rit? | `default_rates` |
+| `reserveren` | Hoe reserveer ik een taxi? Kan ik online betalen? | RAG |
+| `annuleren` | Hoe annuleer ik? Annuleringsvoorwaarden? | RAG |
+| `betalen` | Welke betaalmethoden? Kan ik pinnen? | RAG |
+| `contact` | Telefoonnummer? Openingstijden? Vestiging? | RAG |
+| `faq` | Overige algemene vragen | RAG |
+
+### Ingelogde klant (Mijn Taxi, rol `klant`)
+
+| Intent | Voorbeeldvraag | Toegang |
+|--------|----------------|---------|
+| `mijn_rit` | Wanneer word ik opgehaald? Wie is mijn chauffeur? | Alleen eigen ritten (`customer_user_id`) |
+
+### Admin (medewerker met rechten)
+
+| Intent | Voorbeeldvraag |
+|--------|----------------|
+| `ritten_morgen` | Welke ritten staan morgen gepland? |
+| `ritten_vandaag` | Welke ritten staan vandaag gepland? Hoeveel ritten vandaag? |
+| `ritten_komend` | Welke ritten heb ik? (generiek) |
+| `open_ritten` | Welke ritten moeten nog bevestigd worden? |
+| `ritten_geannuleerd` | Welke ritten zijn geannuleerd? |
+| `ritten_zonder_chauffeur` | Welke ritten hebben geen chauffeur? |
+| `ritten_zonder_voertuig` | Welke ritten hebben nog geen voertuig? |
+| `ritten_luchthaven_morgen` | Welke luchthavenritten staan morgen gepland? |
+| `ritten_voor_08` | Welke ritten vertrekken voor 08:00? |
+| `ritten_lang` | Welke ritten duren langer dan 1 uur? |
+| `vrije_chauffeurs_morgen` | Welke chauffeurs zijn morgen beschikbaar? |
+| `chauffeurs_vandaag` | Welke chauffeurs hebben vandaag ritten? |
+| `chauffeurs_meeste_ritten_vandaag` | Welke chauffeur heeft de meeste ritten vandaag? |
+| `chauffeurs_zonder_rit` | Welke chauffeurs hebben nog geen rit? |
+| `chauffeurs_schiphol_morgen` | Welke chauffeur rijdt morgen naar Schiphol? |
+| `chauffeurs_onderweg` | Welke chauffeurs zijn momenteel onderweg? |
+| `klanten_meeste_ritten` | Welke klanten hebben de meeste ritten geboekt? |
+| `klanten_deze_maand` | Welke klanten hebben deze maand een rit geboekt? |
+| `klanten_luchthaven` | Welke klanten hebben een luchthavenrit gepland? |
+| `klanten_geannuleerd` | Welke klanten hebben een rit geannuleerd? |
+| `klanten_nieuw_deze_maand` | Welke klanten zijn nieuw deze maand? |
+| `omzet_vandaag` | Wat is de omzet van vandaag? |
+| `omzet_morgen` | Wat is de verwachte omzet van morgen? |
+| `planning` | Dubbel ingeplande chauffeurs, overlappende ritten, ritten binnen een uur |
+| `voertuigen_morgen` | Welke voertuigen zijn morgen ingepland? |
+| `voertuigen_beschikbaar` | Welke voertuigen zijn beschikbaar? |
+
+**Startset (≈80% dagelijks gebruik):** `diensten`, `tarieven`, `ritten_morgen`, `vrije_chauffeurs_morgen`, `omzet_vandaag`.
+
 ## Webhook payloads (Laravel → n8n)
 
-**Publiek:**
+**Publiek (diensten / RAG):**
 
 ```json
 {
@@ -58,7 +116,8 @@ app/
   "channel": "public",
   "module": "taxi",
   "message": "Hebben jullie luchthavenvervoer?",
-  "intent": "faq",
+  "intent": "diensten",
+  "useRag": true,
   "isAdmin": false,
   "allowLiveData": false
 }
@@ -73,6 +132,7 @@ app/
   "module": "taxi",
   "message": "Wat zijn jullie tarieven?",
   "intent": "tarieven",
+  "useRag": false,
   "isAdmin": false,
   "allowLiveData": false,
   "allowPublicRates": true,
@@ -92,36 +152,47 @@ app/
   "module": "taxi",
   "message": "Welke ritten staan morgen gepland?",
   "intent": "ritten_morgen",
+  "useRag": false,
   "isAdmin": true,
   "allowLiveData": true,
   "sql_token": "<encrypted>"
 }
 ```
 
-| Intent | Voorbeeldvraag | Publiek | Admin live |
-|--------|----------------|---------|------------|
-| `faq` | Diensten, annuleren, luchthaven | RAG | RAG |
-| `tarieven` | Wat kost een rit? Instaptarief? | `default_rates` via API | `default_rates` via API |
-| `ritten_morgen` | Ritten morgen gepland | Geweigerd | SQL gateway |
-| `vrije_chauffeurs_morgen` | Beschikbare chauffeurs morgen | Geweigerd | SQL gateway |
-| `ritten_vandaag` | Hoeveel ritten vandaag | Geweigerd | SQL gateway |
-| `open_ritten` | Ritten wachten op bevestiging | Geweigerd | SQL gateway |
+**Klant (eigen rit):**
+
+```json
+{
+  "company_id": 1,
+  "channel": "mijn_taxi",
+  "user_id": 42,
+  "role": "klant",
+  "message": "Wanneer word ik opgehaald?",
+  "intent": "mijn_rit",
+  "useRag": false,
+  "allowLiveData": true,
+  "sql_token": "<encrypted>"
+}
+```
 
 ## Beslislogica
 
 ```text
-Als intent = faq:
+Als intent gebruikt RAG (useRag = true):
     gebruik RAG kennisbank
 
 Als intent = tarieven:
     gebruik Laravel /api/ai-chat/live-query (alleen default_rates)
 
-Als intent = operationele vraag en gebruiker is admin:
+Als intent = operationele vraag en allowLiveData = true:
     gebruik Laravel /api/ai-chat/live-query (whitelist SQL)
 
-Als intent = operationele vraag en gebruiker is geen admin:
-    geef beveiligde melding terug (Laravel, vóór n8n)
+Als intent = operationele vraag en allowLiveData = false:
+    geef beveiligde melding terug (Laravel, vóór n8n):
+    "Deze informatie is alleen beschikbaar voor geautoriseerde medewerkers."
 ```
+
+Publieke gebruikers die operationele vragen stellen (ritten, chauffeurs, omzet, klanten) worden geclassificeerd met het juiste admin-intent, maar `allowLiveData` blijft `false` — Laravel weigert vóór n8n.
 
 ## Publieke tarieven
 
@@ -130,27 +201,17 @@ Als intent = operationele vraag en gebruiker is geen admin:
 - Tarieven worden **niet** door AI verzonnen; Laravel formatteert antwoord uit DB
 - Response: `{ "answer": "...", "source": "public_rates" }`
 
-Verboden tabellen voor publieke gebruikers: `ride_requests`, `users`, `customers`, `drivers`, `vehicles`, `invoices`, `bookings`, `payments`
-
-## Intent classificatie (legacy sectie)
-
-| Intent | Voorbeeldvraag | Live data |
-|--------|----------------|-----------|
-| `faq` | Tarieven, diensten, annuleren | Nee |
-| `ritten_morgen` | Ritten morgen gepland | Ja (admin) |
-| `vrije_chauffeurs_morgen` | Beschikbare chauffeurs morgen | Ja (admin) |
-| `ritten_vandaag` | Hoeveel ritten vandaag | Ja (admin) |
-| `open_ritten` | Ritten wachten op bevestiging | Ja (admin) |
+Verboden tabellen voor publieke gebruikers: `ride_requests`, `users`, `customers`, `drivers`, `vehicles`, `invoices`, `bookings`, `payments` (behalve `mijn_rit` voor eigen ritten).
 
 ## Security flow
 
-1. **IntentService** classificeert de vraag.
-2. **AccessService** zet `isAdmin` / `allowLiveData` (kanaal + permissies).
+1. **IntentDetector** classificeert de vraag (keyword-based).
+2. **IntentService** + **AccessService** zet `isAdmin` / `allowLiveData` (kanaal + permissies + klant-rol).
 3. Live intent + `allowLiveData === false` → vaste denial-tekst, **geen** n8n-call.
-4. Anders → webhook naar n8n met RBAC-velden.
-5. n8n: als `allowLiveData === true` → `POST /api/ai-chat/live-query` met `sql_token`.
+4. Anders → webhook naar n8n met RBAC-velden (`useRag`, `intent`, `allowLiveData`).
+5. n8n: `useRag === true` → RAG; `tarieven` of `allowLiveData === true` → Laravel API.
 6. **SqlGuard** weigert als token ongeldig, verlopen, intent mismatch, of `allow_live_data !== true`.
-7. **LiveQueryService** voert alleen whitelist-queries uit, altijd `WHERE company_id = ?` uit token.
+7. **LiveQueryService** voert alleen whitelist-queries uit, altijd tenant-gefilterd.
 
 ### Admin-permissies (minimaal één)
 
@@ -160,6 +221,14 @@ Verboden tabellen voor publieke gebruikers: `ride_requests`, `users`, `customers
 - `rides.update`
 - of rol `super-admin`
 
+### Klant-toegang (`mijn_rit`)
+
+- Vereist: kanaal `mijn_taxi` + ingelogde sessie via `/mijn-taxi/api/ai-chat/message`
+- Publieke website (`/ai-chat/message`) stuurt **geen** user-context mee; `mijn_rit` krijgt daar geen `sql_token`
+- SQL-token bevat `channel` + `user_id`; gateway weigert `mijn_rit` zonder `channel=mijn_taxi`
+- Queries filteren op `customer_user_id` / klant-e-mail = token.user_id
+- Geen toegang tot ritten van andere klanten; tokens zijn versleuteld (niet te faken via curl zonder geldig token)
+
 ## n8n workflow
 
 Geïmporteerde workflow: [`docs/n8n/Nexa-Taxi-RAG-PostgreSQL-Assistant.json`](n8n/Nexa-Taxi-RAG-PostgreSQL-Assistant.json)
@@ -168,14 +237,16 @@ Belangrijk na import:
 
 1. Vervang `https://JOUW-DOMEIN.nl` in node **Laravel live query API** (of vertrouw op `laravel_live_query_url` uit Laravel payload).
 2. Koppel OpenAI-credentials aan node **Maak embedding** (geen API-key in JSON).
-3. Verwijder oude node **Lees live taxi database** — directe PostgreSQL-queries voor ritten/chauffeurs zijn vervangen door de Laravel API.
+3. Gebruik `useRag` uit Laravel payload (node **Intent gebruikt RAG?**), niet alleen fallback-detectie.
+4. Verwijder oude node **Lees live taxi database** — directe PostgreSQL-queries zijn vervangen door de Laravel API.
+5. RAG-zoekopdrachten gaan via **POST /integrations/n8n/ai-chat/rag-search** (niet meer `nexa_taxi.knowledge_documents` in n8n Postgres).
 
 ## n8n flow (aanbevolen)
 
 ```
 Webhook
-  → Normaliseer Laravel payload (intent, allowLiveData, allowPublicRates, sql_token)
-  → IF intent === faq → RAG kennisbank
+  → Normaliseer Laravel payload (intent, useRag, allowLiveData, allowPublicRates, sql_token)
+  → IF useRag === true → Laravel RAG API (/integrations/n8n/ai-chat/rag-search)
   → ELSE IF intent === tarieven OR allowLiveData === true
       → HTTP POST Laravel /api/ai-chat/live-query
   → ELSE → "Deze informatie is alleen beschikbaar..."
@@ -195,27 +266,27 @@ sequenceDiagram
 
     U->>L: POST /ai-chat/message of /admin/ai-chat/message
     L->>L: ContextResolver (channel, company_id, user)
-    L->>L: IntentService.classify()
+    L->>L: IntentDetector + IntentService.classify()
     L->>L: AccessService (isAdmin, allowLiveData)
 
     alt Live intent + allowLiveData = false
         L->>L: Audit log (denied)
         L-->>U: "Deze informatie is alleen beschikbaar..."
-    else FAQ of admin met rechten
-        L->>L: Issue sql_token (alleen als allowLiveData)
+    else RAG, tarieven of admin met rechten
+        L->>L: Issue sql_token (alleen als allowLiveData of tarieven)
         L->>L: Audit log (RAG of SQL)
-        L->>N: Webhook payload
-        N->>N: Branch op allowLiveData / intent
+        L->>N: Webhook payload (useRag, intent, allowLiveData)
+        N->>N: Branch op useRag / allowLiveData / intent
 
-        alt allowLiveData = false
+        alt useRag = true
             N->>R: Vector search (company_id)
             R-->>N: Context chunks
         else Live intent + sql_token
             N->>L: POST /api/ai-chat/live-query
             L->>L: SqlGuard + LiveQueryService
-            L->>DB: Whitelist query WHERE company_id = token
-            DB-->>L: rows
-            L-->>N: { count, rows }
+            L->>DB: Whitelist query (tenant filter)
+            DB-->>L: rows / count / summary
+            L-->>N: { count, rows, summary, response_mode }
         end
 
         N-->>L: Antwoord (JSON)
@@ -230,7 +301,7 @@ Tabel `ai_chat_audit_logs`:
 | Kolom | Beschrijving |
 |-------|--------------|
 | `company_id` | Tenant |
-| `user_id` | Null voor publiek |
+| `user_id` | Null voor anoniem publiek |
 | `channel` | public / admin |
 | `intent` | Geclassificeerde intent |
 | `is_admin` | Server-side |
@@ -249,36 +320,11 @@ AI_CHAT_SQL_TOKEN_TTL=120         # sql_token geldigheid (seconden)
 
 In n8n **Variables** (fallback): `LARAVEL_API_URL=https://nexasuite.nl`
 
-Test vanaf je laptop:
-`curl -sS -X POST https://nexasuite.nl/api/ai-chat/live-query -H 'Content-Type: application/json' -d '{"intent":"tarieven","sql_token":"x","company_id":1}'`
-(verwacht 403 met ongeldig token — dat bewijst dat de route bereikbaar is)
-
-Webhook-URL's blijven in `services.ai_chat` / GeneralSettings per module.
-
-## Voorbeeld: publieke weigering
-
-```php
-// AiChatAssistantOrchestrator
-if ($intentResult->intent->requiresLiveData() && ! $intentResult->allowLiveData) {
-    $this->auditLogger->log($context, $intentResult, $message, AiChatDataSource::Denied);
-    return config('ai_chat.live_data_denied_message');
-}
-```
-
-## Voorbeeld: SQL guard
-
-```php
-// AiChatSqlGuardService
-public function assertMayExecute(array $claims): void
-{
-    if (($claims['allow_live_data'] ?? false) !== true) {
-        throw new RuntimeException('Live data queries zijn niet toegestaan.');
-    }
-}
-```
-
 ## Tests
 
+- `tests/Unit/AiChatIntentDetectorTest.php` — keyword-classificatie
 - `tests/Unit/AiChatIntentServiceTest.php` — classificatie + toegang
+- `tests/Unit/AiChatLiveQueryServiceTest.php` — tenant-scoped queries
 - `tests/Unit/AiChatAssistantServiceTest.php` — webhook payload + publieke weigering
 - `tests/Feature/AiChatSqlGatewayTest.php` — token validatie + gateway
+- `tests/Feature/AdminAiChatMessageTest.php` — admin kanaal + tenant scope

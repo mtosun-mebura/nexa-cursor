@@ -40,9 +40,41 @@ main#content {
     width: 100%;
 }
 
+/* Admin header: AI-chat icoon zelfde kleur als notificatie/chat (foreground / wit in dark) */
+#header [data-ai-chat-toggle] svg {
+    color: var(--foreground);
+}
+
+html.dark #header [data-ai-chat-toggle] svg,
+body.dark #header [data-ai-chat-toggle] svg,
+.dark #header [data-ai-chat-toggle] svg {
+    color: #fff;
+}
+
+#header [data-ai-chat-toggle]:hover svg {
+    color: var(--primary);
+}
+
+/* Admin header: topbar over volle breedte, icoontjes tegen rechterrand */
+#header #headerContainer {
+    max-width: none !important;
+    width: 100% !important;
+    margin-inline: 0 !important;
+    justify-content: flex-end !important;
+    padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px)) !important;
+}
+
+@media (min-width: 1024px) {
+    #header #headerContainer {
+        padding-inline-start: 0 !important;
+        padding-inline-end: max(1rem, env(safe-area-inset-right, 0px)) !important;
+    }
+}
+
 /* --- Admin header (mobiel): hamburger links, logo ernaast --- */
 @media (max-width: 1023px) {
     #header #headerContainer {
+        justify-content: space-between !important;
         padding-inline-start: max(0.25rem, env(safe-area-inset-left, 0px)) !important;
     }
 
@@ -1852,15 +1884,46 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     max-width: 10rem;
 }
 
-.home-section-card-body .home-section-field-panel-body .kt-input:not(textarea):not([type="hidden"]):not([type="color"]),
+.home-section-card-body .home-section-field-panel-body .kt-input.home-section-input-wide:not(textarea):not([type="hidden"]):not([type="color"]) {
+    width: 100%;
+    max-width: min(100%, 56rem);
+}
+
+.home-section-card-body .home-section-field-panel-body .kt-input:not(textarea):not([type="hidden"]):not([type="color"]):not(.home-section-input-wide):not(.home-section-hex-input),
 .home-section-card-body .home-section-field-panel-body select.kt-input {
     width: auto;
     max-width: min(100%, 22rem);
 }
 
-.home-section-card-body .kt-input.w-full:not(textarea):not(.home-section-input-wide):not([type="color"]) {
+.home-section-card-body .kt-input.w-full:not(textarea):not(.home-section-input-wide):not(.home-section-hex-input):not([type="color"]) {
     width: auto;
     max-width: min(100%, 22rem);
+}
+
+/* Hex-kleurvelden (#RRGGBB): compact naast kleurkiezer */
+#website-page-form .home-section-hex-input-wrap,
+#website-page-form .carousel-slide-hex-input-wrap {
+    flex: 0 0 auto;
+    width: 5.625rem;
+    min-width: 5.625rem;
+    max-width: 5.625rem;
+}
+
+#website-page-form .home-section-hex-input-wrap > .kt-input,
+#website-page-form .carousel-slide-hex-input-wrap > .kt-input,
+#website-page-form input.kt-input.home-section-hex-input {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box;
+}
+
+#website-page-form .home-section-field-panel-body input.kt-input.home-section-hex-input,
+#website-page-form .home-section-field-panel-body .home-section-hex-input-wrap .kt-input {
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 /* Tailwind-grids in panels (o.a. boekingsmodule): veld = breedte van grid-cel */

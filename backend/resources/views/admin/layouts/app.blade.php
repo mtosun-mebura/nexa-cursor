@@ -935,5 +935,6 @@
         }
     </script>
     @include('partials.password-toggle')
+    @include('admin.layouts.partials.ai-chatbot-include')
 </body>
 </html>

@@ -68,13 +68,14 @@ class TaxiDispatchOfferResource
         ];
     }
 
-    public static function rideSummary(RideRequest $ride): array
+    public static function rideSummary(RideRequest $ride, bool $isScheduledOverdue = false): array
     {
         $payments = app(TaxiRidePaymentService::class);
 
         return [
             'id' => $ride->id,
             'status' => $ride->status,
+            'is_scheduled_overdue' => $isScheduledOverdue,
             'created_at' => $ride->created_at?->toIso8601String(),
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
             'pickup_address' => $ride->pickup_address,

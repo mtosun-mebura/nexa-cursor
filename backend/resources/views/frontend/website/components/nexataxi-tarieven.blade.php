@@ -63,6 +63,24 @@
         display: flex;
         justify-content: center;
     }
+    .nexataxi-pricing [data-nexataxi-card-wrapper].nexataxi-pricing-card-wrap--size-small {
+        width: min(100%, 320px);
+        max-width: 320px;
+    }
+    .nexataxi-pricing [data-nexataxi-card-wrapper].nexataxi-pricing-card-wrap--size-normal {
+        width: min(100%, 600px);
+        max-width: 600px;
+    }
+    .nexataxi-pricing [data-nexataxi-card-wrapper].nexataxi-pricing-card-wrap--size-large {
+        width: min(100%, 800px);
+        max-width: 800px;
+    }
+    @media (min-width: 640px) {
+        .nexataxi-pricing > .flex.flex-wrap > [data-nexataxi-card-wrapper]:not([data-card-size="max"]):not([data-card-size="total_width"]) {
+            flex: 1 1 calc(50% - 1.5rem);
+            min-width: min(100%, 280px);
+        }
+    }
     </style>
     <h2 id="nexataxi-tarieven-heading" class="text-2xl md:text-3xl text-gray-900 dark:text-white mb-8 md:mb-10 {{ $sectionTitleAlignClass }}" style="{{ $sectionTitleStyle }}">{{ e($sectionTitle) }}</h2>
     @if($hasRates || $hasSectionItemsWithContent)
@@ -102,6 +120,8 @@
                             $wrapperClass = ($isMaxWidth || $isTotalWidth ? 'basis-full w-full' : 'shrink-0') . ' nexataxi-pricing-card-wrap';
                             if ($isTotalWidth) {
                                 $wrapperClass .= ' nexataxi-pricing-card-wrap--total-width';
+                            } elseif (! $isMaxWidth && in_array($cardSize, ['small', 'normal', 'large'], true)) {
+                                $wrapperClass .= ' nexataxi-pricing-card-wrap--size-' . $cardSize;
                             }
                             $wrapperStyle = $isMaxWidth
                                 ? 'width:100%;max-width:100%;'
@@ -245,10 +265,6 @@
                     wrappers.forEach(function(wrapper) {
                         var size = wrapper.getAttribute('data-card-size') || '';
                         if (size !== 'total_width') {
-                            wrapper.style.width = '';
-                            wrapper.style.maxWidth = '';
-                            wrapper.style.marginLeft = '';
-                            wrapper.style.marginRight = '';
                             return;
                         }
 

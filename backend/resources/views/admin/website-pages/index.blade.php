@@ -63,23 +63,23 @@
         </div>
     @endif
 
-    <div class="kt-card w-full min-w-0">
-        <div class="kt-card-content p-0">
-            <div class="admin-table-scroll-wrap min-w-0">
-            <table class="kt-table kt-table-border w-full">
+    <div class="kt-card kt-card-grid w-full min-w-0">
+        <div class="kt-card-content p-0 min-w-0">
+            <div class="kt-scrollable-x-auto admin-table-scroll-wrap min-w-0">
+            <table id="website-pages-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full website-pages-table">
                 <thead>
                     <tr>
-                        <th data-label="Volgorde">Volgorde</th>
-                        <th data-label="Titel">Titel</th>
-                        <th data-label="Slug">Slug</th>
-                        <th data-label="Type">Type</th>
-                        <th data-label="Module">Module (bij welke module)</th>
+                        <th class="website-pages-col-order" data-label="Volgorde">Volgorde</th>
+                        <th class="website-pages-col-title" data-label="Titel">Titel</th>
+                        <th class="website-pages-col-slug" data-label="Slug">Slug</th>
+                        <th class="website-pages-col-type" data-label="Type">Type</th>
+                        <th class="website-pages-col-module" data-label="Module">Module</th>
                         @if(!empty($websiteTenantContext['visible'] ?? false))
-                            <th data-label="Bedrijf">Bedrijf</th>
+                            <th class="website-pages-col-company" data-label="Bedrijf">Bedrijf</th>
                         @endif
-                        <th data-label="Thema">Thema</th>
-                        <th data-label="Status">Status</th>
-                        <th class="text-end" data-label="Acties">Acties</th>
+                        <th class="website-pages-col-theme" data-label="Thema">Thema</th>
+                        <th class="website-pages-col-status" data-label="Status">Status</th>
+                        <th class="website-pages-col-actions text-end" data-label="Acties">Acties</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -95,9 +95,9 @@
                             $rowEditUrl = route('admin.website-pages.edit', $page).$pageModule.$wizSuffix;
                         @endphp
                         <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-row-href="{{ $rowEditUrl }}" role="button" tabindex="0">
-                            <td>{{ $page->sort_order }}</td>
-                            <td>{{ $page->title }}</td>
-                            <td><code>{{ $page->slug }}</code></td>
+                            <td class="tabular-nums">{{ $page->sort_order }}</td>
+                            <td class="font-medium">{{ $page->title }}</td>
+                            <td><code class="text-xs break-all">{{ $page->slug }}</code></td>
                             <td>{{ $page->page_type }}</td>
                             <td>{{ $page->module_name ?? '—' }}</td>
                             @if(!empty($websiteTenantContext['visible'] ?? false))
@@ -105,20 +105,12 @@
                                     $namesMap = $websitePagesCompanyNames ?? collect();
                                     $rowCompanyId = isset($page->company_id) && $page->company_id !== null && $page->company_id !== '' ? (int) $page->company_id : null;
                                     $rowCompanyName = $rowCompanyId !== null ? $namesMap->get($rowCompanyId) : null;
-                                    $listTenant = $websiteTenantContext['effective_company'] ?? null;
                                 @endphp
-                                <td class="text-sm align-top">
+                                <td class="text-sm">
                                     @if($rowCompanyId !== null)
                                         <span class="font-medium text-foreground">{{ $rowCompanyName ?? ('Bedrijf #'.$rowCompanyId) }}</span>
-                                        @if($rowCompanyName)
-                                            <span class="block text-xs text-muted-foreground mt-0.5">Gekoppeld aan dit bedrijf.</span>
-                                        @endif
-                                    @elseif($listTenant)
-                                        <span class="text-muted-foreground">Niet gekoppeld</span>
-                                        <span class="block text-xs text-muted-foreground mt-0.5">Geen bedrijfs-id op deze pagina. Open <strong>Bewerken</strong> om het bedrijf te kiezen (of sla op met deze tenant in de sidebar).</span>
                                     @else
                                         <span class="text-muted-foreground">Niet gekoppeld</span>
-                                        <span class="block text-xs text-muted-foreground mt-0.5">Kies een bedrijf bij het aanmaken of bewerken van de pagina.</span>
                                     @endif
                                 </td>
                             @endif
@@ -187,6 +179,36 @@
 @push('styles')
 <style>
     .website-pages-actions-dropdown.is-open { display: block !important; }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-order {
+        width: 4.5rem;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-type {
+        width: 5.5rem;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-status {
+        width: 6.5rem;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-actions {
+        width: 4.5rem;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-slug {
+        width: 14%;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-title {
+        width: 16%;
+    }
+
+    #content #website-pages-table.website-pages-table .website-pages-col-module,
+    #content #website-pages-table.website-pages-table .website-pages-col-company,
+    #content #website-pages-table.website-pages-table .website-pages-col-theme {
+        width: 12%;
+    }
 </style>
 @endpush
 

@@ -30,6 +30,12 @@ final class AiChatRichTextFormatter
 
         $value = preg_replace('/<\/p>\s*<p[^>]*>/i', "\n\n", $value) ?? $value;
         $value = preg_replace('/<br\s*\/?>/i', "\n", $value) ?? $value;
+        $value = preg_replace('/<\/li>\s*<li[^>]*>/i', "\n- ", $value) ?? $value;
+        $value = preg_replace('/<li[^>]*>/i', "\n- ", $value) ?? $value;
+        $value = preg_replace('/<\/li>/i', '', $value) ?? $value;
+        $value = preg_replace('/<\/?(ul|ol)[^>]*>/i', "\n", $value) ?? $value;
+        $value = preg_replace('/<h[1-6][^>]*>/i', "\n\n", $value) ?? $value;
+        $value = preg_replace('/<\/h[1-6]>/i', "\n", $value) ?? $value;
         $value = strip_tags($value);
         $value = str_replace("\xc2\xa0", ' ', $value);
         $value = preg_replace("/[ \t]+\n/u", "\n", $value) ?? $value;

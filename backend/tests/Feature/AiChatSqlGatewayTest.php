@@ -116,4 +116,89 @@ class AiChatSqlGatewayTest extends TestCase
         $response->assertJsonPath('source', 'public_rates');
         $response->assertJsonStructure(['answer', 'rows']);
     }
+
+    public function test_sql_gateway_rejects_mijn_rit_token_from_public_channel(): void
+    {
+        $tokenService = app(AiChatSqlTokenService::class);
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::Public,
+            userId: 42,
+        );
+        $intent = new AiChatIntentResult(
+            intent: AiChatIntent::MijnRit,
+            isAdmin: false,
+            allowLiveData: true,
+            allowPublicRates: false,
+        );
+
+        $token = $tokenService->issue($context, $intent);
+        $this->assertNotNull($token);
+
+        $response = $this->postJson('/api/ai-chat/live-query', [
+            'intent' => AiChatIntent::MijnRit->value,
+            'sql_token' => $token,
+            'company_id' => 1,
+        ]);
+
+        $response->assertStatus(403);
+        $response->assertJsonPath('success', false);
+    }
+
+    public function test_sql_gateway_executes_mijn_rit_with_mijn_taxi_channel_token(): void
+    {
+        $tokenService = app(AiChatSqlTokenService::class);
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::MijnTaxi,
+            userId: 42,
+        );
+        $intent = new AiChatIntentResult(
+            intent: AiChatIntent::MijnRit,
+            isAdmin: false,
+            allowLiveData: true,
+            allowPublicRates: false,
+        );
+
+        $token = $tokenService->issue($context, $intent);
+        $this->assertNotNull($token);
+
+        $response = $this->postJson('/api/ai-chat/live-query', [
+            'intent' => AiChatIntent::MijnRit->value,
+            'sql_token' => $token,
+            'company_id' => 1,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('intent', AiChatIntent::MijnRit->value);
+    }
+
+    public function test_sql_gateway_rejects_admin_intent_with_mijn_taxi_channel(): void
+    {
+        $tokenService = app(AiChatSqlTokenService::class);
+        $context = new AiChatRequestContext(
+            companyId: 1,
+            channel: AiChatChannel::MijnTaxi,
+            userId: 42,
+        );
+        $intent = new AiChatIntentResult(
+            intent: AiChatIntent::RittenMorgen,
+            isAdmin: true,
+            allowLiveData: true,
+            allowPublicRates: false,
+        );
+
+        $token = $tokenService->issue($context, $intent);
+        $this->assertNotNull($token);
+
+        $response = $this->postJson('/api/ai-chat/live-query', [
+            'intent' => AiChatIntent::RittenMorgen->value,
+            'sql_token' => $token,
+            'company_id' => 1,
+        ]);
+
+        $response->assertStatus(403);
+        $response->assertJsonPath('success', false);
+    }
 }

@@ -143,7 +143,7 @@ erDiagram
         bigint company_id FK
         string invoice_number UK
         string module
-        bigint module_reference_id REF
+        bigint module_reference_id "REF: module record"
         decimal total_amount
         string status
         date due_date
@@ -177,8 +177,8 @@ erDiagram
 
     INVOICE_SETTINGS {
         bigint id PK
-        bigint company_id REF
-        bigint location_id REF
+        bigint company_id "REF: companies.id"
+        bigint location_id "REF: company_locations.id"
         string invoice_number_prefix
         decimal default_tax_rate
         integer payment_terms_days
@@ -202,8 +202,8 @@ erDiagram
 
     AI_CHAT_AUDIT_LOGS {
         bigint id PK
-        bigint company_id REF
-        bigint user_id REF
+        bigint company_id "REF: companies.id"
+        bigint user_id "REF: users.id"
         string channel
         string intent
         boolean allow_live_data
@@ -265,7 +265,7 @@ erDiagram
 
     VEHICLES {
         bigint id PK
-        bigint company_id REF
+        bigint company_id "REF: core companies.id"
         string name
         string type
         string license_plate
@@ -289,11 +289,11 @@ erDiagram
 
     RIDE_REQUESTS {
         bigint id PK
-        bigint company_id REF
+        bigint company_id "REF: core companies.id"
         bigint vehicle_id FK
-        bigint driver_id REF
-        bigint customer_user_id REF
-        bigint invoice_id REF
+        bigint driver_id "REF: core users.id"
+        bigint customer_user_id "REF: core users.id"
+        bigint invoice_id "REF: core invoices.id"
         string status
         string pickup_address
         string dropoff_address
@@ -308,7 +308,7 @@ erDiagram
 
     DRIVER_AVAILABILITY {
         bigint driver_id PK
-        bigint company_id REF
+        bigint company_id "REF: core companies.id"
         boolean is_online
         decimal lat
         decimal lng
@@ -318,9 +318,9 @@ erDiagram
 
     RIDE_DISPATCH_OFFERS {
         bigint id PK
-        bigint ride_request_id REF
-        bigint company_id REF
-        bigint driver_id REF
+        bigint ride_request_id "REF: ride_requests.id"
+        bigint company_id "REF: core companies.id"
+        bigint driver_id "REF: core users.id"
         string status
         smallint wave
         timestamp offered_at
@@ -330,8 +330,8 @@ erDiagram
 
     RIDE_PAYMENTS {
         bigint id PK
-        bigint ride_request_id REF
-        bigint company_id REF
+        bigint ride_request_id "REF: ride_requests.id"
+        bigint company_id "REF: core companies.id"
         string channel
         string mollie_payment_id UK
         decimal amount
@@ -342,8 +342,8 @@ erDiagram
 
     RIDE_REQUEST_NOTIFICATION_LOGS {
         bigint id PK
-        bigint ride_request_id REF
-        bigint driver_id REF
+        bigint ride_request_id "REF: ride_requests.id"
+        bigint driver_id "REF: core users.id"
         string channel
         string status
         string recipient_address
@@ -515,7 +515,7 @@ erDiagram
         bigint application_id FK
         bigint match_id FK
         bigint pipeline_template_id FK
-        string stage_type_key REF
+        string stage_type_key "REF: stage_types.key"
         string label
         integer sequence
         string status

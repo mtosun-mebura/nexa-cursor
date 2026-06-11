@@ -201,6 +201,11 @@ jobs:
                   core.info(`Merge overgeslagen: ${msg}`);
                   return;
                 }
+                if (/merge already in progress/i.test(msg) && attempt < 12) {
+                  core.info(`Merge al bezig door andere job, wacht (poging ${attempt}/12)...`);
+                  await new Promise((resolve) => setTimeout(resolve, 10000));
+                  continue;
+                }
                 if (/Base branch was modified|Head branch was modified|not clean|mergeable/i.test(msg) && attempt < 12) {
                   core.info(`Merge nog niet mogelijk (${msg}), poging ${attempt}/12...`);
                   await new Promise((resolve) => setTimeout(resolve, 5000));

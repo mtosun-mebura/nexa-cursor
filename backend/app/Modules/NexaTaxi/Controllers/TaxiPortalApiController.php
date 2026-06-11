@@ -9,6 +9,7 @@ use App\Modules\NexaTaxi\Services\TaxiPortalDataService;
 use App\Services\InvoicePdfService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Password;
 use Symfony\Component\HttpFoundation\Response;
 
 class TaxiPortalApiController extends Controller
@@ -87,6 +88,33 @@ class TaxiPortalApiController extends Controller
             'success' => true,
             'message' => 'Gegevens opgeslagen.',
             'data' => $this->portalData->profilePayload($user),
+        ]);
+    }
+
+    public function updatePassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
+        ], [
+            'current_password.required' => 'Huidig wachtwoord is verplicht.',
+            'password.required' => 'Nieuw wachtwoord is verplicht.',
+            'password.confirmed' => 'Wachtwoord bevestiging komt niet overeen.',
+            'password.min' => 'Wachtwoord moet minimaal 8 karakters bevatten.',
+            'password.mixed' => 'Wachtwoord moet hoofdletters en kleine letters bevatten.',
+            'password.numbers' => 'Wachtwoord moet minimaal één cijfer bevatten.',
+            'password.symbols' => 'Wachtwoord moet minimaal één speciaal karakter bevatten.',
+        ]);
+
+        $this->portalData->updatePassword(
+            $this->portalUser(),
+            $validated['current_password'],
+            $validated['password'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Wachtwoord succesvol gewijzigd.',
         ]);
     }
 

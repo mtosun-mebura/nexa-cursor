@@ -26,7 +26,7 @@
         <input type="text"
                name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_bg_color]"
                id="carousel-bg-color-{{ $sectionKey }}-{{ $idx }}"
-               class="carousel-slide-text-bg-color-hex-input kt-input w-full font-mono text-sm"
+               class="carousel-slide-text-bg-color-hex-input kt-input w-full font-mono text-sm home-section-hex-input"
                value="{{ $slideTextBgColor }}"
                placeholder="#000000"
                maxlength="7"

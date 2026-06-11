@@ -3,6 +3,7 @@
     if (! is_array($selectedRoles)) {
         $selectedRoles = [];
     }
+    $roles = \App\Support\WebRoleFormOptions::dedupe(collect($roles ?? []));
 @endphp
 <div class="flex flex-col gap-2.5 @error('roles') ring-1 ring-destructive rounded-lg p-3 @enderror @error('roles.*') ring-1 ring-destructive rounded-lg p-3 @enderror" data-required-checkbox-group="roles">
     @forelse($roles as $role)

@@ -23,7 +23,7 @@
         }
     }
 @endphp
-<div class="flowbite-wysiwyg-wrapper w-full max-w-4xl border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 min-w-0" data-flowbite-wysiwyg data-editor-id="{{ $editorId }}" data-upload-image-url="{{ route('admin.website-pages.upload-hero-image') }}" data-upload-document-url="{{ route('admin.website-pages.upload-wysiwyg-document') }}" data-wysiwyg-icons='@json($wysiwygIconsForEditor, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE)'>
+<div class="flowbite-wysiwyg-wrapper relative w-full max-w-4xl border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 min-w-0" data-flowbite-wysiwyg data-editor-id="{{ $editorId }}" data-upload-image-url="{{ route('admin.website-pages.upload-hero-image') }}" data-upload-document-url="{{ route('admin.website-pages.upload-wysiwyg-document') }}" data-wysiwyg-icons='@json($wysiwygIconsForEditor, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE)'>
     <input type="file" class="hidden flowbite-wysiwyg-image-input" accept="image/*" data-editor-id="{{ $editorId }}" aria-hidden="true">
     <input type="file" class="hidden flowbite-wysiwyg-document-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" data-editor-id="{{ $editorId }}" aria-hidden="true">
     <div class="flowbite-wysiwyg-toolbar p-2 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/80 min-w-0 rounded-t-xl space-y-1.5">
