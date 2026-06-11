@@ -49,6 +49,9 @@ class TenantCompanyDataPushServiceTest extends TestCase
         $taxiTables = $scope['taxi_module_tables'] ?? [];
 
         $this->assertContains('vehicles', $taxiTables);
+        $this->assertContains('ride_requests', $taxiTables);
+        $this->assertContains('ride_dispatch_offers', $taxiTables);
+        $this->assertContains('driver_availability', $taxiTables);
         $this->assertContains('default_rates', $taxiTables);
         $this->assertContains('knowledge_documents', $taxiTables);
         $this->assertContains('knowledge_chunks', $taxiTables);
@@ -218,6 +221,41 @@ class TenantCompanyDataPushServiceTest extends TestCase
 
         $targetWithPhoto = (object) ['photo_blob' => 'EXISTING', 'photo' => null];
         $this->assertSame([], $method->invoke($service, $targetWithPhoto, $payload));
+    }
+
+    #[Test]
+    public function sync_scope_includes_ai_chat_audit_logs_when_table_exists(): void
+    {
+        if (! Schema::hasTable('ai_chat_audit_logs') || ! Schema::hasColumn('ai_chat_audit_logs', 'company_id')) {
+            $this->markTestSkipped('ai_chat_audit_logs table required');
+        }
+
+        $scope = app(TenantCompanyDataPushService::class)->describeSyncScope();
+        $this->assertContains('ai_chat_audit_logs', $scope['tables_with_company_id'] ?? []);
+        $this->assertContains('ai_chat_audit_logs', $scope['ai_chat_tables'] ?? []);
+    }
+
+    #[Test]
+    public function main_required_tables_includes_ai_chat_audit_logs_migration(): void
+    {
+        $required = config('tenant_sync.main_required_tables', []);
+        $this->assertArrayHasKey('ai_chat_audit_logs', $required);
+        $this->assertStringContainsString('create_ai_chat_audit_logs_table', (string) $required['ai_chat_audit_logs']);
+    }
+
+    #[Test]
+    public function main_required_tables_includes_company_domains_migration(): void
+    {
+        $required = config('tenant_sync.main_required_tables', []);
+        $this->assertArrayHasKey('company_domains', $required);
+    }
+
+    #[Test]
+    public function update_on_existing_tables_includes_domains_and_settings(): void
+    {
+        $tables = config('tenant_sync.update_on_existing_tables', []);
+        $this->assertContains('company_domains', $tables);
+        $this->assertContains('general_settings', $tables);
     }
 
     #[Test]

@@ -47,6 +47,14 @@ Alleen relevant **na** een geslaagde SCP-upload. Als SCP al met timeout faalt, k
 
 Na geslaagde upload controleert de workflow of `/tmp/nexa-deploy-tenant-ci.sh` op de server staat.
 
+## Fout: `Run Command Timeout` na ~10 minuten (bijv. tijdens `vite build`)
+
+`appleboy/ssh-action` heeft standaard **`command_timeout: 10m`**. Een volledige PROD-deploy (git, `npm ci`, Vite, Docker build, migrate) duurt op Lightsail vaak langer.
+
+De workflow zet `command_timeout: 90m` op de deploy-stap (zelfde als `timeout-minutes` van de job).
+
+Als het tóch lang duurt op een kleine instance: controleer geheugen (`free -h`) tijdens deploy — bij swap kan Vite lijken te hangen op `computing gzip size`.
+
 ## Fout: `unable to unlink old 'backend/storage/.../.gitignore': Permission denied`
 
 De Laravel-container (`www-data`) schrijft naar `backend/storage` en `backend/bootstrap/cache`. Bij `git checkout` kan de deploy-user die bestanden niet overschrijven.
@@ -64,6 +72,29 @@ sudo chown -R ubuntu:ubuntu /home/ubuntu/nexasuite/backend/storage /home/ubuntu/
 ```
 
 Daarna **Deploy PROD** opnieuw starten. Vanaf deploy-tenant.sh op main stopt het script eerst de backend-container en chown't storage **vóór** `git checkout`.
+
+## Fout: `413 Request Entity Too Large` (tenant-ZIP import)
+
+Nginx op de host weigert de upload **vóór** Laravel (standaard ~1 MB). Geldt voor alle tenant-subdomeinen (`taxiroyaal.nexasuite.nl`, enz.).
+
+**Eenmalig op Lightsail:**
+
+```bash
+cd /home/ubuntu/nexasuite   # of jouw APP_DIR
+sudo bash deploy/fix-nginx-upload-limit.sh
+```
+
+Of handmatig in het `server`-block van de site (bijv. `/etc/nginx/sites-available/nexasuite`):
+
+```nginx
+client_max_body_size 512M;
+proxy_read_timeout 300;
+proxy_send_timeout 300;
+```
+
+Daarna: `sudo nginx -t && sudo systemctl reload nginx`.
+
+Zie ook `deploy/UPLOAD-LIMITS.md`. Laravel staat tot ~500 MB toe (`config/upload.php`); nginx moet minstens even groot zijn.
 
 ## Handmatig deployen (fallback)
 
