@@ -47,6 +47,24 @@ Alleen relevant **na** een geslaagde SCP-upload. Als SCP al met timeout faalt, k
 
 Na geslaagde upload controleert de workflow of `/tmp/nexa-deploy-tenant-ci.sh` op de server staat.
 
+## Fout: `unable to unlink old 'backend/storage/.../.gitignore': Permission denied`
+
+De Laravel-container (`www-data`) schrijft naar `backend/storage` en `backend/bootstrap/cache`. Bij `git checkout` kan de deploy-user die bestanden niet overschrijven.
+
+**Eenmalig op Lightsail (als root of met sudo):**
+
+```bash
+sudo bash /home/ubuntu/nexasuite/deploy/fix-git-ownership.sh --user ubuntu --dir /home/ubuntu/nexasuite
+```
+
+Of handmatig:
+
+```bash
+sudo chown -R ubuntu:ubuntu /home/ubuntu/nexasuite/backend/storage /home/ubuntu/nexasuite/backend/bootstrap/cache
+```
+
+Daarna **Deploy PROD** opnieuw starten. Vanaf deploy-tenant.sh op main stopt het script eerst de backend-container en chown't storage **vóór** `git checkout`.
+
 ## Handmatig deployen (fallback)
 
 Op de Lightsail-server, in `APP_DIR`:
