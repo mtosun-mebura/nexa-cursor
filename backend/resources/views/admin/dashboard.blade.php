@@ -5,7 +5,15 @@
 @section('content')
 @if($isCompanyView && $selectedCompany)
     {{-- Company Profile View --}}
-    @include('admin.dashboard.company-profile', ['company' => $selectedCompany, 'stats' => $stats ?? []])
+    @include('admin.dashboard.company-profile', [
+        'company' => $selectedCompany,
+        'stats' => $stats ?? [],
+        'financials' => $financials ?? [],
+        'showSkillmatching' => $showSkillmatching ?? false,
+        'showTaxi' => $showTaxi ?? false,
+        'taxiStats' => $taxiStats ?? [],
+        'recent_rides' => $recent_rides ?? collect(),
+    ])
 @elseif($isCompanyView && !$selectedCompany)
     {{-- Tenant geselecteerd maar company niet gevonden --}}
     <div class="kt-card">
@@ -21,24 +29,33 @@
     </div>
 @else
     {{-- Super Admin Dashboard View --}}
-<div class="flex flex-col gap-7.5">
+<div class="admin-dashboard-scope flex flex-col gap-7.5 min-w-0 w-full max-w-full">
     @php
-        $matchRate = ($stats['total_matches'] ?? 0) > 0
+        $showSkillmatching = $showSkillmatching ?? false;
+        $showTaxi = $showTaxi ?? false;
+        $taxiStats = $taxiStats ?? [];
+        $recent_rides = $recent_rides ?? collect();
+        $matchRate = $showSkillmatching && ($stats['total_matches'] ?? 0) > 0
             ? round((($stats['total_matches'] ?? 0) - ($stats['pending_matches'] ?? 0)) / max(1, $stats['total_matches']) * 100, 1)
             : 0;
-        $activeVacancyRate = ($stats['total_vacancies'] ?? 0) > 0
+        $activeVacancyRate = $showSkillmatching && ($stats['total_vacancies'] ?? 0) > 0
             ? round(($stats['active_vacancies'] ?? 0) / max(1, $stats['total_vacancies']) * 100, 1)
             : 0;
-        $completedInterviewsRate = ($stats['total_interviews'] ?? 0) > 0
+        $completedInterviewsRate = $showSkillmatching && ($stats['total_interviews'] ?? 0) > 0
             ? round(($stats['completed_interviews'] ?? 0) / max(1, $stats['total_interviews']) * 100, 1)
             : 0;
         $maxRevenue = max(1, $revenue_trend->max('total') ?? 0);
         $isSuperAdmin = auth()->user()->hasRole('super-admin');
+        $heroSubtitle = $showTaxi && ! $showSkillmatching
+            ? 'Direct inzicht in ritten, boekingen en inkomsten.'
+            : ($showSkillmatching && ! $showTaxi
+                ? 'Direct inzicht in gebruikers, vacatures, matches, interviews en inkomsten.'
+                : 'Direct inzicht in gebruikers, modules en inkomsten.');
     @endphp
 
     <!-- Hero + Revenue -->
     <div class="grid gap-5 grid-cols-1">
-        <div class="kt-card xl:col-span-4 overflow-hidden bg-gradient-to-r from-slate-50 via-slate-100 to-slate-50 dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1324] text-foreground dark:text-white w-full">
+        <div class="kt-card overflow-hidden bg-gradient-to-r from-slate-50 via-slate-100 to-slate-50 dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1324] text-foreground dark:text-white w-full min-w-0">
             <div class="kt-card-body p-7 lg:p-10">
                 <div class="flex flex-col gap-6">
                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
@@ -47,7 +64,7 @@
                                 Nexa overzicht
                             </h1>
                             <p class="text-sm text-secondary-foreground dark:text-white/70">
-                                Direct inzicht in gebruikers, vacatures, matches, interviews en inkomsten.
+                                {{ $heroSubtitle }}
                             </p>
                         </div>
                         <div class="flex flex-col items-start md:items-end gap-3">
@@ -58,7 +75,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
@@ -70,6 +87,7 @@
                                 </span>
                             </div>
                         </div>
+                        @if($showSkillmatching)
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
@@ -92,6 +110,31 @@
                                 </span>
                             </div>
                         </div>
+                        @endif
+                        @if($showTaxi)
+                        <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
+                            <div class="kt-card-body flex items-center justify-between gap-3 p-4">
+                                <div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Ritten</div>
+                                    <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $taxiStats['total_rides'] ?? 0 }}</div>
+                                </div>
+                                <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
+                                    <i class="ki-filled ki-calendar text-lg text-primary dark:text-white"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
+                            <div class="kt-card-body flex items-center justify-between gap-3 p-4">
+                                <div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Open ritten</div>
+                                    <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $taxiStats['pending_rides'] ?? 0 }}</div>
+                                </div>
+                                <span class="size-10 rounded-full bg-warning/10 dark:bg-white/10 flex items-center justify-center">
+                                    <i class="ki-filled ki-time text-lg text-warning dark:text-white"></i>
+                                </span>
+                            </div>
+                        </div>
+                        @endif
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
@@ -109,17 +152,15 @@
         </div>
     </div>
     <div class="grid gap-5 grid-cols-1">
-        <div class="kt-card h-full w-full">
-            <div class="kt-card-header">
+        <div class="kt-card h-full w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-chart-line-up-2 me-2"></i>
                     Inkomsten
                 </h3>
-                <div class="flex gap-5">
-                    <div class="text-sm text-secondary-foreground">
-                        Totale omzet: <span class="font-semibold text-foreground">€{{ number_format((float)($financials['total_revenue'] ?? 0), 2, ',', '.') }}</span>
-                    </div>
-                </div>
+                <p class="text-sm text-secondary-foreground mb-0 shrink-0 text-end sm:text-end">
+                    Totale omzet: <span class="font-semibold text-foreground">€{{ number_format((float)($financials['total_revenue'] ?? 0), 2, ',', '.') }}</span>
+                </p>
             </div>
             <div class="kt-card-body flex flex-col justify-end items-stretch grow px-3 py-1">
                 <div id="earnings_chart"></div>
@@ -141,13 +182,13 @@
 
     @if($isSuperAdmin && !empty($tenantPaymentRows))
     <div class="grid gap-5 grid-cols-1">
-        <div class="kt-card min-w-full">
-            <div class="kt-card-header flex-wrap gap-3">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-wallet me-2"></i>
                     Betalingen per tenant
                 </h3>
-                <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">
+                <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
                     Volledig overzicht
                 </a>
             </div>
@@ -251,6 +292,7 @@
                 </span>
             </div>
         </div>
+        @if($showSkillmatching)
         <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
@@ -309,21 +351,26 @@
                 </span>
             </div>
         </div>
+        @endif
     </div>
 
-    @if($isSuperAdmin && !session('selected_tenant'))
+    @if($showTaxi)
+        @include('admin.dashboard.partials.taxi-overview')
+    @endif
+
+    @if($isSuperAdmin && !session('selected_tenant') && $showSkillmatching)
     <!-- Uitgebreide Statistieken voor Super Admin -->
-    <div class="grid gap-5 lg:grid-cols-2">
+    <div class="grid gap-5 grid-cols-1 admin-dashboard-grid-2">
         <!-- Match Statussen -->
-        <div class="kt-card w-full">
-            <div class="kt-card-header">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-abstract-38 me-2"></i>
                     Match Statussen
                 </h3>
             </div>
             <div class="kt-card-body">
-                <div class="grid grid-cols-2 gap-4 m-[10px]">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 m-[10px]">
                     <div class="flex items-center justify-between p-4 rounded-lg border border-input">
                         <div class="flex items-center gap-3">
                             <span class="size-10 rounded-full bg-warning/10 flex items-center justify-center">
@@ -368,7 +415,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center justify-between p-4 rounded-lg border border-input col-span-2">
+                    <div class="flex items-center justify-between p-4 rounded-lg border border-input sm:col-span-2">
                         <div class="flex items-center gap-3">
                             <span class="size-10 rounded-full bg-primary/10 flex items-center justify-center">
                                 <i class="ki-filled ki-check text-primary"></i>
@@ -384,8 +431,8 @@
         </div>
 
         <!-- Interviews Statistieken -->
-        <div class="kt-card w-full">
-            <div class="kt-card-header">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-calendar me-2"></i>
                     Interviews Overzicht
@@ -430,21 +477,21 @@
     </div>
 
     <!-- Gebruikers en Vacatures per Bedrijf -->
-    <div class="grid gap-5 lg:grid-cols-2">
-        <div class="kt-card w-full">
-            <div class="kt-card-header">
+    <div class="grid gap-5 grid-cols-1 admin-dashboard-grid-2">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-people me-2"></i>
                     Gebruikers per Bedrijf
                 </h3>
             </div>
-            <div class="kt-card-content p-0">
-                <div class="kt-table-responsive">
+            <div class="kt-card-content p-0 min-w-0">
+                <div class="kt-scrollable-x-auto admin-dashboard-table-scroll">
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th class="min-w-48">Bedrijf</th>
-                                <th class="min-w-24 text-right">Aantal Gebruikers</th>
+                                <th>Bedrijf</th>
+                                <th class="text-right whitespace-nowrap">Aantal Gebruikers</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -470,20 +517,20 @@
             </div>
         </div>
 
-        <div class="kt-card w-full">
-            <div class="kt-card-header">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-briefcase me-2"></i>
                     Vacatures per Bedrijf
                 </h3>
             </div>
-            <div class="kt-card-content p-0">
-                <div class="kt-table-responsive">
+            <div class="kt-card-content p-0 min-w-0">
+                <div class="kt-scrollable-x-auto admin-dashboard-table-scroll">
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th class="min-w-48">Bedrijf</th>
-                                <th class="min-w-24 text-right">Aantal Vacatures</th>
+                                <th>Bedrijf</th>
+                                <th class="text-right whitespace-nowrap">Aantal Vacatures</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -511,19 +558,15 @@
     </div>
 
     <!-- Facturen en Opbrengsten Grafiek -->
-    <div class="kt-card w-full">
-        <div class="kt-card-header">
+    <div class="kt-card w-full min-w-0">
+        <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
             <h3 class="kt-card-title">
                 <i class="ki-filled ki-chart-line-up-2 me-2"></i>
                 Facturen en Opbrengsten per Jaar
             </h3>
-            <div class="flex gap-5">
-                <div class="text-sm text-secondary-foreground">
-                    {{ now()->year }}: <span class="font-semibold text-foreground">{{ $stats['current_year_invoices'] ?? 0 }} facturen</span>
-                </div>
-                <div class="text-sm text-secondary-foreground">
-                    Opbrengst: <span class="font-semibold text-success">€{{ number_format((float)($stats['current_year_revenue'] ?? 0), 2, ',', '.') }}</span>
-                </div>
+            <div class="admin-dashboard-header-meta flex flex-col gap-0.5 shrink-0 text-end text-sm text-secondary-foreground">
+                <span>{{ now()->year }}: <span class="font-semibold text-foreground">{{ $stats['current_year_invoices'] ?? 0 }} facturen</span></span>
+                <span>Opbrengst: <span class="font-semibold text-success">€{{ number_format((float)($stats['current_year_revenue'] ?? 0), 2, ',', '.') }}</span></span>
             </div>
         </div>
         <div class="kt-card-body flex flex-col justify-end items-stretch grow px-3 py-1">
@@ -532,10 +575,11 @@
     </div>
     @endif
 
-    <!-- Pipeline & Activity -->
-    <div class="grid gap-5 lg:grid-cols-3">
-        <div class="kt-card lg:col-span-1 flex flex-col w-full">
-            <div class="kt-card-header">
+    @if($showSkillmatching)
+    <!-- Pipeline & Activity (Skillmatching) -->
+    <div class="grid gap-5 grid-cols-1 admin-dashboard-grid-3">
+        <div class="kt-card flex flex-col w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-route me-2"></i>
                     Pipeline status
@@ -574,14 +618,14 @@
                 </div>
             </div>
         </div>
-        <div class="kt-card lg:col-span-2 flex flex-col w-full">
-            <div class="kt-card-header">
+        <div class="kt-card admin-dashboard-col-span-2 flex flex-col w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-activity me-2"></i>
                     Recente activiteit
                 </h3>
             </div>
-            <div class="kt-card-body grid md:grid-cols-2 gap-4 flex-1 p-6">
+            <div class="kt-card-body grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 p-6 min-w-0">
                 <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
                         <span class="font-semibold text-foreground">Recente matches</span>
@@ -645,11 +689,13 @@
             </div>
         </div>
     </div>
+    @endif
 
     <!-- Data tables -->
-    <div class="grid gap-5 lg:grid-cols-2">
-        <div class="kt-card min-w-full">
-            <div class="kt-card-header">
+    <div class="grid gap-5 grid-cols-1 admin-dashboard-grid-2">
+        @if($showSkillmatching)
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-briefcase me-2"></i>
                     Vacatures & bedrijven
@@ -659,18 +705,18 @@
                         ? route('admin.skillmatching.vacancies.index') 
                         : (Route::has('admin.vacancies.index') ? route('admin.vacancies.index') : '#');
                 @endphp
-                <a href="{{ $vacanciesRoute }}" class="kt-btn kt-btn-sm kt-btn-outline">
+                <a href="{{ $vacanciesRoute }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
                     Bekijk alle
                 </a>
             </div>
-            <div class="kt-card-content p-0">
-                <div class="kt-table-responsive">
+            <div class="kt-card-content p-0 min-w-0">
+                <div class="kt-scrollable-x-auto admin-dashboard-table-scroll">
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th class="min-w-64">Vacature</th>
-                                <th class="min-w-48">Bedrijf</th>
-                                <th class="min-w-32">Datum</th>
+                                <th>Vacature</th>
+                                <th>Bedrijf</th>
+                                <th class="whitespace-nowrap">Datum</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -726,29 +772,30 @@
                 </div>
             </div>
         </div>
+        @endif
 
-        <div class="kt-card min-w-full">
-            <div class="kt-card-header">
+        <div class="kt-card w-full min-w-0 {{ ($showSkillmatching && $showTaxi) ? '' : 'admin-dashboard-col-span-2' }}">
+            <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-wallet me-2"></i>
                     Recente betalingen
                 </h3>
                 @if($isSuperAdmin)
-                    <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">
+                    <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
                         Bekijk alle
                     </a>
                 @endif
             </div>
-            <div class="kt-card-content p-0">
-                <div class="kt-table-responsive">
+            <div class="kt-card-content p-0 min-w-0">
+                <div class="kt-scrollable-x-auto admin-dashboard-table-scroll">
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th class="min-w-40">Bedrijf</th>
-                                <th class="min-w-24">Module</th>
-                                <th class="min-w-24">Bedrag</th>
-                                <th class="min-w-24">Status</th>
-                                <th class="min-w-32">Datum</th>
+                                <th>Bedrijf</th>
+                                <th class="whitespace-nowrap">Module</th>
+                                <th class="whitespace-nowrap">Bedrag</th>
+                                <th class="whitespace-nowrap">Status</th>
+                                <th class="whitespace-nowrap">Datum</th>
                             </tr>
                         </thead>
                         <tbody>

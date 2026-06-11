@@ -87,6 +87,13 @@
     align-items: center;
   }
 
+  .agenda-nav-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
   /* View buttons container - fixed width to prevent shifting */
   .view-buttons-container {
     display: flex;
@@ -684,21 +691,61 @@
   }
 
   /* Responsive */
-  @media (max-width: 768px) {
+  @media (max-width: 1023px) {
     .agenda-header {
       flex-direction: column;
-      align-items: flex-start;
+      align-items: stretch;
       gap: 1rem;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .agenda-title {
+      min-width: 0;
+      font-size: 1.25rem;
+    }
+
+    #user-filter {
+      width: 100%;
+      min-width: 0;
     }
 
     .agenda-actions {
+      flex-direction: column;
+      align-items: stretch;
       width: 100%;
-      justify-content: space-between;
+      gap: 0.75rem;
     }
 
     .view-buttons-container {
-      min-width: auto;
-      flex: 1;
+      min-width: 0;
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .view-buttons-container .view-btn {
+      width: 100%;
+      justify-content: center;
+      padding-inline: 0.375rem;
+    }
+
+    .agenda-nav-buttons {
+      display: grid;
+      grid-template-columns: minmax(2.75rem, auto) minmax(0, 1fr) minmax(2.75rem, auto);
+      width: 100%;
+      gap: 0.5rem;
+    }
+
+    .agenda-nav-buttons .kt-btn {
+      width: 100%;
+      min-width: 0;
+      justify-content: center;
+    }
+
+    .agenda-actions > .kt-btn-primary {
+      width: 100%;
+      justify-content: center;
     }
 
     .month-day-cell {
@@ -716,6 +763,18 @@
 
     .day-view {
       grid-template-columns: 60px 1fr;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .view-buttons-container .view-btn {
+      font-size: 0.8125rem;
+      padding-inline: 0.25rem;
+    }
+
+    #btn-today {
+      font-size: 0.8125rem;
+      padding-inline: 0.5rem;
     }
   }
 </style>
@@ -749,14 +808,14 @@
                         Dag
                     </button>
                 </div>
-                <div class="flex gap-2">
-                    <button class="kt-btn kt-btn-outline" id="btn-prev">
+                <div class="agenda-nav-buttons">
+                    <button class="kt-btn kt-btn-outline" id="btn-prev" type="button" aria-label="Vorige periode">
                         <i class="ki-filled ki-arrow-left"></i>
                     </button>
-                    <button class="kt-btn kt-btn-outline" id="btn-today">
+                    <button class="kt-btn kt-btn-outline" id="btn-today" type="button">
                         Vandaag
                     </button>
-                    <button class="kt-btn kt-btn-outline" id="btn-next">
+                    <button class="kt-btn kt-btn-outline" id="btn-next" type="button" aria-label="Volgende periode">
                         <i class="ki-filled ki-arrow-right"></i>
                     </button>
                 </div>

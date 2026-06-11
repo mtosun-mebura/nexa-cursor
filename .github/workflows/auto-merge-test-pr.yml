@@ -80,19 +80,56 @@ jobs:
               return;
             }
 
-            try {
-              await github.rest.pulls.merge({
+            for (let attempt = 1; attempt <= 12; attempt++) {
+              const { data: freshPr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: pr.number,
-                merge_method: 'merge',
               });
-              core.info(`PR #${pr.number} gemerged naar ${pr.base.ref}`);
-            } catch (error) {
-              const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
-              if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
-                core.info(`Merge overgeslagen: ${msg}`);
+
+              if (freshPr.merged) {
+                core.info(`PR #${pr.number} was al gemerged.`);
                 return;
               }
-              throw error;
+
+              if (freshPr.mergeable === false) {
+                core.setFailed(`PR #${pr.number} heeft merge-conflicts en kan niet automatisch gemerged worden.`);
+                return;
+              }
+
+              if (freshPr.mergeable === null) {
+                core.info(`Mergeability nog onbekend, poging ${attempt}/12...`);
+                await new Promise((r) => setTimeout(r, 5000));
+                continue;
+              }
+
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  merge_method: 'merge',
+                });
+                core.info(`PR #${pr.number} gemerged naar ${pr.base.ref}`);
+                return;
+              } catch (error) {
+                const msg = [error?.message, error?.response?.data?.message].filter(Boolean).join(' ');
+                if (/already merged|Nothing to merge|No commits between/i.test(msg)) {
+                  core.info(`Merge overgeslagen: ${msg}`);
+                  return;
+                }
+                if (/merge already in progress/i.test(msg) && attempt < 12) {
+                  core.info(`Merge al bezig door andere job, wacht (poging ${attempt}/12)...`);
+                  await new Promise((r) => setTimeout(r, 10000));
+                  continue;
+                }
+                if (/Base branch was modified|Head branch was modified|not clean|mergeable/i.test(msg) && attempt < 12) {
+                  core.info(`Merge nog niet mogelijk (${msg}), poging ${attempt}/12...`);
+                  await new Promise((r) => setTimeout(r, 5000));
+                  continue;
+                }
+                throw error;
+              }
             }
+
+            core.setFailed(`PR #${pr.number} kon niet automatisch gemerged worden na meerdere pogingen.`);

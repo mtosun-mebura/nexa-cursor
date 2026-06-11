@@ -53,7 +53,7 @@
         @if($grCompanyId === null)
         <p class="text-sm text-amber-700 dark:text-amber-400">Zonder gekoppeld bedrijf kan Place ID niet worden opgeslagen.</p>
         @else
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4" data-panel-title="Google Reviews instellingen">
             <div>
                 <label class="block text-xs text-muted-foreground mb-1" for="gr-place-{{ $sectionKey }}">Place ID</label>
                 <input type="text" id="gr-place-{{ $sectionKey }}" name="home_sections[{{ $sectionKey }}][place_id]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.place_id', $grPlaceId) }}" maxlength="255" placeholder="ChIJ...">
@@ -70,9 +70,9 @@
             <div class="md:col-span-2">
                 <label class="block text-xs text-muted-foreground mb-1" for="gr-section-bg-{{ $grFieldIdSuffix }}">Achtergrondkleur van de sectie</label>
                 <div class="flex gap-2 items-center">
-                    <div class="flex items-center gap-2 relative" style="position: relative; width: 100%;">
-                        <input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ $grSectionBgPickerValue }}" title="Kies achtergrondkleur" aria-label="Achtergrondkleur Google Reviews-sectie">
-                        <input type="text" id="gr-section-bg-{{ $grFieldIdSuffix }}" name="home_sections[{{ $sectionKey }}][section_background]" class="kt-input text-sm flex-1 min-w-0 font-mono" value="{{ $grSectionBackgroundInput }}" placeholder="Leeg = standaard (#f3f4f6)" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
+                    <input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ $grSectionBgPickerValue }}" title="Kies achtergrondkleur" aria-label="Achtergrondkleur Google Reviews-sectie">
+                    <div class="home-section-hex-input-wrap shrink-0">
+                        <input type="text" id="gr-section-bg-{{ $grFieldIdSuffix }}" name="home_sections[{{ $sectionKey }}][section_background]" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ $grSectionBackgroundInput }}" placeholder="#f3f4f6" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$" data-skip-validation-wrapper="1">
                     </div>
                 </div>
                 <p class="text-xs text-muted-foreground mt-1 mb-0">Hex via pipet of handmatig. Leeg = standaard thema-achtergrond.</p>

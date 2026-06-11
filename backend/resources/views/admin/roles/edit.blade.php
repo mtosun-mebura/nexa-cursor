@@ -178,15 +178,15 @@
     }
 </style>
 
-<div class="bg-center bg-cover bg-no-repeat hero-bg">
+<div class="bg-center bg-cover bg-no-repeat hero-bg min-w-0">
     <!-- Container -->
-    <div class="kt-container-fixed">
-        <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+    <div class="kt-container-fixed min-w-0">
+        <div class="admin-role-hero-inner flex flex-col items-center gap-2 lg:gap-3.5 py-3 sm:py-4 lg:pt-5 lg:pb-10">
             @php
                 $isActive = $role->is_active ?? true;
             @endphp
-            <div class="rounded-full border-3 {{ $isActive ? 'border-green-500' : 'border-red-500' }} size-[100px] shrink-0 bg-primary/10 flex items-center justify-center">
-                <i class="ki-filled ki-profile-circle text-4xl text-primary"></i>
+            <div class="admin-role-hero-avatar rounded-full border-3 {{ $isActive ? 'border-green-500' : 'border-red-500' }} size-[72px] sm:size-[100px] shrink-0 bg-primary/10 flex items-center justify-center">
+                <i class="ki-filled ki-profile-circle text-3xl sm:text-4xl text-primary"></i>
             </div>
             <div class="flex items-center gap-1.5">
                 <div class="text-lg leading-5 font-semibold text-mono">
@@ -224,19 +224,18 @@
 </div>
 
 <!-- Container -->
-<div class="kt-container-fixed">
-    <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10">
-        <div class="flex items-center gap-2.5">
-            <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
-            </a>
-        </div>
-        <div class="flex items-center gap-2.5">
-        </div>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-5 lg:pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Rol Bewerken
+        </h1>
+        <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
     </div>
 
-    <form action="{{ route('admin.roles.update', $role) }}" method="POST"  data-validate="true" novalidate>
+    <form id="admin-role-form" action="{{ route('admin.roles.update', $role) }}" method="POST"  data-validate="true" novalidate>
         @csrf
         @method('PUT')
 
@@ -244,12 +243,13 @@
             <x-error-card :errors="$errors" />
 
             <!-- Basis Informatie -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Basis Informatie</h3>
+                    <h3 class="kt-card-title mb-0">Basis Informatie</h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         @php
                             $isSystemRole = in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']);
                         @endphp
@@ -304,15 +304,16 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
             <!-- Rechten -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0" id="role-permissions-card">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Permissies Toewijzen *</h3>
+                    <h3 class="kt-card-title mb-0">Permissies Toewijzen *</h3>
                 </div>
-                <div class="kt-card-content no-padding">
+                <div class="kt-card-content no-padding min-w-0">
                     @error('permissions')
                         <div class="kt-alert kt-alert-danger mb-5">
                             <i class="ki-filled ki-cross-circle me-2"></i>
@@ -321,7 +322,7 @@
                     @enderror
 
                     <!-- Permission Sets -->
-                    <div class="mb-5" style="background-color: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 0.5rem; padding: 1.25rem 1.5rem; margin: 16px;">
+                    <div class="role-permission-sets mb-5">
                         <div class="flex items-start gap-3 mb-4">
                             <div class="flex-shrink-0">
                                 <x-heroicon-s-information-circle class="w-6 h-6 flex-shrink-0" style="color: rgb(59, 130, 246);" />
@@ -363,13 +364,13 @@
                                 </button>
                             @endforeach
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
                             <button type="button"
-                                    class="kt-btn kt-btn-sm kt-btn-outline text-xs"
+                                    class="kt-btn kt-btn-sm kt-btn-outline text-xs shrink-0"
                                     id="clear-all-permissions">
                                 Alles Wissen
                             </button>
-                            <span class="text-xs text-muted-foreground">of selecteer individuele rechten hieronder</span>
+                            <span class="text-xs text-muted-foreground min-w-0">of selecteer individuele rechten hieronder</span>
                         </div>
                     </div>
 
@@ -381,7 +382,7 @@
                         $modulePermissionsInfo = $menuService->getModulePermissionsGrouped();
                     @endphp
                     @if(isset($modulePermissionsInfo) && count($modulePermissionsInfo) > 0)
-                        <div class="px-5 mb-5">
+                        <div class="px-3 sm:px-5 mb-5">
                             <div class="p-4 bg-primary/5 border border-border rounded-lg">
                                 <h4 class="font-semibold mb-3 text-primary flex items-center gap-2">
                                     <x-heroicon-s-puzzle-piece class="w-5 h-5 text-primary flex-shrink-0" />
@@ -401,7 +402,7 @@
                         </div>
                     @endif
 
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3" style="border-top: 1px solid rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.1);" data-required-checkbox-group="permissions[]">
+                    <div class="role-permissions-scroll admin-table-scroll-wrap kt-card-table kt-scrollable-x-auto pb-3 min-w-0" data-required-checkbox-group="permissions[]">
 
                     @php
                         // Get currently selected permissions (from old input or role)
@@ -792,7 +793,7 @@
                         ];
                     @endphp
 
-                    <table class="kt-table kt-table-border align-middle text-sm w-full" data-required-checkbox-group="permissions[]">
+                    <table class="kt-table kt-table-border align-middle text-sm w-full admin-keep-table-layout role-permissions-matrix" data-required-checkbox-group="permissions[]">
                         <thead>
                             <tr>
                                 <th class="min-w-[250px] text-left text-secondary-foreground font-normal">Module / Resource</th>
@@ -851,7 +852,7 @@
                                     @endphp
                                     
                                     {{-- Module Header Row --}}
-                                    <tr class="bg-muted/30">
+                                    <tr class="role-permission-module-row bg-muted/30">
                                         <td colspan="{{ count($allActions) + 1 }}" class="py-2 px-4">
                                             @if($isActiveModule)
                                                 <span class="font-semibold text-foreground text-sm flex items-center gap-1">
@@ -871,14 +872,14 @@
                                             $moduleKey = $moduleGroup['key'];
                                             $resource = $moduleGroup['resource'];
                                         @endphp
-                                        <tr>
-                                            <td class="text-foreground pl-6">
+                                        <tr class="role-permission-resource-row">
+                                            <td class="text-foreground pl-6 role-permission-resource-name">
                                                 <span class="font-medium text-sm">
                                                     {{ $moduleNames[$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey)) }}
                                                 </span>
                                             </td>
                                             @foreach($allActions as $action)
-                                                <td class="text-center">
+                                                <td class="text-center role-permission-action-cell" @if(isset($permissionMap[$moduleKey][$action])) data-permission-action="{{ $actionNames[$action] ?? ucfirst($action) }}" @endif>
                                                     @if(isset($permissionMap[$moduleKey][$action]))
                                                         @php
                                                             $permission = $permissionMap[$moduleKey][$action];
@@ -904,7 +905,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2.5 mb-3 mr-3">
+            <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-outline">
                     Annuleren
                 </a>

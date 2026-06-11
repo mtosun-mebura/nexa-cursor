@@ -13,13 +13,13 @@
 </style>
 
 <div class="bg-center bg-cover bg-no-repeat hero-bg">
-    <div class="kt-container-fixed">
+    <div class="kt-container-fixed min-w-0 px-3">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
             @if($ride->vehicle?->image_url)
                 <img
                     src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($ride->vehicle->image_url) }}"
                     alt="{{ $ride->vehicle->name ?? 'Voertuig' }}"
-                    class="max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white"
+                    class="w-full max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white"
                 >
             @elseif($ride->vehicle)
                 <div class="w-full max-w-sm h-48 rounded-lg border border-border flex items-center justify-center bg-primary/10 text-primary text-3xl font-semibold">
@@ -49,9 +49,9 @@
     </div>
 </div>
 
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center gap-5 pb-7.5">
-        <a href="{{ $rideBackUrl ?? route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
+<div class="kt-container-fixed min-w-0">
+    <div class="admin-page-actions flex flex-wrap items-center gap-2.5 pb-7.5 w-full min-w-0">
+        <a href="{{ $rideBackUrl ?? route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline shrink-0"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
         @can('rides.view')
             @if($notificationLogTableExists ?? false)
             <a href="{{ route('admin.taxi.ride_requests.notification_log', $ride) }}" class="kt-btn kt-btn-outline">
@@ -88,10 +88,10 @@
         <div class="kt-alert kt-alert-danger mb-5"><i class="ki-filled ki-cross-circle me-2"></i> {{ session('error') }}</div>
     @endif
 
-    <div class="grid grid-cols-1 gap-5">
-        <div class="kt-card">
-            <div class="kt-card-header"><h3 class="kt-card-title">Route &amp; datum</h3></div>
-            <div class="kt-card-content space-y-3 text-sm">
+    <div class="grid grid-cols-1 gap-5 lg:gap-7.5">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header"><h3 class="kt-card-title mb-0">Route &amp; datum</h3></div>
+            <div class="kt-card-content space-y-3 text-sm admin-detail-field-list">
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Ophalen:</span><span class="flex-1">{{ $ride->pickup_address }}</span></p>
                 @foreach(($stopoverAddresses ?? $ride->stopover_addresses) as $stopIndex => $stopAddress)
                     <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Tussenstop {{ chr(66 + $stopIndex) }}:</span><span class="flex-1">{{ $stopAddress }}</span></p>
@@ -111,9 +111,9 @@
                 @endif
             </div>
         </div>
-        <div class="kt-card">
-            <div class="kt-card-header"><h3 class="kt-card-title">Klant &amp; toewijzing</h3></div>
-            <div class="kt-card-content space-y-3 text-sm">
+        <div class="kt-card w-full min-w-0">
+            <div class="kt-card-header"><h3 class="kt-card-title mb-0">Klant &amp; toewijzing</h3></div>
+            <div class="kt-card-content space-y-3 text-sm admin-detail-field-list">
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Naam:</span><span class="flex-1">{{ $ride->customer_name }}</span></p>
                 @if($ride->customer_email)
                     <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">E-mail:</span><span class="flex-1"><a href="mailto:{{ $ride->customer_email }}">{{ $ride->customer_email }}</a></span></p>
@@ -131,35 +131,35 @@
     </div>
 
     @can('rides.update')
-    <div class="kt-card mt-5">
-        <div class="kt-card-header"><h3 class="kt-card-title">Toewijzen</h3></div>
+    <div class="kt-card w-full min-w-0 mt-5">
+        <div class="kt-card-header"><h3 class="kt-card-title mb-0">Toewijzen</h3></div>
         <div class="kt-card-content">
-            <form action="{{ route('admin.taxi.ride_requests.assign', $ride) }}" method="POST" class="flex flex-wrap gap-4 items-end">
+            <form action="{{ route('admin.taxi.ride_requests.assign', $ride) }}" method="POST" class="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end w-full min-w-0">
                 @csrf
-                <div class="flex flex-col gap-2.5">
+                <div class="flex flex-col gap-2.5 flex-1 min-w-[12rem]">
                     <label class="kt-form-label">Voertuig</label>
-                    <select name="vehicle_id" class="kt-input w-48">
+                    <select name="vehicle_id" class="kt-input w-full max-w-md">
                         <option value="">— Geen —</option>
                         @foreach($vehicles as $v)
                             <option value="{{ $v->id }}" {{ $ride->vehicle_id == $v->id ? 'selected' : '' }}>{{ $v->name }}</option>
                         @endforeach
                     </select>
                 </div>
-                <div class="flex flex-col gap-2.5">
+                <div class="flex flex-col gap-2.5 flex-1 min-w-[12rem]">
                     <label class="kt-form-label">Chauffeur</label>
-                    <select name="driver_id" class="kt-input w-48">
+                    <select name="driver_id" class="kt-input w-full max-w-md">
                         <option value="">— Geen —</option>
                         @foreach($drivers as $d)
                             <option value="{{ $d->id }}" {{ $ride->driver_id == $d->id ? 'selected' : '' }}>{{ $d->first_name }} {{ $d->last_name }}</option>
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="kt-btn kt-btn-primary">Toewijzing opslaan</button>
+                <button type="submit" class="kt-btn kt-btn-primary w-full sm:w-auto shrink-0">Toewijzing opslaan</button>
             </form>
         </div>
     </div>
-    <div class="kt-card mt-5">
-        <div class="kt-card-header"><h3 class="kt-card-title">Communicatie</h3></div>
+    <div class="kt-card w-full min-w-0 mt-5">
+        <div class="kt-card-header"><h3 class="kt-card-title mb-0">Communicatie</h3></div>
         <div class="kt-card-content">
             <p class="text-sm text-muted-foreground mb-2">Kopieer onderstaande tekst voor WhatsApp of e-mail naar de klant.</p>
             <textarea readonly class="kt-input w-full font-mono text-sm resize-y pt-1" rows="8" id="whatsapp-text" style="min-height: 12rem !important; height: auto !important; box-sizing: border-box;">Rit {{ $ride->pickup_at->format('d-m-Y H:i') }}

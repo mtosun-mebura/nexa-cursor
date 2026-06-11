@@ -352,8 +352,6 @@ document.getElementById('branch_select')?.addEventListener('change', function() 
     custom.classList.toggle('hidden', this.value !== 'other');
 });
 
-@include('admin.partials.logo-dropzone-init-inner')
-
 (function() {
     var modeToggle = document.getElementById('company-wizard-logo-mode-toggle');
     var modeInput = document.getElementById('company-wizard-logo-mode-input');
@@ -451,5 +449,8 @@ document.getElementById('branch_select')?.addEventListener('change', function() 
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
+<script>
+@include('admin.partials.logo-dropzone-init-inner')
+</script>
 @endpush
 @endsection

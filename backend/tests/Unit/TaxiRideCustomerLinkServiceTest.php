@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiRideCustomerLinkService;
@@ -9,6 +10,7 @@ use App\Services\ModuleDatabaseService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class TaxiRideCustomerLinkServiceTest extends TestCase
@@ -85,5 +87,38 @@ class TaxiRideCustomerLinkServiceTest extends TestCase
         $this->assertSame((int) $user->id, (int) $orphan->fresh()->customer_user_id);
         $this->assertSame(99, (int) $linked->fresh()->customer_user_id);
         $this->assertNull($otherCompany->fresh()->customer_user_id);
+    }
+
+    public function test_provisions_customer_from_guest_booking_and_links_ride(): void
+    {
+        Role::firstOrCreate(['name' => 'klant', 'guard_name' => 'web']);
+        $company = Company::query()->create(['name' => 'Taxi BV', 'is_active' => true]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'customer_user_id' => null,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Jan de Vries',
+            'customer_email' => 'jan@example.com',
+        ]);
+
+        $service = app(TaxiRideCustomerLinkService::class);
+        $user = $service->provisionCustomerFromGuestBookings('jan@example.com', (int) $company->id);
+
+        $this->assertNotNull($user);
+        $this->assertSame('jan@example.com', $user->email);
+        $this->assertTrue($user->password_must_be_set);
+        $this->assertSame('Jan', $user->first_name);
+        $this->assertSame('de Vries', $user->last_name);
+        $this->assertSame((int) $user->id, (int) $ride->fresh()->customer_user_id);
+    }
+
+    public function test_provision_returns_null_without_matching_guest_booking(): void
+    {
+        $user = app(TaxiRideCustomerLinkService::class)->provisionCustomerFromGuestBookings('onbekend@example.com', 5);
+
+        $this->assertNull($user);
     }
 }

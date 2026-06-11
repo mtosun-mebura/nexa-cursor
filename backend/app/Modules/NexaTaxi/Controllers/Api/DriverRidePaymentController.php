@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class DriverRidePaymentController extends Controller
@@ -69,6 +70,16 @@ class DriverRidePaymentController extends Controller
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first(),
                 'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::warning('Chauffeur-betaling aanmaken mislukt', [
+                'ride_id' => $rideModel->id,
+                'driver_id' => $request->user()->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Betaling kon niet worden gestart. Probeer opnieuw of kies contant.',
             ], 422);
         }
 

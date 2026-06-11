@@ -485,16 +485,127 @@
         function q(id) { return document.getElementById(prefix + id) || wrapper.querySelector('[id="' + prefix + id + '"]'); }
         function on(id, fn) { const el = q(id); if (el) el.addEventListener('click', (e) => { e.preventDefault(); fn(); }); }
 
+        function normalizeLinkUrl(raw) {
+            var url = (raw || '').trim();
+            if (!url) return '';
+            if (/^(https?:\/\/|mailto:|tel:|\/|#)/i.test(url)) return url;
+            return 'https://' + url;
+        }
+
+        (function setupLinkDialog() {
+            var dialog = wrapper.querySelector('[data-wysiwyg-link-dialog]');
+            if (!dialog) {
+                dialog = document.createElement('div');
+                dialog.className = 'flowbite-wysiwyg-link-dialog hidden absolute inset-0 z-[100] flex items-start justify-center pt-12';
+                dialog.setAttribute('data-wysiwyg-link-dialog', '');
+                dialog.setAttribute('role', 'dialog');
+                dialog.setAttribute('aria-modal', 'true');
+                dialog.setAttribute('aria-label', 'Link invoegen');
+                dialog.innerHTML =
+                    '<div class="flowbite-wysiwyg-link-dialog__backdrop absolute inset-0 rounded-xl bg-gray-900/45" data-wysiwyg-link-backdrop></div>' +
+                    '<div class="flowbite-wysiwyg-link-dialog__panel relative z-[1] w-full max-w-sm mx-4 p-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">' +
+                    '<p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Link invoegen</p>' +
+                    '<label class="block text-xs text-gray-500 dark:text-gray-400 mb-1" for="' + prefix + '-link-url">URL</label>' +
+                    '<input type="url" id="' + prefix + '-link-url" class="block w-full mb-3 px-2.5 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" data-wysiwyg-link-url placeholder="https://">' +
+                    '<label class="block text-xs text-gray-500 dark:text-gray-400 mb-1" for="' + prefix + '-link-label">Tekst (optioneel)</label>' +
+                    '<input type="text" id="' + prefix + '-link-label" class="block w-full mb-3 px-2.5 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" data-wysiwyg-link-label placeholder="Linktekst">' +
+                    '<div class="flex gap-2 justify-end mt-1">' +
+                    '<button type="button" class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700" data-wysiwyg-link-save>Toevoegen</button>' +
+                    '<button type="button" class="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600" data-wysiwyg-link-cancel>Annuleren</button>' +
+                    '</div></div>';
+                wrapper.appendChild(dialog);
+            }
+            var urlInput = dialog.querySelector('[data-wysiwyg-link-url]');
+            var labelInput = dialog.querySelector('[data-wysiwyg-link-label]');
+            var saveBtn = dialog.querySelector('[data-wysiwyg-link-save]');
+            var cancelBtn = dialog.querySelector('[data-wysiwyg-link-cancel]');
+            var backdrop = dialog.querySelector('[data-wysiwyg-link-backdrop]');
+            var savedLinkSelection = null;
+
+            function closeLinkDialog() {
+                dialog.classList.add('hidden');
+                savedLinkSelection = null;
+            }
+
+            function openLinkDialog() {
+                savedLinkSelection = savedLinkSelection || editor.state.selection;
+                var existingHref = '';
+                if (editor.isActive('link')) {
+                    var attrs = editor.getAttributes('link');
+                    existingHref = (attrs && attrs.href) ? attrs.href : '';
+                }
+                urlInput.value = existingHref || 'https://';
+                labelInput.value = '';
+                if (!editor.state.selection.empty) {
+                    labelInput.value = editor.state.doc.textBetween(
+                        editor.state.selection.from,
+                        editor.state.selection.to,
+                        ' '
+                    );
+                }
+                dialog.classList.remove('hidden');
+                setTimeout(function () {
+                    urlInput.focus();
+                    urlInput.select();
+                }, 0);
+            }
+
+            function applyLink() {
+                var url = normalizeLinkUrl(urlInput.value);
+                if (!url) {
+                    closeLinkDialog();
+                    return;
+                }
+                editor.chain().focus();
+                if (savedLinkSelection) {
+                    editor.commands.setTextSelection(savedLinkSelection);
+                }
+                var linkAttrs = { href: url, target: '_blank', rel: 'noopener noreferrer' };
+                if (!editor.state.selection.empty) {
+                    editor.chain().focus().extendMarkRange('link').setLink(linkAttrs).run();
+                } else {
+                    var label = (labelInput.value || '').trim();
+                    var text = label || url;
+                    editor.chain().focus().insertContent({
+                        type: 'text',
+                        text: text,
+                        marks: [{ type: 'link', attrs: linkAttrs }]
+                    }).run();
+                }
+                closeLinkDialog();
+            }
+
+            var linkBtn = q('-toggleLink');
+            if (linkBtn) {
+                linkBtn.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    savedLinkSelection = editor.state.selection;
+                });
+                linkBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    openLinkDialog();
+                });
+            }
+            if (saveBtn) saveBtn.addEventListener('click', function (e) { e.preventDefault(); applyLink(); });
+            if (cancelBtn) cancelBtn.addEventListener('click', function (e) { e.preventDefault(); closeLinkDialog(); });
+            if (backdrop) backdrop.addEventListener('click', closeLinkDialog);
+            dialog.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeLinkDialog();
+                } else if (e.key === 'Enter' && (e.target === urlInput || e.target === labelInput)) {
+                    e.preventDefault();
+                    applyLink();
+                }
+            });
+        })();
+
         on('-toggleBold', () => editor.chain().focus().toggleBold().run());
         on('-toggleItalic', () => editor.chain().focus().toggleItalic().run());
         on('-toggleUnderline', () => { if (editor.chain().focus().toggleUnderline) editor.chain().focus().toggleUnderline().run(); });
         on('-toggleStrike', () => editor.chain().focus().toggleStrike().run());
         on('-toggleHighlight', () => { if (editor.chain().focus().toggleHighlight) editor.chain().focus().toggleHighlight().run(); });
         on('-toggleCode', () => editor.chain().focus().toggleCode().run());
-        on('-toggleLink', () => {
-            const url = window.prompt('URL:', 'https://');
-            if (url) editor.chain().focus().setLink({ href: url }).run();
-        });
         on('-removeLink', () => editor.chain().focus().unsetLink().run());
         on('-alignLeft', () => { if (editor.chain().focus().setTextAlign) editor.chain().focus().setTextAlign('left').run(); });
         on('-alignCenter', () => { if (editor.chain().focus().setTextAlign) editor.chain().focus().setTextAlign('center').run(); });

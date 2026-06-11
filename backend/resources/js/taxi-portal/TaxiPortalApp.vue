@@ -146,6 +146,7 @@ const apiRidesBase = (mountEl?.dataset.apiRidesBase || '/mijn-taxi/api/rides').r
 const apiInvoicesUrl = mountEl?.dataset.apiInvoices || '/mijn-taxi/api/invoices'
 const apiProfileUrl = mountEl?.dataset.apiProfile || '/mijn-taxi/api/profile'
 const apiProfileUpdateUrl = mountEl?.dataset.apiProfileUpdate || '/mijn-taxi/api/profile'
+const apiProfilePasswordUrl = mountEl?.dataset.apiProfilePassword || '/mijn-taxi/api/profile/password'
 const apiInvoicePdfBase = (mountEl?.dataset.apiInvoicePdf || '/mijn-taxi/api/invoices').replace(/\/$/, '')
 
 function csrfToken(): string {
@@ -222,6 +223,7 @@ const chartPeriod = ref<ChartPeriod>('month')
 const chartLoading = ref(false)
 const costChartEl = ref<HTMLElement | null>(null)
 let costChartInstance: { destroy: () => void; render: () => void } | null = null
+let portalThemeObserver: MutationObserver | null = null
 const APEX_CHARTS_SRC = '/assets/vendors/apexcharts/apexcharts.min.js'
 
 const rides = ref<PortalRide[]>([])
@@ -230,9 +232,16 @@ const ridesSortDir = ref<SortDir>('desc')
 const ridesLoading = ref(false)
 const ridesError = ref<string | null>(null)
 const ridesLoaded = ref(false)
+const ridesSearchQuery = ref('')
+const ridesStatusFilter = ref('')
+const ridesAmountMin = ref('')
+const ridesAmountMax = ref('')
+const ridesPage = ref(1)
+const ridesPerPage = ref(10)
+const RIDES_PER_PAGE_OPTIONS = [10, 25, 50] as const
 
 const invoices = ref<PortalInvoice[]>([])
-const invoicesSortKey = ref<InvoicesSortKey>('date')
+const invoicesSortKey = ref<InvoicesSortKey>('invoice_number')
 const invoicesSortDir = ref<SortDir>('desc')
 const invoicesLoading = ref(false)
 const invoicesError = ref<string | null>(null)
@@ -250,17 +259,40 @@ const profileError = ref<string | null>(null)
 const profileSuccess = ref<string | null>(null)
 const profileLoaded = ref(false)
 
+const passwordForm = ref({
+  current_password: '',
+  password: '',
+  password_confirmation: '',
+})
+const passwordSaving = ref(false)
+const passwordError = ref<string | null>(null)
+const passwordSuccess = ref<string | null>(null)
+
 const rideDetailOpen = ref(false)
 const rideDetailLoading = ref(false)
 const rideDetailError = ref<string | null>(null)
 const rideDetail = ref<PortalRideDetail | null>(null)
 
+const RIDE_BADGE_CLASS: Record<string, string> = {
+  success: 'kt-badge-success',
+  destructive: 'kt-badge-destructive',
+  danger: 'kt-badge-destructive',
+  warning: 'kt-badge-warning',
+  secondary: 'kt-badge-secondary',
+  mono: 'kt-badge-mono',
+  primary: 'kt-badge-primary',
+  info: 'kt-badge-info',
+  offered: 'taxi-status-badge taxi-status-badge--offered',
+  accepted: 'taxi-status-badge taxi-status-badge--accepted',
+  assigned: 'taxi-status-badge taxi-status-badge--assigned',
+  pending_dispatch: 'taxi-status-badge taxi-status-badge--pending-dispatch',
+  pending_payment: 'taxi-status-badge taxi-status-badge--pending-payment',
+  invoice_sent: 'taxi-status-badge taxi-status-badge--invoice-sent',
+  invoice_progress: 'taxi-status-badge taxi-status-badge--invoice-progress',
+}
+
 function rideBadgeClass(badge: string): string {
-  if (badge === 'success') return 'kt-badge-success'
-  if (badge === 'danger') return 'kt-badge-danger'
-  if (badge === 'warning') return 'kt-badge-warning'
-  if (badge === 'secondary') return 'kt-badge-outline'
-  return 'kt-badge-info'
+  return RIDE_BADGE_CLASS[badge] ?? 'kt-badge-secondary'
 }
 
 function rideRouteSortValue(ride: PortalRide): string {
@@ -281,12 +313,98 @@ function toggleRidesSort(key: RidesSortKey): void {
     return
   }
   ridesSortKey.value = key
-  ridesSortDir.value = key === 'date' || key === 'amount' ? 'desc' : 'asc'
+  ridesSortDir.value = key === 'amount' || key === 'date' ? 'desc' : 'asc'
+}
+
+function parseAmountFilter(value: string): number | null {
+  const trimmed = value.trim().replace(',', '.')
+  if (!trimmed) return null
+  const parsed = Number.parseFloat(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function rideMatchesSearch(ride: PortalRide, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+
+  const haystack = [
+    ride.from,
+    ride.to,
+    ride.route,
+    ride.at,
+    ride.status_label,
+    ride.amount,
+    String(ride.id),
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return haystack.includes(q)
+}
+
+function rideMatchesAmountFilter(ride: PortalRide, min: number | null, max: number | null): boolean {
+  if (min === null && max === null) return true
+  if (ride.amount_raw === null || ride.amount_raw === undefined) return false
+
+  if (min !== null && ride.amount_raw < min) return false
+  if (max !== null && ride.amount_raw > max) return false
+
+  return true
+}
+
+const rideStatusOptions = computed(() => {
+  const seen = new Map<string, string>()
+  for (const ride of rides.value) {
+    const status = ride.status || ''
+    if (!status || seen.has(status)) continue
+    seen.set(status, ride.status_label || status)
+  }
+
+  return [...seen.entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'nl', { sensitivity: 'base' }))
+})
+
+const ridesHasActiveFilters = computed(
+  () =>
+    ridesSearchQuery.value.trim() !== '' ||
+    ridesStatusFilter.value !== '' ||
+    ridesAmountMin.value.trim() !== '' ||
+    ridesAmountMax.value.trim() !== ''
+)
+
+const filteredRides = computed(() => {
+  const min = parseAmountFilter(ridesAmountMin.value)
+  const max = parseAmountFilter(ridesAmountMax.value)
+
+  return rides.value.filter((ride) => {
+    if (!rideMatchesSearch(ride, ridesSearchQuery.value)) return false
+    if (ridesStatusFilter.value !== '' && ride.status !== ridesStatusFilter.value) return false
+    if (!rideMatchesAmountFilter(ride, min, max)) return false
+    return true
+  })
+})
+
+function resetRidesFilters(): void {
+  ridesSearchQuery.value = ''
+  ridesStatusFilter.value = ''
+  ridesAmountMin.value = ''
+  ridesAmountMax.value = ''
+  ridesPage.value = 1
+}
+
+function goToRidesPage(page: number): void {
+  const total = ridesTotalPages.value
+  if (total < 1) {
+    ridesPage.value = 1
+    return
+  }
+  ridesPage.value = Math.min(Math.max(1, page), total)
 }
 
 const sortedRides = computed(() => {
   const dir = ridesSortDir.value === 'asc' ? 1 : -1
-  const list = [...rides.value]
+  const list = [...filteredRides.value]
 
   list.sort((a, b) => {
     let cmp = 0
@@ -331,6 +449,53 @@ const sortedRides = computed(() => {
   return list
 })
 
+const ridesTotalFiltered = computed(() => sortedRides.value.length)
+
+const ridesTotalPages = computed(() =>
+  ridesTotalFiltered.value === 0 ? 0 : Math.ceil(ridesTotalFiltered.value / ridesPerPage.value)
+)
+
+const paginatedRides = computed(() => {
+  if (ridesTotalFiltered.value === 0) return []
+  const start = (ridesPage.value - 1) * ridesPerPage.value
+  return sortedRides.value.slice(start, start + ridesPerPage.value)
+})
+
+const ridesPageRangeStart = computed(() => {
+  if (ridesTotalFiltered.value === 0) return 0
+  return (ridesPage.value - 1) * ridesPerPage.value + 1
+})
+
+const ridesPageRangeEnd = computed(() =>
+  Math.min(ridesPage.value * ridesPerPage.value, ridesTotalFiltered.value)
+)
+
+const ridesVisiblePages = computed(() => {
+  const total = ridesTotalPages.value
+  const current = ridesPage.value
+  if (total <= 1) return total === 1 ? [1] : []
+
+  const pages = new Set<number>([1, total, current])
+  if (current > 1) pages.add(current - 1)
+  if (current < total) pages.add(current + 1)
+
+  return [...pages].sort((a, b) => a - b)
+})
+
+watch([ridesSearchQuery, ridesStatusFilter, ridesAmountMin, ridesAmountMax, ridesPerPage], () => {
+  ridesPage.value = 1
+})
+
+watch(ridesTotalPages, (total) => {
+  if (total < 1) {
+    ridesPage.value = 1
+    return
+  }
+  if (ridesPage.value > total) {
+    ridesPage.value = total
+  }
+})
+
 function invoiceRouteSortValue(invoice: PortalInvoice): string {
   if (invoice.from && invoice.to) {
     return `${invoice.from} ${invoice.to}`.toLowerCase()
@@ -349,7 +514,7 @@ function toggleInvoicesSort(key: InvoicesSortKey): void {
     return
   }
   invoicesSortKey.value = key
-  invoicesSortDir.value = key === 'date' || key === 'amount' ? 'desc' : 'asc'
+  invoicesSortDir.value = key === 'date' || key === 'amount' || key === 'invoice_number' ? 'desc' : 'asc'
 }
 
 const sortedInvoices = computed(() => {
@@ -409,6 +574,13 @@ function invoicePdfUrl(invoiceId: number): string {
   return `${apiInvoicePdfBase}/${invoiceId}/pdf`
 }
 
+function isPortalDarkMode(): boolean {
+  return (
+    document.documentElement.classList.contains('dark') ||
+    document.body.classList.contains('dark')
+  )
+}
+
 function destroyCostChart() {
   if (costChartInstance) {
     costChartInstance.destroy()
@@ -460,9 +632,10 @@ function renderCostChart() {
     return
   }
 
-  const isDark =
-    document.documentElement.classList.contains('dark') ||
-    document.body.classList.contains('dark')
+  const isDark = isPortalDarkMode()
+  const chartTextColor = isDark ? '#9ca3af' : '#6b7280'
+  const chartGridColor = isDark ? '#374151' : '#e5e7eb'
+  const chartBackground = isDark ? '#111827' : '#ffffff'
 
   costChartInstance = new window.ApexCharts(el, {
     series: [{ name: 'Kosten', data: chart.amounts }],
@@ -471,6 +644,8 @@ function renderCostChart() {
       height: 280,
       toolbar: { show: false },
       fontFamily: 'inherit',
+      background: chartBackground,
+      foreColor: chartTextColor,
     },
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth', width: 2 },
@@ -479,16 +654,30 @@ function renderCostChart() {
       labels: {
         rotate: -45,
         rotateAlways: chart.labels.length > 14,
-        style: { fontSize: '11px' },
+        style: {
+          fontSize: '11px',
+          colors: chartTextColor,
+        },
+      },
+      axisBorder: {
+        show: true,
+        color: chartGridColor,
+      },
+      axisTicks: {
+        color: chartGridColor,
       },
     },
     yaxis: {
       min: 0,
       labels: {
+        style: {
+          colors: chartTextColor,
+        },
         formatter: (val: number) => `€${val.toFixed(0)}`,
       },
     },
     tooltip: {
+      theme: isDark ? 'dark' : 'light',
       y: {
         formatter: (val: number) => `€${val.toFixed(2)}`,
       },
@@ -496,10 +685,16 @@ function renderCostChart() {
     colors: ['#2563eb'],
     fill: {
       type: 'gradient',
-      gradient: { shadeIntensity: 0.4, opacityFrom: 0.45, opacityTo: 0.05 },
+      gradient: {
+        shade: isDark ? 'dark' : 'light',
+        shadeIntensity: 0.35,
+        opacityFrom: isDark ? 0.5 : 0.35,
+        opacityTo: isDark ? 0.08 : 0.04,
+      },
     },
     grid: {
-      borderColor: isDark ? '#374151' : '#e5e7eb',
+      borderColor: chartGridColor,
+      strokeDashArray: 4,
     },
     theme: { mode: isDark ? 'dark' : 'light' },
     noData: {
@@ -634,6 +829,39 @@ async function saveProfile() {
   }
 }
 
+async function savePassword() {
+  passwordSaving.value = true
+  passwordError.value = null
+  passwordSuccess.value = null
+
+  if (passwordForm.value.password !== passwordForm.value.password_confirmation) {
+    passwordError.value = 'Wachtwoord bevestiging komt niet overeen.'
+    passwordSaving.value = false
+    return
+  }
+
+  try {
+    const res = await portalFetch<{ message?: string }>(apiProfilePasswordUrl, {
+      method: 'PUT',
+      body: JSON.stringify({
+        current_password: passwordForm.value.current_password,
+        password: passwordForm.value.password,
+        password_confirmation: passwordForm.value.password_confirmation,
+      }),
+    })
+    passwordForm.value = {
+      current_password: '',
+      password: '',
+      password_confirmation: '',
+    }
+    passwordSuccess.value = res.message || 'Wachtwoord succesvol gewijzigd.'
+  } catch (e) {
+    passwordError.value = e instanceof Error ? e.message : 'Wachtwoord wijzigen mislukt.'
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
 async function openRideDetails(ride: PortalRide) {
   rideDetailOpen.value = true
   rideDetailLoading.value = true
@@ -738,6 +966,10 @@ function applyPortalStateFromUrl() {
   }
 }
 
+function onPortalBookingReset() {
+  syncPortalUrl()
+}
+
 function onPortalRefreshRides() {
   dashboardLoaded.value = false
   ridesLoaded.value = false
@@ -785,6 +1017,17 @@ onMounted(() => {
   }
 
   document.addEventListener('taxi-portal-refresh-rides', onPortalRefreshRides)
+  document.addEventListener('taxi-portal-booking-reset', onPortalBookingReset)
+
+  portalThemeObserver = new MutationObserver(() => {
+    if (tab.value === 'dashboard' && dashboard.value?.chart) {
+      void scheduleCostChartRender()
+    }
+  })
+  portalThemeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
 
   if (showNewRide.value) {
     void nextTick(() => {
@@ -798,9 +1041,12 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  portalThemeObserver?.disconnect()
+  portalThemeObserver = null
   destroyCostChart()
   window.removeEventListener('popstate', applyPortalStateFromUrl)
   document.removeEventListener('taxi-portal-refresh-rides', onPortalRefreshRides)
+  document.removeEventListener('taxi-portal-booking-reset', onPortalBookingReset)
 })
 </script>
 
@@ -962,7 +1208,7 @@ onUnmounted(() => {
                     <div
                       ref="costChartEl"
                       id="taxi-portal-cost-chart"
-                      class="min-h-[280px] w-full"
+                      class="taxi-portal-cost-chart min-h-[280px] w-full rounded-md bg-white dark:!bg-[#111827]"
                       :class="chartLoading ? 'opacity-40' : ''"
                     />
                   </div>
@@ -984,7 +1230,70 @@ onUnmounted(() => {
                   <div class="kt-alert-description">{{ ridesError }}</div>
                 </div>
                 <p v-else-if="rides.length === 0" class="text-sm text-muted-foreground">Je hebt nog geen ritten.</p>
-                <div v-else class="kt-scrollable-x-auto">
+                <template v-else>
+                  <div class="taxi-portal-datatable-toolbar">
+                    <div class="taxi-portal-datatable-filters">
+                      <label class="taxi-portal-datatable-search">
+                        <span class="sr-only">Zoeken in ritten</span>
+                        <span class="taxi-portal-datatable-search-inner">
+                          <i class="ki-filled ki-magnifier" aria-hidden="true"></i>
+                          <input
+                            v-model="ridesSearchQuery"
+                            class="taxi-portal-datatable-input"
+                            type="search"
+                            placeholder="Zoeken…"
+                            autocomplete="off"
+                          />
+                        </span>
+                      </label>
+                      <select
+                        v-model="ridesStatusFilter"
+                        class="taxi-portal-datatable-select taxi-portal-datatable-field-status"
+                        aria-label="Filter op status"
+                      >
+                        <option value="">Alle statussen</option>
+                        <option v-for="opt in rideStatusOptions" :key="opt.value" :value="opt.value">
+                          {{ opt.label }}
+                        </option>
+                      </select>
+                      <input
+                        v-model="ridesAmountMin"
+                        class="taxi-portal-datatable-input taxi-portal-datatable-field-amount"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="Min €"
+                        aria-label="Minimum bedrag"
+                      />
+                      <input
+                        v-model="ridesAmountMax"
+                        class="taxi-portal-datatable-input taxi-portal-datatable-field-amount"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="Max €"
+                        aria-label="Maximum bedrag"
+                      />
+                      <button
+                        v-if="ridesHasActiveFilters"
+                        type="button"
+                        class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-datatable-reset"
+                        title="Filters resetten"
+                        aria-label="Filters resetten"
+                        @click="resetRidesFilters"
+                      >
+                        <i class="ki-filled ki-arrows-circle"></i>
+                      </button>
+                    </div>
+                    <p class="taxi-portal-datatable-count">
+                      {{ ridesTotalFiltered }} {{ ridesTotalFiltered === 1 ? 'rit' : 'ritten' }}
+                      <span v-if="ridesHasActiveFilters">gevonden</span>
+                    </p>
+                  </div>
+
+                  <p v-if="ridesTotalFiltered === 0" class="text-sm text-muted-foreground">
+                    Geen ritten gevonden voor deze filters.
+                  </p>
+
+                  <div v-else class="kt-scrollable-x-auto">
                   <table class="kt-table table-auto kt-table-border">
                     <thead>
                       <tr>
@@ -1044,11 +1353,11 @@ onUnmounted(() => {
                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                           </span>
                         </th>
-                        <th class="min-w-[56px]"></th>
+                        <th class="min-w-[80px] text-center">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="r in sortedRides" :key="r.id">
+                      <tr v-for="r in paginatedRides" :key="r.id">
                         <td class="align-top whitespace-normal leading-snug">
                           <div
                             v-if="r.from && r.to"
@@ -1069,21 +1378,82 @@ onUnmounted(() => {
                           </span>
                         </td>
                         <td class="tabular-nums">{{ r.amount }}</td>
-                        <td class="text-end">
-                          <button
-                            type="button"
-                            class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-ride-action-btn"
-                            title="Details bekijken"
-                            aria-label="Details bekijken"
-                            @click="openRideDetails(r)"
-                          >
-                            <i class="ki-filled ki-eye"></i>
-                          </button>
+                        <td class="text-center align-middle">
+                          <div class="inline-flex items-center justify-center">
+                            <button
+                              type="button"
+                              class="kt-btn kt-btn-icon kt-btn-ghost taxi-portal-ride-action-btn"
+                              title="Details bekijken"
+                              aria-label="Details bekijken"
+                              @click="openRideDetails(r)"
+                            >
+                              <i class="ki-filled ki-eye"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
+
+                  <div
+                    v-if="ridesTotalPages > 0"
+                    class="taxi-portal-datatable-footer kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium !px-0 !pb-0 !pt-4 !border-0"
+                  >
+                    <div class="admin-datatable-footer__perpage flex items-center gap-2">
+                      <span>Toon</span>
+                      <select
+                        v-model.number="ridesPerPage"
+                        class="taxi-portal-datatable-select w-24"
+                        aria-label="Ritten per pagina"
+                      >
+                        <option v-for="size in RIDES_PER_PAGE_OPTIONS" :key="size" :value="size">
+                          {{ size }}
+                        </option>
+                      </select>
+                      <span class="whitespace-nowrap">per pagina</span>
+                    </div>
+                    <div class="admin-datatable-footer__pagination">
+                      <div class="kt-datatable-pagination">
+                        <button
+                          type="button"
+                          class="kt-btn kt-btn-icon kt-btn-ghost kt-datatable-pagination-button"
+                          :disabled="ridesPage <= 1"
+                          title="Vorige pagina"
+                          aria-label="Vorige pagina"
+                          @click="goToRidesPage(ridesPage - 1)"
+                        >
+                          <i class="ki-filled ki-left"></i>
+                        </button>
+                        <button
+                          v-for="page in ridesVisiblePages"
+                          :key="`rides-page-${page}`"
+                          type="button"
+                          class="kt-btn kt-btn-icon kt-datatable-pagination-button"
+                          :class="page === ridesPage ? 'kt-btn-primary' : 'kt-btn-ghost'"
+                          :aria-label="`Pagina ${page}`"
+                          :aria-current="page === ridesPage ? 'page' : undefined"
+                          @click="goToRidesPage(page)"
+                        >
+                          {{ page }}
+                        </button>
+                        <button
+                          type="button"
+                          class="kt-btn kt-btn-icon kt-btn-ghost kt-datatable-pagination-button"
+                          :disabled="ridesPage >= ridesTotalPages"
+                          title="Volgende pagina"
+                          aria-label="Volgende pagina"
+                          @click="goToRidesPage(ridesPage + 1)"
+                        >
+                          <i class="ki-filled ki-right"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <span class="admin-datatable-footer__info">
+                      {{ ridesPageRangeStart }}-{{ ridesPageRangeEnd }} van {{ ridesTotalFiltered }}
+                    </span>
+                  </div>
+                </template>
               </div>
             </section>
 
@@ -1174,7 +1544,7 @@ onUnmounted(() => {
                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                           </span>
                         </th>
-                        <th class="min-w-[80px] text-center"></th>
+                        <th class="min-w-[80px] text-center">Acties</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1293,6 +1663,68 @@ onUnmounted(() => {
                 </button>
               </div>
             </section>
+
+            <section
+              v-if="tab === 'profile'"
+              class="kt-card bg-white dark:!bg-[#111827] border !border-gray-200 dark:!border-gray-600 mt-5"
+            >
+              <div class="kt-card-header">
+                <h3 class="kt-card-title">Wachtwoord wijzigen</h3>
+              </div>
+              <div class="kt-card-content min-w-0">
+                <div v-if="passwordError" class="kt-alert kt-alert-danger mb-4" role="alert">
+                  <div class="kt-alert-description">{{ passwordError }}</div>
+                </div>
+                <div v-if="passwordSuccess" class="kt-alert kt-alert-success mb-4" role="alert">
+                  <div class="kt-alert-description">{{ passwordSuccess }}</div>
+                </div>
+                <div class="taxi-portal-profile-form grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-x-6 md:gap-y-5">
+                  <div class="taxi-portal-profile-field min-w-0 md:col-span-2">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-current_password">Huidig wachtwoord</label>
+                    <input
+                      id="taxi-portal-current_password"
+                      v-model="passwordForm.current_password"
+                      class="taxi-portal-profile-input"
+                      type="password"
+                      autocomplete="current-password"
+                    />
+                  </div>
+                  <div class="taxi-portal-profile-field min-w-0">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-password">Nieuw wachtwoord</label>
+                    <input
+                      id="taxi-portal-password"
+                      v-model="passwordForm.password"
+                      class="taxi-portal-profile-input"
+                      type="password"
+                      autocomplete="new-password"
+                    />
+                  </div>
+                  <div class="taxi-portal-profile-field min-w-0">
+                    <label class="taxi-portal-profile-label" for="taxi-portal-password_confirmation">Herhaal nieuw wachtwoord</label>
+                    <input
+                      id="taxi-portal-password_confirmation"
+                      v-model="passwordForm.password_confirmation"
+                      class="taxi-portal-profile-input"
+                      type="password"
+                      autocomplete="new-password"
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-muted-foreground mt-4">
+                  Minimaal 8 tekens, met hoofdletters, kleine letters, een cijfer en een speciaal teken.
+                </p>
+              </div>
+              <div class="kt-card-footer flex justify-center">
+                <button
+                  class="kt-btn kt-btn-primary px-8 justify-center shrink-0"
+                  type="button"
+                  :disabled="passwordSaving"
+                  @click="savePassword"
+                >
+                  {{ passwordSaving ? 'Opslaan…' : 'Wachtwoord wijzigen' }}
+                </button>
+              </div>
+            </section>
           </template>
         </div>
       </main>
@@ -1388,3 +1820,31 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style>
+.taxi-status-badge {
+  color: #fff;
+  border: none;
+}
+.taxi-status-badge--offered {
+  background-color: #7c3aed;
+}
+.taxi-status-badge--accepted {
+  background-color: #0891b2;
+}
+.taxi-status-badge--assigned {
+  background-color: #2563eb;
+}
+.taxi-status-badge--pending-dispatch {
+  background-color: #d97706;
+}
+.taxi-status-badge--pending-payment {
+  background-color: #ea580c;
+}
+.taxi-status-badge--invoice-sent {
+  background-color: #4f46e5;
+}
+.taxi-status-badge--invoice-progress {
+  background-color: #0d9488;
+}
+</style>

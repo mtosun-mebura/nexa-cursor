@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Database\Pre2026Baseline;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Voert de geconsolideerde pre-2026-baseline uit (één rij in `migrations`).
@@ -25,6 +27,13 @@ return new class extends Migration
 
     public function up(): void
     {
+        // Bestaande omgevingen (pre-squash migraties) hebben dit schema al; alleen markeren als uitgevoerd.
+        if (Schema::hasTable('users')) {
+            Log::info('install_nexa_application_schema: users-tabel bestaat al — baseline overgeslagen (upgrade van pre-squash database).');
+
+            return;
+        }
+
         Pre2026Baseline::runFull();
     }
 

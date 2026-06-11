@@ -626,6 +626,95 @@
             line-height: 1.45;
             margin-bottom: 1rem;
         }
+        .banner-unclaimed {
+            background: rgba(234, 88, 12, 0.18);
+            border: 1px solid rgba(251, 146, 60, 0.5);
+            color: #fed7aa;
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            font-size: 0.875rem;
+            line-height: 1.45;
+            margin-bottom: 1rem;
+        }
+        .banner-unclaimed ul {
+            margin: 0.5rem 0 0;
+            padding-left: 1.1rem;
+        }
+        .banner-unclaimed li + li {
+            margin-top: 0.35rem;
+        }
+        .toolbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .btn-toolbar {
+            width: auto;
+            min-height: auto;
+            padding: 0.35rem 0.65rem;
+            font-size: 0.8125rem;
+            white-space: nowrap;
+        }
+        .declined-ride-card {
+            margin-bottom: 0.75rem;
+        }
+        .declined-ride-card .offer-title {
+            margin-bottom: 0.25rem;
+        }
+        .declined-ride-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .declined-ride-actions .btn {
+            flex: 1;
+            min-height: 2.75rem;
+        }
+        .declined-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #fecaca;
+            background: rgba(220, 38, 38, 0.2);
+            border-radius: 999px;
+            padding: 0.15rem 0.5rem;
+            margin-left: 0.35rem;
+        }
+        .overdue-badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #fed7aa;
+            background: rgba(234, 88, 12, 0.25);
+            border-radius: 999px;
+            padding: 0.15rem 0.5rem;
+            margin-left: 0.35rem;
+        }
+        .overdue-ride-card {
+            margin-bottom: 0.75rem;
+        }
+        .overdue-ride-card .offer-title {
+            margin-bottom: 0.25rem;
+        }
+        .overdue-ride-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .overdue-ride-actions .btn {
+            flex: 1;
+            min-height: 2.75rem;
+        }
+        .overdue-ride-actions .btn-release-ride {
+            background: #ea580c;
+            color: #fff;
+            border: none;
+        }
+        .overdue-ride-actions .btn-release-ride:hover {
+            background: #c2410c;
+        }
         .banner-offline-hint {
             background: rgba(148, 163, 184, 0.12);
             border: 1px solid rgba(148, 163, 184, 0.25);
@@ -737,9 +826,15 @@
             <span id="notifications-feedback-text"></span>
         </p>
         <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
+        <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
         <div class="toolbar">
-            <h1 style="margin:0">Ritten</h1>
-            <span id="online-pill" class="status-pill offline">Offline</span>
+            <h1 id="dispatch-toolbar-title" style="margin:0">Ritten</h1>
+            <div class="toolbar-actions">
+                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>← Ritten</button>
+                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
+                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
+                <span id="online-pill" class="status-pill offline">Offline</span>
+            </div>
         </div>
         <div class="card toggle-row">
             <span>Online voor ritten</span>
@@ -748,6 +843,26 @@
         <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
             <p class="scheduled-rides-title">Geplande ritten</p>
             <div id="scheduled-rides-list"></div>
+        </div>
+        <div id="overdue-strip" hidden>
+            <p class="scheduled-rides-title">Verlopen geplande ritten</p>
+            <p class="offer-meta" id="overdue-hint" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">
+                Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, of geef hem vrij.
+            </p>
+            <div id="overdue-rides-list"></div>
+            <div id="overdue-empty" class="empty" hidden>
+                <p>Geen verlopen geplande ritten.</p>
+            </div>
+        </div>
+        <div id="declined-strip" hidden>
+            <p class="scheduled-rides-title">Door jou afgewezen</p>
+            <p class="offer-meta" id="declined-hint" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">
+                Per ongeluk afgewezen? Je kunt een rit hier alsnog accepteren. Andere chauffeurs kunnen openstaande ritten ook nog overnemen.
+            </p>
+            <div id="declined-rides-list"></div>
+            <div id="declined-empty" class="empty" hidden>
+                <p>Je hebt nog geen ritten afgewezen.</p>
+            </div>
         </div>
         <div id="offer-strip" hidden>
             <div id="offer-container">
@@ -870,7 +985,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? asset('assets/media/app/nexa-chauffeur-icon-192.png')),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=41" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=46" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

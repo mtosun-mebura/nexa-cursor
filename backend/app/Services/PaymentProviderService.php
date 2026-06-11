@@ -98,6 +98,17 @@ class PaymentProviderService
         return $key !== '' ? $key : null;
     }
 
+    public static function isValidMollieApiKeyFormat(?string $key): bool
+    {
+        if (! is_string($key)) {
+            return false;
+        }
+
+        $key = trim($key);
+
+        return (bool) preg_match('/^(test|live)_[A-Za-z0-9]{10,}$/', $key);
+    }
+
     public function mollieApiKeyForCompany(?int $companyId = null): ?string
     {
         $provider = $this->getMollieForCompany($companyId);
@@ -105,7 +116,12 @@ class PaymentProviderService
             return null;
         }
 
-        return $this->getDecryptedApiKey($provider);
+        $key = $this->getDecryptedApiKey($provider);
+        if ($key === null || ! self::isValidMollieApiKeyFormat($key)) {
+            return null;
+        }
+
+        return $key;
     }
 
     /**
@@ -178,12 +194,13 @@ class PaymentProviderService
     public function mollieSummaryForCompany(?int $companyId = null): array
     {
         $provider = $this->getMollieForCompany($companyId, false);
-        $apiKey = $provider ? $this->getDecryptedApiKey($provider) : null;
+        $apiKey = $this->mollieApiKeyForCompany($companyId);
+        $rawKey = $provider ? $this->getDecryptedApiKey($provider) : null;
 
         return [
             'configured' => $apiKey !== null && $provider !== null,
             'provider' => $provider,
-            'api_key_preview' => $apiKey ? $this->maskApiKey($apiKey) : null,
+            'api_key_preview' => $rawKey ? $this->maskApiKey($rawKey) : null,
             'webhook_url' => $provider
                 ? ($provider->getConfigValue('webhook_url') ?: URL::to('/api/taxi/webhooks/mollie'))
                 : null,
@@ -227,8 +244,21 @@ class PaymentProviderService
     public function testConnection(PaymentProvider $provider)
     {
         try {
-            $apiKey = Crypt::decryptString($provider->getConfigValue('api_key'));
-            
+            $apiKey = $this->getDecryptedApiKey($provider);
+            if ($provider->provider_type === 'mollie') {
+                if ($apiKey === null) {
+                    return ['success' => false, 'message' => 'Geen Mollie API-sleutel ingesteld.'];
+                }
+                if (! self::isValidMollieApiKeyFormat($apiKey)) {
+                    return [
+                        'success' => false,
+                        'message' => 'De Mollie API-sleutel heeft een ongeldig formaat. Gebruik een sleutel die begint met test_ of live_.',
+                    ];
+                }
+            } elseif ($apiKey === null) {
+                return ['success' => false, 'message' => 'Geen API-sleutel ingesteld.'];
+            }
+
             switch ($provider->provider_type) {
                 case 'mollie':
                     return $this->testMollieConnection($apiKey);
@@ -258,18 +288,29 @@ class PaymentProviderService
             $client = new \GuzzleHttp\Client();
             $response = $client->get('https://api.mollie.com/v2/methods', [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type' => 'application/json'
-                ]
+                    'Authorization' => 'Bearer '.trim((string) $apiKey),
+                    'Content-Type' => 'application/json',
+                ],
             ]);
 
             if ($response->getStatusCode() === 200) {
                 return ['success' => true, 'message' => 'Mollie verbinding succesvol getest'];
-            } else {
-                return ['success' => false, 'message' => 'Mollie API reageerde met status: ' . $response->getStatusCode()];
             }
+
+            return ['success' => false, 'message' => 'Mollie API reageerde met status: '.$response->getStatusCode()];
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $status = $e->getResponse()?->getStatusCode();
+            $body = $e->getResponse() ? (string) $e->getResponse()->getBody() : '';
+            if ($status === 401 || ($status === 400 && str_contains($body, 'Authorization'))) {
+                return [
+                    'success' => false,
+                    'message' => 'Mollie API-sleutel is ongeldig. Controleer de sleutel in je Mollie-dashboard.',
+                ];
+            }
+
+            return ['success' => false, 'message' => 'Mollie verbinding mislukt. Probeer het later opnieuw.'];
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Mollie verbinding mislukt: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Mollie verbinding mislukt. Probeer het later opnieuw.'];
         }
     }
 

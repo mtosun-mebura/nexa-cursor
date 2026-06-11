@@ -54,14 +54,25 @@ trait TenantFilter
     protected function canAccessResource($resource)
     {
         $user = auth()->user();
-        
-        // Super admin kan alles benaderen
+        $tableName = $resource->getTable();
+
+        // Super admin: alles, tenzij een tenant in de zijbalk is geselecteerd
         if ($user->hasRole('super-admin')) {
+            $tenantId = session('selected_tenant');
+            if ($tenantId) {
+                if ($tableName === 'companies') {
+                    return (int) $resource->id === (int) $tenantId;
+                }
+
+                if (isset($resource->company_id) && $resource->company_id !== null) {
+                    return (int) $resource->company_id === (int) $tenantId;
+                }
+            }
+
             return true;
         }
-        
+
         // Branches are accessible to all users
-        $tableName = $resource->getTable();
         if ($tableName === 'branches') {
             return true;
         }

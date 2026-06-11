@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\ApplyDevSimulatedTenantHost;
+use App\Models\CompanyDomain;
 use App\Models\CustomerLoginCode;
 use App\Models\User;
+use App\Support\Tenancy\TenantFrontendUrl;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
 use App\Modules\NexaTaxi\Services\TaxiRideCustomerLinkService;
 use Illuminate\Http\Request;
@@ -142,10 +145,24 @@ class FrontendAuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'intended' => 'nullable|string|max:2000',
+        ], [
+            'email.required' => 'Vul uw e-mailadres in om een nieuwe code aan te vragen.',
+            'email.email' => 'Voer een geldig e-mailadres in.',
         ]);
 
         $email = trim((string) $request->input('email'));
-        $user = User::query()->where('email', $email)->first();
+        $user = User::query()->whereRaw('LOWER(email) = ?', [mb_strtolower($email)])->first();
+
+        if (! $user) {
+            $companyId = null;
+            if (app()->bound('resolved_tenant_id')) {
+                $resolved = (int) app('resolved_tenant_id');
+                if ($resolved > 0) {
+                    $companyId = $resolved;
+                }
+            }
+            $user = app(TaxiRideCustomerLinkService::class)->provisionCustomerFromGuestBookings($email, $companyId);
+        }
 
         $codeSent = false;
         if ($user && ($user->password_must_be_set || $this->userHasKlantRole($user))) {
@@ -300,6 +317,59 @@ class FrontendAuthController extends Controller
         } finally {
             $registrar->setPermissionsTeamId($previousTeamId);
         }
+    }
+
+    public function logout(Request $request)
+    {
+        $companyId = $this->resolveTenantCompanyIdForLogout($request);
+        $storedDevHost = $this->captureDevTenantHostForLogout($request);
+
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->to(
+            TenantFrontendUrl::afterLogoutHome($companyId, $request, $storedDevHost)
+        );
+    }
+
+    private function resolveTenantCompanyIdForLogout(Request $request): ?int
+    {
+        if (app()->bound('resolved_tenant_id')) {
+            $resolved = (int) app('resolved_tenant_id');
+            if ($resolved > 0) {
+                return $resolved;
+            }
+        }
+
+        $user = Auth::guard('web')->user();
+        if ($user?->company_id) {
+            return (int) $user->company_id;
+        }
+
+        return null;
+    }
+
+    private function captureDevTenantHostForLogout(Request $request): ?string
+    {
+        if (app()->isProduction()) {
+            return null;
+        }
+
+        $stored = $request->session()->get(ApplyDevSimulatedTenantHost::SESSION_DEV_EFFECTIVE_HOST);
+        if (is_string($stored) && $stored !== '') {
+            return CompanyDomain::normalizeHost($stored);
+        }
+
+        $param = (string) config('tenancy.dev_effective_host_query_param', '');
+        if ($param !== '' && $request->has($param)) {
+            $raw = $request->query($param);
+            if (is_string($raw) && $raw !== '') {
+                return CompanyDomain::normalizeHost($raw);
+            }
+        }
+
+        return null;
     }
 
     private function defaultPostLoginUrl(User $user, Request $request): string

@@ -39,4 +39,43 @@ class TaxiDispatchBookingSettingsTest extends TestCase
 
         $this->assertTrue($service->customerEmailRequiredForBooking(99999));
     }
+
+    public function test_past_pickup_grace_hours_defaults_from_config(): void
+    {
+        config(['taxi-dispatch.past_pickup_grace_hours' => 3]);
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+
+        $this->assertSame(3, $service->pastPickupGraceHours(99999));
+    }
+
+    public function test_pickup_queue_cutoff_subtracts_grace_hours(): void
+    {
+        config(['taxi-dispatch.past_pickup_grace_hours' => 2]);
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $now = now()->startOfSecond();
+
+        $cutoff = $service->pickupQueueCutoffAt(99999, $now);
+
+        $this->assertTrue($cutoff->equalTo($now->copy()->subHours(2)));
+    }
+
+    public function test_scheduled_ride_is_overdue_after_pickup_plus_acceptance_ttl(): void
+    {
+        config(['taxi-dispatch.offer_ttl_seconds' => 300]);
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $now = now()->startOfSecond();
+
+        $ride = new \App\Modules\NexaTaxi\Models\RideRequest([
+            'company_id' => 1,
+            'pickup_at' => $now->copy()->subMinutes(6),
+        ]);
+
+        $this->assertTrue($service->scheduledRideIsOverdue($ride, 1, $now));
+
+        $ride->pickup_at = $now->copy()->subMinutes(4);
+        $this->assertFalse($service->scheduledRideIsOverdue($ride, 1, $now));
+    }
 }

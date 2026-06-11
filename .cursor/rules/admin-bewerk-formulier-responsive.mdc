@@ -1,0 +1,120 @@
+---
+description: Responsive bewerk- en aanmaakformulieren in admin (label/veld-tabellen, spacing, acties)
+globs: backend/**/views/admin/**/*.blade.php, backend/app/Modules/**/Resources/views/admin/**/*.blade.php
+alwaysApply: false
+---
+
+# Admin: responsive bewerk- en aanmaakformulieren
+
+Alle **edit**- en **create**-pagina’s in admin/modules gebruiken hetzelfde patroon. Styling en mobiele spacing zitten in **`backend/resources/css/admin-responsive.css`** (gebundeld via `app.js`) — geen pagina-specifieke `@push('styles')` voor tabel-padding of `min-height: 48px`.
+
+## Pagina
+
+```html
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">Titel bewerken</h1>
+        <a href="..." class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
+    </div>
+    <form ...>
+        <div class="grid gap-5 lg:gap-7.5">
+```
+
+Terug-knop mag op één regel met titel (responsive); zie ook `admin-terug-knop-positie.mdc` indien het project de variant onder de titel gebruikt — beide zijn toegestaan zolang mobiel leesbaar blijft.
+
+## Formulierkaart met label/veld-tabel
+
+```html
+<div class="kt-card w-full min-w-0">
+    <div class="kt-card-header">
+        <h3 class="kt-card-title mb-0">Sectietitel</h3>
+    </div>
+    <div class="kt-card-content p-0">
+        <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal">Label</td>
+                    <td class="min-w-48 w-full"><!-- input --></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+```
+
+- **`wizard-onboarding-form-table`**: semantische class; mobiele compacte spacing geldt voor **elke** `form .kt-table.kt-table-border-dashed` in `#content`.
+- Tabellen staan in een **`<form>`** zodat show/detail-pagina’s (zonder form) de ruimere detail-spacing behouden.
+
+## Acties onderaan
+
+```html
+<div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
+    <a href="..." class="kt-btn kt-btn-outline">Annuleren</a>
+    <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+</div>
+```
+
+## Switches (checkbox)
+
+```html
+<td class="min-w-48 w-full">
+    <input type="hidden" name="veld" value="0">
+    <label class="kt-label flex items-center gap-2 mb-0" for="veld-id">
+        <input type="checkbox" name="veld" id="veld-id" value="1" class="kt-switch kt-switch-sm shrink-0">
+        <span class="text-sm text-muted-foreground">Beschrijving</span>
+    </label>
+</td>
+```
+
+Geen `wizard-onboarding-form-table` op `<label>` — alleen op de `<table>`.
+
+## Veelgemaakte fouten (ook in NexaTaxi gevonden)
+
+- `wizard-onboarding-form-table` op een `<p>` of `<label>` — alleen op `<table>`.
+- Show-pagina met `<dl style="grid-template-columns: 16rem …">` — breekt op mobiel.
+- Detailregels met `flex` + vaste `w-28` zonder class `admin-detail-field-list`.
+- Formulier als enkele `kt-card min-w-full` zonder `px-3 sm:px-5` rond tabellen.
+- Lijst-tabellen alleen in `kt-card-table` zonder `admin-table-scroll-wrap` / `data-label` op `<th>`.
+
+## Niet doen
+
+- Geen inline CSS voor `min-height: 48px`, `padding-top: 12px` op form-tabelcellen.
+- Geen dubbele `@push('styles')` die hetzelfde doen als `admin-responsive.css`.
+- Geen `kt-card min-w-full` zonder `min-w-0` op smalle schermen — gebruik `w-full min-w-0`.
+- Geen horizontale scroll op bewerk-tabellen tenzij echte datatables (`admin-keep-table-layout`).
+
+## Na CSS-wijziging
+
+`cd backend && npm run build` (Vite bundelt `admin-responsive.css`).
+
+## Detail/show-pagina’s (alleen lezen)
+
+Geen `<form>`: gebruik dezelfde **label/waarde-tabel** (`kt-table-border-dashed`), geen vaste `dl`-grid met `grid-template-columns: 16rem …` (breekt op mobiel).
+
+```html
+<div class="kt-card w-full min-w-0">
+    <div class="kt-card-content p-0">
+        <div class="px-3 sm:px-5 pb-3 min-w-0">
+            <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">…</table>
+        </div>
+    </div>
+</div>
+```
+
+Lijst-tabellen met `<thead>`: `kt-card-content` + `admin-table-scroll-wrap` (mobiele kaarten via `admin-responsive.js`). Acties in kaarten worden **gelabelde knoppen** (geen drie-puntjes-icoonknoppen); menu-items moeten duidelijke `.kt-menu-title`-tekst hebben.
+
+## Website-pagina’s (builder)
+
+- Create/edit: `kt-card w-full min-w-0`, pagina-informatie-header met `website-page-info-header` (wrap op mobiel).
+- Secties: `#home_sections_card` + `.home-section-card`; responsive regels in `admin-responsive.css` (sectie `#website-page-form`).
+- SEO: knop **SEO & AI genereren** vult titel, meta-omschrijving en optioneel hero; endpoint `admin.website-pages.generate-seo`.
+
+## Gerelateerd
+
+- `admin-nexa-taxi-responsive.mdc` — NexaTaxi-menu (voertuigen, tarieven, ritten, dispatch)
+- `admin-pagina-padding.mdc` — kaart-padding en grid tussen secties
+- `admin-scroll-na-opslaan.mdc` — scroll na POST
+- `admin-inline-validatie-create-edit.mdc` — validatie op create/edit

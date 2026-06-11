@@ -6,6 +6,31 @@ use Tests\TestCase;
 
 class ModernHomeCarouselTest extends TestCase
 {
+    public function test_modern_home_renders_carousel_max_height_when_configured(): void
+    {
+        $homeSections = [
+            'section_order' => ['carousel'],
+            'visibility' => ['carousel' => true],
+            'carousel' => [
+                'items' => [
+                    ['uuid' => 'slide-uuid-1', 'alt' => 'Test'],
+                ],
+                'interval_seconds' => 5,
+                'max_height_percent' => 45,
+            ],
+        ];
+
+        $html = view('frontend.website.partials.carousel', [
+            'items' => $homeSections['carousel']['items'],
+            'intervalSeconds' => 5,
+            'maxHeightPercent' => 45,
+        ])->render();
+
+        $this->assertStringContainsString('height: 45vh', $html);
+        $this->assertStringContainsString('max-height: 45vh', $html);
+        $this->assertStringContainsString('object-fit: cover', $html);
+    }
+
     public function test_modern_home_renders_carousel_when_in_section_order(): void
     {
         $homeSections = [

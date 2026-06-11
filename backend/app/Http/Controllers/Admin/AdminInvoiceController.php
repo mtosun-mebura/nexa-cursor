@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
@@ -21,57 +22,68 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AdminInvoiceController extends Controller
 {
+    use TenantFilter;
+
     public function index(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admin heeft toegang tot facturen.');
-        }
+        $this->ensureInvoiceAdmin();
+
+        $scopedTenantId = $this->getTenantId();
 
         $with = ['company'];
         if ($this->matchesTableExists()) {
             $with[] = 'jobMatch';
         }
+
         $query = Invoice::with($with);
+        $this->applyTenantFilter($query);
+        $invoices = $query
+            ->orderByDesc('invoice_number')
+            ->orderByDesc('id')
+            ->get();
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                  ->orWhereHas('company', function($q2) use ($search) {
-                      $q2->where('name', 'like', "%{$search}%");
-                  });
-            });
+        $companiesQuery = Company::query()
+            ->where('is_active', true)
+            ->orderBy('name');
+        if ($scopedTenantId) {
+            $companiesQuery->whereKey($scopedTenantId);
         }
+        $companies = $companiesQuery->get(['id', 'name']);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
+        $settings = InvoiceSetting::getSettingsForCompany($scopedTenantId ?: null);
 
-        $invoices = $query->orderBy('created_at', 'desc')->paginate(25);
-        $settings = InvoiceSetting::getSettings();
-        
-        // Status statistieken
+        $statsQuery = Invoice::query();
+        $this->applyTenantFilter($statsQuery);
         $invoiceStats = [
-            'draft' => Invoice::where('status', 'draft')->count(),
-            'in_progress' => Invoice::where('status', 'in_progress')->count(),
-            'sent' => Invoice::where('status', 'sent')->count(),
-            'paid' => Invoice::where('status', 'paid')->count(),
-            'overdue' => Invoice::where('status', 'overdue')->count(),
-            'cancelled' => Invoice::where('status', 'cancelled')->count(),
-            'total' => Invoice::count(),
+            'draft' => (clone $statsQuery)->where('status', 'draft')->count(),
+            'in_progress' => (clone $statsQuery)->where('status', 'in_progress')->count(),
+            'sent' => (clone $statsQuery)->where('status', 'sent')->count(),
+            'paid' => (clone $statsQuery)->where('status', 'paid')->count(),
+            'overdue' => (clone $statsQuery)->where('status', 'overdue')->count(),
+            'cancelled' => (clone $statsQuery)->where('status', 'cancelled')->count(),
+            'total' => (clone $statsQuery)->count(),
         ];
 
-        return view('admin.invoices.index', compact('invoices', 'settings', 'invoiceStats'));
+        return view('admin.invoices.index', compact(
+            'invoices',
+            'settings',
+            'invoiceStats',
+            'companies',
+            'scopedTenantId'
+        ));
     }
 
     public function create(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->ensureInvoiceAdmin();
 
-        $companies = Company::where('is_active', true)->orderBy('name')->get();
-        $settings = InvoiceSetting::getSettings();
+        $scopedTenantId = $this->getTenantId();
+        $companiesQuery = Company::where('is_active', true)->orderBy('name');
+        if ($scopedTenantId) {
+            $companiesQuery->whereKey($scopedTenantId);
+        }
+        $companies = $companiesQuery->get();
+        $settings = InvoiceSetting::getSettingsForCompany($scopedTenantId ?: null);
         $skillmatchingAvailable = $this->matchesTableExists();
 
         return view('admin.invoices.create', [
@@ -84,9 +96,7 @@ class AdminInvoiceController extends Controller
 
     public function store(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->ensureInvoiceAdmin();
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
@@ -108,6 +118,8 @@ class AdminInvoiceController extends Controller
         if (! $this->matchesTableExists()) {
             $validated['job_match_id'] = null;
         }
+
+        $this->assertCompanyInTenantScope((int) $validated['company_id']);
 
         $settings = InvoiceSetting::getSettingsForCompany((int) $validated['company_id']);
         $taxRate = $validated['tax_rate'] ?? $settings->default_tax_rate;
@@ -195,9 +207,7 @@ class AdminInvoiceController extends Controller
 
     public function show(Request $request, Invoice $invoice)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->authorizeInvoice($invoice);
 
         $relations = ['company', 'reminders', 'payments'];
         if ($this->matchesTableExists()) {
@@ -208,6 +218,7 @@ class AdminInvoiceController extends Controller
         $settings = InvoiceSetting::getSettings();
         $defaultReminderEmail = app(InvoiceReminderService::class)->defaultRecipientEmail($invoice);
         $paymentTermsDays = InvoiceSetting::paymentTermsDaysForInvoice($invoice);
+        $paymentTermsText = InvoiceSetting::invoicePaymentTermsTextForInvoice($invoice);
         $invoiceBackUrl = AdminReturnUrl::fromRequest(
             $request->query('return'),
             route('admin.invoices.index')
@@ -218,18 +229,22 @@ class AdminInvoiceController extends Controller
             'settings',
             'defaultReminderEmail',
             'paymentTermsDays',
+            'paymentTermsText',
             'invoiceBackUrl'
         ));
     }
 
     public function edit(Invoice $invoice)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->authorizeInvoice($invoice);
 
-        $companies = Company::where('is_active', true)->orderBy('name')->get();
-        $settings = InvoiceSetting::getSettings();
+        $scopedTenantId = $this->getTenantId();
+        $companiesQuery = Company::where('is_active', true)->orderBy('name');
+        if ($scopedTenantId) {
+            $companiesQuery->whereKey($scopedTenantId);
+        }
+        $companies = $companiesQuery->get();
+        $settings = InvoiceSetting::getSettingsForCompany((int) $invoice->company_id ?: $scopedTenantId);
         $skillmatchingAvailable = $this->matchesTableExists();
 
         return view('admin.invoices.edit', [
@@ -243,9 +258,7 @@ class AdminInvoiceController extends Controller
 
     public function update(Request $request, Invoice $invoice)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->authorizeInvoice($invoice);
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
@@ -271,7 +284,9 @@ class AdminInvoiceController extends Controller
             $validated['job_match_id'] = null;
         }
 
-        $settings = InvoiceSetting::getSettings();
+        $this->assertCompanyInTenantScope((int) $validated['company_id']);
+
+        $settings = InvoiceSetting::getSettingsForCompany((int) $validated['company_id']);
         $taxRate = $validated['tax_rate'] ?? $settings->default_tax_rate;
         $amount = $validated['amount'];
         
@@ -332,11 +347,12 @@ class AdminInvoiceController extends Controller
 
     public function getMatchesForCompany(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->ensureInvoiceAdmin();
 
         $companyId = $request->input('company_id');
+        if ($companyId) {
+            $this->assertCompanyInTenantScope((int) $companyId);
+        }
         
         if (! $companyId || ! $this->matchesTableExists()) {
             return response()->json([]);
@@ -371,9 +387,7 @@ class AdminInvoiceController extends Controller
 
     public function sendReminder(Request $request, Invoice $invoice, InvoiceReminderService $reminders)
     {
-        if (! auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->authorizeInvoice($invoice);
 
         $validated = $request->validate([
             'email' => 'required|email|max:255',
@@ -393,9 +407,7 @@ class AdminInvoiceController extends Controller
 
     public function downloadPdf(Invoice $invoice, InvoicePdfService $pdfService): Response
     {
-        if (! auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->authorizeInvoice($invoice);
 
         try {
             $result = $pdfService->generateAndStore($invoice->fresh());
@@ -414,9 +426,7 @@ class AdminInvoiceController extends Controller
 
     public function paymentLinks(Invoice $invoice)
     {
-        if (! auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->authorizeInvoice($invoice);
 
         $amountLabel = '€'.number_format((float) $invoice->total_amount, 2, ',', '.');
 
@@ -482,21 +492,45 @@ class AdminInvoiceController extends Controller
 
     public function settings()
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admin heeft toegang tot factuurinstellingen.');
-        }
+        $this->ensureInvoiceAdmin();
 
-        $settings = InvoiceSetting::getSettings();
-        
-        // Load companies with their locations for the dropdown
-        $companies = Company::where('is_active', true)
-            ->with(['locations' => function($query) {
+        $scopedTenantId = $this->getTenantId();
+        $companyId = (int) request()->query('company_id', 0);
+        if ($companyId <= 0 && old('company_id')) {
+            $companyId = (int) old('company_id');
+        }
+        if ($scopedTenantId) {
+            $companyId = (int) $scopedTenantId;
+        }
+        $settings = InvoiceSetting::getSettingsForCompany($companyId > 0 ? $companyId : null);
+
+        $invoiceSettingsQuery = InvoiceSetting::query();
+        if ($scopedTenantId) {
+            $invoiceSettingsQuery->where('company_id', $scopedTenantId);
+        }
+        $invoiceSettingsByCompany = $invoiceSettingsQuery
+            ->get()
+            ->mapWithKeys(function (InvoiceSetting $row) {
+                $key = $row->company_id ? (string) $row->company_id : 'global';
+
+                return [$key => [
+                    'invoice_footer_text' => $row->invoice_footer_text ?? '',
+                    'invoice_payment_terms_text' => $row->invoice_payment_terms_text ?? '',
+                    'bank_account' => $row->bank_account ?? '',
+                ]];
+            })
+            ->all();
+
+        $companiesQuery = Company::where('is_active', true)
+            ->with(['locations' => function ($query) {
                 $query->where('is_active', true)
-                      ->orderBy('is_main', 'desc')
-                      ->orderBy('name');
-            }])
-            ->orderBy('name')
-            ->get();
+                    ->orderBy('is_main', 'desc')
+                    ->orderBy('name');
+            }]);
+        if ($scopedTenantId) {
+            $companiesQuery->whereKey($scopedTenantId);
+        }
+        $companies = $companiesQuery->orderBy('name')->get();
         
         // Prepare companies data for JavaScript
         $companiesData = $companies->map(function($company) {
@@ -529,14 +563,18 @@ class AdminInvoiceController extends Controller
             ];
         })->keyBy('id');
 
-        return view('admin.invoices.settings', compact('settings', 'companies', 'companiesData'));
+        return view('admin.invoices.settings', compact(
+            'settings',
+            'companies',
+            'companiesData',
+            'invoiceSettingsByCompany',
+            'scopedTenantId'
+        ));
     }
 
     public function updateSettings(Request $request)
     {
-        if (!auth()->user()->hasRole('super-admin')) {
-            abort(403);
-        }
+        $this->ensureInvoiceAdmin();
 
         $validated = $request->validate([
             'invoice_number_prefix' => 'required|string|max:10',
@@ -558,10 +596,24 @@ class AdminInvoiceController extends Controller
             'default_amount' => 'nullable|numeric|min:0',
             'payment_terms_days' => 'required|integer|min:1|max:365',
             'invoice_footer_text' => 'nullable|string',
+            'invoice_payment_terms_text' => 'nullable|string|max:1000',
             'logo_path' => 'nullable|string|max:255',
         ]);
 
         $companyId = isset($validated['company_id']) ? (int) $validated['company_id'] : null;
+        $scopedTenantId = $this->getTenantId();
+        if ($scopedTenantId) {
+            $companyId = (int) $scopedTenantId;
+            $validated['company_id'] = $companyId;
+        } elseif ($companyId) {
+            $this->assertCompanyInTenantScope($companyId);
+        }
+        if (array_key_exists('invoice_footer_text', $validated)) {
+            $validated['invoice_footer_text'] = trim((string) $validated['invoice_footer_text']) ?: null;
+        }
+        if (array_key_exists('invoice_payment_terms_text', $validated)) {
+            $validated['invoice_payment_terms_text'] = trim((string) $validated['invoice_payment_terms_text']) ?: null;
+        }
         $settings = InvoiceSetting::getSettingsForCompany($companyId > 0 ? $companyId : null);
         $settings->update($validated);
 
@@ -572,8 +624,33 @@ class AdminInvoiceController extends Controller
                 ->update(['payment_terms_days' => (int) $validated['payment_terms_days']]);
         }
 
-        return redirect()->route('admin.invoices.settings')
+        $redirectParams = $companyId > 0 ? ['company_id' => $companyId] : [];
+
+        return redirect()->route('admin.invoices.settings', $redirectParams)
             ->with('success', 'Factuurinstellingen bijgewerkt');
+    }
+
+    protected function ensureInvoiceAdmin(): void
+    {
+        if (! auth()->user()->hasRole('super-admin')) {
+            abort(403, 'Alleen super-admin heeft toegang tot facturen.');
+        }
+    }
+
+    protected function authorizeInvoice(Invoice $invoice): void
+    {
+        $this->ensureInvoiceAdmin();
+        if (! $this->canAccessResource($invoice)) {
+            abort(403, 'Geen toegang tot deze factuur.');
+        }
+    }
+
+    protected function assertCompanyInTenantScope(int $companyId): void
+    {
+        $tenantId = $this->getTenantId();
+        if ($tenantId && (int) $companyId !== (int) $tenantId) {
+            abort(403, 'Deze actie is niet toegestaan voor het geselecteerde bedrijf.');
+        }
     }
 
     protected function matchesTableExists(): bool

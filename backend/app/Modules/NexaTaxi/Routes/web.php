@@ -5,8 +5,11 @@ use App\Modules\NexaTaxi\Controllers\Admin\VehicleController;
 use App\Modules\NexaTaxi\Controllers\Admin\RideRequestController;
 use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
 use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
+use App\Modules\NexaTaxi\Controllers\Admin\AiChatbotSettingsController;
+use App\Modules\NexaTaxi\Controllers\Admin\KnowledgeDocumentController;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\KnowledgeDocument;
 use App\Services\ModuleDatabaseService;
 
 /*
@@ -20,6 +23,19 @@ use App\Services\ModuleDatabaseService;
 $taxiConn = fn () => app(ModuleDatabaseService::class)->getModuleConnectionName('taxi');
 Route::bind('vehicle', fn ($value) => Vehicle::on($taxiConn())->findOrFail($value));
 Route::bind('ride_request', fn ($value) => RideRequest::on($taxiConn())->findOrFail($value));
+Route::bind('knowledge_document', fn ($value) => KnowledgeDocument::on($taxiConn())->findOrFail($value));
+
+Route::get('ai-chatbot/instellingen', [AiChatbotSettingsController::class, 'edit'])
+    ->name('ai_chatbot.settings.edit');
+Route::put('ai-chatbot/instellingen', [AiChatbotSettingsController::class, 'update'])
+    ->name('ai_chatbot.settings.update');
+Route::post('ai-chatbot/genereer-van-website', [KnowledgeDocumentController::class, 'generateFromWebsite'])
+    ->name('knowledge_documents.generate_from_website');
+Route::post('ai-chatbot/tekst-opmaken', [KnowledgeDocumentController::class, 'formatContent'])
+    ->name('knowledge_documents.format_content');
+Route::resource('ai-chatbot', KnowledgeDocumentController::class)
+    ->parameters(['ai-chatbot' => 'knowledge_document'])
+    ->names('knowledge_documents');
 
 Route::get('dispatch-instellingen', [DispatchSettingsController::class, 'edit'])->name('dispatch_settings.edit');
 Route::put('dispatch-instellingen', [DispatchSettingsController::class, 'update'])->name('dispatch_settings.update');

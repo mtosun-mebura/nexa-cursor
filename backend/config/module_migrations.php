@@ -25,7 +25,7 @@ return [
     | Minimale tabellen per module; ensureModuleStorageReady draait migraties als ze ontbreken.
     */
     'required_tables' => [
-        'taxi' => ['vehicles', 'ride_requests', 'default_rates'],
+        'taxi' => ['vehicles', 'ride_requests', 'default_rates', 'knowledge_documents', 'knowledge_chunks'],
         'skillmatching' => ['branches', 'vacancies', 'job_configurations'],
     ],
 

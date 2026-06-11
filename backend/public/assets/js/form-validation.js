@@ -121,6 +121,15 @@
             // Attach event listeners
             inputs.forEach(input => {
                 this.attachValidation(input);
+
+                // Server-side fout (Laravel @error): niet overschrijven met "geldig" bij autovalidatie
+                const laravelFeedback = this.findLaravelFeedbackForInput(input);
+                if (laravelFeedback && this.laravelFeedbackMessage(laravelFeedback)) {
+                    input.classList.add('border-destructive');
+                    laravelFeedback.classList.remove('hidden');
+                    laravelFeedback.style.display = 'block';
+                    return;
+                }
                 
                 // If input already has a value, trigger validation to show icon
                 const type = (input.type || '').toLowerCase();
@@ -159,6 +168,44 @@
             this.observeDynamicFields();
         }
 
+        findLaravelFeedbackForInput(input) {
+            const fieldName = input.getAttribute('name');
+            if (!fieldName || !this.form) {
+                return null;
+            }
+
+            return this.form.querySelector('[data-laravel-field="' + fieldName + '"]');
+        }
+
+        laravelFeedbackMessage(element) {
+            if (!element) {
+                return '';
+            }
+
+            return (element.getAttribute('data-laravel-message') || element.textContent || '').trim();
+        }
+
+        clearServerFieldError(input) {
+            const laravelFeedback = this.findLaravelFeedbackForInput(input);
+            if (!laravelFeedback) {
+                return;
+            }
+
+            laravelFeedback.removeAttribute('data-laravel-field');
+            laravelFeedback.removeAttribute('data-laravel-message');
+            laravelFeedback.textContent = '';
+            laravelFeedback.classList.add('hidden');
+            laravelFeedback.style.display = 'none';
+        }
+
+        feedbackMessageClasses() {
+            if (this.form?.dataset?.frontendForm === 'true') {
+                return 'field-feedback text-sm font-medium text-destructive mt-1.5';
+            }
+
+            return 'field-feedback text-xs text-red-600 text-destructive mt-1';
+        }
+
         /**
          * Recursieve functie om alle input velden te vinden
          * Loopt door geneste structuren (zoals locations arrays)
@@ -172,6 +219,10 @@
                 if (element.tagName && ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)) {
                     // Skip hidden inputs en submit buttons
                     if (element.type === 'hidden' || element.type === 'submit' || element.type === 'button' || element.type === 'file' || element.type === 'color') {
+                        return;
+                    }
+                    // Flowbite WYSIWYG: inhoud wordt via syncAllFlowbiteWysiwygEditors() gesynchroniseerd
+                    if (element.classList && element.classList.contains('flowbite-wysiwyg-textarea')) {
                         return;
                     }
                     inputs.push(element);
@@ -223,9 +274,11 @@
                 // For input fields, validate on input/keyup
                 if (this.options.validateOnInput) {
                     input.addEventListener('input', () => {
+                        this.clearServerFieldError(input);
                         this.validateField(input, feedbackElement);
                     });
                     input.addEventListener('keyup', () => {
+                        this.clearServerFieldError(input);
                         this.validateField(input, feedbackElement);
                     });
                 }
@@ -297,13 +350,7 @@
             // Special handling for SELECT dropdowns
             if (isSelect) {
                 if (input.hasAttribute('data-email-template-select')) {
-                    if (!value || value === '') {
-                        this.setInvalid(input, feedbackElement, 'Kies een e-mailtemplate.', forceShow);
-
-                        return false;
-                    }
                     this.clearValidationState(input, feedbackElement);
-                    this.setValid(input, feedbackElement, 'text', forceShow);
 
                     return true;
                 }
@@ -397,6 +444,10 @@
             const type = input.type.toLowerCase();
             const name = input.name.toLowerCase();
             const skipUrlValidation = this.form?.dataset?.skipUrlValidation === 'true';
+            const validateAs = (input.dataset.validateAs || '').trim().toLowerCase();
+            if (validateAs && validationRules[validateAs]) {
+                return validateAs;
+            }
 
             if (type === 'number') return 'number';
             if (
@@ -522,13 +573,15 @@
                 
                 // Show error message below input
                 if (feedbackElement) {
-                    feedbackElement.className = 'field-feedback text-xs text-red-600 text-destructive mt-1';
+                    feedbackElement.className = this.feedbackMessageClasses();
                     feedbackElement.textContent = message;
                     feedbackElement.classList.remove('hidden');
                     feedbackElement.style.display = 'block';
                 }
 
-                this.removeLaravelInlineMessagesFor(input);
+                if (!feedbackElement?.hasAttribute('data-laravel-field')) {
+                    this.removeLaravelInlineMessagesFor(input);
+                }
             } else {
                 // Hide everything if user hasn't interacted
                 if (iconWrapper) {
@@ -549,6 +602,13 @@
         shouldSkipValidationIcon(input) {
             return (
                 input.hasAttribute('data-skip-validation-wrapper') ||
+                input.classList.contains('home-section-hex-input') ||
+                input.classList.contains('hero-subtitle-color-hex-input') ||
+                input.classList.contains('hero-title-highlight-hex-input') ||
+                input.classList.contains('hero-overlay-hex-input') ||
+                input.classList.contains('carousel-slide-text-bg-color-hex-input') ||
+                input.classList.contains('carousel-slide-text-color-hex-input') ||
+                input.closest('.home-section-hex-input-wrap, .carousel-slide-hex-input-wrap') ||
                 input.id === 'html_content'
             );
         }
@@ -650,6 +710,9 @@
             }
             
             if (feedbackElement) {
+                if (feedbackElement.hasAttribute('data-laravel-field') && this.laravelFeedbackMessage(feedbackElement)) {
+                    return;
+                }
                 feedbackElement.classList.add('hidden');
                 feedbackElement.style.display = 'none';
                 feedbackElement.textContent = '';
@@ -661,7 +724,8 @@
          */
         createFeedbackElement(input) {
             // Check if feedback element already exists - look in parent or td
-            const existing = input.parentElement?.querySelector('.field-feedback') ||
+            const existing = this.findLaravelFeedbackForInput(input) ||
+                            input.parentElement?.querySelector('.field-feedback') ||
                             input.closest('td')?.querySelector('.field-feedback') ||
                             input.closest('.relative')?.parentElement?.querySelector('.field-feedback');
             if (existing) {
@@ -706,9 +770,13 @@
             if (
                 input.hasAttribute('data-skip-validation-wrapper') ||
                 input.id === 'html_content' ||
+                input.classList.contains('home-section-hex-input') ||
+                input.classList.contains('hero-subtitle-color-hex-input') ||
+                input.classList.contains('hero-title-highlight-hex-input') ||
+                input.classList.contains('hero-overlay-hex-input') ||
                 input.classList.contains('carousel-slide-text-bg-color-hex-input') ||
                 input.classList.contains('carousel-slide-text-color-hex-input') ||
-                input.closest('.carousel-slide-hex-input-wrap')
+                input.closest('.home-section-hex-input-wrap, .carousel-slide-hex-input-wrap')
             ) {
                 return null;
             }

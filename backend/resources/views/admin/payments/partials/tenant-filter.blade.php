@@ -6,7 +6,7 @@
     </div>
 @endif
 
-@if(!empty($tenantRows) && count($tenantRows) > 0)
+@if(empty($tenantId) && !empty($tenantRows) && count($tenantRows) > 0)
     <div class="mb-5 flex flex-wrap gap-2">
         @foreach($tenantRows as $row)
             <a href="{{ route($filterRoute ?? 'admin.payments.openstaand', array_merge(request()->except('page'), ['company_id' => $row['company']->id])) }}"

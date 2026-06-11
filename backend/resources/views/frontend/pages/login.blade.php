@@ -39,59 +39,64 @@
                     </div>
                 @endif
 
-                <form class="space-y-6" action="{{ ($codeLoginMode ?? false) ? route('login.code') : route('login.post') }}" method="POST">
+                <form
+                    id="frontend-login-form"
+                    class="space-y-6"
+                    action="{{ ($codeLoginMode ?? false) ? route('login.code') : route('login.post') }}"
+                    method="POST"
+                    data-validate="true"
+                    data-frontend-form="true"
+                    novalidate
+                >
                     @csrf
                     @if(!empty($intendedUrl))
                         <input type="hidden" name="intended" value="{{ $intendedUrl }}">
                     @endif
-                    <!-- Error Messages -->
-                    @error('email')
-                        <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0">
-                                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                    </svg>
-                                </div>
-                                <div class="ml-3">
-                                    <p class="text-sm font-medium text-red-800 dark:text-red-200">
-                                        {{ $message }}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    @enderror
-                    @error('code')
-                        <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-lg text-sm text-red-800 dark:text-red-200">
-                            {{ $message }}
-                        </div>
-                    @enderror
 
                     <!-- Email Field -->
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             E-mailadres
                         </label>
-                        <input id="email" name="email" type="email" autocomplete="email" required
-                               class="input w-full"
-                               placeholder="je@email.com"
-                               value="{{ old('email', $prefillEmail ?? '') }}">
+                        <div class="relative w-full">
+                            <input id="email" name="email" type="email" autocomplete="email" required
+                                   class="input w-full @error('email') border-destructive @enderror"
+                                   placeholder="je@email.com"
+                                   value="{{ old('email', $prefillEmail ?? '') }}">
+                        </div>
+                        @error('email')
+                            <p class="field-feedback text-sm font-medium text-destructive mt-1.5" data-laravel-field="email" data-laravel-message="{{ $message }}">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     @if($codeLoginMode ?? false)
                         <div>
                             <label for="code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Eenmalige code (6 cijfers)</label>
-                            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" required class="input w-full tracking-widest text-center" placeholder="000000" value="{{ old('code', request()->query('code')) }}">
-                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">De code staat in de e-mail die u na uw boeking heeft ontvangen.</p>
+                            <div class="relative w-full">
+                                <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" required
+                                       class="input w-full tracking-widest text-center @error('code') border-destructive @enderror"
+                                       placeholder="000000"
+                                       value="{{ old('code', request()->query('code')) }}">
+                            </div>
+                            @error('code')
+                                <p class="field-feedback text-sm font-medium text-destructive mt-1.5" data-laravel-field="code" data-laravel-message="{{ $message }}">{{ $message }}</p>
+                            @enderror
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Gebruik de code uit uw e-mail, of vraag hieronder een nieuwe code aan met het e-mailadres van uw boeking.</p>
                         </div>
                     @else
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Wachtwoord
                             </label>
-                            <input id="password" name="password" type="password" autocomplete="current-password" required
-                                   class="input w-full"
-                                   placeholder="Je wachtwoord">
+                            <div class="relative w-full">
+                                <input id="password" name="password" type="password" autocomplete="current-password" required
+                                       data-validate-as="text"
+                                       class="input w-full @error('password') border-destructive @enderror"
+                                       placeholder="Je wachtwoord">
+                            </div>
+                            @error('password')
+                                <p class="field-feedback text-sm font-medium text-destructive mt-1.5" data-laravel-field="password" data-laravel-message="{{ $message }}">{{ $message }}</p>
+                            @enderror
                         </div>
                     @endif
 
@@ -114,7 +119,7 @@
 
                 <div class="mt-6 space-y-3 text-center text-sm">
                     @if($codeLoginMode ?? false)
-                        <form action="{{ route('login.code.request') }}" method="POST" class="inline">
+                        <form action="{{ route('login.code.request') }}" method="POST" class="block pb-3">
                             @csrf
                             <input type="hidden" name="email" value="{{ old('email', $prefillEmail ?? '') }}" id="request-code-email-hidden">
                             @if(!empty($intendedUrl))
@@ -208,14 +213,72 @@
 </section>
 @endif
 @push('scripts')
+<script src="{{ asset('assets/js/form-validation.js') }}"></script>
 <script>
 (function () {
-    var emailInput = document.getElementById('email');
-    var codeRequestForm = document.querySelector('form[action="{{ route('login.code.request') }}"]');
-    if (!emailInput || !codeRequestForm) return;
-    codeRequestForm.addEventListener('submit', function () {
-        var hidden = document.getElementById('request-code-email-hidden');
-        if (hidden && emailInput.value) hidden.value = emailInput.value;
+    document.addEventListener('DOMContentLoaded', function () {
+        var emailInput = document.getElementById('email');
+        var codeRequestForm = document.querySelector('form[action="{{ route('login.code.request') }}"]');
+        if (!emailInput || !codeRequestForm) {
+            return;
+        }
+
+        function findEmailFeedback() {
+            return emailInput.closest('div')?.parentElement?.querySelector('.field-feedback[data-laravel-field="email"]')
+                || emailInput.closest('div')?.parentElement?.querySelector('.field-feedback');
+        }
+
+        function showEmailFeedback(message) {
+            var feedback = findEmailFeedback();
+            if (!feedback) {
+                feedback = document.createElement('p');
+                feedback.className = 'field-feedback text-sm font-medium text-destructive mt-1.5';
+                feedback.setAttribute('data-laravel-field', 'email');
+                emailInput.closest('div')?.parentElement?.appendChild(feedback);
+            }
+            feedback.className = 'field-feedback text-sm font-medium text-destructive mt-1.5';
+            feedback.textContent = message;
+            feedback.setAttribute('data-laravel-field', 'email');
+            feedback.setAttribute('data-laravel-message', message);
+            feedback.classList.remove('hidden');
+            feedback.style.display = 'block';
+            emailInput.classList.add('border-destructive');
+        }
+
+        function clearEmailFeedback() {
+            var feedback = findEmailFeedback();
+            if (feedback && feedback.hasAttribute('data-laravel-field')) {
+                feedback.removeAttribute('data-laravel-field');
+                feedback.removeAttribute('data-laravel-message');
+                feedback.textContent = '';
+                feedback.style.display = 'none';
+            }
+            emailInput.classList.remove('border-destructive');
+        }
+
+        emailInput.addEventListener('input', clearEmailFeedback);
+
+        codeRequestForm.addEventListener('submit', function (event) {
+            var email = emailInput.value.trim();
+            var hidden = document.getElementById('request-code-email-hidden');
+            if (hidden) {
+                hidden.value = email;
+            }
+
+            if (!email) {
+                event.preventDefault();
+                showEmailFeedback('Vul uw e-mailadres in om een nieuwe code aan te vragen.');
+                emailInput.focus();
+                return;
+            }
+
+            var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(email)) {
+                event.preventDefault();
+                showEmailFeedback('Voer een geldig e-mailadres in.');
+                emailInput.focus();
+            }
+        });
     });
 })();
 </script>

@@ -4,49 +4,44 @@
 
 @section('content')
 
-<div class="kt-container-fixed">
-    <div class="flex flex-col gap-5 pb-7.5">
-        <div class="flex flex-wrap items-center justify-between gap-5">
-            <h1 class="text-xl font-medium leading-none text-mono">
-                Nieuwe Notificatie
-            </h1>
-        </div>
-        <div class="flex items-center">
-            <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
-            </a>
-        </div>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Nieuwe Notificatie
+        </h1>
+        <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
     </div>
 
-    <form action="{{ route('admin.notifications.store') }}" method="POST" enctype="multipart/form-data" novalidate data-validate="true">
+    <form id="admin-notification-form" action="{{ route('admin.notifications.store') }}" method="POST" enctype="multipart/form-data" novalidate data-validate="true">
         @csrf
 
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
             <!-- Notificatie Details -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">
+                    <h3 class="kt-card-title mb-0">
                         Notificatie Details
                     </h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Ontvanger *
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <div style="position: relative; display: inline-block; width: auto; min-width: 300px;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-lg">
                                             <select class="kt-select @error('user_id') border-destructive @enderror" 
                                                     id="user_id" 
                                                     name="user_id" 
                                                     data-kt-select="true"
-                                                    style="width: auto; min-width: 300px; max-width: 100%;"
                                                     required>
                                                 <option value="">Selecteer ontvanger</option>
                                                 
@@ -74,7 +69,6 @@
                                                     </optgroup>
                                                 @endif
                                             </select>
-                                        </div>
                                         @error('user_id')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -94,15 +88,13 @@
                             <td class="text-secondary-foreground font-normal">
                                 Categorie *
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <div style="position: relative; display: inline-block; width: auto; min-width: 200px;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-md">
                                             <select class="kt-select @error('category') border-destructive @enderror" 
                                                     id="category" 
                                                     name="category" 
                                                     data-kt-select="true"
-                                                    style="width: auto; min-width: 200px; max-width: 100%;"
                                                     required>
                                                 <option value="">Selecteer categorie</option>
                                                 <option value="info" {{ old('category', 'info') == 'info' ? 'selected' : '' }}>Informatie</option>
@@ -112,7 +104,6 @@
                                                 <option value="reminder" {{ old('category') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
                                                 <option value="update" {{ old('category') == 'update' ? 'selected' : '' }}>Update</option>
                                             </select>
-                                        </div>
                                         @error('category')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -129,15 +120,13 @@
                             <td class="text-secondary-foreground font-normal">
                                 Type *
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <div style="position: relative; display: inline-block; width: auto; min-width: 200px;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-md">
                                             <select class="kt-select @error('type') border-destructive @enderror" 
                                                     id="type" 
                                                     name="type" 
                                                     data-kt-select="true"
-                                                    style="width: auto; min-width: 200px; max-width: 100%;"
                                                     required>
                                                 <option value="">Selecteer type</option>
                                                 <option value="match" {{ old('type') == 'match' ? 'selected' : '' }}>Match</option>
@@ -147,7 +136,6 @@
                                                 <option value="reminder" {{ old('type') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
                                                 <option value="file" {{ old('type') == 'file' ? 'selected' : '' }}>Bestand</option>
                                             </select>
-                                        </div>
                                         @error('type')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -164,15 +152,13 @@
                             <td class="text-secondary-foreground font-normal">
                                 E-mail Template
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <div style="position: relative; display: inline-block; width: auto; min-width: 300px;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-lg">
                                             <select class="kt-select @error('email_template_id') border-destructive @enderror" 
                                                     id="email_template_id" 
                                                     name="email_template_id" 
-                                                    data-kt-select="true"
-                                                    style="width: auto; min-width: 300px; max-width: 100%;">
+                                                    data-kt-select="true">
                                                 <option value="">Geen template (alleen notificatie)</option>
                                                 @if(isset($emailTemplates) && $emailTemplates->count() > 0)
                                                     @foreach($emailTemplates as $template)
@@ -182,7 +168,6 @@
                                                     @endforeach
                                                 @endif
                                             </select>
-                                        </div>
                                         @error('email_template_id')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -202,9 +187,9 @@
                             <td class="text-secondary-foreground font-normal">
                                 Titel *
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-lg">
                                         <input type="text" 
                                                class="kt-input @error('title') border-destructive @enderror" 
                                                name="title" 
@@ -228,9 +213,9 @@
                             <td class="text-secondary-foreground font-normal align-top">
                                 Bericht *
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: flex-start;">
+                                    <div class="flex items-start gap-2 admin-form-field-wrap admin-form-field-lg">
                                         <textarea class="kt-input pt-1 @error('message') border-destructive @enderror" 
                                                   id="message" 
                                                   name="message" 
@@ -253,21 +238,18 @@
                             <td class="text-secondary-foreground font-normal">
                                 Prioriteit
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <div style="position: relative; display: inline-block; width: auto; min-width: 200px;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-md">
                                             <select class="kt-select @error('priority') border-destructive @enderror" 
                                                     id="priority" 
                                                     name="priority"
-                                                    data-kt-select="true"
-                                                    style="width: auto; min-width: 200px; max-width: 100%;">
+                                                    data-kt-select="true">
                                                 <option value="low" {{ old('priority') == 'low' ? 'selected' : '' }}>Laag</option>
                                                 <option value="normal" {{ old('priority', 'normal') == 'normal' ? 'selected' : '' }}>Normaal</option>
                                                 <option value="high" {{ old('priority') == 'high' ? 'selected' : '' }}>Hoog</option>
                                                 <option value="urgent" {{ old('priority') == 'urgent' ? 'selected' : '' }}>Urgent</option>
                                             </select>
-                                        </div>
                                         @error('priority')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -287,9 +269,9 @@
                             <td class="text-secondary-foreground font-normal">
                                 Actie URL
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-lg">
                                         <input type="url" 
                                                class="kt-input @error('action_url') border-destructive @enderror" 
                                                name="action_url" 
@@ -315,11 +297,11 @@
                             <td class="text-secondary-foreground font-normal">
                                 Gepland op
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2.5">
-                                        <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                            <div class="kt-input @error('scheduled_at') border-destructive @enderror" style="max-width: 200px;">
+                                    <div class="flex flex-wrap items-center gap-2.5 admin-form-field-wrap admin-form-field-datetime">
+                                        <div class="flex items-center gap-2">
+                                            <div class="kt-input max-w-[12.5rem] @error('scheduled_at') border-destructive @enderror">
                                                 <i class="ki-outline ki-calendar"></i>
                                                 @php
                                                     $createScheduledDate = old('scheduled_at') 
@@ -352,8 +334,8 @@
                                                 </div>
                                             @enderror
                                         </div>
-                                        <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                            <div class="kt-input @error('scheduled_time') border-destructive @enderror" style="max-width: 120px;">
+                                        <div class="flex items-center gap-2">
+                                            <div class="kt-input max-w-[7.5rem] @error('scheduled_time') border-destructive @enderror">
                                                 <i class="ki-outline ki-time"></i>
                                                 <input type="time"
                                                        name="scheduled_time"
@@ -382,15 +364,13 @@
                             <td class="text-secondary-foreground font-normal">
                                 Locatie
                             </td>
-                            <td>
+                            <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
-                                    <div class="flex items-center gap-2" style="display: inline-flex; align-items: center;">
-                                        <div style="position: relative; display: inline-block; width: auto; min-width: 300px;">
+                                    <div class="flex items-center gap-2 admin-form-field-wrap admin-form-field-lg">
                                             <select class="kt-select @error('location_id') border-destructive @enderror" 
                                                     id="location_id" 
                                                     name="location_id"
-                                                    data-kt-select="true"
-                                                    style="width: auto; min-width: 300px; max-width: 100%;">
+                                                    data-kt-select="true">
                                                 <option value="">Selecteer locatie</option>
                                     @if($company)
                                         @php
@@ -450,7 +430,6 @@
                                                     Op afstand
                                                 </option>
                                             </select>
-                                        </div>
                                         @error('location_id')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -470,9 +449,9 @@
                             <td class="text-secondary-foreground font-normal border-b-0">
                                 Bestand
                             </td>
-                            <td class="border-b-0">
+                            <td class="min-w-48 w-full border-b-0">
                                 <input type="file" 
-                                       class="kt-input @error('file') border-destructive @enderror" 
+                                       class="kt-input admin-form-field-file @error('file') border-destructive @enderror" 
                                        name="file" 
                                        id="file"
                                        accept="*/*">
@@ -504,10 +483,11 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren

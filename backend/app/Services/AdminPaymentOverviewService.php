@@ -41,11 +41,11 @@ final class AdminPaymentOverviewService
     /**
      * @return Collection<int, Company>
      */
-    public function companiesWithPaymentModules(): Collection
+    public function companiesWithPaymentModules(?int $onlyCompanyId = null): Collection
     {
         $moduleNames = array_keys(self::PAYMENT_MODULES);
 
-        return Company::query()
+        $query = Company::query()
             ->where('is_active', true)
             ->whereHas('modules', function ($q) use ($moduleNames) {
                 $q->whereIn('modules.name', $moduleNames)
@@ -56,9 +56,13 @@ final class AdminPaymentOverviewService
                 $q->whereIn('modules.name', $moduleNames)
                     ->where('modules.installed', true)
                     ->where('modules.active', true);
-            }])
-            ->orderBy('name')
-            ->get();
+            }]);
+
+        if ($onlyCompanyId !== null && $onlyCompanyId > 0) {
+            $query->whereKey($onlyCompanyId);
+        }
+
+        return $query->orderBy('name')->get();
     }
 
     /**
@@ -72,10 +76,10 @@ final class AdminPaymentOverviewService
      *     total_count: int
      * }>
      */
-    public function tenantSummaries(): array
+    public function tenantSummaries(?int $onlyCompanyId = null): array
     {
         $rows = [];
-        foreach ($this->companiesWithPaymentModules() as $company) {
+        foreach ($this->companiesWithPaymentModules($onlyCompanyId) as $company) {
             $rows[] = $this->summarizeCompany($company);
         }
 
@@ -139,14 +143,14 @@ final class AdminPaymentOverviewService
     /**
      * @return array{open: int, paid: int, total: int, open_amount: float, paid_amount: float}
      */
-    public function globalTotals(): array
+    public function globalTotals(?int $onlyCompanyId = null): array
     {
         $open = 0;
         $paid = 0;
         $openAmount = 0.0;
         $paidAmount = 0.0;
 
-        foreach ($this->tenantSummaries() as $row) {
+        foreach ($this->tenantSummaries($onlyCompanyId) as $row) {
             $open += $row['open_count'];
             $paid += $row['paid_count'];
             $openAmount += $row['open_amount'];

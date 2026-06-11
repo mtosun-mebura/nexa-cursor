@@ -68,8 +68,8 @@
                                 <td class="py-2 pe-3 text-muted-foreground align-middle">{{ $u->email }}</td>
                                 <td class="py-2 pe-3 text-muted-foreground align-middle">
                                     <div class="flex flex-wrap items-center gap-1.5 min-h-[2.25rem]">
-                                        @forelse($u->roles->unique('name') as $r)
-                                            <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs leading-5">{{ ucfirst(str_replace('-', ' ', $r->name)) }}</span>
+                                        @forelse($u->webRoleNames() as $roleName)
+                                            <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs leading-5">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                         @empty
                                             <span class="text-muted-foreground">—</span>
                                         @endforelse

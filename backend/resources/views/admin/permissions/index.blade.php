@@ -125,7 +125,7 @@
         font-size: 24px !important;
     }
 
-    /* Make card header sticky so it stays on top when scrolling */
+    /* Card header sticky alleen op desktop (>=1024px); responsive scrollt mee */
     /* Create a new stacking context for the card */
     .kt-card.kt-card-grid {
         position: relative;
@@ -140,21 +140,34 @@
         z-index: 9999 !important;
     }
     
-    /* Card header must be below page header but above content */
-    .kt-card-header {
-        position: sticky !important;
-        top: 70px !important; /* Below page header height */
-        z-index: 9998 !important; /* Below page header z-index 9999 */
-        background-color: var(--background) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        border-top-left-radius: inherit !important;
-        border-top-right-radius: inherit !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-        margin-bottom: 0 !important;
-        padding-bottom: 1.25rem !important;
-        transform: translateZ(0); /* Force new stacking context */
+    /* Card header sticky op desktop; op mobiel/tablet meescrollen */
+    @media (min-width: 1024px) {
+        .kt-card-header {
+            position: sticky !important;
+            top: 70px !important; /* Below page header height */
+            z-index: 9998 !important; /* Below page header z-index 9999 */
+            background-color: var(--background) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border-top-left-radius: inherit !important;
+            border-top-right-radius: inherit !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            margin-bottom: 0 !important;
+            padding-bottom: 1.25rem !important;
+            transform: translateZ(0); /* Force new stacking context */
+        }
+    }
+
+    @media (max-width: 1023px) {
+        .kt-card-header {
+            position: static !important;
+            top: auto !important;
+            z-index: auto !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            transform: none !important;
+        }
     }
     
     /* Icons in buttons should have z-index 1 */
@@ -162,95 +175,101 @@
         position: relative;
         z-index: 1 !important;
     }
-    
-    /* ALL header content must have lower z-index to scroll behind */
-    .kt-card-header h3,
-    .kt-card-header .kt-card-title,
-    .kt-card-header .flex,
-    .kt-card-header form,
-    .kt-card-header .kt-input,
-    .kt-card-header input,
-    .kt-card-header .kt-select-wrapper,
-    .kt-card-header .kt-select,
-    .kt-card-header select,
-    .kt-card-header .kt-btn,
-    .kt-card-header button,
-    .kt-card-header a,
-    .kt-card-header label,
-    .kt-card-header i,
-    .kt-card-header span,
-    .kt-card-header div {
-        position: relative !important;
-        z-index: 0 !important;
+
+    @media (min-width: 1024px) {
+        /* Desktop sticky: tabel scrollt visueel onder de header */
+        .kt-card-header h3,
+        .kt-card-header .kt-card-title,
+        .kt-card-header .flex,
+        .kt-card-header form,
+        .kt-card-header .kt-input,
+        .kt-card-header input,
+        .kt-card-header .kt-select-wrapper,
+        .kt-card-header .kt-select,
+        .kt-card-header select,
+        .kt-card-header .kt-btn,
+        .kt-card-header button,
+        .kt-card-header a,
+        .kt-card-header label,
+        .kt-card-header i,
+        .kt-card-header span,
+        .kt-card-header div {
+            position: relative !important;
+            z-index: 0 !important;
+        }
+
+        .kt-card-content {
+            position: relative;
+            z-index: 1 !important;
+            transform: translateZ(0);
+        }
+
+        .kt-card-content > *,
+        .kt-card-content #permissions_table,
+        .kt-card-content [data-admin-datatable],
+        .kt-card-content .kt-scrollable-x-auto,
+        .kt-card-content .kt-table,
+        .kt-card-content tbody,
+        .kt-card-content thead,
+        .kt-card-content tr,
+        .kt-card-content td,
+        .kt-card-content th {
+            position: relative !important;
+            z-index: 1 !important;
+        }
     }
-    
-    /* But dropdowns in header should still appear above when open */
+
+    @media (max-width: 1023px) {
+        .kt-card.kt-card-grid .kt-card-header {
+            position: relative;
+            z-index: 30;
+        }
+
+        .kt-card.kt-card-grid .kt-card-content {
+            position: relative;
+            z-index: 0 !important;
+            transform: none !important;
+        }
+    }
+
+    /* Filter-/select-dropdowns altijd boven lijstkaarten */
     .kt-card-header .kt-select-dropdown,
     .kt-card-header .kt-select-options,
+    .kt-card-header [data-kt-select-dropdown],
+    .kt-card-header [data-kt-select-options],
     .kt-card-header .kt-menu-dropdown {
         position: fixed !important;
-        z-index: 1001 !important;
+        z-index: 10050 !important;
+        background-color: var(--popover, #ffffff) !important;
+        color: var(--popover-foreground, var(--foreground)) !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
     }
-    
-    /* Content must be behind header - use negative z-index or lower positive */
-    .kt-card-content {
-        position: relative;
-        z-index: 1 !important;
-        transform: translateZ(0); /* Force new stacking context */
+
+    html.dark .kt-card-header .kt-select-dropdown,
+    html.dark .kt-card-header .kt-select-options,
+    html.dark .kt-card-header [data-kt-select-dropdown],
+    html.dark .kt-card-header [data-kt-select-options],
+    .dark .kt-card-header .kt-select-dropdown,
+    .dark .kt-card-header .kt-select-options,
+    .dark .kt-card-header [data-kt-select-dropdown],
+    .dark .kt-card-header [data-kt-select-options] {
+        background-color: #111827 !important;
+        color: #f3f4f6 !important;
     }
-    
-    /* All content inside must respect the lower z-index */
-    .kt-card-content > * {
-        position: relative;
-        z-index: auto !important;
-    }
-    
-    /* Table and all its children must be behind header */
-    .kt-card-content #permissions_table,
-    .kt-card-content [data-kt-datatable],
-    .kt-card-content .kt-scrollable-x-auto,
-    .kt-card-content .kt-table {
-        position: relative !important;
-        z-index: 1 !important;
-    }
-    
-    /* Table rows and cells must be behind */
-    .kt-card-content tbody,
-    .kt-card-content thead,
-    .kt-card-content tr,
-    .kt-card-content td,
-    .kt-card-content th {
-        position: relative !important;
-        z-index: 1 !important;
-    }
-    
-    /* Exception: dropdowns in table should still work (they use fixed positioning) */
-    .kt-card-content .kt-menu-dropdown,
-    .kt-card-content .kt-select-dropdown {
-        z-index: 100000 !important;
-    }
-    
-    /* Dropdowns in header should appear above everything when open */
-    .kt-card-header .kt-select-wrapper {
-        position: relative;
-        z-index: 1001 !important;
-    }
-    
-    .kt-card-header .kt-select-dropdown,
-    .kt-card-header .kt-select-options {
-        position: fixed !important;
-        z-index: 10000 !important;
-    }
-    
-    /* Menu dropdowns in header should appear above */
+
+    .kt-card-header .kt-select-wrapper,
     .kt-card-header .kt-menu {
         position: relative;
-        z-index: 1001 !important;
+        z-index: 31 !important;
     }
-    
-    .kt-card-header .kt-menu-dropdown {
-        position: fixed !important;
-        z-index: 10000 !important;
+
+    .kt-card-content .kt-menu-dropdown,
+    .kt-card-content .kt-select-dropdown,
+    .kt-card-content [data-kt-select-dropdown] {
+        z-index: 100000 !important;
     }
 </style>
 @endpush
@@ -448,14 +467,14 @@
                             @if(request('direction'))
                                 <input type="hidden" name="direction" value="{{ request('direction') }}">
                             @endif
-                            <label class="kt-input w-64" style="position: relative !important;">
+                            <label class="kt-input w-64">
                                 <i class="ki-filled ki-magnifier"></i>
                                 <input placeholder="Zoek permissies..."
                                        type="text"
                                        name="search"
                                        value="{{ request('search') }}"
                                        id="search-input"
-                                       data-kt-datatable-search="#permissions_table"/>
+/>
                             </label>
                         </form>
                     </div>
@@ -531,13 +550,13 @@
 
             <div class="kt-card-content">
                 @if($allPermissions->count() > 0)
-                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="permissions_table" data-permissions-table="true">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="permissions_table" data-permissions-table="true" data-admin-datatable-label="permissies">
                         <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                            <table class="kt-table table-auto kt-table-border">
                             <thead>
                                 <tr>
                                     @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-permissions'))
-                                    <th class="w-[50px] text-center">
+                                    <th class="w-[50px] text-center" data-label="">
                                         <span class="kt-table-col">
                                             <label class="kt-label flex items-center justify-center cursor-pointer mt-1">
                                                 <input type="checkbox"
@@ -548,7 +567,7 @@
                                         </span>
                                     </th>
                                     @endif
-                                    <th class="min-w-[250px]">
+                                    <th class="min-w-[250px]" data-label="Permissie">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Permissie</span>
                                             <span class="kt-table-col-sort">
@@ -566,19 +585,19 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th class="min-w-[150px]" data-label="Module">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Module</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[200px]">
+                                    <th class="min-w-[200px]" data-label="Toegewezen aan">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Toegewezen aan</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[120px]">
+                                    <th class="min-w-[120px]" data-label="Status">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Status</span>
                                             <span class="kt-table-col-sort"></span>
@@ -738,19 +757,17 @@
                         </div>
 
                     <!-- Pagination -->
-                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                        <div class="flex items-center gap-2 order-2 md:order-1">
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
+                        <div class="admin-datatable-footer__perpage flex items-center gap-2">
                             Toon
-                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
                             per pagina
                         </div>
-                        <div class="flex items-center gap-4 order-1 md:order-2">
-                            <span data-kt-datatable-info="true">
-                            </span>
-                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
-                            </div>
+                        <div class="admin-datatable-footer__pagination">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
                         </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
                     </div>
                     </div>
                 @else
@@ -815,7 +832,7 @@
 
         // Replace "of" with "van" in pagination info
         function replaceOfWithVan() {
-            const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+            const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
             }
@@ -828,7 +845,7 @@
         setTimeout(replaceOfWithVan, 1000);
 
         // Also observe changes to the pagination info element
-        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
         if (infoSpan) {
             const observer = new MutationObserver(function(mutations) {
                 replaceOfWithVan();

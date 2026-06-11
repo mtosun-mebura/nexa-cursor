@@ -32,7 +32,7 @@
         @endif
         <div class="kt-card">
             <div class="kt-card-content">
-                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">Label *</td>
                         <td class="min-w-48 w-full">

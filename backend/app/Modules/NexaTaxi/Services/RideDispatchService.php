@@ -55,6 +55,10 @@ class RideDispatchService
             $wave = 1;
 
             foreach ($driverIds as $driverId) {
+                if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
+                    continue;
+                }
+
                 RideDispatchOffer::on($conn)->updateOrCreate(
                     [
                         'ride_request_id' => $ride->id,
@@ -137,6 +141,15 @@ class RideDispatchService
             return;
         }
 
+        $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
+        if ($ride->pickup_at && $ride->pickup_at->lt($pickupCutoff)) {
+            return;
+        }
+
+        if ($this->allOffersDeclinedForRide($conn, $rideRequestId)) {
+            return;
+        }
+
         $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
         $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
         $driverIds = $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
@@ -149,6 +162,10 @@ class RideDispatchService
         $expires = $now->copy()->addSeconds($ttl);
 
         foreach ($driverIds as $driverId) {
+            if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
+                continue;
+            }
+
             RideDispatchOffer::on($conn)->updateOrCreate(
                 [
                     'ride_request_id' => $ride->id,
@@ -187,6 +204,7 @@ class RideDispatchService
         }
 
         $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
+        $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
         $now = now();
         $expires = $now->copy()->addSeconds($ttl);
 
@@ -194,11 +212,16 @@ class RideDispatchService
             ->where('company_id', $companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
+            ->dispatchPickupWithinQueueWindow($pickupCutoff)
             ->orderBy('pickup_at')
             ->limit(20)
             ->get();
 
         foreach ($rides as $ride) {
+            if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
+                continue;
+            }
+
             $hasActive = RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $ride->id)
                 ->where('driver_id', $driverId)
@@ -231,5 +254,99 @@ class RideDispatchService
 
             $this->push->notifyDriver($driverId, (int) $ride->id);
         }
+    }
+
+    /**
+     * Verlopen aanbiedingen voor ritten buiten het pickup-grace-venster.
+     */
+    public function expireOffersForPastPickups(string $conn, int $companyId): int
+    {
+        if ($companyId <= 0 || ! TaxiDispatchSchema::tablesExist($conn)) {
+            return 0;
+        }
+
+        $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
+
+        return RideDispatchOffer::on($conn)
+            ->where('company_id', $companyId)
+            ->where('status', RideDispatchOffer::STATUS_PENDING)
+            ->whereHas('rideRequest', function ($q) use ($pickupCutoff) {
+                $q->whereNull('driver_id')
+                    ->whereNotNull('pickup_at')
+                    ->where('pickup_at', '<', $pickupCutoff);
+            })
+            ->update([
+                'status' => RideDispatchOffer::STATUS_EXPIRED,
+                'responded_at' => now(),
+            ]);
+    }
+
+    /**
+     * Ritten zonder chauffeur waarbij elke chauffeur expliciet heeft afgewezen.
+     *
+     * @return array<int, array{ride_id: int, pickup_at: ?string, pickup_address: ?string, message: string}>
+     */
+    public function unclaimedRidesForCompany(string $conn, int $companyId): array
+    {
+        if ($companyId <= 0 || ! TaxiDispatchSchema::tablesExist($conn)) {
+            return [];
+        }
+
+        $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
+
+        $rides = RideRequest::on($conn)
+            ->where('company_id', $companyId)
+            ->whereNull('driver_id')
+            ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
+            ->dispatchPickupWithinQueueWindow($pickupCutoff)
+            ->get();
+
+        $alerts = [];
+        foreach ($rides as $ride) {
+            if (! $this->allOffersDeclinedForRide($conn, (int) $ride->id)) {
+                continue;
+            }
+
+            $alerts[] = [
+                'ride_id' => (int) $ride->id,
+                'pickup_at' => $ride->pickup_at?->toIso8601String(),
+                'pickup_address' => $ride->pickup_address,
+                'message' => 'Rit #'.$ride->id.': geen chauffeur heeft deze rit opgepakt. Iemand moet deze oppakken.',
+            ];
+        }
+
+        return $alerts;
+    }
+
+    protected function driverDeclinedRide(string $conn, int $rideRequestId, int $driverId): bool
+    {
+        return RideDispatchOffer::on($conn)
+            ->where('ride_request_id', $rideRequestId)
+            ->where('driver_id', $driverId)
+            ->where('status', RideDispatchOffer::STATUS_DECLINED)
+            ->exists();
+    }
+
+    protected function allOffersDeclinedForRide(string $conn, int $rideRequestId): bool
+    {
+        $offers = RideDispatchOffer::on($conn)
+            ->where('ride_request_id', $rideRequestId)
+            ->get();
+
+        if ($offers->isEmpty()) {
+            return false;
+        }
+
+        $hasActionable = $offers->contains(function (RideDispatchOffer $offer) {
+            return $offer->status === RideDispatchOffer::STATUS_PENDING
+                && $offer->expires_at
+                && $offer->expires_at->isFuture();
+        });
+
+        if ($hasActionable) {
+            return false;
+        }
+
+        return $offers->every(fn (RideDispatchOffer $offer) => $offer->status === RideDispatchOffer::STATUS_DECLINED);
     }
 }

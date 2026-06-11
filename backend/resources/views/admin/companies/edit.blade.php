@@ -4,19 +4,15 @@
 
 @section('content')
 
-<div class="kt-container-fixed">
-    <div class="flex flex-col gap-5 pb-7.5">
-        <div class="flex flex-wrap items-center justify-between gap-5">
-            <h1 class="text-xl font-medium leading-none text-mono">
-                Bedrijf Bewerken
-            </h1>
-        </div>
-        <div class="flex items-center">
-            <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
-            </a>
-        </div>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            Bedrijf Bewerken
+        </h1>
+        <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
     </div>
 
     <form action="{{ route('admin.companies.update', $company) }}" method="POST" enctype="multipart/form-data" data-validate="true" novalidate>
@@ -34,14 +30,15 @@
             @endif
 
             <!-- General Info -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">
+                    <h3 class="kt-card-title mb-0">
                         Algemene Informatie
                     </h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Bedrijfsnaam *
@@ -75,23 +72,23 @@
                                 <div class="mb-0">
                                     <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
                                     <div class="flex flex-col gap-2 mb-4">
-                                        <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                        <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Eén logo voor beide modi</span>
                                         <div class="flex flex-wrap items-center gap-3">
                                             <input type="checkbox" id="company-form-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $formLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
-                                            <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
+                                            <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Apart logo voor light en dark mode</span>
                                         </div>
                                     </div>
 
                                     @if($formLightUrl)
                                         <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
-                                        <div class="flex items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30">
+                                        <div class="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg border border-border bg-muted/30 min-w-0">
                                             <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $formLightUrl }}" id="company-form-live-preview-light" />
                                             <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $formDarkUrl }}" id="company-form-live-preview-dark" />
                                         </div>
                                     @endif
 
                                     <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
-                                    <div class="max-w-96 w-full">
+                                    <div class="w-full max-w-md">
                                         @include('admin.partials.image-upload-dropzone-inline', [
                                             'name' => 'logo',
                                             'inputId' => 'company-form-logo-input',
@@ -119,7 +116,7 @@
                                     <div id="company-form-logo-dark-block" class="{{ $formLogoMode === 'light_dark' ? '' : 'hidden' }}">
                                         <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
                                         <p class="text-xs text-muted-foreground mb-2 max-w-xl">Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.</p>
-                                        <div class="max-w-96 w-full">
+                                        <div class="w-full max-w-md">
                                             @include('admin.partials.image-upload-dropzone-inline', [
                                                 'name' => 'logo_dark',
                                                 'inputId' => 'company-form-logo-dark-input',
@@ -232,7 +229,7 @@
                             <td>
                                 <label class="kt-label flex items-center gap-2 mb-0">
                                     <input type="checkbox" name="is_main" value="1" class="kt-switch kt-switch-sm" {{ old('is_main', $company->is_main) ? 'checked' : '' }}>
-                                    <span class="text-sm text-muted-foreground">Dit bedrijf gebruikt het adres uit stap Bedrijf als hoofdvestiging (zoals in de tenant-wizard).</span>
+                                    <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Dit bedrijf gebruikt het adres uit stap Bedrijf als hoofdvestiging (zoals in de tenant-wizard).</span>
                                 </label>
                                 @error('is_main')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -246,7 +243,7 @@
                             <td>
                                 <label class="kt-label flex items-center gap-2 mb-0">
                                     <input type="checkbox" name="is_active" value="1" class="kt-switch kt-switch-sm" {{ old('is_active', $company->is_active) ? 'checked' : '' }}>
-                                    <span class="text-sm text-muted-foreground">Bedrijf is actief in het systeem.</span>
+                                    <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Bedrijf is actief in het systeem.</span>
                                 </label>
                                 @error('is_active')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -282,18 +279,20 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
             <!-- Contact Info -->
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">
+                    <h3 class="kt-card-title mb-0">
                         Contact Informatie
                     </h3>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
                                 E-mail *
@@ -458,19 +457,21 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
             @can('edit-companies')
-            <div class="kt-card min-w-full">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Website-thema</h3>
+                    <h3 class="kt-card-title mb-0">Website-thema</h3>
                 </div>
-                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
-                    Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij nieuwe website-pagina's voor dit bedrijf. Alleen gepubliceerde thema's zijn kiesbaar (Frontend Thema's → Activeren).
-                </p>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content flex flex-col gap-4">
+                    <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
+                        Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij nieuwe website-pagina's voor dit bedrijf. Alleen gepubliceerde thema's zijn kiesbaar (Frontend Thema's → Activeren).
+                    </p>
+                    <div class="min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">Thema</td>
                             <td class="min-w-48 w-full">
@@ -491,16 +492,18 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
-            <div class="kt-card min-w-full @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
+            <div class="kt-card w-full min-w-0 @if($errors->has('module_ids') || $errors->has('module_ids.*')) border border-destructive @endif" id="company-modules" data-required-checkbox-group="module_ids[]">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Modules voor deze tenant</h3>
+                    <h3 class="kt-card-title mb-0">Modules voor deze tenant</h3>
                 </div>
-                <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
-                    Zelfde keuze als in de tenant-wizard (stap 4). Niet-geïnstalleerde of niet-actieve modules worden bij opslaan geïnstalleerd en geactiveerd waar mogelijk.
-                </p>
+                <div class="kt-card-content flex flex-col gap-4">
+                    <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
+                        Zelfde keuze als in de tenant-wizard (stap 4). Niet-geïnstalleerde of niet-actieve modules worden bij opslaan geïnstalleerd en geactiveerd waar mogelijk.
+                    </p>
                 <input type="hidden" name="apply_module_sync" value="1">
                 @php
                     $selectedModuleIds = [];
@@ -526,64 +529,51 @@
                 @endphp
                 <input type="hidden" name="module_ids_state" id="module_ids_state" value="{{ implode(',', $selectedModuleIds) }}">
                 @if(($allModules ?? collect())->isEmpty())
-                    <div class="px-6 pb-6">
-                        <p class="text-sm text-muted-foreground mb-0">Er zijn nog geen modules in de database. Registreer modules via <a href="{{ route('admin.modules.index') }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary/90">Modules</a>.</p>
-                    </div>
+                        <p class="text-sm text-muted-foreground mb-0 rounded-lg border border-dashed border-input px-4 py-3">
+                            Er zijn nog geen modules in de database. Registreer modules via <a href="{{ route('admin.modules.index') }}" class="font-medium text-primary underline underline-offset-2 hover:text-primary/90">Modules</a>.
+                        </p>
                 @else
-                    <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                        <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
-                            <thead>
-                                <tr>
-                                    <th class="w-16"></th>
-                                    <th>Module</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($allModules as $mod)
-                                    <tr>
-                                        <td>
-                                            <label class="kt-label flex items-center justify-center mb-0">
-                                                <input type="checkbox"
-                                                       class="kt-switch kt-switch-sm"
-                                                       data-checkbox-group="module_ids[]"
-                                                       name="module_ids[]"
-                                                       value="{{ $mod->id }}"
-                                                       {{ in_array((int) $mod->id, $selectedModuleIds, true) ? 'checked' : '' }}>
-                                            </label>
-                                        </td>
-                                        <td class="font-medium">{{ $mod->display_name }} <span class="text-muted-foreground text-xs">({{ $mod->name }})</span></td>
-                                        <td>
-                                            @if($mod->installed && $mod->active)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
-                                            @elseif($mod->installed)
-                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Geïnstalleerd</span>
-                                            @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-outline">Niet geïnstalleerd</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        @foreach($allModules as $mod)
+                            <label class="flex items-center gap-3 rounded-xl border border-input bg-muted/15 px-4 py-3.5 cursor-pointer min-w-0">
+                                <input type="checkbox"
+                                       class="kt-switch kt-switch-sm shrink-0"
+                                       data-checkbox-group="module_ids[]"
+                                       name="module_ids[]"
+                                       value="{{ $mod->id }}"
+                                       {{ in_array((int) $mod->id, $selectedModuleIds, true) ? 'checked' : '' }}>
+                                <span class="flex flex-col gap-1 min-w-0 flex-1">
+                                    <span class="font-semibold text-sm text-foreground leading-snug">{{ $mod->display_name }}</span>
+                                    <span class="text-xs text-secondary-foreground">{{ $mod->name }}</span>
+                                    @if($mod->installed && $mod->active)
+                                        <span class="kt-badge kt-badge-sm kt-badge-success w-fit">Actief</span>
+                                    @elseif($mod->installed)
+                                        <span class="kt-badge kt-badge-sm kt-badge-warning w-fit">Geïnstalleerd</span>
+                                    @else
+                                        <span class="kt-badge kt-badge-sm kt-badge-outline w-fit">Niet geïnstalleerd</span>
+                                    @endif
+                                </span>
+                            </label>
+                        @endforeach
                     </div>
-                    <div id="module-validation-wrapper" class="hidden px-6 pb-4">
-                        <div class="field-feedback text-xs text-destructive mt-1 whitespace-nowrap" data-field="module_ids[]">
+                    <div id="module-validation-wrapper" class="hidden">
+                        <div class="field-feedback text-xs text-destructive mt-1" data-field="module_ids[]">
                             Selecteer minimaal één module.
                         </div>
                     </div>
                     @error('module_ids')
-                        <div class="px-6 pb-4 text-xs text-destructive">{{ $message }}</div>
+                        <div class="text-xs text-destructive">{{ $message }}</div>
                     @enderror
                     @if($errors->has('module_ids.*'))
-                        <div class="px-6 pb-4 text-xs text-destructive">{{ $errors->first('module_ids.*') }}</div>
+                        <div class="text-xs text-destructive">{{ $errors->first('module_ids.*') }}</div>
                     @endif
                 @endif
+                </div>
             </div>
             @endcan
         </div>
 
-        <div class="flex items-center justify-end gap-2.5 mt-5">
+        <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
             <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-cross me-2"></i>
                 Annuleren
@@ -600,39 +590,14 @@
 
 @push('styles')
 <style>
-    /* Remove all borders between table rows in edit forms */
-    .kt-table-border-dashed tbody tr {
-        border-bottom: none !important;
+    #company-modules label:has(.kt-switch) {
+        cursor: pointer;
     }
-    /* Uniform row height for all table rows */
-    .kt-table-border-dashed tbody tr,
-    .kt-table-border-dashed tbody tr td {
-        height: auto;
-        min-height: 48px;
-    }
-    .kt-table-border-dashed tbody tr td {
-        padding-top: 12px;
-        padding-bottom: 12px;
-        vertical-align: middle;
-    }
-    .kt-table-border-dashed tbody tr td.align-top {
-        vertical-align: top !important;
-        padding-top: 18px;
-    }
-    /* Ensure kt-switch checkboxes are clickable */
-    .kt-switch {
+    #company-modules .kt-switch {
         pointer-events: auto !important;
         z-index: 1;
         position: relative;
     }
-    .kt-label {
-        cursor: pointer;
-    }
-    .wizard-onboarding-form-table tbody tr { border-bottom: none !important; }
-    .wizard-onboarding-form-table tbody tr,
-    .wizard-onboarding-form-table tbody tr td { height: auto; min-height: 48px; }
-    .wizard-onboarding-form-table tbody tr td { padding-top: 12px; padding-bottom: 12px; vertical-align: middle; }
-    .wizard-onboarding-form-table tbody tr td.align-top { vertical-align: top !important; padding-top: 18px; }
 </style>
 @endpush
 

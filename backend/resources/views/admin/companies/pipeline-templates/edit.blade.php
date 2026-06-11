@@ -111,7 +111,7 @@
                                                            class="kt-switch kt-switch-sm"
                                                            {{ $isOptional ? 'checked' : '' }}
                                                            {{ $isEnabled ? '' : 'disabled' }}>
-                                                    <label class="text-sm text-muted-foreground">Optioneel</label>
+                                                    <label class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Optioneel</label>
                                                 </div>
                                             </div>
                                         </div>

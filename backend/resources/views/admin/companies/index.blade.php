@@ -121,7 +121,7 @@
                                        name="search" 
                                        value="{{ request('search') }}"
                                        id="search-input"
-                                       data-kt-datatable-search="#companies_table"/>
+/>
                             </label>
                         </form>
                     </div>
@@ -193,12 +193,12 @@
             
             <div class="kt-card-content">
                 @if($companies->count() > 0)
-                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="companies_table">
-                        <div class="kt-scrollable-x-auto">
-                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="companies_table" data-admin-datatable-label="bedrijven">
+                        <div class="kt-scrollable-x-auto min-w-0">
+                            <table class="kt-table kt-table-border admin-fluid-table w-full">
                             <thead>
                                 <tr>
-                                    <th class="min-w-[250px]">
+                                    <th data-label="Bedrijf">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Bedrijf</span>
                                             <span class="kt-table-col-sort">
@@ -207,25 +207,25 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[200px]">
+                                    <th data-label="Contact">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Contact</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Locatie">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Locatie</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[120px]">
+                                    <th data-label="Type">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Type</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[100px]">
+                                    <th data-label="Status">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Status</span>
                                             <span class="kt-table-col-sort">
@@ -234,7 +234,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]">
+                                    <th data-label="Aangemaakt">
                                         <span class="kt-table-col">
                                             <span class="kt-table-col-label">Aangemaakt</span>
                                             <span class="kt-table-col-sort">
@@ -243,7 +243,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="text-center" data-label="Acties">Acties</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -301,7 +301,7 @@
                                         <td class="text-foreground font-normal">
                                             <span class="text-sm">{{ $company->created_at?->format('d-m-Y') ?? '—' }}</span>
                                         </td>
-                                        <td class="w-[60px]" onclick="event.stopPropagation();">
+                                        <td class="text-center" onclick="event.stopPropagation();">
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                                                     <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
@@ -391,19 +391,17 @@
                         </div>
                     
                     <!-- Pagination -->
-                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                        <div class="flex items-center gap-2 order-2 md:order-1">
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
+                        <div class="admin-datatable-footer__perpage flex items-center gap-2">
                             Toon
-                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
                             per pagina
                         </div>
-                        <div class="flex items-center gap-4 order-1 md:order-2">
-                            <span data-kt-datatable-info="true">
-                            </span>
-                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
-                            </div>
+                        <div class="admin-datatable-footer__pagination">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
                         </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
                     </div>
                     </div>
                 @else
@@ -417,12 +415,52 @@
     </div>
 </div>
 
+@push('styles')
+<style>
+    #content #companies_table .admin-fluid-table th:nth-child(1),
+    #content #companies_table .admin-fluid-table td:nth-child(1) {
+        width: 18%;
+    }
+
+    #content #companies_table .admin-fluid-table th:nth-child(2),
+    #content #companies_table .admin-fluid-table td:nth-child(2) {
+        width: 24%;
+    }
+
+    #content #companies_table .admin-fluid-table th:nth-child(3),
+    #content #companies_table .admin-fluid-table td:nth-child(3) {
+        width: 14%;
+    }
+
+    #content #companies_table .admin-fluid-table th:nth-child(4),
+    #content #companies_table .admin-fluid-table td:nth-child(4) {
+        width: 14%;
+    }
+
+    #content #companies_table .admin-fluid-table th:nth-child(5),
+    #content #companies_table .admin-fluid-table td:nth-child(5) {
+        width: 10%;
+    }
+
+    #content #companies_table .admin-fluid-table th:nth-child(6),
+    #content #companies_table .admin-fluid-table td:nth-child(6) {
+        width: 12%;
+    }
+
+    #content #companies_table .admin-fluid-table th:last-child,
+    #content #companies_table .admin-fluid-table td:last-child {
+        width: 3.5rem;
+        white-space: nowrap;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Replace "of" with "van" in pagination info
         function replaceOfWithVan() {
-            const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+            const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
             }
@@ -432,7 +470,7 @@
         replaceOfWithVan();
         
         // Watch for changes in the info span
-        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
         if (infoSpan) {
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {

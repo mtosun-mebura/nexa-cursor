@@ -5,12 +5,149 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Models\Notification;
+use App\Models\User;
+use App\Services\ModuleDatabaseService;
+use App\Support\ModuleSchemaAvailability;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class AdminNotificationController extends Controller
 {
     use TenantFilter;
+
+    protected function skillmatchingTablesAvailable(?int $companyId = null): bool
+    {
+        if ($companyId !== null && $companyId <= 0) {
+            return false;
+        }
+
+        if (! ModuleSchemaAvailability::matchesTableExists()) {
+            return false;
+        }
+
+        if ($companyId !== null) {
+            $company = \App\Models\Company::find($companyId);
+            if (! $company || ! $company->hasSkillmatchingModule()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function jobMatchQueryBuilder(): Builder
+    {
+        $dbService = app(ModuleDatabaseService::class);
+        if ($dbService->supportsModuleDatabases()) {
+            $dbService->ensureModuleStorageReady('skillmatching');
+            $conn = $dbService->getModuleConnectionName('skillmatching');
+
+            return \App\Models\JobMatch::on($conn)->newQuery();
+        }
+
+        return \App\Models\JobMatch::query();
+    }
+
+    protected function companyMatchesForNotifications(?int $companyId): Collection
+    {
+        if ($companyId === null || $companyId <= 0 || ! $this->skillmatchingTablesAvailable($companyId)) {
+            return collect();
+        }
+
+        try {
+            return $this->jobMatchQueryBuilder()->whereHas('vacancy', function ($vq) use ($companyId) {
+                $vq->where('company_id', $companyId);
+            })->with(['vacancy', 'candidate'])->get();
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), 'does not exist')) {
+                return collect();
+            }
+
+            throw $e;
+        }
+    }
+
+    protected function userHasCompanyMatches(\App\Models\User $user, ?int $companyId): bool
+    {
+        if ($companyId === null || ! $this->skillmatchingTablesAvailable($companyId)) {
+            return false;
+        }
+
+        try {
+            $candidate = \App\Models\Candidate::where('email', $user->email)->first();
+            if (! $candidate) {
+                return false;
+            }
+
+            return $this->jobMatchQueryBuilder()->whereHas('vacancy', function ($vq) use ($companyId) {
+                $vq->where('company_id', $companyId);
+            })->where('candidate_id', $candidate->id)->exists();
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), 'does not exist')) {
+                return false;
+            }
+
+            throw $e;
+        }
+    }
+
+    protected function findJobMatchForCandidate(?int $companyId, int $candidateId): ?\App\Models\JobMatch
+    {
+        if ($companyId === null || ! $this->skillmatchingTablesAvailable($companyId)) {
+            return null;
+        }
+
+        try {
+            return $this->jobMatchQueryBuilder()->whereHas('vacancy', function ($vq) use ($companyId) {
+                $vq->where('company_id', $companyId);
+            })->where('candidate_id', $candidateId)->orderBy('created_at', 'desc')->first();
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), 'does not exist')) {
+                return null;
+            }
+
+            throw $e;
+        }
+    }
+
+    protected function requireNotificationTenantOrRedirect(): ?\Illuminate\Http\RedirectResponse
+    {
+        if ($this->getTenantId() !== null) {
+            return null;
+        }
+
+        $message = auth()->user()->hasRole('super-admin')
+            ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk om notificaties te beheren.'
+            : 'Geen bedrijf gekoppeld aan dit account.';
+
+        return redirect()->route('admin.notifications.index')->with('error', $message);
+    }
+
+    protected function companyUsersForNotifications(int $companyId): Collection
+    {
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId($companyId);
+
+        try {
+            return User::query()
+                ->where('company_id', $companyId)
+                ->where('id', '!=', auth()->id())
+                ->whereDoesntHave('roles', function (Builder $q) {
+                    $q->whereIn('name', ['super-admin', 'candidate']);
+                })
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->get()
+                ->reject(fn (User $user) => $user->isSuperAdmin())
+                ->values();
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+        }
+    }
     
     public function index(Request $request)
     {
@@ -130,24 +267,18 @@ class AdminNotificationController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-notifications')) {
             abort(403, 'Je hebt geen rechten om notificaties aan te maken.');
         }
+
+        if ($redirect = $this->requireNotificationTenantOrRedirect()) {
+            return $redirect;
+        }
         
-        $companyId = $this->getTenantId();
+        $companyId = (int) $this->getTenantId();
         
-        // Get backend users from the same company
-        $backendUsers = \App\Models\User::where('company_id', $companyId)
-            ->where('id', '!=', auth()->id())
-            ->whereHas('roles', function($q) {
-                $q->where('name', '!=', 'candidate');
-            })
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get();
+        // Alle backend-gebruikers van dit bedrijf (Spatie team-context voor rollen)
+        $backendUsers = $this->companyUsersForNotifications($companyId);
         
         // Get candidates who have applied to vacancies of this company
-        // Get matches with vacancy information
-        $matches = \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
-            $vq->where('company_id', $companyId);
-        })->with(['vacancy', 'candidate'])->get();
+        $matches = $this->companyMatchesForNotifications($companyId);
         
         \Log::info('Notification create - Matches found', [
             'company_id' => $companyId,
@@ -164,9 +295,11 @@ class AdminNotificationController extends Controller
         ]);
         
         // Get candidates directly from candidates table
-        $candidatesFromTable = \App\Models\Candidate::whereIn('id', $candidateIds)
-            ->whereNotNull('email')
-            ->get();
+        $candidatesFromTable = $this->skillmatchingTablesAvailable($companyId)
+            ? \App\Models\Candidate::whereIn('id', $candidateIds)
+                ->whereNotNull('email')
+                ->get()
+            : collect();
         
         \Log::info('Notification create - Candidates from table', [
             'candidates_count' => $candidatesFromTable->count(),
@@ -342,6 +475,10 @@ class AdminNotificationController extends Controller
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-notifications')) {
             abort(403, 'Je hebt geen rechten om notificaties aan te maken.');
         }
+
+        if ($redirect = $this->requireNotificationTenantOrRedirect()) {
+            return $redirect;
+        }
         
         $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -386,7 +523,7 @@ class AdminNotificationController extends Controller
 
         // Check if user belongs to the same company or is a candidate with matches
         $user = \App\Models\User::find($request->user_id);
-        $companyId = $this->getTenantId();
+        $companyId = (int) $this->getTenantId();
         
         if (!$user) {
             abort(404, 'Gebruiker niet gevonden.');
@@ -396,18 +533,14 @@ class AdminNotificationController extends Controller
         $isCompanyUser = $user->company_id === $companyId;
         
         // Check if user is a candidate with matches - find candidate by email
-        $candidate = \App\Models\Candidate::where('email', $user->email)->first();
-        $isCandidateWithMatches = $user->hasRole('candidate') && $candidate && 
-            \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
-                $vq->where('company_id', $companyId);
-            })->where('candidate_id', $candidate->id)->exists();
+        $isCandidateWithMatches = $user->hasRole('candidate') && $this->userHasCompanyMatches($user, $companyId);
         
         if (!$isCompanyUser && !$isCandidateWithMatches) {
             abort(403, 'Je kunt alleen notificaties maken voor gebruikers in je eigen bedrijf of kandidaten die hebben gesolliciteerd op je vacatures.');
         }
 
         $data = $request->except(['file', '_token', 'scheduled_time']);
-        $data['company_id'] = $this->getTenantId();
+        $data['company_id'] = $companyId;
         
         // Handle scheduled_at - use hidden input value if it contains date and time combined
         // Otherwise combine scheduled_at date and scheduled_time
@@ -453,17 +586,14 @@ class AdminNotificationController extends Controller
         
         // If this is an interview notification for a candidate, try to find and store match_id
         // Also set requires_response to true for interview notifications to candidates
-        if ($data['type'] === 'interview' && $user->hasRole('candidate')) {
+        if ($data['type'] === 'interview' && $user->hasRole('candidate') && $this->skillmatchingTablesAvailable($companyId)) {
             // Set requires_response to true for interview notifications to candidates
             $data['requires_response'] = true;
             
             $candidate = \App\Models\Candidate::where('email', $user->email)->first();
             if ($candidate) {
-                // Find the match for this candidate and company
-                $match = \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
-                    $vq->where('company_id', $companyId);
-                })->where('candidate_id', $candidate->id)->orderBy('created_at', 'desc')->first();
-                
+                $match = $this->findJobMatchForCandidate($companyId, $candidate->id);
+
                 if ($match) {
                     $notificationData['match_id'] = $match->id;
                 }
@@ -542,24 +672,18 @@ class AdminNotificationController extends Controller
         if (!$this->canAccessResource($notification)) {
             abort(403, 'Je hebt geen toegang tot deze notificatie.');
         }
+
+        if ($redirect = $this->requireNotificationTenantOrRedirect()) {
+            return $redirect;
+        }
         
-        $companyId = $this->getTenantId();
+        $companyId = (int) $this->getTenantId();
         
-        // Get backend users from the same company
-        $backendUsers = \App\Models\User::where('company_id', $companyId)
-            ->where('id', '!=', auth()->id())
-            ->whereHas('roles', function($q) {
-                $q->where('name', '!=', 'candidate');
-            })
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get();
+        // Alle backend-gebruikers van dit bedrijf (Spatie team-context voor rollen)
+        $backendUsers = $this->companyUsersForNotifications($companyId);
         
         // Get candidates who have applied to vacancies of this company
-        // Get matches with vacancy information
-        $matches = \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
-            $vq->where('company_id', $companyId);
-        })->with(['vacancy', 'candidate'])->get();
+        $matches = $this->companyMatchesForNotifications($companyId);
         
         \Log::info('Notification create - Matches found', [
             'company_id' => $companyId,
@@ -576,9 +700,11 @@ class AdminNotificationController extends Controller
         ]);
         
         // Get candidates directly from candidates table
-        $candidatesFromTable = \App\Models\Candidate::whereIn('id', $candidateIds)
-            ->whereNotNull('email')
-            ->get();
+        $candidatesFromTable = $this->skillmatchingTablesAvailable($companyId)
+            ? \App\Models\Candidate::whereIn('id', $candidateIds)
+                ->whereNotNull('email')
+                ->get()
+            : collect();
         
         \Log::info('Notification create - Candidates from table', [
             'candidates_count' => $candidatesFromTable->count(),
@@ -759,6 +885,10 @@ class AdminNotificationController extends Controller
         if (!$this->canAccessResource($notification)) {
             abort(403, 'Je hebt geen toegang tot deze notificatie.');
         }
+
+        if ($redirect = $this->requireNotificationTenantOrRedirect()) {
+            return $redirect;
+        }
         
         $request->validate([
             'user_id' => 'required|exists:users,id',
@@ -803,7 +933,7 @@ class AdminNotificationController extends Controller
 
         // Check if user belongs to the same company or is a candidate with matches
         $user = \App\Models\User::find($request->user_id);
-        $companyId = $this->getTenantId();
+        $companyId = (int) $this->getTenantId();
         
         if (!$user) {
             abort(404, 'Gebruiker niet gevonden.');
@@ -813,11 +943,7 @@ class AdminNotificationController extends Controller
         $isCompanyUser = $user->company_id === $companyId;
         
         // Check if user is a candidate with matches - find candidate by email
-        $candidate = \App\Models\Candidate::where('email', $user->email)->first();
-        $isCandidateWithMatches = $user->hasRole('candidate') && $candidate && 
-            \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
-                $vq->where('company_id', $companyId);
-            })->where('candidate_id', $candidate->id)->exists();
+        $isCandidateWithMatches = $user->hasRole('candidate') && $this->userHasCompanyMatches($user, $companyId);
         
         if (!$isCompanyUser && !$isCandidateWithMatches) {
             abort(403, 'Je kunt alleen notificaties bewerken voor gebruikers in je eigen bedrijf of kandidaten die hebben gesolliciteerd op je vacatures.');
@@ -1458,10 +1584,16 @@ class AdminNotificationController extends Controller
             // Try to get vacancy title from match_id
             $vacancyTitle = null;
             $matchIdFromData = $notificationData['match_id'] ?? null;
-            if ($matchIdFromData) {
-                $match = \App\Models\JobMatch::with('vacancy')->find($matchIdFromData);
-                if ($match && $match->vacancy) {
-                    $vacancyTitle = $match->vacancy->title;
+            if ($matchIdFromData && $this->skillmatchingTablesAvailable($companyId)) {
+                try {
+                    $match = $this->jobMatchQueryBuilder()->with('vacancy')->find($matchIdFromData);
+                    if ($match && $match->vacancy) {
+                        $vacancyTitle = $match->vacancy->title;
+                    }
+                } catch (\Illuminate\Database\QueryException $e) {
+                    if (! str_contains($e->getMessage(), 'does not exist')) {
+                        throw $e;
+                    }
                 }
             }
             
@@ -1581,10 +1713,7 @@ class AdminNotificationController extends Controller
                         // Try to find candidate by email
                         $candidate = \App\Models\Candidate::where('email', $responder->email)->first();
                         if ($candidate) {
-                            // Find the match for this candidate and company
-                            $match = \App\Models\JobMatch::whereHas('vacancy', function($vq) use ($companyId) {
-                                $vq->where('company_id', $companyId);
-                            })->where('candidate_id', $candidate->id)->orderBy('created_at', 'desc')->first();
+                            $match = $this->findJobMatchForCandidate($companyId, $candidate->id);
                             
                             if ($match) {
                                 $matchId = $match->id;

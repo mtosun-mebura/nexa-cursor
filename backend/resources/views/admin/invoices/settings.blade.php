@@ -192,6 +192,38 @@
                 </div>
             </div>
 
+            <!-- Betaaltermijntekst -->
+            <div class="kt-card min-w-full">
+                <div class="kt-card-header">
+                    <h3 class="kt-card-title">
+                        Betaaltermijntekst
+                    </h3>
+                </div>
+                <div class="kt-card-table kt-scrollable-x-auto pb-3">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                        <tr>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">
+                                Tekst onderaan factuur
+                            </td>
+                            <td class="min-w-48 w-full">
+                                <textarea class="kt-input @error('invoice_payment_terms_text') border-destructive @enderror"
+                                          name="invoice_payment_terms_text"
+                                          id="invoice_payment_terms_text"
+                                          rows="4"
+                                          placeholder="{{ \App\Models\InvoiceSetting::DEFAULT_PAYMENT_TERMS_TEXT }}">{{ old('invoice_payment_terms_text', $settings->invoice_payment_terms_text) }}</textarea>
+                                <div class="text-xs text-muted-foreground mt-1">
+                                    Wordt onderaan de factuur-PDF getoond. Laat leeg voor de standaardtekst.
+                                    Gebruik <code>{dagen}</code> voor het aantal dagen en <code>{dagen_label}</code> voor &ldquo;dag&rdquo; of &ldquo;dagen&rdquo;.
+                                </div>
+                                @error('invoice_payment_terms_text')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
             <!-- Bedrijfsgegevens -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
@@ -206,6 +238,10 @@
                                 Bedrijf
                             </td>
                             <td class="min-w-48 w-full">
+                                @if(!empty($scopedTenantId))
+                                    <input type="hidden" name="company_id" id="company_id" value="{{ $scopedTenantId }}">
+                                    <p class="text-sm text-mono py-2">{{ $companies->firstWhere('id', $scopedTenantId)?->name ?? 'Geselecteerde tenant' }}</p>
+                                @else
                                 <div class="kt-select-wrapper">
                                     <select class="kt-select @error('company_id') border-destructive @enderror" 
                                             name="company_id" 
@@ -233,6 +269,7 @@
                                         @endforeach
                                     </select>
                                 </div>
+                                @endif
                                 @error('company_id')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -401,6 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Companies data from PHP
     const companiesData = @json($companiesData);
+    const invoiceSettingsByCompany = @json($invoiceSettingsByCompany ?? []);
     
     const companySelect = document.getElementById('company_id');
     const locationSelect = document.getElementById('location_id');
@@ -561,6 +599,29 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('company_email').value = '';
         document.getElementById('company_phone').value = '';
     }
+
+    function applyInvoiceSettingsForCompany(companyId) {
+        const footerField = document.getElementById('invoice_footer_text');
+        const paymentTermsField = document.getElementById('invoice_payment_terms_text');
+        const bankField = document.getElementById('bank_account');
+        if (!footerField || !paymentTermsField || !bankField) {
+            return;
+        }
+
+        const key = companyId ? String(companyId) : 'global';
+        const emptyRow = {
+            invoice_footer_text: '',
+            invoice_payment_terms_text: '',
+            bank_account: '',
+        };
+        const row = companyId
+            ? (invoiceSettingsByCompany[key] || emptyRow)
+            : (invoiceSettingsByCompany.global || emptyRow);
+
+        footerField.value = row.invoice_footer_text || '';
+        paymentTermsField.value = row.invoice_payment_terms_text || '';
+        bankField.value = row.bank_account || '';
+    }
     
     // Handle company selection
     if (companySelect) {
@@ -580,8 +641,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     locationRow.style.display = 'none';
                 }
                 clearFormFields();
+                applyInvoiceSettingsForCompany('');
                 return;
             }
+
+            applyInvoiceSettingsForCompany(companyId);
             
             const company = companiesData[companyId];
             if (!company) {

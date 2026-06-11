@@ -3,7 +3,7 @@
 @section('title', 'Pagina aanmaken')
 
 @section('content')
-<div class="kt-container-fixed">
+<div class="kt-container-fixed min-w-0">
     <p class="text-sm text-muted-foreground mb-5">Kies <strong>bij welke module</strong> deze pagina hoort. Kernpagina's (geen module) gebruik je voor Home, Over ons, Contact en custom pagina's. Pagina's worden altijd getoond in het actieve thema (instelbaar onder Frontend Thema's).</p>
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
@@ -53,10 +53,9 @@
         <div class="grid gap-5 lg:gap-7.5">
             <x-error-card :errors="$errors" />
 
-            <div class="kt-card min-w-full">
-                {{-- Zie edit.blade: één regel; !flex-nowrap overschrijft theme flex-wrap op .kt-card-header. --}}
-                <div class="kt-card-header !flex-nowrap flex items-center justify-between gap-3 w-full min-w-0">
-                    <h3 class="kt-card-title shrink-0 truncate">
+            <div class="kt-card w-full min-w-0">
+                <div class="kt-card-header website-page-info-header flex flex-wrap items-center justify-between gap-3 w-full min-w-0 pt-4 pb-4">
+                    <h3 class="kt-card-title w-full sm:w-auto shrink-0">
                         Pagina-informatie
                     </h3>
                     @php
@@ -69,8 +68,8 @@
                             $__menuOn = true;
                         }
                     @endphp
-                    <div class="flex flex-1 flex-nowrap items-center justify-center gap-x-2 min-w-0 px-2">
-                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
+                    <div class="flex flex-wrap flex-1 items-center justify-start sm:justify-center gap-x-2 gap-y-2 min-w-0 sm:px-2 w-full sm:w-auto">
+                        <label class="kt-label inline-flex flex-wrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
                             <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
                             <div class="relative w-[120px] max-w-full shrink-0">
                                 <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-full" autocomplete="off">
@@ -80,8 +79,9 @@
                             </div>
                         </label>
                     </div>
-                    <div class="flex flex-nowrap items-center gap-2 shrink-0">
-                        <label class="kt-label inline-flex flex-nowrap items-center gap-2 shrink-0" for="is_active">
+                    <div class="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-start sm:justify-end">
+                        @include('admin.website-pages.partials.website-page-seo-button')
+                        <label class="kt-label inline-flex flex-wrap items-center gap-2 shrink-0" for="is_active">
                             <input type="hidden" name="is_active" value="0">
                             <input type="checkbox"
                                    class="kt-switch kt-switch-sm shrink-0"
@@ -93,8 +93,13 @@
                         </label>
                     </div>
                 </div>
-                <div class="kt-card-table kt-scrollable-x-auto pb-3">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div id="website-page-seo-meta"
+                     class="hidden"
+                     data-generate-url="{{ route('admin.website-pages.generate-seo') }}"
+                     data-csrf="{{ csrf_token() }}"></div>
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
                                 Bij welke module hoort deze pagina? *
@@ -128,9 +133,7 @@
                                 Thema
                             </td>
                             <td>
-                                <input type="hidden" name="frontend_theme_id" id="frontend_theme_id_fixed" value="{{ $defaultTheme?->id ?? '' }}">
-                                <span class="inline-flex items-center rounded-md bg-orange-100 px-3 py-1.5 text-sm font-medium text-orange-900 border border-orange-200 dark:bg-orange-500/20 dark:text-orange-100 dark:border-orange-400/40">{{ $defaultTheme?->name ?? 'Geen thema actief' }}</span>
-                                <div class="text-xs text-muted-foreground mt-1">Pagina's worden altijd getoond in het actieve thema. Wijzig het thema onder Frontend Thema's.</div>
+                                @include('admin.website-pages.partials.theme-field')
                             </td>
                         </tr>
                         <tr id="page_type_row">
@@ -190,21 +193,7 @@
                                 @enderror
                             </td>
                         </tr>
-                        <tr>
-                            <td class="text-secondary-foreground font-normal">
-                                Meta-omschrijving
-                            </td>
-                            <td>
-                                <input type="text"
-                                       name="meta_description"
-                                       id="meta_description"
-                                       class="kt-input @error('meta_description') border-destructive @enderror"
-                                       value="{{ old('meta_description') }}">
-                                @error('meta_description')
-                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                                @enderror
-                            </td>
-                        </tr>
+                        @include('admin.website-pages.partials.website-page-seo-fields', ['metaDescriptionValue' => old('meta_description')])
                         <tr id="content_blocks_row" style="display: none;">
                             <td class="text-secondary-foreground font-normal align-top">
                                 Inhoud (blokken)
@@ -237,6 +226,7 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -247,8 +237,8 @@
                     ? \App\Models\WebsitePage::defaultHomeSectionsForTheme($createThemeSlug)
                     : \App\Models\WebsitePage::defaultPageSectionsForNonHome($createThemeSlug);
             @endphp
-            <div id="home_sections_card" class="kt-card" data-theme-name="{{ $defaultTheme->name ?? 'Metronic' }}">
-                <div class="kt-card-header flex items-center justify-between gap-2">
+            <div id="home_sections_card" class="kt-card w-full min-w-0" data-theme-name="{{ $defaultTheme->name ?? 'Metronic' }}">
+                <div class="kt-card-header website-page-sections-header flex flex-wrap items-center justify-between gap-2 min-w-0">
                     <h3 class="kt-card-title" id="home_sections_card_title">Pagina-secties ({{ $defaultTheme->name ?? 'Metronic' }} thema)</h3>
                     <div class="flex items-center gap-1 shrink-0">
                         <div class="relative" id="home-sections-add-wrap">
@@ -269,13 +259,13 @@
                         </button>
                     </div>
                 </div>
-                <div class="kt-card-table p-4">
+                <div class="kt-card-content p-3 sm:p-5 min-w-0">
                     <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor het gekozen thema ({{ $defaultTheme->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde en beschikbare secties hangen af van het thema.</p>
                     @include('admin.website-pages.partials.home-sections', ['homeSections' => $createHomeSections, 'themeSlug' => $createThemeSlug, 'isNonHomePage' => true, 'collapseSectionsByDefault' => true, 'emailTemplates' => $emailTemplates ?? collect(), 'websitePageCompanyId' => ! empty($wizardIndexQuery['wizard_company']) ? (int) $wizardIndexQuery['wizard_company'] : null])
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
                     Annuleren
@@ -337,17 +327,33 @@
     var homeSectionsCard = document.getElementById('home_sections_card');
     var contentBlocksRow = document.getElementById('content_blocks_row');
 
-    function updateForm() {
+    function syncThemeUiFromSelect() {
+        var themeSelect = document.getElementById('frontend_theme_id');
+        if (!themeSelect || themeSelect.tagName !== 'SELECT') return;
+        var opt = themeSelect.options[themeSelect.selectedIndex];
+        var themeName = opt ? opt.textContent.trim() : 'thema';
+        if (homeSectionsCard) {
+            homeSectionsCard.setAttribute('data-theme-name', themeName);
+        }
+        toggleHomeAndContentRows();
+    }
+
+    function syncModuleFieldsFromChoice(applyModuleThemeSuggestion) {
+        if (!moduleChoice) return;
         var choice = moduleChoice.value;
         var opt = moduleChoice.options[moduleChoice.selectedIndex];
         var themeId = opt ? opt.getAttribute('data-theme-id') : '';
         if (moduleNameHidden) moduleNameHidden.value = choice || '';
-        var themeSelect = document.getElementById('frontend_theme_id');
-        if (themeSelect && themeId) {
-            themeSelect.value = themeId;
+        if (applyModuleThemeSuggestion) {
+            var themeSelect = document.getElementById('frontend_theme_id');
+            if (themeSelect && themeSelect.tagName === 'SELECT' && themeId) {
+                themeSelect.value = themeId;
+            }
         }
+        syncThemeUiFromSelect();
         toggleHomeAndContentRows();
     }
+
     function toggleHomeAndContentRows() {
         var pt = pageTypeSelect ? pageTypeSelect.value : 'home';
         if (homeSectionsCard) homeSectionsCard.style.display = 'block';
@@ -361,9 +367,17 @@
             : 'Standaard tonen deze pagina\'s alleen een Hero-banner, footer en copyright. Voeg hieronder secties toe met de knop "Sectie toevoegen" of pas de Hero aan.';
     }
 
-    moduleChoice.addEventListener('change', updateForm);
+    if (moduleChoice) {
+        moduleChoice.addEventListener('change', function() {
+            syncModuleFieldsFromChoice(true);
+        });
+    }
     if (pageTypeSelect) pageTypeSelect.addEventListener('change', toggleHomeAndContentRows);
-    updateForm();
+    var themeSelectEl = document.getElementById('frontend_theme_id');
+    if (themeSelectEl && themeSelectEl.tagName === 'SELECT') {
+        themeSelectEl.addEventListener('change', syncThemeUiFromSelect);
+    }
+    syncModuleFieldsFromChoice(false);
 
     // Slug automatisch uit titel (bij intypen)
     var titleInput = document.getElementById('title');

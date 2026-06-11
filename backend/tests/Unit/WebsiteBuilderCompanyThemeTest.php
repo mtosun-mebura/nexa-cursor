@@ -67,6 +67,41 @@ class WebsiteBuilderCompanyThemeTest extends TestCase
         $this->assertSame($modern->id, $theme->id);
     }
 
+    public function test_get_theme_for_page_prefers_page_theme_over_company_default(): void
+    {
+        $modern = FrontendTheme::query()->create([
+            'slug' => 'modern-page-priority',
+            'name' => 'Modern',
+            'is_active' => true,
+        ]);
+        $atom = FrontendTheme::query()->create([
+            'slug' => 'atom-page-priority',
+            'name' => 'Atom',
+            'is_active' => true,
+        ]);
+
+        $company = Company::query()->create([
+            'name' => 'Tenant page theme BV',
+            'frontend_theme_id' => $modern->id,
+        ]);
+
+        $page = WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'company_id' => $company->id,
+            'frontend_theme_id' => $atom->id,
+            'is_active' => true,
+        ]);
+
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $theme = app(WebsiteBuilderService::class)->getThemeForPage($page);
+
+        $this->assertNotNull($theme);
+        $this->assertSame($atom->id, $theme->id);
+    }
+
     public function test_get_home_page_skips_inactive_tenant_home(): void
     {
         $modern = FrontendTheme::query()->create([

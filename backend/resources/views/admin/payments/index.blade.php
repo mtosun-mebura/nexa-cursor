@@ -10,15 +10,19 @@
                 Betalingen Overzicht
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Per tenant met actieve betaalmodule (Nexa Taxi, Skillmatching), op basis van betalingsstatus
+                @if(!empty($tenantId) && count($tenantRows ?? []) === 1)
+                    Gegevens voor {{ $tenantRows[0]['company']->name ?? 'geselecteerde tenant' }}
+                @else
+                    Per tenant met actieve betaalmodule (Nexa Taxi, Skillmatching), op basis van betalingsstatus
+                @endif
             </div>
         </div>
-        <div class="flex items-center gap-2.5">
-            <a class="kt-btn kt-btn-outline" href="{{ route('admin.payments.openstaand') }}">
+        <div class="admin-page-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0 lg:w-auto">
+            <a class="kt-btn kt-btn-outline min-w-0" href="{{ route('admin.payments.openstaand') }}">
                 <i class="ki-filled ki-time text-base me-2"></i>
                 Openstaande Betalingen
             </a>
-            <a class="kt-btn kt-btn-primary" href="{{ route('admin.payments.voldaan') }}">
+            <a class="kt-btn kt-btn-primary min-w-0" href="{{ route('admin.payments.voldaan') }}">
                 <i class="ki-filled ki-check-circle text-base me-2"></i>
                 Voldane Betalingen
             </a>

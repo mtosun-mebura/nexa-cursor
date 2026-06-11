@@ -248,7 +248,7 @@
     @endif
 
     @if($base === 'carousel' && $v(''))
-        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'carouselId' => 'modern-home-' . preg_replace('/[^a-z0-9_-]/i', '', $sectionKey), 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5)])
+        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'carouselId' => 'modern-home-' . preg_replace('/[^a-z0-9_-]/i', '', $sectionKey), 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5), 'maxHeightPercent' => (int) ($sectionData['max_height_percent'] ?? 0)])
     @endif
 
     @if($base === 'email_template' && $v(''))

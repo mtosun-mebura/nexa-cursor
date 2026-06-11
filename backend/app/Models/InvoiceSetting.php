@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class InvoiceSetting extends Model
 {
+    public const DEFAULT_PAYMENT_TERMS_TEXT = 'Betaaltermijn: deze factuur dient binnen {dagen} {dagen_label} na factuurdatum te worden betaald.';
+
     protected $fillable = [
         'company_id',
         'location_id',
@@ -26,6 +28,7 @@ class InvoiceSetting extends Model
         'default_amount',
         'payment_terms_days',
         'invoice_footer_text',
+        'invoice_payment_terms_text',
         'logo_path',
     ];
 
@@ -48,6 +51,45 @@ class InvoiceSetting extends Model
         $stored = (int) ($this->current_year ?: $calendarYear);
 
         return max($stored, $calendarYear);
+    }
+
+    public static function invoiceFooterTextForCompany(?int $companyId): ?string
+    {
+        $companyId = $companyId && $companyId > 0 ? $companyId : null;
+        $row = static::query()
+            ->when(
+                $companyId !== null,
+                fn ($q) => $q->where('company_id', $companyId),
+                fn ($q) => $q->whereNull('company_id')
+            )
+            ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $text = trim((string) ($row->invoice_footer_text ?? ''));
+
+        return $text !== '' ? $text : null;
+    }
+
+    public static function invoicePaymentTermsTextForInvoice(Invoice $invoice): string
+    {
+        $companyId = (int) ($invoice->company_id ?? 0);
+        $settings = static::getSettingsForCompany($companyId > 0 ? $companyId : null);
+        $template = trim((string) ($settings->invoice_payment_terms_text ?? ''));
+        if ($template === '') {
+            $template = static::DEFAULT_PAYMENT_TERMS_TEXT;
+        }
+
+        $days = static::paymentTermsDaysForInvoice($invoice);
+        $daysLabel = $days === 1 ? 'dag' : 'dagen';
+
+        return str_replace(
+            ['{dagen}', '{dagen_label}'],
+            [(string) $days, $daysLabel],
+            $template
+        );
     }
 
     public static function getSettingsForCompany(?int $companyId): self
@@ -83,7 +125,7 @@ class InvoiceSetting extends Model
                 'invoice_number_prefix', 'invoice_number_format', 'next_invoice_number', 'current_year',
                 'default_tax_rate', 'payment_terms_days', 'company_name', 'company_address', 'company_city',
                 'company_postal_code', 'company_country', 'company_vat_number', 'company_email',
-                'company_phone', 'bank_account', 'invoice_footer_text',
+                'company_phone', 'bank_account', 'invoice_payment_terms_text',
             ] as $field) {
                 if ($global->{$field} !== null) {
                     $defaults[$field] = $global->{$field};

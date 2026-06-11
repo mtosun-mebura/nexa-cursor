@@ -26,7 +26,7 @@ class InvoicePdfService
     public function renderPdfBytes(Invoice $invoice): string
     {
         $company = $invoice->company ?? Company::find($invoice->company_id);
-        $details = is_array($invoice->company_details) ? $invoice->company_details : [];
+        $details = $this->resolvePdfDetails($invoice);
 
         return Pdf::loadView('invoices.pdf.document', [
             'invoice' => $invoice,
@@ -34,8 +34,26 @@ class InvoicePdfService
             'details' => $details,
             'logoDataUri' => $this->companyLogoDataUri($company),
             'lineItems' => $invoice->line_items ?? [],
-            'paymentTermsDays' => InvoiceSetting::paymentTermsDaysForInvoice($invoice),
+            'paymentTermsText' => InvoiceSetting::invoicePaymentTermsTextForInvoice($invoice),
         ])->setPaper('a4')->output();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function resolvePdfDetails(Invoice $invoice): array
+    {
+        $details = is_array($invoice->company_details) ? $invoice->company_details : [];
+        unset($details['footer_text']);
+
+        $footerText = InvoiceSetting::invoiceFooterTextForCompany(
+            (int) $invoice->company_id > 0 ? (int) $invoice->company_id : null
+        );
+        if ($footerText !== null) {
+            $details['footer_text'] = $footerText;
+        }
+
+        return $details;
     }
 
     protected function companyLogoDataUri(?Company $company): ?string

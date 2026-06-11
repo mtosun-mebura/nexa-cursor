@@ -250,7 +250,7 @@
 
     @if($base === 'carousel' && $v(''))
     <div class="w-full pt-8 md:pt-12">
-        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5)])
+        @include('frontend.website.partials.carousel', ['items' => $sectionData['items'] ?? [], 'intervalSeconds' => (int) ($sectionData['interval_seconds'] ?? 5), 'maxHeightPercent' => (int) ($sectionData['max_height_percent'] ?? 0)])
     </div>
     @endif
     @endif

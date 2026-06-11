@@ -3,8 +3,11 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Services\EnvService;
 use App\Services\PaymentProviderService;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 
 /**
  * Chauffeur-dispatch instellingen (per tenant via GeneralSetting, fallback naar config/.env).
@@ -12,6 +15,8 @@ use App\Services\PaymentProviderService;
 class TaxiDispatchSettingsService
 {
     public const KEY_OFFER_TTL_SECONDS = 'taxi_dispatch_offer_ttl_seconds';
+
+    public const KEY_PAST_PICKUP_GRACE_HOURS = 'taxi_dispatch_past_pickup_grace_hours';
 
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
@@ -59,6 +64,10 @@ class TaxiDispatchSettingsService
 
     public const MAX_TTL_SECONDS = 3600;
 
+    public const MIN_PAST_PICKUP_GRACE_HOURS = 0;
+
+    public const MAX_PAST_PICKUP_GRACE_HOURS = 72;
+
     public function __construct(
         protected EnvService $env,
         protected PaymentProviderService $paymentProviders
@@ -88,6 +97,59 @@ class TaxiDispatchSettingsService
     public function clampTtl(int $seconds): int
     {
         return max(self::MIN_TTL_SECONDS, min(self::MAX_TTL_SECONDS, $seconds));
+    }
+
+    public function pastPickupGraceHours(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.past_pickup_grace_hours', 2);
+        $raw = GeneralSetting::get(self::KEY_PAST_PICKUP_GRACE_HOURS, null, $companyId);
+
+        if ($raw === null || $raw === '') {
+            return $this->clampPastPickupGraceHours($default);
+        }
+
+        return $this->clampPastPickupGraceHours((int) $raw);
+    }
+
+    public function setPastPickupGraceHours(int $hours, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_PAST_PICKUP_GRACE_HOURS,
+            (string) $this->clampPastPickupGraceHours($hours),
+            $companyId
+        );
+    }
+
+    public function clampPastPickupGraceHours(int $hours): int
+    {
+        return max(self::MIN_PAST_PICKUP_GRACE_HOURS, min(self::MAX_PAST_PICKUP_GRACE_HOURS, $hours));
+    }
+
+    /**
+     * Ritten met pickup_at vóór dit moment vallen uit de chauffeur-wachtrij.
+     */
+    public function pickupQueueCutoffAt(?int $companyId = null, ?CarbonInterface $now = null): CarbonInterface
+    {
+        $hours = $this->pastPickupGraceHours($companyId);
+        $base = $now ? Carbon::parse($now) : now();
+
+        return $base->copy()->subHours($hours);
+    }
+
+    /**
+     * Geaccepteerde rit is verlopen: ophaalmoment + acceptatietijd is voorbij zonder start.
+     */
+    public function scheduledRideIsOverdue(RideRequest $ride, ?int $companyId = null, ?CarbonInterface $now = null): bool
+    {
+        if (! $ride->pickup_at) {
+            return false;
+        }
+
+        $companyId = $companyId ?? (int) ($ride->company_id ?? 0);
+        $ttl = $this->offerTtlSeconds($companyId > 0 ? $companyId : null);
+        $base = $now ? Carbon::parse($now) : now();
+
+        return $ride->pickup_at->copy()->addSeconds($ttl)->lte($base);
     }
 
     public function bookingWhatsappEnabled(?int $companyId = null): bool

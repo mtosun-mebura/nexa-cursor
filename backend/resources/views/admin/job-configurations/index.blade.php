@@ -107,7 +107,7 @@
                                        name="search" 
                                        value="{{ request('search') }}"
                                        id="search-input"
-                                       data-kt-datatable-search="#configurations_table"/>
+/>
                             </label>
                         </form>
                     </div>
@@ -154,9 +154,9 @@
             
             <div class="kt-card-content p-0">
                 @if($configurations->count() > 0)
-                    <div class="grid" data-kt-datatable="true" data-kt-datatable-page-size="10" id="configurations_table">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="configurations_table" data-admin-datatable-label="configuraties">
                         <div class="kt-scrollable-x-auto" style="overflow-x: auto; overflow-y: visible;">
-                            <table class="kt-table table-auto kt-table-border" data-kt-datatable-table="true">
+                            <table class="kt-table table-auto kt-table-border">
                             <thead>
                                 <tr>
                                     @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-job-configurations'))
@@ -290,10 +290,10 @@
                         </div>
                     
                     <!-- Pagination -->
-                    <div class="kt-card-footer justify-center md:justify-between flex-col md:flex-row gap-5 text-secondary-foreground text-sm font-medium">
-                        <div class="flex items-center gap-2 order-2 md:order-1">
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
+                        <div class="admin-datatable-footer__perpage flex items-center gap-2">
                             Toon
-                            <select class="kt-select w-24" data-kt-datatable-size="true" data-kt-select="" name="perpage">
+                            <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                                 <option value="10" selected>10</option>
                                 <option value="25">25</option>
                                 <option value="50">50</option>
@@ -301,12 +301,10 @@
                             </select>
                             per pagina
                         </div>
-                        <div class="flex items-center gap-4 order-1 md:order-2">
-                            <span data-kt-datatable-info="true">
-                            </span>
-                            <div class="kt-datatable-pagination" data-kt-datatable-pagination="true">
-                            </div>
+                        <div class="admin-datatable-footer__pagination">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
                         </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
                     </div>
                     </div>
                 @else
@@ -337,13 +335,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Search form submit on Enter (only if not using KT Datatable search)
+    // Search is client-side via admin-client-datatable; Enter hoeft niet te submitten.
     const searchInput = document.getElementById('search-input');
-    if (searchInput && !searchInput.hasAttribute('data-kt-datatable-search')) {
+    if (searchInput) {
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                document.getElementById('search-form').submit();
             }
         });
     }
@@ -400,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Replace "of" with "van" in pagination info
     function replaceOfWithVan() {
-        const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+        const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
         if (infoSpan && infoSpan.textContent.includes(' of ')) {
             infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
         }
@@ -410,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
     replaceOfWithVan();
     
     // Watch for changes in the info span
-    const infoSpan = document.querySelector('[data-kt-datatable-info="true"]');
+    const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
     if (infoSpan) {
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {

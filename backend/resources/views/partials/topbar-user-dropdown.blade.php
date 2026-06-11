@@ -2,15 +2,17 @@
 @auth
 <div class="shrink-0" data-kt-dropdown="true" data-kt-dropdown-offset="10px, 10px" data-kt-dropdown-offset-rtl="-20px, 10px"
     data-kt-dropdown-placement="bottom-end" data-kt-dropdown-placement-rtl="bottom-start" data-kt-dropdown-trigger="click">
-    <div class="shrink-0 cursor-pointer" data-kt-dropdown-toggle="true">
+    <div class="shrink-0 cursor-pointer size-9 overflow-hidden rounded-full border-2 border-green-500" data-kt-dropdown-toggle="true">
         @if(auth()->user()->photo_blob)
-            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
+            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
+                data-user-avatar
+                class="h-full w-full object-cover"
                 src="{{ route('user.photo', auth()->id()) }}" />
         @else
-            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+            <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
+                data-user-avatar
                 @class([
-                    'size-9 shrink-0 rounded-full border-2 border-green-500 object-contain bg-black',
+                    'h-full w-full object-contain bg-black',
                     'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                 ])
                 src="{{ asset(config('nexa.default_user_avatar')) }}" />
@@ -18,18 +20,22 @@
     </div>
     <div class="kt-dropdown-menu w-[250px]" data-kt-dropdown-menu="true">
         <div class="flex items-start gap-2 px-2.5 py-1.5">
+            <div class="size-9 shrink-0 overflow-hidden rounded-full border-2 border-green-500">
             @if(auth()->user()->photo_blob)
-                <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
-                    class="size-9 shrink-0 rounded-full border-2 border-green-500 object-cover"
+                <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
+                    data-user-avatar
+                    class="h-full w-full object-cover"
                     src="{{ route('user.photo', auth()->id()) }}" />
             @else
-                <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}" 
+                <img alt="{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}"
+                    data-user-avatar
                     @class([
-                        'size-9 shrink-0 rounded-full border-2 border-green-500 object-contain bg-black',
+                        'h-full w-full object-contain bg-black',
                         'opacity-50' => auth()->user()->defaultAvatarShouldAppearTransparent(),
                     ])
                     src="{{ asset(config('nexa.default_user_avatar')) }}" />
             @endif
+            </div>
             <div class="flex flex-col gap-1.5">
                 <span class="text-sm font-semibold leading-none text-foreground">
                     {{ auth()->user()->first_name }} {{ auth()->user()->last_name }}

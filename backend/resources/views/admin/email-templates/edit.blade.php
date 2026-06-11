@@ -4,19 +4,15 @@
 
 @section('content')
 
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
-        <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono">
-                E-mail Template Bewerken
-            </h1>
-        </div>
-        <div class="flex items-center gap-2.5">
-            <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
-                <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
-            </a>
-        </div>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+        <h1 class="text-xl font-medium leading-none text-mono">
+            E-mail Template Bewerken
+        </h1>
+        <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline shrink-0">
+            <i class="ki-filled ki-arrow-left me-2"></i>
+            Terug
+        </a>
     </div>
 
     @if($errors->any())
@@ -30,17 +26,18 @@
     @endif
 
     <div class="grid gap-5 lg:gap-7.5">
-        <form action="{{ route('admin.email-templates.update', $emailTemplate) }}" method="POST" style="display: contents;" data-validate="true" novalidate>
+        <form id="email-template-form" action="{{ route('admin.email-templates.update', $emailTemplate) }}" method="POST" style="display: contents;" data-validate="true" novalidate>
             @csrf
             @method('PUT')
             @if(auth()->user()->hasRole('super-admin'))
             <!-- Bedrijf Selectie (alleen voor Super Admin) -->
-            <div class="kt-card">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Bedrijf</h5>
+                    <h5 class="kt-card-title mb-0">Bedrijf</h5>
                 </div>
-                <div class="kt-card-content">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Bedrijf</td>
                             <td class="min-w-48 w-full">
@@ -63,17 +60,19 @@
                             </td>
                         </tr>
                     </table>
+                    </div>
                 </div>
             </div>
             @endif
             
             <!-- Basic Information Card -->
-            <div class="kt-card">
+            <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Basis Informatie</h5>
+                    <h5 class="kt-card-title mb-0">Basis Informatie</h5>
                 </div>
-                <div class="kt-card-content">
-                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
+                <div class="kt-card-content p-0">
+                    <div class="px-3 sm:px-5 pb-3 min-w-0">
+                    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">Naam *</td>
                             <td class="min-w-48 w-full">
@@ -147,6 +146,7 @@
                         </tr>
                         @include('admin.email-templates.partials.recipient-fields', ['emailTemplate' => $emailTemplate, 'users' => $users])
                     </table>
+                    </div>
                 </div>
             </div>
 
@@ -154,11 +154,11 @@
 
             @if(isset($isInfoRequestType) && $isInfoRequestType)
             <!-- Frontend weergave (formulierpreview, volgorde synct met Formuliervelden) -->
-            <div class="kt-card" id="frontend-weergave-card">
+            <div class="kt-card w-full min-w-0" id="frontend-weergave-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Frontend weergave</h5>
+                    <h5 class="kt-card-title mb-0">Frontend weergave</h5>
                 </div>
-                <div class="kt-card-content">
+                <div class="kt-card-content min-w-0">
                     <p class="text-sm text-muted-foreground mb-3">Zo ziet het formulier er op de website uit. De volgorde wijzigt direct wanneer je velden hierboven herschikt.</p>
                     @include('admin.email-templates.partials.formulier-preview', ['formFields' => $formFields ?? []])
                 </div>
@@ -166,11 +166,11 @@
             @endif
 
             <!-- HTML Content Card (zelfde breedte als overige secties) -->
-            <div class="kt-card" id="html-content-card">
+            <div class="kt-card w-full min-w-0" id="html-content-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">HTML Inhoud *</h5>
+                    <h5 class="kt-card-title mb-0">HTML Inhoud *</h5>
                 </div>
-                <div class="kt-card-content">
+                <div class="kt-card-content min-w-0">
                     <div class="mb-3">
                         <label for="html_content" class="kt-form-label mb-2">HTML Inhoud</label>
                         <textarea class="kt-input @error('html_content') border-destructive @enderror" 
@@ -191,14 +191,14 @@
                         <div class="space-y-1.5">
                             @if(isset($isInfoRequestType) && $isInfoRequestType && isset($infoRequestVariables) && is_array($infoRequestVariables))
                                 @foreach($infoRequestVariables as $variable => $description)
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex flex-wrap items-start sm:items-center gap-2 min-w-0">
                                         <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
                                         <span class="text-foreground">{{ $description }}</span>
                                     </div>
                                 @endforeach
                             @elseif(isset($templateVariables) && is_array($templateVariables))
                                 @foreach($templateVariables as $variable => $description)
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex flex-wrap items-start sm:items-center gap-2 min-w-0">
                                         <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs font-semibold">{{ '{' }}{{ '{' }}{{ $variable }}{{ '}' }}{{ '}' }}</code>
                                         <span class="text-foreground">{{ $description }}</span>
                                     </div>
@@ -240,7 +240,7 @@
             </div>
 
         <!-- Form Actions -->
-        <div class="flex items-center justify-end gap-2.5 mt-5" style="grid-column: 1 / -1;">
+        <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0" style="grid-column: 1 / -1;">
             <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
                 Annuleren
             </a>
@@ -421,14 +421,16 @@ document.addEventListener('DOMContentLoaded', function() {
             var name = opt.getAttribute('data-name') || '';
             var varKey = name.toUpperCase().replace(/-/g, '_');
             var row = document.createElement('div');
-            row.className = 'flex items-center gap-2 py-2 px-3 rounded-lg border border-border bg-muted/20';
+            row.className = 'form-field-order-row flex flex-wrap items-start gap-2 py-2 px-3 rounded-lg border border-border bg-muted/20 min-w-0';
             row.setAttribute('data-field-id', id);
             var varDisplay = '{{ ' + varKey + ' }}';
-            row.innerHTML = '<span class="form-field-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground select-none" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen" role="button">⋮⋮</span>' +
-                '<span class="font-medium text-foreground">' + (label || '') + '</span>' +
-                '<code class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-white px-2 py-0.5 rounded">' + (name || '') + '</code>' +
-                '<span class="text-xs text-muted-foreground">→ <code>' + varDisplay + '</code></span>' +
-                '<div class="ml-auto flex items-center gap-1">' +
+            row.innerHTML = '<span class="form-field-drag-handle shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground select-none" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen" role="button">⋮⋮</span>' +
+                '<div class="form-field-order-row-meta min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">' +
+                '<span class="font-medium text-foreground break-words">' + (label || '') + '</span>' +
+                '<code class="form-field-order-slug text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-white px-2 py-0.5 rounded shrink-0">' + (name || '') + '</code>' +
+                '<span class="form-field-order-var text-xs text-muted-foreground break-all">→ <code>' + varDisplay + '</code></span>' +
+                '</div>' +
+                '<div class="form-field-order-row-actions flex items-center gap-1 shrink-0 ml-auto">' +
                 '<button type="button" class="form-field-order-up kt-btn kt-btn-sm kt-btn-ghost" title="Omhoog"><i class="ki-filled ki-arrow-up"></i></button>' +
                 '<button type="button" class="form-field-order-down kt-btn kt-btn-sm kt-btn-ghost" title="Omlaag"><i class="ki-filled ki-arrow-down"></i></button>' +
                 '<button type="button" class="form-field-order-remove kt-btn kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen"><i class="ki-filled ki-trash"></i></button>' +

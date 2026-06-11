@@ -1241,8 +1241,8 @@ function backToListView() {
     }
 }
 
-// Show message input modal
-function showMessageModal(response, callback) {
+// Show interview accept/decline message modal (do not name showMessageModal — used by profile/settings pages)
+function showInterviewResponseModal(response, callback) {
     // Create or get modal
     let modal = document.getElementById('interview-response-modal');
     if (!modal) {
@@ -1411,7 +1411,7 @@ async function respondToInterview(notificationId, response) {
     }
     
     // Show modal for message input
-    showMessageModal(response, async (message, actualResponse) => {
+    showInterviewResponseModal(response, async (message, actualResponse) => {
         // If user cancelled (message is null), don't proceed
         if (message === null) {
             return;

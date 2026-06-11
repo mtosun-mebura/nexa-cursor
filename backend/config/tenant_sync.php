@@ -79,10 +79,17 @@ return [
     'taxi_module' => [
         'module_name' => 'taxi',
         'company_scoped_tables' => ['vehicles'],
-        'global_tables' => ['default_rates'],
+        'global_tables' => ['default_rates', 'knowledge_documents', 'knowledge_chunks'],
+        'global_table_foreign_keys' => [
+            'knowledge_chunks' => [
+                'document_id' => 'knowledge_documents',
+            ],
+        ],
         'natural_keys' => [
             'vehicles' => ['company_id', 'name'],
             'default_rates' => ['person_range'],
+            'knowledge_documents' => ['title', 'category'],
+            'knowledge_chunks' => ['document_id', 'chunk_text'],
         ],
     ],
 
@@ -109,6 +116,8 @@ return [
         'model_has_roles' => ['company_id', 'role_id', 'model_id', 'model_type'],
         'vehicles' => ['company_id', 'name'],
         'default_rates' => ['person_range'],
+        'knowledge_documents' => ['title', 'category'],
+        'knowledge_chunks' => ['document_id', 'chunk_text'],
     ],
 
     'priority_tables' => [

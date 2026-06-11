@@ -362,6 +362,10 @@ Route::get('/admin/password/changed', [AdminAuthController::class, 'showPassword
 
 // Admin Protected Routes
 Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::post('ai-chat/message', [App\Http\Controllers\Admin\AdminAiChatController::class, 'sendMessage'])
+        ->middleware('throttle:60,1')
+        ->name('ai-chat.message');
+
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
 
@@ -652,6 +656,8 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('settings/mail', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
         Route::post('settings/mail/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
         Route::post('settings/seo', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateSeo'])->name('settings.seo.update');
+        Route::post('settings/seo/test', [App\Http\Controllers\Admin\AdminSettingsController::class, 'testSeoConnection'])->name('settings.seo.test');
+        Route::post('settings/seo/submit-sitemap', [App\Http\Controllers\Admin\AdminSettingsController::class, 'submitSeoSitemap'])->name('settings.seo.submit-sitemap');
         Route::post('settings/maps', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateMaps'])->name('settings.maps.update');
         Route::post('settings/google-reviews', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateGoogleReviews'])->name('settings.google-reviews.update');
         Route::post('settings/whatsapp', [App\Http\Controllers\Admin\AdminSettingsController::class, 'updateWhatsapp'])->name('settings.whatsapp.update');
@@ -694,6 +700,7 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('website-pages/upload-footer-logo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadFooterLogo'])->name('website-pages.upload-footer-logo');
         Route::post('website-pages/upload-hero-image', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadHeroImage'])->name('website-pages.upload-hero-image');
         Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
+        Route::post('website-pages/generate-seo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
@@ -745,6 +752,8 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
 
     return app(\App\Http\Controllers\Frontend\HomeController::class)->index($request);
 })->name('home');
+
+Route::get('/sitemap.xml', [App\Http\Controllers\SitemapController::class, 'index'])->name('sitemap');
 
 // Website media: encrypted afbeeldingen (decrypt on serve, publiek voor frontend)
 Route::get('website-media/{uuid}', [App\Http\Controllers\WebsiteMediaController::class, 'serve'])->name('website-media.serve')->where('uuid', '[\w\-]+');
@@ -803,21 +812,12 @@ Route::get('/wachtwoord-instellen', [FrontendAuthController::class, 'showSetPass
 Route::post('/wachtwoord-instellen', [FrontendAuthController::class, 'setPassword'])->middleware('auth')->name('frontend.set-password.post');
 Route::get('/register', fn () => redirect()->route('home'))->name('register');
 Route::post('/register', fn () => redirect()->route('home'))->name('register.post');
-Route::post('/logout', function () {
-    Auth::guard('web')->logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
+Route::post('/logout', [FrontendAuthController::class, 'logout'])->name('logout');
+Route::get('/logout', [FrontendAuthController::class, 'logout'])->name('logout.get');
 
-    return redirect('/');
-})->name('logout');
-
-Route::get('/logout', function () {
-    Auth::guard('web')->logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
-
-    return redirect('/');
-})->name('logout.get');
+Route::post('/ai-chat/message', [App\Http\Controllers\Frontend\AiChatController::class, 'sendMessage'])
+    ->middleware('throttle:30,1')
+    ->name('frontend.ai-chat.message');
 
 // Test routes voor error pagina's (alleen in development)
 if (app()->environment('local', 'development')) {
@@ -909,6 +909,8 @@ Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(functi
     Route::get('/mijn-taxi', [TaxiPortalController::class, 'index'])->name('taxi.portal.dashboard');
 
     Route::prefix('mijn-taxi/api')->name('taxi.portal.api.')->group(function () {
+        Route::post('ai-chat/message', [\App\Modules\NexaTaxi\Controllers\TaxiPortalAiChatController::class, 'sendMessage'])
+            ->name('ai-chat.message');
         Route::get('dashboard', [TaxiPortalApiController::class, 'dashboard'])->name('dashboard');
         Route::get('rides', [TaxiPortalApiController::class, 'rides'])->name('rides');
         Route::get('rides/{ride}', [TaxiPortalApiController::class, 'showRide'])
@@ -917,6 +919,7 @@ Route::middleware(['auth', 'taxi.portal', 'taxi.portal.password'])->group(functi
         Route::get('invoices', [TaxiPortalApiController::class, 'invoices'])->name('invoices');
         Route::get('profile', [TaxiPortalApiController::class, 'profile'])->name('profile');
         Route::put('profile', [TaxiPortalApiController::class, 'updateProfile'])->name('profile.update');
+        Route::put('profile/password', [TaxiPortalApiController::class, 'updatePassword'])->name('profile.password');
         Route::get('invoices/{invoice}/pdf', [TaxiPortalApiController::class, 'downloadInvoicePdf'])
             ->name('invoices.pdf')
             ->whereNumber('invoice');

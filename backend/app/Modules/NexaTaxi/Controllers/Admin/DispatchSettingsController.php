@@ -47,6 +47,10 @@ class DispatchSettingsController extends Controller
             'envDefaultSeconds' => $envDefault,
             'minMinutes' => (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60),
             'maxMinutes' => (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60),
+            'pastPickupGraceHours' => $this->dispatchSettings->pastPickupGraceHours($companyId),
+            'envDefaultPastPickupGraceHours' => (int) config('taxi-dispatch.past_pickup_grace_hours', 2),
+            'minPastPickupGraceHours' => TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_HOURS,
+            'maxPastPickupGraceHours' => TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_HOURS,
             'bookingWhatsappEnabled' => $this->dispatchSettings->bookingWhatsappEnabled($companyId),
             'bookingWhatsappClickToChat' => $this->dispatchSettings->bookingWhatsappClickToChatEnabled($companyId),
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
@@ -137,9 +141,12 @@ class DispatchSettingsController extends Controller
         $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
         $minLoginCodeMinutes = TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES;
         $maxLoginCodeMinutes = TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES;
+        $minGraceHours = TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_HOURS;
+        $maxGraceHours = TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_HOURS;
 
         $validated = $request->validate([
             'offer_ttl_minutes' => ['required', 'integer', 'min:'.$minMinutes, 'max:'.$maxMinutes],
+            'past_pickup_grace_hours' => ['required', 'integer', 'min:'.$minGraceHours, 'max:'.$maxGraceHours],
             'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
             'booking_whatsapp_enabled' => ['nullable', 'in:0,1'],
             'booking_whatsapp_click_to_chat' => ['nullable', 'in:0,1'],
@@ -161,6 +168,9 @@ class DispatchSettingsController extends Controller
             'offer_ttl_minutes.integer' => 'Acceptatietijd moet een heel getal zijn.',
             'offer_ttl_minutes.min' => 'Acceptatietijd moet minimaal '.$minMinutes.' minuut zijn.',
             'offer_ttl_minutes.max' => 'Acceptatietijd mag maximaal '.$maxMinutes.' minuten zijn.',
+            'past_pickup_grace_hours.required' => 'Vul het grace-interval na ophaalmoment in.',
+            'past_pickup_grace_hours.min' => 'Grace-interval moet minimaal '.$minGraceHours.' uur zijn.',
+            'past_pickup_grace_hours.max' => 'Grace-interval mag maximaal '.$maxGraceHours.' uur zijn.',
             'customer_login_code_expires_minutes.required' => 'Vul de geldigheid van de inlogcode in.',
             'customer_login_code_expires_minutes.min' => 'Geldigheid moet minimaal '.$minLoginCodeMinutes.' minuten zijn.',
             'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
@@ -182,6 +192,10 @@ class DispatchSettingsController extends Controller
 
         $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
         $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
+        $this->dispatchSettings->setPastPickupGraceHours(
+            (int) $validated['past_pickup_grace_hours'],
+            $companyId
+        );
         $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(
             (int) $validated['customer_login_code_expires_minutes'],
             $companyId
