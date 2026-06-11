@@ -9,7 +9,7 @@
 # Voorbeeld: cd TENANT_DIR && docker compose -f docker-compose.deploy.yml exec backend php artisan …
 #
 # DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Vóór git checkout: backend stoppen en
-# storage/bootstrap/cache terugchownen (container www-data), anders faalt checkout met "unable to unlink".
+# storage/bootstrap/cache/public (build + frontend-themes) terugchownen (container www-data), anders faalt checkout met "unable to unlink".
 #
 # Docker: deploy-user moet in groep 'docker' zitten (socket). Daarna runner-service herstarten.
 # compose: bij voorkeur 'docker compose' (v2), anders docker-compose v1. Laravel service: backend.
@@ -314,9 +314,9 @@ _fix_backend_tree_for_git_reset() {
   uid=$(id -u)
   gid=$(id -g)
   # Eén regel voor exec/run -c (paden = volume-mounts in docker-compose.deploy)
-  fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
+  fix_cmd="for d in /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public/build /var/www/html/public/frontend-themes; do [ ! -e \"\$d\" ] && continue; chown -R ${uid}:${gid} \"\$d\" 2>/dev/null || true; chmod -R ug+rwX \"\$d\" 2>/dev/null || true; done"
 
-  echo "==> Laravel writable dirs → ${uid}:${gid} + ug+rwX"
+  echo "==> Laravel writable + git-tracked public dirs → ${uid}:${gid} + ug+rwX"
   if _compose ps -q "$LARAVEL_SERVICE" 2>/dev/null | grep -q .; then
     echo "==> Container draait nog; probeer compose exec -u root"
     if _compose exec -T -u root "$LARAVEL_SERVICE" sh -c "$fix_cmd"; then
@@ -333,7 +333,7 @@ _fix_backend_tree_for_git_reset() {
   fi
 
   echo "==> compose run mislukt; host-paden direct (zonder container)"
-  for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+  for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build" "$BACKEND_DIR/public/frontend-themes"; do
     [[ -e "$d" ]] || continue
     chown -R "${uid}:${gid}" "$d" 2>/dev/null || true
     chmod -R ug+rwX "$d" 2>/dev/null || true
@@ -345,7 +345,7 @@ _fix_backend_tree_for_git_reset() {
 
   echo "==> Fallback: passwordless host-sudo (sudo -n)"
   if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+    for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build" "$BACKEND_DIR/public/frontend-themes"; do
       [[ -e "$d" ]] || continue
       sudo -n chown -R "${uid}:${gid}" "$d" || true
       sudo -n chmod -R ug+rwX "$d" || true
@@ -353,7 +353,7 @@ _fix_backend_tree_for_git_reset() {
     return 0
   fi
 
-  echo "ERROR: Kon storage/bootstrap/cache niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
+  echo "ERROR: Kon storage/bootstrap/cache/public niet vrijmaken voor git (docker exec/run faalde; geen sudo -n)." >&2
   echo "Als compose run faalde met mount .env: $(printf %q "$TENANT_DIR/.env") moet een bestand zijn, geen map (rm -rf + cp .env.example .env)." >&2
   echo "TIP: image bouwen: docker compose -f $COMPOSE_FILE build ${LARAVEL_SERVICE}" >&2
   echo "TIP: bij Permission denied op de socket eerst: usermod -aG docker $(id -un) + runner herstarten." >&2

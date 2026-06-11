@@ -5,7 +5,7 @@
 #
 # Gebruik (als root):
 #   sudo bash deploy/fix-git-ownership.sh
-#   sudo bash deploy/fix-git-ownership.sh --user ubuntu --dir /home/ubuntu/nexasuite
+#   sudo bash deploy/fix-git-ownership.sh --user mtosun --dir /home/nexasuite.nl/apps/saas/current
 set -euo pipefail
 
 DEPLOY_USER="${DEPLOY_USER:-mtosun}"
@@ -55,7 +55,7 @@ sudo -u "$DEPLOY_USER" rm -f "$test_file"
 echo "OK: $DEPLOY_USER kan schrijven in .git/objects"
 
 BACKEND_DIR="${TENANT_DIR}/backend"
-for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build" "$BACKEND_DIR/public/frontend-themes"; do
   if [[ -e "$d" ]]; then
     echo "==> chown -R ${DEPLOY_USER}:${DEPLOY_USER} $d"
     chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "$d"
