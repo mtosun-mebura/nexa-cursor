@@ -8,9 +8,8 @@
 # TENANT_DIR/backend — daar staat geen vendor/ (die zit in de image onder /var/www/html).
 # Voorbeeld: cd TENANT_DIR && docker compose -f docker-compose.deploy.yml exec backend php artisan …
 #
-# DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Voor git reset: storage/bootstrap/cache
-# worden vóór fetch teruggechown (container root of sudo), anders blijven www-data-bestanden
-# staan en faalt "unable to unlink".
+# DEPLOY_USER moet TENANT_DIR en .git/objects kunnen schrijven. Vóór git checkout: backend stoppen en
+# storage/bootstrap/cache terugchownen (container www-data), anders faalt checkout met "unable to unlink".
 #
 # Docker: deploy-user moet in groep 'docker' zitten (socket). Daarna runner-service herstarten.
 # compose: bij voorkeur 'docker compose' (v2), anders docker-compose v1. Laravel service: backend.
@@ -415,10 +414,10 @@ _fix_git_dir_ownership() {
 }
 
 _fix_git_dir_ownership
-_git_sync_code
 _require_compose_file
 _stop_backend_for_git_reset
 _fix_backend_tree_for_git_reset
+_git_sync_code
 _build_frontend_assets
 
 echo "==> Docker Compose pull/build/up"

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Eenmalig op de Proxmox-testserver als CI faalt met:
+# Eenmalig op de server als deploy faalt met git-permissies, bijv.:
 #   insufficient permission for adding an object to repository database .git/objects
+#   unable to unlink old 'backend/storage/.../.gitignore': Permission denied
 #
 # Gebruik (als root):
 #   sudo bash deploy/fix-git-ownership.sh
-#   sudo bash deploy/fix-git-ownership.sh --user mtosun --dir /home/nexasuite.nl/apps/saas/current
+#   sudo bash deploy/fix-git-ownership.sh --user ubuntu --dir /home/ubuntu/nexasuite
 set -euo pipefail
 
 DEPLOY_USER="${DEPLOY_USER:-mtosun}"
@@ -52,4 +53,15 @@ sudo -u "$DEPLOY_USER" touch "$test_file"
 sudo -u "$DEPLOY_USER" rm -f "$test_file"
 
 echo "OK: $DEPLOY_USER kan schrijven in .git/objects"
-echo "Herstart daarna de GitHub Actions workflow (push release/test of workflow_dispatch)."
+
+BACKEND_DIR="${TENANT_DIR}/backend"
+for d in "$BACKEND_DIR/storage" "$BACKEND_DIR/bootstrap/cache" "$BACKEND_DIR/public/build"; do
+  if [[ -e "$d" ]]; then
+    echo "==> chown -R ${DEPLOY_USER}:${DEPLOY_USER} $d"
+    chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "$d"
+    chmod -R ug+rwX "$d"
+  fi
+done
+
+echo "OK: git + Laravel writable dirs zijn teruggezet naar ${DEPLOY_USER}"
+echo "Herstart daarna de GitHub Actions workflow (deploy-prod of deploy-saas)."
