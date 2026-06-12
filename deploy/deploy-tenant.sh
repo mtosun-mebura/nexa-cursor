@@ -207,10 +207,40 @@ fi
 cd "$TENANT_DIR"
 
 DEPLOY_LOG="${DEPLOY_LOG:-$BACKEND_DIR/storage/logs/deploy-latest.log}"
+
+_ensure_deploy_log_writable() {
+  local log_dir uid gid
+  log_dir="$(dirname "$DEPLOY_LOG")"
+  uid=$(id -u)
+  gid=$(id -g)
+
+  mkdir -p "$log_dir" 2>/dev/null || true
+
+  if : >>"$DEPLOY_LOG" 2>/dev/null; then
+    return 0
+  fi
+
+  chown -R "${uid}:${gid}" "$log_dir" 2>/dev/null || true
+  chmod -R ug+rwX "$log_dir" 2>/dev/null || true
+  if : >>"$DEPLOY_LOG" 2>/dev/null; then
+    return 0
+  fi
+
+  if command -v sudo >/dev/null 2>&1 && sudo -n chown -R "${uid}:${gid}" "$log_dir" 2>/dev/null; then
+    chmod -R ug+rwX "$log_dir" 2>/dev/null || true
+    : >>"$DEPLOY_LOG" 2>/dev/null && return 0
+  fi
+
+  return 1
+}
+
 # In CI/SSH geen process-substitution tee: output blijft dan zichtbaar in GitHub Actions.
-if [[ "${DEPLOY_NO_TEE:-}" != "1" ]] && mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null; then
+# storage/logs is vaak nog www-data vóór _fix_backend_tree_for_git_reset — schrijfrecht herstellen of overslaan.
+if [[ "${DEPLOY_NO_TEE:-}" != "1" ]] && _ensure_deploy_log_writable; then
   : >"$DEPLOY_LOG"
   exec > >(tee -a "$DEPLOY_LOG") 2>&1
+elif [[ "${DEPLOY_NO_TEE:-}" != "1" ]]; then
+  echo "==> Deploy-log overgeslagen (geen schrijfrecht op ${DEPLOY_LOG}; output blijft op stdout)"
 fi
 
 echo "==> Deploy gestart $(date -Iseconds)"
