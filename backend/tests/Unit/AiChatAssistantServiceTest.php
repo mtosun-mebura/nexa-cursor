@@ -49,6 +49,31 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertSame('ai_chat_webhook_skillmatching', $service->webhookSettingKey('Skillmatching'));
     }
 
+    public function test_normalize_webhook_url_replaces_legacy_n8n_host(): void
+    {
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+
+        $this->assertSame(
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant',
+            $service->normalizeWebhookUrl('https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant')
+        );
+    }
+
+    public function test_webhook_url_for_module_normalizes_legacy_default(): void
+    {
+        config()->set(
+            'services.ai_chat.module_defaults.taxi',
+            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+        );
+
+        $service = new AiChatAssistantService(Mockery::mock(WebsiteBuilderService::class));
+
+        $this->assertSame(
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant',
+            $service->webhookUrlForModule('taxi')
+        );
+    }
+
     public function test_default_webhook_url_uses_module_defaults_from_config(): void
     {
         config()->set('services.ai_chat.module_defaults.skillmatching', 'https://n8n.example.test/skillmatching');

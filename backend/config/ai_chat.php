@@ -50,4 +50,12 @@ return [
     */
     'public_rates_table' => env('AI_CHAT_PUBLIC_RATES_TABLE', 'default_rates'),
 
+    /*
+    | Oude n8n-hostnamen → nieuwe host (POST op n8n.nexasuite.nl geeft HTTP 405).
+    | Geldt ook voor ai_chat_webhook_* in general_settings tot handmatig bijgewerkt.
+    */
+    'webhook_host_aliases' => [
+        'n8n.nexasuite.nl' => 'automations.nexasuite.nl',
+    ],
+
 ];

@@ -149,21 +149,56 @@ class AiChatAssistantService
             if (is_array($defaults) && isset($defaults[$module])) {
                 $fromDefaults = trim((string) $defaults[$module]);
                 if ($fromDefaults !== '') {
-                    return $fromDefaults;
+                    return $this->normalizeWebhookUrl($fromDefaults);
                 }
             }
 
             if ($module === 'taxi') {
                 $fromConfig = trim((string) config('services.nexa_taxi.assistant_webhook_url', ''));
                 if ($fromConfig !== '') {
-                    return $fromConfig;
+                    return $this->normalizeWebhookUrl($fromConfig);
                 }
             }
         }
 
         $generic = trim((string) config('services.ai_chat.webhook_url', ''));
 
-        return $generic !== '' ? $generic : null;
+        return $generic !== '' ? $this->normalizeWebhookUrl($generic) : null;
+    }
+
+    public function normalizeWebhookUrl(?string $url): ?string
+    {
+        $url = trim((string) $url);
+        if ($url === '') {
+            return null;
+        }
+
+        $aliases = config('ai_chat.webhook_host_aliases', []);
+        if (! is_array($aliases) || $aliases === []) {
+            return $url;
+        }
+
+        $parsed = parse_url($url);
+        if (! is_array($parsed)) {
+            return $url;
+        }
+
+        $host = strtolower((string) ($parsed['host'] ?? ''));
+        if ($host === '') {
+            return $url;
+        }
+
+        foreach ($aliases as $legacyHost => $newHost) {
+            $legacyHost = strtolower(trim((string) $legacyHost));
+            $newHost = strtolower(trim((string) $newHost));
+            if ($legacyHost === '' || $newHost === '' || $host !== $legacyHost) {
+                continue;
+            }
+
+            return str_replace($legacyHost, $newHost, $url);
+        }
+
+        return $url;
     }
 
     public function webhookUrlForModule(?string $moduleName): ?string
@@ -175,13 +210,13 @@ class AiChatAssistantService
 
         $fromSetting = trim((string) GeneralSetting::get($this->webhookSettingKey($module), ''));
         if ($fromSetting !== '') {
-            return $fromSetting;
+            return $this->normalizeWebhookUrl($fromSetting);
         }
 
         if ($module === 'taxi') {
             $legacy = trim((string) GeneralSetting::get('ai_chat_nexa_taxi_webhook_url', ''));
             if ($legacy !== '') {
-                return $legacy;
+                return $this->normalizeWebhookUrl($legacy);
             }
         }
 
@@ -240,7 +275,7 @@ class AiChatAssistantService
                 'body' => Str::limit((string) $response->body(), 500),
             ]);
 
-            throw new RuntimeException('AI-assistent kon geen antwoord ophalen (HTTP '.$response->status().').');
+            throw new RuntimeException($this->webhookHttpErrorMessage($response->status(), $webhookUrl));
         }
 
         $reply = $this->extractReplyText($response->json(), $response->body());
@@ -664,6 +699,17 @@ class AiChatAssistantService
         } catch (Throwable) {
             return trim($value);
         }
+    }
+
+    private function webhookHttpErrorMessage(int $status, string $webhookUrl): string
+    {
+        $message = 'AI-assistent kon geen antwoord ophalen (HTTP '.$status.').';
+
+        if ($status === 405 && str_contains(strtolower($webhookUrl), 'n8n.nexasuite.nl')) {
+            $message .= ' Gebruik https://automations.nexasuite.nl/webhook/nexa-taxi-assistant (n8n.nexasuite.nl accepteert geen POST meer).';
+        }
+
+        return $message;
     }
 
     private function plainBodyFallback(?string $rawBody): ?string
