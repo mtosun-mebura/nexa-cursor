@@ -41,13 +41,13 @@ class AdminAiChatMessageTest extends TestCase
     public function test_admin_live_question_uses_admin_channel_and_tenant_scope(): void
     {
         Http::fake([
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
                 'answer' => [],
                 'count' => 0,
             ], 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Tenant Taxi BV',
@@ -69,7 +69,7 @@ class AdminAiChatMessageTest extends TestCase
         $response->assertJsonPath('success', true);
 
         Http::assertSent(function ($request) use ($company, $user) {
-            return $request->url() === 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+            return $request->url() === 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant'
                 && $request['company_id'] === $company->id
                 && $request['channel'] === 'admin'
                 && $request['isAdmin'] === true
@@ -96,12 +96,12 @@ class AdminAiChatMessageTest extends TestCase
     public function test_super_admin_uses_selected_tenant_for_admin_chat(): void
     {
         Http::fake([
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => Http::response([
                 'answer' => 'Geen ritten gevonden.',
             ], 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Gekozen Tenant',

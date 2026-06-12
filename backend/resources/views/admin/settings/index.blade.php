@@ -1002,15 +1002,22 @@
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-cloud-change me-2"></i> Omgeving-sync (tenant)'])
             <div class="settings-collapsible-body">
             <div class="kt-card-content px-6 pb-4 space-y-6">
-                <p class="text-sm text-secondary-foreground">
-                    Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>:
-                    de rij in <code class="text-xs">companies</code> plus alle rijen op tabellen met <code class="text-xs">company_id</code> voor dat bedrijf.
-                    Bestaande rijen op doel worden niet overschreven; bron-<code class="text-xs">id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk).
-                    Gebruikers, tenant-rollen (<code class="text-xs">roles</code> + <code class="text-xs">model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code class="text-xs">permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.
-                </p>
+                @include('admin.settings.partials.heading-with-info', [
+                    'tag' => 'p',
+                    'class' => 'text-sm text-secondary-foreground m-0',
+                    'title' => 'Configureer de doel-database en push een bron-tenant naar die omgeving.',
+                    'infoId' => 'tenant-sync-intro-info',
+                    'info' => 'Stel hier de <strong>doel-database</strong> in (bijv. productie). Daarna kun je een <strong>bron-tenant</strong> (bedrijf op deze omgeving) naar die database <em>toevoegen</em>: de rij in <code>companies</code> plus alle rijen op tabellen met <code>company_id</code> voor dat bedrijf. Bestaande rijen op doel worden niet overschreven; bron-<code>id</code>-waarden worden niet overgenomen (nieuwe id’s + FK-remapping waar mogelijk). Gebruikers, tenant-rollen (<code>roles</code> + <code>model_has_roles</code>) en rol-permissies worden meegekopieerd; globale <code>permissions</code>-definities op doel moeten al bestaan (seed). Alleen de <strong>hoofd-databaseverbinding</strong> van de URL; geen bestanden over het net.',
+                ])
 
                 <div class="rounded-md border border-border bg-muted/30 px-3 py-3 text-xs text-secondary-foreground">
-                    <p class="font-medium text-foreground mb-2">Tabellen op <strong>deze</strong> omgeving (driver: <code class="font-mono">{{ $tenantSyncScope['driver'] ?? '?' }}</code>)</p>
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'p',
+                        'class' => 'font-medium text-foreground mb-2',
+                        'title' => 'Tabellen op <strong>deze</strong> omgeving',
+                        'infoId' => 'tenant-sync-scope-info',
+                        'info' => 'Overzicht van tabellen die op <strong>deze</strong> omgeving meegaan bij volledige tenant-sync. Driver: <code>' . e($tenantSyncScope['driver'] ?? '?') . '</code>. Altijd mee: de <code>companies</code>-rij. Tabellen met <code>company_id</code> worden per gekozen tenant gekopieerd. Globale vereisten (modules, themes) gaan eerst. Nexa Taxi-tabellen alleen als de module aan de tenant gekoppeld is. Uitgesloten tabellen staan onderaan.',
+                    ])
                     <p class="mb-1"><span class="text-foreground font-medium">Altijd mee:</span> {{ $tenantSyncScope['company_row'] ?? 'companies' }}</p>
                     <p class="mb-1"><span class="text-foreground font-medium">Met <code class="font-mono">company_id</code> ({{ count($tenantSyncScope['tables_with_company_id'] ?? []) }} tabellen):</span></p>
                     <div class="max-h-40 overflow-y-auto rounded border border-border/80 bg-background px-2 py-1.5 font-mono text-[11px] leading-relaxed text-foreground">
@@ -1071,7 +1078,12 @@
                         $tenantSyncSshEnabled = old('tenant_sync_ssh_enabled', ($tenantSyncSettings['tenant_sync_ssh_enabled'] ?? false) ? '1' : '0') === '1';
                     @endphp
                     <div id="tenant-sync-direct-fields" class="space-y-3 {{ $tenantSyncSshEnabled ? 'hidden' : '' }}">
-                        <label for="tenant_sync_target_database_url" class="text-sm text-secondary-foreground block mb-1">Database-URL (doel)</label>
+                        @include('admin.settings.partials.label-with-info', [
+                            'for' => 'tenant_sync_target_database_url',
+                            'label' => 'Database-URL (doel)',
+                            'infoId' => 'tenant-sync-direct-info',
+                            'info' => 'Directe verbinding zonder SSH. Vul de volledige database-URL en het wachtwoord apart in.',
+                        ])
                         <div class="relative">
                             <input type="text" name="tenant_sync_target_database_url" id="tenant_sync_target_database_url"
                                    class="kt-input w-full font-mono text-xs pe-10"
@@ -1099,17 +1111,21 @@
                             'placeholder' => ($tenantSyncSettings['tenant_sync_has_database_password'] ?? false) ? '•••••••• (opgeslagen — laat leeg om te behouden)' : 'Wachtwoord van de database-gebruiker',
                             'hint' => 'Speciale tekens worden automatisch URL-encoded (bijv. <code class="text-xs">Welkom01!</code> → <code class="text-xs">Welkom01%21</code>).',
                         ])
-                        <p class="text-xs text-muted-foreground">Directe verbinding zonder SSH. Vul de volledige database-URL en het wachtwoord apart in.</p>
                     </div>
 
                     <div class="rounded-md border border-border p-4 space-y-3" id="tenant-sync-ssh-panel">
-                        <label class="inline-flex items-center gap-2">
-                            <input type="hidden" name="tenant_sync_ssh_enabled" value="0">
-                            <input type="checkbox" name="tenant_sync_ssh_enabled" value="1" id="tenant_sync_ssh_enabled" class="kt-checkbox"
-                                   @checked($tenantSyncSshEnabled)>
-                            <span class="text-sm font-medium text-foreground">Via SSH-tunnel verbinden</span>
-                        </label>
-                        <p class="text-xs text-muted-foreground mb-0">Voor servers waar Postgres alleen op <code class="text-xs">127.0.0.1</code> luistert. De backend opent SSH en bouwt daarna zelf de database-verbinding (velden hieronder).</p>
+                        <div class="flex items-center justify-between gap-2 min-w-0">
+                            <label class="inline-flex items-center gap-2 mb-0 min-w-0">
+                                <input type="hidden" name="tenant_sync_ssh_enabled" value="0">
+                                <input type="checkbox" name="tenant_sync_ssh_enabled" value="1" id="tenant_sync_ssh_enabled" class="kt-checkbox"
+                                       @checked($tenantSyncSshEnabled)>
+                                <span class="text-sm font-medium text-foreground">Via SSH-tunnel verbinden</span>
+                            </label>
+                            @include('admin.settings.partials.info-hover-icon', [
+                                'id' => 'tenant-sync-ssh-info',
+                                'content' => 'Voor servers waar Postgres alleen op <code>127.0.0.1</code> luistert. De backend opent SSH en bouwt daarna zelf de database-verbinding (velden hieronder).',
+                            ])
+                        </div>
                         <div id="tenant-sync-ssh-fields" class="space-y-3 {{ $tenantSyncSshEnabled ? '' : 'hidden' }}">
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div>
@@ -1143,8 +1159,11 @@
                             </div>
 
                             <div id="tenant-sync-ssh-db-fields" class="rounded-md border border-border/80 bg-muted/30 p-3 space-y-3">
-                                <p class="text-sm font-medium text-foreground mb-0">Postgres op de server (via tunnel)</p>
-                                <p class="text-xs text-muted-foreground mt-0">De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding.</p>
+                                @include('admin.settings.partials.heading-with-info', [
+                                    'title' => 'Postgres op de server (via tunnel)',
+                                    'infoId' => 'tenant-sync-ssh-db-info',
+                                    'info' => 'De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding via de tunnel.',
+                                ])
                                 <div class="grid gap-3 sm:grid-cols-2">
                                     <div>
                                         <label for="tenant_sync_ssh_db_username" class="text-sm text-secondary-foreground block mb-1">Database-gebruiker</label>
@@ -1209,10 +1228,13 @@
                 </form>
 
                 <div class="border-t border-border pt-6">
-                    <h4 class="text-sm font-medium text-foreground mb-2">Volledige tenant-sync uitvoeren</h4>
-                    <p class="text-xs text-muted-foreground mb-4">
-                        Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.
-                    </p>
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'h4',
+                        'class' => 'text-sm font-medium text-foreground mb-4',
+                        'title' => 'Volledige tenant-sync uitvoeren',
+                        'infoId' => 'tenant-sync-run-info',
+                        'info' => 'Kies het bedrijf (tenant) op <strong>deze</strong> omgeving. Push moet aan staan en productie-push mag alleen als je dat in .env expliciet toestaat.',
+                    ])
                     <form id="tenant-sync-run-form" method="POST" action="{{ route('admin.settings.tenant-sync.run') }}" class="space-y-4" novalidate>
                         @csrf
                         <div>
@@ -1252,13 +1274,13 @@
                 </div>
 
                 <div class="border-t border-border pt-6 mt-2">
-                    <h4 class="text-sm font-medium text-foreground mb-2">ZIP-export / -import (volledige tenant)</h4>
-                    <p class="text-xs text-muted-foreground mb-4">
-                        Eén bundle per bedrijf: <strong class="text-foreground">bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code class="font-mono text-[11px]">private_files/invoices/…</code>),
-                        <strong class="text-foreground">website_pages</strong> in het manifest, en <strong class="text-foreground">tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys).
-                        Bestandsnaam begint met <code class="font-mono text-[11px]">tenant-export-</code>. Manifest: <code class="font-mono text-[11px]">bundle_type</code> <code class="font-mono text-[11px]">tenant_media</code>, <code class="font-mono text-[11px]">bundle_version</code> 2.
-                        Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.
-                    </p>
+                    @include('admin.settings.partials.heading-with-info', [
+                        'tag' => 'h4',
+                        'class' => 'text-sm font-medium text-foreground mb-4',
+                        'title' => 'ZIP-export / -import (volledige tenant)',
+                        'infoId' => 'tenant-sync-zip-info',
+                        'info' => 'Eén bundle per bedrijf: <strong>bestanden</strong> (o.a. website-media, tenant-instellingen, CV’s, factuurlogo’s, factuur-PDF’s op <code>private_files/invoices/…</code>), <strong>website_pages</strong> in het manifest, en <strong>tenant-general_settings</strong> (mail, SEO, Maps, enz.; geen platform-sync-keys). Bestandsnaam begint met <code>tenant-export-</code>. Manifest: <code>bundle_type</code> <code>tenant_media</code>, <code>bundle_version</code> 2. Oudere ZIP’s (alleen bestanden, versie 1) blijven importeerbaar.',
+                    ])
                     <div class="space-y-6 max-w-2xl">
                         <div>
                             <label for="tenant-sync-zip-company-id" class="text-sm text-secondary-foreground block mb-1">Tenant (bedrijf)</label>
@@ -1272,14 +1294,11 @@
                         </div>
 
                         <div class="rounded-md border border-border bg-muted/30 px-3 py-3 space-y-3">
-                            <h5 class="text-sm font-medium text-foreground m-0">Tenant-export (ZIP)</h5>
-                            <p class="text-xs text-muted-foreground m-0">
-                                Download of importeer één ZIP met <code class="font-mono text-[11px]">manifest.json</code>.
-                                Publieke bestanden staan onder <code class="font-mono text-[11px]">files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/public</code> met dezelfde mappenstructuur).
-                                Versleutelde website-carouselbestanden en <strong class="text-foreground">factuur-PDF’s</strong> staan onder <code class="font-mono text-[11px]">private_files/…</code> (komt in <code class="font-mono text-[11px]">storage/app/…</code>, facturen o.a. <code class="font-mono text-[11px]">private_files/private/invoices/{company_id}/</code>).
-                                Import overschrijft <code class="font-mono text-[11px]">website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug.
-                                Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong class="text-foreground">Volledige tenant-sync</strong> — alle tabellen met <code class="font-mono text-[11px]">company_id</code>, inclusief <code class="font-mono text-[11px]">payment_providers</code>, <code class="font-mono text-[11px]">invoice_settings</code>, <code class="font-mono text-[11px]">invoices</code>, <code class="font-mono text-[11px]">payments</code>, <code class="font-mono text-[11px]">payment_reminders</code>, <code class="font-mono text-[11px]">ride_payments</code>.
-                            </p>
+                            @include('admin.settings.partials.heading-with-info', [
+                                'title' => 'Tenant-export (ZIP)',
+                                'infoId' => 'tenant-sync-zip-export-info',
+                                'info' => 'Download of importeer één ZIP met <code>manifest.json</code>. Publieke bestanden staan onder <code>files/…</code> (komt in <code>storage/app/public</code> met dezelfde mappenstructuur). Versleutelde website-carouselbestanden en <strong>factuur-PDF’s</strong> staan onder <code>private_files/…</code> (komt in <code>storage/app/…</code>, facturen o.a. <code>private_files/private/invoices/{company_id}/</code>). Import overschrijft <code>website_pages</code> per slug/module voor het gekozen bedrijf, zet tenant-instellingen, en schrijft alle bestanden terug. Voor databaserijen (Mollie/Stripe-providers, facturen, betalingen, ritbetalingen, enz.): gebruik <strong>Volledige tenant-sync</strong> — alle tabellen met <code>company_id</code>, inclusief <code>payment_providers</code>, <code>invoice_settings</code>, <code>invoices</code>, <code>payments</code>, <code>payment_reminders</code>, <code>ride_payments</code>.',
+                            ])
                             <div class="flex flex-wrap items-center gap-2">
                                 <button type="button" id="tenant-files-export-btn" class="kt-btn kt-btn-outline">
                                     <i class="ki-filled ki-file-down me-2"></i> Download tenant-ZIP
@@ -1289,9 +1308,13 @@
                                 @csrf
                                 <input type="hidden" name="company_id" id="tenant-files-import-company-id" value="">
                                 <div>
-                                    <label for="tenant-files-bundle-input" class="text-sm text-secondary-foreground block mb-1">Tenant-ZIP importeren</label>
+                                    @include('admin.settings.partials.label-with-info', [
+                                        'for' => 'tenant-files-bundle-input',
+                                        'label' => 'Tenant-ZIP importeren',
+                                        'infoId' => 'tenant-sync-zip-upload-info',
+                                        'info' => 'Max. ' . (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) . ' MB per upload. Bij <strong>413 Request Entity Too Large</strong>: zet op de server in nginx <code>client_max_body_size 512M;</code> (zie <code>deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.',
+                                    ])
                                     <input type="file" name="bundle" id="tenant-files-bundle-input" accept=".zip,application/zip" class="kt-input w-full text-sm py-1.5">
-                                    <p class="text-xs text-muted-foreground mt-1">Max. {{ (int) floor((int) config('upload.tenant_bundle_max_kb', 512000) / 1024) }} MB per upload. Bij <strong class="text-foreground">413 Request Entity Too Large</strong>: zet op de server in nginx <code class="font-mono text-[11px]">client_max_body_size 512M;</code> (zie <code class="font-mono text-[11px]">deploy/nginx-nexa.conf</code>) en herbouw de backend-container na deploy.</p>
                                 </div>
                                 <button type="submit" class="kt-btn kt-btn-primary" id="tenant-files-import-submit"
                                         @if (($companiesForSync ?? collect())->isEmpty()) disabled @endif>

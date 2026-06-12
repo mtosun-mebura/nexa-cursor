@@ -311,7 +311,7 @@ Tabel `ai_chat_audit_logs`:
 ## Configuratie (.env)
 
 ```env
-# VERPLICHT als n8n extern draait (n8n.nexasuite.nl kan geen localhost bereiken):
+# VERPLICHT als n8n extern draait (automations.nexasuite.nl kan geen localhost bereiken):
 AI_CHAT_LARAVEL_API_URL=https://nexasuite.nl
 
 N8N_AI_CHAT_HMAC_SECRET=          # Optioneel: HMAC voor n8n → Laravel

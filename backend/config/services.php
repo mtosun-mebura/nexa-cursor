@@ -51,7 +51,7 @@ return [
         'module_defaults' => [
             'taxi' => env(
                 'NEXA_TAXI_ASSISTANT_WEBHOOK_URL',
-                'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+                'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant'
             ),
         ],
     ],
@@ -59,7 +59,7 @@ return [
     'nexa_taxi' => [
         'assistant_webhook_url' => env(
             'NEXA_TAXI_ASSISTANT_WEBHOOK_URL',
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant'
         ),
     ],
 
