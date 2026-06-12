@@ -136,10 +136,10 @@ class AiChatAssistantServiceTest extends TestCase
     public function test_send_uses_website_fallback_when_webhook_returns_empty_body(): void
     {
         \Illuminate\Support\Facades\Http::fake([
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response('', 200),
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response('', 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Test Taxi Company',
@@ -179,12 +179,12 @@ class AiChatAssistantServiceTest extends TestCase
     public function test_send_posts_configured_webhook_with_rbac_payload_for_diensten(): void
     {
         \Illuminate\Support\Facades\Http::fake([
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response([
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response([
                 'output' => 'Ja, wij bieden luchthavenvervoer aan.',
             ], 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         app()->instance('resolved_tenant_id', 2);
 
@@ -194,7 +194,7 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertStringContainsString('luchthavenvervoer', mb_strtolower($reply));
 
         \Illuminate\Support\Facades\Http::assertSent(function ($request) {
-            return $request->url() === 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+            return $request->url() === 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant'
                 && $request['company_id'] === 2
                 && $request['message'] === 'Hebben jullie luchthavenvervoer?'
                 && $request['channel'] === 'public'
@@ -211,13 +211,13 @@ class AiChatAssistantServiceTest extends TestCase
     public function test_public_tarieven_posts_webhook_with_public_rates_flags(): void
     {
         \Illuminate\Support\Facades\Http::fake([
-            'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response([
+            'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant' => \Illuminate\Support\Facades\Http::response([
                 'answer' => 'De actuele tarieven van Nexa Taxi zijn: instaptarief €3,60.',
                 'source' => 'public_rates',
             ], 200),
         ]);
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         app()->instance('resolved_tenant_id', 2);
 
@@ -227,7 +227,7 @@ class AiChatAssistantServiceTest extends TestCase
         $this->assertStringContainsString('instaptarief', mb_strtolower($reply));
 
         \Illuminate\Support\Facades\Http::assertSent(function ($request) {
-            return $request->url() === 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant'
+            return $request->url() === 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant'
                 && $request['intent'] === 'tarieven'
                 && $request['allowLiveData'] === false
                 && $request['allowPublicRates'] === true
@@ -247,7 +247,7 @@ class AiChatAssistantServiceTest extends TestCase
 
         $deniedMessage = 'Daar kan ik je helaas geen informatie over geven. Stel je vraag gerust op een andere manier, of neem contact met ons op.';
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
         config()->set('ai_chat.live_data_denied_message', $deniedMessage);
         GeneralSetting::set('ai_chat_taxi_live_data_denied_message', $deniedMessage, $company->id);
 

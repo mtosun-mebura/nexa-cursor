@@ -29,14 +29,14 @@ class TaxiPortalAiChatMessageTest extends TestCase
     {
         Http::fake();
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Test Taxi BV',
             'is_active' => true,
         ]);
 
-        GeneralSetting::set('ai_chat_webhook_taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
+        GeneralSetting::set('ai_chat_webhook_taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
         GeneralSetting::set('ai_chat_enabled', '1', $company->id);
         app()->instance('resolved_tenant_id', $company->id);
 
@@ -63,14 +63,14 @@ class TaxiPortalAiChatMessageTest extends TestCase
     {
         Http::fake();
 
-        config()->set('services.ai_chat.module_defaults.taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant');
+        config()->set('services.ai_chat.module_defaults.taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant');
 
         $company = Company::query()->create([
             'name' => 'Test Taxi BV',
             'is_active' => true,
         ]);
 
-        GeneralSetting::set('ai_chat_webhook_taxi', 'https://n8n.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
+        GeneralSetting::set('ai_chat_webhook_taxi', 'https://automations.nexasuite.nl/webhook/nexa-taxi-assistant', $company->id);
         GeneralSetting::set('ai_chat_enabled', '1', $company->id);
         app()->instance('resolved_tenant_id', $company->id);
 

@@ -12,12 +12,16 @@
         z-index: 100251 !important;
         left: auto !important;
         width: min(32rem, calc(100vw - 1.5rem)) !important;
-        height: min(40rem, calc(100vh - 6rem)) !important;
+        height: min(40rem, calc(100dvh - 5.5rem - 1.25rem)) !important;
+        max-height: calc(100dvh - 5.5rem - 1.25rem) !important;
+        overflow: hidden !important;
+        border-radius: 0.5rem !important;
         transform-origin: top right !important;
     }
     .ai-chat-panel.ai-chat-panel--expanded {
         width: min(52rem, calc(100vw - 2rem)) !important;
-        height: min(58rem, calc(100vh - 4.5rem)) !important;
+        height: min(58rem, calc(100dvh - 5.5rem - 1.25rem - 10px)) !important;
+        max-height: calc(100dvh - 5.5rem - 1.25rem - 10px) !important;
     }
 </style>
 <!-- AI Chatbot (paneel; trigger staat in de header naast het thema-icoon) -->
@@ -35,7 +39,7 @@
          x-transition:leave-end="transform opacity-0 scale-95 -translate-y-2"
          @click.outside="if (!$event.target.closest('[data-ai-chat-toggle]')) closeChat()"
          :class="{ 'ai-chat-panel--expanded': isExpanded }"
-         class="ai-chat-panel fixed {{ $chatPanelPositionClass }} rounded-lg flex flex-col">
+         class="ai-chat-panel fixed {{ $chatPanelPositionClass }} flex flex-col">
 
         <!-- Chat Header -->
         <div class="ai-chat-panel__header p-4 rounded-t-lg flex items-center justify-between shrink-0">
