@@ -100,6 +100,20 @@ jobs:
             echo "Eenmalig: sudo chown -R $TARGET:$TARGET $TENANT_DIR/.git"
           fi
 
+          STORAGE_LOGS="$TENANT_DIR/backend/storage/logs"
+          if [[ -d "$STORAGE_LOGS" ]] && ! touch "$STORAGE_LOGS/.preflight-write-test" 2>/dev/null; then
+            echo "WAARSCHUWING: $STORAGE_LOGS niet schrijfbaar voor runner"
+            if sudo -n chown -R "$TARGET:$TARGET" "$TENANT_DIR/backend/storage" 2>/dev/null; then
+              echo "storage: gefixt via sudo chown → $TARGET"
+            else
+              echo "Eenmalig: sudo bash $TENANT_DIR/deploy/fix-git-ownership.sh"
+            fi
+            rm -f "$STORAGE_LOGS/.preflight-write-test" 2>/dev/null || true
+          elif [[ -d "$STORAGE_LOGS" ]]; then
+            rm -f "$STORAGE_LOGS/.preflight-write-test" 2>/dev/null || true
+            echo "storage/logs schrijfbaar: OK"
+          fi
+
       - name: Deploy
         run: |
           set -euxo pipefail
