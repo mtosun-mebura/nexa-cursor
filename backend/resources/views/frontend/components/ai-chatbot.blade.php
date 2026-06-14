@@ -6,24 +6,6 @@
 @once
 <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
 @endonce
-<style>
-    .ai-chat-panel {
-        position: fixed !important;
-        z-index: 100251 !important;
-        left: auto !important;
-        width: min(32rem, calc(100vw - 1.5rem)) !important;
-        height: min(40rem, calc(100dvh - 5.5rem - 1.25rem)) !important;
-        max-height: calc(100dvh - 5.5rem - 1.25rem) !important;
-        overflow: hidden !important;
-        border-radius: 0.5rem !important;
-        transform-origin: top right !important;
-    }
-    .ai-chat-panel.ai-chat-panel--expanded {
-        width: min(52rem, calc(100vw - 2rem)) !important;
-        height: min(58rem, calc(100dvh - 5.5rem - 1.25rem - 10px)) !important;
-        max-height: calc(100dvh - 5.5rem - 1.25rem - 10px) !important;
-    }
-</style>
 <!-- AI Chatbot (paneel; trigger staat in de header naast het thema-icoon) -->
 <div x-data="aiChatbot(@js($aiChatConfig))"
      class="ai-chat-root {{ $chatRootClass }}">
@@ -38,6 +20,7 @@
          x-transition:leave-start="transform opacity-100 scale-100 translate-y-0"
          x-transition:leave-end="transform opacity-0 scale-95 -translate-y-2"
          @click.outside="if (!$event.target.closest('[data-ai-chat-toggle]')) closeChat()"
+         x-ref="chatPanel"
          :class="{ 'ai-chat-panel--expanded': isExpanded }"
          class="ai-chat-panel fixed {{ $chatPanelPositionClass }} flex flex-col">
 
@@ -116,7 +99,8 @@
         </div>
 
         <!-- Chat Input -->
-        <div class="ai-chat-panel__footer p-4 shrink-0 rounded-b-lg">
+        <div class="ai-chat-panel__footer p-4 shrink-0 rounded-b-lg"
+             @focusin="onInputFocus()">
             <!-- Standaard tekstinvoer -->
             <form x-show="!activeQuoteInput()" @submit.prevent="sendMessage()" class="flex space-x-2">
                 <input type="text"

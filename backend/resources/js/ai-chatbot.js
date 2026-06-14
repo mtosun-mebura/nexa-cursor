@@ -75,6 +75,69 @@ export function registerAiChatbot(Alpine) {
             this.$nextTick(() => {
                 this.applyStructuredInputPrefill(this.activeQuoteInput());
             });
+            this.bindMobileViewportListeners();
+        },
+
+        isMobileChatViewport() {
+            return window.matchMedia('(max-width: 767px)').matches;
+        },
+
+        bindMobileViewportListeners() {
+            if (this._mobileViewportBound) {
+                return;
+            }
+            this._mobileViewportBound = true;
+            this._onViewportChange = () => this.syncMobileViewport();
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', this._onViewportChange);
+                window.visualViewport.addEventListener('scroll', this._onViewportChange);
+            }
+            window.addEventListener('resize', this._onViewportChange);
+        },
+
+        syncMobileViewport() {
+            const panel = this.$refs.chatPanel;
+            if (!panel || !this.isMobileChatViewport() || !this.isOpen) {
+                this.resetMobileViewport();
+                return;
+            }
+
+            const visualViewport = window.visualViewport;
+            if (!visualViewport) {
+                return;
+            }
+
+            const keyboardLikelyOpen = visualViewport.height < window.innerHeight * 0.85;
+            if (keyboardLikelyOpen) {
+                const top = Math.max(0, visualViewport.offsetTop);
+                panel.classList.add('ai-chat-panel--keyboard');
+                panel.style.setProperty('--ai-chat-panel-top', `${top}px`);
+                panel.style.setProperty('--ai-chat-panel-height', `${visualViewport.height}px`);
+            } else {
+                panel.classList.remove('ai-chat-panel--keyboard');
+                panel.style.removeProperty('--ai-chat-panel-top');
+                panel.style.removeProperty('--ai-chat-panel-height');
+            }
+
+            this.$nextTick(() => this.scrollToBottom());
+        },
+
+        resetMobileViewport() {
+            const panel = this.$refs.chatPanel;
+            if (!panel) {
+                return;
+            }
+            panel.classList.remove('ai-chat-panel--keyboard');
+            panel.style.removeProperty('--ai-chat-panel-top');
+            panel.style.removeProperty('--ai-chat-panel-height');
+        },
+
+        onInputFocus() {
+            if (!this.isMobileChatViewport()) {
+                return;
+            }
+            setTimeout(() => this.syncMobileViewport(), 50);
+            setTimeout(() => this.syncMobileViewport(), 300);
         },
 
         activeQuoteInput() {
@@ -155,10 +218,13 @@ export function registerAiChatbot(Alpine) {
                 this.$nextTick(() => {
                     this.scrollToBottom();
                     this.focusActiveInput();
+                    this.syncMobileViewport();
                     if (this.activeQuoteInput()?.type === 'address') {
                         this.ensureGoogleMaps().catch(() => {});
                     }
                 });
+            } else {
+                this.resetMobileViewport();
             }
         },
 
@@ -168,6 +234,7 @@ export function registerAiChatbot(Alpine) {
             }
             this.isOpen = false;
             this.isExpanded = false;
+            this.resetMobileViewport();
             this.syncHeaderTriggerState();
         },
 

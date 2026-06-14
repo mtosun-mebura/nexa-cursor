@@ -145,15 +145,18 @@
   }
 
   .ai-chat-panel {
+    position: fixed;
+    z-index: 100251;
     width: min(32rem, calc(100vw - 1.5rem));
-    height: min(40rem, calc(100dvh - 5.5rem - 1.25rem));
-    max-height: calc(100dvh - 5.5rem - 1.25rem);
+    height: min(40rem, var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem)));
+    max-height: var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem));
     overflow: hidden;
     border-radius: 0.5rem;
     transform-origin: top right;
     transition:
       width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
-      height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+      height 0.2s ease,
+      top 0.2s ease,
       box-shadow 0.38s ease;
     background-color: #ffffff;
     color: #111827;
@@ -162,9 +165,38 @@
   }
   .ai-chat-panel--expanded {
     width: min(52rem, calc(100vw - 2rem));
-    height: min(58rem, calc(100dvh - 5.5rem - 1.25rem - 10px));
-    max-height: calc(100dvh - 5.5rem - 1.25rem - 10px);
+    height: min(58rem, var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem - 10px)));
+    max-height: var(--ai-chat-panel-height, calc(100dvh - 5.5rem - 1.25rem - 10px));
     box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.18), 0 12px 24px -8px rgb(0 0 0 / 0.12);
+  }
+  @media (max-width: 767px) {
+    .ai-chat-panel {
+      left: 0 !important;
+      right: 0 !important;
+      top: auto !important;
+      bottom: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+      max-height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+      border-radius: 0.75rem 0.75rem 0 0 !important;
+      transform-origin: bottom center;
+    }
+    .ai-chat-panel--expanded {
+      width: 100% !important;
+      height: min(92dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+      max-height: min(92dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
+    }
+    .ai-chat-panel.ai-chat-panel--keyboard {
+      top: var(--ai-chat-panel-top, 0) !important;
+      bottom: auto !important;
+      height: var(--ai-chat-panel-height) !important;
+      max-height: var(--ai-chat-panel-height) !important;
+      border-radius: 0 !important;
+    }
+    .ai-chat-panel.ai-chat-panel--keyboard .ai-chat-panel__header {
+      padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    }
   }
   /* Frontend header: thema-toggle + AI-chat icoon wit in dark mode */
   html.dark header [data-ai-chat-toggle] svg,
