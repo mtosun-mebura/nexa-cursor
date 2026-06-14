@@ -140,6 +140,14 @@ export function registerAiChatbot(Alpine) {
             setTimeout(() => this.syncMobileViewport(), 300);
         },
 
+        onInputBlur() {
+            if (!this.isMobileChatViewport()) {
+                return;
+            }
+            setTimeout(() => this.syncMobileViewport(), 100);
+            setTimeout(() => this.syncMobileViewport(), 350);
+        },
+
         activeQuoteInput() {
             for (let i = this.messages.length - 1; i >= 0; i -= 1) {
                 const message = this.messages[i];
@@ -215,6 +223,9 @@ export function registerAiChatbot(Alpine) {
             this.isOpen = !this.isOpen;
             this.syncHeaderTriggerState();
             if (this.isOpen) {
+                if (this.isMobileChatViewport()) {
+                    this.isExpanded = false;
+                }
                 this.$nextTick(() => {
                     this.scrollToBottom();
                     this.focusActiveInput();
@@ -239,6 +250,9 @@ export function registerAiChatbot(Alpine) {
         },
 
         toggleExpand() {
+            if (this.isMobileChatViewport()) {
+                return;
+            }
             this.isExpanded = !this.isExpanded;
             this.$nextTick(() => {
                 this.scrollToBottom();

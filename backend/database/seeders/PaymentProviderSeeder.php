@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\PaymentProvider;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Crypt;
 
 class PaymentProviderSeeder extends Seeder
@@ -63,8 +63,10 @@ class PaymentProviderSeeder extends Seeder
 
         foreach ($defaults as $row) {
             $type = $row['provider_type'];
-            PaymentProvider::updateOrCreate(
-                ['provider_type' => $type],
+            // Alleen defaults aanmaken als er nog geen globale provider (company_id null) bestaat.
+            // updateOrCreate overschrijft bij elke deploy de in admin ingestelde API-keys — dat mag niet.
+            PaymentProvider::firstOrCreate(
+                ['provider_type' => $type, 'company_id' => null],
                 [
                     'name' => $row['name'],
                     'is_active' => $row['is_active'],

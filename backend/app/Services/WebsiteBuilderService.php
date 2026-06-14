@@ -7,6 +7,7 @@ use App\Models\FrontendTheme;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\WebsitePage;
+use App\Services\ModuleConfigurationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -495,7 +496,7 @@ class WebsiteBuilderService
                 : $this->getBrandingModuleForCentralHost();
         }
         if ($brandingModule) {
-            $config = is_array($brandingModule->configuration) ? $brandingModule->configuration : [];
+            $config = app(ModuleConfigurationService::class)->getConfiguration($brandingModule, $forCompanyId);
             if (! empty($config['app_name'])) {
                 $siteName = $config['app_name'];
             }

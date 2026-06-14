@@ -68,6 +68,20 @@
 @section('content')
 
 <div class="kt-container-fixed">
+    @if(auth()->user()->hasRole('super-admin') && !($moduleConfigTenantScopedActive ?? false))
+        <div class="tenant-scope-notice mb-5 flex gap-3 rounded-xl px-4 py-4 text-sm shadow-md" role="status">
+            <i class="ki-filled ki-information mt-0.5 shrink-0 text-2xl text-white/90"></i>
+            <div class="min-w-0 flex-1 leading-relaxed text-white">
+                <p class="mb-0 text-base font-semibold text-white">Tenant kiezen</p>
+                <p class="mt-1.5 mb-0 text-white">Kies links in de zijbalk een <strong class="font-semibold text-white">tenant (bedrijf)</strong> voordat u module-instellingen kunt opslaan. Zonder tenant ziet u de standaardwaarden.</p>
+            </div>
+        </div>
+    @elseif($moduleConfigTenantCompany ?? null)
+        <div class="mb-5 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground" role="status">
+            Instellingen voor tenant: <strong class="text-foreground">{{ $moduleConfigTenantCompany->name }}</strong>
+        </div>
+    @endif
+
     <div class="pb-7.5">
         <div class="flex items-center gap-3">
             <i class="{{ $module->getIcon() }} text-2xl text-primary"></i>
@@ -217,7 +231,7 @@
                         <div class="flex-1 min-w-0">
                             <h4 class="font-semibold mb-1 text-foreground">Hoe werkt module configuratie?</h4>
                             <p class="text-sm text-muted-foreground">
-                                Vink aan welke onderdelen bij deze module in het Beheer-menu getoond worden. Uitgevinkte onderdelen blijven beschikbaar via hun eigen route, maar staan niet onder deze module in de sidebar.
+                                Instellingen worden per tenant opgeslagen. Vink aan welke onderdelen bij deze module in het Beheer-menu getoond worden voor de geselecteerde tenant. Uitgevinkte onderdelen blijven beschikbaar via hun eigen route, maar staan niet onder deze module in de sidebar.
                             </p>
                         </div>
                     </div>

@@ -176,7 +176,9 @@
       top: auto !important;
       bottom: 0 !important;
       width: 100% !important;
-      max-width: 100% !important;
+      max-width: 100dvw !important;
+      box-sizing: border-box;
+      overflow-x: hidden;
       height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
       max-height: min(88dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
       border-radius: 0.75rem 0.75rem 0 0 !important;
@@ -184,6 +186,7 @@
     }
     .ai-chat-panel--expanded {
       width: 100% !important;
+      max-width: 100dvw !important;
       height: min(92dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
       max-height: min(92dvh, var(--ai-chat-panel-height, calc(100dvh - 3.5rem))) !important;
     }
@@ -196,6 +199,28 @@
     }
     .ai-chat-panel.ai-chat-panel--keyboard .ai-chat-panel__header {
       padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+    }
+    .ai-chat-panel__expand-btn {
+      display: none !important;
+    }
+    .ai-chat-panel__footer {
+      box-sizing: border-box;
+      max-width: 100%;
+      padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    }
+    .ai-chat-panel__footer form.flex {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .ai-chat-panel__footer form.flex .input {
+      width: auto;
+      flex: 1 1 0%;
+      min-width: 0;
+    }
+    .ai-chat-panel__footer form.flex .btn {
+      flex-shrink: 0;
     }
   }
   /* Frontend header: thema-toggle + AI-chat icoon wit in dark mode */
@@ -1290,4 +1315,31 @@
  */
 .gm-style img {
   max-width: none !important;
+}
+
+/*
+ * Mobiel: iOS Safari zoomt automatisch in bij formuliervelden met font-size < 16px (bijv. text-sm).
+ * Na blur blijft de pagina dan ingezoomd waardoor modals (AI-chat, boekingsmodule) niet meer passen.
+ */
+@media screen and (max-width: 767px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  textarea,
+  select,
+  .input {
+    font-size: 16px !important;
+  }
+
+  [data-nexataxi-booking-module] input,
+  [data-nexataxi-booking-module] textarea,
+  [data-nexataxi-booking-module] select,
+  .ai-chat-panel input,
+  .ai-chat-panel textarea,
+  .ai-chat-panel select {
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
 }

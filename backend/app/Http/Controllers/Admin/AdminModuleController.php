@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Jobs\InstallModuleJob;
 use App\Models\Module as ModuleModel;
 use App\Services\DatabaseResetService;
 use App\Services\MenuService;
+use App\Services\ModuleConfigurationService;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use Illuminate\Http\Request;
@@ -16,17 +18,26 @@ use Illuminate\Support\Facades\Log;
 
 class AdminModuleController extends Controller
 {
+    use TenantFilter;
+
     protected ModuleManager $moduleManager;
 
     protected MenuService $menuService;
 
     protected DatabaseResetService $databaseResetService;
 
-    public function __construct(ModuleManager $moduleManager, MenuService $menuService, DatabaseResetService $databaseResetService)
-    {
+    protected ModuleConfigurationService $moduleConfigurationService;
+
+    public function __construct(
+        ModuleManager $moduleManager,
+        MenuService $menuService,
+        DatabaseResetService $databaseResetService,
+        ModuleConfigurationService $moduleConfigurationService
+    ) {
         $this->moduleManager = $moduleManager;
         $this->menuService = $menuService;
         $this->databaseResetService = $databaseResetService;
+        $this->moduleConfigurationService = $moduleConfigurationService;
     }
 
     public function index()
@@ -167,12 +178,15 @@ class AdminModuleController extends Controller
         $availableItems = array_values(array_filter($allItems, fn ($item) => isset($item['key'])));
         usort($availableItems, fn ($a, $b) => ($a['order'] ?? 999) <=> ($b['order'] ?? 999));
 
-        $config = $moduleModel->configuration ?? [];
+        $config = $this->moduleConfigurationService->getConfiguration($moduleModel);
         $hasDashboardKey = array_key_exists('dashboard_link_visible', $config);
         $enabledKeys = $config['enabled_menu_items'] ?? null;
         if ($enabledKeys === null) {
             $enabledKeys = array_column($availableItems, 'key');
         }
+
+        $tenantCompanyId = $this->moduleConfigurationService->resolveCompanyId();
+        $tenantCompany = $tenantCompanyId ? \App\Models\Company::find($tenantCompanyId) : null;
 
         return view('admin.modules.config', [
             'moduleName' => $moduleModel->name,
@@ -185,6 +199,8 @@ class AdminModuleController extends Controller
                 ? (($config['dashboard_link_visible'] ?? '0') === '1')
                 : false,
             'dashboard_link_label' => $config['dashboard_link_label'] ?? 'Mijn Nexa',
+            'moduleConfigTenantScopedActive' => ! $this->moduleConfigurationService->superAdminRequiresTenantSelection(),
+            'moduleConfigTenantCompany' => $tenantCompany,
         ]);
     }
 
@@ -203,6 +219,12 @@ class AdminModuleController extends Controller
             return redirect()->route('admin.modules.index')->with('error', 'Module is niet geïnstalleerd.');
         }
 
+        $companyId = $this->moduleConfigurationService->resolveCompanyId();
+        if ($companyId === null) {
+            return redirect()->route('admin.modules.config', $moduleModel->name)
+                ->with('error', 'Selecteer eerst een tenant in de zijbalk om module-instellingen op te slaan.');
+        }
+
         $allItems = $module->registerMenuItems();
         $validKeys = array_filter(array_column($allItems, 'key'));
         $submitted = $request->input('enabled_menu_items', []);
@@ -211,7 +233,7 @@ class AdminModuleController extends Controller
         }
         $enabledKeys = array_values(array_intersect($submitted, $validKeys));
 
-        $config = $moduleModel->configuration ?? [];
+        $config = [];
         $config['enabled_menu_items'] = $enabledKeys;
         $config['app_name'] = $request->input('app_name', '');
         $config['app_description'] = $request->input('app_description', '');
@@ -221,11 +243,11 @@ class AdminModuleController extends Controller
             $config['dashboard_link_visible'] = ($raw === '1' || $raw === true || $raw === 1) ? '1' : '0';
             $config['dashboard_link_label'] = $request->input('dashboard_link_label', 'Mijn Nexa');
         }
-        unset($config['company_id']);
-        $moduleModel->update(['configuration' => $config]);
+
+        $this->moduleConfigurationService->saveTenantConfiguration($moduleModel, $companyId, $config);
 
         return redirect()->route('admin.modules.config', $moduleModel->name)
-            ->with('success', 'Module-configuratie bijgewerkt.');
+            ->with('success', 'Module-configuratie voor deze tenant bijgewerkt.');
     }
 
     /**

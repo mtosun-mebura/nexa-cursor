@@ -159,7 +159,8 @@ class Company extends Model
     {
         return $this->belongsToMany(Module::class, 'company_module')
             ->withPivot('settings')
-            ->withTimestamps();
+            ->withTimestamps()
+            ->withCasts(['settings' => 'array']);
     }
 
     /**
