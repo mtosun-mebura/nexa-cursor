@@ -1,7 +1,7 @@
 @php
     $aiChatConfig = $aiChatConfig ?? app(\App\Services\AiChatAssistantService::class)->frontendConfig();
     $chatRootClass = $chatRootClass ?? '';
-    $chatPanelPositionClass = $chatPanelPositionClass ?? 'top-16 md:top-20 right-3 sm:right-4';
+    $chatPanelPositionClass = $chatPanelPositionClass ?? 'md:top-20 md:right-4 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto';
 @endphp
 @once
 <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />
@@ -40,7 +40,7 @@
             <div class="flex items-center gap-0.5 shrink-0 ml-2">
                 <button type="button"
                         @click.stop="toggleExpand()"
-                        class="ai-chat-panel__icon-btn"
+                        class="ai-chat-panel__icon-btn ai-chat-panel__expand-btn hidden md:inline-flex"
                         :aria-label="isExpanded ? 'Chat verkleinen' : 'Chat vergroten'"
                         :title="isExpanded ? 'Verkleinen' : 'Vergroten'">
                     <svg x-show="!isExpanded" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -100,9 +100,10 @@
 
         <!-- Chat Input -->
         <div class="ai-chat-panel__footer p-4 shrink-0 rounded-b-lg"
-             @focusin="onInputFocus()">
+             @focusin="onInputFocus()"
+             @focusout="onInputBlur()">
             <!-- Standaard tekstinvoer -->
-            <form x-show="!activeQuoteInput()" @submit.prevent="sendMessage()" class="flex space-x-2">
+            <form x-show="!activeQuoteInput()" @submit.prevent="sendMessage()" class="flex w-full min-w-0 gap-2">
                 <input type="text"
                        x-model="newMessage"
                        x-ref="messageInput"

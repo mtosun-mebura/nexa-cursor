@@ -34,6 +34,7 @@ class Module extends Model
     {
         return $this->belongsToMany(Company::class, 'company_module')
             ->withPivot('settings')
-            ->withTimestamps();
+            ->withTimestamps()
+            ->withCasts(['settings' => 'array']);
     }
 }
