@@ -101,6 +101,16 @@ class GoogleReviewsService
         return \App\Models\GeneralSetting::resolveScopeCompanyId();
     }
 
+    /**
+     * Standaard sectieconfig voor page builder / componentkaart (GeneralSetting-waarden).
+     *
+     * @return array{place_id: string, business_name: string, cache_hours: int, count: int, min_stars: int, section_title: string, section_background: string}
+     */
+    public function getDefaultSectionConfig(?int $forCompanyId = null): array
+    {
+        return $this->reviewSettings($forCompanyId);
+    }
+
     public function getReviews(?int $forCompanyId = null): array
     {
         $settings = $this->reviewSettings($forCompanyId);

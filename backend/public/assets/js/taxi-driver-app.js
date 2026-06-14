@@ -846,7 +846,22 @@
     }
 
     function notificationsApiAvailable() {
-        return 'Notification' in window;
+        try {
+            return typeof window !== 'undefined' && 'Notification' in window;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function getNotificationPermission() {
+        if (!notificationsApiAvailable()) {
+            return 'unsupported';
+        }
+        try {
+            return Notification.permission || 'default';
+        } catch (e) {
+            return 'unsupported';
+        }
     }
 
     function canRequestNotificationsOnDevice() {
@@ -942,7 +957,8 @@
             hint.hidden = true;
             return;
         }
-        if (Notification.permission === 'granted') {
+        const permission = getNotificationPermission();
+        if (permission === 'granted') {
             localStorage.removeItem(NOTIFICATIONS_HINT_DISMISSED_KEY);
             hint.hidden = true;
             showNotificationsFeedback('');
@@ -957,7 +973,7 @@
             btn.hidden = false;
             btn.disabled = false;
         }
-        if (isInBrowserTabOnIos()) {
+        if (isInBrowserTabOnIos() || permission === 'unsupported') {
             if (hintText) {
                 hintText.textContent =
                     'Open de app via het icoon op je beginscherm (Safari → Deel → Zet op beginscherm). Meldingen werken niet in een Safari-tab.';
@@ -968,7 +984,7 @@
             return;
         }
         if (hintText) {
-            if (Notification.permission === 'denied') {
+            if (permission === 'denied') {
                 hintText.textContent =
                     'Meldingen zijn geblokkeerd. Sta ze toe in de instellingen van je telefoon voor deze app (Instellingen → Meldingen).';
             } else {
@@ -1001,11 +1017,12 @@
             finish('unsupported');
             return;
         }
-        if (Notification.permission === 'granted') {
+        const permission = getNotificationPermission();
+        if (permission === 'granted') {
             finish('granted');
             return;
         }
-        if (Notification.permission === 'denied') {
+        if (permission === 'denied') {
             showNotificationsFeedback(
                 'Meldingen zijn geblokkeerd. Ga naar Instellingen → Meldingen en sta meldingen toe voor deze app.',
                 'error'
@@ -1057,7 +1074,7 @@
             return;
         }
 
-        if (Notification.permission === 'granted') {
+        if (getNotificationPermission() === 'granted') {
             showNotificationsFeedback('Meldingen staan al aan.', 'success');
             updateNotificationsHint();
             showRideOfferPhoneNotification({
@@ -1113,7 +1130,7 @@
 
     async function showRideOfferPhoneNotification(offer, options) {
         const opts = options || {};
-        if (!notificationsApiAvailable() || Notification.permission !== 'granted' || !offer) {
+        if (!notificationsApiAvailable() || getNotificationPermission() !== 'granted' || !offer) {
             return;
         }
         const ride = offer.ride || {};

@@ -133,7 +133,14 @@
         <!-- Content -->
         <main class="grow pt-[--kt-header-height] lg:pt-[--kt-header-height]">
             <div class="kt-container-fixed py-6">
-                <div id="metronic-vue-demo1-app"></div>
+                <div id="metronic-vue-demo1-app">
+                    <div class="kt-alert kt-alert-warning" role="alert">
+                        <div class="kt-alert-title">Component catalog laden…</div>
+                        <div class="kt-alert-description">
+                            Als dit blijft staan: draai <code>npm run build</code> in <code>backend/</code> of start <code>npm run dev</code> voor Vite.
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
         <!-- End Content -->
@@ -141,8 +148,8 @@
     <!-- End Wrapper -->
 </div>
 
-<script src="{{ asset('metronic-v9.4.13/demo1/assets/vendors/ktui/ktui.min.js') }}"></script>
 <script src="{{ asset('metronic-v9.4.13/demo1/assets/js/core.bundle.js') }}"></script>
+<script src="{{ asset('metronic-v9.4.13/demo1/assets/vendors/ktui/ktui.min.js') }}"></script>
 @vite('resources/js/metronic-vue-demo1.ts')
 </body>
 </html>

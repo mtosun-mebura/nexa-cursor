@@ -11,6 +11,7 @@ export default defineConfig({
         'resources/js/app.js',
         'resources/js/frontend-app.js',
         'resources/js/metronic-vue-demo1.ts',
+        'resources/js/website-page-builder-v2.ts',
         'resources/js/taxi-portal-app.ts'
       ],
       refresh: true,

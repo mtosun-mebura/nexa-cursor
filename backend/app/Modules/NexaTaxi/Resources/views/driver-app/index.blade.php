@@ -985,7 +985,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? asset('assets/media/app/nexa-chauffeur-icon-192.png')),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=46" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=47" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
