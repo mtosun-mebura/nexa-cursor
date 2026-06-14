@@ -20,13 +20,12 @@
                placeholder="{{ $placeholder }}">
         <input type="hidden" name="{{ $clearFlagName }}" id="{{ $clearFlagName }}" value="0">
         <button type="button"
-                class="tenant-sync-password-reveal kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-1 top-1/2 z-[2] -translate-y-1/2"
+                class="tenant-sync-password-reveal kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-1 top-1/2 z-[2] -translate-y-1/2 shrink-0"
                 data-password-input="{{ $id }}"
                 aria-label="Wachtwoord tonen"
                 title="Wachtwoord tonen"
                 tabindex="-1">
-            <i class="ki-filled ki-eye text-sm tenant-sync-eye-show"></i>
-            <i class="ki-filled ki-eye-slash text-sm tenant-sync-eye-hide hidden"></i>
+            <i class="ki-filled ki-eye text-base leading-none tenant-sync-password-eye-icon" aria-hidden="true"></i>
         </button>
         <button type="button"
                 class="tenant-sync-password-clear kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-9 top-1/2 z-[2] -translate-y-1/2 hidden"
@@ -43,6 +42,14 @@
         (function () {
             if (window.__tenantSyncPwRevealInit) return;
             window.__tenantSyncPwRevealInit = true;
+            function setPasswordEyeIcon(btn, visible) {
+                var icon = btn.querySelector('.tenant-sync-password-eye-icon');
+                if (!icon) return;
+                icon.classList.remove('ki-eye', 'ki-eye-slash');
+                icon.classList.add(visible ? 'ki-eye-slash' : 'ki-eye');
+                btn.setAttribute('aria-label', visible ? 'Wachtwoord verbergen' : 'Wachtwoord tonen');
+                btn.setAttribute('title', visible ? 'Wachtwoord verbergen' : 'Wachtwoord tonen');
+            }
             function wire() {
                 var btns = document.querySelectorAll('.tenant-sync-password-reveal');
                 for (var i = 0; i < btns.length; i++) {
@@ -51,15 +58,11 @@
                         btn.dataset.wired = '1';
                         var input = document.getElementById(btn.getAttribute('data-password-input'));
                         if (!input) return;
-                        var show = btn.querySelector('.tenant-sync-eye-show');
-                        var hide = btn.querySelector('.tenant-sync-eye-hide');
+                        setPasswordEyeIcon(btn, input.type === 'text');
                         btn.addEventListener('click', function () {
                             var reveal = input.type === 'password';
                             input.type = reveal ? 'text' : 'password';
-                            if (show) show.classList.toggle('hidden', reveal);
-                            if (hide) hide.classList.toggle('hidden', !reveal);
-                            btn.setAttribute('aria-label', reveal ? 'Wachtwoord verbergen' : 'Wachtwoord tonen');
-                            btn.setAttribute('title', reveal ? 'Wachtwoord verbergen' : 'Wachtwoord tonen');
+                            setPasswordEyeIcon(btn, reveal);
                         });
                     })(btns[i]);
                 }

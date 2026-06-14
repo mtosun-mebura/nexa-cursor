@@ -145,9 +145,8 @@ final class TenantWebsiteBundleService
     public function testSyncConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
     {
         $this->sshTunnel->runIsolated(function () use ($url, $config) {
-            $this->registerSyncConnection($url, $config);
             try {
-                DB::connection(self::SYNC_CONNECTION)->getPdo();
+                $this->assertSyncTargetConnection($url, $config);
             } finally {
                 DB::purge(self::SYNC_CONNECTION);
             }
@@ -192,8 +191,62 @@ final class TenantWebsiteBundleService
             ]
         );
 
+        if ($config->sshEnabled) {
+            // Via SSH-tunnel: geen SSL-handshake (tunnel is al versleuteld); anders sluit Postgres soms direct.
+            $merged['sslmode'] = 'disable';
+            $merged['connect_timeout'] = 15;
+        }
+
         config(['database.connections.'.self::SYNC_CONNECTION => $merged]);
         DB::purge(self::SYNC_CONNECTION);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    public function assertSyncTargetConnection(?string $url = null, ?TenantSyncConnectionConfig $config = null): void
+    {
+        $config ??= $this->tenantSyncSettings->connectionConfig();
+
+        try {
+            $this->registerSyncConnection($url, $config);
+            if ($config->sshEnabled && ! $this->sshTunnel->isActive()) {
+                throw new RuntimeException('SSH-tunnel is niet actief voordat de databaseverbinding opgebouwd werd.');
+            }
+            DB::connection(self::SYNC_CONNECTION)->getPdo();
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            throw new RuntimeException($this->explainSyncTargetConnectionError($e, $config), 0, $e);
+        }
+    }
+
+    public function explainSyncTargetConnectionError(\Throwable $e, ?TenantSyncConnectionConfig $config = null): string
+    {
+        $config ??= $this->tenantSyncSettings->connectionConfig();
+
+        return $this->formatSyncConnectionError($e, $config);
+    }
+
+    private function formatSyncConnectionError(\Throwable $e, TenantSyncConnectionConfig $config): string
+    {
+        $message = trim($e->getMessage());
+        if ($message === '') {
+            $message = 'Onbekende databasefout';
+        }
+
+        if (! $config->sshEnabled) {
+            return $message;
+        }
+
+        return $message.sprintf(
+            ' Controleer of Postgres op de server bereikbaar is via de SSH-tunnel (%s@%s → %s:%d).'
+            .' Bij Docker-deploy (docker-compose.deploy.yml) is dat meestal host 127.0.0.1 poort 5432 op de server, niet de containernaam db.',
+            $config->sshUsername,
+            $config->sshHost,
+            $config->remoteDbHost,
+            $config->remoteDbPort
+        );
     }
 
     /**

@@ -50,6 +50,11 @@ final class TenantSyncSshTunnelService
         return TenantSyncDatabaseUrl::replaceHostPort($url, '127.0.0.1', $localPort);
     }
 
+    public function isActive(): bool
+    {
+        return $this->localPort !== null && $this->process?->isRunning() === true;
+    }
+
     public function close(): void
     {
         if ($this->process !== null) {
@@ -101,6 +106,7 @@ final class TenantSyncSshTunnelService
             '-o', 'StrictHostKeyChecking=accept-new',
             '-o', 'ExitOnForwardFailure=yes',
             '-o', 'ServerAliveInterval=30',
+            '-o', 'ServerAliveCountMax=6',
             sprintf('%s@%s', $config->sshUsername, $config->sshHost),
         ];
 

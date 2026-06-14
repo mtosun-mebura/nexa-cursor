@@ -100,6 +100,12 @@ final class TenantCompanyDataPushService
 
         $this->websiteBundle->registerSyncConnection();
 
+        try {
+            DB::connection($targetConn)->getPdo();
+        } catch (\Throwable $e) {
+            throw new RuntimeException($this->websiteBundle->explainSyncTargetConnectionError($e), 0, $e);
+        }
+
         $messages = [];
         $inserted = 0;
         $skipped = 0;

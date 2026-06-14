@@ -133,7 +133,11 @@ class TaxiRideInvoiceService
     {
         $invoice = $this->findInvoiceForRide($ride);
         if (! $invoice && $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID) {
-            $invoice = $this->ensureInvoiceForPaidRide($ride->getConnectionName(), $ride->fresh(), false);
+            try {
+                $invoice = $this->ensureInvoiceForPaidRide($ride->getConnectionName(), $ride->fresh(), false);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         $isPaid = $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID;

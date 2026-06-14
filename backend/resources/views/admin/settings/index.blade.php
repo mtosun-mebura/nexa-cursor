@@ -1162,7 +1162,7 @@
                                 @include('admin.settings.partials.heading-with-info', [
                                     'title' => 'Postgres op de server (via tunnel)',
                                     'infoId' => 'tenant-sync-ssh-db-info',
-                                    'info' => 'De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding via de tunnel.',
+                                    'info' => 'De database-URL hierboven wordt bij SSH niet gebruikt; deze gegevens bepalen de verbinding via de tunnel. Postgres-host op server: bij Docker-deploy meestal <code>127.0.0.1</code> poort <code>5432</code> (niet de containernaam <code>db</code>).',
                                 ])
                                 <div class="grid gap-3 sm:grid-cols-2">
                                     <div>

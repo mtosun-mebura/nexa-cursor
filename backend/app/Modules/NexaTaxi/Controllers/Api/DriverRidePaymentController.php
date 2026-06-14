@@ -26,7 +26,7 @@ class DriverRidePaymentController extends Controller
 
         $openPayment = RidePayment::on($conn)
             ->where('ride_request_id', $rideModel->id)
-            ->where('channel', RidePayment::CHANNEL_DRIVER)
+            ->whereIn('channel', [RidePayment::CHANNEL_DRIVER, RidePayment::CHANNEL_BOOKING])
             ->where('status', RidePayment::STATUS_OPEN)
             ->orderByDesc('id')
             ->first();
