@@ -209,6 +209,8 @@ class WebsiteBuilderService
         $defaultConn = (string) config('database.default');
         if (! Schema::connection($connection)->hasColumn($table, 'company_id')
             && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
+            $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -235,12 +237,13 @@ class WebsiteBuilderService
         $model = $query->getModel();
         $table = $model->getTable();
         $connection = $query->getConnection()->getName();
-        $defaultConn = (string) config('database.default');
-        if (! Schema::connection($connection)->hasColumn($table, 'company_id')
-            && ! Schema::connection($defaultConn)->hasColumn($table, 'company_id')) {
+        if (Schema::connection($connection)->hasColumn($table, 'company_id')) {
+            $query->where($table.'.company_id', $tenantCompanyId);
+
             return;
         }
-        $query->where($table.'.company_id', $tenantCompanyId);
+
+        $query->whereRaw('1 = 0');
     }
 
     /**
@@ -369,6 +372,24 @@ class WebsiteBuilderService
     }
 
     /**
+     * Branding voor een specifieke website-pagina (module + gekoppeld bedrijf).
+     * Gebruik in admin-preview en frontend-render zodat logo/favicon uit tenant-instellingen komen.
+     */
+    public function getSiteBrandingForWebsitePage(WebsitePage $page): array
+    {
+        $companyId = null;
+        if ($page->company_id !== null && $page->company_id !== '') {
+            $companyId = (int) $page->company_id;
+        }
+
+        return $this->getSiteBranding(
+            $this->getBrandingModuleNameForWebsitePage($page),
+            false,
+            $companyId
+        );
+    }
+
+    /**
      * Logo-, favicon-, sitenaam en omschrijving voor de website layout.
      * Sitenaam en omschrijving komen van het actieve module-config (indien ingevuld), anders van algemene instellingen.
      *
@@ -384,36 +405,37 @@ class WebsiteBuilderService
      * @param  bool  $forStagingPreview  Staging-thema is niet altijd het actieve site-thema: geen fallback naar
      *                                   {@see getBrandingModule()} zonder expliciete modulenaam. Zonder modulecontext
      *                                   blijft de dashboard-knop uit (regel hieronder).
+     * @param  int|null  $forCompanyId  Expliciet bedrijf voor tenant-logo/instellingen (bijv. admin preview van pagina).
      * @return array{logo_url: ?string, logo_dark_url: ?string, logo_size_px: int, favicon_url: ?string, site_name: string, site_description: string, dashboard_link_label: string, dashboard_link_visible: bool, dashboard_link_url: string, dashboard_link_module: ?string}
      */
-    public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false): array
+    public function getSiteBranding(?string $forModuleName = null, bool $forStagingPreview = false, ?int $forCompanyId = null): array
     {
-        $logoSizePx = $this->resolveLogoSizePx();
+        $logoSizePx = $this->resolveLogoSizePx($forCompanyId);
 
-        $logoPath = GeneralSetting::get('logo');
+        $logoPath = GeneralSetting::get('logo', null, $forCompanyId);
         $logoUrl = null;
         if ($logoPath && Storage::disk('public')->exists($logoPath)) {
             $logoUrl = $this->publicFileUrl(ltrim($logoPath, '/'));
         }
         $logoDarkUrl = null;
-        $logoMode = GeneralSetting::get('logo_mode', 'single');
+        $logoMode = GeneralSetting::get('logo_mode', 'single', $forCompanyId);
         if ($logoMode === 'light_dark') {
-            $logoDarkPath = GeneralSetting::get('logo_dark');
+            $logoDarkPath = GeneralSetting::get('logo_dark', null, $forCompanyId);
             if ($logoDarkPath && Storage::disk('public')->exists($logoDarkPath)) {
                 $logoDarkUrl = $this->publicFileUrl(ltrim($logoDarkPath, '/'));
             }
         }
 
-        $faviconPath = GeneralSetting::get('favicon');
+        $faviconPath = GeneralSetting::get('favicon', null, $forCompanyId);
         $faviconUrl = null;
         if ($faviconPath && Storage::disk('public')->exists($faviconPath)) {
             $faviconUrl = $this->publicFileUrl(ltrim($faviconPath, '/'));
         }
 
-        $siteName = GeneralSetting::get('site_name', config('app.name', 'Nexa'));
-        $siteDescription = GeneralSetting::get('site_description', '');
-        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa');
-        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1') === '1';
+        $siteName = GeneralSetting::get('site_name', config('app.name', 'Nexa'), $forCompanyId);
+        $siteDescription = GeneralSetting::get('site_description', '', $forCompanyId);
+        $dashboardLinkLabel = GeneralSetting::get('dashboard_link_label', 'Mijn Nexa', $forCompanyId);
+        $dashboardLinkVisible = GeneralSetting::get('dashboard_link_visible', '1', $forCompanyId) === '1';
         $dashboardLinkUrl = route('dashboard');
         $dashboardLinkModule = null;
 
@@ -465,7 +487,11 @@ class WebsiteBuilderService
             }
         }
 
-        $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl);
+        $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl, $forCompanyId);
+
+        $logoUrl = $logoUrl ? $this->storageUrlToDisplayUrl($logoUrl) : null;
+        $logoDarkUrl = $logoDarkUrl ? $this->storageUrlToDisplayUrl($logoDarkUrl) : null;
+        $faviconUrl = $faviconUrl ? $this->storageUrlToDisplayUrl($faviconUrl) : null;
 
         return [
             'logo_url' => $logoUrl,
@@ -632,9 +658,9 @@ class WebsiteBuilderService
     /**
      * Logo-hoogte uit Algemene instellingen (zelfde bereik als admin #logo_size).
      */
-    public function resolveLogoSizePx(): int
+    public function resolveLogoSizePx(?int $forCompanyId = null): int
     {
-        $raw = GeneralSetting::get('logo_size', '26');
+        $raw = GeneralSetting::get('logo_size', '26', $forCompanyId);
         $px = is_numeric($raw) ? (int) $raw : 26;
 
         return max(10, min(100, $px));
@@ -667,13 +693,13 @@ class WebsiteBuilderService
     /**
      * Als er geen logo in general_settings staat: logo uit bedrijfsprofiel (wizard).
      */
-    private function applyCompanyLogoFallback(?string &$logoUrl, ?string &$logoDarkUrl): void
+    private function applyCompanyLogoFallback(?string &$logoUrl, ?string &$logoDarkUrl, ?int $forCompanyId = null): void
     {
         if ($logoUrl !== null && $logoUrl !== '') {
             return;
         }
 
-        $companyId = $this->resolveBrandingCompanyId();
+        $companyId = $forCompanyId ?? $this->resolveBrandingCompanyId();
         if ($companyId === null) {
             return;
         }
@@ -683,10 +709,35 @@ class WebsiteBuilderService
             return;
         }
 
+        // Admin preview (geen tenant-host): data-URI i.p.v. /brand/company/… (die route vereist tenant-context).
+        if ($this->isAdminLikeRequest()) {
+            $logoUrl = $this->companyLogoDataUri($company, false);
+            if ($company->logo_dark_blob) {
+                $logoDarkUrl = $this->companyLogoDataUri($company, true);
+            }
+
+            return;
+        }
+
         $logoUrl = route('frontend.company-brand.logo', $company);
         if ($company->logo_dark_blob) {
             $logoDarkUrl = route('frontend.company-brand.logo.dark', $company);
         }
+    }
+
+    private function companyLogoDataUri(Company $company, bool $dark): ?string
+    {
+        $blob = $dark ? $company->logo_dark_blob : $company->logo_blob;
+        $mime = $dark ? $company->logo_dark_mime_type : $company->logo_mime_type;
+        if (! $blob && $dark && $company->logo_blob) {
+            $blob = $company->logo_blob;
+            $mime = $company->logo_mime_type;
+        }
+        if (! $blob || trim((string) $blob) === '') {
+            return null;
+        }
+
+        return 'data:'.($mime ?: 'image/png').';base64,'.trim((string) $blob);
     }
 
     /**
@@ -775,6 +826,9 @@ class WebsiteBuilderService
             return '';
         }
         $u = trim((string) $url);
+        if (str_starts_with($u, 'data:')) {
+            return $u;
+        }
         $path = null;
         if (str_starts_with($u, '/storage/')) {
             $path = preg_replace('#^/storage/#', '', $u);
@@ -785,6 +839,10 @@ class WebsiteBuilderService
             return $this->publicFileUrl($path);
         }
         if (str_starts_with($u, 'http://') || str_starts_with($u, 'https://')) {
+            if (preg_match('~^https?://[^/]+(/file/[^?#]+)~', $u, $m)) {
+                return url($m[1]);
+            }
+
             return $u;
         }
 
@@ -1616,13 +1674,15 @@ class WebsiteBuilderService
     public function loadAllPagesForAdminIndex(?int $restrictToTenantCompanyId = null, bool $strictTenantCompanyPagesOnly = false): Collection
     {
         $restrictLinkedLower = null;
+        $linkedModuleNamesLower = null;
         if ($restrictToTenantCompanyId !== null) {
             $tenantCompany = Company::query()->find($restrictToTenantCompanyId);
             if (! $tenantCompany) {
                 return collect();
             }
+            $linkedModuleNamesLower = $this->linkedInstalledActiveModuleNamesLowerForCompany($tenantCompany);
             if (! $strictTenantCompanyPagesOnly) {
-                $restrictLinkedLower = $this->linkedInstalledActiveModuleNamesLowerForCompany($tenantCompany);
+                $restrictLinkedLower = $linkedModuleNamesLower;
             }
         }
 
@@ -1651,6 +1711,13 @@ class WebsiteBuilderService
             $moduleQuery = WebsitePage::query()
                 ->whereNotNull('module_name')
                 ->with('theme');
+            if ($linkedModuleNamesLower !== null) {
+                if ($linkedModuleNamesLower === []) {
+                    $moduleQuery->whereRaw('1 = 0');
+                } else {
+                    $moduleQuery->whereIn(DB::raw('LOWER(module_name)'), $linkedModuleNamesLower);
+                }
+            }
             $applyTenantScope($moduleQuery);
             $modulePagesOnMain = $moduleQuery
                 ->orderBy('sort_order')
@@ -1666,6 +1733,10 @@ class WebsiteBuilderService
         $modulePages = collect();
         foreach (Module::where('installed', true)->pluck('name') as $moduleName) {
             if ($moduleName === null || $moduleName === '') {
+                continue;
+            }
+            if ($linkedModuleNamesLower !== null
+                && ! in_array(strtolower((string) $moduleName), $linkedModuleNamesLower, true)) {
                 continue;
             }
             $conn = $this->moduleDb->getModuleConnectionName($moduleName);

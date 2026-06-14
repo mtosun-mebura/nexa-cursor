@@ -41,6 +41,109 @@ class WebsitePageCrudAndPreviewTest extends TestCase
     }
 
     #[Test]
+    public function website_pages_index_requires_tenant_selection_for_super_admin(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('website_pages', 'company_id')) {
+            $this->markTestSkipped('website_pages.company_id column required');
+        }
+
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+        $tenant = Company::query()->create(['name' => 'No Tenant List', 'slug' => 'no-tenant-list-'.uniqid()]);
+
+        WebsitePage::query()->create([
+            'slug' => 'hidden-without-tenant-'.uniqid(),
+            'title' => 'Hidden Without Tenant',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $tenant->id,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)->get(route('admin.website-pages.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Tenant kiezen');
+        $response->assertSee('voordat u website-pagina');
+        $response->assertDontSee('Hidden Without Tenant');
+        $response->assertDontSee('Geen tenant gekozen');
+    }
+
+    #[Test]
+    public function website_pages_index_is_scoped_to_selected_tenant(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('website_pages', 'company_id')) {
+            $this->markTestSkipped('website_pages.company_id column required');
+        }
+
+        $theme = FrontendTheme::firstOrCreate(
+            ['slug' => 'modern'],
+            ['name' => 'Modern', 'is_active' => true]
+        );
+        $tenantA = Company::query()->create(['name' => 'Tenant A Pages', 'slug' => 'tenant-a-pages-'.uniqid()]);
+        $tenantB = Company::query()->create(['name' => 'Tenant B Pages', 'slug' => 'tenant-b-pages-'.uniqid()]);
+
+        WebsitePage::query()->create([
+            'slug' => 'tenant-a-only-'.uniqid(),
+            'title' => 'Tenant A Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $tenantA->id,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+        WebsitePage::query()->create([
+            'slug' => 'tenant-b-only-'.uniqid(),
+            'title' => 'Tenant B Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $tenantB->id,
+            'is_active' => true,
+            'sort_order' => 2,
+        ]);
+
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+
+        $response = $this->actingAs($user)
+            ->withSession(['selected_tenant' => $tenantA->id])
+            ->get(route('admin.website-pages.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Tenant A Home');
+        $response->assertDontSee('Tenant B Home');
+    }
+
+    #[Test]
+    public function tenant_switch_updates_tenant_company_in_website_pages_redirect(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('super-admin');
+        $tenantA = Company::query()->create(['name' => 'Switch A', 'slug' => 'switch-a-'.uniqid()]);
+        $tenantB = Company::query()->create(['name' => 'Switch B', 'slug' => 'switch-b-'.uniqid()]);
+
+        $response = $this->actingAs($user)->postJson(route('admin.tenant.switch'), [
+            'tenant_id' => $tenantB->id,
+            'redirect' => '/admin/website-pages?tenant_company='.$tenantA->id,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'redirect' => '/admin/website-pages?tenant_company='.$tenantB->id,
+        ]);
+    }
+
+    #[Test]
     public function website_pages_create_form_loads_for_super_admin(): void
     {
         $user = User::factory()->create();

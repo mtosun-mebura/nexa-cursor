@@ -50,10 +50,26 @@ class AdminWebsitePageController extends Controller
         $activeModuleName = $this->getActiveModuleNameForFrontend();
 
         $tenantCompanyId = $this->resolveTenantCompanyIdForWebsitePagesList($request);
-        $pages = $this->websiteBuilder->loadAllPagesForAdminIndex(
-            $tenantCompanyId,
-            $tenantCompanyId !== null
-        );
+        $websitePagesTenantScopedActive = $tenantCompanyId !== null;
+
+        if ($websitePagesTenantScopedActive) {
+            $pages = $this->websiteBuilder->loadAllPagesForAdminIndex(
+                $tenantCompanyId,
+                true
+            );
+            $pages = $pages
+                ->filter(function ($page) use ($tenantCompanyId) {
+                    if (! $page instanceof WebsitePage) {
+                        return false;
+                    }
+                    $cid = $page->company_id;
+
+                    return $cid !== null && $cid !== '' && (int) $cid === $tenantCompanyId;
+                })
+                ->values();
+        } else {
+            $pages = collect();
+        }
         // Centrale welkompagina is de app-start/fallback (hoofddomein zonder tenant) en hoort niet in de algemene pagina-lijst.
         $pages = $pages->reject(function ($page) {
             if (! $page instanceof WebsitePage) {
@@ -72,7 +88,7 @@ class AdminWebsitePageController extends Controller
 
         $websiteDevPreviewUrl = $this->buildWebsiteDevPreviewUrl($request, null);
 
-        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl'));
+        return view('admin.website-pages.index', compact('pages', 'activeModuleName', 'activeTheme', 'wizardBackUrl', 'wizardIndexQuery', 'websiteTenantContext', 'websitePagesCompanyNames', 'websiteDevPreviewUrl', 'websitePagesTenantScopedActive'));
     }
 
     public function create(Request $request)
@@ -204,7 +220,7 @@ class AdminWebsitePageController extends Controller
      */
     public function show(WebsitePage $website_page)
     {
-        $url = route('admin.website-pages.edit', $website_page);
+        $url = route('admin.website-pages.builder-v2.edit', $website_page);
         if ($website_page->module_name) {
             $url .= '?module='.rawurlencode($website_page->module_name);
         }
@@ -622,9 +638,7 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $theme = $this->websiteBuilder->getThemeForPage($website_page);
         $menuPages = $this->websiteBuilder->getActiveMenuPages();
-        $branding = $this->websiteBuilder->getSiteBranding(
-            $this->websiteBuilder->getBrandingModuleNameForWebsitePage($website_page)
-        );
+        $branding = $this->websiteBuilder->getSiteBrandingForWebsitePage($website_page);
         $themeSlug = $theme ? $theme->slug : 'modern';
         $themeSettings = $theme ? $theme->getSettings() : [];
 
@@ -1363,6 +1377,23 @@ class AdminWebsitePageController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function googleReviewsComponentDefaultsForBuilder(WebsitePage $websitePage): array
+    {
+        $companyId = isset($websitePage->company_id) && $websitePage->company_id !== null && $websitePage->company_id !== ''
+            ? (int) $websitePage->company_id
+            : \App\Models\GeneralSetting::resolveScopeCompanyId();
+        $defaults = app(GoogleReviewsService::class)->getDefaultSectionConfig($companyId);
+        $mapped = [];
+        foreach (GoogleReviewsService::COMPONENT_SECTION_KEYS as $sectionKey) {
+            $mapped[$sectionKey] = $defaults;
+        }
+
+        return $mapped;
     }
 
     /**
@@ -2825,6 +2856,188 @@ class AdminWebsitePageController extends Controller
         return $this->websiteBuilder->getActiveTheme($companyId);
     }
 
+    /**
+     * Visuele page builder v2 (Vue): lege pagina-canvas met sleepbare blokken.
+     * Klassieke editor (v1) blijft ongewijzigd beschikbaar.
+     */
+    public function editV2(Request $request, WebsitePage $website_page): View|\Illuminate\Http\RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        if ($website_page->module_name && trim((string) request()->query('module')) !== trim((string) $website_page->module_name)) {
+            $url = route('admin.website-pages.builder-v2.edit', ['website_page' => $website_page->id]).'?module='.rawurlencode($website_page->module_name);
+            $wizardQ = $this->websitePagesIndexQuery($request);
+            if ($wizardQ !== []) {
+                $url .= '&'.http_build_query($wizardQ);
+            }
+
+            return redirect($url);
+        }
+
+        $themeFormContext = $this->websitePageThemeFormContext($request, $website_page);
+        $themeSlug = $themeFormContext['defaultTheme']?->slug ?? 'modern';
+        $homeSections = $website_page->getHomeSections();
+        $defaults = ($website_page->page_type === 'home' || $website_page->slug === 'home')
+            ? WebsitePage::defaultHomeSectionsForTheme($themeSlug)
+            : WebsitePage::defaultPageSectionsForNonHome($themeSlug);
+
+        $moduleNameForComponents = $this->moduleNameForWebsiteComponents($website_page->module_name, $request);
+        $componentService = app(FrontendComponentService::class);
+        $catalogComponents = $componentService->availableForPage($moduleNameForComponents)
+            ->map(static fn ($c) => [
+                'id' => (string) ($c->id ?? ''),
+                'name' => (string) ($c->name ?? $c->id ?? ''),
+                'description' => (string) ($c->description ?? ''),
+                'moduleName' => (string) ($c->module_name ?? ''),
+                'sectionKey' => 'component:'.(string) ($c->id ?? ''),
+            ])
+            ->values()
+            ->all();
+
+        $wizardIndexQuery = $this->websitePagesIndexQuery($request);
+        $wizardBackUrl = $this->resolveTenantWizardReturnUrl($request);
+        $classicEditUrl = route('admin.website-pages.edit', ['website_page' => $website_page]);
+        if ($website_page->module_name) {
+            $classicEditUrl .= '?module='.rawurlencode($website_page->module_name);
+        }
+        if ($wizardIndexQuery !== []) {
+            $classicEditUrl .= (str_contains($classicEditUrl, '?') ? '&' : '?').http_build_query($wizardIndexQuery);
+        }
+
+        $builderV2EditUrl = route('admin.website-pages.builder-v2.edit', ['website_page' => $website_page]);
+        if ($website_page->module_name) {
+            $builderV2EditUrl .= '?module='.rawurlencode($website_page->module_name);
+        }
+        if ($wizardIndexQuery !== []) {
+            $builderV2EditUrl .= (str_contains($builderV2EditUrl, '?') ? '&' : '?').http_build_query($wizardIndexQuery);
+        }
+
+        $previewUrl = route('admin.website-pages.preview', $website_page);
+        if ($website_page->module_name) {
+            $previewUrl .= '?module='.rawurlencode($website_page->module_name);
+        }
+
+        $bootstrap = [
+            'page' => [
+                'id' => (int) $website_page->id,
+                'title' => (string) $website_page->title,
+                'slug' => (string) $website_page->slug,
+                'pageType' => (string) $website_page->page_type,
+                'moduleName' => $website_page->module_name,
+                'companyId' => $website_page->company_id,
+            ],
+            'themeSlug' => $themeSlug,
+            'themeName' => $themeFormContext['defaultTheme']?->name ?? $themeSlug,
+            'homeSections' => $homeSections,
+            'defaults' => $defaults,
+            'catalog' => [
+                'sections' => WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug),
+                'components' => $catalogComponents,
+            ],
+            'componentDefaults' => array_merge([
+                'component:taxi.boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
+                'component:taxiroyaal.boekingsmodule' => app(\App\Services\NexaTaxiBookingPricingService::class)->getDefaultSectionConfig(),
+            ], $this->googleReviewsComponentDefaultsForBuilder($website_page)),
+            'routes' => [
+                'save' => route('admin.website-pages.builder-v2.update', ['website_page' => $website_page]),
+                'preview' => $previewUrl,
+                'classicEdit' => $classicEditUrl,
+                'index' => route('admin.website-pages.index', $wizardIndexQuery),
+                'self' => $builderV2EditUrl,
+                'uploadHeroImage' => route('admin.website-pages.upload-hero-image'),
+            ],
+            'wizardBackUrl' => $wizardBackUrl,
+        ];
+
+        return view('admin.website-pages-v2.edit', [
+            'page' => $website_page,
+            'bootstrap' => $bootstrap,
+            'wizardBackUrl' => $wizardBackUrl,
+        ]);
+    }
+
+    /**
+     * Sla alleen home_sections op vanuit de v2 builder (JSON).
+     */
+    public function updateV2(Request $request, WebsitePage $website_page): JsonResponse
+    {
+        $this->ensureSuperAdmin();
+        $validated = $request->validate([
+            'home_sections' => 'required|array',
+        ]);
+        $input = $validated['home_sections'];
+
+        $saveData = [
+            'page_type' => $website_page->page_type,
+            'frontend_theme_id' => $website_page->frontend_theme_id,
+            'module_name' => $website_page->module_name,
+            'company_id' => $website_page->company_id,
+        ];
+        $activeTheme = $this->resolveThemeModelForWebsitePageSave($request, $saveData, $website_page->module_name);
+        $themeSlug = $activeTheme ? ($activeTheme->slug ?? 'modern') : 'modern';
+
+        $orderInput = $input['section_order'] ?? null;
+        if (is_array($orderInput)) {
+            $input['section_order'] = implode(',', array_values(array_filter($orderInput, fn ($k) => is_string($k) && $k !== '')));
+        }
+
+        $rawStoredHomeSections = is_array($website_page->home_sections) ? $website_page->home_sections : [];
+        $existingSections = $website_page->getHomeSections();
+
+        foreach (['footer', 'copyright', 'visibility', 'admin_collapsed'] as $preserveKey) {
+            if (! array_key_exists($preserveKey, $input) && array_key_exists($preserveKey, $existingSections)) {
+                $input[$preserveKey] = $existingSections[$preserveKey];
+            }
+        }
+
+        $existingOrderRaw = $existingSections['section_order'] ?? [];
+        if (is_string($existingOrderRaw) && $existingOrderRaw !== '') {
+            $existingSectionOrder = array_values(array_filter(array_map('trim', explode(',', $existingOrderRaw))));
+        } elseif (is_array($existingOrderRaw)) {
+            $existingSectionOrder = array_values(array_filter($existingOrderRaw, fn ($k) => is_string($k) && $k !== ''));
+        } else {
+            $existingSectionOrder = [];
+        }
+        $existingSectionOrder = array_map(
+            static fn ($k) => FrontendComponentService::normalizeComponentSectionKey($k),
+            $existingSectionOrder
+        );
+
+        $removedSectionKeys = $this->parseRemovedSectionKeysFromInput($input, $request);
+        $isHome = $website_page->page_type === 'home' || $website_page->slug === 'home';
+
+        try {
+            $homeSections = $isHome
+                ? $this->normalizeHomeSections($input, $themeSlug, false, $existingSectionOrder, $removedSectionKeys, $rawStoredHomeSections)
+                : $this->normalizeHomeSections($input, $themeSlug, true, $existingSectionOrder, $removedSectionKeys, $rawStoredHomeSections);
+
+            $reviewsCompanyId = $this->resolveGoogleReviewsCompanyIdForSave(
+                ['company_id' => $website_page->company_id, 'home_sections' => $homeSections],
+                $website_page,
+                $request
+            );
+            $this->persistGoogleReviewsSettingsFromHomeSectionsInput($input, $reviewsCompanyId, $request);
+
+            $website_page->update(['home_sections' => $homeSections]);
+            $this->syncWebsitePageMirrorConnection($website_page->fresh(), ['home_sections' => $homeSections]);
+        } catch (\Throwable $e) {
+            \Log::error('Website page builder v2 update failed', [
+                'page_id' => $website_page->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Opslaan mislukt: '.$e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Pagina opgeslagen.',
+            'homeSections' => $website_page->fresh()->getHomeSections(),
+        ]);
+    }
+
     protected function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
@@ -2846,20 +3059,8 @@ class AdminWebsitePageController extends Controller
         if ($wizardListId !== null) {
             return $wizardListId;
         }
-        $tc = $request->input('tenant_company');
-        if ($tc !== null && $tc !== '' && is_numeric($tc)) {
-            $id = (int) $tc;
 
-            return Company::whereKey($id)->exists() ? $id : null;
-        }
-        $st = session('selected_tenant');
-        if ($st !== null && $st !== '') {
-            $id = (int) $st;
-
-            return Company::whereKey($id)->exists() ? $id : null;
-        }
-
-        return null;
+        return $this->resolveWebsitePageCompanyIdFromImplicitContext($request);
     }
 
     /**

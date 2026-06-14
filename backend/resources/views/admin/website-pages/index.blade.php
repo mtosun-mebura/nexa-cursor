@@ -32,14 +32,10 @@
             @if(!empty($wtc['visible']) && !empty($wtc['effective_company']))
                 <p class="text-sm text-muted-foreground mt-2 mb-0">
                     <span class="text-foreground font-medium">Actieve tenant:</span> {{ $wtc['effective_company']->name }}
-                    <span class="text-muted-foreground">— nieuwe pagina&apos;s worden standaard aan dit bedrijf gekoppeld. Elke pagina hoort bij één bedrijf.</span>
-                </p>
-            @elseif(!empty($wtc['visible']))
-                <p class="text-sm text-muted-foreground mt-2 mb-0">
-                    <span class="text-foreground font-medium">Geen tenant gekozen</span> in de sidebar: bij <strong>nieuwe pagina</strong> kiest u een bedrijf in het formulier. Bestaande pagina&apos;s tonen hun gekoppelde bedrijfsnaam.
                 </p>
             @endif
         </div>
+        @if($websitePagesTenantScopedActive ?? false)
         <div class="flex flex-wrap items-center gap-2 shrink-0">
             @php
                 $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('home', [
@@ -55,6 +51,7 @@
                 <i class="ki-filled ki-plus me-2"></i> Nieuwe pagina
             </a>
         </div>
+        @endif
     </div>
 
     @if(session('success'))
@@ -63,6 +60,9 @@
         </div>
     @endif
 
+    @include('admin.website-pages.partials.tenant-scope-notice')
+
+    @if($websitePagesTenantScopedActive ?? false)
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-content p-0 min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap min-w-0">
@@ -92,7 +92,7 @@
                             }
                         @endphp
                         @php
-                            $rowEditUrl = route('admin.website-pages.edit', $page).$pageModule.$wizSuffix;
+                            $rowEditUrl = route('admin.website-pages.builder-v2.edit', $page).$pageModule.$wizSuffix;
                         @endphp
                         <tr class="website-page-row cursor-pointer hover:bg-gray-100/90 dark:hover:bg-white/[0.06] transition-colors" data-row-href="{{ $rowEditUrl }}" role="button" tabindex="0">
                             <td class="tabular-nums">{{ $page->sort_order }}</td>
@@ -139,11 +139,19 @@
                                             </div>
                                             <div class="kt-menu-separator"></div>
                                             <div class="kt-menu-item">
-                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.edit', $page) }}{{ $pageModule }}{{ $wizSuffix }}">
+                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.builder-v2.edit', $page) }}{{ $pageModule }}{{ $wizSuffix }}">
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-pencil"></i>
                                                     </span>
                                                     <span class="kt-menu-title">Bewerken</span>
+                                                </a>
+                                            </div>
+                                            <div class="kt-menu-item">
+                                                <a class="kt-menu-link" href="{{ route('admin.website-pages.edit', $page) }}{{ $pageModule }}{{ $wizSuffix }}">
+                                                    <span class="kt-menu-icon">
+                                                        <i class="ki-filled ki-notepad-edit"></i>
+                                                    </span>
+                                                    <span class="kt-menu-title">Klassieke editor</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-separator"></div>
@@ -174,6 +182,7 @@
             </div>
         </div>
     </div>
+    @endif
 </div>
 
 @push('styles')

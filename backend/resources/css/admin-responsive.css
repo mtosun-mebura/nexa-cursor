@@ -148,6 +148,32 @@ body.dark #header [data-ai-chat-toggle] svg,
     }
 }
 
+/* Desktop: inklap-knop sidebar blijft zichtbaar en klikbaar (niet alleen bij hover) */
+@media (min-width: 1024px) {
+    .demo1.kt-sidebar-collapse #sidebar {
+        z-index: 10055;
+        overflow: visible;
+    }
+
+    .demo1.kt-sidebar-collapse #sidebar .kt-sidebar-header {
+        overflow: visible;
+    }
+
+    .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle {
+        z-index: 2;
+        pointer-events: auto;
+        background-color: var(--background);
+        border-color: var(--border);
+        box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+    }
+
+    html.dark .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle,
+    body.dark .demo1.kt-sidebar-collapse #sidebar #sidebar_toggle,
+    .dark.demo1.kt-sidebar-collapse #sidebar #sidebar_toggle {
+        box-shadow: 0 1px 6px rgb(0 0 0 / 0.45);
+    }
+}
+
 /* Admin content: volle breedte naast sidebar, één dunne pagina-inset */
 #content .kt-container-fixed {
     min-width: 0;

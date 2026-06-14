@@ -109,9 +109,7 @@ class WebsitePageController extends Controller
     {
         $theme = $this->websiteBuilder->getThemeForPage($page);
         $menuPages = $this->websiteBuilder->getActiveMenuPages();
-        $branding = $this->websiteBuilder->getSiteBranding(
-            $this->websiteBuilder->getBrandingModuleNameForWebsitePage($page)
-        );
+        $branding = $this->websiteBuilder->getSiteBrandingForWebsitePage($page);
 
         $themeSlug = $theme ? $theme->slug : 'modern';
         $themeSettings = $theme ? $theme->getSettings() : [];

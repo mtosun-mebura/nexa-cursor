@@ -63,6 +63,9 @@ class CompanyBrandLogoController extends Controller
         }
 
         $user = Auth::user();
+        if ($user && $user->hasRole('super-admin')) {
+            return true;
+        }
         if ($user && $user->company_id && (int) $user->company_id === (int) $company->id) {
             return true;
         }

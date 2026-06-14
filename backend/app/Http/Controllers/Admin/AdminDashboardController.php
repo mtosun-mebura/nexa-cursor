@@ -189,6 +189,10 @@ class AdminDashboardController extends Controller
 
         $afterUrl = $this->sanitizeTenantSwitchRedirect($request->input('redirect'))
             ?? route('admin.dashboard');
+        $afterUrl = $this->syncTenantCompanyInAdminRedirect(
+            $afterUrl,
+            $tenantId !== null && $tenantId !== '' ? (int) $tenantId : null
+        );
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -222,6 +226,37 @@ class AdminDashboardController extends Controller
         }
 
         return $path;
+    }
+
+    private function syncTenantCompanyInAdminRedirect(string $path, ?int $tenantCompanyId): string
+    {
+        $queryString = '';
+        $pathname = $path;
+        if (str_contains($path, '?')) {
+            [$pathname, $queryString] = explode('?', $path, 2);
+        }
+
+        $query = [];
+        if ($queryString !== '') {
+            parse_str($queryString, $query);
+        }
+
+        $shouldSync = array_key_exists('tenant_company', $query)
+            || preg_match('#^/admin/website-pages(?:/|$)#', $pathname) === 1;
+
+        if (! $shouldSync) {
+            return $path;
+        }
+
+        if ($tenantCompanyId !== null) {
+            $query['tenant_company'] = $tenantCompanyId;
+        } else {
+            unset($query['tenant_company']);
+        }
+
+        $newQuery = http_build_query($query);
+
+        return $pathname.($newQuery !== '' ? '?'.$newQuery : '');
     }
 
     /**

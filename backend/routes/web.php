@@ -702,6 +702,8 @@ Route::middleware(['web', 'admin'])->prefix('admin')->name('admin.')->group(func
         Route::post('website-pages/upload-wysiwyg-document', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'uploadWysiwygDocument'])->name('website-pages.upload-wysiwyg-document');
         Route::post('website-pages/generate-seo', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'generateSeoContent'])->name('website-pages.generate-seo');
         Route::get('website-pages/{website_page}/preview', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'preview'])->name('website-pages.preview');
+        Route::get('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'editV2'])->name('website-pages.builder-v2.edit');
+        Route::put('website-pages/{website_page}/builder-v2', [App\Http\Controllers\Admin\AdminWebsitePageController::class, 'updateV2'])->name('website-pages.builder-v2.update');
         Route::resource('website-pages', App\Http\Controllers\Admin\AdminWebsitePageController::class)->names('website-pages');
         Route::post('website-media/upload', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'upload'])->name('website-media.upload');
         Route::delete('website-media/{uuid}', [App\Http\Controllers\Admin\AdminWebsiteMediaController::class, 'destroy'])->name('website-media.destroy')->where('uuid', '[\w\-]+');

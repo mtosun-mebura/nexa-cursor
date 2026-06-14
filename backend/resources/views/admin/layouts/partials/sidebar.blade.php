@@ -35,8 +35,10 @@
             @endif
         </a>
         <button
+            type="button"
             class="kt-btn kt-btn-outline kt-btn-icon absolute start-full top-2/4 size-[30px] -translate-x-2/4 -translate-y-2/4 rtl:translate-x-2/4"
-            data-kt-toggle="body" data-kt-toggle-class="kt-sidebar-collapse" id="sidebar_toggle">
+            data-kt-toggle="body" data-kt-toggle-class="kt-sidebar-collapse" id="sidebar_toggle"
+            aria-label="Menu in- of uitklappen">
             <i
                 class="ki-filled ki-black-left-line kt-toggle-active:rotate-180 rtl:translate rtl:kt-toggle-active:rotate-0 transition-all duration-300 rtl:rotate-180">
             </i>
@@ -686,7 +688,7 @@
                         </div>
                         <div class="kt-menu-item {{ $isWebsitePagesMenuActive ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
-                                href="{{ route('admin.website-pages.index') }}" tabindex="0">
+                                href="{{ route('admin.website-pages.index', $selectedTenant ? ['tenant_company' => (int) $selectedTenant] : []) }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
                                     Pagina's
@@ -867,11 +869,29 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <script>
+function buildTenantSwitchRedirect(tenantId) {
+    const url = new URL(window.location.href);
+    const shouldSync = url.searchParams.has('tenant_company')
+        || /^\/admin\/website-pages(?:\/|$)/.test(url.pathname);
+
+    if (!shouldSync) {
+        return url.pathname + url.search;
+    }
+
+    if (tenantId) {
+        url.searchParams.set('tenant_company', tenantId);
+    } else {
+        url.searchParams.delete('tenant_company');
+    }
+
+    return url.pathname + url.search;
+}
+
 function switchTenant(tenantId) {
     const formData = new FormData();
     formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
     formData.append('tenant_id', tenantId);
-    formData.append('redirect', window.location.pathname + window.location.search);
+    formData.append('redirect', buildTenantSwitchRedirect(tenantId));
     
     fetch('{{ route('admin.tenant.switch') }}', {
         method: 'POST',
