@@ -282,6 +282,118 @@ class SkillmatchingPortalAccessTest extends TestCase
     }
 
     #[Test]
+    public function site_branding_shows_mijn_taxi_for_tenant_home_without_module_name(): void
+    {
+        $theme = \App\Models\FrontendTheme::create([
+            'slug' => 'atom-v2',
+            'name' => 'Atom v2',
+            'description' => 'Test',
+            'is_active' => true,
+            'settings' => ['primary_color' => '#2563eb'],
+        ]);
+
+        $taxi = Module::create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+            'configuration' => [
+                'dashboard_link_visible' => '1',
+                'dashboard_link_label' => 'Mijn Taxi',
+            ],
+            'frontend_theme_id' => $theme->id,
+        ]);
+
+        $company = Company::query()->create(['name' => 'Taxi Royaal', 'slug' => 'taxiroyaal']);
+        $company->modules()->attach($taxi->id);
+
+        $page = \App\Models\WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'component:taxi.boekingsmodule' => ['title' => 'Boek eenvoudig je taxirit'],
+            ],
+        ]);
+
+        app()->instance('resolved_tenant', $company);
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $branding = app(\App\Services\WebsiteBuilderService::class)->getSiteBrandingForWebsitePage($page);
+
+        $this->assertTrue($branding['dashboard_link_visible']);
+        $this->assertSame('Mijn Taxi', $branding['dashboard_link_label']);
+        $this->assertSame(route('taxi.portal.dashboard'), $branding['dashboard_link_url']);
+    }
+
+    #[Test]
+    public function tenant_home_renders_mijn_taxi_button_when_module_config_allows(): void
+    {
+        $theme = \App\Models\FrontendTheme::create([
+            'slug' => 'atom-v2',
+            'name' => 'Atom v2',
+            'description' => 'Test',
+            'is_active' => true,
+            'settings' => [
+                'primary_color' => '#2563eb',
+                'font_heading' => 'Inter',
+                'font_body' => 'Inter',
+                'dark_mode_available' => true,
+            ],
+        ]);
+
+        $taxi = Module::create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'description' => 'Test',
+            'icon' => 'ki-filled ki-car',
+            'installed' => true,
+            'active' => true,
+            'configuration' => [
+                'dashboard_link_visible' => '1',
+                'dashboard_link_label' => 'Mijn Taxi',
+            ],
+            'frontend_theme_id' => $theme->id,
+        ]);
+
+        $company = Company::query()->create(['name' => 'Taxi Royaal', 'slug' => 'taxiroyaal']);
+        $company->modules()->attach($taxi->id);
+        $company->update(['frontend_theme_id' => $theme->id]);
+
+        \App\Models\WebsitePage::query()->create([
+            'slug' => 'home',
+            'title' => 'Home',
+            'page_type' => 'home',
+            'frontend_theme_id' => $theme->id,
+            'module_name' => null,
+            'company_id' => $company->id,
+            'is_active' => true,
+            'sort_order' => 0,
+            'home_sections' => [
+                'component:taxi.boekingsmodule' => ['title' => 'Boek eenvoudig je taxirit'],
+            ],
+        ]);
+
+        app()->instance('resolved_tenant', $company);
+        app()->instance('resolved_tenant_id', $company->id);
+
+        $response = $this->get('https://taxiroyaal.nexasuite.nl/');
+
+        $response->assertOk();
+        $response->assertSee('Mijn Taxi', false);
+        $response->assertSee(route('login', ['intended' => route('taxi.portal.dashboard')]), false);
+    }
+
+    #[Test]
     public function resolve_public_frontend_module_name_uses_mijn_taxi_intended(): void
     {
         $request = \Illuminate\Http\Request::create('/login', 'GET', [

@@ -356,19 +356,60 @@ class WebsiteBuilderService
      * waarvan je in Admin → Modules → configureren de vink "Knop Mijn-omgeving tonen" zet.
      *
      * - Heeft de pagina een `module_name`? → die module (case-insensitive lookup in {@see getSiteBranding()}).
-     * - Anders (`null`) → {@see getSiteBranding()} gebruikt {@see getBrandingModule()} (o.a. vastgezette module op het actieve thema).
+     * - Anders: gekoppelde tenant-module, taxi-secties op de pagina, of {@see getBrandingModule()}.
      *
      * Het actieve thema (Metronic, Atom, …) bepaalt alleen layout/styling via {@see getThemeForPage()}; het wijzigt
      * niet welke `configuration` voor de Mijn-knop geldt — dat is uitsluitend de module hierboven.
      */
     public function getBrandingModuleNameForWebsitePage(WebsitePage $page): ?string
     {
-        if (! filled($page->module_name)) {
+        if (filled($page->module_name)) {
+            $name = trim((string) $page->module_name);
+
+            return $name !== '' ? $name : null;
+        }
+
+        $companyId = $this->tenantCompanyIdForPage($page);
+        if ($companyId !== null) {
+            $fromCompany = $this->getBrandingModuleForResolvedCompany($companyId);
+            if ($fromCompany !== null && filled($fromCompany->name)) {
+                return (string) $fromCompany->name;
+            }
+        }
+
+        $inferred = $this->inferPortalModuleNameFromPageContent($page);
+        if ($inferred !== null) {
+            return $inferred;
+        }
+
+        $brandingModule = $this->getBrandingModule();
+
+        return $brandingModule !== null && filled($brandingModule->name)
+            ? (string) $brandingModule->name
+            : null;
+    }
+
+    /**
+     * Herken taxi/skillmatching op pagina's zonder module_name (typisch tenant-home met alleen secties).
+     */
+    private function inferPortalModuleNameFromPageContent(WebsitePage $page): ?string
+    {
+        $sections = $page->getHomeSections();
+        if (! is_array($sections)) {
             return null;
         }
-        $name = trim((string) $page->module_name);
 
-        return $name !== '' ? $name : null;
+        foreach (array_keys($sections) as $key) {
+            $key = (string) $key;
+            if ($key === 'component:taxi.boekingsmodule' || $key === 'component:taxiroyaal.boekingsmodule') {
+                return 'taxi';
+            }
+            if (str_starts_with($key, 'component:taxi')) {
+                return 'taxi';
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -377,10 +418,7 @@ class WebsiteBuilderService
      */
     public function getSiteBrandingForWebsitePage(WebsitePage $page): array
     {
-        $companyId = null;
-        if ($page->company_id !== null && $page->company_id !== '') {
-            $companyId = (int) $page->company_id;
-        }
+        $companyId = $this->tenantCompanyIdForPage($page);
 
         return $this->getSiteBranding(
             $this->getBrandingModuleNameForWebsitePage($page),
@@ -451,7 +489,10 @@ class WebsiteBuilderService
         }
         // Geen fallback naar getBrandingModule() als er expliciet een module is gevraagd: voorkomt verkeerde module + knop "aan"
         if (! $brandingModule && ! $explicitModuleRequested && ! $forStagingPreview) {
-            $brandingModule = $this->getBrandingModule();
+            $tenantId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+            $brandingModule = $tenantId !== null
+                ? $this->getBrandingModuleForResolvedCompany($tenantId)
+                : $this->getBrandingModuleForCentralHost();
         }
         if ($brandingModule) {
             $config = is_array($brandingModule->configuration) ? $brandingModule->configuration : [];
@@ -481,7 +522,7 @@ class WebsiteBuilderService
             if ($dashboardLinkVisible) {
                 if (! $this->moduleManager->isActive($dashboardLinkModule)) {
                     $dashboardLinkVisible = false;
-                } elseif (! $this->tenantHasModuleNamed($dashboardLinkModule)) {
+                } elseif (! $this->tenantHasModuleNamed($dashboardLinkModule, $forCompanyId)) {
                     $dashboardLinkVisible = false;
                 }
             }
@@ -594,9 +635,15 @@ class WebsiteBuilderService
     /**
      * Of de huidige tenant de opgegeven module heeft (company_modules). Zonder tenant-context: true.
      */
-    public function tenantHasModuleNamed(string $moduleName): bool
+    public function tenantHasModuleNamed(string $moduleName, ?int $forCompanyId = null): bool
     {
-        $company = $this->resolveBrandingCompany();
+        $company = null;
+        if ($forCompanyId !== null && $forCompanyId > 0) {
+            $company = Company::query()->find($forCompanyId);
+        }
+        if ($company === null) {
+            $company = $this->resolveBrandingCompany();
+        }
         if ($company === null) {
             return true;
         }

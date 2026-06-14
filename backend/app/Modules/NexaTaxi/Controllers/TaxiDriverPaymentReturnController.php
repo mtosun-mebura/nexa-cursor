@@ -41,7 +41,6 @@ class TaxiDriverPaymentReturnController extends Controller
 
         return view('taxi::driver-app.payment-return', [
             'paid' => $paid,
-            'appUrl' => route('taxi.chauffeur.index', ['payment_done' => $paid ? '1' : '0']),
         ]);
     }
 }
