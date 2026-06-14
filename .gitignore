@@ -95,6 +95,13 @@ backend/public/assets/media/app/**
 !backend/public/assets/media/app/mini-logo-circle.svg
 !backend/public/assets/media/app/mini-logo-circle-dark.svg
 !backend/public/assets/media/app/whatsapp-icon.svg
+!backend/public/assets/media/app/nexa-chauffeur-icon.png
+!backend/public/assets/media/app/nexa-chauffeur-icon-32.png
+!backend/public/assets/media/app/nexa-chauffeur-icon-180.png
+!backend/public/assets/media/app/nexa-chauffeur-icon-192.png
+!backend/public/assets/media/app/nexa-chauffeur-icon-512.png
+!backend/public/assets/media/app/nexa-chauffeur-nosleep.mp4
+!backend/public/assets/media/app/nexa-chauffeur-nosleep.wav
 
 # Do not track backend/.gitignore file itself locally
 backend/.gitignore

@@ -7,9 +7,11 @@ use App\Modules\NexaTaxi\Http\Resources\TaxiDispatchOfferResource;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
+use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
@@ -70,6 +72,20 @@ class DriverDispatchController extends Controller
             ->where('status', RideRequest::STATUS_ASSIGNED)
             ->orderBy('pickup_at')
             ->first();
+
+        if ($activeRide && $activeRide->payment_status !== RideRequest::PAYMENT_STATUS_PAID) {
+            $openPayment = RidePayment::on($conn)
+                ->where('ride_request_id', $activeRide->id)
+                ->whereIn('channel', [RidePayment::CHANNEL_DRIVER, RidePayment::CHANNEL_BOOKING])
+                ->where('status', RidePayment::STATUS_OPEN)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($openPayment) {
+                app(TaxiRidePaymentService::class)->syncRidePaymentFromMollie($conn, $openPayment);
+                $activeRide = $activeRide->fresh();
+            }
+        }
 
         $dispatchSettings = app(TaxiDispatchSettingsService::class);
 
