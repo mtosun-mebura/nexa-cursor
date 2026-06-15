@@ -4156,45 +4156,55 @@ body.booking-modal-open {
             });
         }
 
-        window.__nexataxiBookingRouteCalc = calculateRoute;
-        if (window.google && google.maps && google.maps.places) {
-            startAutocomplete();
-            return;
-        }
-
-        if (window.google && google.maps && typeof google.maps.importLibrary === 'function') {
-            google.maps.importLibrary('places')
-                .then(function() {
-                    startAutocomplete();
-                })
-                .catch(function() {
-                    // Keep graceful fallback from setupAddressTypeaheadFallback.
-                });
-            return;
-        }
-
-        var existingMapsScript = Array.from(document.querySelectorAll('script[src*="maps.googleapis.com/maps/api/js"]'));
-        if (existingMapsScript.length > 0) {
-            // Script staat al op de pagina (bv. footer); wacht op Places i.p.v. opnieuw laden.
-            var waitForPlaces = setInterval(function() {
+        function ensurePlacesLibrary(onReady) {
+            if (window.google && google.maps && google.maps.places) {
+                onReady();
+                return;
+            }
+            if (window.google && google.maps && typeof google.maps.importLibrary === 'function') {
+                google.maps.importLibrary('places')
+                    .then(onReady)
+                    .catch(function() {});
+                return;
+            }
+            var tries = 0;
+            var maxTries = 75;
+            var timer = setInterval(function() {
+                tries += 1;
                 if (window.google && google.maps && google.maps.places) {
-                    clearInterval(waitForPlaces);
-                    startAutocomplete();
+                    clearInterval(timer);
+                    onReady();
+                    return;
+                }
+                if (window.google && google.maps && typeof google.maps.importLibrary === 'function') {
+                    clearInterval(timer);
+                    google.maps.importLibrary('places')
+                        .then(onReady)
+                        .catch(function() {});
+                    return;
+                }
+                if (tries >= maxTries) {
+                    clearInterval(timer);
                 }
             }, 200);
-            setTimeout(function() {
-                clearInterval(waitForPlaces);
-            }, 15000);
+        }
+
+        window.__nexataxiBookingRouteCalc = calculateRoute;
+        ensurePlacesLibrary(startAutocomplete);
+
+        var existingMapsScript = Array.from(document.querySelectorAll('script[src*="maps.googleapis.com/maps/api/js"]'));
+        if (existingMapsScript.length > 0 || (window.google && google.maps)) {
             return;
         }
 
         var callbackName = 'initNexaTaxiBookingMaps_' + Math.floor(Math.random() * 1000000);
         window[callbackName] = function() {
-            startAutocomplete();
+            ensurePlacesLibrary(startAutocomplete);
         };
         var script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(mapsApiKey) + '&libraries=places&language=' + encodeURIComponent((config.maps && config.maps.language) ? config.maps.language : 'nl') + '&callback=' + callbackName + '&loading=async';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(mapsApiKey) + '&libraries=places&language=' + encodeURIComponent((config.maps && config.maps.language) ? config.maps.language : 'nl') + '&callback=' + callbackName;
         script.async = true;
+        script.onerror = function() {};
         document.head.appendChild(script);
     }
 
@@ -4453,7 +4463,7 @@ body.booking-modal-open {
             return base + (base.indexOf('?') >= 0 ? '&' : '?') + searchParams.toString();
         }
         var TYPEAHEAD_FETCH_TIMEOUT_MS = 5000;
-        var GOOGLE_PLACES_READY_MAX_TRIES = 8;
+        var GOOGLE_PLACES_READY_MAX_TRIES = 40;
         var GOOGLE_PLACES_READY_DELAY_MS = 100;
         function fetchNominatimPredictions(q, sourceKey) {
             var key = sourceKey || 'default';
@@ -4522,6 +4532,21 @@ body.booking-modal-open {
                 }
                 function runPredictions(tryCount) {
                     if (!serviceReady()) {
+                        if (
+                            tryCount === 0 &&
+                            window.google &&
+                            google.maps &&
+                            typeof google.maps.importLibrary === 'function'
+                        ) {
+                            google.maps.importLibrary('places')
+                                .then(function() {
+                                    runPredictions(tryCount + 1);
+                                })
+                                .catch(function() {
+                                    resolve([]);
+                                });
+                            return;
+                        }
                         if (tryCount < GOOGLE_PLACES_READY_MAX_TRIES) {
                             setTimeout(function() { runPredictions(tryCount + 1); }, GOOGLE_PLACES_READY_DELAY_MS);
                             return;
