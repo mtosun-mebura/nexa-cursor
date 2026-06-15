@@ -188,6 +188,35 @@
                 </tr>
                 <tr>
                     <td class="text-secondary-foreground font-normal">
+                        Agenda kleur
+                    </td>
+                    <td class="text-foreground font-normal">
+                        @php $profileAgendaColor = $user->agenda_color ?: $user->resolvedAgendaColor(); @endphp
+                        <span id="view-agenda_color" class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 rounded-full border border-border" style="background-color: {{ $profileAgendaColor }};"></span>
+                            <span>{{ $profileAgendaColor }}</span>
+                        </span>
+                        <div class="hidden w-full profile-edit-wrap" data-profile-field="agenda_color">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <input type="color"
+                                       name="agenda_color"
+                                       id="edit-agenda_color"
+                                       class="h-10 w-14 cursor-pointer rounded border border-border p-1"
+                                       value="{{ $profileAgendaColor }}">
+                                <input type="text"
+                                       id="edit-agenda_color_hex"
+                                       class="kt-input w-32 font-mono text-sm"
+                                       value="{{ $profileAgendaColor }}"
+                                       maxlength="7"
+                                       pattern="^#[0-9A-Fa-f]{6}$"
+                                       placeholder="#3b82f6">
+                            </div>
+                            <div class="text-xs text-muted-foreground mt-1">Jouw ritten en afspraken in de agenda.</div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-secondary-foreground font-normal">
                         Locatie
                     </td>
                     <td class="text-foreground font-normal">
@@ -671,11 +700,29 @@ function setProfileEditVisible(field, visible) {
     }
 }
 
+function setupAgendaColorSync() {
+    const colorEl = document.getElementById('edit-agenda_color');
+    const hexEl = document.getElementById('edit-agenda_color_hex');
+    if (!colorEl || !hexEl) {
+        return;
+    }
+
+    colorEl.addEventListener('input', function() {
+        hexEl.value = colorEl.value;
+    });
+
+    hexEl.addEventListener('input', function() {
+        if (/^#[0-9A-Fa-f]{6}$/.test(hexEl.value)) {
+            colorEl.value = hexEl.value;
+        }
+    });
+}
+
 function toggleEditMode() {
     isEditMode = !isEditMode;
     const editBtn = document.getElementById('edit-profile-btn');
     const editActions = document.getElementById('edit-profile-actions');
-    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'agenda_color', 'location', 'date_of_birth'];
     
     if (isEditMode) {
         // Save original data
@@ -769,7 +816,7 @@ function toggleEditMode() {
 function cancelEdit() {
     isEditMode = false;
     
-    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'agenda_color', 'location', 'date_of_birth'];
     const editBtn = document.getElementById('edit-profile-btn');
     const editActions = document.getElementById('edit-profile-actions');
     
@@ -855,7 +902,7 @@ function cancelEdit() {
 }
 
 async function saveProfile() {
-    const fields = ['first_name', 'last_name', 'email', 'phone', 'location', 'date_of_birth'];
+    const fields = ['first_name', 'last_name', 'email', 'phone', 'agenda_color', 'location', 'date_of_birth'];
     const formData = new FormData();
     formData.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
     
@@ -868,6 +915,16 @@ async function saveProfile() {
             if (editWrapper) {
                 editEl = editWrapper.querySelector('input');
             }
+        }
+
+        if (field === 'agenda_color') {
+            const hexEl = document.getElementById('edit-agenda_color_hex');
+            const colorEl = document.getElementById('edit-agenda_color');
+            const value = hexEl && /^#[0-9A-Fa-f]{6}$/.test(hexEl.value)
+                ? hexEl.value
+                : (colorEl ? colorEl.value : '');
+            formData.append(field, value);
+            return;
         }
         
         if (editEl) {
@@ -913,6 +970,24 @@ async function saveProfile() {
                         if (parts.length === 3) {
                             value = parts[0] + '-' + parts[1] + '-' + parts[2];
                         }
+                    }
+                    if (field === 'agenda_color') {
+                        const hexEl = document.getElementById('edit-agenda_color_hex');
+                        const colorEl = document.getElementById('edit-agenda_color');
+                        value = hexEl && /^#[0-9A-Fa-f]{6}$/.test(hexEl.value)
+                            ? hexEl.value
+                            : (colorEl ? colorEl.value : '-');
+                        if (viewEl) {
+                            viewEl.innerHTML = '<span class="inline-block h-4 w-4 rounded-full border border-border" style="background-color: ' + value + ';"></span><span>' + value + '</span>';
+                        }
+                        if (colorEl) {
+                            colorEl.value = value;
+                        }
+                        if (hexEl) {
+                            hexEl.value = value;
+                        }
+                        originalData[field] = value;
+                        return;
                     }
                     // For location dropdown, format the display value
                     if (field === 'location' && editEl.tagName === 'SELECT') {
@@ -1013,6 +1088,7 @@ let headerPhotoBaseUrl = @json($user->photo_blob ? route('user.photo', $user->id
 document.addEventListener('DOMContentLoaded', function() {
   initializePhotoEditor();
   setupRealTimeValidation();
+  setupAgendaColorSync();
   
   // Prevent default drag behavior on the entire page
   document.addEventListener('dragover', function(e) {

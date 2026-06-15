@@ -15,6 +15,7 @@
     let currentOffer = null;
     let currentActiveRide = null;
     let pendingOffers = [];
+    let mainInboxRideCount = 0;
     let scheduledRides = [];
     let scheduledRideExpanded = {};
     let offerQueueIndex = 0;
@@ -240,7 +241,11 @@
         const btnOffers = $('#btn-show-offers');
         const declinedCount = $('#declined-count');
         const overdueCount = $('#overdue-count');
+        const offersCount = $('#offers-count');
 
+        if (offersCount) {
+            offersCount.textContent = '(' + mainInboxRideCount + ')';
+        }
         if (declinedCount) {
             declinedCount.textContent = '(' + declinedOffers.length + ')';
         }
@@ -2737,12 +2742,11 @@
                 driverPaymentEnabled = !!res.meta.driver;
                 unclaimedRides = res.meta.unclaimed_rides || [];
             }
-            updateDeclinedNavButton();
-            updateOverdueNavButton();
-            updateUnclaimedBanner(unclaimedRides);
-            syncWaitingRideIdsFromOffers(offers);
             const active = res.data && res.data.active_ride;
             const scheduled = (res.data && res.data.scheduled_rides) || [];
+            mainInboxRideCount = offers.length + scheduled.length;
+            updateDeclinedNavButton();
+            updateOverdueNavButton();
             if (active) {
                 renderScheduledRides([]);
                 renderActiveRide(active);
@@ -2751,8 +2755,12 @@
                 setOfferUiVisible(false);
                 $('#inbox-empty').hidden = true;
                 setInboxView('offers');
+                updateUnclaimedBanner(unclaimedRides);
+                syncWaitingRideIdsFromOffers(offers);
                 return;
             }
+            updateUnclaimedBanner(unclaimedRides);
+            syncWaitingRideIdsFromOffers(offers);
             renderActiveRide(null);
             if (inboxView === 'declined') {
                 renderScheduledRides([]);

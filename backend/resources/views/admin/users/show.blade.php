@@ -17,12 +17,13 @@
     <!-- Container -->
     <div class="kt-container-fixed">
         <div class="flex flex-col items-center gap-2 lg:gap-3.5 py-4 lg:pt-5 lg:pb-10">
+            @php $userAgendaColor = $user->agenda_color ?: $user->resolvedAgendaColor(); @endphp
             @if($user->photo_blob)
-                <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
+                <img class="rounded-full border-3 size-[100px] shrink-0 object-cover" style="border-color: {{ $userAgendaColor }};" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
             @elseif($user->photo)
-                <img class="rounded-full border-3 border-green-500 size-[100px] shrink-0 object-cover" src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl('/storage/' . $user->photo) }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
+                <img class="rounded-full border-3 size-[100px] shrink-0 object-cover" style="border-color: {{ $userAgendaColor }};" src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl('/storage/' . $user->photo) }}" alt="{{ $user->first_name }} {{ $user->last_name }}">
             @else
-                <div class="rounded-full border-3 border-green-500 size-[100px] shrink-0 flex items-center justify-center bg-primary/10 text-primary text-2xl font-semibold">
+                <div class="rounded-full border-3 size-[100px] shrink-0 flex items-center justify-center text-2xl font-semibold" style="border-color: {{ $userAgendaColor }}; background-color: {{ $userAgendaColor }}1a; color: {{ $userAgendaColor }};">
                     {{ strtoupper(substr($user->first_name, 0, 1) . substr($user->last_name, 0, 1)) }}
                 </div>
             @endif

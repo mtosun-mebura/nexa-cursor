@@ -133,6 +133,35 @@
                             </td>
                         </tr>
                         <tr>
+                            <td class="text-secondary-foreground font-normal align-top">
+                                Agenda kleur
+                            </td>
+                            <td>
+                                @php
+                                    $agendaColorValue = old('agenda_color', $user->agenda_color ?: $user->resolvedAgendaColor());
+                                @endphp
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <input type="color"
+                                           class="h-10 w-14 cursor-pointer rounded border border-border p-1"
+                                           name="agenda_color"
+                                           value="{{ $agendaColorValue }}"
+                                           aria-label="Agenda kleur">
+                                    <input type="text"
+                                           class="kt-input w-32 font-mono text-sm"
+                                           id="agenda_color_hex"
+                                           value="{{ $agendaColorValue }}"
+                                           maxlength="7"
+                                           pattern="^#[0-9A-Fa-f]{6}$"
+                                           placeholder="#3b82f6"
+                                           aria-label="Agenda kleur hex">
+                                </div>
+                                <div class="text-xs text-muted-foreground mt-1">Kleur van ritten en afspraken van deze gebruiker in de agenda.</div>
+                                @error('agenda_color')
+                                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                                @enderror
+                            </td>
+                        </tr>
+                        <tr>
                             <td class="text-secondary-foreground font-normal">
                                 Geboortedatum
                             </td>
@@ -403,6 +432,29 @@ document.addEventListener('DOMContentLoaded', function() {
             suggestionsDiv.classList.add('hidden');
         }
     });
+
+    const agendaColorInput = document.querySelector('input[name="agenda_color"]');
+    const agendaColorHex = document.getElementById('agenda_color_hex');
+    const userForm = document.querySelector('form[action*="users"]');
+
+    if (agendaColorInput && agendaColorHex) {
+        agendaColorInput.addEventListener('input', function() {
+            agendaColorHex.value = agendaColorInput.value;
+        });
+        agendaColorHex.addEventListener('input', function() {
+            if (/^#[0-9A-Fa-f]{6}$/.test(agendaColorHex.value)) {
+                agendaColorInput.value = agendaColorHex.value;
+            }
+        });
+    }
+
+    if (userForm && agendaColorInput && agendaColorHex) {
+        userForm.addEventListener('submit', function() {
+            if (/^#[0-9A-Fa-f]{6}$/.test(agendaColorHex.value)) {
+                agendaColorInput.value = agendaColorHex.value;
+            }
+        });
+    }
 });
 </script>
 @endpush
