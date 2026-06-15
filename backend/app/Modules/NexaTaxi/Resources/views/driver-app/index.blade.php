@@ -830,7 +830,7 @@
         <div class="toolbar">
             <h1 id="dispatch-toolbar-title" style="margin:0">Ritten</h1>
             <div class="toolbar-actions">
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>← Ritten</button>
+                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>Ritten <span id="offers-count">(0)</span></button>
                 <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
                 <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
                 <span id="online-pill" class="status-pill offline">Offline</span>

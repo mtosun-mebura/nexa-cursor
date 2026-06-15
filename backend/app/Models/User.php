@@ -309,6 +309,7 @@ class User extends Authenticatable
         'cv_downloadable',
         'function',
         'job_title_id',
+        'agenda_color',
     ];
 
     /**
@@ -347,6 +348,11 @@ class User extends Authenticatable
         $token = base64_encode($this->id.'|'.$hash);
 
         return $token;
+    }
+
+    public function resolvedAgendaColor(): string
+    {
+        return \App\Support\UserAgendaColor::resolved($this);
     }
 
     /**

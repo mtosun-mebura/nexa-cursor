@@ -296,6 +296,9 @@ class AdminUserController extends Controller
             'phone' => $validated['phone'] ?? null,
             'date_of_birth' => $validated['date_of_birth'] ?? null,
             'function' => $validated['function'] ?? null,
+            'agenda_color' => isset($validated['agenda_color']) && $validated['agenda_color'] !== ''
+                ? strtolower((string) $validated['agenda_color'])
+                : null,
         ];
 
         if (auth()->user()->hasRole('super-admin')) {
