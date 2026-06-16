@@ -89,6 +89,22 @@
             flex: 0 0 auto;
             padding: calc(0.75rem + var(--safe-top)) 1rem 0;
         }
+        .dispatch-banners {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+        .dispatch-banners .banner-ios-awake,
+        .dispatch-banners .banner-notifications-hint,
+        .dispatch-banners .banner-offline-hint,
+        .dispatch-banners .banner-inactive,
+        .dispatch-banners #notifications-feedback {
+            margin-bottom: 0;
+        }
+        .dispatch-banners #notifications-feedback {
+            margin-top: 0;
+        }
         .dispatch-scroll {
             flex: 1 1 auto;
             min-height: 0;
@@ -864,6 +880,28 @@
 
     <section id="screen-dispatch" class="screen" aria-label="Ritten">
         <div class="dispatch-top">
+            <div class="dispatch-banners">
+                <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
+                    Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
+                </div>
+                <div id="offline-hint" class="banner-offline-hint" hidden>
+                    Je bent offline. Zet je status op <strong>online</strong> om ritten te ontvangen.
+                </div>
+                <div id="ios-awake-hint" class="banner-ios-awake" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-ios-awake-hint" aria-label="Melding sluiten">×</button>
+                    <strong>iPhone:</strong> het scherm blijft aan zolang je <strong>online</strong> bent.
+                    Gaat het scherm toch uit? Tik één keer op het scherm om dit opnieuw te activeren.
+                </div>
+                <div id="notifications-hint" class="banner-notifications-hint" hidden>
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-hint" aria-label="Melding sluiten">×</button>
+                    <span id="notifications-hint-text">Voor een geluid en melding op je telefoon bij nieuwe ritten: sta meldingen toe voor deze app.</span>
+                    <button type="button" class="btn-inline" id="btn-enable-notifications">Meldingen inschakelen</button>
+                </div>
+                <p id="notifications-feedback" hidden role="status" aria-live="polite">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
+                    <span id="notifications-feedback-text"></span>
+                </p>
+            </div>
             <div class="toolbar-nav">
                 <div class="toolbar-nav-buttons">
                     <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>Ritten <span id="offers-count">(0)</span></button>
@@ -878,26 +916,6 @@
             <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
         </div>
         <div class="dispatch-scroll">
-        <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
-            Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
-        </div>
-        <div id="offline-hint" class="banner-offline-hint" hidden>
-            Je bent offline. Zet je status op <strong>online</strong> om ritten te ontvangen.
-        </div>
-        <div id="ios-awake-hint" class="banner-ios-awake" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-ios-awake-hint" aria-label="Melding sluiten">×</button>
-            <strong>iPhone:</strong> het scherm blijft aan zolang je <strong>online</strong> bent.
-            Gaat het scherm toch uit? Tik één keer op het scherm om dit opnieuw te activeren.
-        </div>
-        <div id="notifications-hint" class="banner-notifications-hint" hidden>
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-hint" aria-label="Melding sluiten">×</button>
-            <span id="notifications-hint-text">Voor een geluid en melding op je telefoon bij nieuwe ritten: sta meldingen toe voor deze app.</span>
-            <button type="button" class="btn-inline" id="btn-enable-notifications">Meldingen inschakelen</button>
-        </div>
-        <p id="notifications-feedback" hidden role="status" aria-live="polite">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
-            <span id="notifications-feedback-text"></span>
-        </p>
         <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
         <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
         <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
