@@ -154,6 +154,10 @@
         }
         #payment-panel.is-open,
         #invoice-panel.is-open { display: flex; }
+        #screen-dispatch.overlay-panel-open .dispatch-top,
+        #screen-dispatch.overlay-panel-open .dispatch-footer {
+            display: none;
+        }
         #invoice-panel {
             position: fixed;
             inset: 0;
@@ -194,15 +198,40 @@
             text-align: center;
         }
         #invoice-send-status.is-error { color: #fca5a5; }
-        #payment-panel .payment-amount-input {
-            width: 100%;
-            font-size: 1.5rem;
-            padding: 0.75rem 1rem;
+        #payment-panel .payment-amount-wrap {
+            display: flex;
+            align-items: center;
             border-radius: 0.75rem;
             border: 1px solid rgba(255,255,255,0.15);
             background: var(--card);
-            color: var(--text);
             margin: 0.5rem 0 1rem;
+        }
+        #payment-panel .payment-amount-wrap:focus-within {
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+        }
+        #payment-panel .payment-amount-prefix {
+            padding: 0.75rem 0 0.75rem 1rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--muted);
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        #payment-panel .payment-amount-input {
+            width: 100%;
+            flex: 1;
+            min-width: 0;
+            font-size: 1.5rem;
+            padding: 0.75rem 1rem 0.75rem 0.35rem;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: var(--text);
+            margin: 0;
+        }
+        #payment-panel .payment-amount-input:focus {
+            outline: none;
         }
         #payment-panel .payment-actions {
             display: flex;
@@ -402,16 +431,17 @@
         .toolbar-nav {
             display: flex;
             align-items: center;
+            justify-content: center;
             margin-bottom: 0.65rem;
             min-height: 2rem;
         }
         .toolbar-nav-buttons {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 0.35rem;
-            flex: 1 1 auto;
-            min-width: 0;
             flex-wrap: nowrap;
+            max-width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
@@ -732,6 +762,12 @@
             font-size: 0.8125rem;
             white-space: nowrap;
         }
+        .btn-toolbar.is-active {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #fff;
+            font-weight: 600;
+        }
         .declined-ride-card {
             margin-bottom: 0.75rem;
         }
@@ -904,7 +940,7 @@
             </div>
             <div class="toolbar-nav">
                 <div class="toolbar-nav-buttons">
-                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>Ritten <span id="offers-count">(0)</span></button>
+                    <button type="button" class="btn btn-ghost btn-toolbar is-active" id="btn-show-offers" aria-current="page">Ritten <span id="offers-count">(0)</span></button>
                     <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
                     <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
                 </div>
@@ -980,7 +1016,15 @@
             <p id="payment-ride-error" hidden role="alert"></p>
             <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
             <button type="button" class="btn" id="btn-send-invoice" hidden>Factuur versturen</button>
-            <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afgerond</button>
+            <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afronden</button>
+        </div>
+        <div id="inbox-empty" class="empty">
+            <p id="inbox-empty-title">Geen openstaande ritten.</p>
+            <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
+        </div>
+        </div>
+        <div class="dispatch-footer">
+            <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
         </div>
         <div id="payment-panel" hidden aria-label="Betaling">
             <div class="toolbar" style="margin-bottom:1rem">
@@ -990,10 +1034,13 @@
             <div class="card">
                 <p class="offer-meta" style="margin:0 0 0.5rem">Te betalen bedrag</p>
                 <label for="payment-amount" class="sr-only">Bedrag in euro</label>
-                <input type="number" id="payment-amount" class="payment-amount-input" min="0.01" step="0.01" inputmode="decimal">
+                <div class="payment-amount-wrap">
+                    <span class="payment-amount-prefix" aria-hidden="true">€</span>
+                    <input type="number" id="payment-amount" class="payment-amount-input" min="0.01" step="0.01" inputmode="decimal">
+                </div>
                 <div class="payment-actions">
                     <button type="button" class="btn btn-primary" id="btn-payment-create">QR-code tonen</button>
-                    <button type="button" class="btn" id="btn-cash-paid">Cash betaald</button>
+                    <button type="button" class="btn" id="btn-cash-paid">Contant betalen</button>
                 </div>
             </div>
             <div id="payment-qr-section" class="card" hidden>
@@ -1019,14 +1066,6 @@
                 <p id="invoice-send-status" hidden role="status" aria-live="polite"></p>
             </div>
         </div>
-        <div id="inbox-empty" class="empty">
-            <p id="inbox-empty-title">Geen openstaande ritten.</p>
-            <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
-        </div>
-        </div>
-        <div class="dispatch-footer">
-            <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
-        </div>
     </section>
 
 </div>
@@ -1035,7 +1074,7 @@
     <div class="driver-dialog__backdrop" data-cash-confirm-dismiss tabindex="-1"></div>
     <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="cash-confirm-title">
         <div class="driver-dialog__icon" aria-hidden="true">💵</div>
-        <h2 id="cash-confirm-title" class="driver-dialog__title">Contant betaald?</h2>
+        <h2 id="cash-confirm-title" class="driver-dialog__title">Contant betalen?</h2>
         <p id="cash-confirm-amount" class="driver-dialog__amount">—</p>
         <p class="driver-dialog__text">Het ingevoerde bedrag wordt vastgelegd op deze rit. Controleer het bedrag voordat je bevestigt.</p>
         <div class="driver-dialog__actions">
@@ -1063,7 +1102,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=48" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=49" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

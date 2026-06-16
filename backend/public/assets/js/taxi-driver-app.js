@@ -253,13 +253,19 @@
             overdueCount.textContent = '(' + overdueScheduledRides.length + ')';
         }
         if (btnOffers) {
-            btnOffers.hidden = inboxView === 'offers';
+            btnOffers.hidden = false;
+            btnOffers.classList.toggle('is-active', inboxView === 'offers');
+            btnOffers.setAttribute('aria-current', inboxView === 'offers' ? 'page' : 'false');
         }
         if (btnDeclined) {
-            btnDeclined.hidden = inboxView === 'declined' || !declinedOffers.length;
+            btnDeclined.hidden = inboxView !== 'declined' && !declinedOffers.length;
+            btnDeclined.classList.toggle('is-active', inboxView === 'declined');
+            btnDeclined.setAttribute('aria-current', inboxView === 'declined' ? 'page' : 'false');
         }
         if (btnOverdue) {
-            btnOverdue.hidden = inboxView === 'overdue' || !overdueScheduledRides.length;
+            btnOverdue.hidden = inboxView !== 'overdue' && !overdueScheduledRides.length;
+            btnOverdue.classList.toggle('is-active', inboxView === 'overdue');
+            btnOverdue.setAttribute('aria-current', inboxView === 'overdue' ? 'page' : 'false');
         }
     }
 
@@ -2001,11 +2007,30 @@
         }
     }
 
+    function setDispatchOverlayOpen(open) {
+        if (screenDispatch) {
+            screenDispatch.classList.toggle('overlay-panel-open', !!open);
+        }
+    }
+
+    function isPaymentPanelOpen() {
+        const panel = $('#payment-panel');
+        return !!(panel && panel.classList.contains('is-open') && !panel.hidden);
+    }
+
+    function isInvoicePanelOpen() {
+        const panel = $('#invoice-panel');
+        return !!(panel && panel.classList.contains('is-open') && !panel.hidden);
+    }
+
     function closePaymentPanel() {
         const panel = $('#payment-panel');
         if (panel) {
             panel.classList.remove('is-open');
             panel.hidden = true;
+        }
+        if (!isInvoicePanelOpen()) {
+            setDispatchOverlayOpen(false);
         }
         stopPaymentPoll();
     }
@@ -2038,6 +2063,7 @@
         syncPaymentPanelUi({ qrVisible: false });
         panel.hidden = false;
         panel.classList.add('is-open');
+        setDispatchOverlayOpen(true);
     }
 
     async function loadPaymentState(rideId) {
@@ -2305,6 +2331,9 @@
             panel.classList.remove('is-open');
             panel.hidden = true;
         }
+        if (!isPaymentPanelOpen()) {
+            setDispatchOverlayOpen(false);
+        }
         const status = $('#invoice-send-status');
         if (status) {
             status.hidden = true;
@@ -2335,6 +2364,7 @@
         }
         panel.hidden = false;
         panel.classList.add('is-open');
+        setDispatchOverlayOpen(true);
     }
 
     async function openSendInvoiceFlow() {
