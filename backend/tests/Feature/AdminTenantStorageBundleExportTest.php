@@ -263,6 +263,60 @@ class AdminTenantStorageBundleExportTest extends TestCase
     }
 
     #[Test]
+    public function tenant_storage_bundle_includes_super_admin_profile_photo_on_export_and_import(): void
+    {
+        $source = Company::query()->create(['name' => 'Super Admin Photo Source']);
+
+        $superAdminPhoto = base64_encode("\x89PNG\r\n\x1a\nsuper-admin-photo");
+        $superAdmin = User::factory()->create([
+            'company_id' => null,
+            'email' => 'superadmin-photo@export.test',
+            'photo_blob' => $superAdminPhoto,
+            'photo_mime_type' => 'image/png',
+        ]);
+        $superAdmin->assignRole('super-admin');
+
+        $response = $this->actingAs($superAdmin)->get(
+            route('admin.settings.tenant-storage-bundle.export', ['company_id' => $source->id])
+        );
+        $response->assertOk();
+
+        $binary = $response->streamedContent();
+        $tmp = tempnam(sys_get_temp_dir(), 'nexa_ts_sa_');
+        file_put_contents($tmp, $binary);
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tmp) === true);
+        $manifest = json_decode((string) $zip->getFromName('manifest.json'), true);
+        $zip->close();
+
+        $emails = array_column($manifest['user_photos'] ?? [], 'email');
+        $this->assertContains('superadmin-photo@export.test', $emails);
+
+        $superAdmin->delete();
+
+        $target = Company::query()->create(['name' => 'Super Admin Photo Target']);
+        $targetSuperAdmin = User::factory()->create([
+            'company_id' => null,
+            'email' => 'superadmin-photo@export.test',
+            'photo_blob' => null,
+            'photo_mime_type' => null,
+        ]);
+        $targetSuperAdmin->assignRole('super-admin');
+
+        $service = app(TenantStorageBundleService::class);
+        $upload = new UploadedFile($tmp, 'tenant.zip', 'application/zip', null, true);
+        $result = $service->importZip($target, $upload);
+
+        $this->assertSame(1, $result['imported_photos'] ?? 0);
+        $targetSuperAdmin->refresh();
+        $this->assertSame($superAdminPhoto, $targetSuperAdmin->photo_blob);
+        $this->assertSame('image/png', $targetSuperAdmin->photo_mime_type);
+
+        @unlink($tmp);
+    }
+
+    #[Test]
     public function legacy_v1_zip_imports_files_only_without_pages_key_requirement(): void
     {
         if (! Schema::hasTable('general_settings')) {

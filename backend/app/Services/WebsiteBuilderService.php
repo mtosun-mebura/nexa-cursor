@@ -850,6 +850,13 @@ class WebsiteBuilderService
             'type' => 'image/png',
         ];
 
+        if ($forCompanyId === null && app()->bound('resolved_tenant_id')) {
+            $resolvedTenantId = (int) app('resolved_tenant_id');
+            if ($resolvedTenantId > 0) {
+                $forCompanyId = $resolvedTenantId;
+            }
+        }
+
         $path = $forCompanyId !== null
             ? GeneralSetting::get('favicon', null, $forCompanyId)
             : GeneralSetting::get('favicon');

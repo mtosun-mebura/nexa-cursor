@@ -290,6 +290,15 @@
             overdueStrip.hidden = inboxView !== 'overdue';
         }
 
+        const activeStrip = $('#active-ride-strip');
+        if (inboxView === 'declined' || inboxView === 'overdue') {
+            if (activeStrip) {
+                activeStrip.hidden = true;
+            }
+        } else if (currentActiveRide && activeStrip) {
+            activeStrip.hidden = false;
+        }
+
         if (inboxView === 'declined') {
             renderDeclinedOffers(declinedOffers);
             if (empty) {
@@ -1145,7 +1154,7 @@
         const body = waiting
             ? 'Wacht al ' + formatDuration(secWait) + ' — ' + rideOfferNotificationBody(ride)
             : rideOfferNotificationBody(ride);
-        const icon = cfg.notificationIcon || '/assets/media/app/nexa-chauffeur-icon-192.png';
+        const icon = cfg.notificationIcon || '/favicon.ico';
         const rideId = offerRideId(offer);
         const tag = waiting && rideId
             ? 'nexa-ride-waiting-' + String(rideId)
@@ -1501,15 +1510,11 @@
     }
 
     function setOnlineUi() {
-        const pill = $('#online-pill');
         const toggle = $('#online-toggle');
-        if (pill) {
-            pill.textContent = isOnline ? 'Online' : 'Offline';
-            pill.classList.toggle('offline', !isOnline);
-        }
         if (toggle) {
             toggle.classList.toggle('is-on', isOnline);
             toggle.setAttribute('aria-pressed', isOnline ? 'true' : 'false');
+            toggle.setAttribute('aria-label', isOnline ? 'Online' : 'Offline');
             toggle.disabled = !accountActive;
         }
         updateEmptyState();
@@ -2587,6 +2592,11 @@
             return;
         }
         currentActiveRide = ride;
+        if (inboxView === 'declined' || inboxView === 'overdue') {
+            setOfferUiVisible(false);
+            setActiveRideUiVisible(false);
+            return;
+        }
         setOfferUiVisible(false);
         setActiveRideUiVisible(true);
         if (empty) empty.hidden = true;
@@ -2727,6 +2737,9 @@
         if (!token || !isOnline) {
             return;
         }
+        const scrollEl = document.querySelector('#screen-dispatch .dispatch-scroll');
+        const savedScroll =
+            scrollEl && (inboxView === 'declined' || inboxView === 'overdue') ? scrollEl.scrollTop : null;
         if (shouldKeepScreenAwake()) {
             syncScreenWakeLock();
         }
@@ -2754,9 +2767,13 @@
                 clearOfferTimer();
                 setOfferUiVisible(false);
                 $('#inbox-empty').hidden = true;
-                setInboxView('offers');
                 updateUnclaimedBanner(unclaimedRides);
                 syncWaitingRideIdsFromOffers(offers);
+                if (inboxView === 'declined' || inboxView === 'overdue') {
+                    setInboxView(inboxView);
+                } else {
+                    setInboxView('offers');
+                }
                 return;
             }
             updateUnclaimedBanner(unclaimedRides);
@@ -2813,6 +2830,12 @@
                 empty.hidden = false;
                 title.textContent = 'Kon ritten niet laden';
                 hint.textContent = e.message || 'Probeer opnieuw of log opnieuw in.';
+            }
+        } finally {
+            if (savedScroll !== null && scrollEl) {
+                requestAnimationFrame(function () {
+                    scrollEl.scrollTop = savedScroll;
+                });
             }
         }
     }
