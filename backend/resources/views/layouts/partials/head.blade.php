@@ -17,14 +17,7 @@
 <meta content="Metronic - Tailwind CSS " property="og:title" />
 <meta content="" property="og:description" />
 <meta content="{{ asset('assets/media/app/og-image.png') }}" property="og:image" />
-@php
-    $faviconMeta = app(\App\Services\WebsiteBuilderService::class)->publicFaviconMeta();
-    $faviconUrl = $faviconMeta['url'];
-    $faviconType = $faviconMeta['type'];
-@endphp
-<link href="{{ $faviconUrl }}" rel="apple-touch-icon" sizes="180x180" />
-<link href="{{ $faviconUrl }}" rel="icon" type="{{ $faviconType }}" />
-<link href="{{ $faviconUrl }}" rel="shortcut icon" type="{{ $faviconType }}" />
+@include('layouts.partials.pwa-favicon')
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet" />
 <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet" />

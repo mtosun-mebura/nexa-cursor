@@ -850,27 +850,13 @@ class WebsiteBuilderService
             'type' => 'image/png',
         ];
 
-        if ($forCompanyId === null && app()->bound('resolved_tenant_id')) {
-            $resolvedTenantId = (int) app('resolved_tenant_id');
-            if ($resolvedTenantId > 0) {
-                $forCompanyId = $resolvedTenantId;
-            }
+        if ($forCompanyId === null) {
+            $forCompanyId = $this->faviconCompanyIdForRequestContext();
         }
 
         $path = $forCompanyId !== null
             ? GeneralSetting::get('favicon', null, $forCompanyId)
             : GeneralSetting::get('favicon');
-
-        if ((! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path))
-            && $forCompanyId === null
-            && ! app()->runningInConsole()
-            && request()
-        ) {
-            $st = session('selected_tenant');
-            if ($st !== null && $st !== '' && is_numeric($st)) {
-                $path = GeneralSetting::get('favicon', null, (int) $st);
-            }
-        }
 
         if (! is_string($path) || $path === '' || ! Storage::disk('public')->exists($path)) {
             return $default;
@@ -883,6 +869,44 @@ class WebsiteBuilderService
             'url' => $this->publicFileUrl(ltrim($path, '/')).'?v='.$mtime,
             'type' => $mime,
         ];
+    }
+
+    /**
+     * Tenant/company voor favicon in admin, website en PWA (zelfde bron als frontend-branding).
+     */
+    public function faviconCompanyIdForRequestContext(): ?int
+    {
+        if (app()->bound('resolved_tenant_id')) {
+            $resolvedTenantId = (int) app('resolved_tenant_id');
+            if ($resolvedTenantId > 0) {
+                return $resolvedTenantId;
+            }
+        }
+
+        if (auth()->check()) {
+            $user = auth()->user();
+            if ($user->hasRole('super-admin')) {
+                $st = session('selected_tenant');
+                if ($st !== null && $st !== '' && is_numeric($st)) {
+                    return (int) $st;
+                }
+
+                return null;
+            }
+
+            if ($user->company_id) {
+                return (int) $user->company_id;
+            }
+        }
+
+        if (! app()->runningInConsole() && request()) {
+            $st = session('selected_tenant');
+            if ($st !== null && $st !== '' && is_numeric($st)) {
+                return (int) $st;
+            }
+        }
+
+        return null;
     }
 
     /**

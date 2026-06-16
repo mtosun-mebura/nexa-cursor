@@ -7,11 +7,12 @@ Author: Keenthemes
 <html class="h-full" data-kt-theme="true" data-kt-theme-mode="light" dir="ltr" lang="nl">
 <head>
     <base href="{{ url('/') }}">
-    <title>Admin Login - NEXA Skillmatching</title>
+    <title>Admin Login - NEXA</title>
     <meta charset="utf-8"/>
     <meta content="follow, index" name="robots"/>
     <meta content="width=device-width, initial-scale=1, shrink-to-fit=no" name="viewport"/>
-    <meta content="Admin login page for NEXA Skillmatching Platform" name="description"/>
+    <meta content="Admin login page for NEXA" name="description"/>
+    @include('layouts.partials.pwa-favicon')
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link href="{{ asset('assets/vendors/apexcharts/apexcharts.css') }}" rel="stylesheet"/>
     <link href="{{ asset('assets/vendors/keenicons/styles.bundle.css') }}" rel="stylesheet"/>
