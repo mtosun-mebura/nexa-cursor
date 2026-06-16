@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -15,9 +16,9 @@ class RideClaimService
         protected TaxiRidePaymentService $ridePayments,
         protected RideDispatchService $dispatch
     ) {}
-    public function acceptOffer(string $conn, User $driver, int $offerId): array
+    public function acceptOffer(string $conn, User $driver, int $offerId, ?string $pickupAt = null): array
     {
-        $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId) {
+        $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, $pickupAt) {
             $offer = RideDispatchOffer::on($conn)->whereKey($offerId)->lockForUpdate()->first();
             if (! $offer || (int) $offer->driver_id !== (int) $driver->id) {
                 throw ValidationException::withMessages([
@@ -83,11 +84,23 @@ class RideClaimService
                 'responded_at' => $now,
             ]);
 
-            $ride->update([
+            $rideUpdates = [
                 'driver_id' => $driver->id,
                 'status' => RideRequest::STATUS_ACCEPTED,
                 'company_id' => $ride->company_id ?: $offer->company_id,
-            ]);
+            ];
+
+            if ($pickupAt !== null && trim($pickupAt) !== '') {
+                $newPickupAt = Carbon::parse($pickupAt);
+                if ($newPickupAt->lte(now())) {
+                    throw ValidationException::withMessages([
+                        'pickup_at' => ['Kies een ophaalmoment in de toekomst.'],
+                    ]);
+                }
+                $rideUpdates['pickup_at'] = $newPickupAt;
+            }
+
+            $ride->update($rideUpdates);
 
             $freshRide = $ride->fresh();
             $freshOffer = $offer->fresh();

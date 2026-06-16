@@ -318,6 +318,7 @@ Route::get('/jobs/{job}', fn () => redirect()->route('home'))->name('jobs.show')
 Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:6,1')->name('admin.login.post');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+Route::get('/admin/manifest.webmanifest', App\Http\Controllers\Admin\AdminWebManifestController::class)->name('admin.manifest');
 
 /*
 | Sessiecheck voor JavaScript in de admin-layout: alleen web + auth (geen AdminMiddleware-rolcheck).

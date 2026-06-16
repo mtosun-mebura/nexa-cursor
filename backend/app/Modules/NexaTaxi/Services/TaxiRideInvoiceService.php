@@ -7,7 +7,9 @@ use App\Models\CompanyLocation;
 use App\Models\EmailTemplate;
 use App\Models\Invoice;
 use App\Models\InvoiceSetting;
+use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Services\CompanyEmailLogoService;
 use App\Services\EmailTemplateService;
 use App\Services\EnvService;
@@ -31,7 +33,7 @@ class TaxiRideInvoiceService
             return null;
         }
 
-        $companyId = (int) ($ride->company_id ?? 0);
+        $companyId = $this->resolveCompanyIdForRide($ride);
         if ($companyId <= 0) {
             return null;
         }
@@ -93,7 +95,7 @@ class TaxiRideInvoiceService
                 return $existing;
             }
 
-            $companyId = (int) ($ride->company_id ?? 0);
+            $companyId = $this->resolveCompanyIdForRide($ride);
             if ($companyId <= 0) {
                 throw ValidationException::withMessages([
                     'invoice' => ['Rit heeft geen gekoppeld bedrijf.'],
@@ -131,10 +133,16 @@ class TaxiRideInvoiceService
      */
     public function driverInvoicePayload(RideRequest $ride): array
     {
+        $conn = $ride->getConnectionName();
         $invoice = $this->findInvoiceForRide($ride);
+
         if (! $invoice && $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID) {
             try {
-                $invoice = $this->ensureInvoiceForPaidRide($ride->getConnectionName(), $ride->fresh(), false);
+                $invoice = $this->ensureInvoiceForPaidRide($conn, $ride->fresh(), false);
+                if ($invoice) {
+                    $ride = $ride->fresh();
+                    $invoice = $this->findInvoiceForRide($ride) ?? $invoice;
+                }
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -150,7 +158,7 @@ class TaxiRideInvoiceService
             'customer_name' => $invoice?->customer_name ?? $ride->customer_name,
             'total_amount' => $invoice ? (float) $invoice->total_amount : null,
             'invoice_sent' => $invoice?->status === 'sent',
-            'can_send' => $isPaid && ($invoice === null || $invoice->status !== 'sent'),
+            'can_send' => $isPaid && $invoice !== null && $invoice->status !== 'sent',
         ];
     }
 
@@ -183,14 +191,14 @@ class TaxiRideInvoiceService
         return DB::transaction(function () use ($invoice, $email, $invoiceNumber) {
             $invoice = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
 
-            if ($invoiceNumber !== null && trim($invoiceNumber) !== '' && trim($invoiceNumber) !== $invoice->invoice_number) {
-                $newNumber = trim($invoiceNumber);
-                if (Invoice::query()->where('invoice_number', $newNumber)->where('id', '!=', $invoice->id)->exists()) {
+            $submittedNumber = $invoiceNumber !== null ? trim($invoiceNumber) : '';
+            if ($submittedNumber !== '' && $submittedNumber !== $invoice->invoice_number) {
+                if (Invoice::query()->where('invoice_number', $submittedNumber)->where('id', '!=', $invoice->id)->exists()) {
                     throw ValidationException::withMessages([
                         'invoice_number' => ['Dit factuurnummer bestaat al.'],
                     ]);
                 }
-                $invoice->update(['invoice_number' => $newNumber]);
+                $invoice->update(['invoice_number' => $submittedNumber]);
             }
 
             $invoice->update([
@@ -198,8 +206,10 @@ class TaxiRideInvoiceService
                 'status' => 'sent',
             ]);
 
+            $invoice = $invoice->fresh();
+
             try {
-                $pdf = $this->pdf->generateAndStore($invoice->fresh());
+                $pdf = $this->pdf->generateAndStore($invoice);
             } catch (\Throwable $e) {
                 if ($this->isGdExtensionMissing($e)) {
                     throw ValidationException::withMessages([
@@ -208,9 +218,9 @@ class TaxiRideInvoiceService
                 }
                 throw $e;
             }
-            $this->sendInvoiceEmail($invoice->fresh(), $pdf['bytes']);
+            $this->sendInvoiceEmail($invoice, $pdf['bytes']);
 
-            return $invoice->fresh();
+            return $invoice;
         });
     }
 
@@ -506,5 +516,32 @@ class TaxiRideInvoiceService
         return "Bedrag excl. BTW: {$this->formatEuro($excl)}\n"
             ."{$taxLabel}: {$this->formatEuro($tax)}\n"
             ."Totaalbedrag: {$this->formatEuro($total)}";
+    }
+
+    protected function resolveCompanyIdForRide(RideRequest $ride): int
+    {
+        if (! empty($ride->company_id) && (int) $ride->company_id > 0) {
+            return (int) $ride->company_id;
+        }
+
+        if (! empty($ride->vehicle_id)) {
+            $vehicle = $ride->relationLoaded('vehicle')
+                ? $ride->vehicle
+                : Vehicle::on($ride->getConnectionName())->find($ride->vehicle_id);
+            if ($vehicle && ! empty($vehicle->company_id)) {
+                return (int) $vehicle->company_id;
+            }
+        }
+
+        if (! empty($ride->driver_id)) {
+            $driver = $ride->relationLoaded('driver')
+                ? $ride->driver
+                : User::find($ride->driver_id);
+            if ($driver && ! empty($driver->company_id)) {
+                return (int) $driver->company_id;
+            }
+        }
+
+        return 0;
     }
 }

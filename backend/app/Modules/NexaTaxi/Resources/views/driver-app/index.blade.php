@@ -35,6 +35,10 @@
         body.driver-dialog-open {
             overflow: hidden;
         }
+        body.driver-dialog-open #screen-dispatch,
+        body.driver-accept-in-flight #screen-dispatch {
+            pointer-events: none;
+        }
         #nosleep-media-wrap,
         #nosleep-audio,
         #nosleep-canvas {
@@ -181,7 +185,8 @@
             cursor: not-allowed;
             opacity: 0.9;
         }
-        #invoice-panel .invoice-field-input {
+        #invoice-panel .invoice-field-input,
+        .driver-field-input {
             width: 100%;
             font-size: 1rem;
             padding: 0.75rem 1rem;
@@ -190,6 +195,14 @@
             background: var(--card);
             color: var(--text);
             margin: 0.35rem 0 1rem;
+            min-height: 3rem;
+            color-scheme: dark;
+        }
+        #invoice-panel .invoice-field-input:focus,
+        .driver-field-input:focus {
+            outline: none;
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
         }
         #invoice-send-status {
             margin-top: 0.75rem;
@@ -346,6 +359,39 @@
         .driver-dialog__actions .btn-cash-confirm:disabled {
             opacity: 0.6;
             cursor: wait;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step {
+            text-align: left;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__title {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step label {
+            display: block;
+            font-size: 0.8125rem;
+            color: var(--muted);
+            margin: 0 0 0.35rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-input {
+            margin-bottom: 1.25rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__actions {
+            margin-top: 0.25rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-current {
+            margin: 0 0 0.75rem;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: #fdba74;
+            line-height: 1.4;
+        }
+        #pickup-adjust-dialog #pickup-adjust-current .pickup-adjust-current__value {
+            display: block;
+            margin-top: 0.25rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #f97316;
         }
         #payment-qr-wrap {
             text-align: center;
@@ -961,7 +1007,7 @@
         <div id="overdue-strip" hidden>
             <p class="scheduled-rides-title">Verlopen geplande ritten</p>
             <p class="offer-meta" id="overdue-hint">
-                Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, of geef hem vrij.
+                Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, geef hem vrij, of accepteer een vrijgegeven rit opnieuw.
             </p>
             <div id="overdue-rides-list"></div>
             <div id="overdue-empty" class="empty" hidden>
@@ -1070,6 +1116,31 @@
 
 </div>
 
+<div id="pickup-adjust-dialog" class="driver-dialog" hidden aria-hidden="true">
+    <div class="driver-dialog__backdrop" data-pickup-adjust-dismiss tabindex="-1"></div>
+    <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="pickup-adjust-title">
+        <div id="pickup-adjust-ask-step">
+            <h2 id="pickup-adjust-title" class="driver-dialog__title">Ophaalmoment aanpassen?</h2>
+            <p id="pickup-adjust-current" class="pickup-adjust-current">—</p>
+            <p class="driver-dialog__text">Het geplande ophaalmoment is verstreken. Wil je een nieuw moment kiezen?</p>
+            <div class="driver-dialog__actions">
+                <button type="button" class="btn btn-primary" id="pickup-adjust-keep">Niet aanpassen</button>
+                <button type="button" class="btn" id="pickup-adjust-change">Aanpassen</button>
+                <button type="button" class="btn btn-ghost" id="pickup-adjust-cancel-ask">Annuleren</button>
+            </div>
+        </div>
+        <div id="pickup-adjust-edit-step" hidden>
+            <h2 class="driver-dialog__title">Nieuw ophaalmoment</h2>
+            <label for="pickup-adjust-input" class="offer-meta">Datum en tijd</label>
+            <input type="datetime-local" id="pickup-adjust-input" class="driver-field-input">
+            <div class="driver-dialog__actions">
+                <button type="button" class="btn btn-ghost" id="pickup-adjust-back">Terug</button>
+                <button type="button" class="btn btn-primary" id="pickup-adjust-confirm">Accepteren</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="cash-confirm-dialog" class="driver-dialog" hidden aria-hidden="true">
     <div class="driver-dialog__backdrop" data-cash-confirm-dismiss tabindex="-1"></div>
     <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="cash-confirm-title">
@@ -1102,7 +1173,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=49" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=56" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
