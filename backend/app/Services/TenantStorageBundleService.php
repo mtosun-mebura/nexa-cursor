@@ -136,7 +136,7 @@ final class TenantStorageBundleService
             'website_media' => $mediaPayloads,
             'user_photos' => $userPhotos,
             'payment_storage_note' => 'Factuur-PDF’s staan op de local disk (storage/app/private/invoices/{company_id}/) als private_files/private/invoices/… in de ZIP. Betalingsproviders en transacties zitten in de database en gaan via tenant-sync (payment_providers, invoice_settings, invoices, payments, payment_reminders, ride_payments).',
-            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (factuur-PDF’s). Carousel/slider-media (website_media) gaan ontsleuteld onder media-plain/ en worden bij import met de doel-APP_KEY her-versleuteld. Profielfoto’s (user_photos) overschrijven de avatar van bestaande doel-gebruikers (match op e-mail).',
+            'note' => 'ZIP: files/ = storage/app/public; private_files/ = storage/app (factuur-PDF’s). Carousel/slider-media (website_media) gaan ontsleuteld onder media-plain/ en worden bij import met de doel-APP_KEY her-versleuteld. Profielfoto’s (user_photos) overschrijven de avatar van bestaande doel-gebruikers (match op e-mail); super-admin-foto’s worden altijd meegenomen en op het doel via e-mail op super-admin-accounts gezet.',
         ];
 
         $safeSlug = Str::slug($company->name) ?: 'company';
@@ -265,7 +265,7 @@ final class TenantStorageBundleService
     }
 
     /**
-     * Profielfoto’s (users.photo_blob, base64) van company-gebruikers exporteren, op e-mail te matchen.
+     * Profielfoto’s (users.photo_blob, base64) van company-gebruikers en super-admins exporteren, op e-mail te matchen.
      *
      * @return list<array{email: string, photo_blob: string, photo_mime_type: ?string}>
      */
@@ -281,31 +281,80 @@ final class TenantStorageBundleService
             $columns[] = 'photo_mime_type';
         }
 
-        $rows = DB::table('users')
+        $byEmail = [];
+
+        $companyRows = DB::table('users')
             ->where('company_id', $companyId)
             ->whereNotNull('photo_blob')
             ->where('photo_blob', '!=', '')
             ->get($columns);
 
-        $out = [];
-        foreach ($rows as $row) {
-            $email = trim((string) ($row->email ?? ''));
-            $blob = (string) ($row->photo_blob ?? '');
-            if ($email === '' || $blob === '') {
-                continue;
+        foreach ($companyRows as $row) {
+            $entry = $this->userPhotoExportEntryFromRow($row, $hasMime);
+            if ($entry !== null) {
+                $byEmail[$entry['email']] = $entry;
             }
-            $out[] = [
-                'email' => $email,
-                'photo_blob' => $blob,
-                'photo_mime_type' => $hasMime ? ($row->photo_mime_type ?? null) : null,
-            ];
         }
+
+        $superAdminRows = $this->superAdminUsersWithPhotoQuery($columns)->get();
+
+        foreach ($superAdminRows as $row) {
+            $entry = $this->userPhotoExportEntryFromRow($row, $hasMime);
+            if ($entry !== null && ! isset($byEmail[$entry['email']])) {
+                $byEmail[$entry['email']] = $entry;
+            }
+        }
+
+        $out = array_values($byEmail);
+        usort($out, fn (array $a, array $b): int => strcmp($a['email'], $b['email']));
 
         return $out;
     }
 
     /**
-     * Profielfoto’s terugzetten op bestaande doel-gebruikers (match op e-mail binnen de tenant).
+     * @return array{email: string, photo_blob: string, photo_mime_type: ?string}|null
+     */
+    private function userPhotoExportEntryFromRow(object $row, bool $hasMime): ?array
+    {
+        $email = trim((string) ($row->email ?? ''));
+        $blob = (string) ($row->photo_blob ?? '');
+        if ($email === '' || $blob === '') {
+            return null;
+        }
+
+        return [
+            'email' => $email,
+            'photo_blob' => $blob,
+            'photo_mime_type' => $hasMime ? ($row->photo_mime_type ?? null) : null,
+        ];
+    }
+
+    /**
+     * Gebruikers met rol super-admin die een profielfoto hebben (team-agnostisch, zie User::isSuperAdmin()).
+     */
+    private function superAdminUsersWithPhotoQuery(array $columns = ['email', 'photo_blob'])
+    {
+        $pivotTable = config('permission.table_names.model_has_roles');
+        $rolesTable = config('permission.table_names.roles');
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $morphKey = config('permission.column_names.model_morph_key') ?: 'model_id';
+
+        $superAdminUserIds = DB::table($pivotTable)
+            ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivotTable}.{$rolePivotKey}")
+            ->where("{$rolesTable}.name", 'super-admin')
+            ->whereIn("{$rolesTable}.guard_name", ['web', 'api'])
+            ->select("{$pivotTable}.{$morphKey}");
+
+        return DB::table('users')
+            ->whereIn('id', $superAdminUserIds)
+            ->whereNotNull('photo_blob')
+            ->where('photo_blob', '!=', '')
+            ->select($columns);
+    }
+
+    /**
+     * Profielfoto’s terugzetten op bestaande doel-gebruikers (match op e-mail binnen de tenant)
+     * en op super-admin-accounts (zelfde e-mail, ongeacht company_id).
      * Overschrijft een bestaande avatar als die er al staat (zoals gevraagd).
      *
      * @param  list<array<string, mixed>|mixed>  $entries
@@ -348,12 +397,38 @@ final class TenantStorageBundleService
                 ->where('email', $email)
                 ->update($update);
 
+            if ($affected === 0) {
+                $affected = $this->updateSuperAdminUserPhotoByEmail($email, $update);
+            }
+
             if ($affected > 0) {
                 $n++;
             }
         }
 
         return $n;
+    }
+
+    /**
+     * @param  array<string, mixed>  $update
+     */
+    private function updateSuperAdminUserPhotoByEmail(string $email, array $update): int
+    {
+        $pivotTable = config('permission.table_names.model_has_roles');
+        $rolesTable = config('permission.table_names.roles');
+        $rolePivotKey = config('permission.column_names.role_pivot_key') ?: 'role_id';
+        $morphKey = config('permission.column_names.model_morph_key') ?: 'model_id';
+
+        $superAdminUserIds = DB::table($pivotTable)
+            ->join($rolesTable, "{$rolesTable}.id", '=', "{$pivotTable}.{$rolePivotKey}")
+            ->where("{$rolesTable}.name", 'super-admin')
+            ->whereIn("{$rolesTable}.guard_name", ['web', 'api'])
+            ->select("{$pivotTable}.{$morphKey}");
+
+        return DB::table('users')
+            ->whereIn('id', $superAdminUserIds)
+            ->where('email', $email)
+            ->update($update);
     }
 
     /**

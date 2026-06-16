@@ -9,9 +9,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="manifest" href="{{ route('taxi.chauffeur.manifest') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/media/app/nexa-chauffeur-icon-32.png') }}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/media/app/nexa-chauffeur-icon-192.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('assets/media/app/nexa-chauffeur-icon-180.png') }}">
+    <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
+    <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
+    <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
     <title>Chauffeur – Nexa Taxi</title>
     <style>
         :root {
@@ -83,14 +83,18 @@
             height: 100dvh;
             max-height: 100dvh;
             overflow: hidden;
-            padding-top: calc(1rem + var(--safe-top));
-            padding-bottom: calc(1rem + var(--safe-bottom));
+            padding: 0 0 calc(1rem + var(--safe-bottom));
+        }
+        .dispatch-top {
+            flex: 0 0 auto;
+            padding: calc(0.75rem + var(--safe-top)) 1rem 0;
         }
         .dispatch-scroll {
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            padding: 0 1rem;
         }
         #offer-strip,
         #active-ride-strip {
@@ -311,7 +315,7 @@
         }
         .dispatch-footer {
             flex: 0 0 auto;
-            padding-top: 0.75rem;
+            padding: 0.75rem 1rem 0;
             background: var(--bg);
         }
         #offer-actions-panel {
@@ -379,14 +383,33 @@
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
-        .status-pill {
-            font-size: 0.75rem;
-            padding: 0.35rem 0.65rem;
-            border-radius: 999px;
-            background: rgba(22, 163, 74, 0.2);
-            color: #86efac;
+        .toolbar-nav {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.65rem;
+            min-height: 2rem;
         }
-        .status-pill.offline { background: rgba(148, 163, 184, 0.2); color: var(--muted); }
+        .toolbar-nav-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex: 1 1 auto;
+            min-width: 0;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .toolbar-nav-buttons::-webkit-scrollbar {
+            display: none;
+        }
+        .dispatch-screen-title {
+            text-align: center;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            margin: 0 0 0.65rem;
+            line-height: 1.3;
+        }
         .banner-new-ride,
         .banner-ride-accepted {
             background: rgba(22, 163, 74, 0.25);
@@ -467,6 +490,18 @@
             font-size: 0.9375rem;
             font-weight: 600;
             color: var(--muted);
+        }
+        #overdue-strip .scheduled-rides-title,
+        #overdue-strip #overdue-hint,
+        #declined-strip .scheduled-rides-title,
+        #declined-strip #declined-hint {
+            text-align: center;
+        }
+        #overdue-strip #overdue-hint,
+        #declined-strip #declined-hint {
+            margin: -0.25rem 0 0.75rem;
+            font-size: 0.8125rem;
+            color: #94a3b8;
         }
         .scheduled-ride-card + .scheduled-ride-card { margin-top: 0.75rem; }
         .scheduled-ride-card .scheduled-ride-toggle {
@@ -606,16 +641,40 @@
         }
         .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; }
         .error { color: #fca5a5; font-size: 0.875rem; margin-top: 0.5rem; }
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+        .card.toggle-row {
+            padding: 0.55rem 0.85rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9375rem;
+        }
         .switch {
-            width: 3.25rem; height: 1.85rem; background: #334155; border-radius: 999px; position: relative; border: none; cursor: pointer;
+            width: 2.85rem;
+            height: 1.65rem;
+            background: #334155;
+            border-radius: 999px;
+            position: relative;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
         }
         .switch::after {
-            content: ''; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.45rem; height: 1.45rem;
-            background: #fff; border-radius: 50%; transition: transform 0.2s;
+            content: '';
+            position: absolute;
+            top: 0.2rem;
+            left: 0.2rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
         }
         .switch.is-on { background: var(--green); }
-        .switch.is-on::after { transform: translateX(1.35rem); }
+        .switch.is-on::after { transform: translateX(1.2rem); }
         .banner-inactive {
             background: rgba(220, 38, 38, 0.15);
             border: 1px solid rgba(248, 113, 113, 0.45);
@@ -647,7 +706,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             justify-content: flex-end;
         }
         .btn-toolbar {
@@ -804,6 +863,20 @@
     </section>
 
     <section id="screen-dispatch" class="screen" aria-label="Ritten">
+        <div class="dispatch-top">
+            <div class="toolbar-nav">
+                <div class="toolbar-nav-buttons">
+                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>Ritten <span id="offers-count">(0)</span></button>
+                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
+                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
+                </div>
+            </div>
+            <div class="card toggle-row">
+                <span>Online voor ritten</span>
+                <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
+            </div>
+            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
+        </div>
         <div class="dispatch-scroll">
         <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
             Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
@@ -827,26 +900,13 @@
         </p>
         <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
         <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
-        <div class="toolbar">
-            <h1 id="dispatch-toolbar-title" style="margin:0">Ritten</h1>
-            <div class="toolbar-actions">
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>Ritten <span id="offers-count">(0)</span></button>
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
-                <span id="online-pill" class="status-pill offline">Offline</span>
-            </div>
-        </div>
-        <div class="card toggle-row">
-            <span>Online voor ritten</span>
-            <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
-        </div>
         <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
             <p class="scheduled-rides-title">Geplande ritten</p>
             <div id="scheduled-rides-list"></div>
         </div>
         <div id="overdue-strip" hidden>
             <p class="scheduled-rides-title">Verlopen geplande ritten</p>
-            <p class="offer-meta" id="overdue-hint" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">
+            <p class="offer-meta" id="overdue-hint">
                 Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, of geef hem vrij.
             </p>
             <div id="overdue-rides-list"></div>
@@ -856,7 +916,7 @@
         </div>
         <div id="declined-strip" hidden>
             <p class="scheduled-rides-title">Door jou afgewezen</p>
-            <p class="offer-meta" id="declined-hint" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">
+            <p class="offer-meta" id="declined-hint">
                 Per ongeluk afgewezen? Je kunt een rit hier alsnog accepteren. Andere chauffeurs kunnen openstaande ritten ook nog overnemen.
             </p>
             <div id="declined-rides-list"></div>
@@ -982,10 +1042,10 @@ window.NEXA_TAXI_DRIVER = {
     streamEnabled: @json($streamEnabled ?? false),
     loginUrl: @json(url('/api/taxi/v1/driver/login')),
     appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
-    notificationIcon: @json($notificationIcon ?? asset('assets/media/app/nexa-chauffeur-icon-192.png')),
+    notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=47" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=48" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
