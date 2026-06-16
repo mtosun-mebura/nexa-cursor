@@ -356,14 +356,20 @@ class WebsiteBuilderService
      * Modulenaam (zoals in tabel `modules.name`) voor branding op deze pagina: moet overeenkomen met de module
      * waarvan je in Admin → Modules → configureren de vink "Knop Mijn-omgeving tonen" zet.
      *
+     * - Taxi/skillmatching-secties op de pagina (sterkste signaal na expliciete module op de pagina).
      * - Heeft de pagina een `module_name`? → die module (case-insensitive lookup in {@see getSiteBranding()}).
-     * - Anders: gekoppelde tenant-module, taxi-secties op de pagina, of {@see getBrandingModule()}.
+     * - Anders: gekoppelde tenant-module of {@see getBrandingModule()}.
      *
      * Het actieve thema (Metronic, Atom, …) bepaalt alleen layout/styling via {@see getThemeForPage()}; het wijzigt
      * niet welke `configuration` voor de Mijn-knop geldt — dat is uitsluitend de module hierboven.
      */
     public function getBrandingModuleNameForWebsitePage(WebsitePage $page): ?string
     {
+        $inferred = $this->inferPortalModuleNameFromPageContent($page);
+        if ($inferred !== null) {
+            return $inferred;
+        }
+
         if (filled($page->module_name)) {
             $name = trim((string) $page->module_name);
 
@@ -378,11 +384,6 @@ class WebsiteBuilderService
             }
         }
 
-        $inferred = $this->inferPortalModuleNameFromPageContent($page);
-        if ($inferred !== null) {
-            return $inferred;
-        }
-
         $brandingModule = $this->getBrandingModule();
 
         return $brandingModule !== null && filled($brandingModule->name)
@@ -391,16 +392,29 @@ class WebsiteBuilderService
     }
 
     /**
-     * Herken taxi/skillmatching op pagina's zonder module_name (typisch tenant-home met alleen secties).
+     * Herken taxi/skillmatching op pagina's via opgeslagen secties (section_order of component-keys).
      */
     private function inferPortalModuleNameFromPageContent(WebsitePage $page): ?string
     {
-        $sections = $page->getHomeSections();
-        if (! is_array($sections)) {
-            return null;
+        $candidateKeys = [];
+
+        $stored = WebsitePage::normalizeHomeSectionsValue($page->home_sections);
+        if (is_array($stored)) {
+            $candidateKeys = array_merge($candidateKeys, array_keys($stored));
+            if (isset($stored['section_order']) && is_array($stored['section_order'])) {
+                $candidateKeys = array_merge($candidateKeys, $stored['section_order']);
+            }
         }
 
-        foreach (array_keys($sections) as $key) {
+        $sections = $page->getHomeSections();
+        if (is_array($sections)) {
+            $candidateKeys = array_merge($candidateKeys, array_keys($sections));
+            if (isset($sections['section_order']) && is_array($sections['section_order'])) {
+                $candidateKeys = array_merge($candidateKeys, $sections['section_order']);
+            }
+        }
+
+        foreach ($candidateKeys as $key) {
             $key = (string) $key;
             if ($key === 'component:taxi.boekingsmodule' || $key === 'component:taxiroyaal.boekingsmodule') {
                 return 'taxi';
