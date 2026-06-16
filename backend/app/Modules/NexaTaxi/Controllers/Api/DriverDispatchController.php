@@ -43,7 +43,8 @@ class DriverDispatchController extends Controller
             }
         }
 
-        $pickupCutoff = app(TaxiDispatchSettingsService::class)->pickupQueueCutoffAt($companyId);
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        $pickupCutoff = $dispatchSettings->pickupQueueCutoffAt($companyId);
 
         $offers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
@@ -56,9 +57,31 @@ class DriverDispatchController extends Controller
             })
             ->values();
 
+        $overdueReleasedOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->overdueReleasedForDriver($user->id)
+            ->get()
+            ->filter(function (RideDispatchOffer $offer) use ($dispatchSettings, $companyId) {
+                $ride = $offer->rideRequest;
+                if (! $ride) {
+                    return false;
+                }
+
+                $rideCompanyId = (int) ($ride->company_id ?: $offer->company_id ?: $companyId);
+
+                return $dispatchSettings->scheduledRideIsOverdue($ride, $rideCompanyId > 0 ? $rideCompanyId : null);
+            })
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->responded_at?->timestamp ?? $offer->offered_at?->timestamp ?? 0;
+            })
+            ->values();
+
+        $overdueReleasedOfferIds = $overdueReleasedOffers->pluck('id');
+
         $declinedOffers = RideDispatchOffer::on($conn)
             ->with('rideRequest')
             ->declinedForDriver($user->id, $pickupCutoff)
+            ->whereNotIn('id', $overdueReleasedOfferIds)
             ->get()
             ->sortByDesc(function (RideDispatchOffer $offer) {
                 return $offer->responded_at?->timestamp ?? 0;
@@ -86,8 +109,6 @@ class DriverDispatchController extends Controller
                 $activeRide = $activeRide->fresh();
             }
         }
-
-        $dispatchSettings = app(TaxiDispatchSettingsService::class);
 
         $acceptedRides = RideRequest::on($conn)
             ->where('driver_id', $user->id)
@@ -120,6 +141,18 @@ class DriverDispatchController extends Controller
                 'overdue_scheduled_rides' => $overdueScheduledRides
                     ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true))
                     ->values(),
+                'overdue_released_offers' => $overdueReleasedOffers
+                    ->map(function (RideDispatchOffer $offer) use ($dispatchSettings, $companyId) {
+                        $ride = $offer->rideRequest;
+                        $rideCompanyId = (int) ($ride?->company_id ?: $offer->company_id ?: $companyId);
+                        $isOverdue = $ride && $dispatchSettings->scheduledRideIsOverdue(
+                            $ride,
+                            $rideCompanyId > 0 ? $rideCompanyId : null
+                        );
+
+                        return TaxiDispatchOfferResource::fromOffer($offer, $ride, $isOverdue);
+                    })
+                    ->values(),
             ],
             'meta' => array_merge(
                 [
@@ -129,7 +162,7 @@ class DriverDispatchController extends Controller
                     'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
                     'unclaimed_rides' => $unclaimedRides,
                 ],
-                app(TaxiDispatchSettingsService::class)->paymentOptionsForTenant($companyId)
+                $dispatchSettings->paymentOptionsForTenant($companyId)
             ),
         ]);
     }
@@ -141,9 +174,17 @@ class DriverDispatchController extends Controller
         RideClaimService $claim
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
+        $data = $request->validate([
+            'pickup_at' => ['nullable', 'date'],
+        ]);
 
         try {
-            $result = $claim->acceptOffer($conn, $request->user(), $offer);
+            $result = $claim->acceptOffer(
+                $conn,
+                $request->user(),
+                $offer,
+                $data['pickup_at'] ?? null
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet accepteren.',

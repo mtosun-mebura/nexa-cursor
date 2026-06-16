@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 
 class TaxiDispatchOfferResource
 {
-    public static function fromOffer(RideDispatchOffer $offer, ?RideRequest $ride = null): array
+    public static function fromOffer(RideDispatchOffer $offer, ?RideRequest $ride = null, bool $isScheduledOverdue = false): array
     {
         $ride ??= $offer->relationLoaded('rideRequest') ? $offer->rideRequest : null;
 
@@ -60,7 +60,7 @@ class TaxiDispatchOfferResource
             'waiting_since_at' => $waitingSinceAt?->toIso8601String(),
             'is_waiting' => $isWaiting,
             'urgency' => $urgency,
-            'ride' => $ride ? self::rideSummary($ride) : null,
+            'ride' => $ride ? self::rideSummary($ride, $isScheduledOverdue) : null,
             'actions' => [
                 'accept' => url("/api/taxi/v1/driver/dispatch/offers/{$offer->id}/accept"),
                 'decline' => url("/api/taxi/v1/driver/dispatch/offers/{$offer->id}/decline"),
@@ -76,6 +76,7 @@ class TaxiDispatchOfferResource
             'id' => $ride->id,
             'status' => $ride->status,
             'is_scheduled_overdue' => $isScheduledOverdue,
+            'requires_pickup_adjustment' => $isScheduledOverdue,
             'created_at' => $ride->created_at?->toIso8601String(),
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
             'pickup_address' => $ride->pickup_address,

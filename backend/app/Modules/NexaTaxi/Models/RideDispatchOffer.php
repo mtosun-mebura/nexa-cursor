@@ -89,4 +89,22 @@ class RideDispatchOffer extends Model
             ->whereHas('rideRequest', fn ($q) => $q->whereNull('driver_id'))
             ->ridePickupWithinQueueWindow($pickupCutoff);
     }
+
+    /**
+     * Vrijgegeven of afgewezen verlopen ritten (zonder pickup-grace-filter) voor de Verlopen-pagina.
+     */
+    public function scopeOverdueReleasedForDriver($query, int $driverId)
+    {
+        return $query
+            ->where('driver_id', $driverId)
+            ->where('status', self::STATUS_DECLINED)
+            ->whereHas('rideRequest', function ($q) {
+                $q->whereNull('driver_id')
+                    ->whereNotNull('pickup_at')
+                    ->whereIn('status', [
+                        RideRequest::STATUS_PENDING_DISPATCH,
+                        RideRequest::STATUS_OFFERED,
+                    ]);
+            });
+    }
 }

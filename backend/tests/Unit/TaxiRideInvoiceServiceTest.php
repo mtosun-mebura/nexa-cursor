@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\InvoiceSetting;
 use App\Modules\NexaTaxi\Http\Resources\TaxiDispatchOfferResource;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -54,7 +55,59 @@ class TaxiRideInvoiceServiceTest extends TestCase
 
         $this->assertFalse($payload['has_invoice']);
         $this->assertNull($payload['invoice_id']);
+        $this->assertNull($payload['invoice_number']);
         $this->assertSame('klant@example.com', $payload['customer_email']);
+        $this->assertFalse($payload['can_send']);
+    }
+
+    public function test_preview_next_invoice_number_does_not_increment_counter(): void
+    {
+        $settings = new InvoiceSetting([
+            'invoice_number_prefix' => 'NX',
+            'invoice_number_format' => '{prefix}{year}-{number}',
+            'next_invoice_number' => 42,
+            'current_year' => (int) date('Y'),
+        ]);
+
+        $preview = $settings->previewNextInvoiceNumber();
+
+        $this->assertStringEndsWith('0042', $preview);
+        $this->assertSame(42, $settings->next_invoice_number);
+        $this->assertSame($preview, $settings->generateInvoiceNumber());
+        $this->assertSame(43, $settings->next_invoice_number);
+    }
+
+    public function test_driver_invoice_payload_uses_persisted_invoice_number(): void
+    {
+        $invoice = new \App\Models\Invoice([
+            'invoice_number' => 'NX2026-0042',
+            'status' => 'paid',
+            'total_amount' => 25.00,
+            'customer_email' => 'factuur@example.com',
+        ]);
+        $invoice->id = 99;
+
+        $service = Mockery::mock(
+            TaxiRideInvoiceService::class,
+            [
+                Mockery::mock(InvoicePdfService::class),
+                Mockery::mock(EmailTemplateService::class),
+                Mockery::mock(EnvService::class),
+                Mockery::mock(CompanyEmailLogoService::class),
+            ]
+        )->makePartial();
+
+        $ride = Mockery::mock(RideRequest::class)->makePartial();
+        $ride->payment_status = RideRequest::PAYMENT_STATUS_PAID;
+        $ride->customer_email = 'klant@example.com';
+        $ride->shouldReceive('getConnectionName')->andReturn('module_taxi');
+
+        $service->shouldReceive('findInvoiceForRide')->with($ride)->andReturn($invoice);
+
+        $payload = $service->driverInvoicePayload($ride);
+
+        $this->assertTrue($payload['has_invoice']);
+        $this->assertSame('NX2026-0042', $payload['invoice_number']);
         $this->assertTrue($payload['can_send']);
     }
 

@@ -176,6 +176,27 @@ class InvoiceSetting extends Model
         return 30;
     }
 
+    public function previewNextInvoiceNumber(bool $isPartial = false, ?string $parentInvoiceNumber = null, ?int $partialNumber = null): string
+    {
+        $year = date('Y');
+        $nextNumber = $this->next_invoice_number;
+        if ($this->current_year != $year) {
+            $nextNumber = 1;
+        }
+
+        if ($isPartial && $parentInvoiceNumber && $partialNumber) {
+            return $parentInvoiceNumber.'-'.$partialNumber;
+        }
+
+        $number = str_pad((string) $nextNumber, 4, '0', STR_PAD_LEFT);
+
+        return str_replace(
+            ['{prefix}', '{year}', '{number}'],
+            [$this->invoice_number_prefix, $year, $number],
+            $this->invoice_number_format
+        );
+    }
+
     public function generateInvoiceNumber(bool $isPartial = false, ?string $parentInvoiceNumber = null, ?int $partialNumber = null): string
     {
         $year = date('Y');

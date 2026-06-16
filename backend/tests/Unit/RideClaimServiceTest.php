@@ -284,4 +284,70 @@ class RideClaimServiceTest extends TestCase
         $this->assertSame($driver->id, (int) $result['ride']->driver_id);
         $this->assertSame(RideDispatchOffer::STATUS_ACCEPTED, $result['offer']->fresh()->status);
     }
+
+    public function test_accept_declined_overdue_ride_with_new_pickup_at(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->subHours(2),
+            'customer_name' => 'Test',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_DECLINED,
+            'offered_at' => now()->subHours(3),
+            'expires_at' => now()->subHours(2),
+            'responded_at' => now()->subHour(),
+        ]);
+
+        $newPickup = now()->addDay()->startOfMinute();
+        $claim = app(RideClaimService::class);
+        $result = $claim->acceptOffer(
+            'module_taxi',
+            $driver,
+            $offer->id,
+            $newPickup->toIso8601String()
+        );
+
+        $this->assertSame(RideRequest::STATUS_ACCEPTED, $result['ride']->status);
+        $this->assertTrue($result['ride']->pickup_at->equalTo($newPickup));
+    }
+
+    public function test_accept_declined_overdue_ride_keeps_pickup_at_without_change(): void
+    {
+        $driver = User::factory()->create();
+        $originalPickup = now()->subHours(2)->startOfMinute();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => $originalPickup,
+            'customer_name' => 'Test',
+        ]);
+
+        $offer = RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideDispatchOffer::STATUS_DECLINED,
+            'offered_at' => now()->subHours(3),
+            'expires_at' => now()->subHours(2),
+            'responded_at' => now()->subHour(),
+        ]);
+
+        $claim = app(RideClaimService::class);
+        $result = $claim->acceptOffer('module_taxi', $driver, $offer->id, null);
+
+        $this->assertTrue($result['ride']->pickup_at->equalTo($originalPickup));
+    }
 }

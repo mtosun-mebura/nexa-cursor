@@ -9,9 +9,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="manifest" href="{{ route('taxi.chauffeur.manifest') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/media/app/nexa-chauffeur-icon-32.png') }}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/media/app/nexa-chauffeur-icon-192.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('assets/media/app/nexa-chauffeur-icon-180.png') }}">
+    <link rel="icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
+    <link rel="shortcut icon" href="{{ $faviconUrl }}" type="{{ $faviconType }}">
+    <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
     <title>Chauffeur – Nexa Taxi</title>
     <style>
         :root {
@@ -34,6 +34,10 @@
         }
         body.driver-dialog-open {
             overflow: hidden;
+        }
+        body.driver-dialog-open #screen-dispatch,
+        body.driver-accept-in-flight #screen-dispatch {
+            pointer-events: none;
         }
         #nosleep-media-wrap,
         #nosleep-audio,
@@ -83,14 +87,34 @@
             height: 100dvh;
             max-height: 100dvh;
             overflow: hidden;
-            padding-top: calc(1rem + var(--safe-top));
-            padding-bottom: calc(1rem + var(--safe-bottom));
+            padding: 0 0 calc(1rem + var(--safe-bottom));
+        }
+        .dispatch-top {
+            flex: 0 0 auto;
+            padding: calc(0.75rem + var(--safe-top)) 1rem 0;
+        }
+        .dispatch-banners {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+        .dispatch-banners .banner-ios-awake,
+        .dispatch-banners .banner-notifications-hint,
+        .dispatch-banners .banner-offline-hint,
+        .dispatch-banners .banner-inactive,
+        .dispatch-banners #notifications-feedback {
+            margin-bottom: 0;
+        }
+        .dispatch-banners #notifications-feedback {
+            margin-top: 0;
         }
         .dispatch-scroll {
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            padding: 0 1rem;
         }
         #offer-strip,
         #active-ride-strip {
@@ -134,6 +158,10 @@
         }
         #payment-panel.is-open,
         #invoice-panel.is-open { display: flex; }
+        #screen-dispatch.overlay-panel-open .dispatch-top,
+        #screen-dispatch.overlay-panel-open .dispatch-footer {
+            display: none;
+        }
         #invoice-panel {
             position: fixed;
             inset: 0;
@@ -157,7 +185,8 @@
             cursor: not-allowed;
             opacity: 0.9;
         }
-        #invoice-panel .invoice-field-input {
+        #invoice-panel .invoice-field-input,
+        .driver-field-input {
             width: 100%;
             font-size: 1rem;
             padding: 0.75rem 1rem;
@@ -166,6 +195,14 @@
             background: var(--card);
             color: var(--text);
             margin: 0.35rem 0 1rem;
+            min-height: 3rem;
+            color-scheme: dark;
+        }
+        #invoice-panel .invoice-field-input:focus,
+        .driver-field-input:focus {
+            outline: none;
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
         }
         #invoice-send-status {
             margin-top: 0.75rem;
@@ -174,15 +211,40 @@
             text-align: center;
         }
         #invoice-send-status.is-error { color: #fca5a5; }
-        #payment-panel .payment-amount-input {
-            width: 100%;
-            font-size: 1.5rem;
-            padding: 0.75rem 1rem;
+        #payment-panel .payment-amount-wrap {
+            display: flex;
+            align-items: center;
             border-radius: 0.75rem;
             border: 1px solid rgba(255,255,255,0.15);
             background: var(--card);
-            color: var(--text);
             margin: 0.5rem 0 1rem;
+        }
+        #payment-panel .payment-amount-wrap:focus-within {
+            border-color: rgba(37, 99, 235, 0.6);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+        }
+        #payment-panel .payment-amount-prefix {
+            padding: 0.75rem 0 0.75rem 1rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--muted);
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        #payment-panel .payment-amount-input {
+            width: 100%;
+            flex: 1;
+            min-width: 0;
+            font-size: 1.5rem;
+            padding: 0.75rem 1rem 0.75rem 0.35rem;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: var(--text);
+            margin: 0;
+        }
+        #payment-panel .payment-amount-input:focus {
+            outline: none;
         }
         #payment-panel .payment-actions {
             display: flex;
@@ -298,6 +360,39 @@
             opacity: 0.6;
             cursor: wait;
         }
+        #pickup-adjust-dialog #pickup-adjust-edit-step {
+            text-align: left;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__title {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step label {
+            display: block;
+            font-size: 0.8125rem;
+            color: var(--muted);
+            margin: 0 0 0.35rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-input {
+            margin-bottom: 1.25rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__actions {
+            margin-top: 0.25rem;
+        }
+        #pickup-adjust-dialog #pickup-adjust-current {
+            margin: 0 0 0.75rem;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: #fdba74;
+            line-height: 1.4;
+        }
+        #pickup-adjust-dialog #pickup-adjust-current .pickup-adjust-current__value {
+            display: block;
+            margin-top: 0.25rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #f97316;
+        }
         #payment-qr-wrap {
             text-align: center;
             margin: 1rem 0;
@@ -311,7 +406,7 @@
         }
         .dispatch-footer {
             flex: 0 0 auto;
-            padding-top: 0.75rem;
+            padding: 0.75rem 1rem 0;
             background: var(--bg);
         }
         #offer-actions-panel {
@@ -379,14 +474,34 @@
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
-        .status-pill {
-            font-size: 0.75rem;
-            padding: 0.35rem 0.65rem;
-            border-radius: 999px;
-            background: rgba(22, 163, 74, 0.2);
-            color: #86efac;
+        .toolbar-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.65rem;
+            min-height: 2rem;
         }
-        .status-pill.offline { background: rgba(148, 163, 184, 0.2); color: var(--muted); }
+        .toolbar-nav-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            flex-wrap: nowrap;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .toolbar-nav-buttons::-webkit-scrollbar {
+            display: none;
+        }
+        .dispatch-screen-title {
+            text-align: center;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            margin: 0 0 0.65rem;
+            line-height: 1.3;
+        }
         .banner-new-ride,
         .banner-ride-accepted {
             background: rgba(22, 163, 74, 0.25);
@@ -467,6 +582,18 @@
             font-size: 0.9375rem;
             font-weight: 600;
             color: var(--muted);
+        }
+        #overdue-strip .scheduled-rides-title,
+        #overdue-strip #overdue-hint,
+        #declined-strip .scheduled-rides-title,
+        #declined-strip #declined-hint {
+            text-align: center;
+        }
+        #overdue-strip #overdue-hint,
+        #declined-strip #declined-hint {
+            margin: -0.25rem 0 0.75rem;
+            font-size: 0.8125rem;
+            color: #94a3b8;
         }
         .scheduled-ride-card + .scheduled-ride-card { margin-top: 0.75rem; }
         .scheduled-ride-card .scheduled-ride-toggle {
@@ -606,16 +733,40 @@
         }
         .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; }
         .error { color: #fca5a5; font-size: 0.875rem; margin-top: 0.5rem; }
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+        .card.toggle-row {
+            padding: 0.55rem 0.85rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9375rem;
+        }
         .switch {
-            width: 3.25rem; height: 1.85rem; background: #334155; border-radius: 999px; position: relative; border: none; cursor: pointer;
+            width: 2.85rem;
+            height: 1.65rem;
+            background: #334155;
+            border-radius: 999px;
+            position: relative;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
         }
         .switch::after {
-            content: ''; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.45rem; height: 1.45rem;
-            background: #fff; border-radius: 50%; transition: transform 0.2s;
+            content: '';
+            position: absolute;
+            top: 0.2rem;
+            left: 0.2rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
         }
         .switch.is-on { background: var(--green); }
-        .switch.is-on::after { transform: translateX(1.35rem); }
+        .switch.is-on::after { transform: translateX(1.2rem); }
         .banner-inactive {
             background: rgba(220, 38, 38, 0.15);
             border: 1px solid rgba(248, 113, 113, 0.45);
@@ -647,7 +798,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             justify-content: flex-end;
         }
         .btn-toolbar {
@@ -656,6 +807,12 @@
             padding: 0.35rem 0.65rem;
             font-size: 0.8125rem;
             white-space: nowrap;
+        }
+        .btn-toolbar.is-active {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #fff;
+            font-weight: 600;
         }
         .declined-ride-card {
             margin-bottom: 0.75rem;
@@ -804,50 +961,53 @@
     </section>
 
     <section id="screen-dispatch" class="screen" aria-label="Ritten">
+        <div class="dispatch-top">
+            <div class="dispatch-banners">
+                <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
+                    Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
+                </div>
+                <div id="offline-hint" class="banner-offline-hint" hidden>
+                    Je bent offline. Zet je status op <strong>online</strong> om ritten te ontvangen.
+                </div>
+                <div id="ios-awake-hint" class="banner-ios-awake" hidden role="note">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-ios-awake-hint" aria-label="Melding sluiten">×</button>
+                    <strong>iPhone:</strong> het scherm blijft aan zolang je <strong>online</strong> bent.
+                    Gaat het scherm toch uit? Tik één keer op het scherm om dit opnieuw te activeren.
+                </div>
+                <div id="notifications-hint" class="banner-notifications-hint" hidden>
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-hint" aria-label="Melding sluiten">×</button>
+                    <span id="notifications-hint-text">Voor een geluid en melding op je telefoon bij nieuwe ritten: sta meldingen toe voor deze app.</span>
+                    <button type="button" class="btn-inline" id="btn-enable-notifications">Meldingen inschakelen</button>
+                </div>
+                <p id="notifications-feedback" hidden role="status" aria-live="polite">
+                    <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
+                    <span id="notifications-feedback-text"></span>
+                </p>
+            </div>
+            <div class="toolbar-nav">
+                <div class="toolbar-nav-buttons">
+                    <button type="button" class="btn btn-ghost btn-toolbar is-active" id="btn-show-offers" aria-current="page">Ritten <span id="offers-count">(0)</span></button>
+                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
+                    <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
+                </div>
+            </div>
+            <div class="card toggle-row">
+                <span>Online voor ritten</span>
+                <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
+            </div>
+            <h1 id="dispatch-toolbar-title" class="dispatch-screen-title">Ritten</h1>
+        </div>
         <div class="dispatch-scroll">
-        <div id="account-inactive-banner" class="banner-inactive" hidden role="alert">
-            Je chauffeuraccount is nog niet actief. Neem contact op met je werkgever of beheerder.
-        </div>
-        <div id="offline-hint" class="banner-offline-hint" hidden>
-            Je bent offline. Zet je status op <strong>online</strong> om ritten te ontvangen.
-        </div>
-        <div id="ios-awake-hint" class="banner-ios-awake" hidden role="note">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-ios-awake-hint" aria-label="Melding sluiten">×</button>
-            <strong>iPhone:</strong> het scherm blijft aan zolang je <strong>online</strong> bent.
-            Gaat het scherm toch uit? Tik één keer op het scherm om dit opnieuw te activeren.
-        </div>
-        <div id="notifications-hint" class="banner-notifications-hint" hidden>
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-hint" aria-label="Melding sluiten">×</button>
-            <span id="notifications-hint-text">Voor een geluid en melding op je telefoon bij nieuwe ritten: sta meldingen toe voor deze app.</span>
-            <button type="button" class="btn-inline" id="btn-enable-notifications">Meldingen inschakelen</button>
-        </div>
-        <p id="notifications-feedback" hidden role="status" aria-live="polite">
-            <button type="button" class="banner-dismiss-btn" id="btn-dismiss-notifications-feedback" aria-label="Melding sluiten">×</button>
-            <span id="notifications-feedback-text"></span>
-        </p>
         <div id="new-ride-alert" class="banner-new-ride" hidden role="status" aria-live="polite">Nieuwe rit beschikbaar — reageer snel.</div>
         <div id="unclaimed-rides-banner" class="banner-unclaimed" hidden role="alert"></div>
-        <div class="toolbar">
-            <h1 id="dispatch-toolbar-title" style="margin:0">Ritten</h1>
-            <div class="toolbar-actions">
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-offers" hidden>Ritten <span id="offers-count">(0)</span></button>
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-overdue" hidden>Verlopen <span id="overdue-count">(0)</span></button>
-                <button type="button" class="btn btn-ghost btn-toolbar" id="btn-show-declined" hidden>Afgewezen <span id="declined-count">(0)</span></button>
-                <span id="online-pill" class="status-pill offline">Offline</span>
-            </div>
-        </div>
-        <div class="card toggle-row">
-            <span>Online voor ritten</span>
-            <button type="button" id="online-toggle" class="switch" aria-pressed="false" aria-label="Online"></button>
-        </div>
         <div id="scheduled-rides-strip" class="scheduled-rides-strip" hidden>
             <p class="scheduled-rides-title">Geplande ritten</p>
             <div id="scheduled-rides-list"></div>
         </div>
         <div id="overdue-strip" hidden>
             <p class="scheduled-rides-title">Verlopen geplande ritten</p>
-            <p class="offer-meta" id="overdue-hint" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">
-                Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, of geef hem vrij.
+            <p class="offer-meta" id="overdue-hint">
+                Het ophaalmoment plus de acceptatietijd is verstreken. Start de rit alsnog bij vertraging, geef hem vrij, of accepteer een vrijgegeven rit opnieuw.
             </p>
             <div id="overdue-rides-list"></div>
             <div id="overdue-empty" class="empty" hidden>
@@ -856,7 +1016,7 @@
         </div>
         <div id="declined-strip" hidden>
             <p class="scheduled-rides-title">Door jou afgewezen</p>
-            <p class="offer-meta" id="declined-hint" style="margin:-0.25rem 0 0.75rem;font-size:0.8125rem;color:#94a3b8;">
+            <p class="offer-meta" id="declined-hint">
                 Per ongeluk afgewezen? Je kunt een rit hier alsnog accepteren. Andere chauffeurs kunnen openstaande ritten ook nog overnemen.
             </p>
             <div id="declined-rides-list"></div>
@@ -902,7 +1062,15 @@
             <p id="payment-ride-error" hidden role="alert"></p>
             <button type="button" class="btn" id="btn-pay-ride" hidden>Betalen</button>
             <button type="button" class="btn" id="btn-send-invoice" hidden>Factuur versturen</button>
-            <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afgerond</button>
+            <button type="button" class="btn btn-primary" id="btn-complete-ride" hidden>Rit afronden</button>
+        </div>
+        <div id="inbox-empty" class="empty">
+            <p id="inbox-empty-title">Geen openstaande ritten.</p>
+            <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
+        </div>
+        </div>
+        <div class="dispatch-footer">
+            <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
         </div>
         <div id="payment-panel" hidden aria-label="Betaling">
             <div class="toolbar" style="margin-bottom:1rem">
@@ -912,10 +1080,13 @@
             <div class="card">
                 <p class="offer-meta" style="margin:0 0 0.5rem">Te betalen bedrag</p>
                 <label for="payment-amount" class="sr-only">Bedrag in euro</label>
-                <input type="number" id="payment-amount" class="payment-amount-input" min="0.01" step="0.01" inputmode="decimal">
+                <div class="payment-amount-wrap">
+                    <span class="payment-amount-prefix" aria-hidden="true">€</span>
+                    <input type="number" id="payment-amount" class="payment-amount-input" min="0.01" step="0.01" inputmode="decimal">
+                </div>
                 <div class="payment-actions">
                     <button type="button" class="btn btn-primary" id="btn-payment-create">QR-code tonen</button>
-                    <button type="button" class="btn" id="btn-cash-paid">Cash betaald</button>
+                    <button type="button" class="btn" id="btn-cash-paid">Contant betalen</button>
                 </div>
             </div>
             <div id="payment-qr-section" class="card" hidden>
@@ -941,23 +1112,40 @@
                 <p id="invoice-send-status" hidden role="status" aria-live="polite"></p>
             </div>
         </div>
-        <div id="inbox-empty" class="empty">
-            <p id="inbox-empty-title">Geen openstaande ritten.</p>
-            <p id="inbox-empty-hint" style="font-size:0.8125rem">Zet je status op online om aanbiedingen te ontvangen.</p>
-        </div>
-        </div>
-        <div class="dispatch-footer">
-            <button type="button" class="btn btn-ghost" id="btn-logout">Uitloggen</button>
-        </div>
     </section>
 
+</div>
+
+<div id="pickup-adjust-dialog" class="driver-dialog" hidden aria-hidden="true">
+    <div class="driver-dialog__backdrop" data-pickup-adjust-dismiss tabindex="-1"></div>
+    <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="pickup-adjust-title">
+        <div id="pickup-adjust-ask-step">
+            <h2 id="pickup-adjust-title" class="driver-dialog__title">Ophaalmoment aanpassen?</h2>
+            <p id="pickup-adjust-current" class="pickup-adjust-current">—</p>
+            <p class="driver-dialog__text">Het geplande ophaalmoment is verstreken. Wil je een nieuw moment kiezen?</p>
+            <div class="driver-dialog__actions">
+                <button type="button" class="btn btn-primary" id="pickup-adjust-keep">Niet aanpassen</button>
+                <button type="button" class="btn" id="pickup-adjust-change">Aanpassen</button>
+                <button type="button" class="btn btn-ghost" id="pickup-adjust-cancel-ask">Annuleren</button>
+            </div>
+        </div>
+        <div id="pickup-adjust-edit-step" hidden>
+            <h2 class="driver-dialog__title">Nieuw ophaalmoment</h2>
+            <label for="pickup-adjust-input" class="offer-meta">Datum en tijd</label>
+            <input type="datetime-local" id="pickup-adjust-input" class="driver-field-input">
+            <div class="driver-dialog__actions">
+                <button type="button" class="btn btn-ghost" id="pickup-adjust-back">Terug</button>
+                <button type="button" class="btn btn-primary" id="pickup-adjust-confirm">Accepteren</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="cash-confirm-dialog" class="driver-dialog" hidden aria-hidden="true">
     <div class="driver-dialog__backdrop" data-cash-confirm-dismiss tabindex="-1"></div>
     <div class="driver-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="cash-confirm-title">
         <div class="driver-dialog__icon" aria-hidden="true">💵</div>
-        <h2 id="cash-confirm-title" class="driver-dialog__title">Contant betaald?</h2>
+        <h2 id="cash-confirm-title" class="driver-dialog__title">Contant betalen?</h2>
         <p id="cash-confirm-amount" class="driver-dialog__amount">—</p>
         <p class="driver-dialog__text">Het ingevoerde bedrag wordt vastgelegd op deze rit. Controleer het bedrag voordat je bevestigt.</p>
         <div class="driver-dialog__actions">
@@ -982,10 +1170,10 @@ window.NEXA_TAXI_DRIVER = {
     streamEnabled: @json($streamEnabled ?? false),
     loginUrl: @json(url('/api/taxi/v1/driver/login')),
     appUrl: @json($appUrl ?? url('/taxi/chauffeur')),
-    notificationIcon: @json($notificationIcon ?? asset('assets/media/app/nexa-chauffeur-icon-192.png')),
+    notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=47" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=56" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>
