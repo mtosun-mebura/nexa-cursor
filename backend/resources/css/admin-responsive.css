@@ -2233,3 +2233,73 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.6875rem;
 }
+
+/* --- KT datepicker: popup aan input, omhoog bij weinig ruimte onder --- */
+[data-vc='calendar'][data-vc-input].admin-date-picker-floating {
+    position: fixed !important;
+    z-index: 1060;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+[data-vc='calendar'][data-vc-input].admin-date-picker-floating[data-admin-date-picker-placement='top'] {
+    transform-origin: bottom left;
+}
+
+[data-vc='calendar'][data-vc-input].admin-date-picker-floating[data-admin-date-picker-placement='bottom'] {
+    transform-origin: top left;
+}
+
+/* Voorkom dat kaarten/formulieren de open calendar afsnijden */
+#content form:has([data-vc-input-focus]) .kt-card,
+#content form:has([data-vc-input-focus]) .kt-card-content,
+#content form:has([data-vc-input-focus]) .kt-table.kt-table-border-dashed {
+    overflow: visible;
+}
+
+/* --- Admin: Google/Nominatim adreszoeker --- */
+.admin-address-autocomplete {
+    position: relative;
+}
+
+.admin-address-suggestions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    z-index: 1060;
+    max-height: min(18rem, 45vh);
+    overflow-y: auto;
+    border-radius: 0.5rem;
+    border: 1px solid var(--input, #d1d5db);
+    background: var(--background, #fff);
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.12);
+}
+
+.admin-address-suggestions.hidden {
+    display: none;
+}
+
+.admin-address-suggestion {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.admin-address-suggestion:hover,
+.admin-address-suggestion:focus {
+    background: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+#content .wizard-onboarding-form-table td:has(.admin-address-autocomplete),
+#content form:has(.admin-address-suggestions:not(.hidden)) .kt-card,
+#content form:has(.admin-address-suggestions:not(.hidden)) .kt-card-content {
+    overflow: visible;
+}

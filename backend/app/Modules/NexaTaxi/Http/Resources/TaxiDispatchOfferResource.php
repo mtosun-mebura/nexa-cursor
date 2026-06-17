@@ -4,9 +4,14 @@ namespace App\Modules\NexaTaxi\Http\Resources;
 
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\TransportOccurrence;
+use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\ContractRideStopService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
+use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TaxiDispatchOfferResource
@@ -71,28 +76,64 @@ class TaxiDispatchOfferResource
     public static function rideSummary(RideRequest $ride, bool $isScheduledOverdue = false): array
     {
         $payments = app(TaxiRidePaymentService::class);
+        $conn = $ride->getConnectionName();
+        $isContract = $ride->isContractRide();
+
+        $stopsMeta = null;
+        $schedule = null;
+        if ($ride->ride_type === RideRequest::RIDE_TYPE_CONTRACT_GROUP) {
+            $progress = app(ContractRideStopService::class)->groupRideProgress($conn, (int) $ride->id);
+            $schedule = app(ContractOccurrenceGeneratorService::class)->schedulePayloadForRide($conn, $ride);
+            $stopsMeta = [
+                'total' => $progress['stops_total'],
+                'pickups_total' => $progress['pickups_total'],
+                'pickups_done' => $progress['pickups_done'],
+                'all_pickups_done' => $progress['all_pickups_done'],
+            ];
+        }
+
+        $scheduledDate = null;
+        if ($isContract) {
+            $occurrenceDate = TransportOccurrence::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->value('scheduled_date');
+            if ($occurrenceDate) {
+                $scheduledDate = Carbon::parse($occurrenceDate)->toDateString();
+            } elseif ($ride->pickup_at) {
+                $scheduledDate = $ride->pickup_at->copy()->timezone(ContractTransportTimezone::TIMEZONE)->toDateString();
+            }
+        }
 
         return [
             'id' => $ride->id,
             'status' => $ride->status,
+            'ride_type' => $ride->ride_type,
+            'source' => $ride->source,
+            'is_contract' => $isContract,
+            'contract_label' => $isContract ? 'Contract' : null,
+            'transport_contract_id' => $ride->transport_contract_id ? (int) $ride->transport_contract_id : null,
             'is_scheduled_overdue' => $isScheduledOverdue,
             'requires_pickup_adjustment' => $isScheduledOverdue,
+            'scheduled_date' => $scheduledDate,
             'created_at' => $ride->created_at?->toIso8601String(),
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
             'pickup_address' => $ride->pickup_address,
             'dropoff_address' => $ride->dropoff_address,
-            'pickup_at' => $ride->pickup_at?->toIso8601String(),
+            'pickup_at' => $schedule['departure_at'] ?? ContractTransportTimezone::toDriverIso8601($ride->pickup_at),
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'passengers' => (int) $ride->passengers,
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'distance_km' => $ride->distance_meters ? round($ride->distance_meters / 1000, 1) : null,
+            'stops' => $stopsMeta,
+            'schedule' => $schedule,
             'payment' => $payments->paymentSummaryForRide($ride),
-            'invoice' => app(TaxiRideInvoiceService::class)->driverInvoicePayload($ride),
+            'invoice' => $isContract ? null : app(TaxiRideInvoiceService::class)->driverInvoicePayload($ride),
             'actions' => [
                 'start' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start"),
                 'release' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release"),
                 'complete' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/complete"),
+                'stops' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/stops"),
             ],
         ];
     }

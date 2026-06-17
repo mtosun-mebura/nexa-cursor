@@ -141,15 +141,34 @@ class TaxiDispatchSettingsService
      */
     public function scheduledRideIsOverdue(RideRequest $ride, ?int $companyId = null, ?CarbonInterface $now = null): bool
     {
-        if (! $ride->pickup_at) {
-            return false;
-        }
-
         $companyId = $companyId ?? (int) ($ride->company_id ?? 0);
         $ttl = $this->offerTtlSeconds($companyId > 0 ? $companyId : null);
         $base = $now ? Carbon::parse($now) : now();
+        $dueAt = $this->scheduledRideDueAt($ride);
 
-        return $ride->pickup_at->copy()->addSeconds($ttl)->lte($base);
+        if (! $dueAt) {
+            return false;
+        }
+
+        return $dueAt->copy()->addSeconds($ttl)->lte($base);
+    }
+
+    private function scheduledRideDueAt(RideRequest $ride): ?Carbon
+    {
+        if ($ride->isContractRide()) {
+            $schedule = app(ContractOccurrenceGeneratorService::class)
+                ->schedulePayloadForRide($ride->getConnectionName(), $ride);
+
+            if (! empty($schedule['destination_arrival_at'])) {
+                return Carbon::parse($schedule['destination_arrival_at']);
+            }
+
+            if (! empty($schedule['departure_at'])) {
+                return Carbon::parse($schedule['departure_at']);
+            }
+        }
+
+        return $ride->pickup_at ? $ride->pickup_at->copy() : null;
     }
 
     public function bookingWhatsappEnabled(?int $companyId = null): bool

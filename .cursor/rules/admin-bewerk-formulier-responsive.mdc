@@ -71,6 +71,34 @@ Terug-knop mag op één regel met titel (responsive); zie ook `admin-terug-knop-
 
 Geen `wizard-onboarding-form-table` op `<label>` — alleen op de `<table>`.
 
+## Datumvelden (verplicht patroon)
+
+Gebruik **geen** `<input type="date">`. Altijd de Metronic **KT datepicker** met kalendericoon.
+
+```html
+<div class="kt-input w-64">
+    <i class="ki-outline ki-calendar"></i>
+    <input class="grow"
+           name="start_date"
+           value="{{ old('start_date', $model->start_date?->format('Y-m-d') ?? '') }}"
+           data-kt-date-picker="true"
+           data-kt-date-picker-input-mode="true"
+           data-kt-date-picker-position-to-input="left"
+           data-kt-date-picker-date-format="DD-MM-YYYY"
+           placeholder="Selecteer datum"
+           readonly
+           type="text" />
+</div>
+```
+
+- Waarde uit model in `Y-m-d`; partial toont `d-m-Y` (dd-mm-jjjj). Laravel `date`-validatie accepteert beide.
+- Gebruik **`data-kt-date-picker-date-format="DD-MM-YYYY"`** — niet `data-kt-date-picker-format` (dat geeft jjjj-mm-dd).
+- Breedte: `w-64` op de wrapper — niet `w-full` op datumvelden.
+- NexaTaxi contractvervoer: `@include('admin.partials.date-picker-input', ['name' => '…', 'value' => …])` of module-alias `taxi::admin.transport_customers.partials.date-picker-input`
+- Helpers: `admin_date_picker_display($value)` (weergave), `parse_admin_date($value)` (naar `Y-m-d` voor queries)
+- Scroll-gedrag: globaal via `resources/js/admin-date-picker.js` + CSS in `admin-responsive.css` (popup `position: fixed`, herpositioneert bij scroll)
+- Referenties: `invoices/create.blade.php`, `users/edit.blade.php`
+
 ## Veelgemaakte fouten (ook in NexaTaxi gevonden)
 
 - `wizard-onboarding-form-table` op een `<p>` of `<label>` — alleen op `<table>`.
@@ -78,6 +106,7 @@ Geen `wizard-onboarding-form-table` op `<label>` — alleen op de `<table>`.
 - Detailregels met `flex` + vaste `w-28` zonder class `admin-detail-field-list`.
 - Formulier als enkele `kt-card min-w-full` zonder `px-3 sm:px-5` rond tabellen.
 - Lijst-tabellen alleen in `kt-card-table` zonder `admin-table-scroll-wrap` / `data-label` op `<th>`.
+- `<input type="date">` voor datumvelden — gebruik KT datepicker (zie sectie *Datumvelden*).
 
 ## Niet doen
 

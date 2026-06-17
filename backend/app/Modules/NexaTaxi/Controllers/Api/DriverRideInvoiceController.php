@@ -20,6 +20,7 @@ class DriverRideInvoiceController extends Controller
         TaxiRideInvoiceService $invoices
     ): JsonResponse {
         $rideModel = $this->findDriverRide($moduleDb->getModuleConnectionName('taxi'), $request, $ride);
+        $this->assertRideAllowsDriverInvoice($rideModel);
 
         return response()->json([
             'data' => $invoices->driverInvoicePayload($rideModel),
@@ -39,6 +40,7 @@ class DriverRideInvoiceController extends Controller
 
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $rideModel = $this->findDriverRide($conn, $request, $ride);
+        $this->assertRideAllowsDriverInvoice($rideModel);
 
         try {
             $invoice = $invoices->sendInvoiceToCustomer(
@@ -84,5 +86,14 @@ class DriverRideInvoiceController extends Controller
         }
 
         return $ride;
+    }
+
+    protected function assertRideAllowsDriverInvoice(RideRequest $ride): void
+    {
+        if ($ride->isContractRide()) {
+            throw ValidationException::withMessages([
+                'ride' => ['Factuur versturen is niet van toepassing op contractritten.'],
+            ]);
+        }
     }
 }

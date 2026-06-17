@@ -49,10 +49,16 @@ class RideRequestController extends Controller
             $query->where('vehicle_id', $request->integer('vehicle_id'));
         }
         if ($request->filled('from')) {
-            $query->whereDate('pickup_at', '>=', $request->string('from'));
+            $from = parse_admin_date($request->string('from'));
+            if ($from) {
+                $query->whereDate('pickup_at', '>=', $from);
+            }
         }
         if ($request->filled('to')) {
-            $query->whereDate('pickup_at', '<=', $request->string('to'));
+            $to = parse_admin_date($request->string('to'));
+            if ($to) {
+                $query->whereDate('pickup_at', '<=', $to);
+            }
         }
 
         $allowedPerPage = [10, 15, 25, 50];

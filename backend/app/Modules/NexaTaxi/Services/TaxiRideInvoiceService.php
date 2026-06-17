@@ -158,7 +158,7 @@ class TaxiRideInvoiceService
             'customer_name' => $invoice?->customer_name ?? $ride->customer_name,
             'total_amount' => $invoice ? (float) $invoice->total_amount : null,
             'invoice_sent' => $invoice?->status === 'sent',
-            'can_send' => $isPaid && $invoice !== null && $invoice->status !== 'sent',
+            'can_send' => $isPaid && $invoice?->status !== 'sent',
         ];
     }
 

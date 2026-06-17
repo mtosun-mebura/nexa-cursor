@@ -7,6 +7,11 @@ use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
 use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
 use App\Modules\NexaTaxi\Controllers\Admin\AiChatbotSettingsController;
 use App\Modules\NexaTaxi\Controllers\Admin\KnowledgeDocumentController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportCustomerController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportPassengerController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupRouteController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportIndividualBookingController;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\KnowledgeDocument;
@@ -53,3 +58,88 @@ Route::get('ride_requests/{ride_request}/notificatielog', [RideRequestController
 Route::resource('ride_requests', RideRequestController::class);
 Route::post('vehicles/upload-image', [VehicleController::class, 'uploadImage'])->name('vehicles.upload-image');
 Route::resource('vehicles', VehicleController::class);
+
+// ---- Contractvervoer: contractklanten ----
+Route::get('contractklanten', [TransportCustomerController::class, 'index'])->name('transport_customers.index');
+Route::get('contractklanten/nieuw', [TransportCustomerController::class, 'create'])->name('transport_customers.create');
+Route::post('contractklanten', [TransportCustomerController::class, 'store'])->name('transport_customers.store');
+Route::get('contractklanten/{id}', [TransportCustomerController::class, 'show'])->name('transport_customers.show');
+Route::get('contractklanten/{id}/bewerken', [TransportCustomerController::class, 'edit'])->name('transport_customers.edit');
+Route::put('contractklanten/{id}', [TransportCustomerController::class, 'update'])->name('transport_customers.update');
+Route::delete('contractklanten/{id}', [TransportCustomerController::class, 'destroy'])->name('transport_customers.destroy');
+
+// Abonnementen (sub-resource van klant)
+Route::get('contractklanten/{customerId}/abonnementen/nieuw', [TransportCustomerController::class, 'contractCreate'])
+    ->name('transport_customers.contract_create');
+Route::post('contractklanten/{customerId}/abonnementen', [TransportCustomerController::class, 'contractStore'])
+    ->name('transport_customers.contract_store');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}', [TransportCustomerController::class, 'contractShow'])
+    ->name('transport_customers.contract_show');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/bewerken', [TransportCustomerController::class, 'contractEdit'])
+    ->name('transport_customers.contract_edit');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}', [TransportCustomerController::class, 'contractUpdate'])
+    ->name('transport_customers.contract_update');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/mandaat', [TransportCustomerController::class, 'mandateSave'])
+    ->name('transport_customers.mandate_save');
+
+// Passagiers (sub-resource van abonnement)
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/passagiers', [TransportPassengerController::class, 'index'])
+    ->name('transport_passengers.index');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/passagiers/nieuw', [TransportPassengerController::class, 'create'])
+    ->name('transport_passengers.create');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/passagiers', [TransportPassengerController::class, 'store'])
+    ->name('transport_passengers.store');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/passagiers/{passengerId}/bewerken', [TransportPassengerController::class, 'edit'])
+    ->name('transport_passengers.edit');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}/passagiers/{passengerId}', [TransportPassengerController::class, 'update'])
+    ->name('transport_passengers.update');
+Route::delete('contractklanten/{customerId}/abonnementen/{contractId}/passagiers/{passengerId}', [TransportPassengerController::class, 'destroy'])
+    ->name('transport_passengers.destroy');
+
+// Groepen (sub-resource van abonnement)
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/groepen', [TransportGroupController::class, 'index'])
+    ->name('transport_groups.index');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/groepen/nieuw', [TransportGroupController::class, 'create'])
+    ->name('transport_groups.create');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/groepen', [TransportGroupController::class, 'store'])
+    ->name('transport_groups.store');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}', [TransportGroupController::class, 'show'])
+    ->name('transport_groups.show');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/bewerken', [TransportGroupController::class, 'edit'])
+    ->name('transport_groups.edit');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}', [TransportGroupController::class, 'update'])
+    ->name('transport_groups.update');
+Route::delete('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}', [TransportGroupController::class, 'destroy'])
+    ->name('transport_groups.destroy');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/leden', [TransportGroupController::class, 'memberStore'])
+    ->name('transport_groups.member_store');
+Route::delete('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/leden/{memberId}', [TransportGroupController::class, 'memberRemove'])
+    ->name('transport_groups.member_remove');
+
+// Routeplanner (sub-resource van groep)
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route', [TransportGroupRouteController::class, 'edit'])
+    ->name('transport_groups.route.edit');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route/instellingen', [TransportGroupRouteController::class, 'updateSettings'])
+    ->name('transport_groups.route.settings');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route/berekenen', [TransportGroupRouteController::class, 'calculate'])
+    ->name('transport_groups.route.calculate');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route/stops', [TransportGroupRouteController::class, 'updateStops'])
+    ->name('transport_groups.route.stops');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route/vastzetten', [TransportGroupRouteController::class, 'toggleLock'])
+    ->name('transport_groups.route.lock');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route/toewijzing', [TransportGroupRouteController::class, 'updateAssignment'])
+    ->name('transport_groups.route.assignment');
+
+// Individuele contractritten (sub-resource van abonnement)
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten', [TransportIndividualBookingController::class, 'index'])
+    ->name('transport_individual_bookings.index');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten/nieuw', [TransportIndividualBookingController::class, 'create'])
+    ->name('transport_individual_bookings.create');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten', [TransportIndividualBookingController::class, 'store'])
+    ->name('transport_individual_bookings.store');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten/{bookingId}/bewerken', [TransportIndividualBookingController::class, 'edit'])
+    ->name('transport_individual_bookings.edit');
+Route::put('contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten/{bookingId}', [TransportIndividualBookingController::class, 'update'])
+    ->name('transport_individual_bookings.update');
+Route::delete('contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten/{bookingId}', [TransportIndividualBookingController::class, 'destroy'])
+    ->name('transport_individual_bookings.destroy');

@@ -57,7 +57,7 @@ class TaxiRideInvoiceServiceTest extends TestCase
         $this->assertNull($payload['invoice_id']);
         $this->assertNull($payload['invoice_number']);
         $this->assertSame('klant@example.com', $payload['customer_email']);
-        $this->assertFalse($payload['can_send']);
+        $this->assertTrue($payload['can_send']);
     }
 
     public function test_preview_next_invoice_number_does_not_increment_counter(): void

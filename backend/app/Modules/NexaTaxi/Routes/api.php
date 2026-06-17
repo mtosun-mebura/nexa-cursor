@@ -6,6 +6,7 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchStreamController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideInvoiceController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRidePaymentController;
+use App\Modules\NexaTaxi\Controllers\Api\DriverRideStopController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/driver')
@@ -42,6 +43,22 @@ Route::prefix('v1/driver')
         Route::post('dispatch/rides/{ride}/complete', [DriverDispatchController::class, 'complete'])
             ->middleware('throttle:30,1')
             ->whereNumber('ride');
+
+        Route::get('dispatch/rides/{ride}/stops', [DriverRideStopController::class, 'index'])
+            ->middleware('throttle:60,1')
+            ->whereNumber('ride');
+
+        Route::post('dispatch/rides/{ride}/stops/{stop}/arrive', [DriverRideStopController::class, 'arrive'])
+            ->middleware('throttle:60,1')
+            ->whereNumber(['ride', 'stop']);
+
+        Route::post('dispatch/rides/{ride}/stops/{stop}/pickup', [DriverRideStopController::class, 'pickup'])
+            ->middleware('throttle:60,1')
+            ->whereNumber(['ride', 'stop']);
+
+        Route::post('dispatch/rides/{ride}/stops/{stop}/skip', [DriverRideStopController::class, 'skip'])
+            ->middleware('throttle:60,1')
+            ->whereNumber(['ride', 'stop']);
 
         Route::get('dispatch/rides/{ride}/payment', [DriverRidePaymentController::class, 'show'])
             ->middleware('throttle:60,1')

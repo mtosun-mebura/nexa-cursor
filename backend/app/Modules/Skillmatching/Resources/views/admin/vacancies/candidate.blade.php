@@ -703,7 +703,7 @@
                                                data-kt-date-picker="true"
                                                data-kt-date-picker-input-mode="true"
                                                data-kt-date-picker-position-to-input="left"
-                                               data-kt-date-picker-format="dd-mm-yyyy"
+                                               data-kt-date-picker-date-format="DD-MM-YYYY"
                                                placeholder="Selecteer datum"
                                                readonly
                                                type="text"
@@ -938,7 +938,7 @@
                                                data-kt-date-picker="true"
                                                data-kt-date-picker-input-mode="true"
                                                data-kt-date-picker-position-to-input="left"
-                                               data-kt-date-picker-format="dd-mm-yyyy"
+                                               data-kt-date-picker-date-format="DD-MM-YYYY"
                                                placeholder="Selecteer datum"
                                                readonly
                                                type="text"
@@ -947,11 +947,11 @@
                                         <input type="hidden"
                                                name="scheduled_at"
                                                id="edit_scheduled_at_hidden"
-                                               value="{{ $latestInterview->scheduled_at ? $latestInterview->scheduled_at->format('Y-m-d') : '' }}"/>
+                                               value="{{ admin_date_picker_display($latestInterview->scheduled_at ?? '') }}"/>
                                         <input type="hidden"
                                                name="scheduled_at_hidden"
                                                id="edit_scheduled_at_hidden_alt"
-                                               value="{{ $latestInterview->scheduled_at ? $latestInterview->scheduled_at->format('Y-m-d') : '' }}"/>
+                                               value="{{ admin_date_picker_display($latestInterview->scheduled_at ?? '') }}"/>
                                     </div>
                                 </td>
                             </tr>
@@ -1289,7 +1289,7 @@
                                                data-kt-date-picker="true"
                                                data-kt-date-picker-input-mode="true"
                                                data-kt-date-picker-position-to-input="left"
-                                               data-kt-date-picker-format="dd-mm-yyyy"
+                                               data-kt-date-picker-date-format="DD-MM-YYYY"
                                                placeholder="Selecteer datum"
                                                readonly
                                                type="text"/>
@@ -1462,7 +1462,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         if (typeof flatpickr !== 'undefined') {
                             flatpickr(dateInput, {
-                                dateFormat: 'Y-m-d',
+                                dateFormat: 'd-m-Y',
                                 altInput: true,
                                 altFormat: 'd-m-Y',
                                 onChange: function(selectedDates, dateStr, instance) {
@@ -1506,7 +1506,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             try {
                                 const fp = flatpickr(dateInput, {
-                                    dateFormat: 'Y-m-d',
+                                    dateFormat: 'd-m-Y',
                                     altInput: true,
                                     altFormat: 'd-m-Y',
                                     defaultDate: defaultDate,

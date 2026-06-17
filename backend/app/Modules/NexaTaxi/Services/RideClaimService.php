@@ -5,6 +5,8 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\TransportOccurrence;
+use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +16,8 @@ class RideClaimService
 {
     public function __construct(
         protected TaxiRidePaymentService $ridePayments,
-        protected RideDispatchService $dispatch
+        protected RideDispatchService $dispatch,
+        protected ContractRideStopService $contractStops,
     ) {}
     public function acceptOffer(string $conn, User $driver, int $offerId, ?string $pickupAt = null): array
     {
@@ -147,10 +150,35 @@ class RideClaimService
                 ]);
             }
 
+            if ($ride->isContractRide()) {
+                $this->assertContractRideCanStartToday($conn, $ride);
+            }
+
             $ride->update(['status' => RideRequest::STATUS_ASSIGNED]);
 
             return $ride->fresh();
         });
+    }
+
+    private function assertContractRideCanStartToday(string $conn, RideRequest $ride): void
+    {
+        $occurrenceDate = TransportOccurrence::on($conn)
+            ->where('ride_request_id', $ride->id)
+            ->value('scheduled_date');
+
+        $scheduledDate = $occurrenceDate
+            ? Carbon::parse($occurrenceDate)->toDateString()
+            : ($ride->pickup_at
+                ? $ride->pickup_at->copy()->timezone(ContractTransportTimezone::TIMEZONE)->toDateString()
+                : null);
+
+        $today = now(ContractTransportTimezone::TIMEZONE)->toDateString();
+
+        if (! $scheduledDate || $scheduledDate !== $today) {
+            throw ValidationException::withMessages([
+                'ride' => ['Contractritten kun je alleen starten op de dag van de rit.'],
+            ]);
+        }
     }
 
     public function releaseAcceptedRide(string $conn, User $driver, int $rideId): RideRequest
@@ -230,9 +258,13 @@ class RideClaimService
         return $offer;
     }
 
-    public function completeRide(string $conn, User $driver, int $rideId): RideRequest
-    {
-        return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId) {
+    public function completeRide(
+        string $conn,
+        User $driver,
+        int $rideId,
+        bool $allowOverdueContractComplete = false,
+    ): RideRequest {
+        return DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId, $allowOverdueContractComplete) {
             $ride = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
             if (! $ride || (int) $ride->driver_id !== (int) $driver->id) {
                 throw ValidationException::withMessages([
@@ -240,7 +272,16 @@ class RideClaimService
                 ]);
             }
 
-            if ($ride->status !== RideRequest::STATUS_ASSIGNED) {
+            if ($ride->status === RideRequest::STATUS_ACCEPTED) {
+                if (! $allowOverdueContractComplete || ! $ride->isContractRide()) {
+                    throw ValidationException::withMessages([
+                        'ride' => ['Start de rit eerst voordat je deze afrondt.'],
+                    ]);
+                }
+
+                $ride->update(['status' => RideRequest::STATUS_ASSIGNED]);
+                $ride = $ride->fresh();
+            } elseif ($ride->status !== RideRequest::STATUS_ASSIGNED) {
                 throw ValidationException::withMessages([
                     'ride' => ['Start de rit eerst voordat je deze afrondt.'],
                 ]);
@@ -252,7 +293,15 @@ class RideClaimService
                 ]);
             }
 
+            if ($allowOverdueContractComplete && $ride->isContractRide()) {
+                $this->contractStops->resolvePendingStopsForForcedComplete($conn, $ride);
+            } else {
+                $this->contractStops->assertGroupRideCanComplete($ride);
+            }
+
             $ride->update(['status' => RideRequest::STATUS_COMPLETED]);
+
+            $this->contractStops->completeDestinationStops($conn, $ride);
 
             return $ride->fresh();
         });
