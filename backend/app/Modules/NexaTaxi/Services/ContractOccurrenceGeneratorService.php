@@ -18,6 +18,7 @@ class ContractOccurrenceGeneratorService
 {
     public function __construct(
         private readonly TransportRoutePlannerService $routePlanner,
+        private readonly TransportScheduleExceptionService $scheduleExceptions,
     ) {}
 
     /**
@@ -345,6 +346,17 @@ class ContractOccurrenceGeneratorService
             }
 
             if (! in_array($date->dayOfWeekIso, $recurrenceDays, true)) {
+                continue;
+            }
+
+            if ($this->scheduleExceptions->isExceptionDate(
+                $conn,
+                (int) $contract->company_id,
+                $date,
+                (int) $contract->id,
+            )) {
+                $stats['skipped']++;
+
                 continue;
             }
 

@@ -1211,6 +1211,29 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     max-width: 24rem;
 }
 
+#email-template-form .kt-table #subject {
+    max-width: min(100%, 42rem);
+}
+
+/* form-validation.js: wrapper even breed als input, anders staat het vinkje rechts in de td */
+#email-template-form .kt-table td .relative {
+    display: block;
+    max-width: 24rem;
+    width: 100%;
+}
+
+#email-template-form .kt-table td .relative:has(#subject) {
+    max-width: min(100%, 42rem);
+}
+
+#email-template-form .kt-table td .relative > .kt-input,
+#email-template-form .kt-table td .relative > .kt-select,
+#email-template-form .kt-table td .relative > select.kt-select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 /* --- Rol bewerken/aanmaken --- */
 #admin-role-form .role-permission-sets {
     background-color: rgba(59, 130, 246, 0.08);
@@ -2235,6 +2258,21 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
 }
 
 /* --- KT datepicker: popup aan input, omhoog bij weinig ruimte onder --- */
+[data-vc='calendar'][data-vc-input] {
+    transition: none !important;
+}
+
+[data-vc='calendar'][data-vc-input][data-admin-date-picker-staging] {
+    position: fixed !important;
+    top: -10000px !important;
+    left: -10000px !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    margin: 0 !important;
+    z-index: -1 !important;
+}
+
 [data-vc='calendar'][data-vc-input].admin-date-picker-floating {
     position: fixed !important;
     z-index: 1060;

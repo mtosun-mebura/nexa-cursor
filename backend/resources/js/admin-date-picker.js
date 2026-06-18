@@ -4,11 +4,18 @@
 
 const OPEN_CALENDAR_SELECTOR = '[data-vc="calendar"][data-vc-input]:not([data-vc-calendar-hidden])';
 const FLOATING_CLASS = 'admin-date-picker-floating';
+const POSITIONED_ATTR = 'data-admin-date-picker-positioned';
+const STAGING_ATTR = 'data-admin-date-picker-staging';
+const READY_ATTR = 'data-admin-date-picker-ready';
 const GAP_PX = 4;
 const VIEWPORT_PADDING_PX = 8;
 const Z_INDEX = 1060;
 const CALENDAR_FALLBACK_HEIGHT = 336;
 const CALENDAR_FALLBACK_WIDTH = 280;
+
+let activeDatePickerInput = null;
+let openCalendarToken = 0;
+let calendarPointerActive = false;
 
 function getPositionMode(input) {
     return input.getAttribute('data-kt-date-picker-position-to-input') || 'left';
@@ -16,6 +23,18 @@ function getPositionMode(input) {
 
 function findOpenCalendar() {
     return document.querySelector(OPEN_CALENDAR_SELECTOR);
+}
+
+function resolveActiveInput() {
+    if (activeDatePickerInput && document.contains(activeDatePickerInput)) {
+        return activeDatePickerInput;
+    }
+
+    return (
+        document.querySelector('[data-kt-date-picker][data-vc-input-focus]') ||
+        document.querySelector('[data-vc-input-focus]') ||
+        (document.activeElement?.matches?.('[data-kt-date-picker]') ? document.activeElement : null)
+    );
 }
 
 function getCalendarSize(calendar) {
@@ -64,6 +83,26 @@ function computeVerticalTop(anchorRect, calendarHeight, viewportHeight) {
     return anchorRect.bottom + GAP_PX;
 }
 
+function ensureCalendarInBody(calendar) {
+    if (calendar.parentElement !== document.body) {
+        document.body.appendChild(calendar);
+    }
+}
+
+function parkCalendarOffscreen(calendar) {
+    ensureCalendarInBody(calendar);
+    calendar.classList.add(FLOATING_CLASS);
+    calendar.setAttribute(STAGING_ATTR, '1');
+    calendar.removeAttribute(READY_ATTR);
+    calendar.style.setProperty('position', 'fixed', 'important');
+    calendar.style.setProperty('top', '-10000px', 'important');
+    calendar.style.setProperty('left', '-10000px', 'important');
+    calendar.style.setProperty('right', 'auto', 'important');
+    calendar.style.setProperty('bottom', 'auto', 'important');
+    calendar.style.setProperty('margin', '0', 'important');
+    calendar.style.setProperty('z-index', String(Z_INDEX), 'important');
+}
+
 function clearFloatingCalendar(calendar) {
     if (!calendar) {
         return;
@@ -71,6 +110,9 @@ function clearFloatingCalendar(calendar) {
 
     calendar.classList.remove(FLOATING_CLASS);
     calendar.removeAttribute('data-admin-date-picker-placement');
+    calendar.removeAttribute(POSITIONED_ATTR);
+    calendar.removeAttribute(STAGING_ATTR);
+    calendar.removeAttribute(READY_ATTR);
     calendar.style.removeProperty('position');
     calendar.style.removeProperty('top');
     calendar.style.removeProperty('left');
@@ -78,11 +120,16 @@ function clearFloatingCalendar(calendar) {
     calendar.style.removeProperty('bottom');
     calendar.style.removeProperty('margin');
     calendar.style.removeProperty('z-index');
+    calendar.style.removeProperty('opacity');
+    calendar.style.removeProperty('visibility');
 }
 
 function applyFloatingPosition(calendar, top, left, placement) {
+    ensureCalendarInBody(calendar);
     calendar.classList.add(FLOATING_CLASS);
     calendar.setAttribute('data-admin-date-picker-placement', placement);
+    calendar.setAttribute(POSITIONED_ATTR, '1');
+    calendar.removeAttribute(STAGING_ATTR);
     calendar.style.setProperty('position', 'fixed', 'important');
     calendar.style.setProperty('top', `${Math.round(top)}px`, 'important');
     calendar.style.setProperty('left', `${Math.round(left)}px`, 'important');
@@ -90,20 +137,30 @@ function applyFloatingPosition(calendar, top, left, placement) {
     calendar.style.setProperty('bottom', 'auto', 'important');
     calendar.style.setProperty('margin', '0', 'important');
     calendar.style.setProperty('z-index', String(Z_INDEX), 'important');
+    calendar.style.removeProperty('opacity');
+    calendar.style.removeProperty('visibility');
+}
+
+function markCalendarReady(calendar) {
+    if (!(calendar instanceof HTMLElement)) {
+        return;
+    }
+
+    calendar.removeAttribute(STAGING_ATTR);
+    calendar.style.removeProperty('opacity');
+    calendar.style.removeProperty('visibility');
+    calendar.setAttribute(READY_ATTR, '1');
 }
 
 function repositionOpenDatePicker() {
     const calendar = findOpenCalendar();
     if (!calendar) {
-        return;
+        return false;
     }
 
-    const input = document.querySelector('[data-vc-input-focus]') ||
-        document.querySelector('[data-kt-date-picker][data-vc-input-focus]') ||
-        document.activeElement?.matches?.('[data-kt-date-picker]') ? document.activeElement : null;
-
+    const input = resolveActiveInput();
     if (!input) {
-        return;
+        return false;
     }
 
     const anchor = input.closest('.kt-input') || input;
@@ -122,16 +179,47 @@ function repositionOpenDatePicker() {
     top = Math.max(VIEWPORT_PADDING_PX, top);
 
     applyFloatingPosition(calendar, top, left, placement);
+
+    return true;
 }
 
 function scheduleReposition() {
-    requestAnimationFrame(repositionOpenDatePicker);
+    if (calendarPointerActive) {
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        repositionOpenDatePicker();
+    });
 }
 
-function burstReposition() {
-    [0, 20, 50, 100, 200].forEach((delay) => {
-        window.setTimeout(scheduleReposition, delay);
-    });
+function revealOpenCalendar(calendar) {
+    const token = ++openCalendarToken;
+
+    const attempt = (frame = 0, lastHeight = 0) => {
+        if (token !== openCalendarToken) {
+            return;
+        }
+
+        const openCalendar = findOpenCalendar();
+        if (!openCalendar) {
+            return;
+        }
+
+        repositionOpenDatePicker();
+
+        const height = openCalendar.offsetHeight;
+        const sizeStable = height > 80 && Math.abs(height - lastHeight) < 2;
+
+        if (frame < 4 && !sizeStable) {
+            requestAnimationFrame(() => attempt(frame + 1, height));
+            return;
+        }
+
+        markCalendarReady(openCalendar);
+    };
+
+    requestAnimationFrame(() => attempt(0, calendar.offsetHeight));
 }
 
 function ensureDatePickersInitialized() {
@@ -148,16 +236,31 @@ function bindDatePickerWrapperClicks() {
         }
 
         wrapper.dataset.adminDatePickerClickBound = '1';
-        wrapper.addEventListener('click', (event) => {
-            if (event.target === input) {
+        wrapper.style.cursor = 'pointer';
+
+        wrapper.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) {
                 return;
             }
 
-            event.preventDefault();
-            input.focus();
-            input.click();
+            activeDatePickerInput = input;
+
+            if (event.target !== input) {
+                input.focus({ preventScroll: true });
+            }
         });
     });
+}
+
+function handleCalendarOpened(calendar) {
+    if (!(calendar instanceof HTMLElement)) {
+        return;
+    }
+
+    parkCalendarOffscreen(calendar);
+    repositionOpenDatePicker();
+    markCalendarReady(calendar);
+    revealOpenCalendar(calendar);
 }
 
 function bindAdminDatePickerScrollFix() {
@@ -169,18 +272,33 @@ function bindAdminDatePickerScrollFix() {
     ensureDatePickersInitialized();
     bindDatePickerWrapperClicks();
 
+    document.addEventListener(
+        'pointerdown',
+        (event) => {
+            const input = event.target.closest?.('[data-kt-date-picker]');
+            if (input) {
+                activeDatePickerInput = input;
+            }
+
+            calendarPointerActive = !!event.target.closest?.('[data-vc="calendar"]');
+        },
+        true,
+    );
+
+    document.addEventListener(
+        'pointerup',
+        () => {
+            window.setTimeout(() => {
+                calendarPointerActive = false;
+            }, 0);
+        },
+        true,
+    );
+
     window.addEventListener('scroll', scheduleReposition, true);
     window.addEventListener('resize', scheduleReposition);
 
-    document.addEventListener('click', (event) => {
-        const input = event.target.closest?.('[data-kt-date-picker]');
-        if (input) {
-            window.setTimeout(burstReposition, 0);
-        }
-    }, true);
-
     const observer = new MutationObserver((mutations) => {
-        let opened = false;
         let closed = false;
 
         for (const mutation of mutations) {
@@ -194,16 +312,14 @@ function bindAdminDatePickerScrollFix() {
                     closed = true;
                     clearFloatingCalendar(target);
                 } else {
-                    opened = true;
+                    handleCalendarOpened(target);
                 }
             }
         }
 
-        if (opened) {
-            burstReposition();
-        }
-
         if (closed && !findOpenCalendar()) {
+            openCalendarToken += 1;
+            activeDatePickerInput = null;
             document.querySelectorAll(`.${FLOATING_CLASS}`).forEach(clearFloatingCalendar);
         }
     });

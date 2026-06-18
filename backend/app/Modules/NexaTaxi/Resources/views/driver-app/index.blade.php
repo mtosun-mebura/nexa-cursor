@@ -380,6 +380,11 @@
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step {
             text-align: left;
+            min-width: 0;
+        }
+        #pickup-adjust-dialog .driver-dialog__panel {
+            overflow: hidden;
+            min-width: 0;
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__title {
             text-align: center;
@@ -391,8 +396,25 @@
             color: var(--muted);
             margin: 0 0 0.35rem;
         }
-        #pickup-adjust-dialog #pickup-adjust-input {
+        #pickup-adjust-dialog .pickup-adjust-datetime-fields {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+            gap: 0.625rem;
             margin-bottom: 1.25rem;
+            min-width: 0;
+        }
+        #pickup-adjust-dialog .pickup-adjust-datetime-field {
+            min-width: 0;
+        }
+        #pickup-adjust-dialog .pickup-adjust-datetime-input {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            margin: 0;
+            font-size: 0.9375rem;
+            padding: 0.625rem 0.625rem;
+            min-height: 2.75rem;
         }
         #pickup-adjust-dialog #pickup-adjust-edit-step .driver-dialog__actions {
             margin-top: 0.25rem;
@@ -1249,8 +1271,17 @@
         </div>
         <div id="pickup-adjust-edit-step" hidden>
             <h2 class="driver-dialog__title">Nieuw ophaalmoment</h2>
-            <label for="pickup-adjust-input" class="offer-meta">Datum en tijd</label>
-            <input type="datetime-local" id="pickup-adjust-input" class="driver-field-input">
+            <div class="pickup-adjust-datetime-fields">
+                <div class="pickup-adjust-datetime-field">
+                    <label for="pickup-adjust-date" class="offer-meta">Datum</label>
+                    <input type="date" id="pickup-adjust-date" class="driver-field-input pickup-adjust-datetime-input">
+                </div>
+                <div class="pickup-adjust-datetime-field">
+                    <label for="pickup-adjust-time" class="offer-meta">Tijd</label>
+                    <input type="time" id="pickup-adjust-time" class="driver-field-input pickup-adjust-datetime-input">
+                </div>
+            </div>
+            <input type="hidden" id="pickup-adjust-input">
             <div class="driver-dialog__actions">
                 <button type="button" class="btn btn-ghost" id="pickup-adjust-back">Terug</button>
                 <button type="button" class="btn btn-primary" id="pickup-adjust-confirm">Accepteren</button>
@@ -1291,7 +1322,7 @@ window.NEXA_TAXI_DRIVER = {
     notificationIcon: @json($notificationIcon ?? $faviconUrl),
 };
 </script>
-<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=74" defer></script>
+<script src="{{ asset('assets/js/taxi-driver-app.js') }}?v=77" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

@@ -12,6 +12,9 @@ use App\Modules\NexaTaxi\Controllers\Admin\TransportPassengerController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportGroupRouteController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportIndividualBookingController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportContractInvoiceController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportPlanningController;
+use App\Modules\NexaTaxi\Controllers\Admin\TransportScheduleExceptionController;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\KnowledgeDocument;
@@ -81,6 +84,28 @@ Route::put('contractklanten/{customerId}/abonnementen/{contractId}', [TransportC
     ->name('transport_customers.contract_update');
 Route::post('contractklanten/{customerId}/abonnementen/{contractId}/mandaat', [TransportCustomerController::class, 'mandateSave'])
     ->name('transport_customers.mandate_save');
+
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/facturen', [TransportContractInvoiceController::class, 'generate'])
+    ->name('transport_contract_invoices.generate');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/facturen/{invoiceId}/verzenden', [TransportContractInvoiceController::class, 'send'])
+    ->name('transport_contract_invoices.send');
+Route::post('contractklanten/{customerId}/abonnementen/{contractId}/facturen/{invoiceId}/betaald', [TransportContractInvoiceController::class, 'markPaid'])
+    ->name('transport_contract_invoices.mark_paid');
+Route::delete('contractklanten/{customerId}/abonnementen/{contractId}/facturen/{invoiceId}', [TransportContractInvoiceController::class, 'destroy'])
+    ->name('transport_contract_invoices.destroy');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/facturen/{invoiceId}/pdf', [TransportContractInvoiceController::class, 'downloadPdf'])
+    ->name('transport_contract_invoices.pdf');
+Route::get('contractklanten/{customerId}/abonnementen/{contractId}/facturen/export', [TransportContractInvoiceController::class, 'exportCsv'])
+    ->name('transport_contract_invoices.export');
+
+Route::get('contractvervoer/planning', [TransportPlanningController::class, 'index'])
+    ->name('transport_planning.index');
+Route::get('contractvervoer/uitzonderingen', [TransportScheduleExceptionController::class, 'index'])
+    ->name('transport_schedule_exceptions.index');
+Route::post('contractvervoer/uitzonderingen', [TransportScheduleExceptionController::class, 'store'])
+    ->name('transport_schedule_exceptions.store');
+Route::delete('contractvervoer/uitzonderingen/{id}', [TransportScheduleExceptionController::class, 'destroy'])
+    ->name('transport_schedule_exceptions.destroy');
 
 // Passagiers (sub-resource van abonnement)
 Route::get('contractklanten/{customerId}/abonnementen/{contractId}/passagiers', [TransportPassengerController::class, 'index'])

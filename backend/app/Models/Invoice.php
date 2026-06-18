@@ -10,11 +10,14 @@ class Invoice extends Model
 {
     public const MODULE_TAXI = 'taxi';
 
+    public const MODULE_TAXI_CONTRACT = 'taxi_contract';
+
     protected $fillable = [
         'invoice_number',
         'company_id',
         'module',
         'module_reference_id',
+        'billing_period',
         'customer_name',
         'customer_email',
         'job_match_id',

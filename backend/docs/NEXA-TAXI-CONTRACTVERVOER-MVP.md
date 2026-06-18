@@ -160,27 +160,27 @@ Beide types: geen dispatch-pool, geen betaling in de chauffeursapp.
 
 ### Contractklanten
 
-Pad: /admin/taxi/contract-customers  
+Pad: /admin/taxi/contractklanten  
 Lijst, aanmaken, bewerken. Contact- en factuurgegevens. SEPA-mandaat.
 
 ### Abonnement
 
-Pad: /admin/taxi/contracts/{id}  
+Pad: /admin/taxi/contractklanten/{customerId}/abonnementen/{contractId}  
 Tariefmodel (vast / per rit / hybride), looptijd, facturatiedag. Overzicht groepen, losse ritten, facturen.
 
 ### Passagiers
 
-Pad: /admin/taxi/contracts/{id}/passengers  
+Pad: /admin/taxi/contractklanten/{customerId}/abonnementen/{contractId}/passagiers  
 CRUD per passagier. Ophaaladres. Koppeling aan groepen.
 
 ### Groepen
 
-Pad: /admin/taxi/contracts/{id}/groups  
+Pad: /admin/taxi/contractklanten/{customerId}/abonnementen/{contractId}/groepen  
 CRUD groep. Eindlocatie bewerken. Leden toevoegen en verwijderen (met valid_until bij uitschrijving).
 
 ### Routeplanner groep
 
-Pad: /admin/taxi/groups/{id}/route
+Pad: /admin/taxi/contractklanten/{customerId}/abonnementen/{contractId}/groepen/{groupId}/route
 
 1. Weekdagen kiezen (ma–vr)
 2. Startpunt: depot of eerste stop
@@ -192,12 +192,18 @@ Pad: /admin/taxi/groups/{id}/route
 
 ### Individuele contractrit
 
-Pad: /admin/taxi/contracts/{id}/bookings/new  
+Pad: /admin/taxi/contractklanten/{customerId}/abonnementen/{contractId}/individuele-ritten/nieuw  
 Passagier, adressen, datum/tijd, chauffeur, optionele ritprijs.
 
 ### Planningsoverzicht
 
+Pad: /admin/taxi/contractvervoer/planning  
 Kalender per week: groepsritten en individuele ritten met status.
+
+### Uitzonderingsdagen
+
+Pad: /admin/taxi/contractvervoer/uitzonderingen  
+Feestdagen en andere dagen waarop geen groepsritten worden gegenereerd.
 
 ### Facturatie
 
@@ -364,4 +370,4 @@ Per contract en periode (YYYY-MM):
 | Maandfactuur? | Ja |
 | Incasso? | Mandaat vastleggen; automatische incasso in fase 2 |
 
-Volgende stap na akkoord: week 1 — migraties en modellen implementeren.
+Volgende stap na akkoord: pilot doorlopen via `NEXA-TAXI-CONTRACTVERVOER-PILOT.md` (1 school, 1 groep, 1 chauffeur).

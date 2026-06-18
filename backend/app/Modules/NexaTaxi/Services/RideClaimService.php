@@ -199,6 +199,12 @@ class RideClaimService
                 ]);
             }
 
+            if ($ride->isContractRide()) {
+                throw ValidationException::withMessages([
+                    'ride' => ['Contractritten kunnen niet worden vrijgegeven. Neem contact op met de planner.'],
+                ]);
+            }
+
             $companyId = (int) ($ride->company_id ?? 0);
             $now = now();
 

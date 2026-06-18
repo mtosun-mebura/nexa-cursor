@@ -20,7 +20,7 @@
         table.items { width: 100%; border-collapse: collapse; margin-top: 12px; }
         table.items th { background: #f1f5f9; text-align: left; padding: 8px 10px; font-size: 11px; }
         table.items th.num { text-align: right; }
-        table.items td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+        table.items td { border-bottom: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; vertical-align: top; line-height: 1.45; }
         table.items td.num-euro { text-align: right; width: 14px; white-space: nowrap; }
         table.items td.num-amount { text-align: right; width: 72px; white-space: nowrap; }
         table.totals { width: 100%; border-collapse: collapse; margin-top: 18px; }
@@ -109,7 +109,7 @@
     <tbody>
         @forelse($lineItems as $item)
         <tr>
-            <td>{{ $item['description'] ?? '—' }}</td>
+            <td>{!! nl2br(e($item['description'] ?? '—')) !!}</td>
             <td class="num-amount">{{ $item['quantity'] ?? 1 }}</td>
             <td class="num-euro">€</td>
             <td class="num-amount">{{ $fmt((float) ($item['unit_price'] ?? 0)) }}</td>
@@ -147,6 +147,10 @@
 
 @if(!empty($details['footer_text']))
 <p class="footer">{{ $details['footer_text'] }}</p>
+@endif
+
+@if(!empty($invoice->notes))
+<p class="footer">{{ $invoice->notes }}</p>
 @endif
 </div>
 

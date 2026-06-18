@@ -2153,6 +2153,18 @@
         return Math.round(amount * 100) / 100;
     }
 
+    function isPaymentQrVisible() {
+        const qrSection = $('#payment-qr-section');
+        return !!(qrSection && !qrSection.hidden);
+    }
+
+    function updatePaymentCloseButtonLabel(qrVisible) {
+        const closeBtn = $('#btn-payment-close');
+        if (closeBtn) {
+            closeBtn.textContent = qrVisible ? 'Terug' : 'Sluiten';
+        }
+    }
+
     function syncPaymentPanelUi(options) {
         const opts = options || {};
         const qrVisible = !!opts.qrVisible;
@@ -2170,6 +2182,23 @@
         if (amountInput && !qrVisible) {
             amountInput.disabled = false;
         }
+        updatePaymentCloseButtonLabel(qrVisible);
+    }
+
+    function hidePaymentQr() {
+        const qrSection = $('#payment-qr-section');
+        const qrImg = $('#payment-qr-img');
+        const statusText = $('#payment-status-text');
+        if (qrSection) {
+            qrSection.hidden = true;
+        }
+        if (qrImg) {
+            qrImg.removeAttribute('src');
+        }
+        if (statusText) {
+            statusText.textContent = 'Wachten op betaling…';
+        }
+        syncPaymentPanelUi({ qrVisible: false });
     }
 
     function resolvePaymentError(ride, openPayment) {
@@ -2984,7 +3013,6 @@
     function overdueRideActionsHtml(ride, rideId) {
         const escapedRideId = escapeHtml(rideId);
         const contract = isContractRide(ride);
-        const canStartToday = !contract || isContractRideToday(ride);
         const secondaryBtn = contract
             ? '<button type="button" class="btn btn-release-ride btn-overdue-complete-ride" data-ride-id="' +
               escapedRideId +
@@ -2993,7 +3021,7 @@
               escapedRideId +
               '">Vrijgeven</button>';
         let html = '<div class="overdue-ride-actions">';
-        if (canStartToday) {
+        if (!contract) {
             html +=
                 '<button type="button" class="btn btn-primary btn-start-ride" data-ride-id="' +
                 escapedRideId +
@@ -4104,6 +4132,10 @@
     }
 
     function readPickupAdjustInputIso(inputEl) {
+        syncPickupAdjustInputFromParts();
+        if (!inputEl) {
+            inputEl = $('#pickup-adjust-input');
+        }
         if (!inputEl) {
             return null;
         }
@@ -4114,8 +4146,74 @@
         return fromDatetimeLocalValue(raw);
     }
 
+    function syncPickupAdjustInputFromParts() {
+        const dateEl = $('#pickup-adjust-date');
+        const timeEl = $('#pickup-adjust-time');
+        const hidden = $('#pickup-adjust-input');
+        if (!hidden) {
+            return '';
+        }
+        const dateValue = dateEl ? String(dateEl.value || '').trim() : '';
+        const timeValue = timeEl ? String(timeEl.value || '').trim() : '';
+        if (dateValue && timeValue) {
+            hidden.value = dateValue + 'T' + timeValue;
+        } else {
+            hidden.value = '';
+        }
+        return hidden.value;
+    }
+
+    function setPickupAdjustPartsFromLocal(localValue) {
+        const dateEl = $('#pickup-adjust-date');
+        const timeEl = $('#pickup-adjust-time');
+        const hidden = $('#pickup-adjust-input');
+        if (!localValue) {
+            if (dateEl) {
+                dateEl.value = '';
+            }
+            if (timeEl) {
+                timeEl.value = '';
+            }
+            if (hidden) {
+                hidden.value = '';
+            }
+            applyPickupAdjustMinConstraints();
+            return;
+        }
+        const parts = String(localValue).split('T');
+        const datePart = parts[0] || '';
+        const timePart = (parts[1] || '').slice(0, 5);
+        if (dateEl) {
+            dateEl.value = datePart;
+        }
+        if (timeEl) {
+            timeEl.value = timePart;
+        }
+        if (hidden) {
+            hidden.value = datePart && timePart ? datePart + 'T' + timePart : '';
+        }
+        applyPickupAdjustMinConstraints();
+    }
+
+    function applyPickupAdjustMinConstraints() {
+        const dateEl = $('#pickup-adjust-date');
+        const timeEl = $('#pickup-adjust-time');
+        const nowMin = nowDatetimeLocalMin();
+        const minParts = nowMin.split('T');
+        const minDate = minParts[0] || '';
+        const minTime = (minParts[1] || '').slice(0, 5);
+        if (dateEl) {
+            dateEl.min = minDate;
+        }
+        if (timeEl) {
+            const selectedDate = dateEl ? String(dateEl.value || '').trim() : '';
+            timeEl.min = selectedDate && selectedDate === minDate ? minTime : '';
+        }
+    }
+
     function confirmPickupAdjustInput(inputEl, onIso) {
         function submit() {
+            syncPickupAdjustInputFromParts();
             const raw = inputEl ? String(inputEl.value || '').trim() : '';
             const iso = readPickupAdjustInputIso(inputEl);
             if (!iso || !isLocalDatetimeInFuture(raw)) {
@@ -4161,6 +4259,16 @@
             input.value = '';
             input.removeAttribute('min');
         }
+        const dateInput = $('#pickup-adjust-date');
+        const timeInput = $('#pickup-adjust-time');
+        if (dateInput) {
+            dateInput.value = '';
+            dateInput.removeAttribute('min');
+        }
+        if (timeInput) {
+            timeInput.value = '';
+            timeInput.removeAttribute('min');
+        }
         if (confirmBtn) {
             clearButtonLoading(confirmBtn);
             confirmBtn.disabled = false;
@@ -4178,19 +4286,18 @@
     function showPickupAdjustEditStep(pickupAt) {
         const askStep = $('#pickup-adjust-ask-step');
         const editStep = $('#pickup-adjust-edit-step');
-        const input = $('#pickup-adjust-input');
+        const dateInput = $('#pickup-adjust-date');
         if (askStep) {
             askStep.hidden = true;
         }
         if (editStep) {
             editStep.hidden = false;
         }
-        if (input) {
-            const localValue = toDatetimeLocalValue(pickupAt);
-            const isPast = localValue && !isLocalDatetimeInFuture(localValue);
-            input.value = !localValue || isPast ? defaultFuturePickupLocalValue() : localValue;
-            input.min = nowDatetimeLocalMin();
-            input.focus();
+        const localValue = toDatetimeLocalValue(pickupAt);
+        const isPast = localValue && !isLocalDatetimeInFuture(localValue);
+        setPickupAdjustPartsFromLocal(!localValue || isPast ? defaultFuturePickupLocalValue() : localValue);
+        if (dateInput) {
+            dateInput.focus();
         }
     }
 
@@ -4289,6 +4396,17 @@
                 ev.stopPropagation();
                 closePickupAdjustDialog(undefined);
             });
+        }
+        const dateInput = $('#pickup-adjust-date');
+        const timeInput = $('#pickup-adjust-time');
+        if (dateInput) {
+            dateInput.addEventListener('change', function () {
+                syncPickupAdjustInputFromParts();
+                applyPickupAdjustMinConstraints();
+            });
+        }
+        if (timeInput) {
+            timeInput.addEventListener('change', syncPickupAdjustInputFromParts);
         }
         document.addEventListener('keydown', function (ev) {
             if (ev.key !== 'Escape' || !dialog.classList.contains('is-open')) {
@@ -4793,7 +4911,11 @@
             }
             if (ev.target.closest('#btn-payment-close')) {
                 ev.preventDefault();
-                closePaymentPanel();
+                if (isPaymentQrVisible()) {
+                    hidePaymentQr();
+                } else {
+                    closePaymentPanel();
+                }
                 return;
             }
             if (ev.target.closest('#btn-payment-create')) {

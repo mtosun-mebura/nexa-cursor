@@ -165,20 +165,24 @@ class ContractRideStopService
 
     public function resolvePendingStopsForForcedComplete(string $conn, RideRequest $ride): void
     {
-        if ($ride->ride_type !== RideRequest::RIDE_TYPE_CONTRACT_GROUP) {
+        if ($ride->ride_type === RideRequest::RIDE_TYPE_CONTRACT_GROUP) {
+            RideStop::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('stop_type', self::STOP_TYPE_PICKUP)
+                ->whereIn('status', [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED])
+                ->update([
+                    'status' => RideStop::STATUS_SKIPPED,
+                    'completed_at' => now(),
+                ]);
+
+            $this->completeDestinationStops($conn, $ride);
+
             return;
         }
 
-        RideStop::on($conn)
-            ->where('ride_request_id', $ride->id)
-            ->where('stop_type', self::STOP_TYPE_PICKUP)
-            ->whereIn('status', [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED])
-            ->update([
-                'status' => RideStop::STATUS_SKIPPED,
-                'completed_at' => now(),
-            ]);
-
-        $this->completeDestinationStops($conn, $ride);
+        if ($ride->ride_type === RideRequest::RIDE_TYPE_CONTRACT_INDIVIDUAL) {
+            return;
+        }
     }
 
     public function groupRideProgress(string $conn, int $rideId): array

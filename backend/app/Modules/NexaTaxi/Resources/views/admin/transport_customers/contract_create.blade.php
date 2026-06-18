@@ -42,6 +42,9 @@
                                     <input type="text" name="name" value="{{ old('name') }}" class="kt-input w-full" required maxlength="200" placeholder="bijv. Schoolvervoer 2026">
                                 </td>
                             </tr>
+                            @include('taxi::admin.transport_customers.partials.planning-color-input', [
+                                'value' => old('planning_color', '#3b82f6'),
+                            ])
                             <tr>
                                 <td class="text-secondary-foreground font-normal">Status</td>
                                 <td>

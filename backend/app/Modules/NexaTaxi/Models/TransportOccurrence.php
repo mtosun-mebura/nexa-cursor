@@ -24,5 +24,25 @@ class TransportOccurrence extends Model
         'scheduled_date' => 'date',
         'scheduled_at' => 'datetime',
     ];
+
+    public function rideRequest()
+    {
+        return $this->belongsTo(RideRequest::class, 'ride_request_id');
+    }
+
+    public function contract()
+    {
+        return $this->belongsTo(TransportContract::class, 'transport_contract_id');
+    }
+
+    public function routeTemplate()
+    {
+        return $this->belongsTo(TransportRouteTemplate::class, 'transport_route_template_id');
+    }
+
+    public function individualBooking()
+    {
+        return $this->belongsTo(TransportIndividualBooking::class, 'transport_individual_booking_id');
+    }
 }
 

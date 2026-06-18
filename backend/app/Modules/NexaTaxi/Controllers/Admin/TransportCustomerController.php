@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Models\TransportPaymentMandate;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
+use App\Modules\NexaTaxi\Services\ContractInvoiceService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use App\Rules\ValidIban;
 use Illuminate\Http\Request;
@@ -173,6 +174,7 @@ class TransportCustomerController extends Controller
 
         $data = $request->validate([
             'name'               => ['required', 'string', 'max:200'],
+            'planning_color'     => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'status'             => ['required', 'in:active,paused,ended'],
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],
@@ -196,7 +198,7 @@ class TransportCustomerController extends Controller
             ->with('success', 'Abonnement aangemaakt.');
     }
 
-    public function contractShow(int $customerId, int $contractId)
+    public function contractShow(int $customerId, int $contractId, ContractInvoiceService $invoiceService)
     {
         $this->authorizeOrPermission('rides.view');
 
@@ -246,6 +248,9 @@ class TransportCustomerController extends Controller
             ->limit(5)
             ->get();
 
+        $contractInvoices = $invoiceService->invoicesForContract($contractId);
+        $defaultInvoicePeriod = $invoiceService->previousBillingPeriod();
+
         return view('taxi::admin.transport_customers.contract_show', compact(
             'customer',
             'contract',
@@ -255,7 +260,9 @@ class TransportCustomerController extends Controller
             'groupCount',
             'recentGroups',
             'individualBookingCount',
-            'recentIndividualBookings'
+            'recentIndividualBookings',
+            'contractInvoices',
+            'defaultInvoicePeriod',
         ));
     }
 
@@ -280,6 +287,7 @@ class TransportCustomerController extends Controller
 
         $data = $request->validate([
             'name'               => ['required', 'string', 'max:200'],
+            'planning_color'     => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'status'             => ['required', 'in:active,paused,ended'],
             'start_date'         => ['nullable', 'date'],
             'end_date'           => ['nullable', 'date', 'after_or_equal:start_date'],

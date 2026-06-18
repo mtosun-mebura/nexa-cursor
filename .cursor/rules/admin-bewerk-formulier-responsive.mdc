@@ -95,6 +95,7 @@ Gebruik **geen** `<input type="date">`. Altijd de Metronic **KT datepicker** met
 - Gebruik **`data-kt-date-picker-date-format="DD-MM-YYYY"`** — niet `data-kt-date-picker-format` (dat geeft jjjj-mm-dd).
 - Breedte: `w-64` op de wrapper — niet `w-full` op datumvelden.
 - NexaTaxi contractvervoer: `@include('admin.partials.date-picker-input', ['name' => '…', 'value' => …])` of module-alias `taxi::admin.transport_customers.partials.date-picker-input`
+- **Ook op filterformulieren** (planning, uitzonderingen, ritten-index): nooit native `type="date"` — zelfde partial of dezelfde `data-kt-date-picker`-attributen als `ride_requests/index.blade.php`
 - Helpers: `admin_date_picker_display($value)` (weergave), `parse_admin_date($value)` (naar `Y-m-d` voor queries)
 - Scroll-gedrag: globaal via `resources/js/admin-date-picker.js` + CSS in `admin-responsive.css` (popup `position: fixed`, herpositioneert bij scroll)
 - Referenties: `invoices/create.blade.php`, `users/edit.blade.php`
