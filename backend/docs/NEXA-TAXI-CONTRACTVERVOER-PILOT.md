@@ -3,9 +3,50 @@
 Datum: 2026-06-16  
 Doel: formele doorloop van acceptatiecriteria uit §13 met 1 school, 1 groep, 1 chauffeur.
 
+## Lokale test (Docker)
+
+Stack draait via `docker compose up -d`. Host: **http://localhost:8085**
+
+```bash
+# Migraties (eenmalig na pull)
+docker exec nexa_backend php artisan migrate --force
+docker exec nexa_backend php artisan modules:migrate taxi
+
+# Ritten genereren (14 dagen vooruit)
+docker exec nexa_backend php artisan taxi:generate-contract-occurrences --days=14
+
+# Scheduler-jobs handmatig (normaal via cron om 04:00 / 05:00)
+docker exec nexa_backend php artisan tinker --execute="
+\App\Modules\NexaTaxi\Jobs\GenerateContractOccurrencesJob::dispatchSync(14);
+\App\Modules\NexaTaxi\Jobs\GenerateContractInvoicesJob::dispatchSync();
+"
+
+# Unit tests (op de host, niet in Docker — PHPUnit sqlite)
+cd backend && php artisan test --filter='ContractInvoice|RideClaim|TransportScheduleException'
+```
+
+### Admin-URL's (lokaal)
+
+| Scherm | URL |
+| --- | --- |
+| Contractklanten | http://localhost:8085/admin/taxi/contractklanten |
+| Abonnement (voorbeeld) | http://localhost:8085/admin/taxi/contractklanten/1/abonnementen/1 |
+| Planning | http://localhost:8085/admin/taxi/contractvervoer/planning |
+| Uitzonderingen | http://localhost:8085/admin/taxi/contractvervoer/uitzonderingen |
+| Chauffeursapp | http://localhost:8085/taxi/chauffeur |
+
+### Huidige lokale testdata (Taxi Royaal)
+
+| Item | Waarde |
+| --- | --- |
+| Contractklant | O.B.S. Roombeek |
+| Abonnement | Schoolvervoer Roombeek (`fixed_monthly`, factuurdag 21) |
+| Passagiers | 2 (pilot-doel: uitbreiden naar 10) |
+| Occurrences | gegenereerd ma–vr, 14 dagen vooruit |
+
 ## Implementatiestatus (code)
 
-De MVP-scope (week 1–9) is geïmplementeerd. Voor deploy:
+De MVP-scope (week 1–9) is geïmplementeerd. Voor deploy (later, na pilot):
 
 ```bash
 cd backend
@@ -30,6 +71,17 @@ Unit tests: `php artisan test --filter='ContractInvoice|RideClaim|TransportSched
 | Groep | Ochtendgroep met 10 passagiers, school als eindpunt 08:00 |
 | Chauffeur | Vaste chauffeur + voertuig op route-template |
 | Planner | Admin-gebruiker met `rides.view` / `rides.update` |
+
+## Geautomatiseerd geverifieerd (lokaal)
+
+| Check | Resultaat |
+| --- | --- |
+| Migraties + `transport_schedule_exceptions` | OK |
+| `taxi:generate-contract-occurrences --days=14` | OK (12 occurrences) |
+| Uitzonderingsdag blokkeert nieuwe generatie | OK (2026-06-26 → 0 occurrences) |
+| Planningsoverzicht laadt | OK |
+| Unit tests (host) | 18 passed |
+| Release API contractritten | Geblokkeerd (unit test) |
 
 ## Checklist — School A groepsrit
 
