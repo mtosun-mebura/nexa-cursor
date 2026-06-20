@@ -348,12 +348,18 @@ class TransportGroupRouteController extends Controller
             ->first();
 
         if (! $template) {
+            $departureAddress = trim((string) ($group->departure_address ?? ''));
             $template = TransportRouteTemplate::on($conn)->create([
                 'company_id' => $group->company_id,
                 'transport_group_id' => $group->id,
                 'label' => $group->name.' route',
                 'recurrence_days' => TransportRouteTemplate::defaultRecurrenceDays(),
-                'driver_start_mode' => TransportRouteTemplate::DRIVER_START_DEPOT,
+                'driver_start_mode' => $departureAddress !== ''
+                    ? TransportRouteTemplate::DRIVER_START_DEPOT
+                    : TransportRouteTemplate::DRIVER_START_FIRST_STOP,
+                'driver_start_address' => $departureAddress !== '' ? $departureAddress : null,
+                'driver_start_lat' => $departureAddress !== '' ? $group->departure_lat : null,
+                'driver_start_lng' => $departureAddress !== '' ? $group->departure_lng : null,
                 'buffer_seconds' => 120,
                 'route_locked' => false,
                 'active' => true,

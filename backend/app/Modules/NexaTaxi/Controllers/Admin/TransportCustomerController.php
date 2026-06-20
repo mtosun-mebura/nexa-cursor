@@ -31,20 +31,7 @@ class TransportCustomerController extends Controller
         $query = TransportCustomer::on($conn);
         $this->applyTenantFilter($query);
 
-        if ($request->filled('search')) {
-            $s = $request->string('search')->toString();
-            $query->where(function ($q) use ($s) {
-                $q->where('name', 'like', "%{$s}%")
-                    ->orWhere('contact_email', 'like', "%{$s}%")
-                    ->orWhere('debtor_number', 'like', "%{$s}%");
-            });
-        }
-
-        if ($request->filled('active')) {
-            $query->where('active', $request->string('active') === '1');
-        }
-
-        $customers = $query->orderBy('name')->paginate(20)->withQueryString();
+        $customers = $query->orderBy('name')->get();
 
         return view('taxi::admin.transport_customers.index', compact('customers'));
     }

@@ -30,14 +30,14 @@ const isDragging = computed(
 
 function accentClass(block: CanvasBlock) {
   if (block.isComponent) {
-    return componentMeta().accent
+    return componentMeta(block.key).accent
   }
   return sectionMeta(baseTypeFromKey(block.key)).accent
 }
 
 function iconClass(block: CanvasBlock) {
   if (block.isComponent) {
-    return componentMeta().icon
+    return componentMeta(block.key).icon
   }
   return sectionMeta(baseTypeFromKey(block.key)).icon
 }

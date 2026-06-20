@@ -5,8 +5,10 @@ export type ConfigField =
   | { type: 'textarea'; key: string; label: string; rows?: number; placeholder?: string; mono?: boolean }
   | { type: 'select'; key: string; label: string; options: SelectOption[] }
   | { type: 'number'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string }
+  | { type: 'range'; key: string; label: string; min?: number; max?: number; step?: number; hint?: string; unit?: string; previewColorKey?: string; defaultValue?: number }
   | { type: 'color'; key: string; label: string; hint?: string }
   | { type: 'image'; key: string; label: string; hint?: string }
+  | { type: 'website-media-image'; key: string; label: string; hint?: string }
   | { type: 'checkbox'; key: string; label: string }
   | { type: 'star-rating'; key: string; label: string; min?: number; max?: number; hint?: string }
   | { type: 'step-order'; key: string; label: string; options: SelectOption[] }
@@ -44,12 +46,16 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
     { type: 'color', key: 'title_highlight_color', label: 'Highlight kleur' },
     { type: 'textarea', key: 'subtitle', label: 'Ondertitel', rows: 4 },
     { type: 'color', key: 'subtitle_color', label: 'Ondertitel kleur' },
+    { type: 'group', label: 'Achtergrond tekstblok', fields: [
+      { type: 'color', key: 'text_bg_color', label: 'Achtergrond', hint: 'Kleurvlak achter titel en ondertitel' },
+      { type: 'range', key: 'text_bg_opacity', label: 'Transparantie', min: 0, max: 100, step: 1, unit: '%', previewColorKey: 'text_bg_color', hint: '0 = doorzichtig, 100 = ondoorzichtig' },
+    ]},
     { type: 'image', key: 'background_image_url', label: 'Achtergrond banner', hint: 'Atom-v2 / modern thema' },
     { type: 'image', key: 'author_image_url', label: 'Ronde foto in banner', hint: 'Atom-v2 thema' },
     { type: 'group', label: 'Gradient overloop', fields: [
       { type: 'color', key: 'overlay_color_from', label: 'Kleur van' },
       { type: 'color', key: 'overlay_color_to', label: 'Kleur naar' },
-      { type: 'number', key: 'overlay_opacity', label: 'Helderheid overloop (%)', min: 0, max: 100, step: 1 },
+      { type: 'range', key: 'overlay_opacity', label: 'Helderheid overloop', min: 0, max: 100, step: 1, unit: '%', previewColorKey: 'overlay_color_from', defaultValue: 85, hint: '0 = lichter, 100 = donkerder' },
     ]},
     ...ctaButtonFields('cta_primary', 'Knop 1'),
     ...ctaButtonFields('cta_secondary', 'Knop 2'),
@@ -129,14 +135,45 @@ export const SECTION_CONFIG_SCHEMAS: Record<string, ConfigField[]> = {
       maxItems: 12,
       itemLabel: 'Slide',
       fields: [
-        { type: 'image', key: 'image_url', label: 'Afbeelding' },
-        { type: 'text', key: 'caption', label: 'Omschrijving (alt-tekst)' },
+        { type: 'website-media-image', key: 'uuid', label: 'Afbeelding', hint: 'Website media (zelfde als klassieke editor)' },
+        { type: 'text', key: 'alt', label: 'Omschrijving (alt-tekst)', placeholder: 'Bijv. Comfortabel, betrouwbaar en altijd op tijd' },
+        { type: 'color', key: 'text_color', label: 'Tekstkleur', hint: 'Leeg = wit' },
+        { type: 'color', key: 'text_bg_color', label: 'Achtergrondkleur tekstblok' },
+        { type: 'range', key: 'text_bg_opacity', label: 'Transparantie achtergrond', min: 0, max: 100, step: 1, unit: '%', previewColorKey: 'text_bg_color', hint: '0 = doorzichtig, 100 = ondoorzichtig' },
         { type: 'select', key: 'text_position', label: 'Tekstpositie', options: [
           { value: 'top', label: 'Boven' },
           { value: 'center', label: 'Midden' },
           { value: 'bottom', label: 'Onder' },
         ]},
         { type: 'number', key: 'text_size_px', label: 'Tekstgrootte (px)', min: 12, max: 50, step: 2 },
+        { type: 'select', key: 'text_animation', label: 'Animatie', options: [
+          { value: 'rise', label: 'Woorden omhoog' },
+          { value: 'fade', label: 'Infaden' },
+          { value: 'slide_left', label: 'Van links' },
+          { value: 'zoom', label: 'Inzoomen' },
+          { value: 'blur', label: 'Scherp worden' },
+        ]},
+        { type: 'select', key: 'text_animation_duration_ms', label: 'Animatieduur (per woord)', options: [
+          { value: '300', label: '0,3 s' },
+          { value: '450', label: '0,45 s' },
+          { value: '550', label: '0,55 s (standaard)' },
+          { value: '800', label: '0,8 s' },
+          { value: '1000', label: '1 s' },
+          { value: '1500', label: '1,5 s' },
+          { value: '2000', label: '2 s' },
+          { value: '3000', label: '3 s' },
+          { value: '4000', label: '4 s' },
+        ]},
+        { type: 'select', key: 'text_animation_stagger_ms', label: 'Pauze tussen woorden', options: [
+          { value: '0', label: 'Geen' },
+          { value: '50', label: '0,05 s' },
+          { value: '90', label: '0,09 s (standaard)' },
+          { value: '120', label: '0,12 s' },
+          { value: '150', label: '0,15 s' },
+          { value: '200', label: '0,2 s' },
+          { value: '300', label: '0,3 s' },
+          { value: '500', label: '0,5 s' },
+        ]},
       ],
     },
   ],

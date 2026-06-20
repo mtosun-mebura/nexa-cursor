@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Auth\Access\AuthorizationException;
+use App\Support\AdminReturnUrl;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -111,10 +112,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // CSRF-token verlopen (HTTP 419): niet vastlopen op "Page Expired", maar door naar login/meld.
         $exceptions->render(function (TokenMismatchException $e, Request $request) {
             $isAdmin = $request->is('admin') || $request->is('admin/*');
-            $intended = $request->input('intended') ?: session('url.intended') ?: $request->fullUrl();
-            $loginQuery = array_filter(['intended' => is_string($intended) ? $intended : null]);
-            $loginUrl = '/admin/login'.($loginQuery !== [] ? '?'.http_build_query($loginQuery) : '');
-            $meldUrl = '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
+            $intended = AdminReturnUrl::resolveIntended($request->input('intended'))
+                ?? AdminReturnUrl::resolveIntended(session('url.intended'));
+            if ($intended === null && ! $request->is('admin/login') && ! $request->is('admin/meld/*')) {
+                $intended = AdminReturnUrl::resolveIntended($request->fullUrl());
+            }
+            $loginUrl = AdminReturnUrl::loginUrlWithIntended($intended);
+            $meldUrl = '/admin/meld/sessie-verlopen?'.http_build_query(array_filter([
+                'intended' => $intended,
+            ]));
             $message = 'Uw sessie is verlopen. Log opnieuw in.';
 
             if ($request->expectsJson() || $request->ajax() || $request->wantsJson()) {
@@ -136,7 +142,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 return redirect()->to($meldUrl);
             }
 
-            $frontendMeld = '/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
+            $frontendMeld = '/meld/sessie-verlopen?'.http_build_query(array_filter([
+                'intended' => AdminReturnUrl::resolveIntended($request->fullUrl()) ?? $request->fullUrl(),
+            ]));
 
             return redirect()->to($frontendMeld);
         });

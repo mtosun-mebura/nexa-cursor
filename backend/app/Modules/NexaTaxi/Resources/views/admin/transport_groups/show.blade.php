@@ -44,6 +44,16 @@
                 <div class="px-3 sm:px-5 pb-3 min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
                         <tr>
+                            <td class="min-w-56 text-secondary-foreground font-medium">Vertrekadres</td>
+                            <td>
+                                @if($group->departure_address)
+                                    {{ $group->departure_address }}
+                                @else
+                                    <span class="text-muted-foreground">Eerste ophaalstop</span>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
                             <td class="min-w-56 text-secondary-foreground font-medium">Eindlocatie</td>
                             <td>{{ $group->destination_address }}</td>
                         </tr>
@@ -75,58 +85,18 @@
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-2">
                 <h3 class="kt-card-title mb-0">Leden ({{ $activeMembers->count() }})</h3>
+                @can('rides.update')
+                <button type="button"
+                        class="kt-btn kt-btn-primary kt-btn-sm shrink-0"
+                        id="transport-group-add-members-open"
+                        aria-controls="transport-group-add-members-modal"
+                        aria-expanded="false">
+                    <i class="ki-filled ki-plus-squared me-1"></i>
+                    Leden toevoegen
+                </button>
+                @endcan
             </div>
             <div class="kt-card-content p-0 min-w-0">
-                @can('rides.update')
-                @if($availablePassengers->isNotEmpty())
-                <div class="px-3 sm:px-5 py-4 border-b border-input">
-                    <form method="POST" action="{{ route('admin.taxi.transport_groups.member_store', [$customer->id, $contract->id, $group->id]) }}" class="flex flex-col lg:flex-row flex-wrap gap-3 items-start lg:items-end">
-                        @csrf
-                        <div class="flex-1 min-w-[12rem] w-full lg:max-w-xl">
-                            <label class="text-xs text-muted-foreground mb-1 block" for="transport_passenger_ids">Passagiers toevoegen</label>
-                            @php
-                                $selectedPassengerIds = collect(old('transport_passenger_id', []))->map(fn ($id) => (int) $id)->all();
-                                $selectSize = min(8, max(4, $availablePassengers->count()));
-                            @endphp
-                            <select name="transport_passenger_id[]"
-                                    id="transport_passenger_ids"
-                                    class="kt-select w-full transport-group-member-select"
-                                    multiple
-                                    required
-                                    size="{{ $selectSize }}">
-                                @foreach($availablePassengers as $passenger)
-                                    <option value="{{ $passenger->id }}" @selected(in_array($passenger->id, $selectedPassengerIds, true))>
-                                        {{ $passenger->full_name }} — {{ Str::limit($passenger->pickup_address, 40) }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <p class="text-xs text-muted-foreground mt-1">Houd <kbd class="px-1 py-0.5 rounded border border-input text-[0.7rem]">Ctrl</kbd> of <kbd class="px-1 py-0.5 rounded border border-input text-[0.7rem]">⌘</kbd> ingedrukt om meerdere passagiers te selecteren.</p>
-                            @error('transport_passenger_id')
-                                <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted-foreground mb-1 block">Ingangsdatum</label>
-                            @include('taxi::admin.transport_customers.partials.date-picker-input', [
-                                'name' => 'valid_from',
-                                'value' => old('valid_from', now()->format('Y-m-d')),
-                                'wrapperClass' => 'w-44',
-                            ])
-                        </div>
-                        <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm shrink-0">Toevoegen</button>
-                    </form>
-                </div>
-                @elseif($activeMembers->isEmpty())
-                <div class="px-3 sm:px-5 py-4 border-b border-input text-sm text-muted-foreground">
-                    Voeg eerst <a href="{{ route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]) }}" class="text-primary hover:underline">passagiers</a> toe aan het abonnement.
-                </div>
-                @else
-                <div class="px-3 sm:px-5 py-4 border-b border-input text-sm text-muted-foreground">
-                    Alle actieve passagiers zitten al in deze groep.
-                </div>
-                @endif
-                @endcan
-
                 <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                     <table id="transport-group-members-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                         <thead>
@@ -205,6 +175,92 @@
 
     </div>
 </div>
+
+@can('rides.update')
+<div id="transport-group-add-members-modal"
+     class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="transport-group-add-members-modal-title"
+     aria-hidden="true">
+    <div class="w-full max-w-xl rounded-xl border border-input bg-background shadow-xl">
+        <div class="flex items-center justify-between gap-3 border-b border-input px-5 py-4">
+            <h3 id="transport-group-add-members-modal-title" class="text-lg font-semibold text-foreground mb-0">
+                Leden toevoegen
+            </h3>
+            <button type="button"
+                    class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost"
+                    data-transport-group-add-members-close
+                    aria-label="Sluiten">
+                <i class="ki-filled ki-cross"></i>
+            </button>
+        </div>
+        @if($availablePassengers->isNotEmpty())
+        <form method="POST"
+              action="{{ route('admin.taxi.transport_groups.member_store', [$customer->id, $contract->id, $group->id]) }}"
+              class="px-5 py-4 space-y-4">
+            @csrf
+            <div>
+                <label class="text-sm text-secondary-foreground mb-1 block" for="transport_passenger_ids">Passagiers</label>
+                @php
+                    $selectedPassengerIds = collect(old('transport_passenger_id', []))->map(fn ($id) => (int) $id)->all();
+                    $selectSize = min(10, max(5, $availablePassengers->count()));
+                @endphp
+                <select name="transport_passenger_id[]"
+                        id="transport_passenger_ids"
+                        class="kt-select w-full transport-group-member-select"
+                        multiple
+                        required
+                        size="{{ $selectSize }}">
+                    @foreach($availablePassengers as $passenger)
+                        <option value="{{ $passenger->id }}" @selected(in_array($passenger->id, $selectedPassengerIds, true))>
+                            {{ $passenger->full_name }} — {{ Str::limit($passenger->pickup_address, 50) }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-muted-foreground mt-2">
+                    Selecteer één of meerdere passagiers.
+                    Houd <kbd class="px-1 py-0.5 rounded border border-input text-[0.7rem]">Ctrl</kbd> of
+                    <kbd class="px-1 py-0.5 rounded border border-input text-[0.7rem]">⌘</kbd> ingedrukt voor meerdere.
+                </p>
+                @error('transport_passenger_id')
+                    <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                @enderror
+            </div>
+            <div>
+                <label class="text-sm text-secondary-foreground mb-1 block">Ingangsdatum</label>
+                @include('taxi::admin.transport_customers.partials.date-picker-input', [
+                    'name' => 'valid_from',
+                    'value' => old('valid_from', now()->format('Y-m-d')),
+                    'wrapperClass' => 'w-44',
+                ])
+            </div>
+            <p class="text-xs text-muted-foreground m-0">
+                Na toevoegen wordt de route automatisch opnieuw berekend (indien er al een route is).
+            </p>
+            <div class="flex flex-wrap justify-end gap-2 pt-1">
+                <button type="button" class="kt-btn kt-btn-outline" data-transport-group-add-members-close>Annuleren</button>
+                <button type="submit" class="kt-btn kt-btn-primary">Toevoegen</button>
+            </div>
+        </form>
+        @elseif($activeMembers->isEmpty())
+        <div class="px-5 py-6 text-sm text-muted-foreground space-y-3">
+            <p class="m-0">Er zijn nog geen passagiers op dit abonnement.</p>
+            <a href="{{ route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-primary kt-btn-sm">
+                Passagier aanmaken
+            </a>
+        </div>
+        @else
+        <div class="px-5 py-6 text-sm text-muted-foreground space-y-3">
+            <p class="m-0">Alle actieve passagiers zitten al in deze groep.</p>
+            <a href="{{ route('admin.taxi.transport_passengers.create', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-outline kt-btn-sm">
+                Nieuwe passagier aanmaken
+            </a>
+        </div>
+        @endif
+    </div>
+</div>
+@endcan
 @endsection
 
 @push('styles')
@@ -228,4 +284,48 @@
         white-space: nowrap;
     }
 </style>
+@endpush
+
+@push('scripts')
+@can('rides.update')
+<script>
+(function () {
+    var openBtn = document.getElementById('transport-group-add-members-open');
+    var modal = document.getElementById('transport-group-add-members-modal');
+    if (!openBtn || !modal) return;
+
+    function openModal() {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.setAttribute('aria-hidden', 'false');
+        openBtn.setAttribute('aria-expanded', 'true');
+        var select = document.getElementById('transport_passenger_ids');
+        if (select) select.focus();
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.setAttribute('aria-hidden', 'true');
+        openBtn.setAttribute('aria-expanded', 'false');
+        openBtn.focus();
+    }
+
+    openBtn.addEventListener('click', openModal);
+    modal.querySelectorAll('[data-transport-group-add-members-close]').forEach(function (btn) {
+        btn.addEventListener('click', closeModal);
+    });
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+
+    @if($errors->has('transport_passenger_id') || $errors->has('valid_from'))
+    openModal();
+    @endif
+})();
+</script>
+@endcan
 @endpush

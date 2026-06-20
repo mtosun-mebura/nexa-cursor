@@ -55,6 +55,14 @@ class TenantCompanyDataPushServiceTest extends TestCase
         $this->assertContains('default_rates', $taxiTables);
         $this->assertContains('knowledge_documents', $taxiTables);
         $this->assertContains('knowledge_chunks', $taxiTables);
+        $this->assertContains('transport_customers', $taxiTables);
+        $this->assertContains('transport_contracts', $taxiTables);
+        $this->assertContains('transport_passengers', $taxiTables);
+        $this->assertContains('transport_groups', $taxiTables);
+        $this->assertContains('transport_occurrences', $taxiTables);
+        $this->assertContains('transport_schedule_exceptions', $taxiTables);
+        $this->assertContains('transport_payment_mandates', $taxiTables);
+        $this->assertContains('ride_stops', $taxiTables);
     }
 
     #[Test]

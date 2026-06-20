@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\AdminReturnUrl;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\EnvService;
@@ -37,12 +38,9 @@ class AdminAuthController extends Controller
         }
 
         // Bewaar intended URL uit query (bijv. bij directe redirect naar login met ?intended=...)
-        $intended = $request->query('intended');
-        if ($intended && is_string($intended)) {
-            $path = parse_url($intended, PHP_URL_PATH);
-            if ($path && \Illuminate\Support\Str::startsWith($path, '/admin')) {
-                session(['url.intended' => $intended]);
-            }
+        $intended = AdminReturnUrl::resolveIntended($request->query('intended'));
+        if ($intended !== null) {
+            session(['url.intended' => $intended]);
         }
 
         // Verse CSRF-token zodat inloggen werkt na sessieverloop (voorkomt 419 bij refresh/resubmit).
@@ -54,8 +52,9 @@ class AdminAuthController extends Controller
 
     public function login(Request $request)
     {
-        // Intended voor redirect: POST-parameter heeft voorrang (komt uit hidden field op loginpagina), anders session
-        $intendedUrl = $request->input('intended') ?: $request->session()->get('url.intended');
+        // Intended voor redirect: POST-parameter heeft voorrang, anders session; nooit login/meld als bestemming.
+        $intendedUrl = AdminReturnUrl::resolveIntended($request->input('intended'))
+            ?? AdminReturnUrl::resolveIntended($request->session()->get('url.intended'));
 
         $request->validate([
             'email' => 'required|email',
@@ -108,9 +107,6 @@ class AdminAuthController extends Controller
             ])->withInput($withInput);
         }
 
-        // Check if this is the first login (no previous login recorded)
-        $isFirstLogin = ! $request->session()->has('has_logged_in_before');
-
         // Manual login
         // Use Laravel's built-in "remember me" mechanism (secure persistent login cookie)
         Auth::guard('web')->login($user, $remember);
@@ -119,7 +115,7 @@ class AdminAuthController extends Controller
         // Mark that user has logged in before
         $request->session()->put('has_logged_in_before', true);
 
-        $path = $intendedUrl ? parse_url($intendedUrl, PHP_URL_PATH) : '';
+        $path = $intendedUrl ? (AdminReturnUrl::pathFrom($intendedUrl) ?? '') : '';
         $isUtilityPath = $path && preg_match('#/admin/(chat|notifications)/unread-count#', $path);
 
         // Preview-URL: stuur door naar bewerkpagina (inclusief module-parameter) zodat je soepel verder kunt waar je was.
@@ -153,8 +149,7 @@ class AdminAuthController extends Controller
         }
 
         // Intended URL heeft voorrang: na sessie-verlopen of directe link met ?intended= ga daarheen.
-        // Gebruik relatief pad zodat de browser op dezelfde origin blijft en sessiecookies meeneemt.
-        if ($intendedUrl && is_string($intendedUrl) && $path && \Illuminate\Support\Str::startsWith($path, '/admin') && ! $isUtilityPath) {
+        if ($intendedUrl && $path && ! $isUtilityPath) {
             session()->forget('url.intended');
             $query = parse_url($intendedUrl, PHP_URL_QUERY);
             $target = $path.($query ? '?'.$query : '');
@@ -162,12 +157,7 @@ class AdminAuthController extends Controller
             return redirect()->to($target);
         }
 
-        // Eerste login of utility-URL: naar dashboard
-        if ($isFirstLogin || $isUtilityPath) {
-            session()->forget('url.intended');
-
-            return redirect()->route('admin.dashboard');
-        }
+        session()->forget('url.intended');
 
         return redirect()->route('admin.dashboard');
     }

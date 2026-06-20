@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue'
 import type { BuilderBootstrap, CanvasBlock, PaletteDragPayload } from './types'
 import { baseTypeFromKey } from './palette-meta'
+import { denormalizeHomeSectionsForSave, normalizeHomeSectionsForBuilder } from './section-data-normalize'
 
 const FIXED_KEYS = new Set(['footer', 'copyright'])
 
@@ -30,7 +31,7 @@ function generateSectionKey(baseType: string, existingKeys: string[]): string {
 }
 
 export function useBuilderState(bootstrap: BuilderBootstrap) {
-  const homeSections = ref<Record<string, unknown>>(clone(bootstrap.homeSections))
+  const homeSections = ref<Record<string, unknown>>(normalizeHomeSectionsForBuilder(clone(bootstrap.homeSections)))
   const selectedKey = ref<string | null>(null)
   const removedSectionKeys = ref<string[]>([])
   const saving = ref(false)
@@ -194,14 +195,14 @@ export function useBuilderState(bootstrap: BuilderBootstrap) {
           'X-CSRF-TOKEN': token,
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ home_sections: homeSections.value }),
+        body: JSON.stringify({ home_sections: denormalizeHomeSectionsForSave(homeSections.value) }),
       })
       const data = await response.json()
       if (!response.ok || !data.ok) {
         throw new Error(data.message ?? 'Opslaan mislukt')
       }
       if (data.homeSections) {
-        homeSections.value = clone(data.homeSections)
+        homeSections.value = normalizeHomeSectionsForBuilder(clone(data.homeSections))
       }
       dirty.value = false
       saveMessage.value = data.message ?? 'Opgeslagen'

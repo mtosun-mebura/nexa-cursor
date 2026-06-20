@@ -1,6 +1,6 @@
 {
-  "_runtime-dom.esm-bundler-BXA6v4pP.js": {
-    "file": "assets/runtime-dom.esm-bundler-BXA6v4pP.js",
+  "_runtime-dom.esm-bundler-BUf8jPjq.js": {
+    "file": "assets/runtime-dom.esm-bundler-BUf8jPjq.js",
     "name": "runtime-dom.esm-bundler"
   },
   "node_modules/flag-icons/flags/1x1/ad.svg": {
@@ -2172,7 +2172,7 @@
     "src": "node_modules/flag-icons/flags/4x3/zw.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DHd_lNXS.css",
+    "file": "assets/app-BB61oh2s.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "names": [
@@ -2180,7 +2180,7 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-Qsyz5Wy4.js",
+    "file": "assets/app-DqarfZbF.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -2188,7 +2188,7 @@
       "resources/js/frontend-app.js"
     ],
     "css": [
-      "assets/app-CE7zFySM.css"
+      "assets/app-C1dwV7Um.css"
     ]
   },
   "resources/js/frontend-app.js": {
@@ -2198,36 +2198,36 @@
     "isEntry": true
   },
   "resources/js/metronic-vue-demo1.ts": {
-    "file": "assets/metronic-vue-demo1-BxqPki8E.js",
+    "file": "assets/metronic-vue-demo1-DtTm44dd.js",
     "name": "metronic-vue-demo1",
     "src": "resources/js/metronic-vue-demo1.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-BXA6v4pP.js"
+      "_runtime-dom.esm-bundler-BUf8jPjq.js"
     ]
   },
   "resources/js/taxi-portal-app.ts": {
-    "file": "assets/taxi-portal-app-CLj7eD0S.js",
+    "file": "assets/taxi-portal-app-sylZxCgm.js",
     "name": "taxi-portal-app",
     "src": "resources/js/taxi-portal-app.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-BXA6v4pP.js"
+      "_runtime-dom.esm-bundler-BUf8jPjq.js"
     ],
     "css": [
       "assets/taxi-portal-app-DEO4neoZ.css"
     ]
   },
   "resources/js/website-page-builder-v2.ts": {
-    "file": "assets/website-page-builder-v2-BVuEjFyZ.js",
+    "file": "assets/website-page-builder-v2-Bq5yfCK4.js",
     "name": "website-page-builder-v2",
     "src": "resources/js/website-page-builder-v2.ts",
     "isEntry": true,
     "imports": [
-      "_runtime-dom.esm-bundler-BXA6v4pP.js"
+      "_runtime-dom.esm-bundler-BUf8jPjq.js"
     ],
     "css": [
-      "assets/website-page-builder-v2-Ca8imAAw.css"
+      "assets/website-page-builder-v2-CzUNuRn6.css"
     ]
   }
 }

@@ -9,6 +9,7 @@ use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportGroupMember;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
+use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Services\TransportRoutePlannerService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
@@ -17,6 +18,10 @@ use Illuminate\Validation\ValidationException;
 class TransportGroupController extends Controller
 {
     use UsesModuleDatabase;
+
+    public function __construct(
+        private readonly TransportGroupRouteSyncService $routeSync,
+    ) {}
 
     public function index(Request $request, int $customerId, int $contractId)
     {
@@ -83,6 +88,7 @@ class TransportGroupController extends Controller
         $this->authorizeOrPermission('rides.create');
 
         $data = $this->validateGroup($request);
+        $data = $this->normalizeGroupDepartureFields($data);
 
         [$conn, , $contract] = $this->resolveContract($customerId, $contractId);
 
@@ -91,6 +97,8 @@ class TransportGroupController extends Controller
             'transport_contract_id' => $contract->id,
             'active' => $request->boolean('active', true),
         ]));
+
+        $this->routeSync->syncDepartureFromGroup($conn, $group);
 
         $showUrl = route('admin.taxi.transport_groups.show', [$customerId, $contractId, $group->id]);
         $backUrl = transport_admin_back_url(
@@ -182,12 +190,33 @@ class TransportGroupController extends Controller
         $this->authorizeOrPermission('rides.update');
 
         $data = $this->validateGroup($request);
+        $data = $this->normalizeGroupDepartureFields($data);
 
         [, , , $group] = $this->resolveGroup($customerId, $contractId, $groupId);
 
         $group->update(array_merge($data, [
             'active' => $request->boolean('active'),
         ]));
+
+        $conn = $group->getConnectionName();
+        $routeFieldsChanged = $group->wasChanged([
+            'departure_address',
+            'departure_lat',
+            'departure_lng',
+            'destination_address',
+            'destination_lat',
+            'destination_lng',
+            'destination_arrival_time',
+        ]);
+        $group = $group->fresh();
+
+        if ($routeFieldsChanged) {
+            $routeResult = $this->routeSync->syncDepartureAndRecalculate($conn, $group);
+            $routeMessage = $this->formatRouteSyncMessage($routeResult);
+        } else {
+            $this->routeSync->syncDepartureFromGroup($conn, $group);
+            $routeMessage = null;
+        }
 
         $showUrl = route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId]);
         $backUrl = transport_admin_back_url(
@@ -198,8 +227,13 @@ class TransportGroupController extends Controller
             $showUrl = transport_admin_url_with_return($showUrl, $backUrl);
         }
 
+        $success = 'Groep opgeslagen.';
+        if ($routeMessage) {
+            $success .= ' '.$routeMessage;
+        }
+
         return redirect($showUrl)
-            ->with('success', 'Groep opgeslagen.');
+            ->with('success', $success);
     }
 
     public function destroy(Request $request, int $customerId, int $contractId, int $groupId)
@@ -280,6 +314,11 @@ class TransportGroupController extends Controller
             $success .= ' '.count($skippedNames).' overgeslagen (al lid).';
         }
 
+        $routeMessage = $this->recalculateGroupRouteAfterMemberChange($conn, $group);
+        if ($routeMessage) {
+            $success .= ' '.$routeMessage;
+        }
+
         return redirect()->route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
             ->with('success', $success);
     }
@@ -333,8 +372,14 @@ class TransportGroupController extends Controller
 
         $member->update(['valid_until' => now()->toDateString()]);
 
+        $success = 'Passagier uit groep gehaald. Historie blijft bewaard.';
+        $routeMessage = $this->recalculateGroupRouteAfterMemberChange($conn, $group);
+        if ($routeMessage) {
+            $success .= ' '.$routeMessage;
+        }
+
         return redirect()->route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
-            ->with('success', 'Passagier uit groep gehaald. Historie blijft bewaard.');
+            ->with('success', $success);
     }
 
     /** @return array{0: string, 1: TransportCustomer, 2: TransportContract} */
@@ -362,10 +407,28 @@ class TransportGroupController extends Controller
     }
 
     /** @return array<string, mixed> */
+    private function normalizeGroupDepartureFields(array $data): array
+    {
+        $address = trim((string) ($data['departure_address'] ?? ''));
+        if ($address === '') {
+            $data['departure_address'] = null;
+            $data['departure_lat'] = null;
+            $data['departure_lng'] = null;
+        } else {
+            $data['departure_address'] = $address;
+        }
+
+        return $data;
+    }
+
+    /** @return array<string, mixed> */
     private function validateGroup(Request $request): array
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:200'],
+            'departure_address' => ['nullable', 'string', 'max:500'],
+            'departure_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'departure_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'destination_address' => ['required', 'string', 'max:500'],
             'destination_arrival_time' => ['required', 'date_format:H:i'],
             'destination_lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -396,6 +459,34 @@ class TransportGroupController extends Controller
         }
 
         return $member->valid_until >= now()->toDateString();
+    }
+
+    private function recalculateGroupRouteAfterMemberChange(
+        string $conn,
+        TransportGroup $group,
+        bool $forceFullPlan = false,
+    ): ?string {
+        $result = $this->routeSync->recalculateForGroup($conn, $group, $forceFullPlan);
+
+        return $this->formatRouteSyncMessage($result);
+    }
+
+    /**
+     * @param  array{recalculated: bool, warnings: list<string>, message: string|null}  $result
+     */
+    private function formatRouteSyncMessage(array $result): ?string
+    {
+        if (! ($result['recalculated'] ?? false)) {
+            return null;
+        }
+
+        $message = $result['message'] ?? 'Route automatisch herberekend.';
+        $warnings = $result['warnings'] ?? [];
+        if ($warnings !== []) {
+            $message .= ' '.implode(' ', $warnings);
+        }
+
+        return $message;
     }
 
     private function authorizeOrPermission(string $ability): void

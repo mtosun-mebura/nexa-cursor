@@ -32,8 +32,8 @@
             <td>
                 @if($departureTime)
                     {{ $departureTime }}
-                    @if($routeTemplate->driver_start_mode === 'depot' && $routeTemplate->driver_start_address)
-                        <span class="text-muted-foreground">(vanaf depot)</span>
+                    @if($routeTemplate->driver_start_mode === 'depot' && ($group->departure_address || $routeTemplate->driver_start_address))
+                        <span class="text-muted-foreground">· {{ Str::limit($group->departure_address ?: $routeTemplate->driver_start_address, 55) }}</span>
                     @else
                         <span class="text-muted-foreground">(bij eerste stop{{ $firstPickupTime ? ' '.$firstPickupTime : '' }})</span>
                     @endif

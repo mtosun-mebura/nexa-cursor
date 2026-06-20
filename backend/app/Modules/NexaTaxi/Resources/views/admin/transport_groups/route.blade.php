@@ -110,12 +110,13 @@
                                 <td>
                                     @include('admin.partials.google-address-input', [
                                         'name' => 'driver_start_address',
-                                        'value' => old('driver_start_address', $template->driver_start_address),
+                                        'value' => old('driver_start_address', $template->driver_start_address ?: $group->departure_address),
                                         'latName' => 'driver_start_lat',
                                         'lngName' => 'driver_start_lng',
-                                        'latValue' => old('driver_start_lat', $template->driver_start_lat),
-                                        'lngValue' => old('driver_start_lng', $template->driver_start_lng),
+                                        'latValue' => old('driver_start_lat', $template->driver_start_lat ?: $group->departure_lat),
+                                        'lngValue' => old('driver_start_lng', $template->driver_start_lng ?: $group->departure_lng),
                                         'placeholder' => 'Zoek depotadres...',
+                                        'hint' => 'Je kunt het vertrekadres ook instellen via Groep bewerken.',
                                     ])
                                 </td>
                             </tr>

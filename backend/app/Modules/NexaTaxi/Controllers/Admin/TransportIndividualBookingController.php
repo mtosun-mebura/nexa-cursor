@@ -99,14 +99,17 @@ class TransportIndividualBookingController extends Controller
             'status' => TransportIndividualBooking::STATUS_PLANNED,
         ]));
 
-        $this->occurrenceGenerator->generateForIndividualBooking($conn, $booking->fresh(['passenger', 'contract']));
+        $this->occurrenceGenerator->syncIndividualBookingOccurrenceAndRide(
+            $conn,
+            $booking->fresh(['passenger', 'contract'])
+        );
 
         $backUrl = transport_admin_back_url(
             $request,
             route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])
         );
 
-        return redirect($backUrl)->with('success', 'Individuele contractrit gepland.');
+        return redirect($backUrl)->with('success', 'Individuele contractrit gepland; chauffeurs-rit is gesynchroniseerd.');
     }
 
     public function edit(Request $request, int $customerId, int $contractId, int $bookingId)
@@ -134,7 +137,7 @@ class TransportIndividualBookingController extends Controller
     {
         $this->authorizeOrPermission('rides.update');
 
-        [, , $contract, $booking] = $this->resolveBooking($customerId, $contractId, $bookingId);
+        [$conn, , $contract, $booking] = $this->resolveBooking($customerId, $contractId, $bookingId);
 
         if ($booking->status === TransportIndividualBooking::STATUS_CANCELLED) {
             throw ValidationException::withMessages([
@@ -148,15 +151,17 @@ class TransportIndividualBookingController extends Controller
 
         $booking->update($data);
 
-        $this->occurrenceGenerator->generateForIndividualBooking($conn, $booking->fresh(['passenger', 'contract']));
-        $this->occurrenceGenerator->syncIndividualBookingAssignment($conn, $booking->fresh());
+        $this->occurrenceGenerator->syncIndividualBookingOccurrenceAndRide(
+            $conn,
+            $booking->fresh(['passenger', 'contract'])
+        );
 
         $backUrl = transport_admin_back_url(
             $request,
             route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])
         );
 
-        return redirect($backUrl)->with('success', 'Individuele contractrit opgeslagen.');
+        return redirect($backUrl)->with('success', 'Individuele contractrit opgeslagen; chauffeurs-rit is gesynchroniseerd.');
     }
 
     public function destroy(int $customerId, int $contractId, int $bookingId)
@@ -171,7 +176,9 @@ class TransportIndividualBookingController extends Controller
                 ->with('success', 'Rit was al geannuleerd.');
         }
 
+        $conn = $booking->getConnectionName();
         $booking->update(['status' => TransportIndividualBooking::STATUS_CANCELLED]);
+        $this->occurrenceGenerator->cancelIndividualBookingOccurrenceAndRide($conn, $booking->fresh());
 
         return redirect()
             ->route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])

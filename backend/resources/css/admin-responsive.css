@@ -2262,15 +2262,9 @@ label.kt-input.admin-search-input-wrap > .admin-search-clear-btn:hover {
     transition: none !important;
 }
 
-[data-vc='calendar'][data-vc-input][data-admin-date-picker-staging] {
-    position: fixed !important;
-    top: -10000px !important;
-    left: -10000px !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    margin: 0 !important;
-    z-index: -1 !important;
+/* Verberg gesloten popup volledig zodat pointer-events:none geen clicks doorlaat */
+[data-vc='calendar'][data-vc-input][data-vc-calendar-hidden] {
+    display: none !important;
 }
 
 [data-vc='calendar'][data-vc-input].admin-date-picker-floating {

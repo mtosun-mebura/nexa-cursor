@@ -40,6 +40,8 @@ export type BuilderBootstrap = {
     index: string
     self: string
     uploadHeroImage: string
+    uploadWebsiteMedia: string
+    websiteMediaServeBase: string
   }
   wizardBackUrl: string | null
 }

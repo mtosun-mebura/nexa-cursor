@@ -6,6 +6,22 @@
         </td>
     </tr>
     <tr>
+        <td class="text-secondary-foreground font-normal">Vertrekadres</td>
+        <td>
+            @include('admin.partials.google-address-input', [
+                'name' => 'departure_address',
+                'value' => old('departure_address', $group->departure_address ?? ''),
+                'latName' => 'departure_lat',
+                'lngName' => 'departure_lng',
+                'latValue' => old('departure_lat', $group->departure_lat ?? ''),
+                'lngValue' => old('departure_lng', $group->departure_lng ?? ''),
+                'required' => false,
+                'placeholder' => 'Zoek vertrekadres (depot)...',
+                'hint' => 'Optioneel. Laat leeg om te starten bij de eerste ophaalstop.',
+            ])
+        </td>
+    </tr>
+    <tr>
         <td class="text-secondary-foreground font-normal">Eindlocatie (school) <span class="text-danger">*</span></td>
         <td>
             @include('admin.partials.google-address-input', [

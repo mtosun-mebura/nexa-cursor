@@ -66,23 +66,54 @@ class TransportScheduleExceptionController extends Controller
         ]);
 
         $conn = $this->moduleConnection();
-        $companyId = $this->getTenantId();
+        $contractId = ! empty($data['transport_contract_id']) ? (int) $data['transport_contract_id'] : null;
+        $companyId = $this->resolveCompanyId($conn, $contractId);
 
-        if (! empty($data['transport_contract_id'])) {
+        if ($companyId <= 0) {
+            return redirect()->back()->withInput()->withErrors([
+                'company_id' => auth()->user()->hasRole('super-admin')
+                    ? 'Selecteer eerst een tenant in de tenant-kiezer bovenaan (bij scope "Hele bedrijf"), of kies een abonnement.'
+                    : 'Geen bedrijf gekoppeld aan uw account.',
+            ]);
+        }
+
+        if ($contractId) {
             TransportContract::on($conn)
                 ->where('company_id', $companyId)
-                ->findOrFail((int) $data['transport_contract_id']);
+                ->findOrFail($contractId);
         }
 
         TransportScheduleException::on($conn)->create([
             'company_id' => $companyId,
-            'transport_contract_id' => $data['transport_contract_id'] ?: null,
+            'transport_contract_id' => $contractId,
             'exception_date' => $data['exception_date'],
             'name' => $data['name'],
             'active' => $request->boolean('active', true),
         ]);
 
         return back()->with('success', 'Uitzonderingsdag toegevoegd.');
+    }
+
+    private function resolveCompanyId(string $conn, ?int $contractId): int
+    {
+        $tenantId = $this->getTenantId();
+        if ($tenantId) {
+            return (int) $tenantId;
+        }
+
+        if ($contractId) {
+            $contractCompanyId = TransportContract::on($conn)
+                ->whereKey($contractId)
+                ->value('company_id');
+
+            if ($contractCompanyId) {
+                return (int) $contractCompanyId;
+            }
+        }
+
+        $userCompanyId = auth()->user()->company_id;
+
+        return $userCompanyId ? (int) $userCompanyId : 0;
     }
 
     public function destroy(int $id)

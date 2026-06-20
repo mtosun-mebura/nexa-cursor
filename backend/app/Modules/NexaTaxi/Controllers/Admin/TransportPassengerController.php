@@ -7,13 +7,21 @@ use App\Modules\NexaTaxi\Models\TransportContract;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Models\TransportGroup;
 use App\Modules\NexaTaxi\Models\TransportGroupMember;
+use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
+use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
 
 class TransportPassengerController extends Controller
 {
     use UsesModuleDatabase;
+
+    public function __construct(
+        private readonly TransportGroupRouteSyncService $routeSync,
+        private readonly ContractOccurrenceGeneratorService $occurrenceGenerator,
+    ) {}
 
     public function index(Request $request, int $customerId, int $contractId)
     {
@@ -126,9 +134,29 @@ class TransportPassengerController extends Controller
 
         [, , , $passenger] = $this->resolvePassenger($customerId, $contractId, $passengerId);
 
+        $conn = $passenger->getConnectionName();
+        $addressChanged = $passenger->pickup_address !== $data['pickup_address']
+            || (string) $passenger->pickup_lat !== (string) ($data['pickup_lat'] ?? '')
+            || (string) $passenger->pickup_lng !== (string) ($data['pickup_lng'] ?? '');
+
         $passenger->update(array_merge($data, [
             'active' => $request->boolean('active'),
         ]));
+
+        $messages = ['Passagier opgeslagen.'];
+        if ($addressChanged) {
+            $routeMessages = $this->recalculateRoutesForPassengerGroups($conn, (int) $passenger->id);
+            if ($routeMessages !== []) {
+                $messages[] = implode(' ', $routeMessages);
+            }
+        }
+
+        $bookingSyncCount = $this->syncPlannedIndividualBookingsForPassenger($conn, $passenger->fresh());
+        if ($bookingSyncCount > 0) {
+            $messages[] = $bookingSyncCount === 1
+                ? '1 geplande individuele rit gesynchroniseerd.'
+                : $bookingSyncCount.' geplande individuele ritten gesynchroniseerd.';
+        }
 
         $backUrl = transport_admin_back_url(
             $request,
@@ -136,7 +164,7 @@ class TransportPassengerController extends Controller
         );
 
         return redirect($backUrl)
-            ->with('success', 'Passagier opgeslagen.');
+            ->with('success', implode(' ', $messages));
     }
 
     public function destroy(Request $request, int $customerId, int $contractId, int $passengerId)
@@ -216,6 +244,50 @@ class TransportPassengerController extends Controller
             ->orderBy('name')
             ->pluck('name')
             ->all();
+    }
+
+    /** @return list<string> */
+    private function recalculateRoutesForPassengerGroups(string $conn, int $passengerId): array
+    {
+        $today = now()->toDateString();
+        $groupIds = TransportGroupMember::on($conn)
+            ->where('transport_passenger_id', $passengerId)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('valid_until')
+                    ->orWhere('valid_until', '>=', $today);
+            })
+            ->pluck('transport_group_id');
+
+        if ($groupIds->isEmpty()) {
+            return [];
+        }
+
+        $messages = [];
+        foreach (TransportGroup::on($conn)->whereIn('id', $groupIds)->where('active', true)->get() as $group) {
+            $result = $this->routeSync->recalculateForGroup($conn, $group);
+            if (($result['recalculated'] ?? false) && ($result['message'] ?? null)) {
+                $messages[] = 'Groep '.$group->name.': '.$result['message'];
+            }
+        }
+
+        return $messages;
+    }
+
+    private function syncPlannedIndividualBookingsForPassenger(string $conn, TransportPassenger $passenger): int
+    {
+        $bookings = TransportIndividualBooking::on($conn)
+            ->where('transport_passenger_id', $passenger->id)
+            ->where('status', TransportIndividualBooking::STATUS_PLANNED)
+            ->with(['passenger', 'contract'])
+            ->get();
+
+        $count = 0;
+        foreach ($bookings as $booking) {
+            $this->occurrenceGenerator->syncIndividualBookingOccurrenceAndRide($conn, $booking);
+            $count++;
+        }
+
+        return $count;
     }
 
     private function authorizeOrPermission(string $ability): void

@@ -592,7 +592,59 @@
         .contract-stop-main { flex: 1; min-width: 0; }
         .contract-stop-main strong { display: block; font-size: 0.875rem; }
         .contract-stop-time { font-size: 0.75rem; color: #94a3b8; }
-        .contract-stop-status { font-size: 0.6875rem; color: #cbd5e1; white-space: nowrap; }
+        .contract-stop-status {
+            font-size: 0.6875rem;
+            color: #cbd5e1;
+            white-space: nowrap;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .contract-stop-status--planned { color: #cbd5e1; }
+        .contract-stop-status--arrived { color: #4ade80; }
+        .contract-stop-status--picked_up { color: #86efac; }
+        .contract-stop-status--skipped { color: #fca5a5; }
+        .contract-stop-status--completed { color: #94a3b8; }
+        .contract-stop-status--arriving {
+            position: relative;
+            display: inline-block;
+            min-width: 4.75rem;
+            text-align: right;
+            color: #4ade80;
+        }
+        .contract-stop-status-phase { display: inline-block; }
+        .contract-stop-status--arriving .contract-stop-status-phase--from {
+            color: #cbd5e1;
+            animation: contract-stop-from-out 0.42s ease-in forwards;
+        }
+        .contract-stop-status--arriving .contract-stop-status-phase--to {
+            position: absolute;
+            right: 0;
+            top: 0;
+            color: #4ade80;
+            opacity: 0;
+            animation: contract-stop-to-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+        }
+        @keyframes contract-stop-from-out {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-0.35rem) scale(0.92); }
+        }
+        @keyframes contract-stop-to-in {
+            0% { opacity: 0; transform: translateY(0.4rem) scale(0.88); }
+            55% { transform: translateY(0) scale(1.08); }
+            100% { opacity: 1; transform: translateY(0) scale(1); color: #4ade80; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .contract-stop-status--arriving .contract-stop-status-phase--from,
+            .contract-stop-status--arriving .contract-stop-status-phase--to {
+                animation: none;
+            }
+            .contract-stop-status--arriving .contract-stop-status-phase--from { display: none; }
+            .contract-stop-status--arriving .contract-stop-status-phase--to {
+                position: static;
+                opacity: 1;
+                color: #4ade80;
+            }
+        }
         .contract-stop-actions {
             display: flex;
             flex-wrap: wrap;

@@ -25,6 +25,7 @@
     let stopGeofenceWatchId = null;
     let stopGeofenceAutoArrivePending = {};
     let stopGeofenceAvailable = null;
+    let stopArrivedAnimationIds = {};
     let offerQueueIndex = 0;
     let isOnline = false;
     let companyId = (function () {
@@ -3031,19 +3032,52 @@
         return html;
     }
 
+    function addCalendarDaysToDateKey(dateKey, days) {
+        const parts = dateKey.split('-');
+        const date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12));
+        if (isNaN(date.getTime())) {
+            return dateKey;
+        }
+        date.setUTCDate(date.getUTCDate() + days);
+        return (
+            date.getUTCFullYear() +
+            '-' +
+            String(date.getUTCMonth() + 1).padStart(2, '0') +
+            '-' +
+            String(date.getUTCDate()).padStart(2, '0')
+        );
+    }
+
+    function isContractIndividualRideInHorizon(ride, horizonDays) {
+        const dateKey = contractRideCalendarDateKey(ride);
+        if (!dateKey) {
+            return true;
+        }
+        const today = todayContractDateKey();
+        const endKey = addCalendarDaysToDateKey(today, horizonDays);
+        return dateKey >= today && dateKey <= endKey;
+    }
+
+    function isContractRideVisibleInScheduledInbox(ride) {
+        if (!isContractRide(ride)) {
+            return true;
+        }
+        if (ride.is_scheduled_overdue) {
+            return false;
+        }
+        if (ride.ride_type === 'contract_individual') {
+            return isContractIndividualRideInHorizon(ride, 14);
+        }
+        return isContractRideInCurrentWeek(ride);
+    }
+
     function filterScheduledRidesForInbox(rides) {
         if (!Array.isArray(rides)) {
             return [];
         }
         return rides
             .filter(function (ride) {
-                if (!isContractRide(ride)) {
-                    return true;
-                }
-                if (ride.is_scheduled_overdue) {
-                    return false;
-                }
-                return isContractRideInCurrentWeek(ride);
+                return isContractRideVisibleInScheduledInbox(ride);
             })
             .sort(function (a, b) {
                 const aKey = contractRideCalendarDateKey(a) || '';
@@ -3109,6 +3143,10 @@
         if (ride.ride_type === 'contract_group' && ride.stops && ride.stops.pickups_total) {
             return 'Groepsrit #' + rideId + ' (' + ride.stops.pickups_total + ' stops)';
         }
+        if (ride.ride_type === 'contract_individual') {
+            const name = ride.customer_name ? String(ride.customer_name).trim() : '';
+            return name ? 'Individuele rit: ' + name : 'Individuele contractrit #' + rideId;
+        }
         if (isContractRide(ride)) {
             return 'Contractrit #' + rideId;
         }
@@ -3139,6 +3177,80 @@
             completed: 'Afgerond',
         };
         return labels[status] || status || '—';
+    }
+
+    function markStopArrivedAnimation(stopId, previousStatus) {
+        if (previousStatus === 'planned') {
+            stopArrivedAnimationIds[String(stopId)] = true;
+        }
+    }
+
+    function clearStopArrivedAnimation(stopId) {
+        delete stopArrivedAnimationIds[String(stopId)];
+    }
+
+    function shouldAnimateStopArrived(stop) {
+        return !!(
+            stop &&
+            stop.status === 'arrived' &&
+            stopArrivedAnimationIds[String(stop.id)]
+        );
+    }
+
+    function stopStatusHtml(stop) {
+        const status = stop.status || 'planned';
+        const label = stopStatusLabel(status);
+        const stopId = escapeHtml(String(stop.id));
+        const statusClass = 'contract-stop-status contract-stop-status--' + escapeHtml(status);
+
+        if (shouldAnimateStopArrived(stop)) {
+            return (
+                '<span class="' +
+                statusClass +
+                ' contract-stop-status--arriving" data-stop-id="' +
+                stopId +
+                '">' +
+                '<span class="contract-stop-status-phase contract-stop-status-phase--from" aria-hidden="true">Gepland</span>' +
+                '<span class="contract-stop-status-phase contract-stop-status-phase--to">' +
+                escapeHtml(label) +
+                '</span>' +
+                '</span>'
+            );
+        }
+
+        return (
+            '<span class="' + statusClass + '" data-stop-id="' + stopId + '">' + escapeHtml(label) + '</span>'
+        );
+    }
+
+    function bindStopStatusAnimations(container) {
+        if (!container) {
+            return;
+        }
+        container.querySelectorAll('.contract-stop-status--arriving').forEach(function (el) {
+            const stopId = el.getAttribute('data-stop-id');
+            let finished = false;
+            const finish = function () {
+                if (finished || !el.isConnected) {
+                    return;
+                }
+                finished = true;
+                el.classList.remove('contract-stop-status--arriving');
+                el.textContent = stopStatusLabel('arrived');
+                clearStopArrivedAnimation(stopId);
+            };
+            const toPhase = el.querySelector('.contract-stop-status-phase--to');
+            if (toPhase) {
+                toPhase.addEventListener('animationend', function handler(ev) {
+                    if (ev.animationName !== 'contract-stop-to-in') {
+                        return;
+                    }
+                    toPhase.removeEventListener('animationend', handler);
+                    finish();
+                });
+            }
+            window.setTimeout(finish, 850);
+        });
     }
 
     function stopHasCoords(stop) {
@@ -3221,6 +3333,7 @@
         stopStopGeofenceWatch();
         stopGeofenceAutoArrivePending = {};
         stopGeofenceAvailable = null;
+        stopArrivedAnimationIds = {};
     }
 
     function applyLocalStopStatus(stopId, status) {
@@ -3228,6 +3341,10 @@
             return String(s.id) === String(stopId);
         });
         if (idx >= 0) {
+            const previousStatus = activeRideStops[idx].status;
+            if (status === 'arrived') {
+                markStopArrivedAnimation(stopId, previousStatus);
+            }
             activeRideStops[idx] = Object.assign({}, activeRideStops[idx], { status: status });
         }
     }
@@ -3262,6 +3379,7 @@
         vibrate(30);
         handleStopAction(currentActiveRide.id, nextStop.id, 'arrive', { silent: true })
             .catch(function () {
+                clearStopArrivedAnimation(nextStop.id);
                 applyLocalStopStatus(nextStop.id, 'planned');
                 renderActiveRide(currentActiveRide);
             })
@@ -3395,9 +3513,7 @@
                     escapeHtml(formatStopTime(stop.planned_at)) +
                     '</span>' +
                     '</div>' +
-                    '<span class="contract-stop-status">' +
-                    escapeHtml(stopStatusLabel(stop.status)) +
-                    '</span>' +
+                    stopStatusHtml(stop) +
                     '</div>' +
                     addressLinkHtml(stop.address, isPickup ? '📍' : '🏁') +
                     actions +
@@ -3453,6 +3569,10 @@
                 return String(s.id) === String(stopId);
             });
             if (idx >= 0) {
+                const previousStatus = activeRideStops[idx].status;
+                if (res.data.stop.status === 'arrived') {
+                    markStopArrivedAnimation(stopId, previousStatus);
+                }
                 activeRideStops[idx] = res.data.stop;
             }
         }
@@ -3623,6 +3743,7 @@
                 (ride.ride_type === 'contract_group' ? '' : addressLinkHtml(ride.dropoff_address, '🏁')) +
                 (ride.ride_type === 'contract_group' ? '' : customerHtml) +
                 priceHtml;
+            bindStopStatusAnimations(el);
             activeRideAcceptedMessage = null;
             if (ride.ride_type === 'contract_group' && isDriverInProgressRide(ride) && !activeRideStops.length) {
                 fetchRideStops(ride.id)

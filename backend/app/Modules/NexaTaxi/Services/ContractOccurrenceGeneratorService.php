@@ -287,24 +287,105 @@ class ContractOccurrenceGeneratorService
         ];
     }
 
-    public function syncIndividualBookingAssignment(string $conn, TransportIndividualBooking $booking): int
+    public function syncIndividualBookingOccurrenceAndRide(string $conn, TransportIndividualBooking $booking): bool
     {
-        $rideId = TransportOccurrence::on($conn)
-            ->where('transport_individual_booking_id', $booking->id)
-            ->whereNotNull('ride_request_id')
-            ->value('ride_request_id');
+        $booking->loadMissing(['passenger', 'contract']);
 
-        if (! $rideId) {
-            return 0;
+        if ($booking->status !== TransportIndividualBooking::STATUS_PLANNED) {
+            $this->cancelIndividualBookingOccurrenceAndRide($conn, $booking);
+
+            return false;
         }
 
-        return RideRequest::on($conn)
-            ->whereKey($rideId)
-            ->where('status', RideRequest::STATUS_ACCEPTED)
-            ->update([
-                'driver_id' => $booking->driver_id,
-                'vehicle_id' => $booking->vehicle_id,
+        $contract = $booking->contract ?? TransportContract::on($conn)->find($booking->transport_contract_id);
+        if (! $contract || $contract->status !== 'active') {
+            return false;
+        }
+
+        if ($contract->start_date && $booking->pickup_at->lt($contract->start_date->startOfDay())) {
+            return false;
+        }
+        if ($contract->end_date && $booking->pickup_at->gt($contract->end_date->endOfDay())) {
+            return false;
+        }
+
+        $occurrence = TransportOccurrence::on($conn)
+            ->where('transport_individual_booking_id', $booking->id)
+            ->first();
+
+        if (! $occurrence) {
+            return $this->generateForIndividualBooking($conn, $booking);
+        }
+
+        $occurrence->update([
+            'scheduled_date' => $booking->pickup_at->toDateString(),
+            'scheduled_at' => $booking->pickup_at,
+        ]);
+
+        if (! $occurrence->ride_request_id) {
+            $this->createRideForIndividualOccurrence($conn, $booking, $contract, $occurrence);
+
+            return true;
+        }
+
+        $ride = RideRequest::on($conn)->find($occurrence->ride_request_id);
+        if (! $ride) {
+            $this->createRideForIndividualOccurrence($conn, $booking, $contract, $occurrence);
+
+            return true;
+        }
+
+        if (in_array($ride->status, [RideRequest::STATUS_COMPLETED, RideRequest::STATUS_CANCELLED], true)) {
+            return false;
+        }
+
+        $payload = $this->individualBookingRideAttributes($conn, $booking, $contract);
+
+        if ($ride->status === RideRequest::STATUS_ASSIGNED) {
+            $ride->update([
+                'driver_id' => $payload['driver_id'],
+                'vehicle_id' => $payload['vehicle_id'],
+                'customer_name' => $payload['customer_name'],
+                'customer_phone' => $payload['customer_phone'],
+                'customer_email' => $payload['customer_email'],
             ]);
+
+            return true;
+        }
+
+        $ride->update($payload);
+
+        return true;
+    }
+
+    public function cancelIndividualBookingOccurrenceAndRide(string $conn, TransportIndividualBooking $booking): void
+    {
+        $occurrence = TransportOccurrence::on($conn)
+            ->where('transport_individual_booking_id', $booking->id)
+            ->first();
+
+        if (! $occurrence) {
+            return;
+        }
+
+        if ($occurrence->ride_request_id) {
+            $ride = RideRequest::on($conn)->find($occurrence->ride_request_id);
+            if ($ride && $ride->status !== RideRequest::STATUS_COMPLETED) {
+                $ride->update(['status' => RideRequest::STATUS_CANCELLED]);
+            }
+        }
+
+        if ($occurrence->status !== 'cancelled') {
+            $occurrence->update(['status' => 'cancelled']);
+        }
+    }
+
+    /**
+     * @deprecated Use syncIndividualBookingOccurrenceAndRide()
+     */
+    public function syncIndividualBookingAssignment(string $conn, TransportIndividualBooking $booking): int
+    {
+        return $this->syncIndividualBookingOccurrenceAndRide($conn, $booking) ? 1 : 0;
     }
 
     /**
@@ -474,10 +555,6 @@ class ContractOccurrenceGeneratorService
         TransportIndividualBooking $booking,
         TransportContract $contract,
     ): TransportOccurrence {
-        $customer = TransportCustomer::on($conn)->find($contract->transport_customer_id);
-        $passenger = $booking->passenger;
-        $quotedPrice = $booking->price_override ?? $contract->price_per_ride;
-
         $occurrence = TransportOccurrence::on($conn)->create([
             'company_id' => $booking->company_id,
             'transport_contract_id' => $contract->id,
@@ -488,15 +565,52 @@ class ContractOccurrenceGeneratorService
             'status' => 'generated',
         ]);
 
-        $ride = RideRequest::on($conn)->create([
-            'company_id' => $booking->company_id,
+        $this->createRideForIndividualOccurrence($conn, $booking, $contract, $occurrence);
+
+        return $occurrence;
+    }
+
+    private function createRideForIndividualOccurrence(
+        string $conn,
+        TransportIndividualBooking $booking,
+        TransportContract $contract,
+        TransportOccurrence $occurrence,
+    ): RideRequest {
+        $ride = RideRequest::on($conn)->create(array_merge(
+            $this->individualBookingRideAttributes($conn, $booking, $contract),
+            [
+                'company_id' => $booking->company_id,
+                'transport_contract_id' => $contract->id,
+                'transport_occurrence_id' => $occurrence->id,
+                'status' => RideRequest::STATUS_ACCEPTED,
+                'source' => RideRequest::SOURCE_CONTRACT,
+                'ride_type' => RideRequest::RIDE_TYPE_CONTRACT_INDIVIDUAL,
+                'passengers' => 1,
+                'payment_method' => RideRequest::PAYMENT_METHOD_CONTRACT,
+                'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
+            ]
+        ));
+
+        $occurrence->update(['ride_request_id' => $ride->id, 'status' => 'generated']);
+
+        return $ride;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function individualBookingRideAttributes(
+        string $conn,
+        TransportIndividualBooking $booking,
+        TransportContract $contract,
+    ): array {
+        $customer = TransportCustomer::on($conn)->find($contract->transport_customer_id);
+        $passenger = $booking->passenger;
+        $quotedPrice = $booking->price_override ?? $contract->price_per_ride;
+
+        return [
             'vehicle_id' => $booking->vehicle_id,
             'driver_id' => $booking->driver_id,
-            'status' => RideRequest::STATUS_ACCEPTED,
-            'source' => RideRequest::SOURCE_CONTRACT,
-            'ride_type' => RideRequest::RIDE_TYPE_CONTRACT_INDIVIDUAL,
-            'transport_contract_id' => $contract->id,
-            'transport_occurrence_id' => $occurrence->id,
             'transport_passenger_id' => $booking->transport_passenger_id,
             'pickup_address' => $booking->pickup_address,
             'dropoff_address' => $booking->dropoff_address,
@@ -504,19 +618,12 @@ class ContractOccurrenceGeneratorService
             'pickup_lng' => $booking->pickup_lng,
             'dropoff_lat' => $booking->dropoff_lat,
             'dropoff_lng' => $booking->dropoff_lng,
-            'passengers' => 1,
             'pickup_at' => $booking->pickup_at,
             'quoted_price' => $quotedPrice,
-            'payment_method' => RideRequest::PAYMENT_METHOD_CONTRACT,
-            'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
             'customer_name' => $passenger?->full_name ?? $customer?->name ?? $contract->name,
             'customer_phone' => $passenger?->phone ?? $customer?->contact_phone,
             'customer_email' => $customer?->contact_email,
-        ]);
-
-        $occurrence->update(['ride_request_id' => $ride->id]);
-
-        return $occurrence;
+        ];
     }
 
     private function createGroupOccurrence(

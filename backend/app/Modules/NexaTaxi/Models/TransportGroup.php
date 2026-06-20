@@ -12,6 +12,9 @@ class TransportGroup extends Model
         'company_id',
         'transport_contract_id',
         'name',
+        'departure_address',
+        'departure_lat',
+        'departure_lng',
         'destination_address',
         'destination_lat',
         'destination_lng',
@@ -21,6 +24,8 @@ class TransportGroup extends Model
     ];
 
     protected $casts = [
+        'departure_lat' => 'decimal:7',
+        'departure_lng' => 'decimal:7',
         'destination_lat' => 'decimal:7',
         'destination_lng' => 'decimal:7',
         'destination_arrival_time' => 'string',

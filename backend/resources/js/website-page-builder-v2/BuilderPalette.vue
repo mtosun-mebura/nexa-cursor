@@ -101,8 +101,8 @@ function matches(text: string, query: string) {
             @keydown.enter.prevent="clickAdd({ kind: 'component', sectionKey: component.sectionKey, label: component.name })"
             @keydown.space.prevent="clickAdd({ kind: 'component', sectionKey: component.sectionKey, label: component.name })"
           >
-            <span class="builder-palette-row__icon bg-gradient-to-br" :class="componentMeta().accent">
-              <i class="ki-filled text-white" :class="componentMeta().icon" />
+            <span class="builder-palette-row__icon bg-gradient-to-br" :class="componentMeta(component.sectionKey).accent">
+              <i class="ki-filled text-white" :class="componentMeta(component.sectionKey).icon" />
             </span>
             <span class="min-w-0">
               <span class="block text-sm font-medium">{{ component.name }}</span>
